@@ -26,6 +26,7 @@ import type {
   ɵThreadStore,
 } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
+import { explicitEffect } from "./explicit-effect";
 
 /**
  * A conversation thread managed by CopilotKit Intelligence.
@@ -321,10 +322,9 @@ export class ThreadsStore implements InjectThreadsResult {
     // route realtime/agent-driven thread updates to it. Re-runs when the agent
     // id changes; the previous registration is cleared first.
     let registeredAgentId: string | undefined;
-    effect(() => {
-      const nextAgentId = agentId();
-      const enabled = isEnabled();
-      untracked(() => {
+    explicitEffect(
+      () => ({ nextAgentId: agentId(), enabled: isEnabled() }),
+      ({ nextAgentId, enabled }) => {
         // Disabled (e.g. unlicensed): ensure this store is NOT registered. The
         // registry is single-slot/last-writer-wins, so an inert store claiming
         // the agentId slot would evict — and on destroy tear down — a co-mounted
@@ -344,8 +344,8 @@ export class ThreadsStore implements InjectThreadsResult {
         }
         this.#copilotkit.core.registerThreadStore(nextAgentId, this.#store);
         registeredAgentId = nextAgentId;
-      });
-    });
+      },
+    );
 
     // Sync the runtime context. Defer until the runtime reports Connected so
     // the initial context carries `intelligence.wsUrl` and avoids a redundant
