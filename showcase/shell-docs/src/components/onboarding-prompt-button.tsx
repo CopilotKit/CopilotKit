@@ -117,6 +117,11 @@ export function OnboardingPromptButton({
    * simply names no framework, and the CLI's graph inspects the repository
    * and asks, which is what it does anyway. Frameworks the graph has no node
    * for are handled downstream by `frameworkPromptSuffix`.
+   *
+   * The docs home is the deliberate exception to the root-surface rule above.
+   * It is the one page a reader can be on before choosing anything, so its
+   * prompt stays framework-free rather than committing them to the Built-in
+   * Agent. Every other root-surface page names it.
    */
   framework?: { slug: string; name: string };
   /**
