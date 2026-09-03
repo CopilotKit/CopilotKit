@@ -1,10 +1,11 @@
-import { Component, input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 import { Proverbs } from "./proverbs";
 
 @Component({
   selector: "app-main-content",
   standalone: true,
   imports: [Proverbs],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="main-content" [style.background-color]="themeColor()">
       <app-proverbs />
