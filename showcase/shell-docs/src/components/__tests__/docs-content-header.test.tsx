@@ -35,9 +35,7 @@ it("composes ancestor breadcrumbs and actions around the page title", () => {
 });
 
 it("does not render empty breadcrumb chrome", () => {
-  render(
-    <DocsContentHeader ancestorBreadcrumbs={[]} title="Introduction" />,
-  );
+  render(<DocsContentHeader ancestorBreadcrumbs={[]} title="Introduction" />);
 
   expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
 });

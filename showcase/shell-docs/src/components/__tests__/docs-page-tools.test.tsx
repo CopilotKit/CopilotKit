@@ -62,32 +62,24 @@ it("renders one split CTA with copy prompt as its root action", async () => {
   // regardless of what the prompt says.
   renderRow();
 
-  expect(
-    screen.getByRole("button", { name: /copy prompt/i }),
-  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: /copy prompt/i })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /copy page/i })).toBeNull();
   expect(screen.queryByRole("button", { name: /^open$/i })).toBeNull();
 
-  fireEvent.click(
-    screen.getByRole("button", { name: /more page actions/i }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: /more page actions/i }));
 
   expect(
     await screen.findByRole("button", { name: /copy page/i }),
   ).toBeTruthy();
   expect(screen.getByRole("separator")).toBeTruthy();
-  expect(
-    screen.getByRole("link", { name: /open in github/i }),
-  ).toBeTruthy();
+  expect(screen.getByRole("link", { name: /open in github/i })).toBeTruthy();
   expect(screen.queryByRole("link", { name: /view as markdown/i })).toBeNull();
 });
 
 it("renders the onboarding button when a framework is passed", () => {
   renderRow({ slug: "mastra", name: "Mastra" });
 
-  expect(
-    screen.getByRole("button", { name: /copy prompt/i }),
-  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: /copy prompt/i })).toBeTruthy();
 });
 
 it("gives the onboarding button the same .mdx URL as the markdown button", async () => {

@@ -1053,11 +1053,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 .docs-page-tools {
-  --docs-page-actions-hover: color-mix(
-    in oklch,
-    var(--accent) 68%,
-    black
-  );
+  --docs-page-actions-hover: color-mix(in oklch, var(--accent) 68%, black);
   position: relative;
   isolation: isolate;
   flex: 0 0 auto;

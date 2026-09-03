@@ -43,10 +43,7 @@ export function DocsContentHeader({
               key={`${crumb.label}-${crumb.href ?? "current"}-${index}`}
             >
               {index > 0 && (
-                <ChevronRight
-                  className="size-3 shrink-0"
-                  aria-hidden="true"
-                />
+                <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
               )}
               {crumb.href ? (
                 <Link href={crumb.href}>{crumb.label}</Link>

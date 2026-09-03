@@ -491,12 +491,13 @@ export function ViewOptionsPopover({
           </svg>
         ),
       },
-      !condensed && markdownUrl && {
-        title: "View as Markdown",
-        target: "view-as-markdown",
-        href: markdownUrl,
-        icon: <TextIcon />,
-      },
+      !condensed &&
+        markdownUrl && {
+          title: "View as Markdown",
+          target: "view-as-markdown",
+          href: markdownUrl,
+          icon: <TextIcon />,
+        },
       {
         title: "Open in Windsurf",
         target: "windsurf",
