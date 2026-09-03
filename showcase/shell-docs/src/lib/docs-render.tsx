@@ -1861,14 +1861,17 @@ export function loadDoc(
 
 export type Breadcrumb = { label: string; href: string | null };
 
+function normalizeNavSlug(slug: string): string {
+  return slug.replace(/\/index$/, "");
+}
+
 function navNodeContainsSlug(node: NavNode, slugPath: string): boolean {
   if (node.type === "section") return false;
   if (node.type === "group") {
     return node.children.some((child) => navNodeContainsSlug(child, slugPath));
   }
 
-  const normalize = (slug: string) => slug.replace(/\/index$/, "");
-  return normalize(node.slug) === normalize(slugPath);
+  return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath);
 }
 
 /** Return the sidebar section that contains a guide page. */
