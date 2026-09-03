@@ -19,7 +19,7 @@ import {
 export const INTELLIGENCE_SIZZLE_VIDEO_URL =
   "https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3";
 
-const CONNECT_HREF = "/intelligence/connect-your-runtime";
+const CONNECT_HREF = "/intelligence/quickstart";
 
 const FEATURES = [
   {
@@ -68,7 +68,7 @@ function SizzleVideo() {
         video.pause();
         return;
       }
-      void video.play();
+      void Promise.resolve(video.play()).catch(() => undefined);
     }
 
     applyReducedMotion(media.matches);

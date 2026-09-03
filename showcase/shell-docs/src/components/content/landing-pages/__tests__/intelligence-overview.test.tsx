@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -45,9 +45,45 @@ describe("IntelligenceOverview", () => {
     ).toBeTruthy();
 
     const connect = screen.getByRole("link", { name: /connect an app/i });
-    expect(connect.getAttribute("href")).toBe(
-      "/intelligence/connect-your-runtime",
-    );
+    expect(connect.getAttribute("href")).toBe("/intelligence/quickstart");
+  });
+
+  it("swallows autoplay rejection so the page still renders", async () => {
+    const play = vi.fn().mockRejectedValue(new DOMException("blocked"));
+    const originalPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = play;
+
+    window.matchMedia = ((query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as typeof window.matchMedia;
+
+    const rejections: unknown[] = [];
+    function onUnhandled(event: PromiseRejectionEvent) {
+      rejections.push(event.reason);
+    }
+    window.addEventListener("unhandledrejection", onUnhandled);
+
+    try {
+      render(<IntelligenceOverview />);
+      await waitFor(() => expect(play).toHaveBeenCalled());
+      expect(rejections).toEqual([]);
+      expect(
+        screen.getByRole("heading", {
+          level: 1,
+          name: "Ship production grade agent experiences",
+        }),
+      ).toBeTruthy();
+    } finally {
+      window.removeEventListener("unhandledrejection", onUnhandled);
+      HTMLMediaElement.prototype.play = originalPlay;
+    }
   });
 
   it("renders the sizzle video with a pause control", () => {

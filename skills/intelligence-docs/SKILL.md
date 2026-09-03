@@ -32,14 +32,14 @@ Inspector pane callouts (`inspector-docs`).
 
 Edit these in the same change as the feature or docs page:
 
-| Surface                         | File                                                                                                |
-| ------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Hero and cards                  | `showcase/shell-docs/src/components/content/landing-pages/intelligence-overview.tsx`                |
-| Table, body, quickstart link    | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                         |
-| Section nav                     | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                                       |
-| Root sidebar Intelligence group | `showcase/shell-docs/src/content/docs/meta.json`                                                    |
-| Card and CTA tests              | `showcase/shell-docs/src/components/content/landing-pages/__tests__/intelligence-overview.test.tsx` |
-| Snippet order tests             | `showcase/shell-docs/src/lib/__tests__/intelligence-landing.test.ts`                                |
+| Surface                              | File                                                                                                |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Hero CTA (`CONNECT_HREF`) and cards  | `showcase/shell-docs/src/components/content/landing-pages/intelligence-overview.tsx`                |
+| Table, body, and MDX quickstart link | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                         |
+| Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                                       |
+| Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                                                    |
+| Card and CTA tests                   | `showcase/shell-docs/src/components/content/landing-pages/__tests__/intelligence-overview.test.tsx` |
+| Snippet order tests                  | `showcase/shell-docs/src/lib/__tests__/intelligence-landing.test.ts`                                |
 
 The root overview page only wraps the snippet. Do not duplicate landing copy
 in `docs/intelligence/overview.mdx`.

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "gray-matter";
@@ -33,15 +33,22 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
   );
   expect(snippet).toContain("](/intelligence/quickstart)");
+  expect(
+    existsSync(resolve(here, "../../content/docs/intelligence/quickstart.mdx")),
+  ).toBe(true);
   expect(snippet.indexOf("## What the platform adds")).toBeLessThan(
     snippet.indexOf("<IntelligenceFeatureCards"),
   );
   expect(snippet.indexOf("<IntelligenceFeatureCards")).toBeLessThan(
-    snippet.indexOf("](/intelligence/quickstart)"),
+    snippet.indexOf(
+      "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
+    ),
   );
-  expect(snippet.indexOf("](/intelligence/quickstart)")).toBeLessThan(
-    snippet.indexOf("## Hosting options"),
-  );
+  expect(
+    snippet.indexOf(
+      "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
+    ),
+  ).toBeLessThan(snippet.indexOf("## Hosting options"));
   expect(snippet).toContain("## Hosting options");
 });
 
