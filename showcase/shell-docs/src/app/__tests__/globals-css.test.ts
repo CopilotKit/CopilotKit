@@ -147,13 +147,11 @@ describe("globals.css cookbook sidebar", () => {
   });
 });
 
-describe("globals.css sidebar section folders", () => {
-  it("styles collapsible section triggers separately from page links", () => {
-    expect(globalsCss).toContain(".shell-docs-sidebar-section-label");
-    expect(globalsCss).toContain(
-      ".shell-docs-sidebar button:has(.shell-docs-sidebar-section-label)",
+describe("globals.css sidebar section labels", () => {
+  it("styles static section labels with the docs accent", () => {
+    expect(globalsCss).toMatch(
+      /\.shell-docs-sidebar p\.inline-flex\.gap-2\s*\{[\s\S]*?color:\s*var\(--accent\)\s*!important;[\s\S]*?font-family:\s*inherit\s*!important;[\s\S]*?font-size:\s*0\.875rem\s*!important;/,
     );
-    expect(globalsCss).toContain("flex-wrap: nowrap;");
-    expect(globalsCss).toContain("svg:not([data-icon])");
+    expect(globalsCss).not.toContain("shell-docs-sidebar-section-label");
   });
 });

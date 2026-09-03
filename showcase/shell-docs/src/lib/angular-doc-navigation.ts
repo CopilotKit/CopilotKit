@@ -180,5 +180,5 @@ export function getAngularDocsNavTree(
     ),
   );
 
-  return normalizeSidebarNav([...prefixPages, ...backendNodes]);
+  return normalizeSidebarNav([...prefixPages, ...backendNodes], false);
 }

@@ -13,9 +13,8 @@
 //   - Separator { type: 'separator'; name }
 //   - Folder { type: 'folder'; name; children; defaultOpen?; index? }
 //
-// Top-level `section` nodes become folders (not separators) so the
-// sidebar can collapse Concepts / Basics / Get Started. Empty
-// separators stay separators.
+// Top-level `section` nodes stay separators so they provide a stable visual
+// hierarchy. Topic groups below them remain collapsible folders.
 //
 // We pre-bake the URL using `slugHrefPrefix` (the value DocsPageView
 // already uses for its own hrefs): a framework-scoped render passes
@@ -57,6 +56,7 @@ function renderNavName(
     referenceHref?: string;
     frontendDocsStatus?: "feature-complete" | "early-access";
   },
+  iconAfter = false,
 ): React.ReactNode {
   const isReactDocsProxy = variant === "react-docs-proxy";
   if (variant === "frontend-docs-upcoming") {
@@ -152,7 +152,13 @@ function renderNavName(
     title,
   );
 
-  return icon ? React.createElement(React.Fragment, null, icon, label) : label;
+  return icon
+    ? React.createElement(
+        React.Fragment,
+        null,
+        ...(iconAfter ? [label, icon] : [icon, label]),
+      )
+    : label;
 }
 
 // Convert a single shell-docs NavNode into ZERO OR MORE PageTree.Nodes.
@@ -203,7 +209,13 @@ export function navNodeToPageTreeNodes(
     return [
       {
         type: "page",
-        name: renderNavName(node.title, node.variant, icon),
+        name: renderNavName(
+          node.title,
+          node.variant,
+          icon,
+          undefined,
+          node.icon === "lucide/ArrowUpRight",
+        ),
         url: node.href ?? buildUrl(slugHrefPrefix, node.slug),
       },
     ];
@@ -254,89 +266,12 @@ export function navNodeToPageTreeNodes(
   ];
 }
 
-export const SECTION_FOLDER_LABEL_CLASS = "shell-docs-sidebar-section-label";
-
-function wrapSectionFolderName(name: React.ReactNode): React.ReactNode {
-  return React.createElement(
-    "span",
-    { className: SECTION_FOLDER_LABEL_CLASS, key: "shell-docs-section-label" },
-    name,
-  );
-}
-
-function keyedNode(node: React.ReactNode, key: string): React.ReactNode {
-  if (React.isValidElement(node)) {
-    return React.cloneElement(node, { key });
-  }
-  return node;
-}
-
-// `---Section---` entries become PageTree separators, which Fumadocs
-// renders as static labels. Wrap each separator and the nodes that
-// follow it (until the next separator) into a folder so Concepts,
-// Basics, and the other top-level sections collapse like nested
-// groups. Empty separators stay separators — that keeps self-contained
-// nodes such as the frontend "guides coming soon" card as labels.
-export function wrapSectionSeparatorsAsFolders(
-  nodes: PageTree.Node[],
-): PageTree.Node[] {
-  const result: PageTree.Node[] = [];
-  let pending: {
-    name: React.ReactNode;
-    icon?: React.ReactNode;
-    children: PageTree.Node[];
-  } | null = null;
-
-  const flush = () => {
-    if (!pending) return;
-    if (pending.children.length === 0) {
-      result.push({
-        type: "separator",
-        name: pending.name,
-        ...(pending.icon ? { icon: pending.icon } : {}),
-      });
-    } else {
-      result.push({
-        type: "folder",
-        name: wrapSectionFolderName(pending.name),
-        ...(pending.icon
-          ? { icon: keyedNode(pending.icon, "shell-docs-section-icon") }
-          : {}),
-        defaultOpen:
-          typeof pending.name === "string" &&
-          ["Get Started", "Getting Started"].includes(pending.name),
-        children: pending.children,
-      });
-    }
-    pending = null;
-  };
-
-  for (const node of nodes) {
-    if (node.type === "separator") {
-      flush();
-      pending = {
-        name: node.name ?? "",
-        icon: node.icon,
-        children: [],
-      };
-      continue;
-    }
-    if (pending) {
-      pending.children.push(node);
-    } else {
-      result.push(node);
-    }
-  }
-  flush();
-  return result;
-}
-
 function buildPageTreeChildren(
   tree: NavNode[],
   slugHrefPrefix: string,
 ): PageTree.Node[] {
-  return wrapSectionSeparatorsAsFolders(
-    tree.flatMap((n) => navNodeToPageTreeNodes(n, slugHrefPrefix)),
+  return tree.flatMap((node) =>
+    navNodeToPageTreeNodes(node, slugHrefPrefix),
   );
 }
 

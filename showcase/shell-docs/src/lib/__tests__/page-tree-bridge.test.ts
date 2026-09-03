@@ -3,11 +3,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as PageTree from "fumadocs-core/page-tree";
 import type { NavNode } from "../docs-render";
-import {
-  SECTION_FOLDER_LABEL_CLASS,
-  navTreeToPageTree,
-  wrapSectionSeparatorsAsFolders,
-} from "../page-tree-bridge";
+import { navTreeToPageTree } from "../page-tree-bridge";
 
 function nodeNameText(name: React.ReactNode): string {
   return renderToStaticMarkup(React.createElement(React.Fragment, null, name));
@@ -23,29 +19,42 @@ function folderNamed(
   );
 }
 
-describe("navTreeToPageTree section folders", () => {
+describe("navTreeToPageTree sidebar hierarchy", () => {
   const navTree: NavNode[] = [
-    { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
     { type: "page", title: "Introduction", slug: "" },
-    { type: "section", title: "Concepts", icon: "lucide/BookOpen" },
-    { type: "page", title: "Architecture", slug: "concepts/architecture" },
-    { type: "page", title: "Which Hook", slug: "concepts/which-hook" },
-    { type: "section", title: "Basics" },
     { type: "page", title: "Quickstart", slug: "quickstart" },
+    { type: "section", title: "Basics" },
     {
       type: "group",
-      title: "Rich Threads",
-      slug: "threads",
-      children: [{ type: "page", title: "Threads", slug: "threads" }],
-    },
-    { type: "section", title: "Build Generative UI" },
-    {
-      type: "group",
-      title: "",
-      slug: "generative-ui",
+      title: "Chat",
+      slug: "sidebar#chat",
       children: [
-        { type: "page", title: "Generative UI", slug: "generative-ui" },
+        { type: "page", title: "Prebuilt components", slug: "prebuilt" },
       ],
+      defaultOpen: false,
+    },
+    {
+      type: "group",
+      title: "Rich threads",
+      slug: "sidebar#rich-threads",
+      children: [{ type: "page", title: "Overview", slug: "threads" }],
+      defaultOpen: false,
+    },
+    { type: "section", title: "Generative UI" },
+    {
+      type: "group",
+      title: "Controlled",
+      slug: "sidebar#controlled",
+      children: [{ type: "page", title: "Tools", slug: "tools" }],
+      defaultOpen: false,
+    },
+    { type: "section", title: "Learn" },
+    {
+      type: "page",
+      title: "Cookbook",
+      slug: "cookbook",
+      href: "/cookbook",
+      icon: "lucide/ArrowUpRight",
     },
     {
       type: "section",
@@ -56,50 +65,37 @@ describe("navTreeToPageTree section folders", () => {
 
   const pageTree = navTreeToPageTree(navTree, "");
 
-  it("opens Getting Started and collapses the other labeled sections", () => {
-    const gettingStarted = folderNamed(pageTree.children, "Getting Started");
-    const concepts = folderNamed(pageTree.children, "Concepts");
-    const basics = folderNamed(pageTree.children, "Basics");
-
-    expect(gettingStarted?.defaultOpen).toBe(true);
-    expect(concepts).toBeDefined();
-    expect(basics).toBeDefined();
-    expect(concepts?.defaultOpen).toBe(false);
-    expect(basics?.defaultOpen).toBe(false);
-    expect(concepts?.icon).toBeTruthy();
-    expect(nodeNameText(concepts?.name)).toContain(SECTION_FOLDER_LABEL_CLASS);
-    expect(
-      concepts?.children
-        .filter((child): child is PageTree.Item => child.type === "page")
-        .map((child) => child.url),
-    ).toEqual(["/concepts/architecture", "/concepts/which-hook"]);
-    expect(
-      basics?.children
-        .filter((child): child is PageTree.Item => child.type === "page")
-        .map((child) => child.url),
-    ).toEqual(["/quickstart"]);
+  it("keeps start links above static section labels", () => {
+    expect(pageTree.children.slice(0, 4).map((node) => node.type)).toEqual([
+      "page",
+      "page",
+      "separator",
+      "folder",
+    ]);
+    expect(pageTree.children[0]).toMatchObject({ type: "page", url: "/" });
+    expect(pageTree.children[1]).toMatchObject({
+      type: "page",
+      url: "/quickstart",
+    });
+    expect(pageTree.children[2]).toMatchObject({
+      type: "separator",
+      name: "Basics",
+    });
   });
 
-  it("keeps nested groups inside the parent section folder", () => {
-    const basics = folderNamed(pageTree.children, "Basics");
-    const threads = folderNamed(basics?.children ?? [], "Rich Threads");
+  it("keeps topic groups collapsible beneath static sections", () => {
+    const chat = folderNamed(pageTree.children, "Chat");
+    const threads = folderNamed(pageTree.children, "Rich threads");
+    const controlled = folderNamed(pageTree.children, "Controlled");
 
-    expect(threads?.type).toBe("folder");
+    expect(chat?.defaultOpen).toBe(false);
+    expect(threads?.defaultOpen).toBe(false);
+    expect(controlled?.defaultOpen).toBe(false);
     expect(
       threads?.children
         .filter((child): child is PageTree.Item => child.type === "page")
         .map((child) => child.url),
     ).toEqual(["/threads"]);
-  });
-
-  it("folds untitled groups into the section above them", () => {
-    const generative = folderNamed(pageTree.children, "Build Generative UI");
-
-    expect(
-      generative?.children
-        .filter((child): child is PageTree.Item => child.type === "page")
-        .map((child) => child.url),
-    ).toEqual(["/generative-ui"]);
   });
 
   it("leaves empty trailing separators as labels", () => {
@@ -111,25 +107,14 @@ describe("navTreeToPageTree section folders", () => {
 
     expect(upcoming?.type).toBe("separator");
   });
-});
 
-describe("wrapSectionSeparatorsAsFolders", () => {
-  it("keeps pages that sit above the first section", () => {
-    const wrapped = wrapSectionSeparatorsAsFolders([
-      { type: "page", name: "Overview", url: "/" },
-      { type: "separator", name: "Concepts" },
-      { type: "page", name: "Architecture", url: "/concepts/architecture" },
-    ]);
+  it("places external-link icons after their labels", () => {
+    const cookbook = pageTree.children.find(
+      (node): node is PageTree.Item =>
+        node.type === "page" && node.url === "/cookbook",
+    );
+    const markup = nodeNameText(cookbook?.name);
 
-    expect(wrapped.map((node) => node.type)).toEqual(["page", "folder"]);
-    expect(wrapped[0]).toMatchObject({ type: "page", url: "/" });
-  });
-
-  it("keeps an empty section as a separator", () => {
-    const wrapped = wrapSectionSeparatorsAsFolders([
-      { type: "separator", name: "Lonely" },
-    ]);
-
-    expect(wrapped).toEqual([{ type: "separator", name: "Lonely" }]);
+    expect(markup.indexOf("Cookbook")).toBeLessThan(markup.indexOf("<svg"));
   });
 });

@@ -220,46 +220,31 @@ test("maps every React navigation destination to a published Angular destination
 test("uses the normalized sidebar flow for Angular docs", () => {
   const navTree = getAngularDocsNavTree(null);
   const titles = sectionTitles(navTree);
-  const gettingStarted = sectionNodes(navTree, "Getting Started");
-  const quickstartIndex = gettingStarted.findIndex(
-    (node) => node.type === "page" && node.title === "Angular quickstart",
-  );
-  const intelligenceLink = gettingStarted[quickstartIndex + 1];
-  const orderedSections = [
-    "Getting Started",
+  const agentCapabilities = sectionNodes(navTree, "Agent capabilities");
+
+  expect(titles).toEqual([
     "Basics",
     "Generative UI",
-    "App Control",
-    "Intelligence",
-    "Angular Guides",
-    "Built-in Agent",
-    "Deployment",
-  ].filter((title) => titles.includes(title));
-
-  expect(titles.filter((title) => orderedSections.includes(title))).toEqual([
-    "Getting Started",
-    "Basics",
-    "Intelligence",
-    "Angular Guides",
-    "Built-in Agent",
-    "Deployment",
+    "Interactivity",
+    "Agent capabilities",
+    "Backend",
+    "Learn",
+    "Other",
   ]);
-  expect(titles.filter((title) => title === "Getting Started")).toHaveLength(1);
-  expect(titles.indexOf("Angular Guides")).toBeGreaterThan(
-    titles.indexOf("Intelligence"),
-  );
-  expect(titles.indexOf("Deployment")).toBeGreaterThan(
-    titles.indexOf("Angular Guides"),
-  );
-  expect(intelligenceLink).toMatchObject({
+  expect(navTree[0]).toMatchObject({
     type: "page",
-    title: "CopilotKit Intelligence",
-    icon: "custom/copilotkit-kite",
+    title: "Introduction",
+    slug: "",
   });
   expect(
-    sectionNodes(navTree, "Intelligence").some(
+    agentCapabilities.some(
       (node) =>
-        node.type === "page" && node.title === "CopilotKit Intelligence",
+        node.type === "page" && node.title === "Automatic learning",
+    ),
+  ).toBe(true);
+  expect(
+    agentCapabilities.some(
+      (node) => node.type === "group" && node.title === "Built-in Agent",
     ),
   ).toBe(true);
 });

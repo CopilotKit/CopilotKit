@@ -76,6 +76,20 @@ function hasPageTitle(navTree: NavNode[], page: string): boolean {
   });
 }
 
+function findPageByTitle(
+  navTree: NavNode[],
+  page: string,
+): Extract<NavNode, { type: "page" }> | undefined {
+  for (const node of navTree) {
+    if (node.type === "page" && node.title === page) return node;
+    if (node.type === "group") {
+      const match = findPageByTitle(node.children, page);
+      if (match) return match;
+    }
+  }
+  return undefined;
+}
+
 type NavPageEntry = { title: string; slug: string };
 
 function groupPageEntries(
@@ -99,20 +113,6 @@ function groupPageEntries(
   }
 
   return [];
-}
-
-function sectionPages(navTree: NavNode[], section: string): string[] {
-  const pages: string[] = [];
-  let inSection = false;
-  for (const node of navTree) {
-    if (node.type === "section") {
-      inSection = node.title === section;
-      continue;
-    }
-    if (!inSection) continue;
-    if (node.type === "page") pages.push(node.title);
-  }
-  return pages;
 }
 
 function sectionTitles(navTree: NavNode[]): string[] {
@@ -494,38 +494,64 @@ describe("framework nav", () => {
   it("uses the requested section flow on the root docs surface", () => {
     const navTree = buildRootSurfaceNav("built-in-agent");
     const titles = sectionTitles(navTree);
-    const gettingStarted = sectionNodes(navTree, "Getting Started");
-    const quickstartIndex = gettingStarted.findIndex(
-      (node) => node.type === "page" && node.slug === "quickstart",
-    );
-    const deployment = sectionNodes(navTree, "Deployment");
-    const runtime = deployment.find(
+    const backend = sectionNodes(navTree, "Backend");
+    const runtime = backend.find(
       (node) => node.type === "group" && node.title === "Runtime",
     );
 
     expect(titles).toEqual([
-      "Getting Started",
       "Basics",
       "Generative UI",
-      "App Control",
-      "Intelligence",
-      "Built-in Agent",
-      "Deployment",
-      "Concepts",
+      "Interactivity",
+      "Agent capabilities",
+      "Backend",
+      "Learn",
       "Other",
     ]);
-    expect(gettingStarted[quickstartIndex + 1]).toMatchObject({
-      type: "page",
-      title: "CopilotKit Intelligence",
-      icon: "custom/copilotkit-kite",
-    });
+    expect(navTree.slice(0, 2)).toMatchObject([
+      {
+        type: "page",
+        title: "Introduction",
+        slug: "",
+        icon: "lucide/Rocket",
+      },
+      {
+        type: "page",
+        title: "Quickstart",
+        slug: "quickstart",
+        icon: "lucide/Zap",
+      },
+    ]);
+    expect(
+      navTree
+        .filter((node) => node.type === "section")
+        .every((node) => Boolean(node.icon)),
+    ).toBe(true);
+    expect(sectionNodes(navTree, "Basics").map((node) => node.title)).toEqual([
+      "Chat",
+      "Rich threads",
+      "Frontend-tools",
+    ]);
+    expect(sectionNodes(navTree, "Backend").map((node) => node.title)).toEqual([
+      "Runtime",
+      "Intelligence",
+      "Deployment",
+      "Debugging",
+    ]);
     expect(runtime).toMatchObject({ type: "group", title: "Runtime" });
     expect(
       runtime?.type === "group" &&
         hasPageTitle(runtime.children, "Copilot Runtime"),
     ).toBe(true);
-    expect(titles).not.toContain("Runtime");
-    expect(titles).not.toContain("Deploy");
+    expect(sectionNodes(navTree, "Learn").map((node) => node.title)).toEqual([
+      "Concepts",
+      "Cookbook",
+      "Reference",
+    ]);
+    expect(findPageByTitle(navTree, "Open-source telemetry")).toMatchObject({
+      type: "page",
+      slug: "telemetry",
+    });
   });
 
   it("uses the same section flow for generated and authored frameworks", () => {
@@ -537,33 +563,38 @@ describe("framework nav", () => {
     const authoredNav = buildFrameworkOnlyNav("ag2");
 
     expect(sectionTitles(generatedNav)).toEqual([
-      "Getting Started",
       "Basics",
       "Generative UI",
-      "App Control",
-      "Intelligence",
-      "LangGraph (Python)",
-      "Deployment",
-      "Concepts",
-      "Observe & Operate",
+      "Interactivity",
+      "Agent capabilities",
+      "Backend",
+      "Learn",
       "Other",
     ]);
     expect(sectionTitles(authoredNav)).toEqual([
-      "Getting Started",
       "Basics",
       "Generative UI",
-      "App Control",
-      "Intelligence",
-      "AG2",
-      "Deployment",
-      "Troubleshooting",
+      "Interactivity",
+      "Agent capabilities",
+      "Backend",
+      "Learn",
       "Other",
     ]);
-    expect(hasSectionPage(authoredNav, "Deployment", "Copilot Runtime")).toBe(
+    expect(hasSectionPage(authoredNav, "Backend", "Copilot Runtime")).toBe(
+      true,
+    );
+    expect(hasSectionPage(authoredNav, "Backend", "CopilotKit Intelligence")).toBe(
       true,
     );
     expect(
-      hasSectionPage(authoredNav, "Getting Started", "CopilotKit Intelligence"),
+      sectionNodes(generatedNav, "Agent capabilities").some(
+        (node) => node.type === "group" && node.title === "LangGraph (Python)",
+      ),
+    ).toBe(true);
+    expect(
+      sectionNodes(authoredNav, "Agent capabilities").some(
+        (node) => node.type === "group" && node.title === "AG2",
+      ),
     ).toBe(true);
   });
 
@@ -599,7 +630,7 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
   });
 
-  it("shows the CLI page in generated and authored framework nav", () => {
+  it("keeps the compact start pair in generated and authored framework nav", () => {
     const generatedNav = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
@@ -608,9 +639,13 @@ describe("framework nav", () => {
     const authoredNav = buildFrameworkOnlyNav("mastra");
     const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
 
-    expect(hasPageTitle(generatedNav, "CopilotKit CLI")).toBe(true);
-    expect(hasPageTitle(authoredNav, "CopilotKit CLI")).toBe(true);
-    expect(hasPageTitle(sharedFolderAuthoredNav, "CopilotKit CLI")).toBe(true);
+    for (const nav of [generatedNav, authoredNav, sharedFolderAuthoredNav]) {
+      expect(nav.slice(0, 2)).toMatchObject([
+        { type: "page", title: "Introduction", slug: "" },
+        { type: "page", title: "Quickstart", slug: "quickstart" },
+      ]);
+      expect(hasPageTitle(nav, "CopilotKit CLI")).toBe(false);
+    }
   });
 
   it("orders the Threads job routes consistently across framework modes", () => {
@@ -641,7 +676,7 @@ describe("framework nav", () => {
       (entry) => entry.title !== "Threads Drawer",
     );
 
-    expect(groupPageEntries(generatedNav, "Rich Threads")).toEqual(expected);
+    expect(groupPageEntries(generatedNav, "Rich threads")).toEqual(expected);
 
     const authoredFolders = [
       ...new Set(
@@ -653,7 +688,7 @@ describe("framework nav", () => {
 
     for (const folder of authoredFolders) {
       expect(
-        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich Threads"),
+        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich threads"),
       ).toEqual(folder === "deepagents" ? withoutDrawer : expected);
     }
   });
@@ -679,7 +714,7 @@ describe("framework nav", () => {
       "LangGraph (Python)",
       "langgraph-python",
     );
-    expect(groupPageEntries(generatedNav, "Rich Threads")).toContainEqual({
+    expect(groupPageEntries(generatedNav, "Rich threads")).toContainEqual({
       title: "Synchronize Thread History",
       slug: "threads-import",
     });
@@ -772,7 +807,7 @@ describe("framework nav", () => {
     expect(managed).toContain("[Headless Threads](/headless-threads)");
   });
 
-  it("uses the generated Intelligence section for authored framework nav", () => {
+  it("uses the generated Intelligence topic for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 
     expect(navTree.some((node) => node.title === "Premium Features")).toBe(
@@ -780,13 +815,25 @@ describe("framework nav", () => {
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
-    expect(sectionPages(navTree, "Intelligence")).toEqual([
-      "Overview",
-      "Quickstart",
-      "Cloud-hosted CopilotKit Intelligence",
-      "Connect your runtime to Intelligence",
-      "Self-host CopilotKit Intelligence",
-      "CopilotKit Intelligence architecture",
+    expect(groupPageEntries(navTree, "Intelligence")).toEqual([
+      { title: "Overview", slug: "intelligence/overview" },
+      { title: "Quickstart", slug: "intelligence/quickstart" },
+      {
+        title: "Cloud-hosted CopilotKit Intelligence",
+        slug: "intelligence/managed-intelligence-platform",
+      },
+      {
+        title: "Connect your runtime to Intelligence",
+        slug: "intelligence/connect-your-runtime",
+      },
+      {
+        title: "Self-host CopilotKit Intelligence",
+        slug: "intelligence/self-hosting",
+      },
+      {
+        title: "CopilotKit Intelligence architecture",
+        slug: "intelligence/intelligence-platform",
+      },
     ]);
   });
 });

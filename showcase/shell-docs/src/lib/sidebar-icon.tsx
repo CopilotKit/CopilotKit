@@ -17,6 +17,7 @@ import { CopilotKitIcon } from "@/components/copilotkit-icon";
 import { FrontendLogo } from "@/components/frontend-logo";
 import {
   // Pages / sections
+  ArrowUpRight,
   Bolt,
   BookA,
   BookOpen,
@@ -81,6 +82,7 @@ import {
 // in MDX frontmatter and meta.json `icon` fields. Add to this map (and
 // to the import block above) when content references a new lucide icon.
 const ICONS: Record<string, React.ReactNode> = {
+  "lucide/ArrowUpRight": <ArrowUpRight />,
   "lucide/Bolt": <Bolt />,
   "lucide/BookA": <BookA />,
   "lucide/BookOpen": <BookOpen />,
