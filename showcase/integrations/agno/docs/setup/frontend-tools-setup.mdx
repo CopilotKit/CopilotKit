@@ -1,0 +1,62 @@
+<Steps>
+  <Step>
+    ### Declare the component as an external tool
+
+    Agno's AG-UI interface does not forward the request's tool definitions to
+    the model. The model only sees tools declared on the `Agent`, so a
+    component registered with `useComponent` needs a matching declaration
+    whose body stays empty. Mark it `external_execution=True`: Agno pauses the
+    run, the browser renders the component, and the run resumes with the
+    result.
+
+    The name and the arguments have to match the `useComponent` registration
+    exactly. The docstring is what the model reads, so describe when to call
+    it there.
+
+    ```python title="src/agents/chart_agent.py"
+    from agno.agent import Agent
+    from agno.models.openai import OpenAIChat
+    from agno.tools import tool
+
+
+    @tool(external_execution=True)
+    def render_bar_chart(title: str, data: list[dict]):
+        """
+        Render a bar chart in the chat.
+
+        Call this whenever the user asks for a chart or a comparison.
+
+        Args:
+            title (str): A concise chart title.
+            data (list[dict]): Items shaped `{label, value}`.
+        """
+
+
+    agent = Agent(
+        model=OpenAIChat(id="gpt-4o"),
+        db=db,
+        tools=[render_bar_chart],
+        instructions=SYSTEM_PROMPT,
+    )
+    ```
+
+  </Step>
+  <Step>
+    ### Give the agent somewhere to store the paused run
+
+    Agno stores the paused run before the browser can return its result, so
+    the `Agent` that owns the external tool needs a database. An agent with an
+    external tool and no `db` cannot resume after the browser answers.
+
+    ```python title="src/agents/chart_agent.py"
+    from agno.db.sqlite import SqliteDb
+
+    db = SqliteDb(db_file="tmp/agno.db")
+    ```
+
+    `SqliteDb` needs `sqlalchemy` installed. For production use durable shared
+    storage such as `PgDb`, because an ephemeral container file cannot resume a
+    run on another instance.
+
+  </Step>
+</Steps>

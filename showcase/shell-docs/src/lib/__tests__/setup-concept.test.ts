@@ -111,9 +111,14 @@ test.each([
 // `FrameworkSetup` returning `null`, so a rendering defect shipped looking exactly like a
 // deliberate omission — the only trace a `console.error` nobody reads in production
 // (OSS-1036). Absence is a real state and stays quiet; a broken snippet is not.
+//
+// The unbundled case is pinned with a concept name that is deliberately never bundled,
+// not with a framework slug. Naming a real gap made this test depend on that gap staying
+// open: it was `ag2`, and closing the last nine `frontend-tools-setup` gaps (OSS-1036)
+// would have turned it red for the right reason.
 test("a concept nobody bundled for this framework renders nothing, quietly", async () => {
   const result = await FrameworkSetup({
-    concept: "frontend-tools-setup",
+    concept: "concept-that-is-never-bundled",
     currentFramework: "ag2",
   });
 

@@ -1,0 +1,41 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    The AG-UI hosting layer merges the request's tool definitions into the tool
+    list the model sees, so the agent declares none of its own. A component
+    registered with `useComponent` reaches the model by name. Leave `tools`
+    empty when the only tools in play are frontend ones.
+
+    ```csharp title="agent/ChartAgent.cs"
+    using Microsoft.Agents.AI;
+
+    public AIAgent CreateChartAgent()
+    {
+        return new ChatClientAgent(
+            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            name: "ChartAgent",
+            instructions: SystemPrompt,
+            tools: []);
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    This is the part that is easy to miss. The tool arrives on every run, but a
+    model with no instruction about it will answer in prose and never call it.
+    Name the tool in `instructions` and say what it is for.
+
+    ```csharp title="agent/ChartAgent.cs"
+    private const string SystemPrompt = """
+        You are a data visualization assistant.
+        When the user asks for a chart, call render_bar_chart with a concise
+        title, description, and data array of {label, value} items.
+        Keep final chat responses brief.
+        """;
+    ```
+
+  </Step>
+</Steps>
