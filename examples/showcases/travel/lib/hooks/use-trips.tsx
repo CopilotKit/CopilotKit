@@ -4,8 +4,9 @@ import {
   useConfigureSuggestions,
   useHumanInTheLoop,
   useRenderTool,
+  ToolCallStatus,
 } from "@copilotkit/react-core/v2";
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";
 import {
@@ -35,9 +36,73 @@ type TripsContextType = {
 
 const TripsContext = createContext<TripsContextType | undefined>(undefined);
 
+type DeleteTripsSnapshotProps = {
+  args: Partial<{ trip_ids: string[] }>;
+  status: ToolCallStatus;
+  respond?: (result: unknown) => Promise<void>;
+  toolCallId: string;
+  trips: Trip[];
+  snapshots: Map<string, Trip[]>;
+};
+
+/** Copies the matched trips so later agent-state changes cannot alter a card. */
+function copyMatchedTrips(
+  trips: Trip[],
+  tripIds: string[] | undefined,
+): Trip[] {
+  const requestedTripIds = new Set(tripIds);
+
+  return trips
+    .filter((trip) => requestedTripIds.has(trip.id))
+    .map((trip) => ({
+      ...trip,
+      places: trip.places.map((place) => ({ ...place })),
+    }));
+}
+
+/** Renders one delete call from its first complete, executable trip snapshot. */
+function DeleteTripsSnapshot({
+  args,
+  status,
+  respond,
+  toolCallId,
+  trips,
+  snapshots,
+}: DeleteTripsSnapshotProps) {
+  const matchedTrips = useMemo(
+    () => copyMatchedTrips(trips, args.trip_ids),
+    [args.trip_ids, trips],
+  );
+  const snapshot = snapshots.get(toolCallId);
+
+  useEffect(() => {
+    if (
+      status !== ToolCallStatus.Executing ||
+      snapshot ||
+      matchedTrips.length === 0
+    ) {
+      return;
+    }
+
+    snapshots.set(toolCallId, matchedTrips);
+  }, [matchedTrips, snapshot, snapshots, status, toolCallId]);
+
+  return (
+    <DeleteTrips
+      args={args}
+      status={status}
+      respond={respond}
+      trips={snapshot ?? matchedTrips}
+    />
+  );
+}
+
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
   const { agent, isReady } = useAgent({ agentId: "travel" });
   const state = normalizeAgentState(agent.state);
+  // One immutable entry is retained per rendered delete call. Chat history
+  // bounds the map, and unmounting this provider releases the whole history.
+  const deleteTripsSnapshots = useRef(new Map<string, Trip[]>());
 
   useEffect(() => {
     if (!isReady) return;
@@ -112,12 +177,14 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
       agentId: "travel",
       description: "Delete some trips",
       parameters: deleteTripsSchema,
-      render: ({ args, status, respond }) => (
-        <DeleteTrips
+      render: ({ args, status, respond, toolCallId }) => (
+        <DeleteTripsSnapshot
           args={args}
           status={status}
           respond={respond}
+          toolCallId={toolCallId}
           trips={state.trips}
+          snapshots={deleteTripsSnapshots.current}
         />
       ),
     },

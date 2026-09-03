@@ -8,7 +8,7 @@ export type DeleteTripsProps = {
   args: Partial<{ trip_ids: string[] }>;
   status: ToolCallStatus;
   respond?: (result: unknown) => Promise<void>;
-  trips: Trip[];
+  trips: readonly Trip[];
 };
 
 export const DeleteTrips = ({
