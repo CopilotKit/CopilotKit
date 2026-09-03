@@ -311,28 +311,32 @@ export async function DocsPageView({
               </>
             )}
 
-            {/* Page actions (Copy agent prompt / Copy Markdown / Open in
-              <LLM>) — fumadocs's upstream LLM page-actions feature. The
-              markdown URL resolves through the `/:path*.mdx` rewrite to the
-              route handler at `app/llms-mdx/[[...slug]]/route.ts`, which
-              serves the raw MDX via the same `loadDoc()` the page uses. The
-              GitHub URL is computed from `doc.filePath` (absolute fs path)
-              by slicing from the `/showcase/` segment. */}
-            <DocsPageTools
-              slugPath={slugPath}
-              slugHrefPrefix={slugHrefPrefix}
-              githubUrl={buildGitHubUrl(doc.filePath)}
-              onboardingFramework={onboardingFramework}
-              onboardingFrontend={onboardingFrontend}
-              hideOnboardingPrompt={slugPath === "webmcp"}
-            />
+            {!doc.fm.hidePageActions && (
+              <>
+                {/* Page actions (Copy agent prompt / Copy Markdown / Open in
+                  <LLM>) — fumadocs's upstream LLM page-actions feature. The
+                  markdown URL resolves through the `/:path*.mdx` rewrite to
+                  the route handler at `app/llms-mdx/[[...slug]]/route.ts`,
+                  which serves the raw MDX via the same `loadDoc()` the page
+                  uses. The GitHub URL is computed from `doc.filePath`
+                  (absolute fs path) by slicing from the `/showcase/` segment. */}
+                <DocsPageTools
+                  slugPath={slugPath}
+                  slugHrefPrefix={slugHrefPrefix}
+                  githubUrl={buildGitHubUrl(doc.filePath)}
+                  onboardingFramework={onboardingFramework}
+                  onboardingFrontend={onboardingFrontend}
+                  hideOnboardingPrompt={slugPath === "webmcp"}
+                />
 
-            {/* Thin divider between the page-actions row and the page body
-              (banner / content). Visually separates the page metadata
-              chrome (title + page actions) from the page content
-              underneath. Uses the project's `--border` token so it tracks
-              the rest of the page chrome in light and dark modes. */}
-            <hr className="border-t border-[var(--border)] mt-2 mb-6" />
+                {/* Thin divider between the page-actions row and the page body
+                  (banner / content). Visually separates the page metadata
+                  chrome (title + page actions) from the page content
+                  underneath. Uses the project's `--border` token so it tracks
+                  the rest of the page chrome in light and dark modes. */}
+                <hr className="border-t border-[var(--border)] mt-2 mb-6" />
+              </>
+            )}
 
             {bannerSlot}
 

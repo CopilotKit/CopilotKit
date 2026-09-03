@@ -31,15 +31,13 @@ afterEach(() => {
 });
 
 describe("IntelligenceOverview", () => {
-  it("renders the hero headline, copy prompt, and connect action", () => {
+  it("renders the product demo and its actions without a duplicate page heading", () => {
     render(<IntelligenceOverview />);
 
+    expect(screen.queryByRole("heading")).toBeNull();
     expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: "Ship production grade agent experiences",
-      }),
-    ).toBeTruthy();
+      screen.queryByText(/CopilotKit Intelligence adds persistent threads/i),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: /copy onboarding prompt/i }),
     ).toBeTruthy();
@@ -75,10 +73,7 @@ describe("IntelligenceOverview", () => {
       await waitFor(() => expect(play).toHaveBeenCalled());
       expect(rejections).toEqual([]);
       expect(
-        screen.getByRole("heading", {
-          level: 1,
-          name: "Ship production grade agent experiences",
-        }),
+        screen.getByLabelText("CopilotKit Intelligence product demo"),
       ).toBeTruthy();
     } finally {
       window.removeEventListener("unhandledrejection", onUnhandled);

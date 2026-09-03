@@ -1682,6 +1682,7 @@ export interface DocFrontmatter {
   defaultCell?: string;
   hideTOC?: boolean;
   hideHeader?: boolean;
+  hidePageActions?: boolean;
   frontend?: unknown;
   /**
    * Early-access gate id (see `src/lib/early-access.ts`). When set,
@@ -1832,6 +1833,7 @@ export function loadDoc(
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
   const hideTOC = data.hideTOC === true;
   const hideHeader = data.hideHeader === true;
+  const hidePageActions = data.hidePageActions === true;
   const frontend = data.frontend;
   const earlyAccess =
     typeof data.earlyAccess === "string" ? data.earlyAccess : undefined;
@@ -1846,6 +1848,7 @@ export function loadDoc(
       defaultCell,
       hideTOC,
       hideHeader,
+      hidePageActions,
       frontend,
       earlyAccess,
     },

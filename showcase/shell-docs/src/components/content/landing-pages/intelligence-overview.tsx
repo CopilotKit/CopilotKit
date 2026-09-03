@@ -99,16 +99,8 @@ function SizzleVideo() {
 export function IntelligenceOverview() {
   return (
     <div className="not-prose relative pb-2">
-      <header className="flex flex-col pb-6">
-        <h1 className="w-full text-[1.5rem] font-semibold leading-[1.15] tracking-[-0.015em] text-balance text-[var(--text)] sm:text-[1.75rem]">
-          Ship production grade agent experiences
-        </h1>
-        <p className="mt-2 w-full text-base leading-[1.55] text-pretty text-[var(--text-muted)] sm:text-lg">
-          CopilotKit Intelligence adds persistent threads, analytics, automatic
-          learning, and production operations on top of the runtime you already
-          run.
-        </p>
-        <div className="shell-docs-radius-surface relative mt-3 w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
+      <div className="flex flex-col pb-6">
+        <div className="shell-docs-radius-surface relative w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
           <SizzleVideo />
         </div>
         <div className="mt-5">
@@ -126,7 +118,7 @@ export function IntelligenceOverview() {
             }
           />
         </div>
-      </header>
+      </div>
     </div>
   );
 }
