@@ -89,6 +89,22 @@ describe("HeroStartActions", () => {
 });
 
 describe("QuickstartLinkButton", () => {
+  it("renders a custom label when one is passed", () => {
+    render(
+      <QuickstartLinkButton
+        href="/intelligence/connect-your-runtime"
+        label="Connect an app"
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: /connect an app/i });
+
+    expect(link.getAttribute("href")).toBe(
+      "/intelligence/connect-your-runtime",
+    );
+    expect(screen.queryByRole("link", { name: /^quickstart$/i })).toBeNull();
+  });
+
   it("renders the accent primary treatment by default", () => {
     render(<QuickstartLinkButton href="/quickstart" />);
 
