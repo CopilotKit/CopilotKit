@@ -9,20 +9,15 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import {
   rehypeCode,
   rehypeCodeDefaultOptions,
 } from "fumadocs-core/mdx-plugins";
-import {
-  DocsPage,
-  DocsBody,
-  DocsTitle,
-  DocsDescription,
-} from "fumadocs-ui/page";
+import { DocsPage, DocsBody } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { DocsContentHeader } from "@/components/docs-content-header";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
@@ -59,6 +54,8 @@ import {
   convertTablesInJSX,
   inlineSnippets,
   loadDoc,
+  navSectionTitleForSlug,
+  visibleGuideBreadcrumbs,
   CONTENT_DIR,
 } from "@/lib/docs-render";
 import {
@@ -242,6 +239,11 @@ export async function DocsPageView({
     rootHref: slugHrefPrefix || "/",
     slugHrefPrefix,
   });
+  const sectionTitle = navSectionTitleForSlug(tree, slugPath);
+  const ancestorBreadcrumbs = visibleGuideBreadcrumbs(
+    breadcrumbs,
+    sectionTitle,
+  );
 
   // Bridge shell-docs's NavNode tree + headings into Fumadocs's shapes
   // so DocsLayout (sidebar) and DocsPage (right-rail TOC) can render them.
@@ -268,59 +270,22 @@ export async function DocsPageView({
       >
         <MaybeEarlyAccessGate gate={doc.fm.earlyAccess}>
           <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
-            <header className="docs-page-header">
-              {/* Keep breadcrumbs as quiet navigation and omit the current
-               * page, whose title immediately follows. This preserves useful
-               * hierarchy without repeating the H1 as decorative chrome. */}
-              {breadcrumbs.length > 1 && (
-                <nav
-                  aria-label="Breadcrumb"
-                  className="docs-page-breadcrumb"
-                >
-                  {breadcrumbs.slice(0, -1).map((crumb, i) => (
-                    <React.Fragment key={i}>
-                      {i > 0 && (
-                        <ChevronRight
-                          className="size-3 shrink-0"
-                          aria-hidden="true"
-                        />
-                      )}
-                      {crumb.href ? (
-                        <Link href={crumb.href}>{crumb.label}</Link>
-                      ) : (
-                        <span>{crumb.label}</span>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </nav>
-              )}
-
-              <div className="docs-page-heading-row">
-                <DocsTitle className="docs-page-title">
-                  {doc.fm.title}
-                </DocsTitle>
-
-                {/* Page actions (Copy prompt / Copy page / Open in
-                 * <LLM>) stay beside the title when space allows and wrap as
-                 * a single group on narrower pages. This keeps the article's
-                 * utility chrome available without inserting a separate band
-                 * between the description and the body. */}
-                <DocsPageTools
-                  slugPath={slugPath}
-                  slugHrefPrefix={slugHrefPrefix}
-                  githubUrl={buildGitHubUrl(doc.filePath)}
-                  onboardingFramework={onboardingFramework}
-                  onboardingFrontend={onboardingFrontend}
-                  hideOnboardingPrompt={slugPath === "webmcp"}
-                />
-              </div>
-
-              {doc.fm.description && (
-                <DocsDescription className="docs-page-description">
-                  {doc.fm.description}
-                </DocsDescription>
-              )}
-            </header>
+            <DocsContentHeader
+              ancestorBreadcrumbs={ancestorBreadcrumbs}
+              title={doc.fm.title}
+              description={doc.fm.description}
+            >
+              {/* Page actions stay beside the title when space allows and
+               * wrap as one group on narrower pages. */}
+              <DocsPageTools
+                slugPath={slugPath}
+                slugHrefPrefix={slugHrefPrefix}
+                githubUrl={buildGitHubUrl(doc.filePath)}
+                onboardingFramework={onboardingFramework}
+                onboardingFrontend={onboardingFrontend}
+                hideOnboardingPrompt={slugPath === "webmcp"}
+              />
+            </DocsContentHeader>
 
             {bannerSlot}
 
