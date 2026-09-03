@@ -2,15 +2,12 @@
 title: WebMCP
 icon: "lucide/Globe2"
 description: Expose browser-side actions as structured tools that compatible agents can discover and call.
+frontend: universal
 ---
-
-import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 
 WebMCP lets your website tell compatible browser agents what they can do. Instead of guessing which buttons to click, an agent discovers a named tool with a description, a typed input schema, and a JavaScript handler.
 
 CopilotKit can publish an existing frontend tool to [`document.modelContext`](https://webmachinelearning.github.io/webmcp/). The same handler then works for your CopilotKit agent and for WebMCP-aware browser agents.
-
-<WebMCPSetupPrompt />
 
 <Callout type="warn" title="WebMCP is experimental">
   WebMCP is a draft Community Group report, not a W3C Standard. Chrome offers
@@ -32,7 +29,7 @@ Choose the smallest path that fits your app:
 | A CopilotKit frontend tool for the action | Add `webmcp: true`, or add annotations with `webmcp: { annotations: ... }`. |
 | CopilotKit, but no frontend tool for the action | Wrap the smallest suitable browser-side action in a frontend tool, then opt it into WebMCP. |
 | A backend agent | Keep it. The tool can remain available to that agent, but WebMCP calls do not pass through it. |
-| No backend agent | Use `CopilotKitCore` directly in browser code, or let the setup prompt add the appropriate frontend integration. Do not create an agent only for WebMCP. |
+| No backend agent | Use `CopilotKitCore` directly in browser code, or add the appropriate frontend integration. Do not create an agent only for WebMCP. |
 
 React Native does not expose `document.modelContext`, so WebMCP registration is a no-op there. CopilotKit currently supports this WebMCP option in its browser integrations for React, Vue, Angular, and direct core usage.
 

@@ -40,7 +40,6 @@ import type { OpsPlatformCTAProps } from "@/components/react/ops-platform-cta";
 import { ChannelsStartPrompt } from "@/components/channels-start-prompt";
 import type { ChannelsStartPromptProps } from "@/components/channels-start-prompt";
 import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
-import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
 import type { IntelligenceOnboardingPromptProps } from "@/components/intelligence-onboarding-prompt";
 import { SignupLink } from "@/components/react/signup-link";
@@ -365,7 +364,6 @@ export async function DocsPageView({
                           />
                         ),
                         RichThreadsSetupPrompt,
-                        WebMCPSetupPrompt,
                         IntelligenceOnboardingPrompt:
                           IntelligenceOnboardingPromptMdx,
                         OpsPlatformCTA: (props: OpsPlatformCTAProps) => (
