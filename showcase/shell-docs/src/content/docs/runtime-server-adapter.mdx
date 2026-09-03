@@ -354,8 +354,8 @@ const handler = createCopilotRuntimeHandler({
   basePath: "/api/copilotkit",
 });
 
-// Export as both GET and POST to handle all CopilotKit routes
-export { handler as GET, handler as POST };
+// Export every method used by the multi-route Runtime.
+export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```
 </Tab>
 <Tab value="Single-route">
@@ -474,10 +474,12 @@ const handler = createCopilotRuntimeHandler({
   basePath: "/api/copilotkit",
 });
 
-// The $ splat matches all subpaths — GET for /info, POST for /agent/:id/run, etc.
+// The $ splat matches all subpaths and forwards every Runtime method.
 export const APIRoute = createAPIFileRoute("/api/copilotkit/$")({
   GET: ({ request }) => handler(request),
   POST: ({ request }) => handler(request),
+  PATCH: ({ request }) => handler(request),
+  DELETE: ({ request }) => handler(request),
 });
 ```
 

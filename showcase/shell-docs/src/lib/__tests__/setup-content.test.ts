@@ -116,6 +116,47 @@ describe("setup content bundle", () => {
     },
   );
 
+  it.each([
+    [
+      "claude-sdk-python",
+      [
+        "tools=[SET_NOTES_TOOL]",
+        'if tc["name"] == "set_notes"',
+        "StateSnapshotEvent",
+        "ToolCallResultEvent",
+        "run_shared_state_read_write_agent",
+        "intentionally uses its own Messages API loop",
+      ],
+    ],
+    [
+      "claude-sdk-typescript",
+      [
+        "toolSchemas: [SET_NOTES_TOOL_SCHEMA] as Anthropic.Tool[]",
+        "runWithClaudeAgentSdk({",
+        "createSdkMcpServer({",
+        "mcp__copilotkit__set_notes",
+        'toolName === "set_notes"',
+        "direct Anthropic Messages API fallback",
+      ],
+    ],
+  ])(
+    "bundles executable shared-state wiring for %s",
+    (framework, expectedIdentifiers) => {
+      const setupContent = setupContentData as SetupContentBundle;
+      const source = resolveBundledSetupConcept(
+        framework,
+        "shared-state-setup",
+        setupContent,
+      );
+
+      for (const identifier of expectedIdentifiers) {
+        expect(source, `${framework}: ${identifier}`).toContain(identifier);
+      }
+      expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    },
+  );
+
   it("bundles the Claude TypeScript fixed-schema backend wiring", () => {
     const setupContent = setupContentData as SetupContentBundle;
     const source = resolveBundledSetupConcept(

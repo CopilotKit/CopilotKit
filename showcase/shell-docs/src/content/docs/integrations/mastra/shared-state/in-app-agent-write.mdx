@@ -94,19 +94,24 @@ You can use this when you want to provide user input or control to your agent's 
     use `agent.setState` to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
+    import { useEffect } from "react";
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
     import { AgentState } from "@/mastra/agents/language-agent";
 
     function YourMainContent() {
       // [!code highlight:5]
-      const { agent } = useAgent({
+      const { agent, isReady } = useAgent({
         agentId: "your-mastra-agent-name",
-        // optionally provide a type-safe initial state
-        initialState: { language: "english" }
       });
+      const state = (agent.state ?? {}) as Partial<AgentState>;
+
+      useEffect(() => {
+        if (!isReady || state.language !== undefined) return;
+        agent.setState({ ...(agent.state ?? {}), language: "english" });
+      }, [agent, isReady, state.language]);
 
       const toggleLanguage = () => {
-        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ ...(agent.state ?? {}), language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       return (

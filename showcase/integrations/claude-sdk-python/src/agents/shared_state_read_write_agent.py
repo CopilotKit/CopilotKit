@@ -205,7 +205,8 @@ async def run_shared_state_read_write_agent(
             )
         )
 
-        async with client.messages.stream(
+        # @region[shared-state-tool-registration]
+        stream_request = client.messages.stream(
             model=normalize_claude_model(
                 os.getenv("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL)
             ),
@@ -213,7 +214,10 @@ async def run_shared_state_read_write_agent(
             system=system,
             messages=messages,
             tools=[SET_NOTES_TOOL],
-        ) as stream:
+        )
+        # @endregion[shared-state-tool-registration]
+
+        async with stream_request as stream:
             current_tool_id: str | None = None
             current_tool_name: str | None = None
             current_tool_args = ""
