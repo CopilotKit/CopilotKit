@@ -8,7 +8,7 @@ import { CustomAssistantMessage } from "../components/AssistantMessage";
 import { Suspense, useEffect, useState } from "react";
 import { startCurrentTimeUpdates } from "../lib/current-time.mjs";
 
-function HomeContent() {
+function CurrentTimeContext() {
   const [currentTime, setCurrentTime] = useState(() =>
     new Date().toLocaleTimeString(),
   );
@@ -26,8 +26,13 @@ function HomeContent() {
     value: currentTime,
   });
 
+  return null;
+}
+
+function HomeContent() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      <CurrentTimeContext />
       <Header />
       <main className="w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex-grow">
         <Dashboard />
