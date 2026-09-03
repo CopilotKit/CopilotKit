@@ -1,5 +1,5 @@
 // DocsPageTools — the page-tools row that sits under a docs page's title:
-// "Copy agent prompt", "Copy Markdown", and the "Open in <LLM>" popover.
+// "Copy prompt", "Copy page", and the "Open in <LLM>" popover.
 // Fumadocs's upstream LLM page-actions feature.
 //
 // Extracted from `docs-page-view.tsx` so the row sits in a component small
@@ -72,15 +72,22 @@ export function DocsPageTools({
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
-    <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
+    <div className="docs-page-tools flex min-w-0 flex-row flex-wrap items-center gap-2">
       {!hideOnboardingPrompt && (
         <OnboardingPromptCopyButton
           framework={onboardingFramework}
           frontend={onboardingFrontend}
           markdownUrl={markdownUrl}
-        />
+        >
+          Copy prompt
+        </OnboardingPromptCopyButton>
       )}
-      <MarkdownCopyButton markdownUrl={markdownUrl} />
+      <MarkdownCopyButton
+        markdownUrl={markdownUrl}
+        title="Copy page as Markdown"
+      >
+        Copy page
+      </MarkdownCopyButton>
       <ViewOptionsPopover markdownUrl={markdownUrl} githubUrl={githubUrl} />
     </div>
   );

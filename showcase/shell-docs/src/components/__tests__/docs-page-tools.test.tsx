@@ -65,10 +65,10 @@ it("still renders the onboarding button when no framework is passed", () => {
   renderRow();
 
   expect(
-    screen.getByRole("button", { name: /copy agent prompt/i }),
+    screen.getByRole("button", { name: /copy prompt/i }),
   ).toBeTruthy();
   // The rest of the row is untouched.
-  expect(screen.getByRole("button", { name: /copy markdown/i })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /copy page/i })).toBeTruthy();
   expect(screen.getByRole("button", { name: /^open$/i })).toBeTruthy();
 });
 
@@ -76,7 +76,7 @@ it("renders the onboarding button when a framework is passed", () => {
   renderRow({ slug: "mastra", name: "Mastra" });
 
   expect(
-    screen.getByRole("button", { name: /copy agent prompt/i }),
+    screen.getByRole("button", { name: /copy prompt/i }),
   ).toBeTruthy();
 });
 
@@ -87,7 +87,7 @@ it("gives the onboarding button the same .mdx URL as the markdown button", async
   Object.assign(navigator, { clipboard: { writeText } });
 
   renderRow({ slug: "mastra", name: "Mastra" });
-  fireEvent.click(screen.getByRole("button", { name: /copy agent prompt/i }));
+  fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 

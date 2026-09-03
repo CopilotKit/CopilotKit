@@ -264,71 +264,63 @@ export async function DocsPageView({
         toc={fumadocsToc}
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
-        tableOfContentPopover={{ enabled: false }}
+        tableOfContentPopover={{ enabled: true }}
       >
         <MaybeEarlyAccessGate gate={doc.fm.earlyAccess}>
-          <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-            {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb,
-             * but tighter: this should read as quiet page chrome, not a
-             * second title row above the H1. */}
-            <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
-              {breadcrumbs.map((crumb, i) => {
-                const isLast = i === breadcrumbs.length - 1;
-                const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
-                return (
-                  <React.Fragment key={i}>
-                    {i > 0 && (
-                      <ChevronRight
-                        className="size-3 shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
-                    {crumb.href ? (
-                      <Link
-                        href={crumb.href}
-                        className={`${labelClass} transition-opacity hover:opacity-80`}
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className={labelClass}>{crumb.label}</span>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </nav>
+          <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
+            <header className="docs-page-header">
+              {/* Keep breadcrumbs as quiet navigation and omit the current
+               * page, whose title immediately follows. This preserves useful
+               * hierarchy without repeating the H1 as decorative chrome. */}
+              {breadcrumbs.length > 1 && (
+                <nav
+                  aria-label="Breadcrumb"
+                  className="docs-page-breadcrumb"
+                >
+                  {breadcrumbs.slice(0, -1).map((crumb, i) => (
+                    <React.Fragment key={i}>
+                      {i > 0 && (
+                        <ChevronRight
+                          className="size-3 shrink-0"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {crumb.href ? (
+                        <Link href={crumb.href}>{crumb.label}</Link>
+                      ) : (
+                        <span>{crumb.label}</span>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </nav>
+              )}
 
-            <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
-              {doc.fm.title}
-            </DocsTitle>
-            {doc.fm.description && (
-              <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
-                {doc.fm.description}
-              </DocsDescription>
-            )}
+              <div className="docs-page-heading-row">
+                <DocsTitle className="docs-page-title">
+                  {doc.fm.title}
+                </DocsTitle>
 
-            {/* Page actions (Copy agent prompt / Copy Markdown / Open in
-              <LLM>) — fumadocs's upstream LLM page-actions feature. The
-              markdown URL resolves through the `/:path*.mdx` rewrite to the
-              route handler at `app/llms-mdx/[[...slug]]/route.ts`, which
-              serves the raw MDX via the same `loadDoc()` the page uses. The
-              GitHub URL is computed from `doc.filePath` (absolute fs path)
-              by slicing from the `/showcase/` segment. */}
-            <DocsPageTools
-              slugPath={slugPath}
-              slugHrefPrefix={slugHrefPrefix}
-              githubUrl={buildGitHubUrl(doc.filePath)}
-              onboardingFramework={onboardingFramework}
-              onboardingFrontend={onboardingFrontend}
-              hideOnboardingPrompt={slugPath === "webmcp"}
-            />
+                {/* Page actions (Copy prompt / Copy page / Open in
+                 * <LLM>) stay beside the title when space allows and wrap as
+                 * a single group on narrower pages. This keeps the article's
+                 * utility chrome available without inserting a separate band
+                 * between the description and the body. */}
+                <DocsPageTools
+                  slugPath={slugPath}
+                  slugHrefPrefix={slugHrefPrefix}
+                  githubUrl={buildGitHubUrl(doc.filePath)}
+                  onboardingFramework={onboardingFramework}
+                  onboardingFrontend={onboardingFrontend}
+                  hideOnboardingPrompt={slugPath === "webmcp"}
+                />
+              </div>
 
-            {/* Thin divider between the page-actions row and the page body
-              (banner / content). Visually separates the page metadata
-              chrome (title + page actions) from the page content
-              underneath. Uses the project's `--border` token so it tracks
-              the rest of the page chrome in light and dark modes. */}
-            <hr className="border-t border-[var(--border)] mt-2 mb-6" />
+              {doc.fm.description && (
+                <DocsDescription className="docs-page-description">
+                  {doc.fm.description}
+                </DocsDescription>
+              )}
+            </header>
 
             {bannerSlot}
 

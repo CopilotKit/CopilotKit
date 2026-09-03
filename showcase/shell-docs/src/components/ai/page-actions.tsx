@@ -395,9 +395,10 @@ export function OnboardingPromptCopyButton({
         onClick={copyPrompt}
         className={cn(
           buttonVariants({
-            // The primary action of the row — the two neighbours are
-            // deliberately `secondary`. `size: "sm"` keeps the heights equal.
-            color: "primary",
+            // Page reading is the primary task. Keep this useful action at the
+            // same visual weight as its neighbours so it does not compete with
+            // the article title for attention.
+            color: "secondary",
             size: "sm",
             className: "gap-2 [&_svg]:size-3.5",
           }),
