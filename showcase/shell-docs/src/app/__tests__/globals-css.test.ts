@@ -150,7 +150,7 @@ describe("globals.css cookbook sidebar", () => {
 describe("globals.css sidebar section labels", () => {
   it("styles static section labels with the docs accent", () => {
     expect(globalsCss).toMatch(
-      /\.shell-docs-sidebar p\.inline-flex\.gap-2\s*\{[\s\S]*?color:\s*var\(--accent\)\s*!important;[\s\S]*?font-family:\s*inherit\s*!important;[\s\S]*?font-size:\s*0\.875rem\s*!important;/,
+      /\.shell-docs-sidebar p\.inline-flex\.gap-2\s*\{[\s\S]*?color:\s*var\(--accent\)\s*!important;[\s\S]*?font-family:\s*inherit\s*!important;[\s\S]*?font-size:\s*0\.8125rem\s*!important;/,
     );
     expect(globalsCss).not.toContain("shell-docs-sidebar-section-label");
   });
