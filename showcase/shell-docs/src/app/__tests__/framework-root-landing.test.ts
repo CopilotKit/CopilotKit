@@ -14,6 +14,33 @@ const ROUTE = path.join(
   "src/app/[framework]/[[...slug]]/page.tsx",
 );
 
+/**
+ * The attributes of the opening JSX tag that `chunk` starts with. Walks to
+ * the first `>` that is not nested inside a `{…}` expression or a string, so
+ * it holds for a self-closing render and for one with children alike.
+ */
+function openingTagAttributes(chunk: string): string {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < chunk.length; i++) {
+    const char = chunk[i];
+    if (quote) {
+      if (char === quote && chunk[i - 1] !== "\\") quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+    } else if (char === ">" && depth === 0) {
+      return chunk.slice(0, i);
+    }
+  }
+  return chunk;
+}
+
 describe("framework root pages", () => {
   it("passes landingPage at every framework-root DocsPageView", () => {
     const source = fs.readFileSync(ROUTE, "utf-8");
@@ -24,7 +51,11 @@ describe("framework root pages", () => {
 
     expect(rootRenders).toHaveLength(2);
     for (const chunk of rootRenders) {
-      expect(chunk.slice(0, chunk.indexOf("/>"))).toContain("landingPage");
+      // Bare attribute or an explicitly truthy value only — a plain
+      // substring match would also accept `landingPage={false}`.
+      expect(openingTagAttributes(chunk)).toMatch(
+        /landingPage(?:=\{true\}|(?=[\s/>]))/,
+      );
     }
   });
 });
