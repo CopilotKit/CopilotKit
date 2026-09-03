@@ -1,11 +1,44 @@
+// @vitest-environment jsdom
+
+import React from "react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   cliFrameworkForDocsSlug,
   FrameworkOverview,
 } from "../framework-overview";
 import type { FrameworkOverviewData } from "@/data/frameworks/types";
+
+const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+
+const runtimeConfig = vi.hoisted(() => ({
+  getRuntimeConfig: vi.fn(() => ({ baseUrl: "https://docs.copilotkit.ai" })),
+}));
+
+// The hero's prompt button reads the pathname through the Fumadocs framework
+// context, which throws unless a `FrameworkProvider` wraps the tree.
+vi.mock("fumadocs-core/framework", () => ({
+  usePathname: () => "/langgraph-python",
+}));
+
+vi.mock("posthog-js/react", () => ({
+  usePostHog: () => analytics,
+}));
+
+vi.mock("@/lib/runtime-config.client", () => runtimeConfig);
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 const overviewData: FrameworkOverviewData = {
   slug: "langgraph-python",
@@ -40,8 +73,8 @@ describe("FrameworkOverview", () => {
     );
 
     // The prompt button carries the accent treatment...
-    expect(markup).toContain("Copy onboarding prompt");
-    expect(markup).toContain('data-surface="docs_framework_hero"');
+    expect(markup).toContain("Copy agent prompt");
+    expect(markup).toContain('data-docs-copy-surface="docs_framework_hero"');
     expect(markup).toContain("shell-docs-primary-cta");
     expect(markup).toContain("bg-[var(--accent)]");
     expect(markup).toContain("text-[var(--primary-foreground)]");
@@ -71,12 +104,12 @@ describe("FrameworkOverview", () => {
       />,
     );
 
-    expect(markup).toContain("Copy onboarding prompt");
-    expect(markup).toContain('data-surface="docs_framework_hero"');
+    expect(markup).toContain("Copy agent prompt");
+    expect(markup).toContain('data-docs-copy-surface="docs_framework_hero"');
     expect(markup).toContain(initCommand);
 
     // Prompt first, then Quickstart in the bordered treatment, then the chip.
-    expect(markup.indexOf("Copy onboarding prompt")).toBeLessThan(
+    expect(markup.indexOf("Copy agent prompt")).toBeLessThan(
       markup.indexOf("Quickstart"),
     );
     expect(markup.indexOf("Quickstart")).toBeLessThan(
@@ -130,5 +163,26 @@ describe("FrameworkOverview", () => {
 
     expect(markup).toContain("custom Angular components");
     expect(markup).not.toContain("React components");
+  });
+
+  it("hands the hero the page URL, so the copied prompt names this page", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <FrameworkOverview
+        data={overviewData}
+        currentFramework="langgraph-python"
+        markdownUrl="/langgraph-python.mdx"
+        onboardingFrontend={{ id: "react", name: "React" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy agent prompt" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText.mock.calls[0][0]).toContain(
+      "https://docs.copilotkit.ai/langgraph-python.mdx",
+    );
   });
 });

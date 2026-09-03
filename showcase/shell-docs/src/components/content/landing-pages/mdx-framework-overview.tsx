@@ -76,6 +76,9 @@ export interface MdxFrameworkOverviewProps {
    * docs home, where the prompt stays canonical.
    */
   markdownUrl?: string;
+  /**
+   * The frontend the URL selects, used for the prompt's frontend sentence.
+   */
   onboardingFrontend?: { id: string; name: string };
 }
 
