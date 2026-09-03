@@ -5,8 +5,12 @@ import { getRuntimeConfig } from "@/lib/runtime-config.client";
  * window.__SHOWCASE_CONFIG__ (populated by the root layout's inline
  * <script>) so non-production can reflect its runtime base URL without
  * rebuilding the artifact. Production runtime config always injects the
- * public canonical docs origin. The reader strips trailing slashes so callers
- * can concatenate `${BASE}${path}` safely.
+ * public canonical docs origin.
+ *
+ * Trailing slashes are stripped because every path this is concatenated
+ * with (`pathname`, `markdownUrl`, …) already leads with its own `/` —
+ * left unstripped, a trailing slash on the base would double up into
+ * `//` at the join.
  *
  * Not folded into `@/lib/runtime-config.client` itself: that module's
  * `getRuntimeConfig()` is the mockable seam every consuming test stubs
