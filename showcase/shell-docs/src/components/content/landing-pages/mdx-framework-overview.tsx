@@ -70,6 +70,13 @@ export interface MdxFrameworkOverviewProps {
    */
   currentFramework?: string;
   hrefPrefix?: string;
+  /**
+   * The `.mdx` URL of the page this hero sits on, so the copied prompt can
+   * name it exactly as the page-tools button does elsewhere; absent on the
+   * docs home, where the prompt stays canonical.
+   */
+  markdownUrl?: string;
+  onboardingFrontend?: { id: string; name: string };
 }
 
 export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
@@ -107,6 +114,8 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
       currentFramework={currentFramework}
       hrefPrefix={props.hrefPrefix}
       iconOverride={props.frameworkIcon}
+      markdownUrl={props.markdownUrl}
+      onboardingFrontend={props.onboardingFrontend}
     />
   );
 }

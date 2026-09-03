@@ -54,6 +54,13 @@ export interface FrameworkOverviewProps {
    * iconKey. When supplied, `data.iconKey` is ignored.
    */
   iconOverride?: ReactNode;
+  /**
+   * The `.mdx` URL of the page this hero sits on, so the copied prompt can
+   * name it exactly as the page-tools button does elsewhere; absent on the
+   * docs home, where the prompt stays canonical.
+   */
+  markdownUrl?: string;
+  onboardingFrontend?: { id: string; name: string };
 }
 
 /**
