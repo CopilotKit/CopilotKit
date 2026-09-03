@@ -121,9 +121,38 @@ async function resolveHostname(hostname: string): Promise<ResolvedAddress[]> {
   });
 }
 
+/** Rejects a pending asynchronous result when the signal aborts. */
+function awaitWithAbort<Result>(
+  operation: Promise<Result>,
+  signal: AbortSignal,
+): Promise<Result> {
+  return new Promise((resolve, reject) => {
+    const handleAbort = () => {
+      signal.removeEventListener("abort", handleAbort);
+      reject(signal.reason);
+    };
+
+    operation.then(
+      (result) => {
+        signal.removeEventListener("abort", handleAbort);
+        resolve(result);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", handleAbort);
+        reject(error);
+      },
+    );
+    signal.addEventListener("abort", handleAbort, { once: true });
+    if (signal.aborted) {
+      handleAbort();
+    }
+  });
+}
+
 /** Parses, resolves, and validates one outbound request target. */
 async function resolvePublicTarget(
   input: string | URL,
+  signal: AbortSignal,
   dependencies: PublicUrlFetchDependencies,
 ): Promise<{ url: URL; address: ResolvedAddress }> {
   const url = input instanceof URL ? input : new URL(input);
@@ -148,7 +177,7 @@ async function resolvePublicTarget(
         : undefined;
   const addresses: readonly ResolvedAddress[] = literalAddress
     ? [literalAddress]
-    : await dependencies.resolveHostname(hostname);
+    : await awaitWithAbort(dependencies.resolveHostname(hostname), signal);
   if (addresses.length === 0) {
     throw new Error(`${hostname} did not resolve`);
   }
@@ -234,7 +263,11 @@ export async function fetchPublicText(
   let target: string | URL = input;
 
   for (let redirectCount = 0; ; redirectCount += 1) {
-    const { url, address } = await resolvePublicTarget(target, dependencies);
+    const { url, address } = await resolvePublicTarget(
+      target,
+      signal,
+      dependencies,
+    );
     const response = await dependencies.requestUrl(url, address, signal);
 
     if (REDIRECT_STATUS_CODES.has(response.statusCode)) {
