@@ -665,6 +665,7 @@ export class CopilotKitIntelligence {
         "CopilotKitIntelligence `getLearningContainerId` must be a callback",
       );
     }
+    assertConfiguredApiKey(config.apiKey);
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -1650,6 +1651,35 @@ export class CopilotKitIntelligence {
 function configuredUrl(url: string | undefined): string | undefined {
   const trimmed = url?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+/**
+ * Reject an Intelligence project API key that carries no credential.
+ *
+ * `apiKey` is required on the config type, so TypeScript catches an absent
+ * property. It does not catch an empty one, and the common shape is a
+ * `process.env` read that TypeScript is told to trust — `?? ""` in the starter
+ * wiring block, `!` in this file's own examples. When the variable is unset,
+ * both produce a blank key that is sent verbatim as `Authorization: Bearer `
+ * and fails much later as a 401 that points at nothing.
+ *
+ * A runtime with no credential cannot serve managed Intelligence, so this
+ * throws at construction: callers build the client during boot, which puts the
+ * error at startup rather than on a user's first message.
+ */
+function assertConfiguredApiKey(apiKey: string): void {
+  if (typeof apiKey === "string" && apiKey.trim() !== "") {
+    return;
+  }
+  // The whole key is a `cpk-…` secret, so name the variable that carries it
+  // and echo none of the value — the same rule `parseProjectIdFromApiKey`
+  // follows for a malformed key.
+  throw new Error(
+    "CopilotKitIntelligence `apiKey` is required and cannot be blank. It is " +
+      "the CopilotKit Intelligence project API key, normally read from the " +
+      "CPK_INTELLIGENCE_API_KEY environment variable. Run `copilotkit " +
+      "project select` to provision one for your project.",
+  );
 }
 
 /**
