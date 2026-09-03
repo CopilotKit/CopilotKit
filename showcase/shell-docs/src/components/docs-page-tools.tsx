@@ -16,9 +16,9 @@
 import React from "react";
 import {
   MarkdownCopyButton,
-  OnboardingPromptCopyButton,
   ViewOptionsPopover,
 } from "@/components/ai/page-actions";
+import { OnboardingPromptButton } from "@/components/onboarding-prompt-button";
 
 export interface DocsPageToolsProps {
   /** Slug path relative to `CONTENT_DIR` (no leading slash). */
@@ -70,7 +70,9 @@ export function DocsPageTools({
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
     <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
-      <OnboardingPromptCopyButton
+      <OnboardingPromptButton
+        variant="compact"
+        surface="docs_page_tools_onboarding_prompt"
         framework={onboardingFramework}
         frontend={onboardingFrontend}
         markdownUrl={markdownUrl}
