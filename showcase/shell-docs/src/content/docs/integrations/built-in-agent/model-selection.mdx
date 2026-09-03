@@ -143,7 +143,7 @@ const agent = new BuiltInAgent({
 
 Anything that exposes an **OpenAI-compatible** API, including [OpenRouter](https://openrouter.ai),
 a self-hosted gateway, an internal LLM proxy, [Ollama](https://ollama.com), [Together](https://together.ai),
-[Groq](https://groq.com), [Novita](https://novita.ai), or your own fine-tuned endpoint, works through the same
+[Groq](https://groq.com), [Novita](https://novita.ai), [aimlapi.com](https://aimlapi.com), or your own fine-tuned endpoint, works through the same
 `createOpenAI({ baseURL })` pattern shown in [Custom Models](#custom-models-ai-sdk)
 above. Point `baseURL` at the provider's OpenAI-compatible route and pass your key:
 
@@ -151,6 +151,16 @@ above. Point `baseURL` at the provider's OpenAI-compatible route and pass your k
   Novita only implements the Chat Completions endpoint, not Responses. Call it as
   `provider.chat("model")` (not `provider("model")`) — the bare call form used in
   the example below routes through Responses and returns an error on Novita.
+</Callout>
+
+<Callout type="warn" title="aimlapi.com: use provider.chat(model) for non-OpenAI ids">
+  aimlapi.com serves `https://api.aimlapi.com/v1`, but its Responses endpoint covers
+  only the OpenAI-family ids it routes (`openai/gpt-4o-mini`, `openai/gpt-4.1`, and
+  the other `openai/` ids). Every other id — `google/gemini-2.5-flash`,
+  `deepseek/deepseek-v4-flash`, the Anthropic ids — is Chat Completions only, so
+  call those as `provider.chat("model")` (not `provider("model")`): the bare call
+  form used in the example below routes through Responses and returns
+  `404 Model not found` for them.
 </Callout>
 
 ```typescript
