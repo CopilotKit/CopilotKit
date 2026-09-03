@@ -56,12 +56,23 @@ const COMPACT_CLASSNAME = cn(
   "gap-2 [&_svg]:size-3.5",
 );
 
+/**
+ * The hero's classes, carried over verbatim from the hero button this
+ * component replaces, so the surfaces that already render it keep their
+ * pixels. Written out rather than composed from `buttonVariants` because the
+ * hero disagrees with that recipe on nearly every axis it shares — its own
+ * height, horizontal padding, weight, shadow and focus ring, plus the
+ * full-width-until-`sm` behaviour that lets it stack above the Quickstart
+ * button on a phone. Expressing it as overrides would spell out the same
+ * literal twice and lean on class-merge precedence to cancel the half of the
+ * recipe that does not apply.
+ */
+const HERO_CLASSNAME =
+  "shell-docs-primary-cta shell-docs-radius-control inline-flex h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-fit";
+
 function variantClassName(variant: OnboardingPromptButtonVariant): string {
   if (variant === "hero") {
-    // TODO: the hero surface gets its own appearance in a follow-up. Until
-    // then it wears the compact button's classes, so introducing this
-    // component changes nothing about how anything renders.
-    return COMPACT_CLASSNAME;
+    return HERO_CLASSNAME;
   }
   return COMPACT_CLASSNAME;
 }
@@ -91,10 +102,12 @@ function variantClassName(variant: OnboardingPromptButtonVariant): string {
  * Minting per click left every click but the last as a funnel row nothing
  * could close out.
  *
- * It is minted in an effect rather than a `useState` initialiser because
- * `createOnboardingRunId` reads `crypto`, which is absent during SSR: the
- * server render and the first client render have to agree, so both start with
- * no id and the effect fills it in after hydration.
+ * It is minted in an effect rather than a `useState` initialiser to keep id
+ * generation out of render entirely, and to match how the sibling emitters of
+ * this event do it. Hydration does not force the choice:
+ * `createOnboardingRunId` falls back to `Math.random` where `crypto` is
+ * missing and never throws, and the id is never rendered, so there is no
+ * markup for a server id and a client id to disagree about.
  */
 export function OnboardingPromptButton({
   variant,
@@ -153,7 +166,7 @@ export function OnboardingPromptButton({
   const posthog = usePostHog();
   const [copyState, setCopyState] = useState<OnboardingCopyState>("idle");
   // One run id per mount (see the module comment). `null` until the effect
-  // runs, so the server render and the first client render agree.
+  // runs; only the copy handler ever reads it.
   const [runId, setRunId] = useState<string | null>(null);
   // Mirrors `MarkdownCopyButton`'s `isLoading`: the button is disabled while a
   // clipboard write is pending. The ref is the actual guard — a double-click
@@ -194,8 +207,8 @@ export function OnboardingPromptButton({
   async function copyPrompt() {
     // Ignore clicks while a write is still pending. The two writes now carry
     // the same run id, so a double-click would report one onboarding attempt
-    // twice — two funnel rows for one reader, only one of which the CLI ever
-    // closes out.
+    // twice — one attempt reported as two, which double-counts the reader in
+    // the funnel.
     if (copyInFlightRef.current) return;
     copyInFlightRef.current = true;
     setIsCopying(true);
@@ -298,6 +311,11 @@ export function OnboardingPromptButton({
     scheduleReset(generation, 1800);
   }
 
+  // One label set for both appearances: the idle label a caller may override
+  // through `children`, and the failure label that replaces it.
+  const idleLabel = props.children ?? "Copy agent prompt";
+  const label = copyState === "error" ? "Copy blocked" : idleLabel;
+
   return (
     <>
       <button
@@ -330,9 +348,25 @@ export function OnboardingPromptButton({
             rare, and the reader needs to be told the copy did not happen.
             Either way the `aria-live` region below announces the outcome,
             which is what a screen reader gets instead of the icon. */}
-        {copyState === "error"
-          ? "Copy blocked"
-          : (props.children ?? "Copy agent prompt")}
+        {variant === "hero" ? (
+          /* The status labels are far shorter than the idle one, so rendering
+             only the active label collapses this button and shunts the
+             Quickstart button beside it sideways mid-interaction. Stack all
+             labels in one grid cell and keep the longest one in the layout
+             (invisible) so the width is reserved without a magic pixel
+             value. */
+          <span className="grid">
+            <span
+              aria-hidden="true"
+              className="invisible col-start-1 row-start-1"
+            >
+              {idleLabel}
+            </span>
+            <span className="col-start-1 row-start-1">{label}</span>
+          </span>
+        ) : (
+          label
+        )}
       </button>
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"

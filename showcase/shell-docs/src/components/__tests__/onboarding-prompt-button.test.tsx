@@ -53,7 +53,12 @@ const MASTRA = { slug: "mastra", name: "Mastra" };
 /** The docs' default frontend — the graph spells it `nextjs`. */
 const REACT = { id: "react", name: "React" };
 
+/** Every appearance the button can wear, so no test covers only one. */
+const VARIANTS = ["compact", "hero"] as const;
+
 const SURFACE = "docs_page_tools_onboarding_prompt";
+/** The surface name the hero placement is registered under. */
+const HERO_SURFACE = "docs_landing_hero";
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
 const PAGE_SENTENCE = ` The developer copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
 
@@ -154,20 +159,26 @@ it("copies the canonical prompt alone when there is nothing to name", async () =
 it("carries the caller's surface as the conversion-surface attribute", () => {
   // The global tracker in `lib/providers/copy-tracker.tsx` resolves the
   // surface with `closest("[data-docs-copy-surface]")`. The attribute sits on
-  // the button itself, and spells the same value the event reports.
+  // the button itself, and spells the same value the event reports. Both
+  // appearances carry it: `variant` decides how the button looks, never
+  // whether the tracker can name what was copied.
   stubClipboard();
 
-  render(
-    <OnboardingPromptButton
-      variant="compact"
-      surface={SURFACE}
-      markdownUrl={PAGE_MARKDOWN_URL}
-    />,
-  );
+  for (const variant of VARIANTS) {
+    const { container, unmount } = render(
+      <OnboardingPromptButton
+        variant={variant}
+        surface={SURFACE}
+        markdownUrl={PAGE_MARKDOWN_URL}
+      />,
+    );
 
-  expect(
-    screen.getByRole("button").getAttribute("data-docs-copy-surface"),
-  ).toBe(SURFACE);
+    expect(
+      container.querySelector("button")?.getAttribute("data-docs-copy-surface"),
+    ).toBe(SURFACE);
+
+    unmount();
+  }
 });
 
 it("reports the shared onboarding event with the graph's slugs", async () => {
@@ -270,8 +281,8 @@ it("keeps one run id for the lifetime of a mount", async () => {
 
 it("writes and reports once for two clicks while the first write is pending", async () => {
   // The in-flight guard. Both writes carry the mount's one run id, so without
-  // it a double-click would report the same onboarding attempt twice — two
-  // funnel rows for one reader, only one of which the CLI ever closes out.
+  // it a double-click would report the same onboarding attempt twice — one
+  // attempt reported as two, which double-counts the reader in the funnel.
   const { writeText } = stubPendingClipboard();
 
   render(
@@ -421,4 +432,90 @@ it("survives unmounting while the clipboard write is still pending", async () =>
 
   expect(setTimeoutSpy).not.toHaveBeenCalled();
   expect(consoleError).not.toHaveBeenCalled();
+});
+
+it("composes the same prompt whichever appearance it wears", async () => {
+  // `variant` picks an appearance and nothing else. The prompt is the product,
+  // so the same props have to compose the same string on every surface — a
+  // fork here would split one funnel into two halves nobody can compare.
+  const composed: string[] = [];
+
+  for (const variant of VARIANTS) {
+    const writeText = stubClipboard();
+
+    const { unmount } = render(
+      <OnboardingPromptButton
+        variant={variant}
+        surface={SURFACE}
+        framework={MASTRA}
+        frontend={REACT}
+        markdownUrl={PAGE_MARKDOWN_URL}
+      />,
+    );
+    clickCopy();
+    await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+    // Compare the whole string, with only the per-mount run id neutralised —
+    // that is the one part that is meant to differ between two mounts.
+    composed.push(
+      (writeText.mock.calls[0][0] as string).replaceAll(
+        reportedRunId(),
+        "<run-id>",
+      ),
+    );
+
+    unmount();
+    analytics.capture.mockClear();
+  }
+
+  expect(composed[0]).toBe(composed[1]);
+  // Guard: the equality above is over a real composed prompt, not two blanks.
+  expect(composed[0]).toContain(
+    frameworkPromptSuffix(MASTRA.slug, MASTRA.name),
+  );
+  expect(composed[0]).toContain(PAGE_SENTENCE);
+});
+
+it("copies the canonical prompt alone from the hero surface", async () => {
+  // The hero on the docs home names no framework, no frontend and no page, so
+  // what it copies is exactly the canonical prompt the Intelligence repo and
+  // the Inspector have to keep matching byte for byte.
+  const writeText = stubClipboard();
+
+  render(<OnboardingPromptButton variant="hero" surface={HERO_SURFACE} />);
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()),
+  );
+});
+
+it("reserves the hero button's width with an invisible idle label", () => {
+  // The status labels are shorter than the idle one, so a hero button that
+  // rendered only the active label would collapse mid-interaction and shunt
+  // the Quickstart button beside it sideways. The invisible copy holds the
+  // width, and being `aria-hidden` it does not double the accessible name.
+  stubClipboard();
+
+  const hero = render(
+    <OnboardingPromptButton variant="hero" surface={HERO_SURFACE} />,
+  );
+
+  const reserved = hero.container.querySelector("span.invisible");
+  expect(reserved?.textContent).toBe("Copy agent prompt");
+  expect(reserved?.getAttribute("aria-hidden")).toBe("true");
+  expect(
+    screen.getByRole("button", { name: /^copy agent prompt$/i }),
+  ).toBeTruthy();
+
+  hero.unmount();
+
+  // The compact button sits in a row that does not need the reservation, so
+  // it does not pay for it.
+  const compact = render(
+    <OnboardingPromptButton variant="compact" surface={SURFACE} />,
+  );
+  expect(compact.container.querySelector("span.invisible")).toBeNull();
 });
