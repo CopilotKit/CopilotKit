@@ -25,7 +25,7 @@ function snapshotOrder(order: Order): Order {
   useStageConfirmOrder is a hook that will add this stage to the state machine. It is responsible for:
   - Confirming the order of the user.
   - Storing the order in the global state.
-  - Optionally, can decide to move to the next stage, buildCar, based on the user's responses.
+  - Optionally, can decide to move to the next stage, getContactInfo, based on the user's responses.
 */
 export function useStageConfirmOrder() {
   const {
@@ -91,7 +91,7 @@ export function useStageConfirmOrder() {
 
               // Let the agent know that the user has confirmed their order.
               await respond(
-                "User confirmed their order, please ask them if they would like to place a another order and if they do, call the 'nextState' action.",
+                "User confirmed their order, please ask them if they would like to place another order and if they do, call the 'nextState' action.",
               );
 
               // Commit the order only after the response succeeds.
