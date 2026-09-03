@@ -41,6 +41,10 @@ import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import {
+  IntelligenceFeatureCards,
+  IntelligenceOverview,
+} from "@/components/content/landing-pages/intelligence-overview";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import {
   AdkIcon,
@@ -590,6 +594,8 @@ export const docsComponents = {
   // features grid, architecture image, live demos) instead of being
   // dropped on the floor as a children-passthrough used to do.
   FrameworkOverview: MdxFrameworkOverview,
+  IntelligenceOverview,
+  IntelligenceFeatureCards,
   // Per-render override in DocsPageView binds `currentFramework` from
   // the URL — same closure pattern as MdxFrameworkOverview. The base
   // registration renders null when invoked without a framework slug
