@@ -165,24 +165,48 @@ describe("FrameworkOverview", () => {
     expect(markup).not.toContain("React components");
   });
 
-  it("hands the hero the page URL, so the copied prompt names this page", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+  // The hero renders through two branches: the shared action row when the
+  // init command is the generic one, and the explicit row that also carries a
+  // command chip when a framework brings its own. Both hand the prompt button
+  // the same page context, so both are exercised here — covering only one
+  // would let the other quietly stop forwarding it.
+  it.each([
+    ["the generic init command", "npx copilotkit@latest init"],
+    [
+      "a bespoke init command",
+      "npx copilotkit@latest init --framework claude-sdk-python",
+    ],
+  ])(
+    "hands the hero the page URL and the selected frontend with %s",
+    async (_branch, initCommand) => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
 
-    render(
-      <FrameworkOverview
-        data={overviewData}
-        currentFramework="langgraph-python"
-        markdownUrl="/langgraph-python.mdx"
-        onboardingFrontend={{ id: "react", name: "React" }}
-      />,
-    );
+      render(
+        <FrameworkOverview
+          data={{ ...overviewData, initCommand }}
+          currentFramework="langgraph-python"
+          markdownUrl="/langgraph-python.mdx"
+          onboardingFrontend={{ id: "react", name: "React" }}
+        />,
+      );
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy agent prompt" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Copy agent prompt" }),
+      );
 
-    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText.mock.calls[0][0]).toContain(
-      "https://docs.copilotkit.ai/langgraph-python.mdx",
-    );
-  });
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      const prompt = writeText.mock.calls[0][0] as string;
+
+      expect(prompt).toContain(
+        "https://docs.copilotkit.ai/langgraph-python.mdx",
+      );
+      // Verbatim what `frontendPromptSuffix("react", "React")` produces: the
+      // docs' `react` is the onboarding graph's `nextjs`, and the prompt names
+      // the graph's spelling so the CLI has nothing left to ask.
+      expect(prompt).toContain(
+        " The developer selected the React frontend (`nextjs`).",
+      );
+    },
+  );
 });
