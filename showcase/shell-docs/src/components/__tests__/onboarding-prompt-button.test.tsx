@@ -10,6 +10,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { Check, Copy } from "lucide-react";
 import { OnboardingPromptButton } from "../onboarding-prompt-button";
 import { frameworkPromptSuffix } from "@/lib/intelligence-onboarding-framework";
 import {
@@ -23,6 +24,11 @@ import {
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
+/**
+ * Spied rather than stubbed: one test asserts the base URL is read only on
+ * click, because reading it during render would serialize the SSR placeholder
+ * into the server HTML and mismatch on hydration.
+ */
 const runtimeConfig = vi.hoisted(() => ({
   getRuntimeConfig: vi.fn(() => ({ baseUrl: "https://docs.copilotkit.ai" })),
 }));
@@ -52,6 +58,19 @@ const MASTRA = { slug: "mastra", name: "Mastra" };
 
 /** The docs' default frontend — the graph spells it `nextjs`. */
 const REACT = { id: "react", name: "React" };
+
+/**
+ * A registered framework the graph has NO node for, so the framework sentence
+ * is "" and `agent_framework` is left off the event entirely.
+ */
+const SPRING_AI = { slug: "spring-ai", name: "Spring AI" };
+
+/**
+ * A docs frontend the graph has NO node for: Slack is a chat channel, not an
+ * application frontend. The frontend sentence is "" and `frontend` is left off
+ * the event entirely.
+ */
+const SLACK = { id: "slack", name: "Slack" };
 
 /** Every appearance the button can wear, so no test covers only one. */
 const VARIANTS = ["compact", "hero"] as const;
@@ -95,6 +114,18 @@ function stubRejectingClipboard() {
 /** Click the button by role alone, so the query does not depend on the label. */
 function clickCopy() {
   fireEvent.click(screen.getByRole("button"));
+}
+
+/**
+ * The geometry a lucide icon draws, which is what actually identifies it. The
+ * `lucide-*` class names it also emits are not a contract, so the icon tests
+ * compare against the icons themselves rather than against a class string.
+ */
+function iconGeometry(icon: React.ReactElement): string {
+  const { container, unmount } = render(icon);
+  const markup = container.querySelector("svg")?.innerHTML ?? "";
+  unmount();
+  return markup;
 }
 
 /** The run id the component reported for the copy it just made. */
@@ -154,6 +185,27 @@ it("copies the canonical prompt alone when there is nothing to name", async () =
   expect(writeText.mock.calls[0][0]).toBe(
     createIntelligenceOnboardingPrompt(reportedRunId()),
   );
+});
+
+it("reads the base URL on click and not during render", () => {
+  // `getClientBaseUrl()` returns an SSR placeholder on the server. Reading it
+  // while rendering would bake that placeholder into the server HTML and
+  // produce a different string after hydration.
+  stubClipboard();
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+
+  expect(runtimeConfig.getRuntimeConfig).not.toHaveBeenCalled();
+
+  clickCopy();
+
+  expect(runtimeConfig.getRuntimeConfig).toHaveBeenCalled();
 });
 
 it("carries the caller's surface as the conversion-surface attribute", () => {
@@ -241,6 +293,51 @@ it("omits the framework and frontend keys when the caller names neither", async 
     "onboarding_run_id",
     "surface",
   ]);
+});
+
+it("omits both keys when the caller names them and the graph knows neither", async () => {
+  // A different path from naming nothing: here the caller DID supply both
+  // props, and the CLI's onboarding graph has no node for either value. The
+  // keys still have to be absent rather than present-and-undefined, because a
+  // key with no value still shows up as its own row in a PostHog breakdown.
+  const writeText = stubClipboard();
+
+  // Guards: the assertions below only mean anything while the graph really
+  // has no node for these two. If either gained one, they would pass while
+  // asserting nothing.
+  expect(frameworkPromptSuffix(SPRING_AI.slug, SPRING_AI.name)).toBe("");
+  expect(frontendPromptSuffix(SLACK.id, SLACK.name)).toBe("");
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      framework={SPRING_AI}
+      frontend={SLACK}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const properties = analytics.capture.mock.calls[0][1] as Record<
+    string,
+    unknown
+  >;
+  expect(properties).not.toHaveProperty("agent_framework");
+  expect(properties).not.toHaveProperty("frontend");
+  expect(Object.keys(properties).sort()).toEqual([
+    "from_path",
+    "onboarding_run_id",
+    "surface",
+  ]);
+  // And the prompt names neither: naming a framework or frontend the CLI has
+  // no node for would promise a path it cannot walk, so the page sentence —
+  // which has to read correctly on its own — carries the whole of the context.
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+  );
 });
 
 it("keeps one run id for the lifetime of a mount", async () => {
@@ -398,6 +495,56 @@ it("announces both outcomes in the aria-live region", async () => {
   await waitFor(() =>
     expect(screen.getByText("Prompt copy failed. Try again.")).toBeTruthy(),
   );
+});
+
+it("swaps the copy icon for a check on a successful copy", async () => {
+  // The label deliberately does not change on success, so the icon is the
+  // whole of what a sighted reader sees. Counting the icons would not catch a
+  // swap that never happened — this compares the rendered geometry against
+  // both icons, so leaving `Copy` in place fails.
+  stubClipboard();
+
+  const copyIcon = iconGeometry(<Copy />);
+  const checkIcon = iconGeometry(<Check />);
+  // Guard: the comparison below is only meaningful while the two differ.
+  expect(copyIcon).not.toBe(checkIcon);
+
+  const { container } = render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  const buttonIcon = () =>
+    container.querySelector("button svg")?.innerHTML ?? "";
+
+  expect(buttonIcon()).toBe(copyIcon);
+
+  clickCopy();
+
+  await waitFor(() => expect(screen.getByText("Prompt copied")).toBeTruthy());
+  expect(buttonIcon()).toBe(checkIcon);
+});
+
+it("uses a caller-supplied child as the idle label", () => {
+  // The row that hosts the compact button and the docs hero both relabel it,
+  // so neither appearance may hard-code the default.
+  stubClipboard();
+
+  for (const variant of VARIANTS) {
+    const { unmount } = render(
+      <OnboardingPromptButton variant={variant} surface={SURFACE}>
+        Set up with an agent
+      </OnboardingPromptButton>,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /^set up with an agent$/i }),
+    ).toBeTruthy();
+
+    unmount();
+  }
 });
 
 it("survives unmounting while the clipboard write is still pending", async () => {
