@@ -59,6 +59,15 @@ describe("globals.css docs headings", () => {
   });
 });
 
+describe("globals.css docs media breakouts", () => {
+  it("keeps standard tables aligned to the prose measure", () => {
+    expect(globalsCss).toContain("> :is(img, figure.shiki)");
+    expect(globalsCss).not.toMatch(
+      /\.reference-content\s*>\s*:is\([^)]*table/,
+    );
+  });
+});
+
 describe("globals.css cookbook sidebar", () => {
   it("removes the empty cookbook sidebar banner and aligns the recipe list", () => {
     const normalizedGlobalsCss = normalizeWhitespace(globalsCss);

@@ -1543,13 +1543,14 @@ samp {
   margin: 1.5rem 0;
 }
 
-/* Dense media benefits from a wider canvas than prose. Direct diagrams,
- * tables, and standalone code blocks first fill the 760px outer content lane,
- * then gain one further step when both navigation rails leave enough room. */
+/* Diagrams and standalone code blocks benefit from a wider canvas than prose.
+ * Standard tables stay on the reading measure so their section heading and
+ * content share one clear axis; genuinely wide tables should opt into their
+ * own overflow treatment rather than inheriting a viewport breakpoint. */
 @media (min-width: 1280px) {
   .docs-article-content
     .reference-content
-    > :is(img, table, figure.shiki) {
+    > :is(img, figure.shiki) {
     width: min(var(--docs-breakout-width), calc(100% + 5rem));
     max-width: min(var(--docs-breakout-width), calc(100% + 5rem));
     margin-right: 0;
@@ -1561,7 +1562,7 @@ samp {
 @media (min-width: 1440px) {
   .docs-article-content
     .reference-content
-    > :is(img, table, figure.shiki) {
+    > :is(img, figure.shiki) {
     width: min(var(--docs-breakout-width), calc(100% + 8.75rem));
     max-width: min(var(--docs-breakout-width), calc(100% + 8.75rem));
   }
