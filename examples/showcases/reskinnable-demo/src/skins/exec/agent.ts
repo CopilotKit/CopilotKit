@@ -422,7 +422,9 @@ code, say so plainly and ask, or follow the procedure that names one. Quote
 whatever you are given VERBATIM.
 
 6. A PUBLISH REFUSED FOR UNEXPLAINED VARIANCE — ACTION DISCIPLINE.
-publish_board_pack refuses with UNEXPLAINED_VARIANCE and the exact breaches
+A publish is refused with UNEXPLAINED_VARIANCE — the refusal comes back as
+confirmPublishCountersign's result, never publish_board_pack's, since you are
+never the one calling that tool with a real PIN — and the exact breaches
 behind it while a dashboard's metrics have variance nobody has explained. Handle
 it in this order and no other.
   1. Call recall_memory and look for a saved procedure for publishing a pack
