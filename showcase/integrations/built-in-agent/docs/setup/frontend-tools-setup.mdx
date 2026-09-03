@@ -16,6 +16,10 @@
     });
     ```
 
+    Keep the `useComponent` name distinct from every tool in `config.tools`.
+    The runtime layers the configured tools over the forwarded ones, so a
+    shared name resolves to the backend tool and the component never renders.
+
   </Step>
   <Step>
     ### In factory mode you pass the tools yourself
@@ -45,8 +49,9 @@
     });
     ```
 
-    Keep the `useComponent` name distinct from every backend tool name. Where
-    the two collide, the server executor wins and the component is dropped.
+    The factory owns precedence here. Nothing merges the two lists for you, so
+    a backend tool and a `useComponent` registration that share a name is your
+    conflict to resolve. Keep the names distinct.
 
   </Step>
   <Step>
