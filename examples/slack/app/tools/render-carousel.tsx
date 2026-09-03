@@ -97,7 +97,7 @@ function CatalogCarousel({
         {items.map((item) => (
           <CarouselCard key={item.name}>
             <Header>{item.name}</Header>
-            <Render alt={item.name} width={320}>
+            <Render alt={item.name} width={320} height={260}>
               <ProductCard
                 name={item.name}
                 price={item.price}
@@ -133,7 +133,10 @@ export async function renderCatalogCarousel(
 ): Promise<string> {
   const heading = args.heading ?? "This week";
   const items = args.items?.length ? args.items : SAMPLE_CATALOG;
-  await thread.post(<CatalogCarousel heading={heading} items={items} />);
+  await thread.post(<CatalogCarousel heading={heading} items={items} />, {
+    filename: "carousel.png",
+    altText: `${heading ?? "Catalog"}: ${items.map((item) => item.name).join(", ")}`,
+  });
   return `Posted a ${items.length}-item carousel.`;
 }
 

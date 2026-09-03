@@ -67,11 +67,15 @@ export async function resolveRenders(
         typeof node.props.width === "number"
           ? node.props.width
           : deps.defaultWidth;
+      const height =
+        typeof node.props.height === "number"
+          ? node.props.height
+          : (deps.defaultHeight ?? 480);
       const cfg: ResolvedRenderConfig = {
         fonts: deps.fonts ?? [],
         stylesheets: deps.stylesheets ?? [],
         width,
-        height: deps.defaultHeight ?? 480,
+        height,
         allowImageUrl: deps.allowImageUrl ?? defaultAllowImageUrl,
       };
       const bytes = await deps.renderJsxToPng(node.props.children ?? node, cfg);

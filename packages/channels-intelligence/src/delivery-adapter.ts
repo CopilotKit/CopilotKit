@@ -892,7 +892,14 @@ export class DeliveryAdapter implements PlatformAdapter {
     await target.claimedDelivery.effect(responseId, {
       kind: "slack.image.create",
       fileHandle: handle,
-      altText: args.altText,
+      // The gateway requires altText to be 1..2000 chars (packet_processor.ex
+      // validate_required_payload/2). `thread.post()` forwards `opts?.altText`,
+      // which is undefined whenever a caller omits it, and the resulting missing
+      // key is rejected as `invalid_provider_effect` — sealing the delivery.
+      altText:
+        typeof args.altText === "string" && args.altText.trim().length > 0
+          ? args.altText.slice(0, 2000)
+          : String(args.filename || "image").slice(0, 2000),
       share: false,
     });
     return { fileId: handle };
