@@ -12,6 +12,9 @@ import CookbookLandingPage from "./page";
 import CookbookSlugPage from "./[...slug]/page";
 
 const BIA = { slug: "built-in-agent", name: "Built-in" };
+// The cookbook URL carries no frontend segment, which is how the docs spell
+// their default frontend — the one the frontend selector shows as active here.
+const REACT = { id: "react", name: "React" };
 
 describe("cookbook onboarding framework", () => {
   it("names the Built-in Agent on the cookbook landing page", () => {
@@ -21,6 +24,7 @@ describe("cookbook onboarding framework", () => {
 
     expect(element.props.slugPath).toBe("cookbook");
     expect(element.props.onboardingFramework).toEqual(BIA);
+    expect(element.props.onboardingFrontend).toEqual(REACT);
   });
 
   it("names the Built-in Agent on a cookbook recipe", async () => {
@@ -30,5 +34,6 @@ describe("cookbook onboarding framework", () => {
 
     expect(element.props.slugPath).toBe("cookbook/arcade");
     expect(element.props.onboardingFramework).toEqual(BIA);
+    expect(element.props.onboardingFrontend).toEqual(REACT);
   });
 });

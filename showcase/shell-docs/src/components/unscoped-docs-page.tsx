@@ -22,6 +22,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
 import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
+import { onboardingFrontendFor } from "@/lib/docs-onboarding-frontend";
 import { buildRootSurfaceNav, loadDoc } from "@/lib/docs-render";
 import { getDocsFolder, getDocsMode, ROOT_FRAMEWORK } from "@/lib/registry";
 
@@ -49,6 +50,12 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
   // and only pages that carry framework-scoped content get it. The two props
   // answer different questions and are no longer expected to agree.
   const onboardingFramework = onboardingFrameworkFor(ROOT_FRAMEWORK);
+  // This component only ever serves URLs whose first segment is not a
+  // frontend id — `/quickstart`, `/concepts/architecture` — which is how the
+  // docs spell the default React frontend. Resolved once for the whole
+  // component, like the framework above, so the two branches below cannot
+  // disagree about the same page.
+  const onboardingFrontend = onboardingFrontendFor("");
 
   // BIA-authored page for this slug → render it BIA-scoped at the root
   // URL: BIA snippet resolution, root-relative hrefs.
@@ -62,6 +69,7 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
         slugHrefPrefix=""
         frameworkOverride={frameworkOverride}
         onboardingFramework={onboardingFramework}
+        onboardingFrontend={onboardingFrontend}
         navTree={navTree}
       />
     );
@@ -83,6 +91,7 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
       slugHrefPrefix=""
       frameworkOverride={frameworkOverride}
       onboardingFramework={onboardingFramework}
+      onboardingFrontend={onboardingFrontend}
       navTree={navTree}
     />
   );

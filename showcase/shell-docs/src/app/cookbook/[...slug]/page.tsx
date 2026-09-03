@@ -10,6 +10,7 @@ import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
 import { buildCookbookNavTree } from "@/lib/cookbook-nav";
 import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
+import { onboardingFrontendFor } from "@/lib/docs-onboarding-frontend";
 import { loadDoc } from "@/lib/docs-render";
 import { ROOT_FRAMEWORK } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
@@ -48,6 +49,8 @@ export default async function CookbookSlugPage({
       // Root surface, so the Built-in Agent is the framework this recipe is
       // read with — the same one `/<framework>/cookbook/<slug>` names.
       onboardingFramework={onboardingFrameworkFor(ROOT_FRAMEWORK)}
+      // No frontend segment in the URL: the default React frontend.
+      onboardingFrontend={onboardingFrontendFor("")}
       navTree={buildCookbookNavTree()}
       sidebarBannerSlot={null}
       sidebarClassName="shell-docs-sidebar-cookbook"

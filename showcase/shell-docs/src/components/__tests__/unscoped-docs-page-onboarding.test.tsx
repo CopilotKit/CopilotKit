@@ -26,6 +26,9 @@ import { describe, expect, it } from "vitest";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 
 const BIA = { slug: "built-in-agent", name: "Built-in" };
+// This component only serves URLs whose first segment is not a frontend id, so
+// every one of its branches resolves to the docs' default React frontend.
+const REACT = { id: "react", name: "React" };
 
 async function docsPageViewProps(
   slugPath: string,
@@ -45,6 +48,7 @@ describe("UnscopedDocsPage onboarding framework", () => {
     );
     expect(props.frameworkOverride).toBe("built-in-agent");
     expect(props.onboardingFramework).toEqual(BIA);
+    expect(props.onboardingFrontend).toEqual(REACT);
   });
 
   it("names the Built-in Agent on an agnostic page with a snippet cell", async () => {
@@ -55,6 +59,7 @@ describe("UnscopedDocsPage onboarding framework", () => {
     expect(props.contentSlugPath).toBeUndefined();
     expect(props.frameworkOverride).toBe("built-in-agent");
     expect(props.onboardingFramework).toEqual(BIA);
+    expect(props.onboardingFrontend).toEqual(REACT);
   });
 
   it("names the Built-in Agent on a page with no cell and no BIA override", async () => {
@@ -68,6 +73,7 @@ describe("UnscopedDocsPage onboarding framework", () => {
       // button no longer follows this prop.
       expect(props.frameworkOverride).toBeUndefined();
       expect(props.onboardingFramework).toEqual(BIA);
+      expect(props.onboardingFrontend).toEqual(REACT);
     }
   });
 });

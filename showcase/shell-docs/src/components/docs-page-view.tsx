@@ -101,6 +101,18 @@ export interface DocsPageViewProps {
    * framework in the prompt without resolving its content framework-scoped.
    */
   onboardingFramework?: { slug: string; name: string };
+  /**
+   * The frontend the page's URL selects: `id` is the docs frontend id, `name`
+   * its display name. Resolved from the pathname by `onboardingFrontendFor`,
+   * and named in the copied prompt right after the framework so the CLI's
+   * graph has to ask for neither selection.
+   *
+   * Deliberately separate from `frontendOverride` below, for the same reason
+   * `onboardingFramework` is separate from `frameworkOverride`: that one is a
+   * content concern (which frontend's snippets to render) and is legitimately
+   * absent on pages that still have a frontend selected in the URL.
+   */
+  onboardingFrontend?: { id: string; name: string };
   /** Frontend selected by the URL. Defaults to React on the root surface. */
   frontendOverride?: FrontendId;
   /** Pre-built nav tree. When omitted, defaults to the full docs tree. */
@@ -157,6 +169,7 @@ export async function DocsPageView({
   slugHrefPrefix,
   frameworkOverride,
   onboardingFramework,
+  onboardingFrontend,
   frontendOverride,
   navTree,
   bannerSlot,
@@ -306,6 +319,7 @@ export async function DocsPageView({
               slugHrefPrefix={slugHrefPrefix}
               githubUrl={buildGitHubUrl(doc.filePath)}
               onboardingFramework={onboardingFramework}
+              onboardingFrontend={onboardingFrontend}
             />
 
             {/* Thin divider between the page-actions row and the page body
