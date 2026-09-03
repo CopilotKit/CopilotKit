@@ -85,9 +85,16 @@ function variantClassName(variant: OnboardingPromptButtonVariant): string {
  * combination reads correctly — including all three absent, which copies the
  * canonical prompt alone.
  *
- * The run id is minted per click (not per page load): one clipboard write is
- * one onboarding attempt, and the CLI reports the same id back, so hoisting it
- * would collapse many attempts into one funnel row.
+ * The run id is minted once per mount and every click of that button reuses
+ * it: repeated clicks are one reader making one onboarding attempt, and only
+ * the id that survives on the clipboard can ever be reported back by the CLI.
+ * Minting per click left every click but the last as a funnel row nothing
+ * could close out.
+ *
+ * It is minted in an effect rather than a `useState` initialiser because
+ * `createOnboardingRunId` reads `crypto`, which is absent during SSR: the
+ * server render and the first client render have to agree, so both start with
+ * no id and the effect fills it in after hydration.
  */
 export function OnboardingPromptButton({
   variant,
@@ -145,6 +152,9 @@ export function OnboardingPromptButton({
   const pathname = usePathname();
   const posthog = usePostHog();
   const [copyState, setCopyState] = useState<OnboardingCopyState>("idle");
+  // One run id per mount (see the module comment). `null` until the effect
+  // runs, so the server render and the first client render agree.
+  const [runId, setRunId] = useState<string | null>(null);
   // Mirrors `MarkdownCopyButton`'s `isLoading`: the button is disabled while a
   // clipboard write is pending. The ref is the actual guard — a double-click
   // delivers both events before React re-renders, so both handlers would still
@@ -157,6 +167,10 @@ export function OnboardingPromptButton({
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyGenerationRef = useRef(0);
   const mountedRef = useRef(true);
+
+  useEffect(() => {
+    setRunId(createOnboardingRunId());
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -178,11 +192,10 @@ export function OnboardingPromptButton({
   }
 
   async function copyPrompt() {
-    // Ignore clicks while a write is still pending. Two writes would mint two
-    // run ids and report two copies, but only the last one survives on the
-    // clipboard, so the CLI can close out at most one of them and the other
-    // stays an open funnel row forever — exactly what the per-click run id
-    // exists to prevent.
+    // Ignore clicks while a write is still pending. The two writes now carry
+    // the same run id, so a double-click would report one onboarding attempt
+    // twice — two funnel rows for one reader, only one of which the CLI ever
+    // closes out.
     if (copyInFlightRef.current) return;
     copyInFlightRef.current = true;
     setIsCopying(true);
@@ -192,7 +205,9 @@ export function OnboardingPromptButton({
     resetTimerRef.current = null;
     setCopyState("idle");
 
-    const runId = createOnboardingRunId();
+    // The mount's id, unless the effect has not run yet — a click before
+    // hydration completes still has to copy a usable prompt.
+    const effectiveRunId = runId ?? createOnboardingRunId();
 
     // Reused verbatim from the hero button's helper so both surfaces name the
     // framework in the same words. It is "" for a framework the CLI's
@@ -222,7 +237,7 @@ export function OnboardingPromptButton({
 
     try {
       await navigator.clipboard.writeText(
-        createIntelligenceOnboardingPrompt(runId) +
+        createIntelligenceOnboardingPrompt(effectiveRunId) +
           frameworkSentence +
           frontendSentence +
           pageSentence,
@@ -263,7 +278,7 @@ export function OnboardingPromptButton({
     try {
       posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
         from_path: pathname,
-        onboarding_run_id: runId,
+        onboarding_run_id: effectiveRunId,
         // No `feature` property: every other emitter of this event sends a
         // value of the `IntelligenceOnboardingFeature` union
         // ("learning" | "threads"), and this button is neither. The

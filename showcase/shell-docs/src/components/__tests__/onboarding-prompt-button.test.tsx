@@ -2,6 +2,7 @@
 
 import React from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -59,6 +60,29 @@ const PAGE_SENTENCE = ` The developer copied this prompt from ${DOCS_ORIGIN}${PA
 /** Install a resolving clipboard stub and hand back its spy. */
 function stubClipboard() {
   const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+  return writeText;
+}
+
+/**
+ * Install a clipboard stub whose write stays pending until the returned
+ * `resolveWrite` is called, so a test can act while a copy is in flight.
+ */
+function stubPendingClipboard() {
+  let resolve: (() => void) | undefined;
+  const writeText = vi.fn(
+    () =>
+      new Promise<void>((resolveWrite) => {
+        resolve = resolveWrite;
+      }),
+  );
+  Object.assign(navigator, { clipboard: { writeText } });
+  return { writeText, resolveWrite: () => resolve?.() };
+}
+
+/** Install a clipboard stub whose write always rejects. */
+function stubRejectingClipboard() {
+  const writeText = vi.fn().mockRejectedValue(new Error("denied"));
   Object.assign(navigator, { clipboard: { writeText } });
   return writeText;
 }
@@ -208,10 +232,11 @@ it("omits the framework and frontend keys when the caller names neither", async 
   ]);
 });
 
-it("mints a fresh run id on every click", async () => {
-  // Today's behaviour, carried over unchanged: one clipboard write is one
-  // onboarding attempt, and the CLI closes out the id that was copied. A
-  // hoisted id would collapse a reader's two attempts onto one funnel row.
+it("keeps one run id for the lifetime of a mount", async () => {
+  // Repeated clicks on one button are one onboarding attempt, so they share
+  // one id. Minting per click left an unclosable funnel row behind every click
+  // but the last: only the id that survived on the clipboard ever reaches the
+  // CLI, so no other id can be closed out.
   const writeText = stubClipboard();
 
   render(
@@ -229,16 +254,171 @@ it("mints a fresh run id on every click", async () => {
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(2));
 
   const runIds = [reportedRunId(0), reportedRunId(1)];
-  expect(runIds[0]).not.toBe(runIds[1]);
+  expect(runIds[0]).toBe(runIds[1]);
   expect(runIds[0]).toMatch(/^[A-Za-z0-9_-]{12}$/);
 
-  // Each clipboard write carries its own id, not a re-used one.
+  // Both clipboard writes carry that one id, and it is the id reported.
   const suffix =
     frameworkPromptSuffix(MASTRA.slug, MASTRA.name) + PAGE_SENTENCE;
   expect(writeText.mock.calls[0][0]).toBe(
     createIntelligenceOnboardingPrompt(runIds[0]) + suffix,
   );
   expect(writeText.mock.calls[1][0]).toBe(
-    createIntelligenceOnboardingPrompt(runIds[1]) + suffix,
+    createIntelligenceOnboardingPrompt(runIds[0]) + suffix,
   );
+});
+
+it("writes and reports once for two clicks while the first write is pending", async () => {
+  // The in-flight guard. Both writes carry the mount's one run id, so without
+  // it a double-click would report the same onboarding attempt twice — two
+  // funnel rows for one reader, only one of which the CLI ever closes out.
+  const { writeText } = stubPendingClipboard();
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  const button = screen.getByRole("button");
+
+  // Native `.click()` inside one `act` scope, so React has not re-rendered
+  // (and applied `disabled`) between the two events. This exercises the ref
+  // guard inside the handler, not the disabled attribute.
+  await act(async () => {
+    button.click();
+    button.click();
+  });
+
+  expect(writeText).toHaveBeenCalledTimes(1);
+  expect(analytics.capture).not.toHaveBeenCalled();
+});
+
+it("re-enables the button after a clipboard write rejects", async () => {
+  // The disabled window must not get stuck on the failure path, or one blocked
+  // copy would take the button out of service for the rest of the page view.
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  stubRejectingClipboard();
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  clickCopy();
+
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /copy blocked/i })).toBeTruthy(),
+  );
+  expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(
+    false,
+  );
+});
+
+it("does not report ITS OWN event when the clipboard rejects", async () => {
+  // A run id that never reached a clipboard is an onboarding attempt that
+  // cannot happen, so it must not enter the funnel as one. Scoped to this
+  // component's own capture: the global tracker in
+  // `lib/providers/copy-tracker.tsx` reports before it delegates to the real
+  // `writeText`, and it is not installed in this test.
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  stubRejectingClipboard();
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  clickCopy();
+
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /copy blocked/i })).toBeTruthy(),
+  );
+  expect(analytics.capture).not.toHaveBeenCalled();
+  // The rejection is swallowed rather than re-thrown, so the console line is
+  // the only trace a blocked copy leaves.
+  expect(consoleError).toHaveBeenCalledWith(
+    "[onboarding-prompt-button] Copy agent prompt failed",
+    expect.any(Error),
+  );
+});
+
+it("announces both outcomes in the aria-live region", async () => {
+  // The icon swap is what a sighted reader sees; the polite region is what a
+  // screen reader gets instead. Success keeps the idle label — "Copied" is
+  // ~45px narrower and would slide the row's other buttons under the cursor —
+  // so the announcement is the only signal on that path.
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  stubClipboard();
+
+  const { container, unmount } = render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  const iconsBefore = container.querySelectorAll("svg").length;
+  clickCopy();
+
+  await waitFor(() => expect(screen.getByText("Prompt copied")).toBeTruthy());
+  expect(
+    screen.getByRole("button", { name: /copy agent prompt/i }),
+  ).toBeTruthy();
+  expect(container.querySelectorAll("svg").length).toBe(iconsBefore);
+
+  unmount();
+  stubRejectingClipboard();
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  clickCopy();
+
+  await waitFor(() =>
+    expect(screen.getByText("Prompt copy failed. Try again.")).toBeTruthy(),
+  );
+});
+
+it("survives unmounting while the clipboard write is still pending", async () => {
+  // The mounted/generation guards exist for exactly this: no state update and
+  // no reset timer may run against a component that is gone. The analytics
+  // call is deliberately still made — that write did reach the clipboard.
+  //
+  // React 19 no longer logs a "state update on an unmounted component"
+  // warning, so the console assertion alone would pass even with every guard
+  // deleted. The `setTimeout` assertion is the one with teeth: reaching
+  // `scheduleReset` after unmount means the generation check was skipped.
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const { resolveWrite } = stubPendingClipboard();
+
+  const { unmount } = render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  await act(async () => {
+    screen.getByRole("button").click();
+  });
+
+  unmount();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+  await act(async () => {
+    resolveWrite();
+  });
+
+  expect(setTimeoutSpy).not.toHaveBeenCalled();
+  expect(consoleError).not.toHaveBeenCalled();
 });
