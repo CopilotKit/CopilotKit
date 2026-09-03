@@ -62,6 +62,9 @@ Before editing framework docs, check the framework's `docs_mode`.
   shared/root pages and framework-specific pages.
 - When adding, renaming, or removing an Inspector pane, follow
   `skills/inspector-docs/SKILL.md` so the matching docs Callout stays in sync.
+- When an Intelligence feature ships or Intelligence docs are added, renamed, or
+  removed, follow `skills/intelligence-docs/SKILL.md` so `/intelligence/overview`
+  stays in sync.
 - Inspector UI, chrome, and overlay work uses
   `skills/inspector-workbench/SKILL.md`. Start the standalone lab and take
   screenshots. Do not use a showcase app as the default host.
