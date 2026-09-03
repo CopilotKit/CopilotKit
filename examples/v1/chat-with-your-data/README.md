@@ -33,7 +33,7 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
 
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
-   cd CopilotKit/examples/showcases/chat-with-your-data
+   cd CopilotKit/examples/v1/chat-with-your-data
    ```
 
 2. Install dependencies:

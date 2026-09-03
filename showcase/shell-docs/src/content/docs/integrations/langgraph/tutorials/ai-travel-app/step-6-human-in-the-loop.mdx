@@ -11,7 +11,7 @@ run.
 `agent/src/agent.py` routes trip tools through `trips_node` and compiles the
 graph with an interrupt after that node:
 
-```python title="examples/showcases/travel/agent/src/agent.py"
+```python title="examples/v1/travel/agent/src/agent.py"
 graph_builder.add_edge("trips_node", "perform_trips_node")
 
 graph = graph_builder.compile(
@@ -28,7 +28,7 @@ before `perform_trips_node` changes state.
 The v2 `useHumanInTheLoop` hook pairs each trip tool with a React component.
 This example uses a Zod schema and the same `travel` agent ID as the provider:
 
-```tsx title="examples/showcases/travel/lib/hooks/use-trips.tsx"
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
 import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
 
 useHumanInTheLoop({
@@ -45,7 +45,7 @@ useHumanInTheLoop({
 The update and delete tools use the same hook. They pass current trip state as
 a dependency because their approval cards need it:
 
-```tsx title="examples/showcases/travel/lib/hooks/use-trips.tsx"
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
 useHumanInTheLoop(
   {
     name: "delete_trips",
@@ -72,7 +72,7 @@ useHumanInTheLoop(
 The hook's `respond` function resumes the paused run. The approval components
 enable their buttons only while the tool call is waiting for a result:
 
-```tsx title="examples/showcases/travel/components/humanInTheLoop/ActionButtons.tsx"
+```tsx title="examples/v1/travel/components/humanInTheLoop/ActionButtons.tsx"
 import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 <Button
@@ -97,7 +97,7 @@ request is in flight. It also keeps a failed result so the user can retry.
 The response arrives as the latest `ToolMessage`. The agent stops the trip
 operation when its content is `CANCEL`:
 
-```python title="examples/showcases/travel/agent/src/trips.py"
+```python title="examples/v1/travel/agent/src/trips.py"
 async def perform_trips_node(state: AgentState, config: RunnableConfig):
     ai_message = cast(AIMessage, state["messages"][-2])
     tool_message = cast(ToolMessage, state["messages"][-1])

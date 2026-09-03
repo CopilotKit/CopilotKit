@@ -24,7 +24,7 @@ cd CopilotKit
 pnpm install
 ```
 
-The completed v2 example lives at `examples/showcases/travel`. Its main parts
+The completed v2 example lives at `examples/v1/travel`. Its main parts
 are:
 
 - `app/`: the Next.js page and v2 runtime route
@@ -40,7 +40,7 @@ From the repository root, install the Python dependencies with the example's
 script:
 
 ```shell
-cd examples/showcases/travel
+cd examples/v1/travel
 pnpm install:agent
 ```
 
@@ -52,7 +52,7 @@ The script runs `uv sync` in the `agent/` directory.
 
 Create `agent/.env` inside the travel example:
 
-```txt title="examples/showcases/travel/agent/.env"
+```txt title="examples/v1/travel/agent/.env"
 OPENAI_API_KEY=<your-openai-api-key>
 GOOGLE_MAPS_API_KEY=<your-google-maps-api-key>
 ```
@@ -64,7 +64,7 @@ and a Google Maps key from the [Google Maps Platform guide](https://developers.g
 <Step>
 ### Start the app and agent
 
-Run this command from `examples/showcases/travel`:
+Run this command from `examples/v1/travel`:
 
 ```shell
 pnpm dev

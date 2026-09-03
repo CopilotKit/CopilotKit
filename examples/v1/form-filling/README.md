@@ -33,7 +33,7 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
 
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
-   cd CopilotKit/examples/showcases/form-filling
+   cd CopilotKit/examples/v1/form-filling
    ```
 
 2. Install dependencies:

@@ -14,8 +14,8 @@ Open Multi-Agent Canvas, created by [CopilotKit](https://github.com/CopilotKit/C
 
 Check out these awesome agents (they live in separate directories in this repository). You can run them separately or deploy them on LangSmith:
 
-- [CoAgents Travel Agent](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/travel/agent)
-- [CoAgents AI Researcher](https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/research-canvas/agents)
+- [CoAgents Travel Agent](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v1/travel/agent)
+- [CoAgents AI Researcher](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v1/research-canvas/agents)
 
 Additionally, this project now includes a built-in MCP (Model Context Protocol) Agent:
 

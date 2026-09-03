@@ -43,7 +43,7 @@ The example showcases how to implement complex conversational flows using a stat
 
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
-   cd CopilotKit/examples/showcases/state-machine
+   cd CopilotKit/examples/v1/state-machine
    ```
 
 2. Install dependencies:

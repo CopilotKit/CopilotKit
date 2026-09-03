@@ -3,7 +3,7 @@ title: "Step 3: Connect CopilotKit v2"
 ---
 
 The travel app uses the CopilotKit v2 React and runtime entry points. Both are
-subpaths of packages already declared in `examples/showcases/travel/package.json`:
+subpaths of packages already declared in `examples/v1/travel/package.json`:
 
 - React hooks, providers, and chat UI come from `@copilotkit/react-core/v2`.
 - Runtime classes and handlers come from `@copilotkit/runtime/v2`.
@@ -16,7 +16,7 @@ See the [v1 to v2 migration guide](/migrate/v2) for the full import map.
 `app/page.tsx` imports the provider, chat configuration, sidebar, and styles
 from the v2 React entry point:
 
-```tsx title="examples/showcases/travel/app/page.tsx"
+```tsx title="examples/v1/travel/app/page.tsx"
 import {
   CopilotChatConfigurationProvider,
   CopilotKit,
@@ -29,7 +29,7 @@ The provider uses the local runtime by default. If
 `NEXT_PUBLIC_CPK_PUBLIC_API_KEY` is set, it uses that Copilot Cloud project
 instead:
 
-```tsx title="examples/showcases/travel/app/page.tsx"
+```tsx title="examples/v1/travel/app/page.tsx"
 export default function Home() {
   const publicApiKey = process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY;
 
@@ -65,7 +65,7 @@ The state and tool hooks in the next steps use the same agent ID.
 to the agent. During local development, `LangGraphHttpAgent` calls the AG-UI
 endpoint started in Step 2:
 
-```ts title="examples/showcases/travel/app/api/copilotkit/[[...slug]]/route.ts"
+```ts title="examples/v1/travel/app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,

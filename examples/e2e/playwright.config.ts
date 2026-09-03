@@ -5,11 +5,11 @@ const EXAMPLE = process.env.EXAMPLE ?? "form-filling";
 const PORT = Number(process.env.PORT ?? "3000");
 
 const EXAMPLE_PATHS: Record<string, string> = {
-  "chat-with-your-data": "../showcases/chat-with-your-data",
-  "form-filling": "../showcases/form-filling",
-  "research-canvas": "../canvas/research-canvas",
-  "state-machine": "../showcases/state-machine",
-  travel: "../showcases/travel",
+  "chat-with-your-data": "../v1/chat-with-your-data",
+  "form-filling": "../v1/form-filling",
+  "research-canvas": "../v1/research-canvas",
+  "state-machine": "../v1/state-machine",
+  travel: "../v1/travel",
 };
 
 const examplePath = EXAMPLE_PATHS[EXAMPLE];

@@ -10,10 +10,7 @@ const stepOneSource = readFileSync(
 );
 
 const agentLockSource = readFileSync(
-  new URL(
-    "../../../../../examples/showcases/travel/agent/uv.lock",
-    import.meta.url,
-  ),
+  new URL("../../../../../examples/v1/travel/agent/uv.lock", import.meta.url),
   "utf8",
 );
 
