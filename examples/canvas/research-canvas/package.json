@@ -12,7 +12,7 @@
     "dev:agent": "npm run dev:agent:py",
     "dev:agent:py": "cd agents/python && uv run main.py",
     "install:agent:py": "cd agents/python && uv sync",
-    "install:agent:ts": "cd agents/typescript && pnpm i"
+    "install:agent:ts": "pnpm install --filter @copilotkit-examples/research-canvas-agent..."
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",

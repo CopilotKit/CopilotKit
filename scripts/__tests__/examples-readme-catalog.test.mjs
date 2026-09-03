@@ -25,6 +25,29 @@ const chatWithYourDataPackage = JSON.parse(
     "utf8",
   ),
 );
+const researchAgentPackage = JSON.parse(
+  fs.readFileSync(
+    path.join(
+      examplesRoot,
+      "canvas",
+      "research-canvas",
+      "agents",
+      "typescript",
+      "package.json",
+    ),
+    "utf8",
+  ),
+);
+const researchCanvasPackage = JSON.parse(
+  fs.readFileSync(
+    path.join(examplesRoot, "canvas", "research-canvas", "package.json"),
+    "utf8",
+  ),
+);
+const pnpmWorkspace = fs.readFileSync(
+  path.join(repoRoot, "pnpm-workspace.yaml"),
+  "utf8",
+);
 
 const categories = [
   { directory: "integrations", heading: "Integrations" },
@@ -120,6 +143,25 @@ env:
 test("chat-with-your-data declares the runner used by its test script", () => {
   assert.match(chatWithYourDataPackage.scripts.test, /\btsx\b/);
   assert.equal(typeof chatWithYourDataPackage.devDependencies.tsx, "string");
+});
+
+test("Research Canvas TypeScript agent is an installable workspace package", () => {
+  assert.match(
+    pnpmWorkspace,
+    /^  - "examples\/canvas\/research-canvas\/agents\/typescript"$/m,
+  );
+  assert.equal(
+    researchAgentPackage.name,
+    "@copilotkit-examples/research-canvas-agent",
+  );
+  assert.equal(researchAgentPackage.private, true);
+  assert.equal(researchAgentPackage.scripts.test, "vitest run src/*.test.ts");
+  assert.equal(typeof researchAgentPackage.devDependencies.vitest, "string");
+  assert.equal(researchAgentPackage.packageManager, undefined);
+  assert.equal(
+    researchCanvasPackage.scripts["install:agent:ts"],
+    "pnpm install --filter @copilotkit-examples/research-canvas-agent...",
+  );
 });
 
 for (const { directory, heading } of categories) {
