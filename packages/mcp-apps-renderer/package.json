@@ -1,0 +1,92 @@
+{
+  "name": "@copilotkit/mcp-apps-renderer",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Framework-agnostic MCP Apps host for CopilotKit - the app<->host protocol (ext-apps AppBridge), sandbox proxy, and shared renderer consumed by the React, Vue, and Angular frontends",
+  "keywords": [
+    "ai",
+    "copilotkit",
+    "mcp",
+    "mcp-apps",
+    "ext-apps",
+    "renderer",
+    "ui"
+  ],
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/mcp-apps-renderer"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./web-components": {
+      "import": {
+        "types": "./dist/web-components/index.d.mts",
+        "default": "./dist/web-components/index.mjs"
+      },
+      "require": {
+        "types": "./dist/web-components/index.d.cts",
+        "default": "./dist/web-components/index.cjs"
+      }
+    },
+    "./web-components/define": {
+      "import": {
+        "types": "./dist/web-components/define.d.mts",
+        "default": "./dist/web-components/define.mjs"
+      },
+      "require": {
+        "types": "./dist/web-components/define.d.cts",
+        "default": "./dist/web-components/define.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "dependencies": {
+    "@copilotkit/shared": "workspace:*",
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
+    "lit": "^3.3.2"
+  },
+  "peerDependencies": {
+    "@ag-ui/client": "0.0.59",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": ">=3.25"
+  },
+  "devDependencies": {
+    "@ag-ui/client": "0.0.59",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "jsdom": "^26.1.0",
+    "tsdown": "^0.20.3",
+    "typescript": "5.9.2",
+    "vitest": "^3.2.4",
+    "zod": "^3.25.76"
+  }
+}
