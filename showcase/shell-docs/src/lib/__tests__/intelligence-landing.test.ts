@@ -26,6 +26,22 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     snippet.indexOf("## What is CopilotKit Intelligence?"),
   );
   expect(snippet).toContain("## What the platform adds");
+  expect(snippet).toContain("| Analytics |");
+  expect(snippet).toContain("| Automatic learning |");
+  expect(snippet).toContain("<IntelligenceFeatureCards");
+  expect(snippet).toContain(
+    "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
+  );
+  expect(snippet).toContain("](/intelligence/quickstart)");
+  expect(snippet.indexOf("## What the platform adds")).toBeLessThan(
+    snippet.indexOf("<IntelligenceFeatureCards"),
+  );
+  expect(snippet.indexOf("<IntelligenceFeatureCards")).toBeLessThan(
+    snippet.indexOf("](/intelligence/quickstart)"),
+  );
+  expect(snippet.indexOf("](/intelligence/quickstart)")).toBeLessThan(
+    snippet.indexOf("## Hosting options"),
+  );
   expect(snippet).toContain("## Hosting options");
 });
 
@@ -37,5 +53,6 @@ test("the MDX registry and page view wire IntelligenceOverview and hideHeader", 
     'from "@/components/content/landing-pages/intelligence-overview"',
   );
   expect(registry).toContain("IntelligenceOverview,");
+  expect(registry).toContain("IntelligenceFeatureCards,");
   expect(pageView).toContain("!doc.fm.hideHeader");
 });

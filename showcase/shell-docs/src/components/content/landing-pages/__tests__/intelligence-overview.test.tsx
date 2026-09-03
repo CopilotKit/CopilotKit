@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   INTELLIGENCE_SIZZLE_VIDEO_URL,
+  IntelligenceFeatureCards,
   IntelligenceOverview,
 } from "../intelligence-overview";
 
@@ -36,7 +37,7 @@ describe("IntelligenceOverview", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Ship durable agent experiences",
+        name: "Ship production grade agent experiences",
       }),
     ).toBeTruthy();
     expect(
@@ -60,10 +61,17 @@ describe("IntelligenceOverview", () => {
     expect(video.controls).toBe(true);
     expect(video.muted).toBe(true);
     expect(video.loop).toBe(true);
+
+    const prompt = screen.getByRole("button", {
+      name: /copy onboarding prompt/i,
+    });
+    expect(
+      video.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("links each feature card to its guide", () => {
-    render(<IntelligenceOverview />);
+    render(<IntelligenceFeatureCards />);
 
     expect(
       screen
@@ -91,15 +99,17 @@ describe("IntelligenceOverview", () => {
         .getByRole("link", { name: "Open the self-hosting guide" })
         .getAttribute("href"),
     ).toBe("/intelligence/self-hosting");
-  });
 
-  it("links pricing out to the public pricing page", () => {
-    render(<IntelligenceOverview />);
-
-    expect(
-      screen
-        .getByRole("link", { name: "See CopilotKit Intelligence pricing" })
-        .getAttribute("href"),
-    ).toBe("https://www.copilotkit.ai/pricing");
+    for (const title of [
+      "Rich Threads",
+      "Analytics",
+      "Automatic Learning",
+      "Self-hosting",
+    ]) {
+      const card = screen
+        .getByRole("heading", { name: title })
+        .closest("article");
+      expect(card?.querySelector("svg")).toBeTruthy();
+    }
   });
 });
