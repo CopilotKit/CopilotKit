@@ -79,7 +79,7 @@ const SECTION_ICONS: Record<string, string> = {
   "get started": "lucide/Rocket",
   concepts: "lucide/BookOpen",
   "build chat uis": "lucide/MessageSquare",
-  "build generative ui": "lucide/Paintbrush",
+  "build generative ui": "lucide/LayoutTemplate",
   "add agent powers": "lucide/Wand2",
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
@@ -93,11 +93,11 @@ const SECTION_ICONS: Record<string, string> = {
   // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
   // when those section labels change in that meta.json.
   "getting started": "lucide/Rocket",
-  basics: "lucide/LayoutGrid",
-  "generative ui": "lucide/Paintbrush",
+  basics: "lucide/Sprout",
+  "generative ui": "lucide/LayoutTemplate",
   "app control": "lucide/WandSparkles",
   interactivity: "lucide/MousePointer",
-  "agent capabilities": "lucide/Cpu",
+  "agent capabilities": "lucide/Sparkles",
   "built-in agent": "lucide/Bot",
   backend: "lucide/Server",
   learn: "lucide/BookOpen",

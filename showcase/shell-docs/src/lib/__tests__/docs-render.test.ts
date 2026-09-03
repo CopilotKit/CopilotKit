@@ -526,13 +526,18 @@ describe("framework nav", () => {
       navTree.find(
         (node) => node.type === "section" && node.title === "Basics",
       ),
-    ).toMatchObject({ icon: "lucide/LayoutGrid" });
+    ).toMatchObject({ icon: "lucide/Sprout" });
+    expect(
+      navTree.find(
+        (node) => node.type === "section" && node.title === "Generative UI",
+      ),
+    ).toMatchObject({ icon: "lucide/LayoutTemplate" });
     expect(
       navTree.find(
         (node) =>
           node.type === "section" && node.title === "Agent capabilities",
       ),
-    ).toMatchObject({ icon: "lucide/Cpu" });
+    ).toMatchObject({ icon: "lucide/Sparkles" });
     expect(
       navTree.find(
         (node) => node.type === "section" && node.title === "Other",

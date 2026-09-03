@@ -1305,6 +1305,50 @@ figure.shiki > div:first-child[class*="border-b"] {
   mask-image: none !important;
 }
 
+/* Scroll-edge affordances. SidebarScrollPreserver adds the state attributes
+ * only while more navigation content exists beyond the visible edge. */
+.shell-docs-sidebar [data-shell-docs-scroll-frame] {
+  position: relative;
+}
+
+.shell-docs-sidebar [data-shell-docs-scroll-frame]::before,
+.shell-docs-sidebar [data-shell-docs-scroll-frame]::after {
+  position: absolute;
+  z-index: 10;
+  right: 0;
+  left: 0;
+  height: 0.75rem;
+  pointer-events: none;
+  content: "";
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.shell-docs-sidebar [data-shell-docs-scroll-frame]::before {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--text) 10%, transparent),
+    transparent
+  );
+}
+
+.shell-docs-sidebar [data-shell-docs-scroll-frame]::after {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--text) 10%, transparent),
+    transparent
+  );
+}
+
+.shell-docs-sidebar
+  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-top]::before,
+.shell-docs-sidebar
+  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-bottom]::after {
+  opacity: 1;
+}
+
 /* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)
  * to the names Fumadocs's shadcn preset expects (--background, --foreground,
  * --primary, …). Done in @theme inline so Tailwind's color utilities

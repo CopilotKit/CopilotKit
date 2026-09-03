@@ -154,4 +154,11 @@ describe("globals.css sidebar section labels", () => {
     );
     expect(globalsCss).not.toContain("shell-docs-sidebar-section-label");
   });
+
+  it("renders sidebar scroll shadows only at overflowing edges", () => {
+    expect(globalsCss).toContain("[data-shell-docs-scroll-shadow-top]::before");
+    expect(globalsCss).toContain(
+      "[data-shell-docs-scroll-shadow-bottom]::after",
+    );
+  });
 });
