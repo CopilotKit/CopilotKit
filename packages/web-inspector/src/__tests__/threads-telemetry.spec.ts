@@ -846,14 +846,6 @@ const placementCases = [
     renderedPlacement: "threads-footer",
     telemetryPlacement: "threads_footer",
   },
-  {
-    name: "locked body",
-    endpoints: LOCKED_ENDPOINTS,
-    actionKind: "renew",
-    licenseState: "expired",
-    renderedPlacement: "locked",
-    telemetryPlacement: "threads_locked",
-  },
 ] satisfies readonly PlacementCase[];
 
 test.each(placementCases)(
@@ -923,6 +915,59 @@ test.each(placementCases)(
     }
   },
 );
+
+test("the locked feature engineer CTA serializes its coarse placement", async () => {
+  const lockedCase = {
+    name: "locked body",
+    endpoints: LOCKED_ENDPOINTS,
+    actionKind: "renew",
+    licenseState: "expired",
+    renderedPlacement: "locked",
+    telemetryPlacement: "threads_locked",
+  } as const;
+  const harness = await setup({
+    endpoints: lockedCase.endpoints,
+    metadataResponses: [metadataWithAction(lockedCase)],
+    threadsByAgent: { alpha: [] },
+  });
+  try {
+    await harness.open();
+
+    const root = requireElement(
+      harness.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const action = requireElement(
+      root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-locked-feature-talk="threads"]',
+      ),
+      "Locked feature engineer action was not rendered",
+    );
+
+    action.dispatchEvent(new Event("click"));
+    await harness.flush();
+
+    const clicked = harness.telemetryFor(
+      TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
+    );
+    expect(clicked).toHaveLength(1);
+    expectExactProperties(
+      requireElement(clicked[0], "Engineer click was not captured"),
+      threadCommon({
+        intelligence_status: "intelligence_not_enabled",
+        thread_service_status: "unavailable",
+        license_status: "expired",
+        usage_bucket: "within_limit",
+        expiry_bucket: "positive",
+        cta: "talk_to_engineer",
+        cta_surface: "threads_locked",
+        posthog_distinct_id: expect.any(String),
+      }),
+    );
+  } finally {
+    await harness.teardown();
+  }
+});
 
 test("all examples and the complete tour serialize only closed kinds and step pairs", async () => {
   const harness = await setup();
@@ -1242,12 +1287,10 @@ test("Settings overlay keeps Learning memories keys for changed metadata", async
 test("runtime telemetry opt-out stops every rendered Thread telemetry side effect", async () => {
   const disclosureLog = vi.spyOn(console, "info").mockImplementation(() => {});
   const harness = await setup({
-    endpoints: LOCKED_ENDPOINTS,
+    endpoints: ENABLED_ENDPOINTS,
     initialMenu: "ag-ui-events",
     telemetryDisabled: true,
-    threadsByAgent: {
-      alpha: [realThread("alpha", "opted-out-seeded-row")],
-    },
+    threadsByAgent: { alpha: [] },
   });
   try {
     await harness.open();

@@ -11,7 +11,7 @@ description: >
   discouraged. Load the reference under references/ that matches your task.
 type: core
 library: copilotkit
-library_version: "1.70.0"
+library_version: "1.70.1"
 requires: []
 sources:
   - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/fetch-handler.ts"

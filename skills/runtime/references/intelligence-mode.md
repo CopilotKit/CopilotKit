@@ -1,6 +1,6 @@
 # CopilotKit Intelligence Mode
 
-Published version: https://docs.copilotkit.ai/premium/connect-your-runtime
+Published version: https://docs.copilotkit.ai/intelligence/connect-your-runtime
 
 Intelligence currently ships as a managed cloud service. The only supported `apiUrl` /
 `wsUrl` today is the CopilotKit-managed cloud Intelligence instance — the `ɵ`-prefixed

@@ -2245,7 +2245,6 @@ function setupRuntimeDiagnostics() {
 test.each([
   {
     diagnostic: "ready entitlement",
-    status: "ready",
     legacyStatus: "expired",
     runtimeEntitlements: {
       status: "ready",
@@ -2258,15 +2257,10 @@ test.each([
         entitlementSource: "clerk_subscription",
       },
     },
-    errorMessage: undefined,
-    errorCode: undefined,
-    requestId: undefined,
-    traceId: undefined,
     lockedHeading: "Renew Intelligence to inspect Threads.",
   },
   {
     diagnostic: "expired self-hosted entitlement",
-    status: "degraded",
     legacyStatus: "valid",
     runtimeEntitlements: {
       status: "degraded",
@@ -2278,15 +2272,10 @@ test.each([
         traceId: "trace-expired",
       },
     },
-    errorMessage: "Self-hosted license has expired.",
-    errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
-    requestId: "req-expired",
-    traceId: "trace-expired",
     lockedHeading: "Finish setting up Rich Threads",
   },
   {
     diagnostic: "misconfigured self-hosted entitlement",
-    status: "misconfigured",
     legacyStatus: "valid",
     runtimeEntitlements: {
       status: "misconfigured",
@@ -2296,15 +2285,10 @@ test.each([
         retryable: false,
       },
     },
-    errorMessage: "Self-hosted license configuration is missing or invalid.",
-    errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
-    requestId: undefined,
-    traceId: undefined,
     lockedHeading: "Finish setting up Rich Threads",
   },
   {
     diagnostic: "unavailable managed entitlement",
-    status: "unavailable",
     legacyStatus: "valid",
     runtimeEntitlements: {
       status: "unavailable",
@@ -2314,15 +2298,10 @@ test.each([
         retryable: true,
       },
     },
-    errorMessage: "Managed entitlement resolution is temporarily unavailable.",
-    errorCode: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
-    requestId: undefined,
-    traceId: undefined,
     lockedHeading: "Finish setting up Rich Threads",
   },
   {
     diagnostic: "SDK fail-soft entitlement lookup",
-    status: "unavailable",
     legacyStatus: "valid",
     runtimeEntitlements: {
       status: "unavailable",
@@ -2332,24 +2311,11 @@ test.each([
         retryable: true,
       },
     },
-    errorMessage: "Runtime entitlement lookup failed",
-    errorCode: "runtime_entitlements_unavailable",
-    requestId: undefined,
-    traceId: undefined,
     lockedHeading: "Finish setting up Rich Threads",
   },
 ] as const)(
-  "renders structured Runtime entitlement diagnostics for $diagnostic",
-  async ({
-    status,
-    legacyStatus,
-    runtimeEntitlements,
-    errorMessage,
-    errorCode,
-    requestId,
-    traceId,
-    lockedHeading,
-  }) => {
+  "keeps the unified locked splash for $diagnostic",
+  async ({ legacyStatus, runtimeEntitlements, lockedHeading }) => {
     const fixture = setupRuntimeDiagnostics();
 
     try {
@@ -2361,24 +2327,12 @@ test.each([
       const diagnostics = inspector.shadowRoot?.querySelectorAll(
         "[data-runtime-entitlement-status]",
       );
-      const diagnostic = inspector.shadowRoot?.querySelector<HTMLElement>(
-        `[data-runtime-entitlement-status="${status}"]`,
-      );
-
-      expect(diagnostics).toHaveLength(1);
-      expect(diagnostic).not.toBeNull();
-      if (errorMessage) {
-        expect(diagnostic?.textContent).toContain(errorMessage);
-      }
-      if (errorCode) {
-        expect(diagnostic?.textContent).toContain(errorCode);
-      }
-      if (requestId) {
-        expect(diagnostic?.textContent).toContain(requestId);
-      }
-      if (traceId) {
-        expect(diagnostic?.textContent).toContain(traceId);
-      }
+      expect(diagnostics).toHaveLength(0);
+      expect(
+        inspector.shadowRoot?.querySelector(
+          '[data-inspector-feature-video="threads"]',
+        ),
+      ).not.toBeNull();
       expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
       expect(
         fixture.fetchMock.mock.calls.some((call) =>
@@ -2391,7 +2345,7 @@ test.each([
   },
 );
 
-test("falls back to expired legacy license diagnostics when structured entitlements are omitted", async () => {
+test("keeps the unified locked splash for an expired legacy license", async () => {
   const fixture = setupRuntimeDiagnostics();
 
   try {
@@ -2402,12 +2356,7 @@ test("falls back to expired legacy license diagnostics when structured entitleme
     const diagnostics = inspector.shadowRoot?.querySelectorAll(
       "[data-runtime-entitlement-status]",
     );
-    const degraded = inspector.shadowRoot?.querySelector(
-      '[data-runtime-entitlement-status="degraded"]',
-    );
-
-    expect(diagnostics).toHaveLength(1);
-    expect(degraded).not.toBeNull();
+    expect(diagnostics).toHaveLength(0);
     expect(inspector.shadowRoot?.textContent ?? "").toContain(
       "Renew Intelligence to inspect Threads.",
     );
@@ -2766,11 +2715,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     ).map((anchor) => anchor.textContent?.trim());
     expect(
       ctaLabels.filter((label) => label === "Talk to an Engineer"),
-    ).toEqual(["Talk to an Engineer"]);
+    ).toEqual(["Talk to an Engineer", "Talk to an Engineer"]);
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
+      '[data-inspector-locked-feature-talk="threads"]',
     );
-    expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
+    expect(engineer?.closest("#cpk-main-scroll")).not.toBeNull();
+    expect(inspector.shadowRoot?.querySelector("cpk-thread-list")).toBeNull();
+    expect(text).toContain("Rich Threads");
     expect(text).not.toContain("No threads yet");
     expect(
       fetchMock.mock.calls.some((call) => String(call[0]).includes("/threads")),
@@ -3502,15 +3453,37 @@ describe("WebInspectorElement memories — view states", () => {
     const text = el.shadowRoot?.textContent ?? "";
     expect(text).toContain("Learning");
     expect(text).toContain(
-      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
+      "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
     );
-    expect(el.shadowRoot?.querySelector(".cpk-memory-locked")).not.toBeNull();
     expect(
-      el.shadowRoot?.querySelector(".cpk-memory-locked-scrim"),
+      el.shadowRoot?.querySelector('[data-inspector-locked-feature="memory"]'),
     ).not.toBeNull();
+    const video = el.shadowRoot?.querySelector<HTMLIFrameElement>(
+      '[data-inspector-feature-video="memory"]',
+    );
+    expect(video?.src).toBe(
+      "https://www.loom.com/embed/2978fbfe42324e509057ac5fd46b7a70?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true",
+    );
+    const outline = el.shadowRoot?.querySelector(
+      '[data-inspector-feature-outline="memory"]',
+    );
+    expect(outline?.getAttribute("aria-label")).toBe("Learning capabilities");
+    expect(outline?.textContent).toContain("Memory across sessions");
+    expect(outline?.textContent).toContain("Recall by meaning");
+    expect(outline?.textContent).toContain("Built-in structure");
+    expect(outline?.textContent).toContain("Full visibility");
+    const setupPrompt = el.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-inspector-feature-setup-prompt="memory"]',
+    );
+    expect(setupPrompt?.classList.contains("inspector-account-cta")).toBe(true);
     expect(
-      el.shadowRoot?.querySelector(".cpk-memory-locked-action-secondary"),
+      el.shadowRoot?.querySelector(
+        '.cpk-locked-feature-icon svg[viewBox="0 0 24 24"]',
+      ),
     ).not.toBeNull();
+    expect(el.shadowRoot?.textContent).not.toContain(
+      "Sign up for Intelligence",
+    );
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -3522,7 +3495,9 @@ describe("WebInspectorElement memories — view states", () => {
     const core = makeCoreWithMemory([], { licenseStatus: "none" });
     const el = await mountMemories(core);
 
-    expect(el.shadowRoot?.querySelector(".cpk-memory-locked")).not.toBeNull();
+    expect(
+      el.shadowRoot?.querySelector('[data-inspector-locked-feature="memory"]'),
+    ).not.toBeNull();
     expect(
       el.shadowRoot?.querySelector(
         '[data-inspector-feature-setup-prompt="memory"]',
@@ -3534,24 +3509,25 @@ describe("WebInspectorElement memories — view states", () => {
   it("does not use Threads onboarding UTM attribution for locked memory CTAs", async () => {
     const core = makeCoreNoIntelligence();
     const el = await mountMemories(core);
+    const lockedOverview = el.shadowRoot?.querySelector<HTMLElement>(
+      '[data-inspector-locked-feature="memory"]',
+    );
 
-    const talkToEngineer = el.shadowRoot?.querySelector<HTMLAnchorElement>(
+    const talkToEngineer = lockedOverview?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
-    const signup = el.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://intelligence.copilotkit.ai/?ref="]',
-    );
-
     expect(talkToEngineer).not.toBeNull();
-    expect(signup).not.toBeNull();
+    expect(
+      lockedOverview?.querySelector(
+        'a[href^="https://intelligence.copilotkit.ai/?ref="]',
+      ),
+    ).toBeNull();
 
-    for (const href of [talkToEngineer!.href, signup!.href]) {
-      const url = new URL(href);
-      expect(url.searchParams.get("ref")).toBeTruthy();
-      expect(url.searchParams.has("utm_source")).toBe(false);
-      expect(url.searchParams.has("utm_medium")).toBe(false);
-      expect(url.searchParams.has("utm_campaign")).toBe(false);
-    }
+    const url = new URL(talkToEngineer!.href);
+    expect(url.searchParams.get("ref")).toBeTruthy();
+    expect(url.searchParams.has("utm_source")).toBe(false);
+    expect(url.searchParams.has("utm_medium")).toBe(false);
+    expect(url.searchParams.has("utm_campaign")).toBe(false);
   });
 
   it("renders the locked teaser when memories are unavailable", async () => {
@@ -4123,11 +4099,11 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
     await el.updateComplete;
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("@copilotkit SDK");
-    expect(text).toContain("Upgrade");
+    expect(text).toContain("Upgrade to enable Learning");
+    expect(text).toContain("@copilotkit/core and @copilotkit/react");
     // Must NOT show the deployment-not-enabled copy in this case.
     expect(text).not.toContain(
-      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
+      "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
     );
   });
 
@@ -4139,9 +4115,9 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
 
     const text = el.shadowRoot?.textContent ?? "";
     expect(text).toContain(
-      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
+      "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
     );
-    expect(text).not.toContain("@copilotkit SDK");
+    expect(text).not.toContain("Learning requires a newer version");
   });
 });
 

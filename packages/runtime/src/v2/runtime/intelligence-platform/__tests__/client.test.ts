@@ -423,6 +423,48 @@ describe("CopilotKitIntelligence", () => {
     expect(c.ɵgetChannelsWsUrl()).toBe("wss://ws.example.com/channels");
   });
 
+  describe("apiKey validation", () => {
+    it.each([
+      ["an absent key", undefined],
+      ["an empty key", ""],
+      ["a whitespace-only key", "   "],
+    ])("rejects %s at construction, naming the variable", (_label, apiKey) => {
+      expect(
+        () =>
+          new CopilotKitIntelligence({
+            apiKey: apiKey as unknown as string,
+          }),
+      ).toThrow(/CPK_INTELLIGENCE_API_KEY/);
+    });
+
+    it("names the command that provisions a key", () => {
+      expect(() => new CopilotKitIntelligence({ apiKey: "" })).toThrow(
+        /copilotkit project select/,
+      );
+    });
+
+    it("does not echo the rejected key value", () => {
+      // The key is a `cpk-…` secret end to end, so the message must name the
+      // variable and never the value — see `parseProjectIdFromApiKey`, which
+      // omits it for the same reason.
+      const construct = () => new CopilotKitIntelligence({ apiKey: "\t\t" });
+      let message = "";
+      try {
+        construct();
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/CPK_INTELLIGENCE_API_KEY/);
+      expect(message).not.toContain("\t\t");
+    });
+
+    it("accepts a non-blank key", () => {
+      expect(
+        new CopilotKitIntelligence({ apiKey: "cpk-1_key" }),
+      ).toBeInstanceOf(CopilotKitIntelligence);
+    });
+  });
+
   describe("managed platform URL defaults", () => {
     it("defaults apiUrl to the managed Intelligence API host", async () => {
       const c = new CopilotKitIntelligence({ apiKey: "k" });

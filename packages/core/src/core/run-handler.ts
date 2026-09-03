@@ -7,8 +7,7 @@ import type {
   Tool,
   ToolCall,
 } from "@ag-ui/client";
-import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { randomUUID, logger } from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
@@ -16,6 +15,8 @@ import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
+import { createToolSchema } from "./tool-schema";
+import { WebMCPRegistry } from "./webmcp";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -187,6 +188,13 @@ export class RunHandler {
   private _runDepth = 0;
 
   /**
+   * Keeps tools that opt in via `webmcp` registered on the page's WebMCP model
+   * context (`document.modelContext`), in addition to the normal agent
+   * registration. Reconciled on every tool registry mutation.
+   */
+  private _webmcpRegistry = new WebMCPRegistry();
+
+  /**
    * Tracks the threadId of the most recent `connectAgent` call so we
    * can distinguish a fresh thread restore (different threadId than
    * last time — chat is rebuilding state from scratch, must clear
@@ -282,6 +290,7 @@ export class RunHandler {
     // the array the provider passed in.)
     this._propTools = [...tools];
     this._cachedMergedTools = null;
+    this.syncWebMCP();
   }
 
   /**
@@ -305,6 +314,7 @@ export class RunHandler {
 
     this._hookTools.set(key, tool);
     this._cachedMergedTools = null;
+    this.syncWebMCP();
   }
 
   /**
@@ -321,6 +331,7 @@ export class RunHandler {
       return !(tool.name === id && !tool.agentId);
     });
     this._cachedMergedTools = null;
+    this.syncWebMCP();
   }
 
   /**
@@ -353,6 +364,7 @@ export class RunHandler {
   setTools(tools: FrontendTool<any>[]): void {
     this._propTools = [...tools];
     this._cachedMergedTools = null;
+    this.syncWebMCP();
   }
 
   /**
@@ -1248,6 +1260,7 @@ export class RunHandler {
     } else {
       this._disabledToolKeys.add(key);
     }
+    this.syncWebMCP();
   }
 
   /** Whether a tool is currently enabled (not overridden off). Defaults true. */
@@ -1276,6 +1289,47 @@ export class RunHandler {
         description: tool.description ?? "",
         parameters: createToolSchema(tool),
       }));
+  }
+
+  /**
+   * Reconcile the WebMCP registrations with the current tool registry. Tools
+   * opt in via `webmcp: true` or `webmcp: { annotations }`; the same
+   * availability rules as `buildFrontendTools` apply. WebMCP tools are
+   * page-level, so unlike the agent tool list they are not filtered by
+   * agentId — a name collision across agentIds keeps the first registration.
+   */
+  private syncWebMCP(): void {
+    const desired = new Map<string, FrontendTool<any>>();
+    const warnedCollisions = new Set<string>();
+    for (const tool of this.tools) {
+      if (!tool.webmcp) {
+        continue;
+      }
+      if (tool.name === WILDCARD_TOOL_NAME) {
+        continue;
+      }
+      if (
+        tool.available === false ||
+        (tool.available as boolean | string | undefined) === "disabled"
+      ) {
+        continue;
+      }
+      if (!this.isToolEnabled(tool.name, tool.agentId)) {
+        continue;
+      }
+      if (desired.has(tool.name)) {
+        if (!warnedCollisions.has(tool.name)) {
+          warnedCollisions.add(tool.name);
+          logger.warn(
+            `[CopilotKit] Multiple WebMCP tools share the name '${tool.name}'. ` +
+              `Only the first registration is exposed to browser agents.`,
+          );
+        }
+        continue;
+      }
+      desired.set(tool.name, tool);
+    }
+    this._webmcpRegistry.sync(desired);
   }
 
   /**
@@ -1351,68 +1405,6 @@ export class RunHandler {
         );
       },
     };
-  }
-}
-
-/**
- * Empty tool schema constant
- */
-const EMPTY_TOOL_SCHEMA = {
-  type: "object",
-  properties: {},
-} as const satisfies Record<string, unknown>;
-
-/**
- * Create a JSON schema from a tool's parameters
- */
-function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
-  if (!tool.parameters) {
-    return { ...EMPTY_TOOL_SCHEMA };
-  }
-
-  const rawSchema = schemaToJsonSchema(tool.parameters, {
-    zodToJsonSchema: (schema, options) =>
-      zodToJsonSchema(
-        schema as Parameters<typeof zodToJsonSchema>[0],
-        options as Parameters<typeof zodToJsonSchema>[1],
-      ),
-  });
-
-  if (!rawSchema || typeof rawSchema !== "object") {
-    return { ...EMPTY_TOOL_SCHEMA };
-  }
-
-  const { $schema: _$schema, ...schema } = rawSchema as Record<string, unknown>;
-
-  if (typeof schema.type !== "string") {
-    schema.type = "object";
-  }
-  if (typeof schema.properties !== "object" || schema.properties === null) {
-    schema.properties = {};
-  }
-
-  stripAdditionalProperties(schema);
-  return schema;
-}
-
-function stripAdditionalProperties(schema: unknown): void {
-  if (!schema || typeof schema !== "object") {
-    return;
-  }
-
-  if (Array.isArray(schema)) {
-    schema.forEach(stripAdditionalProperties);
-    return;
-  }
-
-  const record = schema as Record<string, unknown>;
-
-  if (record.additionalProperties !== undefined) {
-    delete record.additionalProperties;
-  }
-
-  for (const value of Object.values(record)) {
-    stripAdditionalProperties(value);
   }
 }
 

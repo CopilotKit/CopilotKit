@@ -90,7 +90,11 @@ test("keeps the Rich Threads repair prompt anchored and safe for autonomous edit
     "Never use a fixed demo identity in production",
   );
   expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "threadEndpoints.list, inspect, mutations, and realtimeMetadata as true",
+    "Home shows Intelligence connected",
+  );
+  expect(RICH_THREADS_SETUP_PROMPT).toContain("open Threads in Inspector");
+  expect(RICH_THREADS_SETUP_PROMPT).toContain(
+    "React Native does not include Inspector",
   );
 });
 

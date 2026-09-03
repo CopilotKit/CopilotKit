@@ -5,6 +5,7 @@
  * then delegates to the v2 composable.
  */
 import type { WatchSource } from "vue";
+import type { WebMCPToolConfig } from "@copilotkit/core";
 import {
   type Parameter,
   type MappedParameterTypes,
@@ -23,6 +24,12 @@ export interface UseFrontendToolArgs<T extends Parameter[] | [] = []> {
   available?: "disabled" | "enabled";
   render?: VueFrontendTool<MappedParameterTypes<T>>["render"];
   agentId?: string;
+  /**
+   * Also expose this tool to browser agents through the WebMCP API
+   * (`document.modelContext`). `true` uses default annotations;
+   * `{ annotations }` provides WebMCP annotations.
+   */
+  webmcp?: boolean | WebMCPToolConfig;
 }
 
 export function useFrontendTool<const T extends Parameter[] = []>(
@@ -70,6 +77,12 @@ export function useFrontendTool<const T extends Parameter[] = []>(
       render: normalizedRender,
       available: available === undefined ? undefined : available !== "disabled",
       agentId,
+      // Read webmcp at watch time: the v1 args may expose it as a getter over
+      // reactive state, and capturing the initial value here would re-register
+      // a stale configuration.
+      get webmcp() {
+        return tool.webmcp;
+      },
     },
     deps,
   );

@@ -304,6 +304,7 @@ async def agent_config_endpoint(request: Request) -> StreamingResponse:
     )
 
 
+# @region[shared-state-read-write-route]
 @app.post("/shared-state-read-write")
 async def shared_state_read_write_endpoint(request: Request) -> StreamingResponse:
     """Bidirectional shared state demo — UI writes preferences, agent writes notes.
@@ -327,6 +328,9 @@ async def shared_state_read_write_endpoint(request: Request) -> StreamingRespons
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# @endregion[shared-state-read-write-route]
 
 
 @app.post("/reasoning")
