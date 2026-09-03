@@ -41,6 +41,8 @@ export {
 // binding from this entry under isolatedModules, breaking consumers.
 export { useAgent, UseAgentUpdate } from "./hooks/use-agent";
 export { useFrontendTool } from "./hooks/use-frontend-tool";
+export { useWebmcpTools } from "./hooks/use-webmcp-tools";
+export type { WebMCPToolsOptions } from "./hooks/use-webmcp-tools";
 export { useComponent } from "./hooks/use-component";
 export { useHumanInTheLoop } from "./hooks/use-human-in-the-loop";
 export {

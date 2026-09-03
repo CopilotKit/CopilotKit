@@ -32,6 +32,7 @@
     "...generative-ui",
     "---Add Agent Powers---",
     "frontend-tools",
+    "webmcp-tools",
     {
       "title": "Shared State",
       "pages": [

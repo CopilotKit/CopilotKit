@@ -1269,6 +1269,14 @@ export class RunHandler {
   }
 
   /**
+   * Names currently published onto `document.modelContext` via `webmcp: true`.
+   * Importers skip these so CopilotKit does not import its own published tools.
+   */
+  getPublishedWebMCPNames() {
+    return this._webmcpRegistry.registeredNames;
+  }
+
+  /**
    * Build frontend tools for an agent
    */
   buildFrontendTools(agentId?: string): Tool[] {

@@ -216,6 +216,7 @@ Import these symbols from `@copilotkit/angular`.
 - `TranscriptionErrorInfo`
 - `TranscriptionResult`
 - `UserMessageToolbarContext`
+- `WebMCPToolsOptions`
 - `WithSlots`
 - `anyActivityContentSchema`
 - `cn`
@@ -247,6 +248,7 @@ Import these symbols from `@copilotkit/angular`.
 - `registerHumanInTheLoop`
 - `registerRenderActivityMessage`
 - `registerRenderToolCall`
+- `registerWebmcpTools`
 - `renderSlot`
 - `safeToolValue`
 - `transcribeAudio`

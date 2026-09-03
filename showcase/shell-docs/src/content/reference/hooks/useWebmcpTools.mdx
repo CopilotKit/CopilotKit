@@ -1,0 +1,74 @@
+---
+title: "useWebmcpTools"
+description: "React hook that imports page WebMCP tools so a CopilotKit agent can call them"
+---
+
+## Overview
+
+The page already registered tools on `document.modelContext`. `useWebmcpTools` imports those tools as CopilotKit frontend tools. When the agent calls one, CopilotKit runs `document.modelContext.executeTool` with the `RegisteredTool` object from `getTools()`.
+
+With no filters, every same-origin tool is imported. Filter order is allow, then deny, then `name`. Tools this app already published with `useFrontendTool({ webmcp: true })` are skipped. Missing `document.modelContext` is a no-op.
+
+## Signature
+
+```tsx
+import { useWebmcpTools } from "@copilotkit/react-core/v2";
+
+function useWebmcpTools(options?: {
+  agentId?: string;
+  allow?: string[];
+  deny?: string[];
+  name?: string | RegExp;
+}): void;
+```
+
+## Parameters
+
+<PropertyReference name="options" type="WebMCPToolsOptions">
+  Optional filters and agent scope. Omit the object to import every same-origin page tool.
+
+  <PropertyReference name="agentId" type="string">
+    Scope imported tools to this agent. Omit it to register them as global tools.
+  </PropertyReference>
+
+  <PropertyReference name="allow" type="string[]">
+    If set, only these tool names are imported.
+  </PropertyReference>
+
+  <PropertyReference name="deny" type="string[]">
+    These tool names are never imported. Deny wins if a name is also in `allow`.
+  </PropertyReference>
+
+  <PropertyReference name="name" type="string | RegExp">
+    Keep an exact tool name, or names that match this regular expression. Applied after allow and deny.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+```tsx
+import { useWebmcpTools } from "@copilotkit/react-core/v2";
+
+function SupportTools() {
+  useWebmcpTools({
+    agentId: "support",
+    allow: ["searchOrders", "getOrder"],
+    deny: ["deleteOrder"],
+    name: /^search|^get/,
+  });
+  return null;
+}
+```
+
+## Behavior
+
+- **Same-origin only.** `getTools()` is called with no `fromOrigins`.
+- **Live updates.** The hook listens for `toolchange` and re-syncs.
+- **Collisions.** If a CopilotKit frontend tool already uses the name, the page tool is skipped and a warning is logged.
+- **Cleanup.** Unmount removes only tools this hook added.
+- **No return value.** The hook returns `void`.
+
+## Related
+
+- [Import page WebMCP tools](/webmcp-tools)
+- [`useFrontendTool`](/reference/hooks/useFrontendTool) `webmcp` option, to publish CopilotKit tools onto the page

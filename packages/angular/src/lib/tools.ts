@@ -1,7 +1,11 @@
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
-import { FrontendTool, FrontendToolHandlerContext } from "@copilotkit/core";
-import type { WebMCPToolConfig } from "@copilotkit/core";
+import {
+  FrontendTool,
+  FrontendToolHandlerContext,
+  WebMCPConsumer,
+} from "@copilotkit/core";
+import type { WebMCPToolConfig, WebMCPToolsOptions } from "@copilotkit/core";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { CopilotKit } from "./copilotkit";
 
@@ -168,6 +172,39 @@ export function registerFrontendTool<
 
   destroyRef.onDestroy(() => {
     copilotKit.removeTool(frontendTool.name, frontendTool.agentId);
+  });
+}
+
+export type { WebMCPToolsOptions };
+
+/**
+ * Import page WebMCP tools from `document.modelContext.getTools()` so a
+ * CopilotKit agent can call them.
+ *
+ * With no filters, every same-origin tool is imported. Filter order is allow,
+ * then deny, then `name`. Tools this app already published with
+ * `registerFrontendTool({ webmcp: true })` are skipped. Missing
+ * `document.modelContext` is a no-op. Registration is removed when the calling
+ * injector is destroyed.
+ *
+ * @example
+ * ```ts
+ * import { registerWebmcpTools } from "@copilotkit/angular";
+ *
+ * registerWebmcpTools({
+ *   agentId: "support",
+ *   allow: ["searchOrders", "getOrder"],
+ *   deny: ["deleteOrder"],
+ * });
+ * ```
+ */
+export function registerWebmcpTools(options: WebMCPToolsOptions = {}) {
+  const destroyRef = inject(DestroyRef);
+  const copilotKit = inject(CopilotKit);
+  const consumer = new WebMCPConsumer(copilotKit.core);
+  consumer.start(options);
+  destroyRef.onDestroy(() => {
+    consumer.stop();
   });
 }
 

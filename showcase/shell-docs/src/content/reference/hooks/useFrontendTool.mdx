@@ -252,12 +252,13 @@ See [Ensuring your agent reliably calls frontend tools](/integrations/langgraph/
 - **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount and removed on unmount.
 - **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever any dependency value changes, similar to `useEffect`.
-- **WebMCP registration**: With `webmcp` set, the tool is also registered on `document.modelContext` and unregistered on unmount. The tool needs a `description` for this (WebMCP rejects tools without one).
+- **WebMCP registration**: With `webmcp` set, the tool is also registered on `document.modelContext` and unregistered on unmount. The tool needs a `description` for this (WebMCP rejects tools without one). To import page tools into CopilotKit, use [`useWebmcpTools`](/reference/hooks/useWebmcpTools).
 - **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
 - **No return value**: The hook returns `void`.
 
 ## Related
 
+- [`useWebmcpTools`](/reference/hooks/useWebmcpTools) -- import page WebMCP tools into CopilotKit
 - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) -- for tools that pause execution and wait for user input
 - [`useRenderToolCall`](/reference/hooks/useRenderToolCall) -- for rendering backend tool calls without a client-side handler
 - [`useComponent`](/reference/hooks/useComponent) -- convenience wrapper for rendering React components from tool args

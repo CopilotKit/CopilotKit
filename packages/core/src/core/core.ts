@@ -1069,6 +1069,14 @@ export class CopilotKitCore {
   }
 
   /**
+   * Names currently published onto `document.modelContext` via `webmcp: true`.
+   * Used by `useWebmcpTools` so CopilotKit does not import its own tools.
+   */
+  getPublishedWebMCPNames() {
+    return this.runHandler.getPublishedWebMCPNames();
+  }
+
+  /**
    * A2UI catalog component management (delegated to RunHandler).
    * Registers the full component list and controls per-component enablement.
    */

@@ -122,7 +122,7 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
   renderers with the same `name` and optional `agentId`. Registrations sharing
   that key are removed together.
 - **Optional renderer.** When you pass a `component`, it is registered alongside the tool so the chat can render the tool call's progress and result.
-- **WebMCP registration.** With `webmcp` set, the tool is also registered on `document.modelContext` for as long as the owning injector is alive. The tool needs a `description` for this (WebMCP rejects tools without one).
+- **WebMCP registration.** With `webmcp` set, the tool is also registered on `document.modelContext` for as long as the owning injector is alive. The tool needs a `description` for this (WebMCP rejects tools without one). To import page tools into CopilotKit, use [`registerWebmcpTools`](/reference/angular/functions/registerWebmcpTools).
 
 ## Usage
 
