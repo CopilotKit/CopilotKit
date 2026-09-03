@@ -57,18 +57,26 @@ const COMPACT_CLASSNAME = cn(
 );
 
 /**
- * The hero's classes, carried over verbatim from the hero button this
- * component replaces, so the surfaces that already render it keep their
- * pixels. Written out rather than composed from `buttonVariants` because the
- * hero disagrees with that recipe on nearly every axis it shares — its own
- * height, horizontal padding, weight, shadow and focus ring, plus the
- * full-width-until-`sm` behaviour that lets it stack above the Quickstart
- * button on a phone. Expressing it as overrides would spell out the same
- * literal twice and lean on class-merge precedence to cancel the half of the
- * recipe that does not apply.
+ * The hero's classes, carried over from the hero button this component
+ * replaces, so the surfaces that already render it keep their pixels. Written
+ * out rather than composed from `buttonVariants` because the hero disagrees
+ * with that recipe on nearly every axis it shares — its own height, horizontal
+ * padding, weight, shadow and focus ring, plus the full-width-until-`sm`
+ * behaviour that lets it stack above the Quickstart button on a phone.
+ * Expressing it as overrides would spell out the same literal twice and lean
+ * on class-merge precedence to cancel the half of the recipe that does not
+ * apply.
+ *
+ * Two additions to that literal. `[&_svg]:size-4` reproduces the `h-4 w-4` the
+ * old hero put on the icon element itself: this component renders the icon
+ * without a className, and lucide-react defaults to 24px, so the size has to
+ * travel with the appearance — which is how the compact branch already does
+ * it. And the `disabled:` pair, because this component disables the button
+ * while a write is in flight and the old hero, having no disabled state, never
+ * styled one.
  */
 const HERO_CLASSNAME =
-  "shell-docs-primary-cta shell-docs-radius-control inline-flex h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-fit";
+  "shell-docs-primary-cta shell-docs-radius-control inline-flex h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 sm:w-fit [&_svg]:size-4";
 
 function variantClassName(variant: OnboardingPromptButtonVariant): string {
   if (variant === "hero") {
@@ -103,8 +111,9 @@ function variantClassName(variant: OnboardingPromptButtonVariant): string {
  * could close out.
  *
  * It is minted in an effect rather than a `useState` initialiser to keep id
- * generation out of render entirely, and to match how the sibling emitters of
- * this event do it. Hydration does not force the choice:
+ * generation out of render entirely, and to match
+ * `intelligence-onboarding-prompt.tsx`, the sibling emitter of this event that
+ * also mints once per mount. Hydration does not force the choice:
  * `createOnboardingRunId` falls back to `Math.random` where `crypto` is
  * missing and never throws, and the id is never rendered, so there is no
  * markup for a server id and a client id to disagree about.

@@ -519,3 +519,33 @@ it("reserves the hero button's width with an invisible idle label", () => {
   );
   expect(compact.container.querySelector("span.invisible")).toBeNull();
 });
+
+it("sizes each appearance's icon on the button, not on the icon element", () => {
+  // The icons render without a className of their own, and lucide-react
+  // defaults to 24px — so the sizing has to ride along with the appearance.
+  // The port of the hero shipped without it once, which rendered a 24px icon
+  // where the button it replaced had a 16px one. Only the appearance-critical
+  // tokens are pinned here; the rest of the class string stays free to move.
+  stubClipboard();
+
+  const hero = render(
+    <OnboardingPromptButton variant="hero" surface={HERO_SURFACE} />,
+  );
+  const heroClasses =
+    hero.container.querySelector("button")?.className.split(/\s+/) ?? [];
+  expect(heroClasses).toContain("[&_svg]:size-4");
+  // The hero disables itself while a write is pending, so it styles that state.
+  expect(heroClasses).toContain("disabled:pointer-events-none");
+  expect(heroClasses).toContain("disabled:opacity-50");
+
+  hero.unmount();
+
+  // The compact button sits in a row of buttons whose heights have to match, so
+  // it carries its own, smaller icon size.
+  const compact = render(
+    <OnboardingPromptButton variant="compact" surface={SURFACE} />,
+  );
+  expect(
+    compact.container.querySelector("button")?.className.split(/\s+/),
+  ).toContain("[&_svg]:size-3.5");
+});
