@@ -7,10 +7,10 @@ export const CHANNELS_ACTIVATION_EVENTS = {
   promptCopied: "docs.channels_activation_prompt_copied",
   openTagClicked: "docs.channels_activation_opentag_clicked",
   /**
-   * Impression, so `promptCopied` has a denominator. Both entry points sit
-   * below the fold on their pages, so a surface nobody scrolls to and a surface
-   * everybody ignores are indistinguishable without this. Emitted by both the
-   * landing strip and the overview panel, separated by `surface`.
+   * Impression, so `promptCopied` has a denominator. The entry point sits
+   * below the fold on its page, so a surface nobody scrolls to and a surface
+   * everybody ignores are indistinguishable without this. Emitted by the
+   * overview panel.
    */
   viewed: "docs.channels_activation_viewed",
 } as const;
@@ -22,7 +22,6 @@ export const CHANNELS_ACTIVATION_EVENTS = {
  * unioned into one funnel.
  */
 export const CHANNELS_ACTIVATION_SURFACES = {
-  docsLandingStrip: "docs_landing_strip",
   docsChannelsOverview: "docs_channels_overview",
 } as const;
 

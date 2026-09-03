@@ -7,9 +7,9 @@ import { usePostHog } from "posthog-js/react";
 import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
 import {
   createIntelligenceOnboardingPrompt,
-  createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
+import { useOnboardingRunId } from "@/lib/hooks/use-onboarding-run-id";
 
 export type IntelligenceOnboardingFeature = "learning" | "threads";
 
@@ -68,17 +68,7 @@ export function IntelligenceOnboardingPrompt({
   const pathname = usePathname();
   const posthog = usePostHog();
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
-  // One run id per mount, not per click: two clicks are one onboarding
-  // attempt, and the CLI can only close out the id that survived on the
-  // clipboard. Minted in an effect rather than a `useState` initialiser to
-  // keep id generation out of render entirely. Hydration does not force the
-  // choice: `createOnboardingRunId` falls back to `Math.random` where
-  // `crypto` is missing and never throws, and the id is never rendered, so
-  // there is no markup for a server id and a client id to disagree about.
-  const [runId, setRunId] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    setRunId(createOnboardingRunId());
-  }, []);
+  const getRunId = useOnboardingRunId();
   const headingId = React.useId();
 
   function capture(event: string, properties: Record<string, unknown>) {
@@ -90,7 +80,7 @@ export function IntelligenceOnboardingPrompt({
   }
 
   async function copyPrompt() {
-    const effectiveRunId = runId ?? createOnboardingRunId();
+    const effectiveRunId = getRunId();
 
     try {
       await navigator.clipboard.writeText(

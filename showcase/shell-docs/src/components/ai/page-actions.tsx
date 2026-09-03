@@ -22,24 +22,7 @@ import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
 import WindsurfIcon from "@/components/icons/windsurf";
-import { getRuntimeConfig } from "@/lib/runtime-config.client";
-
-/**
- * Resolve the canonical base URL on the client. Reads from
- * window.__SHOWCASE_CONFIG__ (populated by the root layout's inline
- * <script>) so non-production can reflect its runtime base URL without
- * rebuilding the artifact. Production runtime config always injects the
- * public canonical docs origin. The reader strips trailing slashes so callers
- * can concatenate `${BASE}${path}` safely.
- *
- * Still inlined here (rather than reaching into `@/lib/sitemap-helpers`)
- * because that module also pulls in `fs` / `path` / `gray-matter` for
- * sitemap generation — Node-only deps that fail the client bundle when
- * a `"use client"` component reaches for them.
- */
-function getClientBaseUrl(): string {
-  return getRuntimeConfig().baseUrl;
-}
+import { getClientBaseUrl } from "@/lib/client-base-url";
 
 // Module-scoped cache of resolved markdown bodies. Survives navigations
 // so repeated clicks on the same page don't re-fetch. Stored as the

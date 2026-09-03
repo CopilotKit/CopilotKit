@@ -16,27 +16,10 @@ import {
 } from "@/lib/intelligence-onboarding-frontend";
 import {
   createIntelligenceOnboardingPrompt,
-  createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
-import { getRuntimeConfig } from "@/lib/runtime-config.client";
-
-/**
- * Resolve the canonical base URL on the client. Reads from
- * window.__SHOWCASE_CONFIG__ (populated by the root layout's inline
- * <script>) so non-production can reflect its runtime base URL without
- * rebuilding the artifact. Production runtime config always injects the
- * public canonical docs origin. The reader strips trailing slashes so callers
- * can concatenate `${BASE}${path}` safely.
- *
- * Still inlined here (rather than reaching into `@/lib/sitemap-helpers`)
- * because that module also pulls in `fs` / `path` / `gray-matter` for
- * sitemap generation — Node-only deps that fail the client bundle when
- * a `"use client"` component reaches for them.
- */
-function getClientBaseUrl(): string {
-  return getRuntimeConfig().baseUrl;
-}
+import { getClientBaseUrl } from "@/lib/client-base-url";
+import { useOnboardingRunId } from "@/lib/hooks/use-onboarding-run-id";
 
 type OnboardingCopyState = "idle" | "copied" | "error";
 
@@ -104,19 +87,8 @@ function variantClassName(variant: OnboardingPromptButtonVariant): string {
  * combination reads correctly — including all three absent, which copies the
  * canonical prompt alone.
  *
- * The run id is minted once per mount and every click of that button reuses
- * it: repeated clicks are one reader making one onboarding attempt, and only
- * the id that survives on the clipboard can ever be reported back by the CLI.
- * Minting per click left every click but the last as a funnel row nothing
- * could close out.
- *
- * It is minted in an effect rather than a `useState` initialiser to keep id
- * generation out of render entirely, and to match
- * `intelligence-onboarding-prompt.tsx`, the sibling emitter of this event that
- * also mints once per mount. Hydration does not force the choice:
- * `createOnboardingRunId` falls back to `Math.random` where `crypto` is
- * missing and never throws, and the id is never rendered, so there is no
- * markup for a server id and a client id to disagree about.
+ * The run id comes from `useOnboardingRunId()` (see that hook for the
+ * per-mount rationale) and every click of that button reuses it.
  */
 export function OnboardingPromptButton({
   variant,
@@ -174,9 +146,7 @@ export function OnboardingPromptButton({
   const pathname = usePathname();
   const posthog = usePostHog();
   const [copyState, setCopyState] = useState<OnboardingCopyState>("idle");
-  // One run id per mount (see the module comment). `null` until the effect
-  // runs; only the copy handler ever reads it.
-  const [runId, setRunId] = useState<string | null>(null);
+  const getRunId = useOnboardingRunId();
   // Mirrors `MarkdownCopyButton`'s `isLoading`: the button is disabled while a
   // clipboard write is pending. The ref is the actual guard — a double-click
   // delivers both events before React re-renders, so both handlers would still
@@ -189,10 +159,6 @@ export function OnboardingPromptButton({
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyGenerationRef = useRef(0);
   const mountedRef = useRef(true);
-
-  useEffect(() => {
-    setRunId(createOnboardingRunId());
-  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -227,9 +193,7 @@ export function OnboardingPromptButton({
     resetTimerRef.current = null;
     setCopyState("idle");
 
-    // The mount's id, unless the effect has not run yet — a click before
-    // hydration completes still has to copy a usable prompt.
-    const effectiveRunId = runId ?? createOnboardingRunId();
+    const effectiveRunId = getRunId();
 
     // Reused verbatim from the hero button's helper so both surfaces name the
     // framework in the same words. It is "" for a framework the CLI's
@@ -247,20 +211,20 @@ export function OnboardingPromptButton({
       ? frontendPromptSuffix(frontend.id, frontend.name)
       : "";
     // `getClientBaseUrl()` is read HERE, inside the handler, and never during
-    // render: on the server it returns the SSR placeholder (see the module
-    // comment on that function), so a render-time read would put a different
+    // render: on the server it returns the SSR placeholder (see that
+    // function's own comment), so a render-time read would put a different
     // URL in the server HTML than in the hydrated client and mismatch.
-    // Trailing slash trimmed because `markdownUrl` already leads with one.
     // Stands on its own when both sentences above are "", which is why it
     // names the page rather than referring back to it.
     const pageSentence = markdownUrl
-      ? ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`
+      ? ` The developer copied this prompt from ${getClientBaseUrl()}${markdownUrl}.`
       : "";
 
     try {
       await navigator.clipboard.writeText(
         createIntelligenceOnboardingPrompt(effectiveRunId) +
           frameworkSentence +
+          " " +
           frontendSentence +
           pageSentence,
       );
