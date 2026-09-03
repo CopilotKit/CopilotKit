@@ -56,6 +56,14 @@ export function IntelligenceOnboardingPrompt({
   const pathname = usePathname();
   const posthog = usePostHog();
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
+  // One run id per mount, not per click: two clicks are one onboarding
+  // attempt, and the CLI can only close out the id that survived on the
+  // clipboard. Minted in an effect so the server and first client render
+  // agree — `createOnboardingRunId` reads `crypto`.
+  const [runId, setRunId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setRunId(createOnboardingRunId());
+  }, []);
   const headingId = React.useId();
 
   function capture(event: string, properties: Record<string, unknown>) {
@@ -67,11 +75,11 @@ export function IntelligenceOnboardingPrompt({
   }
 
   async function copyPrompt() {
-    const runId = createOnboardingRunId();
+    const effectiveRunId = runId ?? createOnboardingRunId();
 
     try {
       await navigator.clipboard.writeText(
-        createIntelligenceOnboardingPrompt(runId),
+        createIntelligenceOnboardingPrompt(effectiveRunId),
       );
     } catch {
       setCopyState("error");
@@ -83,7 +91,7 @@ export function IntelligenceOnboardingPrompt({
     capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
       feature,
       from_path: pathname,
-      onboarding_run_id: runId,
+      onboarding_run_id: effectiveRunId,
       surface,
     });
     setTimeout(() => setCopyState("idle"), 1800);

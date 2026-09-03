@@ -57,3 +57,23 @@ it("names the copied run id the same way every other onboarding surface does", a
   // run that never existed.
   expect(writeText.mock.calls[0][0]).toContain(properties.onboarding_run_id);
 });
+
+it("reuses one run id across repeated clicks on the same mount", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.assign(navigator, { clipboard: { writeText } });
+
+  render(
+    <IntelligenceOnboardingPrompt feature="learning" surface="docs_test" />,
+  );
+  const button = screen.getByRole("button", { name: /copy prompt/i });
+
+  button.click();
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+  button.click();
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+
+  const ids = writeText.mock.calls.map(
+    (call) => ((call[0] as string).match(/--run (\S+)/) ?? [])[1],
+  );
+  expect(ids[0]).toBe(ids[1]);
+});
