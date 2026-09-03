@@ -33,6 +33,7 @@
     "---Add Agent Powers---",
     "frontend-tools",
     "webmcp",
+    "webmcp-tools",
     "learning",
     {
       "title": "Shared State",
