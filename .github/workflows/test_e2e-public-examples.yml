@@ -193,8 +193,7 @@ jobs:
 
       - name: Run Research Canvas TypeScript agent tests
         if: matrix.example == 'research-canvas'
-        working-directory: examples/canvas/research-canvas
-        run: pnpm exec vitest run agents/typescript/src/*.test.ts
+        run: pnpm nx test @copilotkit-examples/research-canvas-agent --excludeTaskDependencies
 
       - name: Set up uv for Travel tests
         if: matrix.example == 'travel'
