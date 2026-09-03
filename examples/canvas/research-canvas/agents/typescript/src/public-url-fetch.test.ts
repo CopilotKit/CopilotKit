@@ -1,4 +1,5 @@
-import { expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
+import { withAbortTimeout } from "./abort-timeout";
 import { fetchPublicText } from "./public-url-fetch";
 import type {
   PublicHttpResponse,
@@ -19,6 +20,7 @@ const OK_RESPONSE = {
 
 interface FetchHarnessOptions {
   addresses?: readonly ResolvedAddress[];
+  resolveHostname?: PublicUrlFetchDependencies["resolveHostname"];
   responses?: readonly PublicHttpResponse[];
 }
 
@@ -27,10 +29,14 @@ function createFetchHarness(options: FetchHarnessOptions = {}) {
   const responses = [...(options.responses ?? [OK_RESPONSE])];
   const requestedUrls: string[] = [];
   const resolvedHostnames: string[] = [];
+  const resolveHostname = options.resolveHostname;
 
   const dependencies: PublicUrlFetchDependencies = {
     resolveHostname: async (hostname) => {
       resolvedHostnames.push(hostname);
+      if (resolveHostname) {
+        return resolveHostname(hostname);
+      }
       return addresses;
     },
     requestUrl: async (url) => {
@@ -45,6 +51,10 @@ function createFetchHarness(options: FetchHarnessOptions = {}) {
 
   return { dependencies, requestedUrls, resolvedHostnames };
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const BLOCKED_URLS = [
   ["non-HTTP scheme", "file:///etc/passwd"],
@@ -177,6 +187,41 @@ test("fails closed when DNS returns no addresses", async () => {
       dependencies,
     ),
   ).rejects.toThrow("did not resolve");
+  expect(requestedUrls).toHaveLength(0);
+});
+
+test("aborts a pending DNS resolution before starting a request", async () => {
+  vi.useFakeTimers();
+  let finishResolution:
+    | ((addresses: readonly ResolvedAddress[]) => void)
+    | undefined;
+  const pendingResolution = new Promise<readonly ResolvedAddress[]>(
+    (resolve) => {
+      finishResolution = resolve;
+    },
+  );
+  const { dependencies, requestedUrls } = createFetchHarness({
+    resolveHostname: async () => pendingResolution,
+  });
+
+  const result = withAbortTimeout(5_000, (signal) =>
+    fetchPublicText("https://slow-dns.example/article", signal, dependencies),
+  );
+  let rejection: unknown;
+  const observedResult = result.catch((error: unknown) => {
+    rejection = error;
+  });
+
+  await vi.advanceTimersByTimeAsync(5_000);
+
+  expect(rejection).toBeInstanceOf(Error);
+  expect(requestedUrls).toHaveLength(0);
+  if (!finishResolution) {
+    throw new Error("DNS resolver did not start");
+  }
+  finishResolution([PUBLIC_IPV4]);
+  await observedResult;
+  await Promise.resolve();
   expect(requestedUrls).toHaveLength(0);
 });
 
