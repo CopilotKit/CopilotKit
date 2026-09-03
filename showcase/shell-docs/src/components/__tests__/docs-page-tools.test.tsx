@@ -1,15 +1,13 @@
 // @vitest-environment jsdom
 
-// Guards the gate on the page-tools "Copy agent prompt" button.
+// Guards the compact page-tools split action.
 //
-// The rule is that the button appears exactly when the caller names an agent
-// framework, and `DocsPageTools` is where that rule lives: no
-// `onboardingFramework`, no button. It is tested here rather than through
+// The prompt action is available even when a route has no registry-backed
+// framework name; the copied context simply omits that optional sentence.
+// It is tested here rather than through
 // `DocsPageView` because that component reads MDX off disk, walks the content
 // tree to build the sidebar, and compiles the body through `next-mdx-remote` —
-// none of which the rule depends on. `DocsPageView` does nothing with the prop
-// but forward it, so this is the seam where a regression would actually show
-// up.
+// none of which the action contract depends on.
 
 import React from "react";
 import {

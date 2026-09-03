@@ -114,6 +114,15 @@ describe("globals.css docs page actions", () => {
     expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
     expect(globalsCss).toContain("animation: none;");
   });
+
+  it("keeps the mobile shimmer fitted to the split control", () => {
+    expect(globalsCss).toContain(
+      ".docs-page-tools {\n    max-width: 100%;\n    overflow-x: auto;",
+    );
+    expect(globalsCss).not.toContain(
+      ".docs-page-tools {\n    width: 100%;\n    overflow-x: auto;",
+    );
+  });
 });
 
 describe("globals.css cookbook sidebar", () => {

@@ -45,12 +45,14 @@ export function QuickstartLinkButton({
   backend,
   fromPath,
   variant = "primary",
+  label = "Quickstart",
 }: {
   href: string;
   frontend?: string;
   backend?: string;
   fromPath?: string;
   variant?: QuickstartVariant;
+  label?: string;
 }) {
   const posthog = usePostHog();
 
@@ -74,7 +76,7 @@ export function QuickstartLinkButton({
       onClick={handleClick}
       className={`${QUICKSTART_BASE_CLASS} ${QUICKSTART_VARIANT_CLASS[variant]}`}
     >
-      Quickstart
+      {label}
       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
     </Link>
   );

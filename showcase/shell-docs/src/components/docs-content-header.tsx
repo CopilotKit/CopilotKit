@@ -14,6 +14,8 @@ export interface DocsContentHeaderProps {
   ancestorBreadcrumbs: DocsContentHeaderBreadcrumb[];
   title: React.ReactNode;
   description?: React.ReactNode;
+  /** Keep breadcrumb/actions chrome while an MDX-owned hero replaces the H1. */
+  hideHeading?: boolean;
   /** Page-level actions composed into the title row. */
   children?: React.ReactNode;
 }
@@ -29,6 +31,7 @@ export function DocsContentHeader({
   ancestorBreadcrumbs,
   title,
   description,
+  hideHeading = false,
   children,
 }: DocsContentHeaderProps): React.JSX.Element {
   return (
@@ -55,12 +58,16 @@ export function DocsContentHeader({
         </nav>
       )}
 
-      <div className="docs-page-heading-row">
-        <DocsTitle className="docs-page-title">{title}</DocsTitle>
-        {children}
-      </div>
+      {(!hideHeading || children) && (
+        <div className="docs-page-heading-row">
+          {!hideHeading && (
+            <DocsTitle className="docs-page-title">{title}</DocsTitle>
+          )}
+          {children}
+        </div>
+      )}
 
-      {description && (
+      {!hideHeading && description && (
         <DocsDescription className="docs-page-description">
           {description}
         </DocsDescription>

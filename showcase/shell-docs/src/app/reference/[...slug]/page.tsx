@@ -190,7 +190,6 @@ export default async function ReferenceSlugPage({
               slugPath={pageSlug}
               slugHrefPrefix={`/reference/${version}`}
               githubUrl={buildGitHubUrl(filePath)}
-              hideOnboardingPrompt
             />
           </DocsContentHeader>
 

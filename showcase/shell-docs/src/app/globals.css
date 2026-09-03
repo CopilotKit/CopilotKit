@@ -1174,7 +1174,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   }
 
   .docs-page-tools {
-    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
     padding-bottom: 0.125rem;
     scrollbar-width: none;

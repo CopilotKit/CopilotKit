@@ -41,3 +41,23 @@ it("does not render empty breadcrumb chrome", () => {
 
   expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
 });
+
+it("keeps breadcrumbs and actions when an MDX hero owns the heading", () => {
+  render(
+    <DocsContentHeader
+      ancestorBreadcrumbs={[{ label: "Deploy", href: null }]}
+      title="AWS AgentCore"
+      description="Hidden description"
+      hideHeading
+    >
+      <button type="button">Copy prompt</button>
+    </DocsContentHeader>,
+  );
+
+  expect(
+    screen.getByRole("navigation", { name: "Breadcrumb" }).textContent,
+  ).toContain("Deploy");
+  expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+  expect(screen.queryByText("Hidden description")).toBeNull();
+  expect(screen.getByRole("button", { name: "Copy prompt" })).toBeTruthy();
+});

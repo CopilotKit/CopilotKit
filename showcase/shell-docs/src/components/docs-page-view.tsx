@@ -274,17 +274,18 @@ export async function DocsPageView({
               ancestorBreadcrumbs={ancestorBreadcrumbs}
               title={doc.fm.title}
               description={doc.fm.description}
+              hideHeading={doc.fm.hideHeader}
             >
-              {/* Page actions stay beside the title when space allows and
-               * wrap as one group on narrower pages. */}
-              <DocsPageTools
-                slugPath={slugPath}
-                slugHrefPrefix={slugHrefPrefix}
-                githubUrl={buildGitHubUrl(doc.filePath)}
-                onboardingFramework={onboardingFramework}
-                onboardingFrontend={onboardingFrontend}
-                hideOnboardingPrompt={slugPath === "webmcp"}
-              />
+              {!doc.fm.hidePageActions && (
+                <DocsPageTools
+                  slugPath={slugPath}
+                  slugHrefPrefix={slugHrefPrefix}
+                  githubUrl={buildGitHubUrl(doc.filePath)}
+                  onboardingFramework={onboardingFramework}
+                  onboardingFrontend={onboardingFrontend}
+                  hideOnboardingPrompt={slugPath === "webmcp"}
+                />
+              )}
             </DocsContentHeader>
 
             {bannerSlot}
