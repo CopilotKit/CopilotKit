@@ -21,18 +21,33 @@ import { CanvasProvider } from "@/shell/canvas/canvas-context";
 import { SubagentActivityProvider } from "@/shell/subagents/subagent-activity";
 import { CanvasRegion } from "@/shell/canvas/canvas";
 import { useThreadSelection } from "@/shell/threads/use-thread-selection";
+import {
+  blockSurfaceIdFrom,
+  InlineBlockSurface,
+} from "@/shell/chat/inline-block-surface";
 
 /**
  * The agent's render_report result becomes an `a2ui-surface` activity that the
  * shared canvas renders full-region; generateSandboxedUi becomes an
  * `open-generative-ui` activity that ALSO renders full-region on the canvas
  * (this build ships the workspace OGUI renderer). In the chat we leave only a
- * small handoff pill in place of each built-in inline surface renderer.
+ * small handoff pill in place of each built-in inline surface renderer —
+ * EXCEPT for a `block:`-prefixed surface id, the exec skin's convention for a
+ * block dashboard tile that should render right in the transcript instead of
+ * handing off to the canvas. `blockSurfaceIdFrom` (shared with the exec skin's
+ * op-builder by hand, see that module's comment) recognizes the convention;
+ * any other `a2ui-surface` id falls back to the same handoff pill as before.
  *
  * Module-level so the array reference stays stable across renders
  * (CopilotKitProvider requires a stable renderActivityMessages array). Both
  * activity types are handled here — the OGUI pill is not dropped.
  */
+function A2UISurfaceActivity(props: { content: unknown }) {
+  const surfaceId = blockSurfaceIdFrom(props.content);
+  if (surfaceId) return <InlineBlockSurface content={props.content} />;
+  return <ReportHandoffPill />;
+}
+
 function ReportHandoffPill() {
   return (
     <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
@@ -62,7 +77,11 @@ function OguiHandoffPill() {
 }
 
 const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
-  { activityType: "a2ui-surface", content: z.any(), render: ReportHandoffPill },
+  {
+    activityType: "a2ui-surface",
+    content: z.any(),
+    render: A2UISurfaceActivity,
+  },
   {
     activityType: "open-generative-ui",
     content: z.any(),
