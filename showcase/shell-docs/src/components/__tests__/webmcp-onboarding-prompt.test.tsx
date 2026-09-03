@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { WebMCPOnboardingPrompt } from "../webmcp-onboarding-prompt";
 import { INTELLIGENCE_ONBOARDING_EVENTS } from "@/lib/intelligence-onboarding-prompt";
@@ -39,8 +45,12 @@ test("copies a run-bound WebMCP goal into the CLI onboarding path", async () => 
   )?.[1];
 
   expect(runId).toBeTruthy();
-  expect(prompt).toContain("The goal of this onboarding run is to get WebMCP working");
-  expect(prompt).toContain("A WebMCP call does not require a CopilotKit backend agent");
+  expect(prompt).toContain(
+    "The goal of this onboarding run is to get WebMCP working",
+  );
+  expect(prompt).toContain(
+    "A WebMCP call does not require a CopilotKit backend agent",
+  );
   expect(prompt).toContain("https://docs.copilotkit.ai/webmcp");
   expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy();
   expect(screen.getByText("Prompt copied")).toBeTruthy();

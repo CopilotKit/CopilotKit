@@ -10,7 +10,9 @@ test("leads the WebMCP guide with repository-aware onboarding", () => {
   expect(prompt).toBeGreaterThan(-1);
   expect(manualSetup).toBeGreaterThan(prompt);
   expect(source).toContain("You do not need a CopilotKit backend agent");
-  expect(source).toContain("React Native does not expose `document.modelContext`");
+  expect(source).toContain(
+    "React Native does not expose `document.modelContext`",
+  );
   expect(source).toContain("Chrome 149");
 });
 

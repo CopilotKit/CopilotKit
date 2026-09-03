@@ -4,7 +4,8 @@ import { createWebMCPOnboardingPrompt } from "../webmcp-onboarding-prompt";
 test("keeps WebMCP as the goal of the CLI onboarding run", () => {
   const prompt = createWebMCPOnboardingPrompt("0123456789ab");
 
-  expect(prompt).toBe(`Identify which coding-agent product you are, using a short slug such as \`codex\` or \`claude-code\`. From the root of the project where you want CopilotKit, run \`npx --yes copilotkit@latest onboard start --run 0123456789ab --coding-agent <coding-agent-slug>\`. Follow the Markdown instructions it prints until onboarding is complete.
+  expect(prompt)
+    .toBe(`Identify which coding-agent product you are, using a short slug such as \`codex\` or \`claude-code\`. From the root of the project where you want CopilotKit, run \`npx --yes copilotkit@latest onboard start --run 0123456789ab --coding-agent <coding-agent-slug>\`. Follow the Markdown instructions it prints until onboarding is complete.
 
 The goal of this onboarding run is to get WebMCP working in this project. Use https://docs.copilotkit.ai/webmcp as the official guide. Let the onboarding workflow inspect the repository and determine whether the app already has CopilotKit, a backend agent, CopilotKit frontend tools, or only browser-side actions. Ask only about choices the repository cannot answer.
 

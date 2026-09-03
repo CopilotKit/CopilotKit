@@ -111,10 +111,10 @@ export function WebMCPOnboardingPrompt(): React.JSX.Element {
           {isCopying
             ? "Copying…"
             : copyState === "copied"
-            ? "Copied"
-            : copyState === "error"
-              ? "Copy blocked"
-              : "Copy setup prompt"}
+              ? "Copied"
+              : copyState === "error"
+                ? "Copy blocked"
+                : "Copy setup prompt"}
         </button>
       </div>
 
