@@ -201,7 +201,7 @@ describe("loadDoc", () => {
   it("resolves clean URLs to files stored under route-group folders", () => {
     const doc = loadDoc("integrations/aws-strands/telemetry");
 
-    expect(doc?.filePath).toContain(
+    expect(doc?.filePath.split(path.sep).join("/")).toContain(
       "integrations/aws-strands/(other)/telemetry/index.mdx",
     );
   });
@@ -681,6 +681,7 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
     expect(sectionPages(navTree, "Intelligence")).toEqual([
       "CopilotKit Intelligence",
+      "Quickstart",
       "Cloud-hosted CopilotKit Intelligence",
       "Connect your runtime to Intelligence",
       "Self-host CopilotKit Intelligence",

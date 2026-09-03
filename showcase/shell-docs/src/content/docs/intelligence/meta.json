@@ -5,6 +5,7 @@
   },
   "pages": [
     "overview",
+    "quickstart",
     "managed-intelligence-platform",
     "connect-your-runtime",
     "self-hosting",
