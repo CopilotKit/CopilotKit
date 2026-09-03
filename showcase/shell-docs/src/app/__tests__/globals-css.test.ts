@@ -59,6 +59,72 @@ describe("globals.css docs headings", () => {
   });
 });
 
+describe("globals.css docs media breakouts", () => {
+  it("keeps standard tables and code blocks aligned to the prose measure", () => {
+    expect(globalsCss).toContain(
+      ".docs-article-content .reference-content > img",
+    );
+    expect(globalsCss).not.toMatch(
+      /\.reference-content\s*>\s*:is\([^)]*(?:table|figure\.shiki)/,
+    );
+  });
+});
+
+describe("globals.css docs page actions", () => {
+  it("styles the split control as one purple primary action", () => {
+    const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
+
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        .docs-page-actions-primary,
+        .docs-page-actions-trigger {
+          cursor: pointer;
+          border-color: var(--accent) !important;
+          background-color: var(--accent) !important;
+          color: var(--primary-foreground) !important;
+        }
+      `),
+    );
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        .docs-page-actions-primary:hover,
+        .docs-page-actions-trigger:hover,
+        .docs-page-actions-trigger[data-state="open"] {
+          border-color: var(--accent) !important;
+          background-color: var(--docs-page-actions-hover) !important;
+        }
+      `),
+    );
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        --docs-page-actions-hover: color-mix(
+          in oklch,
+          var(--accent) 68%,
+          black
+        );
+      `),
+    );
+  });
+
+  it("gives the primary action a reduced-motion-safe shimmer", () => {
+    expect(globalsCss).toContain("@keyframes docs-page-actions-shimmer");
+    expect(globalsCss).toContain(
+      "animation: docs-page-actions-shimmer 4.5s ease-in-out infinite;",
+    );
+    expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(globalsCss).toContain("animation: none;");
+  });
+
+  it("keeps the mobile shimmer fitted to the split control", () => {
+    expect(globalsCss).toContain(
+      ".docs-page-tools {\n    max-width: 100%;\n    overflow-x: auto;",
+    );
+    expect(globalsCss).not.toContain(
+      ".docs-page-tools {\n    width: 100%;\n    overflow-x: auto;",
+    );
+  });
+});
+
 describe("globals.css cookbook sidebar", () => {
   it("removes the empty cookbook sidebar banner and aligns the recipe list", () => {
     const normalizedGlobalsCss = normalizeWhitespace(globalsCss);

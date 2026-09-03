@@ -680,7 +680,7 @@ describe("framework nav", () => {
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
     expect(sectionPages(navTree, "Intelligence")).toEqual([
-      "CopilotKit Intelligence",
+      "Overview",
       "Quickstart",
       "Cloud-hosted CopilotKit Intelligence",
       "Connect your runtime to Intelligence",

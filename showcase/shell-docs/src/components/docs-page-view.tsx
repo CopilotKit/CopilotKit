@@ -9,20 +9,15 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import {
   rehypeCode,
   rehypeCodeDefaultOptions,
 } from "fumadocs-core/mdx-plugins";
-import {
-  DocsPage,
-  DocsBody,
-  DocsTitle,
-  DocsDescription,
-} from "fumadocs-ui/page";
+import { DocsPage, DocsBody } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { DocsContentHeader } from "@/components/docs-content-header";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
@@ -59,6 +54,8 @@ import {
   convertTablesInJSX,
   inlineSnippets,
   loadDoc,
+  navSectionTitleForSlug,
+  visibleGuideBreadcrumbs,
   CONTENT_DIR,
 } from "@/lib/docs-render";
 import {
@@ -242,6 +239,11 @@ export async function DocsPageView({
     rootHref: slugHrefPrefix || "/",
     slugHrefPrefix,
   });
+  const sectionTitle = navSectionTitleForSlug(tree, slugPath);
+  const ancestorBreadcrumbs = visibleGuideBreadcrumbs(
+    breadcrumbs,
+    sectionTitle,
+  );
 
   // Bridge shell-docs's NavNode tree + headings into Fumadocs's shapes
   // so DocsLayout (sidebar) and DocsPage (right-rail TOC) can render them.
@@ -264,62 +266,17 @@ export async function DocsPageView({
         toc={fumadocsToc}
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
-        tableOfContentPopover={{ enabled: false }}
+        tableOfContentPopover={{ enabled: true }}
       >
         <MaybeEarlyAccessGate gate={doc.fm.earlyAccess}>
-          <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-            {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb,
-             * but tighter: this should read as quiet page chrome, not a
-             * second title row above the H1. */}
-            <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
-              {breadcrumbs.map((crumb, i) => {
-                const isLast = i === breadcrumbs.length - 1;
-                const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
-                return (
-                  <React.Fragment key={i}>
-                    {i > 0 && (
-                      <ChevronRight
-                        className="size-3 shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
-                    {crumb.href ? (
-                      <Link
-                        href={crumb.href}
-                        className={`${labelClass} transition-opacity hover:opacity-80`}
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className={labelClass}>{crumb.label}</span>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </nav>
-
-            {!doc.fm.hideHeader && (
-              <>
-                <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
-                  {doc.fm.title}
-                </DocsTitle>
-                {doc.fm.description && (
-                  <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
-                    {doc.fm.description}
-                  </DocsDescription>
-                )}
-              </>
-            )}
-
-            {!doc.fm.hidePageActions && (
-              <>
-                {/* Page actions (Copy agent prompt / Copy Markdown / Open in
-                  <LLM>) — fumadocs's upstream LLM page-actions feature. The
-                  markdown URL resolves through the `/:path*.mdx` rewrite to
-                  the route handler at `app/llms-mdx/[[...slug]]/route.ts`,
-                  which serves the raw MDX via the same `loadDoc()` the page
-                  uses. The GitHub URL is computed from `doc.filePath`
-                  (absolute fs path) by slicing from the `/showcase/` segment. */}
+          <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
+            <DocsContentHeader
+              ancestorBreadcrumbs={ancestorBreadcrumbs}
+              title={doc.fm.title}
+              description={doc.fm.description}
+              hideHeading={doc.fm.hideHeader}
+            >
+              {!doc.fm.hidePageActions && (
                 <DocsPageTools
                   slugPath={slugPath}
                   slugHrefPrefix={slugHrefPrefix}
@@ -328,15 +285,8 @@ export async function DocsPageView({
                   onboardingFrontend={onboardingFrontend}
                   hideOnboardingPrompt={slugPath === "webmcp"}
                 />
-
-                {/* Thin divider between the page-actions row and the page body
-                  (banner / content). Visually separates the page metadata
-                  chrome (title + page actions) from the page content
-                  underneath. Uses the project's `--border` token so it tracks
-                  the rest of the page chrome in light and dark modes. */}
-                <hr className="border-t border-[var(--border)] mt-2 mb-6" />
-              </>
-            )}
+              )}
+            </DocsContentHeader>
 
             {bannerSlot}
 

@@ -1861,6 +1861,64 @@ export function loadDoc(
 
 export type Breadcrumb = { label: string; href: string | null };
 
+function normalizeNavSlug(slug: string): string {
+  return slug.replace(/\/index$/, "");
+}
+
+function navNodeContainsSlug(node: NavNode, slugPath: string): boolean {
+  if (node.type === "section") return false;
+  if (node.type === "group") {
+    return node.children.some((child) => navNodeContainsSlug(child, slugPath));
+  }
+
+  return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath);
+}
+
+/** Return the sidebar section that contains a guide page. */
+export function navSectionTitleForSlug(
+  navTree: NavNode[],
+  slugPath: string,
+): string | null {
+  let currentSection: string | null = null;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      currentSection = node.title;
+    } else if (navNodeContainsSlug(node, slugPath)) {
+      return currentSection;
+    }
+  }
+  return null;
+}
+
+/**
+ * Turn a guide page's full breadcrumb trail into the ancestors shown above
+ * its title. The title already represents the current page, and the generic
+ * "Docs" root adds no information inside the guide surface. Named framework
+ * roots and first-level sections such as Cookbook remain visible. When a
+ * URL-level folder belongs to a broader sidebar section, prepend that section
+ * so paths such as AG-UI retain the visible Concepts hierarchy.
+ */
+export function visibleGuideBreadcrumbs(
+  breadcrumbs: Breadcrumb[],
+  sectionTitle?: string | null,
+): Breadcrumb[] {
+  const ancestors = breadcrumbs.slice(0, -1);
+  const hasGenericRoot = ancestors[0]?.label === "Docs";
+  const visible = hasGenericRoot ? ancestors.slice(1) : ancestors;
+  const isCookbook = breadcrumbs[1]?.label === "Cookbook";
+
+  if (
+    !hasGenericRoot ||
+    !sectionTitle ||
+    isCookbook ||
+    visible[0]?.label === sectionTitle
+  ) {
+    return visible;
+  }
+
+  return [{ label: sectionTitle, href: null }, ...visible];
+}
+
 export function buildBreadcrumbs(
   slugPath: string,
   opts: { rootLabel: string; rootHref: string | null; slugHrefPrefix: string },

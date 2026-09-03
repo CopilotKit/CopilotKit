@@ -79,6 +79,6 @@ test("the MDX registry and page view wire IntelligenceOverview and its chrome", 
   );
   expect(registry).toContain("IntelligenceOverview,");
   expect(registry).toContain("IntelligenceFeatureCards,");
-  expect(pageView).toContain("!doc.fm.hideHeader");
+  expect(pageView).toContain("hideHeading={doc.fm.hideHeader}");
   expect(pageView).toContain("!doc.fm.hidePageActions");
 });
