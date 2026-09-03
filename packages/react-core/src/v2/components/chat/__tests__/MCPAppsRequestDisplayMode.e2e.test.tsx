@@ -185,10 +185,9 @@ type OutgoingMessage = Record<string, any>;
  * iframe.contentWindow.postMessage).
  */
 function spyOnHostMessages(iframe: HTMLIFrameElement) {
-  return vi.spyOn(
-    iframe.contentWindow as Window,
-    "postMessage",
-  ) as unknown as { mock: { calls: any[][] } };
+  return vi.spyOn(iframe.contentWindow as Window, "postMessage") as unknown as {
+    mock: { calls: any[][] };
+  };
 }
 
 function outgoing(spy: { mock: { calls: any[][] } }): OutgoingMessage[] {
@@ -286,7 +285,9 @@ describe("MCP Apps ui/request-display-mode", () => {
     const spy = spyOnHostMessages(iframe);
 
     // Enter fullscreen first, then request the unsupported "pip".
-    await sendRequest(iframe, "ui/request-display-mode", { mode: "fullscreen" });
+    await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
     const pipId = await sendRequest(iframe, "ui/request-display-mode", {
       mode: "pip",
     });
@@ -320,13 +321,42 @@ describe("MCP Apps ui/request-display-mode", () => {
     ).toHaveLength(0);
   });
 
+  it("grants fullscreen when the View declares it in appCapabilities", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-appcaps-grant";
+    const iframe = await setupMCPActivity(agent, "rdm-appcaps-grant");
+    const spy = spyOnHostMessages(iframe);
+
+    // The View explicitly declares it supports both modes.
+    await sendInitialize(iframe, {
+      availableDisplayModes: ["inline", "fullscreen"],
+    });
+
+    // fullscreen is host-supported AND declared by the View -> granted.
+    const fsId = await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
+
+    expect(responseFor(spy, fsId)?.result).toEqual({ mode: "fullscreen" });
+    expect(
+      await screen.findByRole("button", { name: "Exit fullscreen" }),
+    ).toBeDefined();
+    expect(
+      notificationsFor(spy, "ui/notifications/host-context-changed").map(
+        (n) => n.params.displayMode,
+      ),
+    ).toContain("fullscreen");
+  });
+
   it("emits host-context-changed for widget-initiated changes (fullscreen then inline)", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "rdm-roundtrip";
     const iframe = await setupMCPActivity(agent, "rdm-roundtrip");
     const spy = spyOnHostMessages(iframe);
 
-    await sendRequest(iframe, "ui/request-display-mode", { mode: "fullscreen" });
+    await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
     const backId = await sendRequest(iframe, "ui/request-display-mode", {
       mode: "inline",
     });
@@ -377,7 +407,9 @@ describe("MCP Apps ui/request-display-mode", () => {
     const iframe = await setupMCPActivity(agent, "rdm-close-button");
     const spy = spyOnHostMessages(iframe);
 
-    await sendRequest(iframe, "ui/request-display-mode", { mode: "fullscreen" });
+    await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
 
     const closeButton = await screen.findByRole("button", {
       name: "Exit fullscreen",
@@ -412,11 +444,21 @@ describe("MCP Apps ui/request-display-mode", () => {
     const iframe = await setupMCPActivity(agent, "rdm-escape");
     const spy = spyOnHostMessages(iframe);
 
-    await sendRequest(iframe, "ui/request-display-mode", { mode: "fullscreen" });
+    await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
     await screen.findByRole("button", { name: "Exit fullscreen" });
 
+    // Escape on a modal <dialog> fires the native `cancel` event; the host maps
+    // that to the inline exit. (jsdom does not translate a raw keydown into the
+    // dialog cancel, so dispatch the event the browser would emit.)
+    const dialogEl = iframe.closest("dialog");
+    expect(dialogEl).not.toBeNull();
     await act(async () => {
-      fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+      fireEvent(
+        dialogEl!,
+        new Event("cancel", { bubbles: false, cancelable: true }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
@@ -442,7 +484,9 @@ describe("MCP Apps ui/request-display-mode", () => {
     const iframe = await setupMCPActivity(agent, "rdm-surface");
     const spy = spyOnHostMessages(iframe);
 
-    await sendRequest(iframe, "ui/request-display-mode", { mode: "fullscreen" });
+    await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
 
     const notifs = notificationsFor(
       spy,
@@ -467,7 +511,9 @@ describe("MCP Apps ui/request-display-mode", () => {
 
     expect(document.body.style.overflow).toBe("");
 
-    await sendRequest(iframe, "ui/request-display-mode", { mode: "fullscreen" });
+    await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
     expect(document.body.style.overflow).toBe("hidden");
 
     const closeButton = await screen.findByRole("button", {
