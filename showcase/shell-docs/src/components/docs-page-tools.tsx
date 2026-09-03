@@ -7,11 +7,11 @@
 // whole nav tree, so asserting the row's contents through it would mean
 // standing up most of the docs pipeline.
 //
-// Every page that renders this row gets the onboarding button. `DocsPageView`
-// is only reached by docs surfaces, and the button's offer — set CopilotKit up
-// in this project — holds on all of them. Earlier revisions gated it on the
-// caller naming a framework, which made identical pages behave differently
-// depending on the URL the reader arrived through.
+// Pages get the onboarding button by default. A page with its own focused
+// prompt CTA can hide that one action while keeping the Markdown and LLM
+// tools. Earlier revisions gated it on the caller naming a framework, which
+// made identical pages behave differently depending on the URL the reader
+// arrived through.
 
 import React from "react";
 import {
@@ -41,6 +41,8 @@ export interface DocsPageToolsProps {
    * framework, so the CLI's graph has to ask for neither selection.
    */
   onboardingFrontend?: { id: string; name: string };
+  /** Hide the generic onboarding prompt when the page provides its own CTA. */
+  hideOnboardingPrompt?: boolean;
 }
 
 /**
@@ -66,15 +68,18 @@ export function DocsPageTools({
   githubUrl,
   onboardingFramework,
   onboardingFrontend,
+  hideOnboardingPrompt = false,
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
     <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
-      <OnboardingPromptCopyButton
-        framework={onboardingFramework}
-        frontend={onboardingFrontend}
-        markdownUrl={markdownUrl}
-      />
+      {!hideOnboardingPrompt && (
+        <OnboardingPromptCopyButton
+          framework={onboardingFramework}
+          frontend={onboardingFrontend}
+          markdownUrl={markdownUrl}
+        />
+      )}
       <MarkdownCopyButton markdownUrl={markdownUrl} />
       <ViewOptionsPopover markdownUrl={markdownUrl} githubUrl={githubUrl} />
     </div>
