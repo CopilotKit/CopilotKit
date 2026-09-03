@@ -18,7 +18,7 @@ export function MobileSidebarFooterTalk() {
     <button
       type="button"
       onClick={handleTalkToEngineersClick}
-      className="shell-docs-radius-control flex h-10 w-full items-center justify-center gap-2 border border-transparent bg-[var(--accent)] px-3 text-sm font-medium text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] active:translate-y-px xl:hidden"
+      className="shell-docs-radius-control flex h-10 w-full items-center justify-center gap-2 border border-transparent bg-[var(--accent-fill)] px-3 text-sm font-medium text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] active:translate-y-px xl:hidden"
     >
       <Calendar className="h-4 w-4" aria-hidden="true" />
       Talk to an engineer

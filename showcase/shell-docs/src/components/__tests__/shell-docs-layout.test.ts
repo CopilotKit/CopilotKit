@@ -22,7 +22,7 @@ test("sidebar banner includes the picker and mobile docs tabs", () => {
 });
 
 test("mobile sidebar talk CTA uses the primary accent treatment", () => {
-  expect(mobileTalkSource).toContain("bg-[var(--accent)]");
+  expect(mobileTalkSource).toContain("bg-[var(--accent-fill)]");
   expect(mobileTalkSource).toContain("hover:bg-[var(--accent-strong)]");
   expect(mobileTalkSource).toContain("text-[var(--primary-foreground)]");
 });

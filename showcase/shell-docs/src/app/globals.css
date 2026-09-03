@@ -48,7 +48,7 @@
   --shadow-modal:
     0 24px 70px rgba(1, 5, 7, 0.22), 0 0 0 1px rgba(109, 69, 249, 0.05);
   --overlay-backdrop: rgba(1, 5, 7, 0.25);
-  --accent-strong: color-mix(in oklch, var(--accent) 88%, black);
+  --accent-strong: color-mix(in oklch, var(--accent-fill) 88%, black);
   --nav-control-border: color-mix(in srgb, var(--accent) 24%, var(--border));
   --nav-control-border-hover: color-mix(
     in srgb,
@@ -387,7 +387,7 @@
 
 .shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured {
   align-items: center;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff;
   border: 1px solid transparent;
 }
@@ -465,27 +465,31 @@
 }
 
 .shell-docs-cta-stripe {
-  background: var(--accent);
+  background: var(--accent-fill);
 }
 
 .shell-docs-course-banner {
   background: linear-gradient(
     90deg,
-    color-mix(in oklch, var(--accent) 78%, black) 0%,
-    var(--accent) 52%,
-    color-mix(in oklch, var(--accent) 90%, white) 100%
+    color-mix(in oklch, var(--accent-fill) 78%, black) 0%,
+    var(--accent-fill) 52%,
+    color-mix(in oklch, var(--accent-fill) 90%, white) 100%
   ) !important;
-  border-color: color-mix(in oklch, var(--accent) 70%, white) !important;
+  border-color: color-mix(in oklch, var(--accent-fill) 70%, white) !important;
 }
 
 .dark .shell-docs-course-banner {
   background: linear-gradient(
     90deg,
-    color-mix(in oklch, var(--accent) 72%, black) 0%,
-    color-mix(in oklch, var(--accent) 86%, black) 52%,
-    var(--accent) 100%
+    color-mix(in oklch, var(--accent-fill) 72%, black) 0%,
+    color-mix(in oklch, var(--accent-fill) 86%, black) 52%,
+    var(--accent-fill) 100%
   ) !important;
-  border-color: color-mix(in oklch, var(--accent) 62%, transparent) !important;
+  border-color: color-mix(
+    in oklch,
+    var(--accent-fill) 62%,
+    transparent
+  ) !important;
 }
 
 #shell-docs-course-banner > button {
@@ -1188,7 +1192,11 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 .docs-page-tools {
-  --docs-page-actions-hover: color-mix(in oklch, var(--accent) 68%, black);
+  --docs-page-actions-hover: color-mix(
+    in oklch,
+    var(--accent-fill) 68%,
+    black
+  );
   position: relative;
   isolation: isolate;
   flex: 0 0 auto;
@@ -1232,8 +1240,8 @@ figure.shiki > div:first-child[class*="border-b"] {
 .docs-page-actions-primary,
 .docs-page-actions-trigger {
   cursor: pointer;
-  border-color: var(--accent) !important;
-  background-color: var(--accent) !important;
+  border-color: var(--accent-fill) !important;
+  background-color: var(--accent-fill) !important;
   color: var(--primary-foreground) !important;
 }
 
@@ -1260,7 +1268,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 .docs-page-actions-primary:hover,
 .docs-page-actions-trigger:hover,
 .docs-page-actions-trigger[data-state="open"] {
-  border-color: var(--accent) !important;
+  border-color: var(--accent-fill) !important;
   background-color: var(--docs-page-actions-hover) !important;
 }
 
@@ -1506,6 +1514,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   --text-muted: var(--muted-foreground);
   --text-faint: oklch(0.708 0 0);
   --accent: var(--primary);
+  --accent-fill: var(--accent);
   --accent-light: color-mix(in oklch, var(--accent) 14%, white);
   --accent-dim: color-mix(in oklch, var(--accent) 8%, transparent);
   --blue: #1a5fb4;
@@ -1534,9 +1543,8 @@ figure.shiki > div:first-child[class*="border-b"] {
     "Liberation Mono", "Courier New", monospace;
 }
 
-/* Dark token set — same neutral scale, with purple lifted slightly brighter
- * than the sample's dark primary so text and outline CTAs keep enough
- * contrast on the docs header. */
+/* Dark token set: lift purple text and icons for AA contrast while keeping
+ * filled purple controls on the established, darker brand value. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -1544,7 +1552,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.585 0.233 277.117);
+  --primary: oklch(0.64 0.21 277);
   --primary-foreground: oklch(0.962 0.018 272.314);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
@@ -1558,7 +1566,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   --ring: oklch(0.556 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.585 0.233 277.117);
+  --sidebar-primary: oklch(0.64 0.21 277);
   --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
@@ -1576,6 +1584,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   --text-muted: var(--muted-foreground);
   --text-faint: oklch(0.556 0 0);
   --accent: var(--primary);
+  --accent-fill: oklch(0.585 0.233 277.117);
   --accent-light: color-mix(in oklch, var(--accent) 24%, transparent);
   --accent-dim: color-mix(in oklch, var(--accent) 14%, transparent);
   --warning: oklch(0.76 0.15 76);

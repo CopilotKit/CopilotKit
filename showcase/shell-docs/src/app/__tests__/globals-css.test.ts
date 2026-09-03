@@ -76,6 +76,22 @@ describe("globals.css docs headings", () => {
   });
 });
 
+describe("globals.css dark accent contrast", () => {
+  it("uses a lighter accent for text while preserving the darker fill", () => {
+    const darkTheme = globalsCss.match(/\.dark \{(?<body>[\s\S]*?)\n\}/)?.groups
+      ?.body;
+
+    expect(darkTheme).toContain("--primary: oklch(0.64 0.21 277);");
+    expect(darkTheme).toContain("--sidebar-primary: oklch(0.64 0.21 277);");
+    expect(darkTheme).toContain(
+      "--accent-fill: oklch(0.585 0.233 277.117);",
+    );
+    expect(globalsCss).toContain(
+      "--accent-strong: color-mix(in oklch, var(--accent-fill) 88%, black);",
+    );
+  });
+});
+
 describe("globals.css docs media breakouts", () => {
   it("keeps standard tables and code blocks aligned to the prose measure", () => {
     expect(globalsCss).toContain(
@@ -96,8 +112,8 @@ describe("globals.css docs page actions", () => {
         .docs-page-actions-primary,
         .docs-page-actions-trigger {
           cursor: pointer;
-          border-color: var(--accent) !important;
-          background-color: var(--accent) !important;
+          border-color: var(--accent-fill) !important;
+          background-color: var(--accent-fill) !important;
           color: var(--primary-foreground) !important;
         }
       `),
@@ -107,7 +123,7 @@ describe("globals.css docs page actions", () => {
         .docs-page-actions-primary:hover,
         .docs-page-actions-trigger:hover,
         .docs-page-actions-trigger[data-state="open"] {
-          border-color: var(--accent) !important;
+          border-color: var(--accent-fill) !important;
           background-color: var(--docs-page-actions-hover) !important;
         }
       `),
@@ -116,7 +132,7 @@ describe("globals.css docs page actions", () => {
       normalizeWhitespace(`
         --docs-page-actions-hover: color-mix(
           in oklch,
-          var(--accent) 68%,
+          var(--accent-fill) 68%,
           black
         );
       `),

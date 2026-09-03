@@ -111,7 +111,7 @@ describe("QuickstartLinkButton", () => {
     const link = screen.getByRole("link", { name: /quickstart/i });
 
     expect(link.className).toContain("shell-docs-primary-cta");
-    expect(link.className).toContain("bg-[var(--accent)]");
+    expect(link.className).toContain("bg-[var(--accent-fill)]");
     expect(link.className).toContain("text-[var(--primary-foreground)]");
     expect(link.className).not.toContain("bg-[var(--bg-surface)]");
   });
