@@ -71,18 +71,37 @@ describe("globals.css docs media breakouts", () => {
 });
 
 describe("globals.css docs page actions", () => {
-  it("keeps split-button borders neutral on hover", () => {
+  it("styles the split control as one purple primary action", () => {
     const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
 
     expect(normalizedGlobalsCss).toContain(
       normalizeWhitespace(`
-        .docs-page-actions-primary:hover,
-        .docs-page-actions-trigger:hover {
-          border-color: var(--border);
-          background-color: var(--bg-elevated);
+        .docs-page-actions-primary,
+        .docs-page-actions-trigger {
+          border-color: var(--accent) !important;
+          background-color: var(--accent) !important;
+          color: var(--primary-foreground) !important;
         }
       `),
     );
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        .docs-page-actions-primary:hover,
+        .docs-page-actions-trigger:hover {
+          border-color: var(--accent) !important;
+          background-color: var(--accent-strong) !important;
+        }
+      `),
+    );
+  });
+
+  it("gives the primary action a reduced-motion-safe shimmer", () => {
+    expect(globalsCss).toContain("@keyframes docs-page-actions-shimmer");
+    expect(globalsCss).toContain(
+      "animation: docs-page-actions-shimmer 4.5s ease-in-out infinite;",
+    );
+    expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(globalsCss).toContain("animation: none;");
   });
 });
 

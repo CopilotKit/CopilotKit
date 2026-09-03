@@ -1053,10 +1053,34 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 .docs-page-tools {
+  position: relative;
+  isolation: isolate;
   flex: 0 0 auto;
   flex-wrap: nowrap;
   gap: 0;
   margin: 0;
+  border-radius: var(--shell-docs-radius-control);
+}
+
+/* One low-contrast light pass gives the primary page action a little energy
+ * without turning a reading surface into a looping attention trap. The long
+ * hold between passes keeps it quieter than an indeterminate loading state. */
+.docs-page-tools::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 32%,
+    color-mix(in srgb, white 22%, transparent) 48%,
+    transparent 64%
+  );
+  background-position: 130% 0;
+  background-size: 260% 100%;
+  pointer-events: none;
+  animation: docs-page-actions-shimmer 4.5s ease-in-out infinite;
 }
 
 .docs-page-tools > * {
@@ -1067,6 +1091,18 @@ figure.shiki > div:first-child[class*="border-b"] {
 .docs-page-actions-primary {
   border-radius: var(--shell-docs-radius-control) 0 0
     var(--shell-docs-radius-control) !important;
+}
+
+.docs-page-actions-primary,
+.docs-page-actions-trigger {
+  border-color: var(--accent) !important;
+  background-color: var(--accent) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.docs-page-actions-primary svg,
+.docs-page-actions-trigger svg {
+  color: currentColor !important;
 }
 
 .docs-page-actions-trigger {
@@ -1086,8 +1122,26 @@ figure.shiki > div:first-child[class*="border-b"] {
 
 .docs-page-actions-primary:hover,
 .docs-page-actions-trigger:hover {
-  border-color: var(--border);
-  background-color: var(--bg-elevated);
+  border-color: var(--accent) !important;
+  background-color: var(--accent-strong) !important;
+}
+
+@keyframes docs-page-actions-shimmer {
+  0%,
+  68% {
+    background-position: 130% 0;
+  }
+  88%,
+  100% {
+    background-position: -80% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-page-tools::after {
+    background: none;
+    animation: none;
+  }
 }
 
 .docs-page-description {
