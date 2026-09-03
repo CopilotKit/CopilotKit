@@ -9,6 +9,8 @@ export const WEBMCP_SETUP_PROMPT =
 type CopyState = "idle" | "copied" | "error";
 
 export function WebMCPSetupPrompt(): React.JSX.Element {
+  const promptId = React.useId();
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -36,30 +38,53 @@ export function WebMCPSetupPrompt(): React.JSX.Element {
 
   return (
     <div
-      className="shell-docs-radius-surface not-prose my-6 flex flex-col gap-4 border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 shadow-[var(--shadow-control)] sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+      className="shell-docs-radius-surface not-prose my-6 overflow-hidden border border-[var(--nav-control-border)] bg-[var(--bg-surface)] shadow-[var(--shadow-control)]"
       data-docs-copy-surface="docs_webmcp_setup_prompt"
     >
-      <div className="flex min-w-0 items-center gap-3 text-[var(--text-secondary)]">
-        <ChevronRight
-          aria-hidden="true"
-          className="h-5 w-5 shrink-0 text-[var(--text-muted)]"
-        />
-        <p className="m-0 text-base leading-relaxed">
+      <div className="grid min-h-17 grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 p-3 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:pr-4">
+        <button
+          type="button"
+          aria-controls={promptId}
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+          className="shell-docs-radius-control inline-flex h-11 w-11 cursor-pointer items-center justify-center border border-[var(--nav-control-border)] bg-[var(--accent-dim)] text-[var(--accent)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-light)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none sm:col-start-1"
+        >
+          <ChevronRight
+            aria-hidden="true"
+            className={`h-5 w-5 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+          />
+          <span className="sr-only">
+            {isExpanded ? "Hide prompt text" : "Show prompt text"}
+          </span>
+        </button>
+
+        <span className="block text-base leading-relaxed sm:col-start-2">
           Use this pre-built prompt to get WebMCP running faster.
-        </p>
+        </span>
+
+        <button
+          type="button"
+          onClick={copyPrompt}
+          className="shell-docs-radius-control col-span-2 inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:col-span-1 sm:col-start-3 sm:w-auto"
+        >
+          {copyState === "copied"
+            ? "Copied"
+            : copyState === "error"
+              ? "Copy blocked"
+              : "Copy prompt"}
+        </button>
       </div>
 
-      <button
-        type="button"
-        onClick={copyPrompt}
-        className="shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center bg-[var(--text)] px-5 text-sm font-semibold text-[var(--bg)] transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto"
-      >
-        {copyState === "copied"
-          ? "Copied"
-          : copyState === "error"
-            ? "Copy blocked"
-            : "Copy prompt"}
-      </button>
+      {isExpanded && (
+        <div
+          id={promptId}
+          className="border-t border-[var(--nav-control-border)] bg-[var(--accent-dim)] px-5 py-4"
+        >
+          <div className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-[var(--text-secondary)]">
+            {WEBMCP_SETUP_PROMPT}
+          </div>
+        </div>
+      )}
 
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"
