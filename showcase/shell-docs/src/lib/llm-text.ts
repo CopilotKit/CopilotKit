@@ -75,6 +75,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { createWebMCPOnboardingPrompt } from "./webmcp-onboarding-prompt";
 
 interface Region {
   file: string;
@@ -766,6 +767,17 @@ function expandRichThreadsSetupPrompts(body: string): string {
   );
 }
 
+/** Expand the interactive WebMCP prompt for raw Markdown consumers. */
+function expandWebMCPOnboardingPrompts(body: string): string {
+  return body.replace(
+    /<WebMCPOnboardingPrompt\s*\/>/g,
+    `### Copy this prompt into your coding agent\n\n${fenceFor(
+      "text",
+      createWebMCPOnboardingPrompt(),
+    )}`,
+  );
+}
+
 /**
  * Drop `<InlineDemo ... />` tags — these mount live iframes in the
  * browser; in plain markdown they're noise. Leave a short note so the
@@ -899,6 +911,7 @@ export function renderPageToLlmText(
 
   // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
   body = expandRichThreadsSetupPrompts(body);
+  body = expandWebMCPOnboardingPrompts(body);
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
