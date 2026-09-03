@@ -1305,48 +1305,59 @@ figure.shiki > div:first-child[class*="border-b"] {
   mask-image: none !important;
 }
 
-/* Scroll-edge affordances. SidebarScrollPreserver adds the state attributes
- * only while more navigation content exists beyond the visible edge. */
-.shell-docs-sidebar [data-shell-docs-scroll-frame] {
-  position: relative;
-}
-
-.shell-docs-sidebar [data-shell-docs-scroll-frame]::before,
-.shell-docs-sidebar [data-shell-docs-scroll-frame]::after {
-  position: absolute;
-  z-index: 10;
-  right: 0;
-  left: 0;
-  height: 0.75rem;
-  pointer-events: none;
-  content: "";
-  opacity: 0;
-  transition: opacity 120ms ease-out;
-}
-
-.shell-docs-sidebar [data-shell-docs-scroll-frame]::before {
-  top: 0;
-  background: linear-gradient(
+/* Scroll-edge affordances. Fade the navigation content into its own
+ * background instead of placing a tinted surface over the sidebar. */
+.shell-docs-sidebar
+  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-top]:not(
+    [data-shell-docs-scroll-shadow-bottom]
+  )
+  > [data-radix-scroll-area-viewport] {
+  -webkit-mask-image: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--text) 10%, transparent),
-    transparent
-  );
-}
-
-.shell-docs-sidebar [data-shell-docs-scroll-frame]::after {
-  bottom: 0;
-  background: linear-gradient(
-    to top,
-    color-mix(in srgb, var(--text) 10%, transparent),
-    transparent
-  );
+    transparent,
+    rgb(0 0 0 / 100%) 0.625rem
+  ) !important;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 100%) 0.625rem
+  ) !important;
 }
 
 .shell-docs-sidebar
-  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-top]::before,
+  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-bottom]:not(
+    [data-shell-docs-scroll-shadow-top]
+  )
+  > [data-radix-scroll-area-viewport] {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 100%) calc(100% - 0.625rem),
+    transparent
+  ) !important;
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 100%) calc(100% - 0.625rem),
+    transparent
+  ) !important;
+}
+
 .shell-docs-sidebar
-  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-bottom]::after {
-  opacity: 1;
+  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-top][data-shell-docs-scroll-shadow-bottom]
+  > [data-radix-scroll-area-viewport] {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 100%) 0.625rem,
+    rgb(0 0 0 / 100%) calc(100% - 0.625rem),
+    transparent
+  ) !important;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 100%) 0.625rem,
+    rgb(0 0 0 / 100%) calc(100% - 0.625rem),
+    transparent
+  ) !important;
 }
 
 /* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)
