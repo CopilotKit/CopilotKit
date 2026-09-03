@@ -527,7 +527,7 @@ export async function DocsPageView({
                             }
                             hrefPrefix={slugHrefPrefix}
                             markdownUrl={docsMarkdownUrl(
-                              slugHrefPrefix || "",
+                              slugHrefPrefix,
                               slugPath,
                             )}
                             onboardingFrontend={onboardingFrontend}

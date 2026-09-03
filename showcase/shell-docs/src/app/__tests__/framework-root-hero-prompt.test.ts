@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  openingTagAttributes,
+  valuedPropPattern,
+} from "@/test-utils/jsx-source";
 
 /**
  * The framework-root heroes copy the same onboarding prompt the docs-page
@@ -17,33 +21,6 @@ const ROUTE = path.join(
   "src/app/[framework]/[[...slug]]/page.tsx",
 );
 
-/**
- * The attributes of the opening JSX tag that `chunk` starts with. Walks to
- * the first `>` that is not nested inside a `{…}` expression or a string, so
- * it holds for a self-closing render and for one with children alike.
- */
-function openingTagAttributes(chunk: string): string {
-  let depth = 0;
-  let quote: string | null = null;
-  for (let i = 0; i < chunk.length; i++) {
-    const char = chunk[i];
-    if (quote) {
-      if (char === quote && chunk[i - 1] !== "\\") quote = null;
-      continue;
-    }
-    if (char === '"' || char === "'" || char === "`") {
-      quote = char;
-    } else if (char === "{") {
-      depth++;
-    } else if (char === "}") {
-      depth--;
-    } else if (char === ">" && depth === 0) {
-      return chunk.slice(0, i);
-    }
-  }
-  return chunk;
-}
-
 describe("framework root hero prompt inputs", () => {
   for (const tag of ["<FrameworkOverview", "<MdxFrameworkOverview"] as const) {
     it(`passes markdownUrl and onboardingFrontend at ${tag}`, () => {
@@ -53,8 +30,11 @@ describe("framework root hero prompt inputs", () => {
       expect(renders).toHaveLength(1);
       for (const chunk of renders) {
         const attributes = openingTagAttributes(chunk);
-        expect(attributes).toContain("markdownUrl");
-        expect(attributes).toContain("onboardingFrontend");
+        // A value, not just the name — `markdownUrl={undefined}` and
+        // `markdownUrl={""}` both compile and would satisfy a substring
+        // match while dropping the page sentence.
+        expect(attributes).toMatch(valuedPropPattern("markdownUrl"));
+        expect(attributes).toMatch(valuedPropPattern("onboardingFrontend"));
       }
     });
   }
