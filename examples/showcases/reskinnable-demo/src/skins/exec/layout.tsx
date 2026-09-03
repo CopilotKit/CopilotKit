@@ -1,0 +1,197 @@
+"use client";
+import "./theme.css"; // side-effect import registers the .theme-exec block
+
+import { useCallback } from "react";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import {
+  useAgent,
+  useAgentContext,
+  useCopilotChatConfiguration,
+  useCopilotKit,
+} from "@copilotkit/react-core/v2";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
+import { HelpCircle, RotateCcw } from "lucide-react";
+import { useSkin } from "@/shell/skin-provider";
+import { usePresenterReset } from "@/shell/presenter-reset-context";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useExecLedger } from "./data/ledger-context";
+import { cn } from "@/lib/utils";
+
+const SIDEBAR_WIDTH_PX = 240;
+
+export function ExecLayout({ children }: { children: ReactNode }) {
+  const skin = useSkin();
+  const skinHref = useSkinHref("exec");
+  const restHead = useSkinSegments("exec")[0] ?? "";
+  const resetEnabled = usePresenterReset();
+  const { resetDemo } = useExecLedger();
+  const Logo = skin.identity.logo;
+
+  // Ask-the-copilot for the sidebar Help control below. PORTED, not imported,
+  // from logistics'/people's own components/use-ask-copilot.ts: a skin's only
+  // inbound dependency is the shell's Skin contract, so this stays local
+  // rather than reaching into another skin's folder for a hook this small.
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const configuration = useCopilotChatConfiguration();
+  const setModalOpen = configuration?.setModalOpen;
+  const askCopilot = useCallback(
+    async (message: string) => {
+      setModalOpen?.(true);
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: message,
+      });
+      try {
+        await copilotkit.runAgent({ agent });
+      } catch (error) {
+        console.error("askCopilot: runAgent failed", error);
+      }
+    },
+    [agent, copilotkit, setModalOpen],
+  );
+
+  // ── BEAT 3b, part 1 — the agent's view of WHICH page is open ─────────────
+  // Without this the skin has only GLOBAL readables and answers "what's on my
+  // screen?" identically everywhere, which reads as working right up until the
+  // presenter navigates and asks twice. `restHead` comes from useSkinSegments,
+  // which strips a LEADING skin id rather than slicing a fixed offset, so it is
+  // correct whether or not the pathname carries the prefix (LOCK_SKIN serves the
+  // locked skin at `/`, with no segment to slice off).
+  useAgentContext({
+    description:
+      "The page the exec is looking at right now, as a route segment. " +
+      "An empty segment is the CEO dashboard (the index).",
+    value: restHead,
+  });
+
+  const handleReset = async () => {
+    if (
+      !window.confirm("Reset demo state? This restores the seeded scenario.")
+    ) {
+      return;
+    }
+    try {
+      await resetDemo();
+      // Hard navigate to the skin root for a pristine client slate (fresh
+      // store, cleared canvas, new thread on next message) AND the clean
+      // starting URL the demo should always open on — which is `/` itself on
+      // a locked single-tenant deploy.
+      window.location.assign(skinHref());
+    } catch (err) {
+      window.alert(`Reset failed: ${err instanceof Error ? err.message : err}`);
+    }
+  };
+
+  return (
+    // h-full + overflow-hidden (not min-h-*): this chrome must be exactly as tall
+    // as the shell's app CARD so the nav stays pinned and <main> scrolls INSIDE
+    // it. If the container grows past the card on a long page, the whole document
+    // scrolls — taking the nav with it — and <main>'s own overflow-y-auto goes
+    // inert because its parent is unbounded. Mirrors logistics'/banking's layout.
+    <div className="flex h-full overflow-hidden bg-canvas text-ink">
+      <aside
+        className="hidden h-full shrink-0 flex-col border-r border-hairline bg-surface px-3 py-5 md:flex"
+        style={{ width: SIDEBAR_WIDTH_PX }}
+      >
+        <div className="mb-7 flex items-center gap-2.5 px-2 text-brand">
+          <Logo className="h-7 w-7" />
+          <span className="text-base font-bold tracking-tight text-ink">
+            {skin.identity.brand}
+          </span>
+        </div>
+        <nav className="flex flex-col gap-0.5">
+          {skin.nav.map((route) => {
+            const href = skinHref(route.segment);
+            const active = restHead === route.segment;
+            const Icon = route.icon;
+            return (
+              <Link
+                key={route.segment || "index"}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-brand-soft text-brand"
+                    : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+                )}
+              >
+                {Icon ? <Icon className="h-4 w-4" /> : null}
+                {route.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Meta-utility strip — Reset (presenter-gated), theme toggle, and a
+            copilot Help shortcut. Semantic utilities only, so a reskin swaps
+            the palette without touching this chrome. Exec has a single
+            persona — unlike logistics' planner switcher, there is no
+            role-switcher block stacked below it. */}
+        <div className="mt-auto">
+          <TooltipProvider>
+            <div className="flex items-center gap-1 border-t border-hairline px-1 pt-3">
+              {resetEnabled && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => void handleReset()}
+                      aria-label="Reset demo state"
+                      className="flex h-9 w-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Reset demo state</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <ThemeToggle />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Toggle theme</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Ask the copilot for help"
+                    onClick={() =>
+                      void askCopilot(
+                        "What can you help me with on this executive dashboard? Give me a short list.",
+                      )
+                    }
+                    className="flex h-9 w-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Ask the copilot for help</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>
+      </aside>
+
+      <main className="flex-1 overflow-y-auto px-5 py-6">{children}</main>
+    </div>
+  );
+}
