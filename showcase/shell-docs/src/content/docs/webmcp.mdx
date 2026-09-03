@@ -5,6 +5,22 @@ description: Expose browser-side actions as structured tools that compatible age
 frontend: universal
 ---
 
+<Accordion
+  featured
+  title="Copy this prompt"
+  description="Paste it into your coding agent from the root of your project."
+>
+
+<DocsTrackedCopy surface="docs_webmcp_setup_prompt">
+
+```text
+Set up WebMCP in this project using https://docs.copilotkit.ai/webmcp. First inspect the app and extend its existing CopilotKit setup if present; do not add a backend agent solely for WebMCP. If I haven’t specified a tool, ask what I want to expose. If I don’t have one in mind, add a small, read-only demo tool that fits the app. Finish by verifying that a compatible browser can discover and call it.
+```
+
+</DocsTrackedCopy>
+
+</Accordion>
+
 WebMCP lets your website tell compatible browser agents what they can do. Instead of guessing which buttons to click, an agent discovers a named tool with a description, a typed input schema, and a JavaScript handler.
 
 CopilotKit can publish an existing frontend tool to [`document.modelContext`](https://webmachinelearning.github.io/webmcp/). The same handler then works for your CopilotKit agent and for WebMCP-aware browser agents.
