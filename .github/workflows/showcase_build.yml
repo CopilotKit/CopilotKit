@@ -422,7 +422,7 @@ jobs:
       - name: Verify Railway image refs
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: npx tsx showcase/scripts/verify-railway-image-refs.ts
+        run: node --experimental-strip-types showcase/scripts/verify-railway-image-refs.ts
 
   # Build one browser bundle for every selected integration image. Staging
   # redeploys these GHCR images directly; production promotion pins the same
