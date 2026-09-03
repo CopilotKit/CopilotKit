@@ -138,9 +138,10 @@ test("a snippet says what the framework's own demo agent proves about it", () =>
   {
     const source = resolveBundledSetupConcept("agno", CONCEPT, setupContent);
     expect(source, "agno").not.toBeNull();
-    expect(source, "agno: declares the component as an external tool").toContain(
-      "external_execution=True",
-    );
+    expect(
+      source,
+      "agno: declares the component as an external tool",
+    ).toContain("external_execution=True");
     expect(source, "agno: gives the paused run a database").toContain("db=db");
   }
 
