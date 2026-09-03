@@ -1173,6 +1173,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        landingPage
         onboardingFramework={onboardingFrameworkFor(framework)}
         // `slugHrefPrefix` is this page's own URL prefix — `/angular/mastra`
         // when a frontend route delegated here, `/<framework>` otherwise.
@@ -1311,6 +1312,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        landingPage
         onboardingFramework={onboardingFrameworkFor(framework)}
         // `slugHrefPrefix` is this page's own URL prefix — `/angular/mastra`
         // when a frontend route delegated here, `/<framework>` otherwise.
