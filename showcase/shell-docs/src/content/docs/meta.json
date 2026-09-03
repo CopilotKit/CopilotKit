@@ -54,6 +54,7 @@
     "vs-code-extension",
     "---Intelligence---",
     "intelligence/overview",
+    "intelligence/quickstart",
     "intelligence/managed-intelligence-platform",
     "intelligence/connect-your-runtime",
     "intelligence/self-hosting",
