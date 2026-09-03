@@ -4,13 +4,13 @@ icon: "lucide/Globe2"
 description: Expose browser-side actions as structured tools that compatible agents can discover and call.
 ---
 
-import { WebMCPOnboardingPrompt } from "@/components/webmcp-onboarding-prompt";
+import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 
 WebMCP lets your website tell compatible browser agents what they can do. Instead of guessing which buttons to click, an agent discovers a named tool with a description, a typed input schema, and a JavaScript handler.
 
 CopilotKit can publish an existing frontend tool to [`document.modelContext`](https://webmachinelearning.github.io/webmcp/). The same handler then works for your CopilotKit agent and for WebMCP-aware browser agents.
 
-<WebMCPOnboardingPrompt />
+<WebMCPSetupPrompt />
 
 <Callout type="warn" title="WebMCP is experimental">
   WebMCP is a draft Community Group report, not a W3C Standard. Chrome offers

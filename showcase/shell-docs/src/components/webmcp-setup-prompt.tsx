@@ -5,17 +5,16 @@ import { Copy, SquareTerminal } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import {
-  createOnboardingRunId,
-  INTELLIGENCE_ONBOARDING_EVENTS,
-} from "@/lib/intelligence-onboarding-prompt";
-import { createWebMCPOnboardingPrompt } from "@/lib/webmcp-onboarding-prompt";
+  WEBMCP_SETUP_EVENTS,
+  WEBMCP_SETUP_PROMPT,
+} from "@/lib/webmcp-setup-prompt";
 
-const COPY_SURFACE = "docs_webmcp_onboarding_prompt";
+const COPY_SURFACE = "docs_webmcp_setup_prompt";
 
 type CopyState = "idle" | "copied" | "error";
 
-/** Copyable WebMCP goal that enters the repository-aware CLI onboarding flow. */
-export function WebMCPOnboardingPrompt(): React.JSX.Element {
+/** Copyable, standalone WebMCP setup prompt. */
+export function WebMCPSetupPrompt(): React.JSX.Element {
   const titleId = React.useId();
   const pathname = usePathname();
   const posthog = usePostHog();
@@ -47,10 +46,9 @@ export function WebMCPOnboardingPrompt(): React.JSX.Element {
     if (copyInFlightRef.current) return;
     copyInFlightRef.current = true;
     setIsCopying(true);
-    const runId = createOnboardingRunId();
 
     try {
-      await navigator.clipboard.writeText(createWebMCPOnboardingPrompt(runId));
+      await navigator.clipboard.writeText(WEBMCP_SETUP_PROMPT);
     } catch {
       if (mountedRef.current) {
         setCopyState("error");
@@ -67,9 +65,8 @@ export function WebMCPOnboardingPrompt(): React.JSX.Element {
     scheduleReset(1800);
 
     try {
-      posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+      posthog?.capture(WEBMCP_SETUP_EVENTS.promptCopied, {
         from_path: pathname,
-        onboarding_run_id: runId,
         surface: COPY_SURFACE,
       });
     } catch {
@@ -94,9 +91,8 @@ export function WebMCPOnboardingPrompt(): React.JSX.Element {
               Add WebMCP with your coding agent
             </p>
             <p className="mt-1 mb-0 max-w-[62ch] text-sm leading-relaxed text-[var(--text-muted)]">
-              It inspects your app first, then reuses an existing CopilotKit
-              tool or wraps the smallest suitable browser action. WebMCP calls
-              do not run through a backend agent.
+              Copies a short prompt that points your coding agent to this guide
+              and asks it to verify the result.
             </p>
           </div>
         </div>

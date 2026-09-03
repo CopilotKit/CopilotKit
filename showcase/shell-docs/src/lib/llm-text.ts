@@ -75,7 +75,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
-import { createWebMCPOnboardingPrompt } from "./webmcp-onboarding-prompt";
+import { WEBMCP_SETUP_PROMPT } from "./webmcp-setup-prompt";
 
 interface Region {
   file: string;
@@ -768,12 +768,12 @@ function expandRichThreadsSetupPrompts(body: string): string {
 }
 
 /** Expand the interactive WebMCP prompt for raw Markdown consumers. */
-function expandWebMCPOnboardingPrompts(body: string): string {
+function expandWebMCPSetupPrompts(body: string): string {
   return body.replace(
-    /<WebMCPOnboardingPrompt\s*\/>/g,
+    /<WebMCPSetupPrompt\s*\/>/g,
     `### Copy this prompt into your coding agent\n\n${fenceFor(
       "text",
-      createWebMCPOnboardingPrompt(),
+      WEBMCP_SETUP_PROMPT,
     )}`,
   );
 }
@@ -911,7 +911,7 @@ export function renderPageToLlmText(
 
   // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
   body = expandRichThreadsSetupPrompts(body);
-  body = expandWebMCPOnboardingPrompts(body);
+  body = expandWebMCPSetupPrompts(body);
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page

@@ -9,8 +9,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import { WebMCPOnboardingPrompt } from "../webmcp-onboarding-prompt";
-import { INTELLIGENCE_ONBOARDING_EVENTS } from "@/lib/intelligence-onboarding-prompt";
+import { WebMCPSetupPrompt } from "../webmcp-setup-prompt";
+import {
+  WEBMCP_SETUP_EVENTS,
+  WEBMCP_SETUP_PROMPT,
+} from "@/lib/webmcp-setup-prompt";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
@@ -27,39 +30,28 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-test("copies a run-bound WebMCP goal into the CLI onboarding path", async () => {
+test("copies the standalone WebMCP setup prompt", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { writeText },
   });
 
-  render(<WebMCPOnboardingPrompt />);
+  render(<WebMCPSetupPrompt />);
   fireEvent.click(screen.getByRole("button", { name: "Copy setup prompt" }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const prompt = writeText.mock.calls[0]?.[0] as string;
-  const runId = /onboard start --run ([0-9a-f]{12}) --coding-agent/.exec(
-    prompt,
-  )?.[1];
-
-  expect(runId).toBeTruthy();
-  expect(prompt).toContain(
-    "The goal of this onboarding run is to get WebMCP working",
-  );
-  expect(prompt).toContain(
-    "A WebMCP call does not require a CopilotKit backend agent",
-  );
-  expect(prompt).toContain("https://docs.copilotkit.ai/webmcp");
+  expect(prompt).toBe(WEBMCP_SETUP_PROMPT);
+  expect(prompt).not.toContain("onboard start");
   expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy();
   expect(screen.getByText("Prompt copied")).toBeTruthy();
   expect(analytics.capture).toHaveBeenCalledWith(
-    INTELLIGENCE_ONBOARDING_EVENTS.promptCopied,
+    WEBMCP_SETUP_EVENTS.promptCopied,
     {
       from_path: "/webmcp",
-      onboarding_run_id: runId,
-      surface: "docs_webmcp_onboarding_prompt",
+      surface: "docs_webmcp_setup_prompt",
     },
   );
 });
@@ -77,7 +69,7 @@ test("disables the CTA while the clipboard write is pending", async () => {
     value: { writeText },
   });
 
-  render(<WebMCPOnboardingPrompt />);
+  render(<WebMCPSetupPrompt />);
   const button = screen.getByRole("button", { name: "Copy setup prompt" });
 
   fireEvent.click(button);

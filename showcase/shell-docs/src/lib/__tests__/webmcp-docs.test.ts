@@ -1,10 +1,11 @@
 import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
+import { WEBMCP_SETUP_PROMPT } from "../webmcp-setup-prompt";
 
-test("leads the WebMCP guide with repository-aware onboarding", () => {
+test("leads the WebMCP guide with the standalone setup prompt", () => {
   const source = loadDoc("webmcp")?.source ?? "";
-  const prompt = source.indexOf("<WebMCPOnboardingPrompt />");
+  const prompt = source.indexOf("<WebMCPSetupPrompt />");
   const manualSetup = source.indexOf("## Add WebMCP manually");
 
   expect(prompt).toBeGreaterThan(-1);
@@ -16,7 +17,7 @@ test("leads the WebMCP guide with repository-aware onboarding", () => {
   expect(source).toContain("Chrome 149");
 });
 
-test("expands the WebMCP onboarding CTA for Markdown and LLM readers", () => {
+test("expands the WebMCP setup CTA for Markdown and LLM readers", () => {
   const doc = loadDoc("webmcp");
   if (!doc) throw new Error("WebMCP guide is missing");
 
@@ -28,13 +29,9 @@ test("expands the WebMCP onboarding CTA for Markdown and LLM readers", () => {
     loadSlug: "webmcp",
   });
 
-  expect(output).toContain(
-    "npx --yes copilotkit@latest onboard start --coding-agent <coding-agent-slug>",
-  );
-  expect(output).toContain(
-    "The goal of this onboarding run is to get WebMCP working",
-  );
-  expect(output).not.toContain("<WebMCPOnboardingPrompt />");
+  expect(output).toContain(WEBMCP_SETUP_PROMPT);
+  expect(output).not.toContain("onboard start");
+  expect(output).not.toContain("<WebMCPSetupPrompt />");
 });
 
 test("provides an Angular-native WebMCP page for the frontend selector", () => {
