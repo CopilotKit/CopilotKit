@@ -17,24 +17,12 @@ const CONCEPT = "frontend-tools-setup";
  * framework needs no agent-side wiring" from "it needs some and nobody wrote it down"
  * (OSS-1036).
  *
- * Every name here is unfinished work, not an exemption on the merits. Establishing the
- * answer means reading the framework's AG-UI adapter and its own `gen-ui-tool-based`
- * demo agent, then writing the snippet — including when the snippet's content is
- * "nothing is required", which is a real and common answer worth stating.
- *
- * Removing a name is the whole job. Adding one needs a reason in the pull request.
+ * The list is empty: every framework serving the page now states its requirement.
+ * Keep it that way. A new framework arriving without a snippet fails the first test
+ * below, and the fix is the snippet, not a name here. Adding one needs a reason in the
+ * pull request, and it is unfinished work rather than an exemption on the merits.
  */
-const REQUIREMENT_NOT_ESTABLISHED = [
-  "ag2",
-  "agno",
-  "built-in-agent",
-  "deepagents",
-  "mastra",
-  "ms-agent-dotnet",
-  "ms-agent-harness-dotnet",
-  "strands",
-  "strands-typescript",
-] as const;
+const REQUIREMENT_NOT_ESTABLISHED: readonly string[] = [] as const;
 
 function frameworksServingToolBased(): string[] {
   return getIntegrations()
@@ -47,9 +35,7 @@ test("every framework either documents its frontend-tool requirement or is a nam
   const missing = frameworksServingToolBased().filter(
     (slug) =>
       resolveBundledSetupConcept(slug, CONCEPT, setupContent) === null &&
-      !REQUIREMENT_NOT_ESTABLISHED.includes(
-        slug as (typeof REQUIREMENT_NOT_ESTABLISHED)[number],
-      ),
+      !REQUIREMENT_NOT_ESTABLISHED.includes(slug),
   );
 
   expect(
@@ -78,6 +64,19 @@ test("a snippet says what the framework's own demo agent proves about it", () =>
     "pydantic-ai",
     "llamaindex",
     "ms-agent-python",
+    // Added by OSS-1036. Each verdict was read out of the pinned adapter, not the
+    // docs: ag2 `run_stream` builds `client_tools` from `incoming.tools`; the Mastra
+    // adapter reduces `input.tools` into `clientTools` for `agent.stream()`; both
+    // Strands adapters register a proxy tool per forwarded tool in the agent's tool
+    // registry. The two .NET columns rest on their own demo agents, which render
+    // charts with an empty `tools` list, because no .NET SDK was available to read
+    // `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` directly.
+    "ag2",
+    "mastra",
+    "strands",
+    "strands-typescript",
+    "ms-agent-dotnet",
+    "ms-agent-harness-dotnet",
   ];
   for (const slug of forwardsAutomatically) {
     const source = resolveBundledSetupConcept(slug, CONCEPT, setupContent);
@@ -109,6 +108,58 @@ test("a snippet says what the framework's own demo agent proves about it", () =>
     ).toContain("copilotkit_stream");
     expect(source, `${slug}: names the tool_choice lever`).toContain(
       "tool_choice",
+    );
+  }
+
+  // Deep Agents compile to LangGraph graphs, so the forwarded tools reach the model
+  // only through `CopilotKitMiddleware`, which merges `copilotkit.actions` into
+  // `request.tools` in `wrap_model_call`. Drop the middleware and the run still
+  // succeeds while the component never renders, which is the exact failure an empty
+  // section used to hide.
+  {
+    const source = resolveBundledSetupConcept(
+      "deepagents",
+      CONCEPT,
+      setupContent,
+    );
+    expect(source, "deepagents").not.toBeNull();
+    expect(source, "deepagents: names the bridge").toContain(
+      "CopilotKitMiddleware()",
+    );
+    expect(source, "deepagents: puts it in the middleware list").toContain(
+      "middleware=[",
+    );
+  }
+
+  // Agno is the one framework here whose AG-UI interface never reads
+  // `RunAgentInput.tools` (checked against agno 2.6.19: the only tool path out of
+  // `agno/os/interfaces/agui` is `RunPausedEvent.tools_awaiting_external_execution`).
+  // So the component needs a declared stub, and the paused run needs somewhere to live.
+  {
+    const source = resolveBundledSetupConcept("agno", CONCEPT, setupContent);
+    expect(source, "agno").not.toBeNull();
+    expect(source, "agno: declares the component as an external tool").toContain(
+      "external_execution=True",
+    );
+    expect(source, "agno: gives the paused run a database").toContain("db=db");
+  }
+
+  // The built-in agent is the only mode-dependent answer, and it is also the root
+  // framework, so this snippet is what the unscoped default page renders. Config mode
+  // merges `input.tools` for you; a factory owns the model call and forwards nothing.
+  // Saying only one half would be wrong for half the readers.
+  {
+    const source = resolveBundledSetupConcept(
+      "built-in-agent",
+      CONCEPT,
+      setupContent,
+    );
+    expect(source, "built-in-agent").not.toBeNull();
+    expect(source, "built-in-agent: config mode needs no wiring").toContain(
+      "Nothing to wire in config mode",
+    );
+    expect(source, "built-in-agent: factory mode passes them itself").toContain(
+      "convertToolsToVercelAITools(input.tools)",
     );
   }
 });
