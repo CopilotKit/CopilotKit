@@ -610,9 +610,7 @@ describe("framework nav", () => {
     expect(hasSectionPage(authoredNav, "Backend", "Copilot Runtime")).toBe(
       true,
     );
-    expect(hasSectionPage(authoredNav, "Backend", "CopilotKit Intelligence")).toBe(
-      true,
-    );
+    expect(hasSectionPage(authoredNav, "Backend", "Overview")).toBe(true);
     expect(
       sectionNodes(generatedNav, "Agent capabilities").some(
         (node) => node.type === "group" && node.title === "LangGraph (Python)",
