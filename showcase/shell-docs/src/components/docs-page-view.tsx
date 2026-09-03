@@ -376,7 +376,7 @@ export async function DocsPageView({
                           <ChannelsStartPrompt
                             {...props}
                             frontend={props.frontend ?? docsFrontend}
-                            backend={onboardingFramework?.slug}
+                            backend={props.backend ?? onboardingFramework?.slug}
                           />
                         ),
                         RichThreadsSetupPrompt,
