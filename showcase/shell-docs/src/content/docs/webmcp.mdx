@@ -7,11 +7,7 @@ frontend: universal
 
 import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 
-## Setup with a coding agent
-
-Use this pre-built prompt to add WebMCP to your project. Your coding agent will adapt the implementation to your app and verify that a compatible browser can discover and call the tool.
-
-<WebMCPSetupPrompt />
+## Overview
 
 WebMCP lets your website tell compatible browser agents what they can do. Instead of guessing which buttons to click, an agent discovers a named tool with a description, a typed input schema, and a JavaScript handler.
 
@@ -25,6 +21,12 @@ CopilotKit can publish an existing frontend tool to [`document.modelContext`](ht
   [current Chrome setup instructions](https://developer.chrome.com/docs/ai/webmcp)
   before testing.
 </Callout>
+
+## Setup with a coding agent
+
+Use this pre-built prompt to add WebMCP to your project. Your coding agent will adapt the implementation to your app and verify that a compatible browser can discover and call the tool.
+
+<WebMCPSetupPrompt />
 
 ## Do I need an agent?
 
