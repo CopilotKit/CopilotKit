@@ -26,7 +26,7 @@ import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
-import { DocsPageTools } from "@/components/docs-page-tools";
+import { DocsPageTools, docsMarkdownUrl } from "@/components/docs-page-tools";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
@@ -380,8 +380,17 @@ export async function DocsPageView({
                           />
                         ),
                         RichThreadsSetupPrompt,
-                        IntelligenceOnboardingPrompt:
-                          IntelligenceOnboardingPromptMdx,
+                        // The banner is hand-placed in MDX and cannot know
+                        // which framework's page it landed on, so the map
+                        // supplies it.
+                        IntelligenceOnboardingPrompt: (
+                          props: IntelligenceOnboardingPromptProps,
+                        ) => (
+                          <IntelligenceOnboardingPromptMdx
+                            {...props}
+                            framework={onboardingFramework}
+                          />
+                        ),
                         OpsPlatformCTA: (props: OpsPlatformCTAProps) => (
                           <OpsPlatformCTA
                             {...props}
@@ -517,6 +526,11 @@ export async function DocsPageView({
                               frameworkOverride ?? props.currentFramework
                             }
                             hrefPrefix={slugHrefPrefix}
+                            markdownUrl={docsMarkdownUrl(
+                              slugHrefPrefix || "",
+                              slugPath,
+                            )}
+                            onboardingFrontend={onboardingFrontend}
                           />
                         ),
                         // Same closure pattern: thread the URL framework
