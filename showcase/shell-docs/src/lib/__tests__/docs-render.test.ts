@@ -526,13 +526,13 @@ describe("framework nav", () => {
       navTree.find(
         (node) => node.type === "section" && node.title === "Basics",
       ),
-    ).toMatchObject({ icon: "lucide/Component" });
+    ).toMatchObject({ icon: "lucide/LayoutGrid" });
     expect(
       navTree.find(
         (node) =>
           node.type === "section" && node.title === "Agent capabilities",
       ),
-    ).toMatchObject({ icon: "lucide/BrainCircuit" });
+    ).toMatchObject({ icon: "lucide/Cpu" });
     expect(
       navTree.find(
         (node) => node.type === "section" && node.title === "Other",

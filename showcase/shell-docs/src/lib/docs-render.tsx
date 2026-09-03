@@ -93,11 +93,11 @@ const SECTION_ICONS: Record<string, string> = {
   // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
   // when those section labels change in that meta.json.
   "getting started": "lucide/Rocket",
-  basics: "lucide/Component",
+  basics: "lucide/LayoutGrid",
   "generative ui": "lucide/Paintbrush",
   "app control": "lucide/WandSparkles",
   interactivity: "lucide/MousePointer",
-  "agent capabilities": "lucide/BrainCircuit",
+  "agent capabilities": "lucide/Cpu",
   "built-in agent": "lucide/Bot",
   backend: "lucide/Server",
   learn: "lucide/BookOpen",
