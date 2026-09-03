@@ -103,6 +103,40 @@ function workflowTriggerPaths(eventName, workflow = publicExamplesWorkflow) {
     });
 }
 
+test("workflow trigger paths parse every YAML string style", () => {
+  const workflow = `on:
+  push:
+    paths:
+      - "examples/catalog/**"
+      - 'examples/catalog/**'
+      - examples/catalog/**
+env:
+  TEST: true
+`;
+
+  assert.deepEqual(workflowTriggerPaths("push", workflow), [
+    "examples/catalog/**",
+    "examples/catalog/**",
+    "examples/catalog/**",
+  ]);
+});
+
+test("workflow trigger paths reject an unparseable entry", () => {
+  const workflow = `on:
+  push:
+    paths:
+      - "examples/valid/**"
+      - "examples/unterminated
+env:
+  TEST: true
+`;
+
+  assert.throws(() => workflowTriggerPaths("push", workflow), {
+    name: "AssertionError",
+    message: 'unsupported path entry: - "examples/unterminated',
+  });
+});
+
 function publicExamplesJob() {
   const job = publicExamplesWorkflow.match(/^  examples:\n([\s\S]*)$/m);
   assert.ok(job, "workflow is missing the examples job");
