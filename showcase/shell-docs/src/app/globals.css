@@ -1120,6 +1120,12 @@ figure.shiki > div:first-child[class*="border-b"] {
   max-width: 100% !important;
 }
 
+#nd-docs-layout article#nd-page[data-full="true"] .docs-page-header {
+  width: 100%;
+  max-width: var(--docs-reading-width);
+  margin-inline: auto;
+}
+
 @media (min-width: 1280px) {
   #nd-docs-layout:not(:has(#nd-toc)) article#nd-page[data-full="true"] {
     grid-column: main-start / toc-end;
