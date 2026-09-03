@@ -35,6 +35,12 @@ export interface DocsPageToolsProps {
    * the button still renders there, its prompt simply names no framework.
    */
   onboardingFramework?: { slug: string; name: string };
+  /**
+   * The frontend the page's URL selects, resolved server-side by
+   * `onboardingFrontendFor`. Named in the copied prompt right after the
+   * framework, so the CLI's graph has to ask for neither selection.
+   */
+  onboardingFrontend?: { id: string; name: string };
 }
 
 /**
@@ -59,12 +65,14 @@ export function DocsPageTools({
   slugHrefPrefix,
   githubUrl,
   onboardingFramework,
+  onboardingFrontend,
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
     <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
       <OnboardingPromptCopyButton
         framework={onboardingFramework}
+        frontend={onboardingFrontend}
         markdownUrl={markdownUrl}
       />
       <MarkdownCopyButton markdownUrl={markdownUrl} />

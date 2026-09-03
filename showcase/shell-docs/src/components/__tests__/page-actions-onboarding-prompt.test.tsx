@@ -16,6 +16,10 @@ import {
   onboardingFrameworkSlug,
 } from "@/lib/intelligence-onboarding-framework";
 import {
+  frontendPromptSuffix,
+  onboardingFrontendSlug,
+} from "@/lib/intelligence-onboarding-frontend";
+import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -62,6 +66,19 @@ const MASTRA = { slug: "mastra", name: "Mastra" };
  * is "" and `agent_framework` is left off the event entirely.
  */
 const SPRING_AI = { slug: "spring-ai", name: "Spring AI" };
+
+/**
+ * The docs' default frontend, which the graph spells `nextjs` — the one pair
+ * where the docs display name and the graph slug differ.
+ */
+const REACT = { id: "react", name: "React" };
+
+/**
+ * A docs frontend the graph has NO node for: Slack is a chat channel, not an
+ * application frontend. The frontend sentence is "" and `frontend` is left off
+ * the event entirely.
+ */
+const SLACK = { id: "slack", name: "Slack" };
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
 const PAGE_SENTENCE = ` The developer copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
 
@@ -486,4 +503,161 @@ it("mints a valid run id on all three createOnboardingRunId code paths", () => {
   // 3. No web crypto at all — the `Math.random` last resort.
   vi.stubGlobal("crypto", undefined);
   expect(createOnboardingRunId()).toMatch(shape);
+});
+
+// ---------------------------------------------------------------------------
+// The frontend sentence (OSS-1071). It sits between the framework sentence and
+// the page sentence, which is the order the CLI's graph works in: it settles
+// the agent framework first, then the frontend. Each of the two selections can
+// be absent independently, so all four combinations are asserted whole —
+// a stray double space or a missing separator has to fail here.
+// ---------------------------------------------------------------------------
+
+it("copies framework, frontend and page sentences in the graph's order", async () => {
+  const writeText = stubClipboard();
+
+  // Guards: if either mapping were lost, the concatenation below would still
+  // pass on an empty suffix and quietly assert nothing.
+  const frameworkSentence = frameworkPromptSuffix(MASTRA.slug, MASTRA.name);
+  const frontendSentence = frontendPromptSuffix(REACT.id, REACT.name);
+  expect(frameworkSentence).not.toBe("");
+  expect(frontendSentence).not.toBe("");
+
+  renderButton({ frontend: REACT });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      frameworkSentence +
+      frontendSentence +
+      PAGE_SENTENCE,
+  );
+});
+
+it("names the React frontend by its docs name and the graph's slug", async () => {
+  // The one pair where the two spellings differ. The docs call this frontend
+  // React; the graph's node is `nextjs`, because its own prompt
+  // (`onboarding-prompts/frontend/nextjs.md`) documents itself with the
+  // unprefixed `https://docs.copilotkit.ai/quickstart.md`.
+  const writeText = stubClipboard();
+
+  renderButton({ frontend: REACT });
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toContain(
+    " The developer selected the React frontend (`nextjs`).",
+  );
+});
+
+it("appends no frontend sentence for a frontend the graph does not know", async () => {
+  // Slack is a channel the graph has no frontend node for. The framework
+  // sentence and the page sentence close ranks with no double space between
+  // them, which is why this asserts the whole string rather than a substring.
+  const writeText = stubClipboard();
+
+  expect(frontendPromptSuffix(SLACK.id, SLACK.name)).toBe("");
+
+  renderButton({ frontend: SLACK });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      frameworkPromptSuffix(MASTRA.slug, MASTRA.name) +
+      PAGE_SENTENCE,
+  );
+});
+
+it("carries the frontend sentence alone when the graph knows no framework", async () => {
+  // `spring-ai` has no graph node, `react` does. The frontend sentence has to
+  // read correctly with nothing in front of it but the canonical prompt.
+  const writeText = stubClipboard();
+
+  renderButton({ framework: SPRING_AI, frontend: REACT });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      " The developer selected the React frontend (`nextjs`)." +
+      PAGE_SENTENCE,
+  );
+});
+
+it("falls back to the page sentence alone when neither is mappable", async () => {
+  // Both empty: the page sentence has to stand entirely on its own, which is
+  // why it names the page rather than referring back to anything.
+  const writeText = stubClipboard();
+
+  renderButton({ framework: SPRING_AI, frontend: SLACK });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+  );
+});
+
+it("reports the frontend property with the graph's slug", async () => {
+  stubClipboard();
+
+  renderButton({ frontend: REACT });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  // The GRAPH slug, so this property joins the value the CLI records for the
+  // same run — `nextjs`, not the docs id `react`.
+  expect(onboardingFrontendSlug(REACT.id)).toBe("nextjs");
+  expect(analytics.capture.mock.calls[0][1]).toEqual({
+    from_path: "/mastra/generative-ui",
+    onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
+    surface: "docs_page_tools_onboarding_prompt",
+    agent_framework: "mastra",
+    frontend: "nextjs",
+  });
+});
+
+it("omits the frontend property entirely when the graph has no slug", async () => {
+  // Absence of the key, not an `undefined` value: a key present with no value
+  // still shows up as a row in a PostHog breakdown. Same rule as
+  // `agent_framework`.
+  stubClipboard();
+
+  renderButton({ frontend: SLACK });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const properties = analytics.capture.mock.calls[0][1] as Record<
+    string,
+    unknown
+  >;
+  expect(properties).not.toHaveProperty("frontend");
+  expect(Object.keys(properties).sort()).toEqual([
+    "agent_framework",
+    "from_path",
+    "onboarding_run_id",
+    "surface",
+  ]);
+});
+
+it("omits the frontend property when the caller names no frontend", async () => {
+  // A surface that passes no frontend at all — the prompt names none, and the
+  // event reports none.
+  stubClipboard();
+
+  renderButton({ frontend: undefined });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(analytics.capture.mock.calls[0][1]).not.toHaveProperty("frontend");
 });

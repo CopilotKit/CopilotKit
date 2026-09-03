@@ -23,6 +23,10 @@ import {
   onboardingFrameworkSlug,
 } from "@/lib/intelligence-onboarding-framework";
 import {
+  frontendPromptSuffix,
+  onboardingFrontendSlug,
+} from "@/lib/intelligence-onboarding-frontend";
+import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -175,11 +179,17 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
  * straight into their coding agent.
  *
  * The copied string is `createIntelligenceOnboardingPrompt(runId)` followed by
- * two sentences of page context: which agent framework the reader is reading
- * about, and which page they copied from. Both are statements of fact for the
- * receiving agent, never instructions — the prompt itself is the only thing
- * that tells the agent what to do, and the sibling copies in the Intelligence
- * repo and the Inspector have to keep matching that part byte for byte.
+ * three sentences of page context: which agent framework the reader is reading
+ * about, which frontend they have selected, and which page they copied from.
+ * All three are statements of fact for the receiving agent, never instructions
+ * — the prompt itself is the only thing that tells the agent what to do, and
+ * the sibling copies in the Intelligence repo and the Inspector have to keep
+ * matching that part byte for byte.
+ *
+ * Framework before frontend because that is the order the CLI's graph works
+ * in: it settles the agent framework first, then the frontend. Each sentence
+ * leads with its own subject and can be "" independently, so all four
+ * combinations read correctly.
  *
  * The run id is minted per click (not per page load), matching
  * `components/intelligence-onboarding-prompt.tsx`: one clipboard write is one
@@ -188,6 +198,7 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
  */
 export function OnboardingPromptCopyButton({
   framework,
+  frontend,
   markdownUrl,
   ...props
 }: ComponentProps<"button"> & {
@@ -204,6 +215,19 @@ export function OnboardingPromptCopyButton({
    * for are handled downstream by `frameworkPromptSuffix`.
    */
   framework?: { slug: string; name: string };
+  /**
+   * The frontend the docs URL selects: `id` is the docs frontend id, `name`
+   * its display name. Resolved server-side from the pathname by
+   * `onboardingFrontendFor` and passed in — never derived here from
+   * `usePathname()` — so the prompt names what the URL asserts rather than
+   * what this component happens to observe after a navigation.
+   *
+   * Optional for the same reason `framework` is: a surface that has no
+   * frontend to name still gets the button, and the prompt simply names none.
+   * Frontends the graph has no node for (`slack`, `teams`) are handled
+   * downstream by `frontendPromptSuffix`.
+   */
+  frontend?: { id: string; name: string };
   /**
    * The page's `.mdx` URL as a site-root-relative path — the same value the
    * page-tools row hands `MarkdownCopyButton`. Passed in rather than derived
@@ -272,20 +296,28 @@ export function OnboardingPromptCopyButton({
     const frameworkSentence = framework
       ? frameworkPromptSuffix(framework.slug, framework.name)
       : "";
+    // Built the same way, from the frontend the URL selects, and appended
+    // after the framework sentence because the graph settles the framework
+    // first. "" for `slack` and `teams`, which are channels the graph has no
+    // frontend node for.
+    const frontendSentence = frontend
+      ? frontendPromptSuffix(frontend.id, frontend.name)
+      : "";
     // `getClientBaseUrl()` is read HERE, inside the handler, and never during
     // render: on the server it returns the SSR placeholder (see the module
     // comment on that function), so a render-time read would put a different
     // URL in the server HTML than in the hydrated client and mismatch.
     // Trailing slash trimmed because `markdownUrl` already leads with one.
     const pageUrl = `${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}`;
-    // Stands on its own when `frameworkSentence` is "", which is why it names
-    // the page rather than referring back to it.
+    // Stands on its own when both sentences above are "", which is why it
+    // names the page rather than referring back to it.
     const pageSentence = ` The developer copied this prompt from ${pageUrl}.`;
 
     try {
       await navigator.clipboard.writeText(
         createIntelligenceOnboardingPrompt(runId) +
           frameworkSentence +
+          frontendSentence +
           pageSentence,
       );
     } catch (err) {
@@ -315,6 +347,11 @@ export function OnboardingPromptCopyButton({
     const graphFramework = framework
       ? onboardingFrameworkSlug(framework.slug)
       : undefined;
+    // Same rule for the frontend, under the matching property name: the graph
+    // slug, and omitted entirely when the graph has no equivalent.
+    const graphFrontend = frontend
+      ? onboardingFrontendSlug(frontend.id)
+      : undefined;
 
     try {
       posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
@@ -326,6 +363,7 @@ export function OnboardingPromptCopyButton({
         // distinction it would carry lives in `surface` instead.
         surface: ONBOARDING_COPY_SURFACE,
         ...(graphFramework ? { agent_framework: graphFramework } : {}),
+        ...(graphFrontend ? { frontend: graphFrontend } : {}),
       });
     } catch {
       // Analytics must never break the copy the reader actually asked for.
