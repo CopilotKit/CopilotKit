@@ -46,6 +46,17 @@ describe("globals.css mobile docs layout", () => {
       "@media (min-width: 768px) and (max-width: 1279px) {\n  .docs-inner-content {\n    padding-left: 24px !important;",
     );
   });
+
+  it("places the primary docs tabs beside the mobile drawer close control", () => {
+    const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
+
+    expect(normalizedGlobalsCss).toMatch(
+      /\.shell-docs-mobile-sidebar-tabs \{ display: flex; position: absolute; top: 1rem; right: 3\.75rem; left: 1rem;/,
+    );
+    expect(normalizedGlobalsCss).toContain(
+      "#nd-sidebar-mobile > div:first-child { position: relative; }",
+    );
+  });
 });
 
 describe("globals.css docs headings", () => {
@@ -153,6 +164,12 @@ describe("globals.css sidebar section labels", () => {
       /\.shell-docs-sidebar p\.inline-flex\.gap-2\s*\{[\s\S]*?color:\s*var\(--accent\)\s*!important;[\s\S]*?font-family:\s*inherit\s*!important;[\s\S]*?font-size:\s*0\.8125rem\s*!important;/,
     );
     expect(globalsCss).not.toContain("shell-docs-sidebar-section-label");
+  });
+
+  it("keeps static section labels purple in the mobile drawer", () => {
+    expect(globalsCss).toContain(
+      "#nd-sidebar-mobile p.inline-flex.gap-2 {\n  color: var(--accent) !important;",
+    );
   });
 
   it("fades sidebar content only at overflowing edges", () => {
