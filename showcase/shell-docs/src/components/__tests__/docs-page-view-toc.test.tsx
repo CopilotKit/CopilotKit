@@ -63,4 +63,11 @@ describe("DocsPageView table of contents", () => {
     expect(page.props.toc).not.toEqual([]);
     expect(page.props.tableOfContentPopover).toEqual({ enabled: true });
   });
+
+  it("keeps the Quickstart table of contents visible", async () => {
+    const page = await renderDocsPage("integrations/built-in-agent/quickstart");
+
+    expect(page.props.toc).not.toEqual([]);
+    expect(page.props.tableOfContentPopover).toEqual({ enabled: true });
+  });
 });
