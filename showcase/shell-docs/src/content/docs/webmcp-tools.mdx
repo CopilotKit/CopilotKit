@@ -1,0 +1,62 @@
+---
+title: Import page WebMCP tools
+icon: "lucide/Plug"
+description: Let your CopilotKit agent call tools the page already registered on document.modelContext.
+---
+
+The page already exposes tools on `document.modelContext`. You want your CopilotKit agent to call those tools, without rewriting each one as a frontend tool handler.
+
+Call `useWebmcpTools` (React and Vue) or `registerWebmcpTools` (Angular). CopilotKit reads `getTools()`, registers matching tools, and runs `executeTool` when the agent calls one.
+
+## Do this
+
+1. Keep the page tools registered on `document.modelContext` (they need a description).
+2. Mount the import API inside `CopilotKitProvider`.
+3. Filter with `allow`, `deny`, and `name` if you do not want every same-origin tool.
+4. Pass `agentId` when the tools belong to one agent.
+
+```tsx title="page.tsx"
+import { useWebmcpTools } from "@copilotkit/react-core/v2";
+
+export function PageTools() {
+  useWebmcpTools({
+    agentId: "support",
+    allow: ["searchOrders", "getOrder"],
+    deny: ["deleteOrder"],
+  });
+  return null;
+}
+```
+
+```ts title="Vue"
+import { useWebmcpTools } from "@copilotkit/vue/v2";
+
+useWebmcpTools({
+  agentId: "support",
+  allow: ["searchOrders", "getOrder"],
+  deny: ["deleteOrder"],
+});
+```
+
+```ts title="Angular"
+import { registerWebmcpTools } from "@copilotkit/angular";
+
+registerWebmcpTools({
+  agentId: "support",
+  allow: ["searchOrders", "getOrder"],
+  deny: ["deleteOrder"],
+});
+```
+
+With no filters, every same-origin page tool is imported. Filter order is allow, then deny, then `name` (`name` is an exact string or a `RegExp`). Deny wins if a name is on both lists.
+
+The import is a no-op where `document.modelContext` is missing (SSR, React Native, browsers without WebMCP). Unmount (or injector destroy) removes only the tools this call added.
+
+## Publish vs import
+
+- **Publish:** `useFrontendTool({ webmcp: true })` or `registerFrontendTool({ webmcp: true })` puts a CopilotKit tool onto the page for browser agents.
+- **Import:** `useWebmcpTools` / `registerWebmcpTools` takes page tools into CopilotKit so your CopilotKit agent can call them.
+
+Imported tools are not published back onto the page. Tools this app already published are skipped.
+
+API details: [useWebmcpTools (React)](/reference/hooks/useWebmcpTools), [useWebmcpTools (Vue)](/reference/vue/hooks/useWebmcpTools), [registerWebmcpTools](/reference/angular/functions/registerWebmcpTools).

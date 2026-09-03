@@ -1,0 +1,82 @@
+---
+title: "registerWebmcpTools"
+description: "Angular function that imports page WebMCP tools so a CopilotKit agent can call them"
+---
+
+## Overview
+
+The page already registered tools on `document.modelContext`. `registerWebmcpTools` imports those tools as CopilotKit frontend tools. When the agent calls one, CopilotKit runs `document.modelContext.executeTool` with the `RegisteredTool` object from `getTools()`.
+
+With no filters, every same-origin tool is imported. Filter order is allow, then deny, then `name`. Tools this app already published with `registerFrontendTool({ webmcp: true })` are skipped. Missing `document.modelContext` is a no-op.
+
+Call it from an injection context (component constructor or field initializer). Cleanup runs when that injector is destroyed.
+
+## Signature
+
+```ts
+import { registerWebmcpTools } from "@copilotkit/angular";
+
+function registerWebmcpTools(options?: {
+  agentId?: string;
+  allow?: string[];
+  deny?: string[];
+  name?: string | RegExp;
+}): void;
+```
+
+## Parameters
+
+<PropertyReference name="options" type="WebMCPToolsOptions">
+  Optional filters and agent scope. Omit the object to import every same-origin page tool.
+
+  <PropertyReference name="agentId" type="string">
+    Scope imported tools to this agent. Omit it to register them as global tools.
+  </PropertyReference>
+
+  <PropertyReference name="allow" type="string[]">
+    If set, only these tool names are imported.
+  </PropertyReference>
+
+  <PropertyReference name="deny" type="string[]">
+    These tool names are never imported. Deny wins if a name is also in `allow`.
+  </PropertyReference>
+
+  <PropertyReference name="name" type="string | RegExp">
+    Keep an exact tool name, or names that match this regular expression. Applied after allow and deny.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+```ts title="src/app/support-tools.component.ts"
+import { Component } from "@angular/core";
+import { registerWebmcpTools } from "@copilotkit/angular";
+
+@Component({
+  standalone: true,
+  selector: "support-tools",
+  template: "",
+})
+export class SupportToolsComponent {
+  constructor() {
+    registerWebmcpTools({
+      agentId: "support",
+      allow: ["searchOrders", "getOrder"],
+      deny: ["deleteOrder"],
+    });
+  }
+}
+```
+
+## Behavior
+
+- **Same-origin only.** `getTools()` is called with no `fromOrigins`.
+- **Live updates.** The registration listens for `toolchange` and re-syncs.
+- **Collisions.** If a CopilotKit frontend tool already uses the name, the page tool is skipped and a warning is logged.
+- **Cleanup.** Injector destroy removes only tools this call added.
+- **No return value.** The function returns `void`.
+
+## Related
+
+- [Import page WebMCP tools](/webmcp-tools)
+- [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) `webmcp` option, to publish CopilotKit tools onto the page
