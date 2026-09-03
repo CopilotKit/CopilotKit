@@ -9,6 +9,7 @@ packages:
   - "examples/v2/react-native/*"
   - "examples/v2/runtime/*"
   - "examples/canvas/research-canvas"
+  - "examples/canvas/research-canvas/agents/typescript"
   - "examples/showcases/chat-with-your-data"
   - "examples/showcases/form-filling"
   - "examples/showcases/generative-ui-playground"

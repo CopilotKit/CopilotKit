@@ -1,13 +1,14 @@
 {
-  "name": "agent_js",
+  "name": "@copilotkit-examples/research-canvas-agent",
   "version": "1.0.0",
+  "private": true,
   "description": "",
   "keywords": [],
   "license": "ISC",
   "author": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run src/*.test.ts"
   },
   "dependencies": {
     "@copilotkit/sdk-js": "workspace:*",
@@ -24,7 +25,7 @@
   "devDependencies": {
     "@types/html-to-text": "^9.0.4",
     "@types/node": "^22.9.0",
-    "typescript": "^5.6.3"
-  },
-  "packageManager": "pnpm@9.5.0"
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
 }
