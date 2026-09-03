@@ -51,10 +51,16 @@ describe("globals.css mobile docs layout", () => {
     const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
 
     expect(normalizedGlobalsCss).toMatch(
-      /\.shell-docs-mobile-sidebar-tabs \{ display: flex; position: absolute; top: 1rem; right: 3\.75rem; left: 1rem;/,
+      /\.shell-docs-mobile-sidebar-tabs \{ display: flex; position: absolute; top: 1rem; right: 3\.5rem; left: 1rem;/,
     );
     expect(normalizedGlobalsCss).toContain(
       "#nd-sidebar-mobile > div:first-child { position: relative; }",
+    );
+    expect(normalizedGlobalsCss).toMatch(
+      /\.shell-docs-mobile-sidebar-tabs \.shell-docs-primary-tab \{ height: 1\.75rem;[\s\S]*?gap: 0\.1875rem;[\s\S]*?padding: 0 0\.25rem;[\s\S]*?font-size: 0\.6875rem;/,
+    );
+    expect(normalizedGlobalsCss).toContain(
+      ".shell-docs-mobile-sidebar-tabs .shell-docs-primary-tab svg { width: 0.8125rem; height: 0.8125rem; }",
     );
   });
 });

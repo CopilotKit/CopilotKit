@@ -187,7 +187,7 @@
   display: flex;
   position: absolute;
   top: 1rem;
-  right: 3.75rem;
+  right: 3.5rem;
   left: 1rem;
   width: auto;
   min-width: 0;
@@ -199,11 +199,18 @@
 }
 
 .shell-docs-mobile-sidebar-tabs .shell-docs-primary-tab {
-  height: 2rem;
+  height: 1.75rem;
   flex: 1 1 0;
   min-width: max-content;
-  padding: 0 0.5rem;
-  font-size: 0.75rem;
+  gap: 0.1875rem;
+  padding: 0 0.25rem;
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+.shell-docs-mobile-sidebar-tabs .shell-docs-primary-tab svg {
+  width: 0.8125rem;
+  height: 0.8125rem;
 }
 
 #nd-sidebar-mobile > div:first-child {
