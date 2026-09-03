@@ -4,7 +4,7 @@ import { X, Plus } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
 import type { PlaceSelectionsByTrip } from "./ActionButtons";
 import type { ToolCallStatus } from "@copilotkit/react-core/v2";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export type AddTripsProps = {
   args: Partial<{ trips: Trip[] }>;
@@ -13,9 +13,6 @@ export type AddTripsProps = {
 };
 
 export const AddTrips = ({ args, status, respond }: AddTripsProps) => {
-  useEffect(() => {
-    console.log(args, "argsAddTripsargsAddTripsargsAddTrips");
-  }, [args]);
   const [selectedPlaceIdsByTrip, setSelectedPlaceIdsByTrip] = useState(
     new Map<string, Set<string>>(),
   );

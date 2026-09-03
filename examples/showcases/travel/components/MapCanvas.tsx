@@ -36,7 +36,7 @@ export function MapCanvas({ className }: MapCanvasProps) {
         {selectedTrip &&
           selectedTrip.places.map((place, i) => (
             <Marker
-              key={i}
+              key={place.id}
               position={[place.latitude, place.longitude]}
               icon={divIcon({
                 className: "bg-transparent",
