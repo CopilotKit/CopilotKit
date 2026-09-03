@@ -10,7 +10,10 @@
 
     ```csharp title="agent/ChartAgent.cs"
     using Microsoft.Agents.AI;
-    using Microsoft.Agents.AI.Harness;
+    using Microsoft.Extensions.AI;
+
+    private const int HarnessMaxContextWindowTokens = 128_000;
+    private const int HarnessMaxOutputTokens = 8_192;
 
     public AIAgent CreateChartAgent()
     {
