@@ -16,7 +16,7 @@ The Angular app talks to the runtime (`http://localhost:8200/api/copilotkit`), a
 
 ## Prerequisites
 
-- Node.js `^22.22.3`, `^24.15.0`, or `>=26.0.0` (required by the Angular 22 toolchain)
+- Node.js `^22.22.3`, `^24.15.0`, or `^26.0.0` (required by the Angular 22 toolchain)
 - Python 3.12+
 - [`uv`](https://docs.astral.sh/uv/getting-started/installation/) (installs the Python agent's dependencies)
 - Google Makersuite API Key (for the ADK agent) — see https://makersuite.google.com/app/apikey
