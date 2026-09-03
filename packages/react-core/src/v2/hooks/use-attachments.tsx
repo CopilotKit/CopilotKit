@@ -22,12 +22,25 @@ const DEFAULT_MAX_SIZE = 20 * 1024 * 1024;
  */
 const DEFAULT_MAX_CONCURRENT_UPLOADS = 3;
 
-/** At least one upload at a time, whole files only; anything unusable falls back to the default. */
+/**
+ * At least one upload at a time, whole files only; `NaN` or a non-number falls back to the
+ * default, and `Infinity` means "no limit" — bounded in practice by how many files are queued.
+ */
 function resolveMaxConcurrentUploads(configured: number | undefined): number {
   if (typeof configured !== "number" || Number.isNaN(configured)) {
     return DEFAULT_MAX_CONCURRENT_UPLOADS;
   }
   return Math.max(1, Math.floor(configured));
+}
+
+/** One file waiting for, or holding, an upload slot. */
+interface QueuedUpload {
+  file: File;
+  placeholder: Attachment;
+  /** The config as it was when this file was picked, so a later config change can't retarget it. */
+  cfg: AttachmentsConfig | undefined;
+  /** Resolves the `processFiles` call that queued this file once the upload has settled. */
+  settle: () => void;
 }
 
 export interface UseAttachmentsReturn {
@@ -82,6 +95,11 @@ export function useAttachments({
   configRef.current = config;
   const attachmentsRef = useRef<Attachment[]>([]);
   attachmentsRef.current = attachments;
+
+  // The upload queue is the hook's, not one `processFiles` call's, so a paste landing while a
+  // drop is still uploading shares the same slots instead of opening its own set.
+  const uploadQueueRef = useRef<QueuedUpload[]>([]);
+  const activeWorkersRef = useRef(0);
 
   // Upload one queued file and settle its placeholder: the source it uploaded to on success,
   // gone from the queue on failure. Resolves either way, so one bad file among many neither
@@ -141,6 +159,30 @@ export function useAttachments({
     [],
   );
 
+  // One worker: take the next queued file, upload it, repeat until the queue is empty, then
+  // give the slot back. Workers are counted rather than owned by a call, which is what keeps
+  // the limit global.
+  const drainUploadQueue = useCallback(async () => {
+    activeWorkersRef.current++;
+    try {
+      for (;;) {
+        const item = uploadQueueRef.current.shift();
+        if (!item) return;
+        try {
+          await uploadFile(item.file, item.placeholder, item.cfg);
+        } catch (error) {
+          // `uploadFile` reports its own failures; this is the belt for an unexpected throw,
+          // so one file can't strand everything queued behind it.
+          console.error("[CopilotKit] Upload worker error:", error);
+        } finally {
+          item.settle();
+        }
+      }
+    } finally {
+      activeWorkersRef.current--;
+    }
+  }, [uploadFile]);
+
   // Stable processFiles — reads config from ref, never changes identity
   const processFiles = useCallback(
     async (files: File[]) => {
@@ -193,24 +235,34 @@ export function useAttachments({
       // waiting for a free slot is already visible rather than appearing later.
       setAttachments((prev) => [...prev, ...queued.map((q) => q.placeholder)]);
 
-      // Bounded fan-out: this many workers pull from one shared cursor, so at most that many
-      // uploads are in flight and the rest start as slots free up. Reading and advancing the
-      // cursor happens without an await between, so no two workers take the same file.
-      const workers = Math.min(
-        queued.length,
-        resolveMaxConcurrentUploads(cfg?.maxConcurrentUploads),
+      // Hand the files to the shared queue, each with the promise this call waits on, so
+      // `processFiles` still resolves when its own files have settled and no sooner.
+      const settled = queued.map(
+        ({ file, placeholder }) =>
+          new Promise<void>((resolve) => {
+            uploadQueueRef.current.push({
+              file,
+              placeholder,
+              cfg,
+              settle: resolve,
+            });
+          }),
       );
-      let next = 0;
-      await Promise.all(
-        Array.from({ length: workers }, async () => {
-          while (next < queued.length) {
-            const { file, placeholder } = queued[next++];
-            await uploadFile(file, placeholder, cfg);
-          }
-        }),
+
+      // Top the pool up to the limit rather than starting a fresh one: whatever is already
+      // draining counts against it, so overlapping selections never exceed the limit together.
+      const limit = resolveMaxConcurrentUploads(cfg?.maxConcurrentUploads);
+      const toSpawn = Math.min(
+        uploadQueueRef.current.length,
+        Math.max(0, limit - activeWorkersRef.current),
       );
+      for (let i = 0; i < toSpawn; i++) {
+        void drainUploadQueue();
+      }
+
+      await Promise.all(settled);
     },
-    [uploadFile],
+    [drainUploadQueue],
   );
 
   const handleFileUpload = useCallback(

@@ -145,6 +145,8 @@ Set `maxConcurrentUploads` to change how many run together — raise it for smal
 />
 ```
 
+The limit covers every upload in flight, not each batch: if a paste lands while a dropped selection is still uploading, both share the same slots. `Infinity` lifts the limit entirely.
+
 Your `onUpload` handler is called once per file and may be called concurrently, so it must not rely on the previous file having finished.
 
 ## Handling upload errors

@@ -310,6 +310,65 @@ describe("useAttachments", () => {
       expect(peak()).toBe(1);
     });
 
+    it("uploads every file at once when maxConcurrentUploads is Infinity", async () => {
+      const { files, gates, started, onUpload, peak } = gatedUploads(5);
+      const { result } = renderHook(() =>
+        useAttachments({
+          config: { enabled: true, onUpload, maxConcurrentUploads: Infinity },
+        }),
+      );
+
+      let processing!: Promise<void>;
+      await act(async () => {
+        processing = result.current.processFiles(files);
+      });
+
+      // No limit means every picked file, and never a worker per nothing.
+      expect(started).toHaveLength(5);
+
+      await act(async () => {
+        gates.forEach((gate) => gate.resolve());
+        await processing;
+      });
+
+      expect(peak()).toBe(5);
+      expect(result.current.attachments.map((a) => a.status)).toEqual(
+        Array(5).fill("ready"),
+      );
+    });
+
+    it("holds the limit across overlapping processFiles calls", async () => {
+      const { files, gates, started, onUpload, peak } = gatedUploads(6);
+      const { result } = renderHook(() =>
+        useAttachments({
+          config: { enabled: true, onUpload, maxConcurrentUploads: 2 },
+        }),
+      );
+
+      // A drop and a paste landing together share the slots — two uploads in flight in
+      // total, not two per call.
+      let first!: Promise<void>;
+      let second!: Promise<void>;
+      await act(async () => {
+        first = result.current.processFiles(files.slice(0, 3));
+        second = result.current.processFiles(files.slice(3));
+      });
+
+      expect(started).toEqual(["file-0.png", "file-1.png"]);
+      expect(result.current.attachments).toHaveLength(6);
+
+      await act(async () => {
+        gates.forEach((gate) => gate.resolve());
+        await Promise.all([first, second]);
+      });
+
+      expect(peak()).toBe(2);
+      expect(started).toHaveLength(6);
+      expect(result.current.attachments.map((a) => a.status)).toEqual(
+        Array(6).fill("ready"),
+      );
+    });
+
     it("keeps uploading the rest when one file fails", async () => {
       const consoleError = vi
         .spyOn(console, "error")
