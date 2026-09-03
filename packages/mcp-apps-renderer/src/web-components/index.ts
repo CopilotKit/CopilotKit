@@ -1,5 +1,7 @@
-// Web Component surface for MCP Apps (`<copilotkit-mcp-app>`).
+// Web Component surface for MCP Apps.
 //
-// Placeholder: the custom element (which owns the sandbox iframe + the ext-apps
-// bridge and renders inline/fullscreen without remounting the iframe) lands in a
-// later task. Kept as an entry point so the package's export map is stable.
+// The `<copilotkit-mcp-app>` custom element (which owns the sandbox iframe + the
+// ext-apps bridge via bindMcpApp, and renders inline/fullscreen without
+// remounting the iframe) lands in a follow-up. This entry exposes the tag name
+// now so the package's export map is stable.
+export const COPILOTKIT_MCP_APP_TAG = "copilotkit-mcp-app" as const;

@@ -1,3 +1,4 @@
-// Side-effect entry that registers `<copilotkit-mcp-app>` via customElements.define.
-//
-// Placeholder: the registration lands with the custom element in a later task.
+// Side-effect entry that will register `<copilotkit-mcp-app>` via
+// customElements.define once the element lands. For now it re-exports the tag
+// name so importers have a stable reference.
+export { COPILOTKIT_MCP_APP_TAG } from "./index";
