@@ -126,6 +126,14 @@ export interface DocsPageViewProps {
   /** When set, hide the main MDX body (used by pivot-only pages). */
   hideBody?: boolean;
   /**
+   * The MDX for this page is itself a landing page — it brings its own
+   * headline and call to action. Suppresses the docs title, the description
+   * and the page-tools row, so the page has one beginning instead of two.
+   * Set only by the framework-root branches in
+   * `app/[framework]/[[...slug]]/page.tsx`.
+   */
+  landingPage?: boolean;
+  /**
    * Optional client component that wraps the MDX body — used by the
    * `/docs/<feature>` router pages to conditionally hide code when no
    * framework is selected. Must accept `children` and render them
@@ -176,6 +184,7 @@ export async function DocsPageView({
   sidebarBannerSlot,
   sidebarClassName,
   hideBody = false,
+  landingPage = false,
   ContentWrapper,
 }: DocsPageViewProps) {
   const doc = loadDoc(contentSlugPath ?? slugPath);
@@ -298,13 +307,17 @@ export async function DocsPageView({
               })}
             </nav>
 
-            <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
-              {doc.fm.title}
-            </DocsTitle>
-            {doc.fm.description && (
-              <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
-                {doc.fm.description}
-              </DocsDescription>
+            {!landingPage && (
+              <>
+                <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
+                  {doc.fm.title}
+                </DocsTitle>
+                {doc.fm.description && (
+                  <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
+                    {doc.fm.description}
+                  </DocsDescription>
+                )}
+              </>
             )}
 
             {/* Page actions (Copy agent prompt / Copy Markdown / Open in
@@ -314,13 +327,15 @@ export async function DocsPageView({
               serves the raw MDX via the same `loadDoc()` the page uses. The
               GitHub URL is computed from `doc.filePath` (absolute fs path)
               by slicing from the `/showcase/` segment. */}
-            <DocsPageTools
-              slugPath={slugPath}
-              slugHrefPrefix={slugHrefPrefix}
-              githubUrl={buildGitHubUrl(doc.filePath)}
-              onboardingFramework={onboardingFramework}
-              onboardingFrontend={onboardingFrontend}
-            />
+            {!landingPage && (
+              <DocsPageTools
+                slugPath={slugPath}
+                slugHrefPrefix={slugHrefPrefix}
+                githubUrl={buildGitHubUrl(doc.filePath)}
+                onboardingFramework={onboardingFramework}
+                onboardingFrontend={onboardingFrontend}
+              />
+            )}
 
             {/* Thin divider between the page-actions row and the page body
               (banner / content). Visually separates the page metadata
