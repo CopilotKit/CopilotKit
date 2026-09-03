@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
 
+// The hero placement's own cases, retargeted at <OnboardingPromptButton> with
+// `variant="hero"` after the standalone hero button was folded into it. What
+// is pinned here is the hero surface's contract — the prompt it copies, the
+// run id inside it, the analytics it reports, and how it behaves when the
+// clipboard says no — none of which may change just because the appearance
+// now comes from a shared component.
+
 import React from "react";
 import {
   cleanup,
@@ -11,11 +18,13 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { frameworkPromptSuffix } from "@/lib/intelligence-onboarding-framework";
 import { createIntelligenceOnboardingPrompt } from "@/lib/intelligence-onboarding-prompt";
-import { HeroOnboardingPromptButton } from "../hero-onboarding-prompt-button";
+import { OnboardingPromptButton } from "../onboarding-prompt-button";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
-vi.mock("next/navigation", () => ({
+// `usePathname` comes from `fumadocs-core/framework`, not `next/navigation`:
+// the shared component renders inside the Fumadocs docs shell.
+vi.mock("fumadocs-core/framework", () => ({
   usePathname: () => "/",
 }));
 
@@ -23,9 +32,16 @@ vi.mock("posthog-js/react", () => ({
   usePostHog: () => analytics,
 }));
 
+// Never read on this surface — the hero names no page, so no page sentence is
+// composed — but stubbed so the client config module stays out of the test.
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
+}));
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 function mockClipboard(writeText: ReturnType<typeof vi.fn>) {
@@ -36,17 +52,22 @@ function mockClipboard(writeText: ReturnType<typeof vi.fn>) {
 it("renders the onboarding copy label", () => {
   mockClipboard(vi.fn().mockResolvedValue(undefined));
 
-  render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
+  render(<OnboardingPromptButton variant="hero" surface="docs-home-hero" />);
 
   expect(
-    screen.getByRole("button", { name: /copy onboarding prompt/i }),
+    screen.getByRole("button", { name: /copy agent prompt/i }),
   ).toBeTruthy();
 });
 
-it("copies the CLI onboarding prompt and confirms with a Copied label", async () => {
+it("copies the CLI onboarding prompt and confirms by swapping the icon", async () => {
+  // Success swaps only the icon and announces itself politely. A "Copied"
+  // label is narrower than the idle one and would shunt the Quickstart button
+  // beside it sideways for the duration, so the label deliberately stays put.
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
-  render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
+  const { container } = render(
+    <OnboardingPromptButton variant="hero" surface="docs-home-hero" />,
+  );
   fireEvent.click(screen.getByRole("button"));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
@@ -54,9 +75,13 @@ it("copies the CLI onboarding prompt and confirms with a Copied label", async ()
   const copied = writeText.mock.calls[0][0] as string;
   expect(copied).toContain("npx --yes copilotkit@latest onboard start --run");
 
-  await waitFor(() =>
-    expect(screen.getByRole("button").textContent).toContain("Copied"),
-  );
+  await waitFor(() => expect(screen.getByText("Prompt copied")).toBeTruthy());
+  // The idle label survives the success state; the icon is what changed.
+  expect(
+    screen.getByRole("button", { name: /copy agent prompt/i }),
+  ).toBeTruthy();
+  expect(screen.getByRole("button").textContent).not.toContain("Copied");
+  expect(container.querySelector("svg.lucide-check")).toBeTruthy();
 });
 
 it("embeds a run id the CLI accepts", async () => {
@@ -64,7 +89,7 @@ it("embeds a run id the CLI accepts", async () => {
   // malformed id makes the pasted command fail before onboarding starts.
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
-  render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
+  render(<OnboardingPromptButton variant="hero" surface="docs-home-hero" />);
   fireEvent.click(screen.getByRole("button"));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
@@ -75,15 +100,19 @@ it("embeds a run id the CLI accepts", async () => {
 });
 
 it("reports a blocked clipboard instead of throwing", async () => {
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   mockClipboard(vi.fn().mockRejectedValue(new Error("clipboard blocked")));
 
-  render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
+  render(<OnboardingPromptButton variant="hero" surface="docs-home-hero" />);
   fireEvent.click(screen.getByRole("button"));
 
   await waitFor(() =>
     expect(screen.getByRole("button").textContent).toContain("Copy blocked"),
   );
   expect(analytics.capture).not.toHaveBeenCalled();
+  // The rejection is swallowed rather than re-thrown, so the console line is
+  // the only trace a blocked copy leaves.
+  expect(consoleError).toHaveBeenCalled();
 });
 
 it("copies the canonical prompt unchanged when no framework is given", async () => {
@@ -91,7 +120,7 @@ it("copies the canonical prompt unchanged when no framework is given", async () 
   // wording is shared with two other surfaces, so nothing may be appended.
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
-  render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
+  render(<OnboardingPromptButton variant="hero" surface="docs-home-hero" />);
   fireEvent.click(screen.getByRole("button"));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
@@ -108,7 +137,8 @@ it("appends the framework sentence without disturbing the CLI command", async ()
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(
-    <HeroOnboardingPromptButton
+    <OnboardingPromptButton
+      variant="hero"
       surface="framework-hero"
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
@@ -131,7 +161,8 @@ it("keeps the run id intact when the framework sentence is appended", async () =
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(
-    <HeroOnboardingPromptButton
+    <OnboardingPromptButton
+      variant="hero"
       surface="framework-hero"
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
@@ -149,7 +180,8 @@ it("reports the graph framework slug to analytics", async () => {
   mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(
-    <HeroOnboardingPromptButton
+    <OnboardingPromptButton
+      variant="hero"
       surface="framework-hero"
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
@@ -169,7 +201,7 @@ it("reports the graph framework slug to analytics", async () => {
 it("sends no framework property when no framework is given", async () => {
   mockClipboard(vi.fn().mockResolvedValue(undefined));
 
-  render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
+  render(<OnboardingPromptButton variant="hero" surface="docs-home-hero" />);
   fireEvent.click(screen.getByRole("button"));
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
@@ -187,7 +219,8 @@ it("stays canonical for a framework the onboarding graph does not cover", async 
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(
-    <HeroOnboardingPromptButton
+    <OnboardingPromptButton
+      variant="hero"
       surface="framework-hero"
       framework={{ slug: "langroid", name: "Langroid" }}
     />,
