@@ -224,7 +224,6 @@ export function OnboardingPromptButton({
       await navigator.clipboard.writeText(
         createIntelligenceOnboardingPrompt(effectiveRunId) +
           frameworkSentence +
-          " " +
           frontendSentence +
           pageSentence,
       );
