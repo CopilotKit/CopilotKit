@@ -508,7 +508,7 @@ describe("framework nav", () => {
       "Learn",
       "Other",
     ]);
-    expect(navTree.slice(0, 2)).toMatchObject([
+    expect(navTree.slice(0, 3)).toMatchObject([
       {
         type: "page",
         title: "Introduction",
@@ -520,6 +520,12 @@ describe("framework nav", () => {
         title: "Quickstart",
         slug: "quickstart",
         icon: "lucide/Play",
+      },
+      {
+        type: "page",
+        title: "Intelligence",
+        slug: "intelligence/overview",
+        icon: "lucide/Star",
       },
     ]);
     expect(
@@ -651,7 +657,7 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
   });
 
-  it("keeps the compact start pair in generated and authored framework nav", () => {
+  it("keeps the compact start links in generated and authored framework nav", () => {
     const generatedNav = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
@@ -661,9 +667,14 @@ describe("framework nav", () => {
     const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
 
     for (const nav of [generatedNav, authoredNav, sharedFolderAuthoredNav]) {
-      expect(nav.slice(0, 2)).toMatchObject([
+      expect(nav.slice(0, 3)).toMatchObject([
         { type: "page", title: "Introduction", slug: "" },
         { type: "page", title: "Quickstart", slug: "quickstart" },
+        {
+          type: "page",
+          title: "Intelligence",
+          slug: "intelligence/overview",
+        },
       ]);
       expect(hasPageTitle(nav, "CopilotKit CLI")).toBe(false);
     }

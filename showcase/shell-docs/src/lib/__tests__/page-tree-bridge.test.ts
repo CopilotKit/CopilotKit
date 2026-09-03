@@ -23,6 +23,12 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
   const navTree: NavNode[] = [
     { type: "page", title: "Introduction", slug: "" },
     { type: "page", title: "Quickstart", slug: "quickstart" },
+    {
+      type: "page",
+      title: "Intelligence",
+      slug: "intelligence/overview",
+      icon: "lucide/Star",
+    },
     { type: "section", title: "Basics" },
     {
       type: "group",
@@ -66,7 +72,8 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
   const pageTree = navTreeToPageTree(navTree, "");
 
   it("keeps start links above static section labels", () => {
-    expect(pageTree.children.slice(0, 4).map((node) => node.type)).toEqual([
+    expect(pageTree.children.slice(0, 5).map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "separator",
@@ -78,6 +85,11 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
       url: "/quickstart",
     });
     expect(pageTree.children[2]).toMatchObject({
+      type: "page",
+      url: "/intelligence/overview",
+    });
+    expect(nodeNameText(pageTree.children[2].name)).toContain("lucide-star");
+    expect(pageTree.children[3]).toMatchObject({
       type: "separator",
       name: "Basics",
     });
