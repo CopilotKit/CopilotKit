@@ -4377,3 +4377,158 @@ function runAgentCoreDeployHarness(
     fs.rmSync(harnessDirectory, { force: true, recursive: true });
   }
 }
+
+/**
+ * Mastra working-memory scope contract.
+ *
+ * `@ag-ui/mastra` writes the client's shared state into Mastra working memory
+ * BEFORE it streams a turn (`syncInputStateToWorkingMemory`). That write is
+ * unguarded and never creates the thread, because it assumes the resource-scoped
+ * store, which upserts. Under `scope: "thread"` the same write goes to thread
+ * metadata instead, and `@mastra/memory` throws `Thread <id> not found` when the
+ * thread row does not exist yet. On the first turn of a thread it never does, so
+ * the run aborts before the model is called and the chat never answers.
+ *
+ * Managed Intelligence makes that certain rather than likely: the Intelligence
+ * run handler replaces the client thread id with a platform-canonical one, which
+ * the Mastra store has never seen.
+ *
+ * Resource scope is the correct setting for these starters and keeps working
+ * memory per conversation, because the bridge derives the resource id from the
+ * thread id when no explicit resource id is configured.
+ */
+const MASTRA_MEMORY_GLOB_DIRECTORIES = ["src/mastra"] as const;
+
+/** Returns every `.ts` file under one directory, recursively. */
+function typeScriptFilesUnder(directory: string): string[] {
+  if (!fs.existsSync(directory)) return [];
+
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return typeScriptFilesUnder(entryPath);
+    return entry.isFile() && entryPath.endsWith(".ts") ? [entryPath] : [];
+  });
+}
+
+/** Returns every Mastra source file across the integration starters. */
+function mastraMemorySurfaces(): string[] {
+  return fs
+    .readdirSync(integrationsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) =>
+      MASTRA_MEMORY_GLOB_DIRECTORIES.flatMap((relative) =>
+        typeScriptFilesUnder(path.join(integrationsDir, entry.name, relative)),
+      ),
+    );
+}
+
+/**
+ * Returns whether one source configures thread-scoped Mastra working memory.
+ *
+ * @param contents - TypeScript source to inspect.
+ * @returns True when any `workingMemory` object sets `scope: "thread"`.
+ */
+function declaresThreadScopedWorkingMemory(contents: string): boolean {
+  const sourceFile = parseManagedSource(contents);
+  let found = false;
+
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+
+    if (
+      ts.isPropertyAssignment(node) &&
+      propertyNameText(node.name) === "workingMemory"
+    ) {
+      const initializer = unwrapExpression(node.initializer);
+      if (
+        ts.isObjectLiteralExpression(initializer) &&
+        objectPropertyIsString(initializer, "scope", "thread")
+      ) {
+        found = true;
+        return;
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  };
+
+  ts.forEachChild(sourceFile, visit);
+
+  return found;
+}
+
+test("integration starters never configure thread-scoped Mastra working memory", () => {
+  const surfaces = mastraMemorySurfaces();
+
+  // Guards against a vacuous pass: the mastra starter must be in scope.
+  expect(
+    surfaces.some((surface) =>
+      surface.includes(path.join("mastra", "src", "mastra")),
+    ),
+    "the mastra starter's Mastra sources must be scanned",
+  ).toBe(true);
+
+  const offenders = surfaces.filter((surface) =>
+    declaresThreadScopedWorkingMemory(fs.readFileSync(surface, "utf8")),
+  );
+
+  expect(
+    offenders.map((surface) => path.relative(integrationsDir, surface)),
+    "thread-scoped working memory aborts the first turn of every new thread",
+  ).toEqual([]);
+});
+
+test.each([
+  {
+    configuration: "thread scope",
+    contents: `
+      new Memory({
+        options: { workingMemory: { enabled: true, scope: "thread" } },
+      });
+    `,
+    expected: true,
+  },
+  {
+    configuration: "resource scope",
+    contents: `
+      new Memory({
+        options: { workingMemory: { enabled: true, scope: "resource" } },
+      });
+    `,
+    expected: false,
+  },
+  {
+    configuration: "an omitted scope",
+    contents: `
+      new Memory({ options: { workingMemory: { enabled: true } } });
+    `,
+    expected: false,
+  },
+  {
+    configuration: "thread scope nested below other options",
+    contents: `
+      new Agent({
+        memory: new Memory({
+          options: {
+            workingMemory: { enabled: true, schema: AgentState, scope: "thread" },
+          },
+        }),
+      });
+    `,
+    expected: true,
+  },
+  {
+    configuration: "an unrelated thread-scoped option",
+    contents: `
+      new Memory({
+        options: { semanticRecall: { scope: "thread" } },
+      });
+    `,
+    expected: false,
+  },
+])(
+  "the Mastra working-memory scope helper detects $configuration",
+  ({ contents, expected }) => {
+    expect(declaresThreadScopedWorkingMemory(contents)).toBe(expected);
+  },
+);
