@@ -2720,14 +2720,18 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     harness.emitHeadersChanged({ "X-CSRF": "2" });
 
+    // Assert on the last EVENTS call, not the last call of any kind. The
+    // header change also refreshes the thread list and the connection, and
+    // either can land after the second events fetch, so `calls.at(-1)` is
+    // whichever request happened to finish last.
+    const eventsCalls = () =>
+      fetchMock.mock.calls.filter((call) =>
+        String(call[0]).endsWith("/threads/thread-1/events"),
+      );
     await vi.waitFor(() => {
-      expect(
-        fetchMock.mock.calls.filter((call) =>
-          String(call[0]).endsWith("/threads/thread-1/events"),
-        ),
-      ).toHaveLength(2);
+      expect(eventsCalls()).toHaveLength(2);
     });
-    expect(headersOf(fetchMock.mock.calls.at(-1)!)).toMatchObject({
+    expect(headersOf(eventsCalls().at(-1)!)).toMatchObject({
       "X-CSRF": "2",
     });
   });
