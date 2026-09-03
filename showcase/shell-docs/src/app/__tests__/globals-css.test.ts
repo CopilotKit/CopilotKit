@@ -78,6 +78,7 @@ describe("globals.css docs page actions", () => {
       normalizeWhitespace(`
         .docs-page-actions-primary,
         .docs-page-actions-trigger {
+          cursor: pointer;
           border-color: var(--accent) !important;
           background-color: var(--accent) !important;
           color: var(--primary-foreground) !important;
