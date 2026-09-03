@@ -4,6 +4,7 @@ import React from "react";
 import { Copy, Lightbulb, MessagesSquare } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
+import { onboardingFrameworkSlug } from "@/lib/intelligence-onboarding-framework";
 import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
@@ -15,6 +16,16 @@ export type IntelligenceOnboardingFeature = "learning" | "threads";
 export interface IntelligenceOnboardingPromptProps {
   feature: IntelligenceOnboardingFeature;
   surface: string;
+  /**
+   * The agent framework the surrounding docs page is about: `slug` is the
+   * docs registry slug, `name` the display name. Supplied by `DocsPageView`
+   * through the MDX component map, because this banner is hand-placed in MDX
+   * and cannot know which framework's page it landed on.
+   *
+   * Analytics only — the copied text does not change. Optional, because a
+   * page can exist without a registry record to name.
+   */
+  framework?: { slug: string; name: string };
 }
 
 const FEATURE_COPY = {
@@ -51,6 +62,7 @@ type CopyState = "idle" | "copied" | "error";
 export function IntelligenceOnboardingPrompt({
   feature,
   surface,
+  framework,
 }: IntelligenceOnboardingPromptProps): React.JSX.Element {
   const content = FEATURE_COPY[feature];
   const pathname = usePathname();
@@ -58,8 +70,11 @@ export function IntelligenceOnboardingPrompt({
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
   // One run id per mount, not per click: two clicks are one onboarding
   // attempt, and the CLI can only close out the id that survived on the
-  // clipboard. Minted in an effect so the server and first client render
-  // agree — `createOnboardingRunId` reads `crypto`.
+  // clipboard. Minted in an effect rather than a `useState` initialiser to
+  // keep id generation out of render entirely. Hydration does not force the
+  // choice: `createOnboardingRunId` falls back to `Math.random` where
+  // `crypto` is missing and never throws, and the id is never rendered, so
+  // there is no markup for a server id and a client id to disagree about.
   const [runId, setRunId] = React.useState<string | null>(null);
   React.useEffect(() => {
     setRunId(createOnboardingRunId());
@@ -93,6 +108,13 @@ export function IntelligenceOnboardingPrompt({
       from_path: pathname,
       onboarding_run_id: effectiveRunId,
       surface,
+      // The graph slug, not the docs slug, so this property joins the value
+      // the CLI records for the same run. Left off the payload entirely when
+      // the graph has no equivalent, rather than sent as a placeholder that
+      // would pollute breakdowns.
+      ...(framework && onboardingFrameworkSlug(framework.slug)
+        ? { agent_framework: onboardingFrameworkSlug(framework.slug) }
+        : {}),
     });
     setTimeout(() => setCopyState("idle"), 1800);
   }
@@ -127,6 +149,11 @@ export function IntelligenceOnboardingPrompt({
 
         <button
           type="button"
+          // The global copy tracker resolves the surface with
+          // `document.activeElement.closest(...)`, so an ancestor would work
+          // too. It sits on the button because that is the only element of
+          // this banner that should count as this surface.
+          data-docs-copy-surface={surface}
           onClick={copyPrompt}
           className="shell-docs-radius-control inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[#010507] bg-[#010507] px-4 text-sm font-semibold text-white shadow-[0_1px_3px_rgba(1,5,7,0.12)] transition-[background-color,transform] hover:bg-[#2B2B2B] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEC2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EDEDF5] sm:w-auto"
         >
