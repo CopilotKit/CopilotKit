@@ -79,23 +79,28 @@ const SECTION_ICONS: Record<string, string> = {
   "get started": "lucide/Rocket",
   concepts: "lucide/BookOpen",
   "build chat uis": "lucide/MessageSquare",
-  "build generative ui": "lucide/Paintbrush",
+  "build generative ui": "lucide/LayoutTemplate",
   "add agent powers": "lucide/Wand2",
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
+  intelligence: "custom/copilotkit-kite",
   "intelligence platform": "custom/copilotkit-kite",
   channels: "lucide/MessagesSquare",
   deploy: "lucide/Cloud",
-  other: "lucide/MoreHorizontal",
+  deployment: "lucide/Cloud",
+  other: "lucide/Wrench",
   // Built-in Agent (authored) sections — match the section names in
   // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
   // when those section labels change in that meta.json.
   "getting started": "lucide/Rocket",
-  basics: "lucide/BookOpen",
-  "generative ui": "lucide/Paintbrush",
+  basics: "lucide/Sprout",
+  "generative ui": "lucide/LayoutTemplate",
   "app control": "lucide/WandSparkles",
+  interactivity: "lucide/MousePointer",
+  "agent capabilities": "lucide/Sparkles",
   "built-in agent": "lucide/Bot",
   backend: "lucide/Server",
+  learn: "lucide/BookOpen",
   tutorials: "lucide/ListChecks",
   troubleshooting: "lucide/LifeBuoy",
 };
@@ -654,9 +659,11 @@ export function buildFrameworkOnlyNav(
     }
     return node;
   };
-  return dropEmptySections(
-    appendSharedThreadArchitecturePage(
-      appendSharedRootSections(nodes.map(rewrite), sharedSections),
+  return normalizeSidebarNav(
+    dropEmptySections(
+      appendSharedThreadArchitecturePage(
+        appendSharedRootSections(nodes.map(rewrite), sharedSections),
+      ),
     ),
   );
 }
@@ -755,6 +762,584 @@ function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
     }
   }
   return null;
+}
+
+type SidebarSection = {
+  section: Extract<NavNode, { type: "section" }>;
+  children: NavNode[];
+};
+
+const SIDEBAR_SECTION_TITLES: Record<string, string> = {
+  "get started": "Getting Started",
+  "getting started": "Getting Started",
+  "build chat uis": "Basics",
+  basics: "Basics",
+  "build generative ui": "Generative UI",
+  "generative ui": "Generative UI",
+  "add agent powers": "App Control",
+  "app control": "App Control",
+  intelligence: "Intelligence",
+  "intelligence platform": "Intelligence",
+  backend: "Runtime",
+  runtime: "Runtime",
+  deploy: "Deployment",
+  deployment: "Deployment",
+};
+
+type SidebarBuckets = {
+  prefix: NavNode[];
+  sections: SidebarSection[];
+};
+
+function splitSidebarSections(navTree: NavNode[]): SidebarBuckets {
+  const prefix: NavNode[] = [];
+  const sections: SidebarSection[] = [];
+  const sectionsByTitle = new Map<string, SidebarSection>();
+  let current: SidebarSection | undefined;
+
+  for (const node of navTree) {
+    if (node.type !== "section") {
+      if (current) current.children.push(node);
+      else prefix.push(node);
+      continue;
+    }
+
+    const title = SIDEBAR_SECTION_TITLES[node.title.toLowerCase()] ?? node.title;
+    const existing = sectionsByTitle.get(title);
+    if (existing) {
+      current = existing;
+      continue;
+    }
+
+    current = {
+      section: { ...node, title },
+      children: [],
+    };
+    sections.push(current);
+    sectionsByTitle.set(title, current);
+  }
+
+  return { prefix, sections };
+}
+
+function sidebarSectionChildren(
+  buckets: SidebarBuckets,
+  title: string,
+): NavNode[] {
+  return (
+    buckets.sections.find(({ section }) => section.title === title)?.children ??
+    []
+  );
+}
+
+function findNavNode(
+  nodes: NavNode[],
+  predicate: (node: NavNode) => boolean,
+): NavNode | null {
+  for (const node of nodes) {
+    if (predicate(node)) return node;
+    if (node.type === "group") {
+      const match = findNavNode(node.children, predicate);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+function flattenUntitledGroups(nodes: NavNode[]): NavNode[] {
+  return nodes.flatMap((node) => {
+    if (node.type === "group" && node.title === "") return node.children;
+    return [node];
+  });
+}
+
+function sidebarTopicGroup(
+  title: string,
+  slug: string,
+  source: NavNode | NavNode[] | null,
+): Extract<NavNode, { type: "group" }> | null {
+  if (!source) return null;
+  const children = Array.isArray(source)
+    ? source
+    : source.type === "group"
+      ? source.children
+      : [source];
+  if (children.length === 0) return null;
+  return { type: "group", title, slug, children, defaultOpen: false };
+}
+
+function withoutRouteGroupSlug(slug: string): string {
+  return slug
+    .split("/")
+    .filter((segment) => !isRouteGroupSegment(segment))
+    .join("/");
+}
+
+function withoutRouteGroupSegments(node: NavNode): NavNode {
+  if (node.type === "section") return node;
+  const slug = withoutRouteGroupSlug(node.slug);
+  if (node.type === "page") return { ...node, slug };
+  return {
+    ...node,
+    slug,
+    children: node.children.map(withoutRouteGroupSegments),
+  };
+}
+
+function uniqueSidebarNodes(nodes: NavNode[]): NavNode[] {
+  const seen = new Set<string>();
+  return nodes.filter((node) => {
+    const key =
+      node.type === "section"
+        ? `section:${node.title}`
+        : node.type === "page"
+          ? `page:${node.href ?? node.slug}`
+          : `group:${node.title}:${node.slug}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function sidebarSection(title: string, children: Array<NavNode | null>) {
+  const present = children.filter((node): node is NavNode => node !== null);
+  return [
+    {
+      type: "section",
+      title,
+      icon: sectionIconFor(title),
+    } satisfies NavNode,
+    ...present,
+  ] satisfies NavNode[];
+}
+
+const RESERVED_SIDEBAR_SECTIONS = new Set([
+  "Getting Started",
+  "Basics",
+  "Generative UI",
+  "App Control",
+  "Interactivity",
+  "Agent capabilities",
+  "Runtime",
+  "Intelligence",
+  "Backend",
+  "Deployment",
+  "Concepts",
+  "Learn",
+  "Observe & Operate",
+  "Platforms",
+  "Troubleshooting",
+  "Other",
+]);
+
+function isSharedFrameworkNode(node: NavNode): boolean {
+  if (node.type === "section") return true;
+  const slug = node.slug
+    .split("/")
+    .filter((segment) => !isRouteGroupSegment(segment))
+    .join("/");
+  return (
+    slug === "frontend-tools" ||
+    slug === "webmcp" ||
+    slug === "inspector" ||
+    slug === "vs-code-extension" ||
+    slug === "telemetry" ||
+    slug === "multi-agent/subagents" ||
+    slug === "shared-state" ||
+    slug.startsWith("shared-state/") ||
+    slug === "human-in-the-loop" ||
+    slug.startsWith("human-in-the-loop/")
+  );
+}
+
+/**
+ * Reduce every docs source tree to the same high-level sidebar map. The
+ * detailed pages remain inside topic folders, while the always-visible rows
+ * match the product concepts readers choose between first.
+ */
+export function normalizeSidebarNav(
+  navTree: NavNode[],
+  includeCanonicalFallback = true,
+): NavNode[] {
+  const input = splitSidebarSections(navTree);
+  const canonical = includeCanonicalFallback
+    ? splitSidebarSections(buildNavTree(CONTENT_DIR))
+    : { prefix: [], sections: [] };
+  const allInputNodes = [
+    ...input.prefix,
+    ...input.sections.flatMap(({ children }) => children),
+  ];
+  const allCanonicalNodes = [
+    ...canonical.prefix,
+    ...canonical.sections.flatMap(({ children }) => children),
+  ];
+  const findPage = (slug: string) =>
+    findPageBySlug(allInputNodes, slug) ??
+    findPageBySlug(allCanonicalNodes, slug);
+  const findGroup = (nodes: NavNode[], title: string) =>
+    findNavNode(
+      nodes,
+      (node) =>
+        node.type === "group" &&
+        node.title.toLowerCase() === title.toLowerCase(),
+    );
+
+  const gettingStarted = [
+    ...input.prefix,
+    ...sidebarSectionChildren(input, "Getting Started"),
+  ];
+  const introduction =
+    findPageBySlug(gettingStarted, "") ?? findPageBySlug(allCanonicalNodes, "");
+  const quickstart =
+    findPageBySlug(gettingStarted, "quickstart") ?? findPage("quickstart");
+  const intelligenceOverviewLink = findPage("intelligence/overview");
+  const startLinks: NavNode[] = [
+    ...(introduction?.type === "page"
+      ? [
+          {
+            ...introduction,
+            title: "Introduction",
+            icon: "lucide/Rocket",
+          },
+        ]
+      : []),
+    ...(quickstart?.type === "page"
+      ? [{ ...quickstart, title: "Quickstart", icon: "lucide/Play" }]
+      : []),
+    ...(intelligenceOverviewLink?.type === "page"
+      ? [
+          {
+            ...intelligenceOverviewLink,
+            title: "Intelligence",
+            icon: "custom/intelligence-kite",
+          },
+        ]
+      : []),
+  ];
+  const frontendGettingStartedExtras = gettingStarted.filter(
+    (node) =>
+      node.type === "page" &&
+      node !== introduction &&
+      node !== quickstart &&
+      (node.slug === "using-these-docs" ||
+        node.slug === "features" ||
+        node.title.toLowerCase().includes("angular")),
+  );
+
+  const inputBasics = sidebarSectionChildren(input, "Basics");
+  const canonicalBasics = sidebarSectionChildren(canonical, "Basics");
+  const existingChat = findGroup(inputBasics, "Chat");
+  const richThreads =
+    findGroup(allInputNodes, "Rich Threads") ??
+    findGroup(canonicalBasics, "Rich Threads");
+  const filterChatNodes = (nodes: NavNode[]) =>
+    nodes.filter(
+      (node) =>
+        node !== richThreads &&
+        !(node.type === "page" && node.slug === "inspector"),
+    );
+  const inputChatNodes = filterChatNodes(inputBasics);
+  const chatSource = existingChat
+    ? existingChat.type === "group"
+      ? existingChat.children
+      : []
+    : inputChatNodes.length > 0
+      ? inputChatNodes
+      : filterChatNodes(canonicalBasics);
+  const chat = sidebarTopicGroup(
+    "Chat",
+    "sidebar#chat",
+    uniqueSidebarNodes(chatSource),
+  );
+  const richThreadsTopic = sidebarTopicGroup(
+    "Rich threads",
+    "sidebar#rich-threads",
+    richThreads,
+  );
+  const frontendTools = findPage("frontend-tools");
+
+  const inputGenerative = flattenUntitledGroups(
+    sidebarSectionChildren(input, "Generative UI"),
+  );
+  const canonicalGenerative = flattenUntitledGroups(
+    sidebarSectionChildren(canonical, "Generative UI"),
+  );
+  const generativeTopic = (title: string, displayTitle = title) => {
+    const source =
+      findGroup(inputGenerative, title) ??
+      findGroup(canonicalGenerative, title);
+    return sidebarTopicGroup(
+      displayTitle,
+      `sidebar#generative-${displayTitle.toLowerCase().replaceAll(" ", "-")}`,
+      source,
+    );
+  };
+
+  const inputInteractivity = sidebarSectionChildren(input, "Interactivity");
+  const inputAppControl = sidebarSectionChildren(input, "App Control");
+  const canonicalAppControl = sidebarSectionChildren(canonical, "App Control");
+  const interactivitySources = [
+    ...inputInteractivity,
+    ...inputAppControl,
+    ...canonicalAppControl,
+  ];
+  const sharedState =
+    findGroup(interactivitySources, "Shared state") ?? findPage("shared-state");
+  const humanInTheLoop =
+    findGroup(interactivitySources, "Human-in-the-loop") ??
+    findGroup(interactivitySources, "Human in the loop") ??
+    findNavNode(
+      interactivitySources,
+      (node) =>
+        node.type === "group" && node.slug === "human-in-the-loop",
+    );
+
+  const existingAgentCapabilities = sidebarSectionChildren(
+    input,
+    "Agent capabilities",
+  );
+  const existingFrameworkGroups = existingAgentCapabilities.filter(
+    (node) =>
+      node.type === "group" &&
+      !["automatic learning", "sub-agents"].includes(
+        node.title.toLowerCase(),
+      ),
+  );
+  const frameworkGroups =
+    existingFrameworkGroups.length > 0
+      ? existingFrameworkGroups
+      : input.sections
+          .filter(
+            ({ section, children }) =>
+              !RESERVED_SIDEBAR_SECTIONS.has(section.title) &&
+              children.some((node) => !isSharedFrameworkNode(node)),
+          )
+          .map(({ section, children }) =>
+            sidebarTopicGroup(
+              section.title,
+              `sidebar#framework-${section.title
+                .toLowerCase()
+                .replaceAll(/[^a-z0-9]+/g, "-")}`,
+              children.filter((node) => !isSharedFrameworkNode(node)),
+            ),
+          )
+          .filter((node): node is Extract<NavNode, { type: "group" }> =>
+            Boolean(node),
+          );
+  const subagents = findPage("multi-agent/subagents");
+  const webMcp = findPage("webmcp");
+
+  const intelligencePage = (slug: string, title: string): NavNode | null => {
+    const page = findPage(slug);
+    return page?.type === "page"
+      ? { ...page, title, icon: undefined }
+      : null;
+  };
+  const intelligenceOverview = intelligencePage(
+    "intelligence/overview",
+    "Overview",
+  );
+  const intelligenceQuickstart = intelligencePage(
+    "intelligence/quickstart",
+    "Quickstart",
+  );
+  const intelligenceArchitecture = intelligencePage(
+    "intelligence/intelligence-platform",
+    "Architecture",
+  );
+  const intelligenceRuntime = intelligencePage(
+    "intelligence/connect-your-runtime",
+    "Connect your runtime",
+  );
+  const intelligenceThreads = intelligencePage("threads", "Rich threads");
+  const intelligenceCloud = intelligencePage(
+    "intelligence/managed-intelligence-platform",
+    "Cloud",
+  );
+  const intelligenceSelfHosted = intelligencePage(
+    "intelligence/self-hosting",
+    "Self-hosted",
+  );
+  const intelligenceAutomaticLearning: NavNode = {
+    type: "page",
+    title: "Automatic learning",
+    slug: "intelligence/automatic-learning",
+    href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
+  };
+
+  const existingBackend = sidebarSectionChildren(input, "Backend");
+  const inputDeployment = sidebarSectionChildren(input, "Deployment");
+  const runtimeSource =
+    findGroup(existingBackend, "Runtime") ??
+    findGroup(inputDeployment, "Runtime") ??
+    sidebarSectionChildren(input, "Runtime");
+  const deploymentSource =
+    findGroup(existingBackend, "Deployment") ??
+    inputDeployment.filter(
+      (node) => !(node.type === "group" && node.title === "Runtime"),
+    );
+  const debuggingSource =
+    findGroup(existingBackend, "Debugging") ??
+    uniqueSidebarNodes([
+      ...sidebarSectionChildren(input, "Observe & Operate"),
+      ...(findPage("inspector") ? [findPage("inspector")!] : []),
+    ]);
+
+  const existingLearn = sidebarSectionChildren(input, "Learn");
+  const conceptsSource =
+    findGroup(existingLearn, "Concepts") ??
+    sidebarSectionChildren(input, "Concepts");
+  const frontendGuidesSource = uniqueSidebarNodes([
+    ...frontendGettingStartedExtras,
+    ...sidebarSectionChildren(input, "Angular Guides"),
+  ]);
+
+  const inputOther = sidebarSectionChildren(input, "Other");
+  const canonicalOther = sidebarSectionChildren(canonical, "Other");
+  const contributingSource =
+    findGroup(inputOther, "Contributing") ??
+    findGroup(canonicalOther, "Contributing");
+  const troubleshootingSource =
+    findGroup(inputOther, "Troubleshooting") ??
+    findGroup(
+      sidebarSectionChildren(input, "Troubleshooting"),
+      "Troubleshooting",
+    ) ??
+    sidebarTopicGroup(
+      "Troubleshooting",
+      "sidebar#troubleshooting-source",
+      flattenUntitledGroups(
+        sidebarSectionChildren(input, "Troubleshooting"),
+      ),
+    );
+  const telemetry =
+    findNavNode(
+      [...inputOther, ...canonicalOther],
+      (node) =>
+        node.type === "page" &&
+        withoutRouteGroupSlug(node.slug) === "telemetry",
+    ) ?? findPage("telemetry");
+
+  return [
+    ...startLinks,
+    ...sidebarSection("Basics", [
+      chat,
+      richThreadsTopic,
+      frontendTools?.type === "page"
+        ? { ...frontendTools, title: "Frontend-tools", icon: undefined }
+        : null,
+    ]),
+    ...sidebarSection("Generative UI", [
+      generativeTopic("Controlled"),
+      generativeTopic("Declarative"),
+      generativeTopic("Open-Ended", "Open-ended"),
+    ]),
+    ...sidebarSection("Interactivity", [
+      sidebarTopicGroup("Shared state", "sidebar#shared-state", sharedState),
+      sidebarTopicGroup(
+        "Human-in-the-loop",
+        "sidebar#human-in-the-loop",
+        humanInTheLoop,
+      ),
+    ]),
+    ...sidebarSection("Agent capabilities", [
+      webMcp?.type === "page"
+        ? { ...webMcp, title: "WebMCP", icon: undefined }
+        : null,
+      ...frameworkGroups,
+      subagents?.type === "page"
+        ? { ...subagents, title: "Sub-agents", icon: undefined }
+        : null,
+    ]),
+    ...sidebarSection("Intelligence", [
+      intelligenceOverview,
+      sidebarTopicGroup(
+        "Get started",
+        "sidebar#intelligence-get-started",
+        [
+          intelligenceQuickstart,
+          intelligenceArchitecture,
+          intelligenceRuntime,
+        ].filter((node): node is NavNode => node !== null),
+      ),
+      sidebarTopicGroup(
+        "Features",
+        "sidebar#intelligence-features",
+        [intelligenceThreads, intelligenceAutomaticLearning].filter(
+          (node): node is NavNode => node !== null,
+        ),
+      ),
+      sidebarTopicGroup(
+        "Hosting",
+        "sidebar#intelligence-hosting",
+        [intelligenceCloud, intelligenceSelfHosted].filter(
+          (node): node is NavNode => node !== null,
+        ),
+      ),
+    ]),
+    ...sidebarSection("Backend", [
+      sidebarTopicGroup("Runtime", "sidebar#runtime", runtimeSource),
+      sidebarTopicGroup(
+        "Deployment",
+        "sidebar#deployment",
+        Array.isArray(deploymentSource)
+          ? flattenUntitledGroups(deploymentSource)
+          : deploymentSource,
+      ),
+      sidebarTopicGroup("Debugging", "sidebar#debugging", debuggingSource),
+    ]),
+    ...sidebarSection("Learn", [
+      sidebarTopicGroup(
+        "Concepts",
+        "sidebar#concepts",
+        Array.isArray(conceptsSource)
+          ? flattenUntitledGroups(conceptsSource)
+          : conceptsSource,
+      ),
+      sidebarTopicGroup(
+        "Angular guides",
+        "sidebar#angular-guides",
+        frontendGuidesSource,
+      ),
+      {
+        type: "page",
+        title: "Cookbook",
+        slug: "cookbook",
+        href: "/cookbook",
+        icon: "lucide/ArrowUpRight",
+      },
+      {
+        type: "page",
+        title: "Reference",
+        slug: "reference",
+        href: "/reference",
+        icon: "lucide/ArrowUpRight",
+      },
+    ]),
+    ...sidebarSection("Other", [
+      contributingSource
+        ? sidebarTopicGroup(
+            "Contributing",
+            "sidebar#contributing",
+            withoutRouteGroupSegments(contributingSource),
+          )
+        : null,
+      troubleshootingSource
+        ? sidebarTopicGroup(
+            "Troubleshooting",
+            "sidebar#troubleshooting",
+            troubleshootingSource,
+          )
+        : null,
+      telemetry?.type === "page"
+        ? {
+            ...withoutRouteGroupSegments(telemetry),
+            title: "Open-source telemetry",
+            icon: undefined,
+          }
+        : null,
+    ]),
+  ];
 }
 
 function isRichThreadsGroup(
@@ -977,11 +1562,13 @@ export function buildFrameworkNav(
   frameworkName: string,
   frameworkSlug: string,
 ): NavNode[] {
-  return mergeFrameworkNav(
-    buildNavTree(CONTENT_DIR),
-    buildFrameworkOverridesNav(docsFolder),
-    frameworkName,
-    frameworkSectionIcon(frameworkSlug),
+  return normalizeSidebarNav(
+    mergeFrameworkNav(
+      buildNavTree(CONTENT_DIR),
+      buildFrameworkOverridesNav(docsFolder),
+      frameworkName,
+      frameworkSectionIcon(frameworkSlug),
+    ),
   );
 }
 
@@ -1680,6 +2267,8 @@ export interface DocFrontmatter {
   description?: string;
   defaultFramework?: string;
   defaultCell?: string;
+  full?: boolean;
+  hideBreadcrumb?: boolean;
   hideTOC?: boolean;
   hideHeader?: boolean;
   hidePageActions?: boolean;
@@ -1831,6 +2420,8 @@ export function loadDoc(
       : undefined;
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
+  const full = data.full === true;
+  const hideBreadcrumb = data.hideBreadcrumb === true;
   const hideTOC = data.hideTOC === true;
   const hideHeader = data.hideHeader === true;
   const hidePageActions = data.hidePageActions === true;
@@ -1846,6 +2437,8 @@ export function loadDoc(
       description,
       defaultFramework,
       defaultCell,
+      full,
+      hideBreadcrumb,
       hideTOC,
       hideHeader,
       hidePageActions,
@@ -1860,6 +2453,64 @@ export function loadDoc(
 // ---------------------------------------------------------------------------
 
 export type Breadcrumb = { label: string; href: string | null };
+
+function normalizeNavSlug(slug: string): string {
+  return slug.replace(/\/index$/, "");
+}
+
+function navNodeContainsSlug(node: NavNode, slugPath: string): boolean {
+  if (node.type === "section") return false;
+  if (node.type === "group") {
+    return node.children.some((child) => navNodeContainsSlug(child, slugPath));
+  }
+
+  return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath);
+}
+
+/** Return the sidebar section that contains a guide page. */
+export function navSectionTitleForSlug(
+  navTree: NavNode[],
+  slugPath: string,
+): string | null {
+  let currentSection: string | null = null;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      currentSection = node.title;
+    } else if (navNodeContainsSlug(node, slugPath)) {
+      return currentSection;
+    }
+  }
+  return null;
+}
+
+/**
+ * Turn a guide page's full breadcrumb trail into the ancestors shown above
+ * its title. The title already represents the current page, and the generic
+ * "Docs" root adds no information inside the guide surface. Named framework
+ * roots and first-level sections such as Cookbook remain visible. When a
+ * URL-level folder belongs to a broader sidebar section, prepend that section
+ * so paths such as AG-UI retain the visible Concepts hierarchy.
+ */
+export function visibleGuideBreadcrumbs(
+  breadcrumbs: Breadcrumb[],
+  sectionTitle?: string | null,
+): Breadcrumb[] {
+  const ancestors = breadcrumbs.slice(0, -1);
+  const hasGenericRoot = ancestors[0]?.label === "Docs";
+  const visible = hasGenericRoot ? ancestors.slice(1) : ancestors;
+  const isCookbook = breadcrumbs[1]?.label === "Cookbook";
+
+  if (
+    !hasGenericRoot ||
+    !sectionTitle ||
+    isCookbook ||
+    visible[0]?.label === sectionTitle
+  ) {
+    return visible;
+  }
+
+  return [{ label: sectionTitle, href: null }, ...visible];
+}
 
 export function buildBreadcrumbs(
   slugPath: string,

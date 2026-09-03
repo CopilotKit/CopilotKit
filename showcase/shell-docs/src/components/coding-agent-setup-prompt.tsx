@@ -107,7 +107,7 @@ export function CodingAgentSetupPrompt({
         <button
           type="button"
           onClick={copyPrompt}
-          className="shell-docs-radius-control col-span-2 inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:col-span-1 sm:col-start-3 sm:w-auto"
+          className="shell-docs-radius-control col-span-2 inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-5 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:col-span-1 sm:col-start-3 sm:w-auto"
         >
           {copyState === "copied"
             ? "Copied"
