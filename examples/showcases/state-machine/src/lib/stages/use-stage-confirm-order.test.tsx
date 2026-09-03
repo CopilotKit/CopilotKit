@@ -65,9 +65,9 @@ interface ConfirmOrderRenderProps {
   description: string;
   toolCallId: string;
   args: Record<string, never>;
-  status: ToolCallStatus.Complete;
+  status: ToolCallStatus;
   result: string;
-  respond: undefined;
+  respond: ((result: string) => Promise<void> | void) | undefined;
 }
 
 interface ConfirmOrderTool {
@@ -107,6 +107,85 @@ describe("useStageConfirmOrder", () => {
     act(() => hookRoot.unmount());
     hookContainer.remove();
   });
+
+  function createConfirmationState(): OrderState {
+    return {
+      stage: "confirmOrder",
+      selectedCar: cars[0],
+      contactInfo: {
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        phone: "555-0100",
+      },
+      cardInfo: availableCardInfo[0],
+      financingInfo: null,
+      orders: [],
+    };
+  }
+
+  function registerConfirmationState(state: OrderState) {
+    hookMocks.useGlobalState.mockImplementation(() => ({
+      ...state,
+      setStage: (stage: Stage) => {
+        state.stage = stage;
+      },
+      setSelectedCar: (selectedCar: Car | null) => {
+        state.selectedCar = selectedCar;
+      },
+      setContactInfo: (contactInfo: ContactInfo | null) => {
+        state.contactInfo = contactInfo;
+      },
+      setCardInfo: (cardInfo: CardInfo | null) => {
+        state.cardInfo = cardInfo;
+      },
+      setFinancingInfo: (financingInfo: FinancingInfo | null) => {
+        state.financingInfo = financingInfo;
+      },
+      setOrders: (update: (orders: Order[]) => Order[]) => {
+        state.orders = update(state.orders);
+      },
+    }));
+  }
+
+  function renderConfirmation(
+    respond: ConfirmOrderRenderProps["respond"],
+  ): HTMLDivElement {
+    act(() => hookRoot.render(<StageHook revision={0} />));
+    const tool = hookMocks.useHumanInTheLoop.mock.calls.at(-1)?.[0] as
+      | ConfirmOrderTool
+      | undefined;
+    if (!tool) throw new Error("confirmOrder tool was not registered");
+
+    const activeCardContainer = document.createElement("div");
+    cardContainer = activeCardContainer;
+    document.body.append(activeCardContainer);
+    cardRoot = createRoot(activeCardContainer);
+    const Renderer = tool.render;
+    act(() =>
+      cardRoot?.render(
+        <Renderer
+          name="confirmOrder"
+          description="Confirm the order of the user"
+          toolCallId="order-under-test"
+          args={{}}
+          status={ToolCallStatus.Executing}
+          result=""
+          respond={respond}
+        />,
+      ),
+    );
+    return activeCardContainer;
+  }
+
+  async function clickButton(container: HTMLDivElement, label: string) {
+    const button = Array.from(container.querySelectorAll("button")).find(
+      (candidate) => candidate.textContent === label,
+    );
+    if (!button) throw new Error(`${label} button was not rendered`);
+    await act(async () => {
+      button.click();
+    });
+  }
 
   test("starts a new order with an empty draft and keeps completed orders", async () => {
     const completedOrders: Order[] = [
@@ -286,5 +365,71 @@ describe("useStageConfirmOrder", () => {
     expect(cardContainer.textContent).toContain("Ada Lovelace");
     expect(renderCard(secondRenderer, "order-2")).toContain("2025 Kia Tasman");
     expect(cardContainer.textContent).toContain("Grace Hopper");
+  });
+
+  test("commits a confirmed order only after the response succeeds", async () => {
+    const state = createConfirmationState();
+    registerConfirmationState(state);
+    const respond = vi.fn().mockResolvedValue(undefined);
+    const container = renderConfirmation(respond);
+
+    await clickButton(container, "Confirm Order");
+
+    expect(respond).toHaveBeenCalledWith(
+      "User confirmed their order, please ask them if they would like to place another order and if they do, call the 'nextState' action.",
+    );
+    expect(state.orders).toHaveLength(1);
+    expect(state.orders[0]).toMatchObject({
+      car: cars[0],
+      contactInfo: state.contactInfo,
+      paymentType: "card",
+      cardInfo: availableCardInfo[0],
+    });
+  });
+
+  test("does not commit a rejected response and commits one order on retry", async () => {
+    const state = createConfirmationState();
+    registerConfirmationState(state);
+    const respond = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network failure"))
+      .mockResolvedValue(undefined);
+    const container = renderConfirmation(respond);
+
+    await clickButton(container, "Confirm Order");
+
+    expect(state.orders).toEqual([]);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "Could not send your response. Try again.",
+    );
+
+    await clickButton(container, "Retry");
+
+    expect(respond).toHaveBeenCalledTimes(2);
+    expect(state.orders).toHaveLength(1);
+  });
+
+  test("reports cancellation without committing an order", async () => {
+    const state = createConfirmationState();
+    registerConfirmationState(state);
+    const respond = vi.fn().mockResolvedValue(undefined);
+    const container = renderConfirmation(respond);
+
+    await clickButton(container, "Cancel");
+
+    expect(respond).toHaveBeenCalledWith(
+      "User cancelled their order, please ask them if they'd like to start over with a new order or if they'd like to continue with their current order. If they'd like to start over, call the 'nextState' action. If they'd like to continue with their current order, call the 'confirmOrder' action.",
+    );
+    expect(state.orders).toEqual([]);
+  });
+
+  test("does not commit when the renderer has no responder", async () => {
+    const state = createConfirmationState();
+    registerConfirmationState(state);
+    const container = renderConfirmation(undefined);
+
+    await clickButton(container, "Confirm Order");
+
+    expect(state.orders).toEqual([]);
   });
 });
