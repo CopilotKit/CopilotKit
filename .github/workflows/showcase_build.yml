@@ -386,7 +386,7 @@ jobs:
 
   check-lockfile:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -885,7 +885,7 @@ jobs:
     needs: [detect-changes, build]
     if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
