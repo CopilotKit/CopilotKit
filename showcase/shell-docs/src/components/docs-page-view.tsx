@@ -263,15 +263,18 @@ export async function DocsPageView({
       }
     >
       <DocsPage
+        full={doc.fm.full}
         toc={fumadocsToc}
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
-        tableOfContentPopover={{ enabled: true }}
+        tableOfContentPopover={{ enabled: fumadocsToc.length > 0 }}
       >
         <MaybeEarlyAccessGate gate={doc.fm.earlyAccess}>
           <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
             <DocsContentHeader
-              ancestorBreadcrumbs={ancestorBreadcrumbs}
+              ancestorBreadcrumbs={
+                doc.fm.hideBreadcrumb ? [] : ancestorBreadcrumbs
+              }
               title={doc.fm.title}
               description={doc.fm.description}
               hideHeading={doc.fm.hideHeader}
