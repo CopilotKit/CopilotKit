@@ -1053,6 +1053,11 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 .docs-page-tools {
+  --docs-page-actions-hover: color-mix(
+    in oklch,
+    var(--accent) 68%,
+    black
+  );
   position: relative;
   isolation: isolate;
   flex: 0 0 auto;
@@ -1121,9 +1126,10 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 .docs-page-actions-primary:hover,
-.docs-page-actions-trigger:hover {
+.docs-page-actions-trigger:hover,
+.docs-page-actions-trigger[data-state="open"] {
   border-color: var(--accent) !important;
-  background-color: var(--accent-strong) !important;
+  background-color: var(--docs-page-actions-hover) !important;
 }
 
 @keyframes docs-page-actions-shimmer {

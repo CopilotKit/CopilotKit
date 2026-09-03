@@ -87,10 +87,20 @@ describe("globals.css docs page actions", () => {
     expect(normalizedGlobalsCss).toContain(
       normalizeWhitespace(`
         .docs-page-actions-primary:hover,
-        .docs-page-actions-trigger:hover {
+        .docs-page-actions-trigger:hover,
+        .docs-page-actions-trigger[data-state="open"] {
           border-color: var(--accent) !important;
-          background-color: var(--accent-strong) !important;
+          background-color: var(--docs-page-actions-hover) !important;
         }
+      `),
+    );
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        --docs-page-actions-hover: color-mix(
+          in oklch,
+          var(--accent) 68%,
+          black
+        );
       `),
     );
   });
