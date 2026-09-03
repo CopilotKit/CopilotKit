@@ -9,10 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import {
-  WEBMCP_SETUP_PROMPT,
-  WebMCPSetupPrompt,
-} from "../webmcp-setup-prompt";
+import { WEBMCP_SETUP_PROMPT, WebMCPSetupPrompt } from "../webmcp-setup-prompt";
 
 afterEach(() => {
   cleanup();
