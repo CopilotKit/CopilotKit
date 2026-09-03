@@ -145,6 +145,27 @@ describe("Channels activation impressions", () => {
     ).toEqual([]);
   });
 
+  // The panel renders on 36 backend-scoped `/slack/<framework>` and
+  // `/teams/<framework>` pages. It used to report a fixed `built-in-agent`
+  // literal on every one of them, so the funnel could not tell which backend a
+  // reader was actually looking at when they copied the prompt.
+  it("reports the backend the URL selects, not a fixed literal", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+
+    render(<ChannelsStartPrompt frontend="slack" backend="mastra" />);
+    fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
+
+    await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+    const call = analytics.capture.mock.calls.find(
+      ([event]) => event === CHANNELS_ACTIVATION_EVENTS.promptCopied,
+    );
+    expect((call?.[1] as Record<string, unknown>).backend).toBe("mastra");
+  });
+
   it("stays silent while a surface is below the fold", () => {
     render(<ChannelsStartPrompt />);
     const panel = screen.getByTestId("channels-start-prompt");
