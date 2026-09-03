@@ -22,10 +22,10 @@ describe("framework root pages", () => {
     const attributesList = renderSiteAttributes(
       ROUTE,
       "<DocsPageView",
-      2,
       (chunk) => chunk.includes("contentSlugPath={indexContentPath}"),
     );
 
+    expect(attributesList).toHaveLength(2);
     for (const attributes of attributesList) {
       // Bare attribute or an explicitly truthy value only — a plain
       // substring match would also accept `landingPage={false}`.

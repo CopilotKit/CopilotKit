@@ -12,7 +12,6 @@
  */
 
 import fs from "node:fs";
-import { expect } from "vitest";
 
 /**
  * The attributes of the opening JSX tag that `chunk` starts with. Walks to
@@ -75,23 +74,24 @@ export function booleanPropPattern(name: string): RegExp {
 
 /**
  * Reads `filePath`, splits its source on every occurrence of `openTag`
- * (narrowed further by `filter` when given), asserts there are exactly
- * `count` such renders, and returns each render's opening-tag attributes —
- * ready for `valuedPropPattern` or `booleanPropPattern`.
+ * (narrowed further by `filter` when given), and returns each render's
+ * opening-tag attributes — ready for `valuedPropPattern` or
+ * `booleanPropPattern`.
  *
- * Lifts the "read the file, split on the opening tag, assert exactly N
- * occurrences" driver that recurs across these render-site guards, so the
- * counting and the attribute extraction are written once.
+ * Lifts the "read the file, split on the opening tag, extract the opening
+ * tag's attributes" driver that recurs across these render-site guards, so
+ * that part is written once. How many renders there should be is a
+ * property of the test, not of this helper, so callers assert
+ * `toHaveLength` on the result themselves rather than this function
+ * swallowing that assertion.
  */
 export function renderSiteAttributes(
   filePath: string,
   openTag: string,
-  count: number,
   filter?: (chunk: string) => boolean,
 ): string[] {
   const source = fs.readFileSync(filePath, "utf-8");
   let chunks = source.split(openTag).slice(1);
   if (filter) chunks = chunks.filter(filter);
-  expect(chunks).toHaveLength(count);
   return chunks.map(openingTagAttributes);
 }

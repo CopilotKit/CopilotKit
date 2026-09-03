@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
 import path from "node:path";
 import {
-  openingTagAttributes,
+  renderSiteAttributes,
   valuedPropPattern,
 } from "@/test-utils/jsx-source";
 
@@ -24,12 +23,10 @@ const ROUTE = path.join(
 describe("framework root hero prompt inputs", () => {
   for (const tag of ["<FrameworkOverview", "<MdxFrameworkOverview"] as const) {
     it(`passes markdownUrl and onboardingFrontend at ${tag}`, () => {
-      const source = fs.readFileSync(ROUTE, "utf-8");
-      const renders = source.split(tag).slice(1);
+      const attributesList = renderSiteAttributes(ROUTE, tag);
 
-      expect(renders).toHaveLength(1);
-      for (const chunk of renders) {
-        const attributes = openingTagAttributes(chunk);
+      expect(attributesList).toHaveLength(1);
+      for (const attributes of attributesList) {
         // A value, not just the name — `markdownUrl={undefined}` and
         // `markdownUrl={""}` both compile and would satisfy a substring
         // match while dropping the page sentence.

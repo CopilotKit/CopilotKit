@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
 import path from "node:path";
 import {
-  openingTagAttributes,
+  renderSiteAttributes,
   valuedPropPattern,
 } from "@/test-utils/jsx-source";
 
@@ -24,10 +23,9 @@ import {
 const VIEW = path.join(process.cwd(), "src/components/docs-page-view.tsx");
 
 function soleRender(tag: string): string {
-  const source = fs.readFileSync(VIEW, "utf-8");
-  const renders = source.split(tag).slice(1);
-  expect(renders).toHaveLength(1);
-  return openingTagAttributes(renders[0]);
+  const attributesList = renderSiteAttributes(VIEW, tag);
+  expect(attributesList).toHaveLength(1);
+  return attributesList[0];
 }
 
 describe("docs-page-view MDX prompt context", () => {
