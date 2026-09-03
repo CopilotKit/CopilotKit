@@ -60,10 +60,12 @@ describe("globals.css docs headings", () => {
 });
 
 describe("globals.css docs media breakouts", () => {
-  it("keeps standard tables aligned to the prose measure", () => {
-    expect(globalsCss).toContain("> :is(img, figure.shiki)");
+  it("keeps standard tables and code blocks aligned to the prose measure", () => {
+    expect(globalsCss).toContain(
+      ".docs-article-content .reference-content > img",
+    );
     expect(globalsCss).not.toMatch(
-      /\.reference-content\s*>\s*:is\([^)]*table/,
+      /\.reference-content\s*>\s*:is\([^)]*(?:table|figure\.shiki)/,
     );
   });
 });

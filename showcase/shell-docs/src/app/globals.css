@@ -1543,14 +1543,11 @@ samp {
   margin: 1.5rem 0;
 }
 
-/* Diagrams and standalone code blocks benefit from a wider canvas than prose.
- * Standard tables stay on the reading measure so their section heading and
- * content share one clear axis; genuinely wide tables should opt into their
- * own overflow treatment rather than inheriting a viewport breakpoint. */
+/* Direct diagrams benefit from a wider canvas than prose. Standard tables and
+ * code blocks stay on the reading measure so their section heading and content
+ * share one clear axis; both already own their dense-content overflow. */
 @media (min-width: 1280px) {
-  .docs-article-content
-    .reference-content
-    > :is(img, figure.shiki) {
+  .docs-article-content .reference-content > img {
     width: min(var(--docs-breakout-width), calc(100% + 5rem));
     max-width: min(var(--docs-breakout-width), calc(100% + 5rem));
     margin-right: 0;
@@ -1560,9 +1557,7 @@ samp {
 }
 
 @media (min-width: 1440px) {
-  .docs-article-content
-    .reference-content
-    > :is(img, figure.shiki) {
+  .docs-article-content .reference-content > img {
     width: min(var(--docs-breakout-width), calc(100% + 8.75rem));
     max-width: min(var(--docs-breakout-width), calc(100% + 8.75rem));
   }
