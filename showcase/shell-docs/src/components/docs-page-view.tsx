@@ -298,13 +298,17 @@ export async function DocsPageView({
               })}
             </nav>
 
-            <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
-              {doc.fm.title}
-            </DocsTitle>
-            {doc.fm.description && (
-              <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
-                {doc.fm.description}
-              </DocsDescription>
+            {!doc.fm.hideHeader && (
+              <>
+                <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
+                  {doc.fm.title}
+                </DocsTitle>
+                {doc.fm.description && (
+                  <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
+                    {doc.fm.description}
+                  </DocsDescription>
+                )}
+              </>
             )}
 
             {/* Page actions (Copy agent prompt / Copy Markdown / Open in
