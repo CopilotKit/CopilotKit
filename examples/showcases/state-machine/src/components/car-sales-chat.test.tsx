@@ -1,20 +1,13 @@
-import type { Message } from "@copilotkit/react-core/v2";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+/** @vitest-environment jsdom */
+
+import { act } from "react";
+import type { ReactNode } from "react";
+import { createRoot } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const hookMocks = vi.hoisted(() => ({
   useAgent: vi.fn(),
-  useEffect: (effect: () => void | (() => void)) => {
-    effect();
-  },
-  useRef: <Value,>(value: Value) => ({ current: value }),
-}));
-
-vi.mock("react", () => ({
-  useEffect: hookMocks.useEffect,
-  useRef: hookMocks.useRef,
-}));
-
-vi.mock("@/lib/stages", () => ({
   useStageBuildCar: vi.fn(),
   useStageConfirmOrder: vi.fn(),
   useStageGetContactInfo: vi.fn(),
@@ -23,13 +16,29 @@ vi.mock("@/lib/stages", () => ({
   useStageSellFinancing: vi.fn(),
 }));
 
-vi.mock("@/lib/utils/cn", () => ({
-  cn: (...classNames: Array<string | undefined>) =>
-    classNames.filter(Boolean).join(" "),
+const chatProps = vi.hoisted(() => ({
+  calls: [] as Array<Record<string, unknown>>,
+}));
+
+vi.mock("@/lib/stages", () => ({
+  useStageBuildCar: hookMocks.useStageBuildCar,
+  useStageConfirmOrder: hookMocks.useStageConfirmOrder,
+  useStageGetContactInfo: hookMocks.useStageGetContactInfo,
+  useStageGetFinancingInfo: hookMocks.useStageGetFinancingInfo,
+  useStageGetPaymentInfo: hookMocks.useStageGetPaymentInfo,
+  useStageSellFinancing: hookMocks.useStageSellFinancing,
+}));
+
+vi.mock("./chat-message", () => ({
+  AssistantMessage: () => null,
+  UserMessage: () => null,
 }));
 
 vi.mock("@copilotkit/react-core/v2", () => ({
-  CopilotChat: vi.fn(),
+  CopilotChat: (props: Record<string, unknown>): ReactNode => {
+    chatProps.calls.push(props);
+    return null;
+  },
   useAgent: hookMocks.useAgent,
 }));
 
@@ -38,71 +47,68 @@ import { CarSalesChat } from "./car-sales-chat";
 const initialMessage =
   "Hi, I'm Fio, your AI car salesman. First, let's get your contact information before we get started.";
 
-function renderChat(messages: Message[]) {
-  const addMessage = vi.fn<(message: Message) => void>();
-  hookMocks.useAgent.mockReturnValue({
-    agent: {
-      addMessage,
-      isRunning: false,
-      messages,
-    },
-    isReady: true,
-  });
+const stageHooks = [
+  hookMocks.useStageGetContactInfo,
+  hookMocks.useStageBuildCar,
+  hookMocks.useStageSellFinancing,
+  hookMocks.useStageGetPaymentInfo,
+  hookMocks.useStageGetFinancingInfo,
+  hookMocks.useStageConfirmOrder,
+];
 
-  const view = CarSalesChat({});
-
-  return { addMessage, view };
-}
+let container: HTMLDivElement;
+let root: Root;
 
 beforeEach(() => {
-  vi.useFakeTimers();
-  vi.stubGlobal("window", {
-    clearTimeout: globalThis.clearTimeout,
-    setTimeout: globalThis.setTimeout,
-  });
+  chatProps.calls = [];
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
 });
 
 afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
+  act(() => root.unmount());
+  container.remove();
   vi.clearAllMocks();
 });
 
-describe("CarSalesChat initialization", () => {
-  test("does not overwrite a restored thread whose messages hydrate later", () => {
-    const messages: Message[] = [];
-    const { addMessage } = renderChat(messages);
+/** Mounts one chat instance through a real React root. */
+function mountChat(): void {
+  act(() => root.render(<CarSalesChat />));
+}
 
-    vi.runAllTimers();
-    messages.push({
-      id: "delayed-restored-user-message",
-      role: "user",
-      content: "Show me an electric car",
-    });
+test("registers every sales stage when it mounts", () => {
+  mountChat();
 
-    expect(addMessage).not.toHaveBeenCalled();
-  });
+  for (const stageHook of stageHooks) {
+    expect(stageHook).toHaveBeenCalledOnce();
+  }
+});
 
-  test("treats a restored non-empty thread as initialized", () => {
-    const { addMessage } = renderChat([
-      {
-        id: "restored-user-message",
-        role: "user",
-        content: "Show me an electric car",
-      },
-    ]);
+test("hands the greeting to the chat as welcome configuration", () => {
+  mountChat();
 
-    expect(addMessage).not.toHaveBeenCalled();
-  });
+  const props = chatProps.calls.at(-1);
+  expect(props?.agentId).toBe("default");
+  expect(props?.labels).toEqual({ welcomeMessageText: initialMessage });
+});
 
-  test("configures the greeting as welcome content without mutating the thread", () => {
-    const { addMessage, view } = renderChat([]);
+test("never reads the agent, so the greeting cannot mutate the thread", () => {
+  mountChat();
 
-    vi.runAllTimers();
+  expect(hookMocks.useAgent).not.toHaveBeenCalled();
+});
 
-    expect(addMessage).not.toHaveBeenCalled();
-    expect(view.props.children.props.children.props.labels).toEqual({
-      welcomeMessageText: initialMessage,
-    });
-  });
+test("keeps the same instance across rerenders and cleans up on unmount", () => {
+  mountChat();
+  act(() => root.render(<CarSalesChat className="rerendered" />));
+
+  expect(chatProps.calls).toHaveLength(2);
+  for (const stageHook of stageHooks) {
+    expect(stageHook).toHaveBeenCalledTimes(2);
+  }
+
+  act(() => root.unmount());
+
+  expect(container.childNodes).toHaveLength(0);
 });
