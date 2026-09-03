@@ -28,20 +28,20 @@ alwaysApply: false
 ## Frontend Example Categories
 
 ### Basic Integration Examples
-- **[chat-with-your-data/](mdc:examples/showcases/chat-with-your-data/)** - Chat with custom data
-- **[form-filling/](mdc:examples/showcases/form-filling/)** - AI-powered form filling
+- **[chat-with-your-data/](mdc:examples/v1/chat-with-your-data/)** - Chat with custom data
+- **[form-filling/](mdc:examples/v1/form-filling/)** - AI-powered form filling
 - **[copilot-fully-custom/](mdc:examples/copilot-fully-custom/)** - Custom copilot implementation
 
 ### Advanced UI Examples
-- **[state-machine/](mdc:examples/showcases/state-machine/)** - State machine integration
+- **[state-machine/](mdc:examples/v1/state-machine/)** - State machine integration
 - **[demo-viewer/](mdc:examples/demo-viewer/)** - Demo viewer application
 - **[saas-dynamic-dashboards/frontend/](mdc:examples/saas-dynamic-dashboards/frontend/)** - Dynamic dashboard UI
 
 ### Coagents UI Examples
 Most coagents examples have a `ui/` folder with Next.js applications:
 - **[coagents-starter/ui/](mdc:examples/coagents-starter/ui/)** - Basic coagents UI
-- **[travel/](mdc:examples/showcases/travel/)** - Travel planning UI
-- **[research-canvas/](mdc:examples/canvas/research-canvas/)** - Research canvas UI
+- **[travel/](mdc:examples/v1/travel/)** - Travel planning UI
+- **[research-canvas/](mdc:examples/v1/research-canvas/)** - Research canvas UI
 
 ## Component Registry
 - **[registry/](mdc:registry/)** - Reusable component registry

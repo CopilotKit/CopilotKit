@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 66 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 61 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -10,7 +10,9 @@ cd examples/<category>/<name>
 # Follow the example's own README for setup instructions
 ```
 
-> **Note:** The `v1/` and `v2/` directories at the top level are legacy workspace examples from earlier CopilotKit releases and are not part of the consolidated demo set.
+> **Note:** The `v1/` and `v2/` directories at the top level predate this consolidated demo set, so they are listed separately from the tables below.
+>
+> `v1/` also holds the five apps linked from [copilotkit.ai/examples](https://www.copilotkit.ai/examples): [chat-with-your-data](./v1/chat-with-your-data/), [form-filling](./v1/form-filling/), [research-canvas](./v1/research-canvas/), [state-machine](./v1/state-machine/), and [travel](./v1/travel/). Those five are maintained and use the CopilotKit v2 APIs despite the folder name. They keep these paths because the public website links and their deployments point at them.
 
 ---
 
@@ -43,7 +45,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
 | [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 
-## Canvas (8)
+## Canvas (7)
 
 AI-powered canvas applications with visual card interfaces, real-time state sync, and HITL workflows.
 
@@ -56,9 +58,8 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [mastra](./canvas/mastra/)                           | AG-UI canvas starter with Mastra — interactive cards with real-time AI sync             |
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | AG-UI + Mastra workshop — shared state, multiple clients, generative UI                 |
-| [research-canvas](./canvas/research-canvas/)         | Research workspace with model selection, shared agent state, and HITL resource controls |
 
-## Showcases (36)
+## Showcases (32)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
@@ -66,10 +67,8 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | [a2ui-pdf-analyst](./showcases/a2ui-pdf-analyst/)                       | PDF analyst that builds fixed or dynamic A2UI surfaces from document data                                           |
 | [arcade-tools](./showcases/arcade-tools/)                               | Built-in Agent with authenticated Arcade Gmail and news tools plus inline OAuth UI                                  |
-| [chat-with-your-data](./showcases/chat-with-your-data/)                 | AI-assisted sales dashboard with live data context and web search                                                   |
 | [claude-managed-agents](./showcases/claude-managed-agents/)             | Hosted Claude Managed Agent over AG-UI with an interactive growth chart                                             |
 | [daytona-runcode](./showcases/daytona-runcode/)                         | Built-in Agent that runs Python, TypeScript, and JavaScript in isolated Daytona sandboxes                           |
-| [form-filling](./showcases/form-filling/)                               | Conversational security incident form with structured AI updates                                                    |
 | [reskinnable-demo](./showcases/reskinnable-demo/)                       | Runtime-reskinnable demo — banking and airline skins over one shell, agent and all                                  |
 | [presentation](./showcases/presentation/)                               | PowerPoint-like web app built with CopilotKit                                                                       |
 | [deep-agents](./showcases/deep-agents/)                                 | Deep research assistant with planning, memory/files, and generative UI (Tavily)                                     |
@@ -96,7 +95,5 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [enterprise-brex](./showcases/enterprise-brex/)                         | Enterprise banking demo with authorization, operations, and generative UI                                           |
 | [a2a-travel](./showcases/a2a-travel/)                                   | A2A + AG-UI multi-agent travel demo (LangGraph + Google ADK)                                                        |
 | [spreadsheet](./showcases/spreadsheet/)                                 | AI-powered Excel-like spreadsheet web app                                                                           |
-| [state-machine](./showcases/state-machine/)                             | Multi-stage car sales flow with generative UI and explicit state transitions                                        |
 | [todo](./showcases/todo/)                                               | Simple todo app built with CopilotKit                                                                               |
-| [travel](./showcases/travel/)                                           | Shared-state travel planner with map-based results and human approval                                               |
 | [strands-crm](./showcases/strands-crm/)                                 | Enterprise sales CRM — dashboard, pipeline, products, quotes, reports & agentic canvas (TypeScript Strands + AG-UI) |

@@ -70,7 +70,7 @@ Each example has its own `package.json`.
 
 Install deps in the example directory you want to test, e.g.:
 
-- `cd examples/showcases/travel && pnpm install`
+- `cd examples/v1/travel && pnpm install`
 
 Notes:
 

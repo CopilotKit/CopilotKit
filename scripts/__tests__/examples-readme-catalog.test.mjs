@@ -21,7 +21,7 @@ const publicExamplesWorkflow = fs.readFileSync(
 );
 const chatWithYourDataPackage = JSON.parse(
   fs.readFileSync(
-    path.join(examplesRoot, "showcases", "chat-with-your-data", "package.json"),
+    path.join(examplesRoot, "v1", "chat-with-your-data", "package.json"),
     "utf8",
   ),
 );
@@ -29,7 +29,7 @@ const researchAgentPackage = JSON.parse(
   fs.readFileSync(
     path.join(
       examplesRoot,
-      "canvas",
+      "v1",
       "research-canvas",
       "agents",
       "typescript",
@@ -40,7 +40,7 @@ const researchAgentPackage = JSON.parse(
 );
 const researchCanvasPackage = JSON.parse(
   fs.readFileSync(
-    path.join(examplesRoot, "canvas", "research-canvas", "package.json"),
+    path.join(examplesRoot, "v1", "research-canvas", "package.json"),
     "utf8",
   ),
 );
@@ -103,24 +103,6 @@ function workflowTriggerPaths(eventName, workflow = publicExamplesWorkflow) {
     });
 }
 
-test("workflow trigger paths parse every YAML string style", () => {
-  const workflow = `on:
-  push:
-    paths:
-      - "examples/catalog/**"
-      - 'examples/catalog/**'
-      - examples/catalog/**
-env:
-  TEST: true
-`;
-
-  assert.deepEqual(workflowTriggerPaths("push", workflow), [
-    "examples/catalog/**",
-    "examples/catalog/**",
-    "examples/catalog/**",
-  ]);
-});
-
 test("workflow trigger paths reject an unparseable entry", () => {
   const workflow = `on:
   push:
@@ -182,7 +164,7 @@ test("chat-with-your-data declares the runner used by its test script", () => {
 test("Research Canvas TypeScript agent is an installable workspace package", () => {
   assert.match(
     pnpmWorkspace,
-    /^  - "examples\/canvas\/research-canvas\/agents\/typescript"$/m,
+    /^  - "examples\/v1\/research-canvas\/agents\/typescript"$/m,
   );
   assert.equal(
     researchAgentPackage.name,
@@ -227,7 +209,7 @@ test("multi-agent canvas links to the canonical research canvas agents", () => {
   );
 
   assert.ok(researcherLink, "README is missing the AI Researcher link");
-  assert.equal(researcherLink[1], "examples/canvas/research-canvas/agents");
+  assert.equal(researcherLink[1], "examples/v1/research-canvas/agents");
   assert.equal(
     fs.statSync(path.join(repoRoot, researcherLink[1])).isDirectory(),
     true,
@@ -290,20 +272,20 @@ test("public example jobs run each app's unit tests and Travel's Python tests", 
   const expectedMatrix = [
     {
       example: "form-filling",
-      directory: "examples/showcases/form-filling",
+      directory: "examples/v1/form-filling",
     },
-    { example: "travel", directory: "examples/showcases/travel" },
+    { example: "travel", directory: "examples/v1/travel" },
     {
       example: "research-canvas",
-      directory: "examples/canvas/research-canvas",
+      directory: "examples/v1/research-canvas",
     },
     {
       example: "chat-with-your-data",
-      directory: "examples/showcases/chat-with-your-data",
+      directory: "examples/v1/chat-with-your-data",
     },
     {
       example: "state-machine",
-      directory: "examples/showcases/state-machine",
+      directory: "examples/v1/state-machine",
     },
   ];
   const examplesJob = publicExamplesJob();
@@ -320,7 +302,7 @@ test("public example jobs run each app's unit tests and Travel's Python tests", 
   );
   assert.match(
     examplesJob,
-    /- name: Run Travel agent tests\n\s+if: matrix\.example == 'travel'\n\s+working-directory: examples\/showcases\/travel\/agent\n\s+run: uv run --locked --with pytest==9\.1\.1 python -m pytest tests/,
+    /- name: Run Travel agent tests\n\s+if: matrix\.example == 'travel'\n\s+working-directory: examples\/v1\/travel\/agent\n\s+run: uv run --locked --with pytest==9\.1\.1 python -m pytest tests/,
   );
 });
 

@@ -11,7 +11,7 @@ The chat selects `travel` through `CopilotChatConfigurationProvider` in
 `app/page.tsx`. The state hook uses the same ID in
 `lib/hooks/use-trips.tsx`:
 
-```tsx title="examples/showcases/travel/lib/hooks/use-trips.tsx"
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
 import { useAgent } from "@copilotkit/react-core/v2";
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
@@ -30,7 +30,7 @@ keeps the UI safe before the agent has sent its first complete state.
 When the agent is ready, the provider fills any missing fields with the
 example's default trips:
 
-```tsx title="examples/showcases/travel/lib/hooks/use-trips.tsx"
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
 useEffect(() => {
   if (!isReady) return;
   if (isAgentStateInitialized(agent.state)) return;
@@ -44,7 +44,7 @@ useEffect(() => {
 UI controls call `agent.setState`. Each update starts from the latest agent
 state so it does not overwrite a newer change:
 
-```tsx title="examples/showcases/travel/lib/hooks/use-trips.tsx"
+```tsx title="examples/v1/travel/lib/hooks/use-trips.tsx"
 const setSelectedTripId = (trip_id: string | null) => {
   agent.setState({
     ...normalizeAgentState(agent.state),

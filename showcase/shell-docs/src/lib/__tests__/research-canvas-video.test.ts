@@ -18,7 +18,7 @@ describe("Research Canvas video page", () => {
       "This recording uses CopilotKit v1 APIs.",
     );
     expect(researchCanvasVideoSource).toContain(
-      "[current CopilotKit v2 source code](https://github.com/CopilotKit/CopilotKit/blob/main/examples/canvas/research-canvas/readme.md)",
+      "[current CopilotKit v2 source code](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v1/research-canvas/readme.md)",
     );
     expect(researchCanvasVideoSource).toContain(
       "[v1 to v2 migration guide](/migrate/v2)",

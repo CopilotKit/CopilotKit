@@ -11,7 +11,7 @@ const stepFiveSource = readFileSync(
 
 const tripsHookSource = readFileSync(
   new URL(
-    "../../../../../examples/showcases/travel/lib/hooks/use-trips.tsx",
+    "../../../../../examples/v1/travel/lib/hooks/use-trips.tsx",
     import.meta.url,
   ),
   "utf8",
@@ -19,7 +19,7 @@ const tripsHookSource = readFileSync(
 
 const searchAgentSource = readFileSync(
   new URL(
-    "../../../../../examples/showcases/travel/agent/src/search.py",
+    "../../../../../examples/v1/travel/agent/src/search.py",
     import.meta.url,
   ),
   "utf8",

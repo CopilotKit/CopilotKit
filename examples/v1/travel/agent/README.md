@@ -2,11 +2,11 @@
 
 This Python LangGraph agent manages trips in shared state and searches for
 places with Places API (New). `main.py` serves it as an AG-UI endpoint for the
-CopilotKit v2 frontend in `examples/showcases/travel`.
+CopilotKit v2 frontend in `examples/v1/travel`.
 
 ## Run the agent
 
-From `examples/showcases/travel`, create `agent/.env`:
+From `examples/v1/travel`, create `agent/.env`:
 
 ```text
 OPENAI_API_KEY=...

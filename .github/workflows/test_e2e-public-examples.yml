@@ -119,15 +119,15 @@ jobs:
       matrix:
         include:
           - example: form-filling
-            directory: examples/showcases/form-filling
+            directory: examples/v1/form-filling
           - example: travel
-            directory: examples/showcases/travel
+            directory: examples/v1/travel
           - example: research-canvas
-            directory: examples/canvas/research-canvas
+            directory: examples/v1/research-canvas
           - example: chat-with-your-data
-            directory: examples/showcases/chat-with-your-data
+            directory: examples/v1/chat-with-your-data
           - example: state-machine
-            directory: examples/showcases/state-machine
+            directory: examples/v1/state-machine
 
     steps:
       - name: Checkout
@@ -201,11 +201,11 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-          cache-dependency-glob: examples/showcases/travel/agent/uv.lock
+          cache-dependency-glob: examples/v1/travel/agent/uv.lock
 
       - name: Run Travel agent tests
         if: matrix.example == 'travel'
-        working-directory: examples/showcases/travel/agent
+        working-directory: examples/v1/travel/agent
         run: uv run --locked --with pytest==9.1.1 python -m pytest tests
 
       - name: Install e2e dependencies
