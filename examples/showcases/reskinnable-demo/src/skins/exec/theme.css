@@ -1,0 +1,87 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Vantage — Cascade Industries' executive reporting desk. Skin-scoped VALUES for the shell's shared
+   token vocabulary (names declared in src/app/globals.css; never invent new
+   ones).
+
+   PALETTE RATIONALE. The seven shipped skins already own: violet (banking
+   252), jet teal (airline 190), deep pine with an amber "awaiting approval"
+   accent (keel — primary 170, `--brand-violet` 36), signal amber deepening to
+   copper (logistics 32), burgundy (bookstore 0), deep ink blue (commerce 206)
+   and plum with a gold milestone accent (people — primary 315, `--brand-violet`
+   38). Every remaining hue near amber/gold is therefore already claimed by
+   either keel's warning accent or logistics' primary, and every warm-neutral
+   surface is already claimed by keel/logistics/people.
+
+   Exec is a CEO/CFO dashboard (see nav.ts: "CEO dashboard", "CFO dashboard",
+   "Board packs") and reaches for the one combination nothing else uses: a
+   COOL, DESATURATED graphite chrome (canvas/surface/surface-muted sit on a
+   near-neutral 220 hue, not the warm 30-40 neutrals keel/logistics/people all
+   use) paired with a MUTED brass-gold brand (43 55% 45%) rather than a bright
+   alert-amber. Pushing the hue to 43 and pulling saturation down from
+   logistics' 94% / keel's 88% is deliberate: this reads as boardroom metal
+   (a plaque, a pen nib) rather than a warning chip, so it stays legible next
+   to keel's and logistics' amber without visually competing with either.
+
+   `--brand-violet` carries a cooler pewter-blue (222) rather than a second
+   warm tone, reinforcing the graphite identity; `--brand-indigo` deepens the
+   gold toward bronze for gradients and hover states. */
+.theme-exec {
+  /* Board-room precision: tighter than banking's pillowy 1.375rem, a touch
+     softer than logistics/keel's utilitarian 0.5rem — crisp without looking
+     like an operations console. */
+  --radius: 0.625rem;
+
+  /* Dark-mode OPT-IN. src/hooks/use-theme.ts forces any skin WITHOUT this flag
+     to light and ignores the stored preference. An exec dashboard reads
+     naturally in a dark boardroom display, so this skin ships both. */
+  --nw-dark-capable: 1;
+
+  --brand: 43 55% 45%;
+  --brand-indigo: 32 62% 32%;
+  --brand-violet: 222 18% 46%;
+  --brand-foreground: 30 40% 10%;
+  --brand-soft: 43 40% 93%;
+
+  --background: 220 18% 98%;
+  --foreground: 220 20% 12%;
+  --canvas: 220 16% 95%;
+  --surface: 0 0% 100%;
+  --surface-muted: 220 14% 93%;
+  --ink: 220 20% 14%;
+  --ink-muted: 220 9% 44%;
+  --hairline: 220 13% 87%;
+
+  --positive: 152 50% 38%;
+  --positive-soft: 152 55% 94%;
+  --negative: 0 68% 48%;
+  --negative-soft: 0 78% 96%;
+}
+
+/* DARK. `.dark` lands on <html>, an ancestor of the `.theme-exec` root, so this
+   re-values only what differs — surfaces deepen to true dark graphite, ink and
+   hairline invert, and the semantic pairs darken — while `--radius` and the
+   brand ramp inherit from the light block above. The brass brand is lightened
+   only via `--brand`/`--brand-soft` so it still reads as metal, not neon,
+   against the dark canvas. */
+.dark .theme-exec {
+  color-scheme: dark;
+
+  --background: 220 18% 9%;
+  --foreground: 220 14% 94%;
+  --canvas: 220 18% 9%;
+  --surface: 220 15% 13%;
+  --surface-muted: 220 13% 16%;
+  --ink: 220 14% 94%;
+  --ink-muted: 220 8% 60%;
+  --hairline: 220 11% 23%;
+
+  --brand: 43 62% 58%;
+  --brand-indigo: 32 55% 42%;
+  --brand-violet: 222 16% 62%;
+  --brand-soft: 43 30% 20%;
+
+  --positive: 152 42% 48%;
+  --positive-soft: 152 30% 16%;
+  --negative: 0 65% 60%;
+  --negative-soft: 0 38% 19%;
+}
