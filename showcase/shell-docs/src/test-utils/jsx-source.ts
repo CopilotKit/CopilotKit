@@ -11,6 +11,9 @@
  * Not a `*.test.ts` file, so vitest's `include` glob does not collect it.
  */
 
+import fs from "node:fs";
+import { expect } from "vitest";
+
 /**
  * The attributes of the opening JSX tag that `chunk` starts with. Walks to
  * the first `>` that is not nested inside a `{…}` expression or a string, so
@@ -54,4 +57,41 @@ export function valuedPropPattern(name: string): RegExp {
     // such as `onboardingFramework=`.
     `(?<![\\w$])${name}=\\{(?!\\s*(?:undefined|null|""|''|\`\`)\\s*\\})\\s*[^\\s}]`,
   );
+}
+
+/**
+ * Matches a boolean prop `name` passed as a bare attribute (`landingPage`) or
+ * explicitly `name={true}` — never `name={false}`, which a plain substring
+ * match would also accept. The counterpart to `valuedPropPattern` above for
+ * props whose whole point is being present-or-absent rather than carrying a
+ * value.
+ */
+export function booleanPropPattern(name: string): RegExp {
+  return new RegExp(
+    // Same lookbehind rationale as `valuedPropPattern`.
+    `(?<![\\w$])${name}(?:=\\{true\\}|(?=[\\s/>]))`,
+  );
+}
+
+/**
+ * Reads `filePath`, splits its source on every occurrence of `openTag`
+ * (narrowed further by `filter` when given), asserts there are exactly
+ * `count` such renders, and returns each render's opening-tag attributes —
+ * ready for `valuedPropPattern` or `booleanPropPattern`.
+ *
+ * Lifts the "read the file, split on the opening tag, assert exactly N
+ * occurrences" driver that recurs across these render-site guards, so the
+ * counting and the attribute extraction are written once.
+ */
+export function renderSiteAttributes(
+  filePath: string,
+  openTag: string,
+  count: number,
+  filter?: (chunk: string) => boolean,
+): string[] {
+  const source = fs.readFileSync(filePath, "utf-8");
+  let chunks = source.split(openTag).slice(1);
+  if (filter) chunks = chunks.filter(filter);
+  expect(chunks).toHaveLength(count);
+  return chunks.map(openingTagAttributes);
 }

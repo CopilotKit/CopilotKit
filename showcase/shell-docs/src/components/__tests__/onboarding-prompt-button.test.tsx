@@ -21,6 +21,12 @@ import {
   createIntelligenceOnboardingPrompt,
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
+import {
+  RUN_ID_PATTERN,
+  stubClipboard,
+  stubPendingClipboard,
+  stubRejectingClipboard,
+} from "@/test-utils/onboarding-clipboard";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 
@@ -80,36 +86,6 @@ const SURFACE = "docs_page_tools_onboarding_prompt";
 const HERO_SURFACE = "docs_landing_hero";
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
 const PAGE_SENTENCE = ` The developer copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
-
-/** Install a resolving clipboard stub and hand back its spy. */
-function stubClipboard() {
-  const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.assign(navigator, { clipboard: { writeText } });
-  return writeText;
-}
-
-/**
- * Install a clipboard stub whose write stays pending until the returned
- * `resolveWrite` is called, so a test can act while a copy is in flight.
- */
-function stubPendingClipboard() {
-  let resolve: (() => void) | undefined;
-  const writeText = vi.fn(
-    () =>
-      new Promise<void>((resolveWrite) => {
-        resolve = resolveWrite;
-      }),
-  );
-  Object.assign(navigator, { clipboard: { writeText } });
-  return { writeText, resolveWrite: () => resolve?.() };
-}
-
-/** Install a clipboard stub whose write always rejects. */
-function stubRejectingClipboard() {
-  const writeText = vi.fn().mockRejectedValue(new Error("denied"));
-  Object.assign(navigator, { clipboard: { writeText } });
-  return writeText;
-}
 
 /** Click the button by role alone, so the query does not depend on the label. */
 function clickCopy() {
@@ -261,7 +237,7 @@ it("reports the shared onboarding event with the graph's slugs", async () => {
   // `IntelligenceOnboardingFeature` union, and this button is neither.
   expect(properties).toEqual({
     from_path: "/mastra/generative-ui",
-    onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
+    onboarding_run_id: expect.stringMatching(RUN_ID_PATTERN),
     surface: SURFACE,
     agent_framework: "mastra",
     frontend: "nextjs",
@@ -271,7 +247,7 @@ it("reports the shared onboarding event with the graph's slugs", async () => {
 it("omits the framework and frontend keys when the caller names neither", async () => {
   // Absence of the key, not an `undefined` value: a key present with no value
   // still shows up as its own row in a PostHog breakdown.
-  stubClipboard();
+  const writeText = stubClipboard();
 
   render(
     <OnboardingPromptButton
@@ -289,6 +265,107 @@ it("omits the framework and frontend keys when the caller names neither", async 
     unknown
   >;
   expect(Object.keys(properties).sort()).toEqual([
+    "from_path",
+    "onboarding_run_id",
+    "surface",
+  ]);
+  // Neither prop was even passed, as opposed to passed-and-unmapped, so this
+  // exercises the other branch of the framework/frontend ternaries — the
+  // composed prompt still has to be the page sentence alone, with no orphaned
+  // separator left behind by either absent sentence.
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+  );
+});
+
+it("joins a known framework sentence and the page sentence with no double space when the frontend is unmapped", async () => {
+  // Slack is a chat channel the graph has no frontend node for, so the
+  // frontend sentence is "". A both-empty case cannot catch a stray double
+  // space or an orphaned separator between two sentences — this needs one
+  // sentence present and one absent to prove the join is clean.
+  const writeText = stubClipboard();
+
+  const frameworkSentence = frameworkPromptSuffix(MASTRA.slug, MASTRA.name);
+  expect(frameworkSentence).not.toBe("");
+  expect(frontendPromptSuffix(SLACK.id, SLACK.name)).toBe("");
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      framework={MASTRA}
+      frontend={SLACK}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      frameworkSentence +
+      PAGE_SENTENCE,
+  );
+});
+
+it("joins a known frontend sentence and the page sentence with no double space when the framework is unmapped", async () => {
+  // The mirror direction: `spring-ai` has no graph node, so the framework
+  // sentence is "" and the frontend sentence has to read correctly with
+  // nothing in front of it but the canonical prompt.
+  const writeText = stubClipboard();
+
+  expect(frameworkPromptSuffix(SPRING_AI.slug, SPRING_AI.name)).toBe("");
+  const frontendSentence = frontendPromptSuffix(REACT.id, REACT.name);
+  expect(frontendSentence).not.toBe("");
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      framework={SPRING_AI}
+      frontend={REACT}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  expect(writeText.mock.calls[0][0]).toBe(
+    createIntelligenceOnboardingPrompt(reportedRunId()) +
+      frontendSentence +
+      PAGE_SENTENCE,
+  );
+});
+
+it("reports agent_framework alone when the frontend is dropped by the graph", async () => {
+  // A different key set from naming neither: the caller named a mapped
+  // framework AND an unmapped frontend, so the event has to carry
+  // `agent_framework` while `frontend` stays absent — the mixed case the
+  // both-present and both-absent tests cannot pin between them.
+  stubClipboard();
+
+  render(
+    <OnboardingPromptButton
+      variant="compact"
+      surface={SURFACE}
+      framework={MASTRA}
+      frontend={SLACK}
+      markdownUrl={PAGE_MARKDOWN_URL}
+    />,
+  );
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const properties = analytics.capture.mock.calls[0][1] as Record<
+    string,
+    unknown
+  >;
+  expect(properties).not.toHaveProperty("frontend");
+  expect(Object.keys(properties).sort()).toEqual([
+    "agent_framework",
     "from_path",
     "onboarding_run_id",
     "surface",
@@ -363,7 +440,7 @@ it("keeps one run id for the lifetime of a mount", async () => {
 
   const runIds = [reportedRunId(0), reportedRunId(1)];
   expect(runIds[0]).toBe(runIds[1]);
-  expect(runIds[0]).toMatch(/^[A-Za-z0-9_-]{12}$/);
+  expect(runIds[0]).toMatch(RUN_ID_PATTERN);
 
   // Both clipboard writes carry that one id, and it is the id reported.
   const suffix =
@@ -377,10 +454,14 @@ it("keeps one run id for the lifetime of a mount", async () => {
 });
 
 it("writes and reports once for two clicks while the first write is pending", async () => {
-  // The in-flight guard. Both writes carry the mount's one run id, so without
-  // it a double-click would report the same onboarding attempt twice — one
-  // attempt reported as two, which double-counts the reader in the funnel.
-  const { writeText } = stubPendingClipboard();
+  // The in-flight guard. Both writes would carry the mount's one run id, so
+  // without it a double-click reports the same onboarding attempt twice once
+  // the write resolves — one attempt reported as two, which double-counts the
+  // reader in the funnel. The write staying pending only proves the SECOND
+  // click never reached the clipboard; it says nothing about what happens
+  // once the first write settles, which is where the guard actually earns its
+  // keep — so the assertion has to follow the write through to resolution.
+  const { writeText, resolveWrite } = stubPendingClipboard();
 
   render(
     <OnboardingPromptButton
@@ -401,6 +482,12 @@ it("writes and reports once for two clicks while the first write is pending", as
 
   expect(writeText).toHaveBeenCalledTimes(1);
   expect(analytics.capture).not.toHaveBeenCalled();
+
+  await act(async () => {
+    resolveWrite();
+  });
+
+  expect(analytics.capture).toHaveBeenCalledTimes(1);
 });
 
 it("re-enables the button after a clipboard write rejects", async () => {
