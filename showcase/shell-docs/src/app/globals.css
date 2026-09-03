@@ -1084,6 +1084,12 @@ figure.shiki > div:first-child[class*="border-b"] {
   z-index: 1;
 }
 
+.docs-page-actions-primary:hover,
+.docs-page-actions-trigger:hover {
+  border-color: var(--border);
+  background-color: var(--bg-elevated);
+}
+
 .docs-page-description {
   max-width: var(--docs-reading-width);
   margin-top: 0.75rem;

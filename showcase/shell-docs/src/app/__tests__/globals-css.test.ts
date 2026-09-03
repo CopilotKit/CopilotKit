@@ -70,6 +70,22 @@ describe("globals.css docs media breakouts", () => {
   });
 });
 
+describe("globals.css docs page actions", () => {
+  it("keeps split-button borders neutral on hover", () => {
+    const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
+
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        .docs-page-actions-primary:hover,
+        .docs-page-actions-trigger:hover {
+          border-color: var(--border);
+          background-color: var(--bg-elevated);
+        }
+      `),
+    );
+  });
+});
+
 describe("globals.css cookbook sidebar", () => {
   it("removes the empty cookbook sidebar banner and aligns the recipe list", () => {
     const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
