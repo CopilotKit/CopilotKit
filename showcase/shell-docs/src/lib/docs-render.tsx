@@ -88,16 +88,16 @@ const SECTION_ICONS: Record<string, string> = {
   channels: "lucide/MessagesSquare",
   deploy: "lucide/Cloud",
   deployment: "lucide/Cloud",
-  other: "lucide/MoreHorizontal",
+  other: "lucide/Wrench",
   // Built-in Agent (authored) sections — match the section names in
   // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
   // when those section labels change in that meta.json.
   "getting started": "lucide/Rocket",
-  basics: "lucide/BookOpen",
+  basics: "lucide/Component",
   "generative ui": "lucide/Paintbrush",
   "app control": "lucide/WandSparkles",
   interactivity: "lucide/MousePointer",
-  "agent capabilities": "lucide/Wand2",
+  "agent capabilities": "lucide/BrainCircuit",
   "built-in agent": "lucide/Bot",
   backend: "lucide/Server",
   learn: "lucide/BookOpen",
@@ -1002,7 +1002,7 @@ export function normalizeSidebarNav(
         ]
       : []),
     ...(quickstart?.type === "page"
-      ? [{ ...quickstart, title: "Quickstart", icon: "lucide/Zap" }]
+      ? [{ ...quickstart, title: "Quickstart", icon: "lucide/Play" }]
       : []),
   ];
   const frontendGettingStartedExtras = gettingStarted.filter(

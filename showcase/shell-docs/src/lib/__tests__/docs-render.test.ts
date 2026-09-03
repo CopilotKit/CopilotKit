@@ -519,9 +519,25 @@ describe("framework nav", () => {
         type: "page",
         title: "Quickstart",
         slug: "quickstart",
-        icon: "lucide/Zap",
+        icon: "lucide/Play",
       },
     ]);
+    expect(
+      navTree.find(
+        (node) => node.type === "section" && node.title === "Basics",
+      ),
+    ).toMatchObject({ icon: "lucide/Component" });
+    expect(
+      navTree.find(
+        (node) =>
+          node.type === "section" && node.title === "Agent capabilities",
+      ),
+    ).toMatchObject({ icon: "lucide/BrainCircuit" });
+    expect(
+      navTree.find(
+        (node) => node.type === "section" && node.title === "Other",
+      ),
+    ).toMatchObject({ icon: "lucide/Wrench" });
     expect(
       navTree
         .filter((node) => node.type === "section")
