@@ -465,6 +465,35 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
     source: "/direct-to-llm/guides/mcp",
     destination: "/build-with-agents",
   },
+  // `/direct-to-llm/guides/premium/*` pages were deleted in cc8c945893
+  // ("refactor(docs): optimize structure, content and navigability",
+  // 2026-02-23) without redirects. The R16 `/direct-to-llm/:path*` wildcard
+  // strips the prefix and the remainder falls through to the docs home, so
+  // the page is lost rather than 404'd — quieter and harder to notice.
+  // Exact entries land each one on its current equivalent in one hop.
+  {
+    id: "INTEL-d2l-guides-overview",
+    source: "/direct-to-llm/guides/premium/overview",
+    destination: "/intelligence/overview",
+  },
+  {
+    id: "INTEL-d2l-guides-headless-ui",
+    source: "/direct-to-llm/guides/premium/headless-ui",
+    destination: "/intelligence/headless-ui",
+  },
+  {
+    // The observability page is retired; the overview is its standing
+    // destination everywhere else (INTEL-observability-*).
+    id: "INTEL-d2l-guides-observability",
+    source: "/direct-to-llm/guides/premium/observability",
+    destination: "/intelligence/overview",
+  },
+  {
+    // Inspector moved out of the Intelligence folder rather than retiring.
+    id: "INTEL-d2l-guides-inspector",
+    source: "/direct-to-llm/guides/premium/inspector",
+    destination: "/inspector",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1023,6 +1052,22 @@ const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
       canonicalSlug(framework),
       "intelligence/overview",
     ),
+  })),
+  // The inspector page MOVED out of the Intelligence folder — it was not
+  // retired. cc8c945893 renamed `(root)/premium/inspector.mdx` to
+  // `(root)/inspector.mdx` (R100, identical content) and added no redirect,
+  // so `/premium/inspector` has 404'd ever since. It needs an exact entry for
+  // the same reason observability does: INTEL-rename-wild would rewrite it to
+  // a nonexistent `/intelligence/inspector`.
+  {
+    id: "INTEL-inspector-root",
+    source: "/premium/inspector",
+    destination: "/inspector",
+  },
+  ...PREMIUM_URL_FRAMEWORKS.map((framework) => ({
+    id: `INTEL-inspector×${framework}`,
+    source: `/${framework}/premium/inspector`,
+    destination: destinationPath(canonicalSlug(framework), "inspector"),
   })),
 ];
 
