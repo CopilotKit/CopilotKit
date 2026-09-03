@@ -84,12 +84,15 @@ async function fetchMarkdown(url: string): Promise<string> {
  */
 export function MarkdownCopyButton({
   markdownUrl,
+  appearance = "button",
   ...props
 }: ComponentProps<"button"> & {
   /**
    * A URL to fetch the raw Markdown/MDX content of page
    */
   markdownUrl: string;
+  /** Render as a full-width popover action instead of standalone chrome. */
+  appearance?: "button" | "menu-item";
 }) {
   const [isLoading, setLoading] = useState(false);
   const pathname = usePathname();
@@ -148,11 +151,14 @@ export function MarkdownCopyButton({
       disabled={isLoading}
       onClick={onClick}
       className={cn(
-        buttonVariants({
-          color: "secondary",
-          size: "sm",
-          className: "gap-2 [&_svg]:size-3.5 [&_svg]:text-[var(--text-muted)]",
-        }),
+        appearance === "menu-item"
+          ? "shell-docs-radius-control inline-flex w-full items-center gap-2 p-2 text-left text-sm font-normal text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:text-[var(--text-muted)]"
+          : buttonVariants({
+              color: "secondary",
+              size: "sm",
+              className:
+                "gap-2 [&_svg]:size-3.5 [&_svg]:text-[var(--text-muted)]",
+            }),
         props.className,
       )}
     >
@@ -439,6 +445,8 @@ export function OnboardingPromptCopyButton({
 export function ViewOptionsPopover({
   markdownUrl,
   githubUrl,
+  condensed = false,
+  includeCopyPage = false,
   ...props
 }: ComponentProps<typeof PopoverTrigger> & {
   /**
@@ -450,6 +458,12 @@ export function ViewOptionsPopover({
    * Source file URL on GitHub
    */
   githubUrl?: string;
+
+  /** Use an icon-only trigger designed to join a split primary action. */
+  condensed?: boolean;
+
+  /** Put the Markdown copy action at the top of the condensed menu. */
+  includeCopyPage?: boolean;
 }) {
   const pathname = usePathname();
   const posthog = usePostHog();
@@ -477,7 +491,7 @@ export function ViewOptionsPopover({
           </svg>
         ),
       },
-      markdownUrl && {
+      !condensed && markdownUrl && {
         title: "View as Markdown",
         target: "view-as-markdown",
         href: markdownUrl,
@@ -553,25 +567,50 @@ export function ViewOptionsPopover({
         })}`,
       },
     ].filter((v) => !!v);
-  }, [githubUrl, markdownUrl, pathname]);
+  }, [condensed, githubUrl, markdownUrl, pathname]);
 
   return (
     <Popover>
       <PopoverTrigger
         {...props}
+        aria-label={
+          condensed
+            ? (props["aria-label"] ?? "More page actions")
+            : props["aria-label"]
+        }
         className={cn(
           buttonVariants({
             color: "secondary",
             size: "sm",
           }),
           "gap-2 data-[state=open]:border-[var(--accent)] data-[state=open]:bg-[var(--accent-dim)] data-[state=open]:text-[var(--accent)]",
+          condensed && "docs-page-actions-trigger",
           props.className,
         )}
       >
-        {props.children ?? "Open"}
+        {!condensed && (props.children ?? "Open")}
         <ChevronDown className="size-3.5 text-[var(--text-muted)]" />
       </PopoverTrigger>
-      <PopoverContent className="flex flex-col">
+      <PopoverContent
+        align={condensed ? "end" : "center"}
+        className={cn("flex flex-col", condensed && "w-72 p-1.5")}
+      >
+        {includeCopyPage && markdownUrl && (
+          <>
+            <MarkdownCopyButton
+              markdownUrl={markdownUrl}
+              appearance="menu-item"
+              title="Copy page as Markdown"
+            >
+              Copy page
+            </MarkdownCopyButton>
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              className="mx-2 my-1 border-t border-[var(--border)]"
+            />
+          </>
+        )}
         {items.map((item) => (
           <a
             key={item.href}

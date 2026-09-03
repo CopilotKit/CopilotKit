@@ -1,6 +1,6 @@
-// DocsPageTools — the page-tools row that sits under a docs page's title:
-// "Copy prompt", "Copy page", and the "Open in <LLM>" popover.
-// Fumadocs's upstream LLM page-actions feature.
+// DocsPageTools — the compact split action that sits beside a docs page title.
+// "Copy prompt" is the default action; its chevron progressively discloses
+// "Copy page" and the existing "Open in <LLM>" destinations.
 //
 // Extracted from `docs-page-view.tsx` so the row sits in a component small
 // enough to unit-test. `DocsPageView` itself loads MDX off disk and builds the
@@ -72,23 +72,35 @@ export function DocsPageTools({
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
-    <div className="docs-page-tools flex min-w-0 flex-row flex-wrap items-center gap-2">
-      {!hideOnboardingPrompt && (
+    <div
+      className="docs-page-tools flex min-w-0 flex-row items-center"
+      role="group"
+      aria-label="Page actions"
+    >
+      {hideOnboardingPrompt ? (
+        <MarkdownCopyButton
+          markdownUrl={markdownUrl}
+          title="Copy page as Markdown"
+          className="docs-page-actions-primary"
+        >
+          Copy page
+        </MarkdownCopyButton>
+      ) : (
         <OnboardingPromptCopyButton
           framework={onboardingFramework}
           frontend={onboardingFrontend}
           markdownUrl={markdownUrl}
+          className="docs-page-actions-primary"
         >
           Copy prompt
         </OnboardingPromptCopyButton>
       )}
-      <MarkdownCopyButton
+      <ViewOptionsPopover
         markdownUrl={markdownUrl}
-        title="Copy page as Markdown"
-      >
-        Copy page
-      </MarkdownCopyButton>
-      <ViewOptionsPopover markdownUrl={markdownUrl} githubUrl={githubUrl} />
+        githubUrl={githubUrl}
+        condensed
+        includeCopyPage={!hideOnboardingPrompt}
+      />
     </div>
   );
 }

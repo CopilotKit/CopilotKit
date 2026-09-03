@@ -55,7 +55,7 @@ function renderRow(onboardingFramework?: { slug: string; name: string }): void {
   );
 }
 
-it("still renders the onboarding button when no framework is passed", () => {
+it("renders one split CTA with copy prompt as its root action", async () => {
   // The surfaces that omit the prop are `a2a` and `agent-spec`: documented
   // like frameworks, but absent from the registry, so there is no display
   // name to put in the prompt. They are docs pages all the same, and the
@@ -67,9 +67,21 @@ it("still renders the onboarding button when no framework is passed", () => {
   expect(
     screen.getByRole("button", { name: /copy prompt/i }),
   ).toBeTruthy();
-  // The rest of the row is untouched.
-  expect(screen.getByRole("button", { name: /copy page/i })).toBeTruthy();
-  expect(screen.getByRole("button", { name: /^open$/i })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /copy page/i })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^open$/i })).toBeNull();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: /more page actions/i }),
+  );
+
+  expect(
+    await screen.findByRole("button", { name: /copy page/i }),
+  ).toBeTruthy();
+  expect(screen.getByRole("separator")).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: /open in github/i }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("link", { name: /view as markdown/i })).toBeNull();
 });
 
 it("renders the onboarding button when a framework is passed", () => {
