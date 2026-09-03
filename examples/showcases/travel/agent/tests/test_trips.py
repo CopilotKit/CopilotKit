@@ -190,6 +190,21 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             },
         )
 
+    async def test_empty_add_is_a_no_op(self):
+        state = action_state(
+            "add_trips",
+            {"operation": "select", "selections": []},
+            [],
+            [trip("trip-1", ["existing-place"])],
+        )
+
+        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+            result = await perform_trips_node(state, {})
+
+        self.assertEqual(result["trips"], [trip("trip-1", ["existing-place"])])
+        self.assertEqual(result["selected_trip_id"], "trip-1")
+        self.assertEqual(result["messages"][-1].content, "No trips were added.")
+
     async def test_multi_trip_selection_distinguishes_default_empty_and_subset(self):
         state = action_state(
             "update_trips",

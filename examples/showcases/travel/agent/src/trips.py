@@ -102,6 +102,9 @@ def add_trips(trips: List[Trip]):
 def handle_add_trips(state: AgentState, args: dict) -> AIMessage:
     trips = args.get("trips", [])
 
+    if not trips:
+        return AIMessage(content="No trips were added.")
+
     state["trips"].extend(trips)
     state["selected_trip_id"] = trips[0]["id"]
     return AIMessage(content=f"Successfully added the trip(s)!")
