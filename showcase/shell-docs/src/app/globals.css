@@ -1108,6 +1108,24 @@ figure.shiki > div:first-child[class*="border-b"] {
   ) !important;
 }
 
+/* Landing pages can opt into the full content lanes with `full: true` in MDX
+ * frontmatter. The prose inside still keeps its reading measure; this lifts
+ * the page wrapper cap so media and purpose-built landing sections can use
+ * the space beside the sidebar, including the otherwise-empty TOC lane. */
+#nd-docs-layout article#nd-page[data-full="true"] .docs-inner-content,
+#nd-docs-layout:not(:has(#nd-toc))
+  article#nd-page[data-full="true"]
+  .docs-inner-content,
+#nd-docs-layout article#nd-page[data-full="true"] .docs-article-content {
+  max-width: 100% !important;
+}
+
+@media (min-width: 1280px) {
+  #nd-docs-layout:not(:has(#nd-toc)) article#nd-page[data-full="true"] {
+    grid-column: main-start / toc-end;
+  }
+}
+
 /* Content-page header — one compact reading cluster rather than four stacked
  * bands. The title remains the dominant element; utility actions stay neutral
  * and share its row when the real copy fits, then wrap naturally as a group. */

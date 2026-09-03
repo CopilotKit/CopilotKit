@@ -23,14 +23,22 @@ test("the Intelligence overview uses landing-page chrome", () => {
     "CopilotKit Intelligence adds persistent threads, analytics, automatic learning, and production operations on top of the runtime you already run.",
   );
   expect(page.data.hideHeader).toBeUndefined();
+  expect(page.data.full).toBe(true);
+  expect(page.data.hideBreadcrumb).toBe(true);
   expect(page.data.hideTOC).toBe(true);
   expect(page.data.hidePageActions).toBe(true);
   expect(routedPage.data.title).toBe("CopilotKit Intelligence");
   expect(routedPage.data.nav_title).toBe("Overview");
   expect(routedPage.data.description).toBe(page.data.description);
+  expect(routedPage.data.full).toBe(true);
+  expect(routedPage.data.hideBreadcrumb).toBe(true);
   expect(routedPage.data.hideTOC).toBe(true);
   expect(routedPage.data.hidePageActions).toBe(true);
   expect(parser).toContain("const hideTOC = data.hideTOC === true");
+  expect(parser).toContain("const full = data.full === true");
+  expect(parser).toContain(
+    "const hideBreadcrumb = data.hideBreadcrumb === true",
+  );
   expect(parser).toContain(
     "const hidePageActions = data.hidePageActions === true",
   );

@@ -940,6 +940,7 @@ function isSharedFrameworkNode(node: NavNode): boolean {
     .join("/");
   return (
     slug === "frontend-tools" ||
+    slug === "webmcp" ||
     slug === "inspector" ||
     slug === "vs-code-extension" ||
     slug === "telemetry" ||
@@ -991,7 +992,7 @@ export function normalizeSidebarNav(
     findPageBySlug(gettingStarted, "") ?? findPageBySlug(allCanonicalNodes, "");
   const quickstart =
     findPageBySlug(gettingStarted, "quickstart") ?? findPage("quickstart");
-  const intelligenceOverview = findPage("intelligence/overview");
+  const intelligenceOverviewLink = findPage("intelligence/overview");
   const startLinks: NavNode[] = [
     ...(introduction?.type === "page"
       ? [
@@ -1005,12 +1006,12 @@ export function normalizeSidebarNav(
     ...(quickstart?.type === "page"
       ? [{ ...quickstart, title: "Quickstart", icon: "lucide/Play" }]
       : []),
-    ...(intelligenceOverview?.type === "page"
+    ...(intelligenceOverviewLink?.type === "page"
       ? [
           {
-            ...intelligenceOverview,
+            ...intelligenceOverviewLink,
             title: "Intelligence",
-            icon: "lucide/Star",
+            icon: "custom/intelligence-kite",
           },
         ]
       : []),
@@ -1126,7 +1127,45 @@ export function normalizeSidebarNav(
             Boolean(node),
           );
   const subagents = findPage("multi-agent/subagents");
-  const automaticLearning = findPage("backend/copilot-runtime");
+  const webMcp = findPage("webmcp");
+
+  const intelligencePage = (slug: string, title: string): NavNode | null => {
+    const page = findPage(slug);
+    return page?.type === "page"
+      ? { ...page, title, icon: undefined }
+      : null;
+  };
+  const intelligenceOverview = intelligencePage(
+    "intelligence/overview",
+    "Overview",
+  );
+  const intelligenceQuickstart = intelligencePage(
+    "intelligence/quickstart",
+    "Quickstart",
+  );
+  const intelligenceArchitecture = intelligencePage(
+    "intelligence/intelligence-platform",
+    "Architecture",
+  );
+  const intelligenceRuntime = intelligencePage(
+    "intelligence/connect-your-runtime",
+    "Connect your runtime",
+  );
+  const intelligenceThreads = intelligencePage("threads", "Rich threads");
+  const intelligenceCloud = intelligencePage(
+    "intelligence/managed-intelligence-platform",
+    "Cloud",
+  );
+  const intelligenceSelfHosted = intelligencePage(
+    "intelligence/self-hosting",
+    "Self-hosted",
+  );
+  const intelligenceAutomaticLearning: NavNode = {
+    type: "page",
+    title: "Automatic learning",
+    slug: "intelligence/automatic-learning",
+    href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
+  };
 
   const existingBackend = sidebarSectionChildren(input, "Backend");
   const inputDeployment = sidebarSectionChildren(input, "Deployment");
@@ -1134,9 +1173,6 @@ export function normalizeSidebarNav(
     findGroup(existingBackend, "Runtime") ??
     findGroup(inputDeployment, "Runtime") ??
     sidebarSectionChildren(input, "Runtime");
-  const intelligenceSource =
-    findGroup(existingBackend, "Intelligence") ??
-    sidebarSectionChildren(input, "Intelligence");
   const deploymentSource =
     findGroup(existingBackend, "Deployment") ??
     inputDeployment.filter(
@@ -1207,25 +1243,42 @@ export function normalizeSidebarNav(
       ),
     ]),
     ...sidebarSection("Agent capabilities", [
-      automaticLearning?.type === "page"
-        ? {
-            ...automaticLearning,
-            title: "Automatic learning",
-            icon: undefined,
-          }
+      webMcp?.type === "page"
+        ? { ...webMcp, title: "WebMCP", icon: undefined }
         : null,
       ...frameworkGroups,
       subagents?.type === "page"
         ? { ...subagents, title: "Sub-agents", icon: undefined }
         : null,
     ]),
+    ...sidebarSection("Intelligence", [
+      intelligenceOverview,
+      sidebarTopicGroup(
+        "Get started",
+        "sidebar#intelligence-get-started",
+        [
+          intelligenceQuickstart,
+          intelligenceArchitecture,
+          intelligenceRuntime,
+        ].filter((node): node is NavNode => node !== null),
+      ),
+      sidebarTopicGroup(
+        "Features",
+        "sidebar#intelligence-features",
+        [intelligenceThreads, intelligenceAutomaticLearning].filter(
+          (node): node is NavNode => node !== null,
+        ),
+      ),
+      sidebarTopicGroup(
+        "Hosting",
+        "sidebar#intelligence-hosting",
+        [intelligenceCloud, intelligenceSelfHosted].filter(
+          (node): node is NavNode => node !== null,
+        ),
+      ),
+    ]),
     ...sidebarSection("Backend", [
       sidebarTopicGroup("Runtime", "sidebar#runtime", runtimeSource),
-      sidebarTopicGroup(
-        "Intelligence",
-        "sidebar#intelligence",
-        intelligenceSource,
-      ),
       sidebarTopicGroup(
         "Deployment",
         "sidebar#deployment",
@@ -2214,6 +2267,8 @@ export interface DocFrontmatter {
   description?: string;
   defaultFramework?: string;
   defaultCell?: string;
+  full?: boolean;
+  hideBreadcrumb?: boolean;
   hideTOC?: boolean;
   hideHeader?: boolean;
   hidePageActions?: boolean;
@@ -2365,6 +2420,8 @@ export function loadDoc(
       : undefined;
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
+  const full = data.full === true;
+  const hideBreadcrumb = data.hideBreadcrumb === true;
   const hideTOC = data.hideTOC === true;
   const hideHeader = data.hideHeader === true;
   const hidePageActions = data.hidePageActions === true;
@@ -2380,6 +2437,8 @@ export function loadDoc(
       description,
       defaultFramework,
       defaultCell,
+      full,
+      hideBreadcrumb,
       hideTOC,
       hideHeader,
       hidePageActions,

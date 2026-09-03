@@ -14,6 +14,7 @@ import React from "react";
 import Image from "next/image";
 import { LanggraphIcon } from "@/components/icons/framework-icons";
 import { CopilotKitIcon } from "@/components/copilotkit-icon";
+import { IntelligenceKiteIcon } from "@/components/intelligence-kite-icon";
 import { FrontendLogo } from "@/components/frontend-logo";
 import {
   // Pages / sections
@@ -154,6 +155,7 @@ const ICONS: Record<string, React.ReactNode> = {
   // its visual treatment matches the framework picker.
   "custom/langgraph": <LanggraphIcon />,
   "custom/copilotkit-kite": <CopilotKitIcon />,
+  "custom/intelligence-kite": <IntelligenceKiteIcon />,
   "custom/react": <FrontendLogo icon="react" size={16} />,
   "custom/daytona": (
     <Image

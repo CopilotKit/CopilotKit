@@ -504,6 +504,7 @@ describe("framework nav", () => {
       "Generative UI",
       "Interactivity",
       "Agent capabilities",
+      "Intelligence",
       "Backend",
       "Learn",
       "Other",
@@ -525,9 +526,14 @@ describe("framework nav", () => {
         type: "page",
         title: "Intelligence",
         slug: "intelligence/overview",
-        icon: "lucide/Star",
+        icon: "custom/intelligence-kite",
       },
     ]);
+    expect(
+      navTree.find(
+        (node) => node.type === "section" && node.title === "Intelligence",
+      ),
+    ).toMatchObject({ icon: "custom/copilotkit-kite" });
     expect(
       navTree.find(
         (node) => node.type === "section" && node.title === "Basics",
@@ -559,9 +565,36 @@ describe("framework nav", () => {
       "Rich threads",
       "Frontend-tools",
     ]);
+    expect(
+      sectionNodes(navTree, "Intelligence").map((node) => node.title),
+    ).toEqual(["Overview", "Get started", "Features", "Hosting"]);
+    expect(groupPageEntries(navTree, "Get started")).toEqual([
+      { title: "Quickstart", slug: "intelligence/quickstart" },
+      { title: "Architecture", slug: "intelligence/intelligence-platform" },
+      {
+        title: "Connect your runtime",
+        slug: "intelligence/connect-your-runtime",
+      },
+    ]);
+    expect(groupPageEntries(navTree, "Features")).toEqual([
+      { title: "Rich threads", slug: "threads" },
+      {
+        title: "Automatic learning",
+        slug: "intelligence/automatic-learning",
+      },
+    ]);
+    expect(groupPageEntries(navTree, "Hosting")).toEqual([
+      { title: "Cloud", slug: "intelligence/managed-intelligence-platform" },
+      { title: "Self-hosted", slug: "intelligence/self-hosting" },
+    ]);
+    expect(findPageByTitle(navTree, "Automatic learning")).toMatchObject({
+      href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
+    });
+    expect(findPageByTitle(navTree, "WebMCP")).toMatchObject({
+      slug: "webmcp",
+    });
     expect(sectionNodes(navTree, "Backend").map((node) => node.title)).toEqual([
       "Runtime",
-      "Intelligence",
       "Deployment",
       "Debugging",
     ]);
@@ -594,6 +627,7 @@ describe("framework nav", () => {
       "Generative UI",
       "Interactivity",
       "Agent capabilities",
+      "Intelligence",
       "Backend",
       "Learn",
       "Other",
@@ -603,6 +637,7 @@ describe("framework nav", () => {
       "Generative UI",
       "Interactivity",
       "Agent capabilities",
+      "Intelligence",
       "Backend",
       "Learn",
       "Other",
@@ -610,7 +645,9 @@ describe("framework nav", () => {
     expect(hasSectionPage(authoredNav, "Backend", "Copilot Runtime")).toBe(
       true,
     );
-    expect(hasSectionPage(authoredNav, "Backend", "Overview")).toBe(true);
+    expect(hasSectionPage(authoredNav, "Intelligence", "Overview")).toBe(
+      true,
+    );
     expect(
       sectionNodes(generatedNav, "Agent capabilities").some(
         (node) => node.type === "group" && node.title === "LangGraph (Python)",
@@ -672,6 +709,7 @@ describe("framework nav", () => {
           type: "page",
           title: "Intelligence",
           slug: "intelligence/overview",
+          icon: "custom/intelligence-kite",
         },
       ]);
       expect(hasPageTitle(nav, "CopilotKit CLI")).toBe(false);
@@ -845,25 +883,33 @@ describe("framework nav", () => {
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
-    expect(groupPageEntries(navTree, "Intelligence")).toEqual([
-      { title: "Overview", slug: "intelligence/overview" },
+    expect(
+      sectionNodes(navTree, "Intelligence").map((node) => node.title),
+    ).toEqual(["Overview", "Get started", "Features", "Hosting"]);
+    expect(groupPageEntries(navTree, "Get started")).toEqual([
       { title: "Quickstart", slug: "intelligence/quickstart" },
       {
-        title: "Cloud-hosted CopilotKit Intelligence",
-        slug: "intelligence/managed-intelligence-platform",
-      },
-      {
-        title: "Connect your runtime to Intelligence",
-        slug: "intelligence/connect-your-runtime",
-      },
-      {
-        title: "Self-host CopilotKit Intelligence",
-        slug: "intelligence/self-hosting",
-      },
-      {
-        title: "CopilotKit Intelligence architecture",
+        title: "Architecture",
         slug: "intelligence/intelligence-platform",
       },
+      {
+        title: "Connect your runtime",
+        slug: "intelligence/connect-your-runtime",
+      },
+    ]);
+    expect(groupPageEntries(navTree, "Features")).toEqual([
+      { title: "Rich threads", slug: "threads" },
+      {
+        title: "Automatic learning",
+        slug: "intelligence/automatic-learning",
+      },
+    ]);
+    expect(groupPageEntries(navTree, "Hosting")).toEqual([
+      {
+        title: "Cloud",
+        slug: "intelligence/managed-intelligence-platform",
+      },
+      { title: "Self-hosted", slug: "intelligence/self-hosting" },
     ]);
   });
 });

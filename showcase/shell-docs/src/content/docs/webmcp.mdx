@@ -54,7 +54,9 @@ The WebMCP call stays in the browser unless your handler deliberately calls an A
 
 ## Add WebMCP manually
 
-### Existing React frontend tool
+<FrontendOnly frontend="react">
+
+### React frontend tool
 
 Add `webmcp` to the tool you already register. This code must run inside your existing `CopilotKitProvider`.
 
@@ -87,6 +89,84 @@ export function OrderSearch() {
 ```
 
 Use the equivalent option with [`useFrontendTool` for Vue](/reference/vue/hooks/useFrontendTool) or [`registerFrontendTool` for Angular](/reference/angular/functions/registerFrontendTool). The React API is documented in [`useFrontendTool`](/reference/hooks/useFrontendTool).
+
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+
+### Vue frontend tool
+
+Add `webmcp` to the tool you already register. This code must run inside your existing `CopilotKitProvider`.
+
+```vue title="OrderSearch.vue"
+<script setup lang="ts">
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/vue/v2";
+
+useFrontendTool({
+  name: "searchOrders",
+  description: "Search the signed-in user's orders by status",
+  parameters: z.object({
+    status: z.enum(["open", "shipped", "delivered"]),
+  }),
+  handler: async ({ status }) => {
+    const orders = await searchOrders(status);
+    return JSON.stringify(orders);
+  },
+  webmcp: {
+    annotations: {
+      readOnlyHint: true,
+    },
+  },
+});
+</script>
+```
+
+See the Vue [`useFrontendTool` reference](/reference/vue/hooks/useFrontendTool) for the complete API.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+
+### Angular frontend tool
+
+Add `webmcp` to the tool you register in an Angular injection context.
+
+```ts title="src/app/order-search.component.ts"
+import { Component } from "@angular/core";
+import { registerFrontendTool } from "@copilotkit/angular";
+import { z } from "zod";
+
+@Component({
+  selector: "app-order-search",
+  standalone: true,
+  template: "",
+})
+export class OrderSearchComponent {
+  constructor() {
+    registerFrontendTool({
+      name: "searchOrders",
+      description: "Search the signed-in user's orders by status",
+      parameters: z.object({
+        status: z.enum(["open", "shipped", "delivered"]),
+      }),
+      handler: async ({ status }) => {
+        const orders = await searchOrders(status);
+        return JSON.stringify(orders);
+      },
+      webmcp: {
+        annotations: {
+          readOnlyHint: true,
+        },
+      },
+    });
+  }
+}
+```
+
+See the Angular [`registerFrontendTool` reference](/reference/angular/functions/registerFrontendTool) for the complete API.
+
+</FrontendOnly>
 
 ### WebMCP only, with no agent
 
@@ -151,6 +231,14 @@ If the tool does not appear, check the browser setup first, then verify that the
 ## Related
 
 - [Frontend tools](/frontend-tools)
+<FrontendOnly frontend="react">
 - [React `useFrontendTool` reference](/reference/hooks/useFrontendTool)
+</FrontendOnly>
+<FrontendOnly frontend="vue">
+- [Vue `useFrontendTool` reference](/reference/vue/hooks/useFrontendTool)
+</FrontendOnly>
+<FrontendOnly frontend="angular">
+- [Angular `registerFrontendTool` reference](/reference/angular/functions/registerFrontendTool)
+</FrontendOnly>
 - [WebMCP specification](https://webmachinelearning.github.io/webmcp/)
 - [Chrome WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices)

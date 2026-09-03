@@ -27,7 +27,7 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
       type: "page",
       title: "Intelligence",
       slug: "intelligence/overview",
-      icon: "lucide/Star",
+      icon: "custom/intelligence-kite",
     },
     { type: "section", title: "Basics" },
     {
@@ -54,6 +54,10 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
       children: [{ type: "page", title: "Tools", slug: "tools" }],
       defaultOpen: false,
     },
+    { type: "section", title: "Agent capabilities" },
+    { type: "page", title: "WebMCP", slug: "webmcp" },
+    { type: "section", title: "Intelligence", icon: "custom/copilotkit-kite" },
+    { type: "page", title: "Overview", slug: "intelligence/overview" },
     { type: "section", title: "Learn" },
     {
       type: "page",
@@ -71,13 +75,12 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
 
   const pageTree = navTreeToPageTree(navTree, "");
 
-  it("keeps start links above static section labels", () => {
-    expect(pageTree.children.slice(0, 5).map((node) => node.type)).toEqual([
+  it("keeps the Intelligence CTA with start links and its section after agent capabilities", () => {
+    expect(pageTree.children.slice(0, 4).map((node) => node.type)).toEqual([
       "page",
       "page",
       "page",
       "separator",
-      "folder",
     ]);
     expect(pageTree.children[0]).toMatchObject({ type: "page", url: "/" });
     expect(pageTree.children[1]).toMatchObject({
@@ -88,10 +91,30 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
       type: "page",
       url: "/intelligence/overview",
     });
-    expect(nodeNameText(pageTree.children[2].name)).toContain("lucide-star");
-    expect(pageTree.children[3]).toMatchObject({
-      type: "separator",
-      name: "Basics",
+    expect(nodeNameText(pageTree.children[2]?.name)).toContain("<svg");
+
+    const agentCapabilitiesIndex = pageTree.children.findIndex(
+      (node) =>
+        node.type === "separator" &&
+        nodeNameText(node.name).includes("Agent capabilities"),
+    );
+    const intelligenceIndex = pageTree.children.findIndex(
+      (node, index) =>
+        index > agentCapabilitiesIndex &&
+        node.type === "separator" &&
+        nodeNameText(node.name).includes("Intelligence"),
+    );
+    expect(agentCapabilitiesIndex).toBeGreaterThan(-1);
+    expect(intelligenceIndex).toBeGreaterThan(agentCapabilitiesIndex);
+
+    const intelligenceSection = pageTree.children[intelligenceIndex];
+    if (!intelligenceSection || intelligenceSection.type !== "separator") {
+      throw new Error("expected Intelligence separator");
+    }
+    expect(nodeNameText(intelligenceSection.icon)).toContain("<svg");
+    expect(pageTree.children[intelligenceIndex + 1]).toMatchObject({
+      type: "page",
+      url: "/intelligence/overview",
     });
   });
 

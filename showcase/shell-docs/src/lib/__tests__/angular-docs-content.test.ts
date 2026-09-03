@@ -227,6 +227,7 @@ test("uses the normalized sidebar flow for Angular docs", () => {
     "Generative UI",
     "Interactivity",
     "Agent capabilities",
+    "Intelligence",
     "Backend",
     "Learn",
     "Other",
@@ -239,7 +240,7 @@ test("uses the normalized sidebar flow for Angular docs", () => {
   expect(
     agentCapabilities.some(
       (node) =>
-        node.type === "page" && node.title === "Automatic learning",
+        node.type === "page" && node.title === "WebMCP",
     ),
   ).toBe(true);
   expect(
