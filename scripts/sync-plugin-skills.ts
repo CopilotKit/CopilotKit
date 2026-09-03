@@ -21,6 +21,7 @@ export const RESERVED_LIFECYCLE_SLUGS: ReadonlySet<string> = new Set([
   "channels-setup",
   "inspector-docs",
   "inspector-workbench",
+  "intelligence-docs",
 ]);
 
 // Version sync — plugin version tracks this package's version.
