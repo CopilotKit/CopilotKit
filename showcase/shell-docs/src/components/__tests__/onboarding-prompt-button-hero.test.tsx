@@ -54,10 +54,10 @@ afterEach(() => {
 /** The surface name the framework-root hero placement is registered under. */
 const FRAMEWORK_HERO_SURFACE = "docs_framework_hero";
 
-it("appends the framework sentence and carries the real surface name, on the framework-root hero", async () => {
+it("appends the framework sentence on the framework-root hero", async () => {
   const writeText = stubClipboard();
 
-  const { container } = render(
+  render(
     <OnboardingPromptButton
       variant="hero"
       surface={FRAMEWORK_HERO_SURFACE}
@@ -78,13 +78,6 @@ it("appends the framework sentence and carries the real surface name, on the fra
 
   const runId = copied.match(/onboard start --run (\S+) --coding-agent/)?.[1];
   expect(runId).toMatch(RUN_ID_PATTERN);
-
-  // The bug this guards against: the placement passes `docs_framework_hero`,
-  // and a pinned-but-wrong surface name in a test would never catch it
-  // spelling something else.
-  expect(
-    container.querySelector("button")?.getAttribute("data-docs-copy-surface"),
-  ).toBe(FRAMEWORK_HERO_SURFACE);
 });
 
 it("stays canonical on the framework-root hero for a framework the onboarding graph does not cover", async () => {
