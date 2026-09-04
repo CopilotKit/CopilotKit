@@ -13,6 +13,28 @@
  * and default-black text — an unstyled panel that looks like a different
  * product. The values below are copied from `./theme.css`; keep the two in step
  * (commerce's and bookstore's briefs inline literals for the same reason).
+ *
+ * THE COPY IS PINNED, not trusted. A hand-kept copy of another file drifts the
+ * moment that file moves, and this one did: the brief kept shipping the
+ * PRE-contrast-fix brand, positive, dark negative and muted ink long after
+ * `theme.css` deepened them, so generated UI rendered the unreadable palette
+ * the app itself had already fixed. `./theme.test.ts` ("the OGUI design brief
+ * quotes theme.css") now parses every `hsl(...)` out of the string below and
+ * asserts it equals the `theme.css` token it names, and fails on any literal it
+ * has no mapping for. Change a colour here and there, or neither.
+ *
+ * DARK MODE IS `prefers-color-scheme`, NOT THE APP'S TOGGLE. The host resolves
+ * dark by putting a `.dark` class on <html> (`src/hooks/use-theme.ts`), and
+ * that class cannot reach the sandbox: the OGUI renderer builds the iframe
+ * document out of the model's own HTML plus a CSS reset, with no host class, no
+ * host attribute and no theme message (`OpenGenerativeUIRenderer.tsx`'s
+ * `ensureHead`/`injectCssIntoHtml`). `prefers-color-scheme` is therefore the
+ * only dark signal the generated markup can actually observe — so the brief
+ * asks for it, and the consequence is honest rather than hidden: the iframe
+ * follows the OS, so a reader who toggles the app to dark against a light OS
+ * gets a light generated view inside a dark app. Instructing the model to key
+ * off `.dark` instead would be strictly worse — that selector never matches in
+ * there, so every generated view would be stuck light.
  */
 export const VANTAGE_DESIGN_SKILL = `
 You are designing generative UI for **Vantage**, the executive reporting desk
@@ -27,18 +49,21 @@ properties and its utility classes resolve to nothing in there. Ship your own
 styles, with every color written as a literal \`hsl(...)\` value.
 - Cool graphite chrome. Light: canvas hsl(220 16% 95%), surfaces hsl(0 0% 100%),
   muted surface hsl(220 14% 93%), ink hsl(220 20% 14%), secondary ink
-  hsl(220 9% 44%), hairline rules hsl(220 13% 87%).
-- Dark-mode aware, and it is worth supporting: wrap the dark values in
-  \`@media (prefers-color-scheme: dark)\` rather than assuming light. Dark:
+  hsl(220 10% 42%), hairline hsl(220 13% 87%).
+- Dark-mode aware, and it is worth supporting. The sandbox never sees the host
+  page's theme class, so \`@media (prefers-color-scheme: dark)\` is the only dark
+  signal available: wrap the dark values in it rather than assuming light. Dark:
   canvas hsl(220 18% 9%), surfaces hsl(220 15% 13%), muted surface
   hsl(220 13% 16%), ink hsl(220 14% 94%), secondary ink hsl(220 8% 60%),
   hairline hsl(220 11% 23%).
-- Exactly one accent: muted brass gold — hsl(43 55% 45%) on light,
+- Exactly one accent: muted brass gold — hsl(43 62% 30%) on light,
   hsl(43 62% 58%) on dark — used sparingly for the single figure, badge, or
-  action that matters most on a view. Gold marks emphasis, not sentiment — it is
-  never a stand-in for positive/negative.
-- Variance gets its own muted green/red — positive hsl(152 50% 38%) light /
-  hsl(152 42% 48%) dark, negative hsl(0 68% 48%) light / hsl(0 65% 60%) dark —
+  action that matters most on a view. Note the polarity: on light it is a DEEP
+  brass that carries a white label, on dark a lifted brass that carries a
+  near-black one. Gold marks emphasis, not sentiment — it is never a stand-in
+  for positive/negative.
+- Variance gets its own muted green/red — positive hsl(152 56% 30%) light /
+  hsl(152 42% 48%) dark, negative hsl(0 68% 48%) light / hsl(0 66% 66%) dark —
   used ONLY on the delta glyph and delta value, never on the absolute figure
   beside it (see FIGURES below).
 - Corners 0.625rem, 1px hairline borders, no drop shadows.
