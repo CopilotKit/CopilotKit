@@ -44,11 +44,9 @@ import type { Definitions } from "./definitions";
 const GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6", xl: "gap-10" } as const;
 
 // Text props in the catalog are `string | { path }` (a data-bound ref). The
-// A2UI runtime resolves refs before render, but the Zod-inferred type still
-// carries the union, so coerce to a display string here.
+// A2UI runtime resolves refs before render, so a `{ path }` still standing at
+// render time is a BROKEN BINDING — the path named nothing in the data model.
 type TextRef = string | { path: string };
-const asText = (value: TextRef): string =>
-  typeof value === "string" ? value : "";
 
 /** MetricTile's sparkline window — six closed months, per the block spec. */
 const SPARKLINE_MONTHS = 6;
@@ -207,29 +205,56 @@ function MissingTile({ title, reason }: { title: string; reason: string }) {
   );
 }
 
+/** A text prop that is still a `{ path }` at render time — a broken binding. */
+function UnresolvedText({ label, path }: { label: string; path: string }) {
+  return (
+    <MissingTile
+      title={`${label} unavailable`}
+      reason={`Unresolved data reference "${path}" — the text never bound.`}
+    />
+  );
+}
+
 /**
  * Direction glyph + SIGNED delta, per the design skill's variance-first rule:
  * the change is the headline and carries the only colour on the tile; the
  * absolute figure beside it stays neutral ink.
  *
+ * `tone` picks WHAT the colour means. The default, "sign", is the reading for
+ * a figure that could be good or bad news: green above, red below. "alert" is
+ * for a figure already known to be BAD whichever way it went — every row of an
+ * `ExceptionList` is a breach by construction — where colouring by sign paints
+ * an over-plan overrun the same green as an on-plan metric. The CEO
+ * dashboard's fixed exception strip (`../pages/ceo-dashboard.tsx`) and the
+ * Metrics Explorer's `row.breaching` already follow that rule; this is the
+ * same rule, in the block catalog. The sign itself still shows either way.
+ *
  * A non-finite delta (variance against a zero plan/forecast) is reported as
  * unavailable rather than rendered as `Infinity%` or `NaN%`.
  */
-function Delta({ value }: { value: number }) {
+function Delta({
+  value,
+  tone = "sign",
+}: {
+  value: number;
+  tone?: "sign" | "alert";
+}) {
   if (!Number.isFinite(value)) {
     return <span className="text-sm tabular-nums text-ink-muted">— n/a</span>;
   }
   const glyph = value > 0 ? "▲" : value < 0 ? "▼" : "▬";
   const sign = value > 0 ? "+" : value < 0 ? "-" : "±";
+  const signTone =
+    value > 0
+      ? "text-positive"
+      : value < 0
+        ? "text-negative"
+        : "text-ink-muted";
   return (
     <span
       className={cn(
         "text-sm font-medium tabular-nums",
-        value > 0
-          ? "text-positive"
-          : value < 0
-            ? "text-negative"
-            : "text-ink-muted",
+        tone === "alert" ? "text-negative" : signTone,
       )}
     >
       {glyph} {sign}
@@ -305,24 +330,42 @@ const Stack = ({
   </div>
 );
 
-const Heading = ({ props }: RendererProps<{ text: TextRef }>) => (
-  <h2 className="text-lg font-semibold tracking-tight text-ink">
-    {asText(props.text)}
-  </h2>
-);
+const Heading = ({ props }: RendererProps<{ text: TextRef }>) => {
+  if (typeof props.text !== "string") {
+    return <UnresolvedText label="Heading" path={props.text.path} />;
+  }
+  return (
+    <h2 className="text-lg font-semibold tracking-tight text-ink">
+      {props.text}
+    </h2>
+  );
+};
 
+/**
+ * NOTE — currently unreachable in this app. `buildBlockOps`
+ * (`../blocks/build-block-ops.ts`) emits `Stack` + `Heading` + one kind
+ * component (+ `AddToDashboard`), and nothing else produces catalog
+ * components: no code path emits a `Text`. It stays in the catalog as the
+ * neutral-caption primitive the definition describes; see the same note on
+ * `Text` in `./definitions.ts`.
+ */
 const Text = ({
   props,
-}: RendererProps<{ text: TextRef; tone?: "default" | "muted" }>) => (
-  <p
-    className={cn(
-      "text-sm",
-      props.tone === "muted" ? "text-ink-muted" : "text-ink",
-    )}
-  >
-    {asText(props.text)}
-  </p>
-);
+}: RendererProps<{ text: TextRef; tone?: "default" | "muted" }>) => {
+  if (typeof props.text !== "string") {
+    return <UnresolvedText label="Text" path={props.text.path} />;
+  }
+  return (
+    <p
+      className={cn(
+        "text-sm",
+        props.tone === "muted" ? "text-ink-muted" : "text-ink",
+      )}
+    >
+      {props.text}
+    </p>
+  );
+};
 
 // ── Data-bound renderers ───────────────────────────────────────────────────
 
@@ -484,15 +527,21 @@ const VarianceBar = ({ props }: RendererProps<{ metricId: MetricId }>) => {
   const period = latestClosedPeriod(deptPoints);
   const rows = DEPARTMENTS.map((department) => ({
     department,
+    // `undefined` = this department filed nothing for `period`. Kept in the
+    // list rather than filtered out: dropping it renders a three-bar chart of
+    // a four-department company, where "did not report" is indistinguishable
+    // from "is not a department" — and it silently moves the shared `max`
+    // below, rescaling every OTHER bar for a reason nothing on screen states.
     point: deptPoints.find(
       (p) => p.period === period && p.department === department,
     ),
-  })).filter(
+  }));
+  const reported = rows.filter(
     (row): row is { department: Department; point: MetricPoint } =>
       row.point !== undefined,
   );
 
-  if (!def || rows.length === 0) {
+  if (!def || reported.length === 0) {
     return (
       <MissingTile
         title="Variance unavailable"
@@ -502,7 +551,7 @@ const VarianceBar = ({ props }: RendererProps<{ metricId: MetricId }>) => {
   }
 
   const max = Math.max(
-    ...rows.map((row) => Math.max(row.point.actual, row.point.plan)),
+    ...reported.map((row) => Math.max(row.point.actual, row.point.plan)),
   );
   const width = (value: number) =>
     `${Math.max(2, Math.min(100, max > 0 ? (value / max) * 100 : 0))}%`;
@@ -516,28 +565,41 @@ const VarianceBar = ({ props }: RendererProps<{ metricId: MetricId }>) => {
             data-testid="variance-bar-row"
             className="space-y-1"
           >
-            <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate text-ink">
-                {DEPARTMENT_LABEL[department]}
-              </span>
-              <span className="flex flex-none items-baseline gap-2">
-                <Delta value={variancePct(point)} />
-                <span className="tabular-nums text-ink">
-                  {formatValue(def.unit, point.actual)}
+            {point === undefined ? (
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate text-ink-muted">
+                  {DEPARTMENT_LABEL[department]}
                 </span>
-              </span>
-            </div>
-            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-muted">
-              <div
-                className="h-full rounded-full bg-brand"
-                style={{ width: width(point.actual) }}
-              />
-              <span
-                aria-hidden
-                className="absolute inset-y-0 w-px bg-ink-muted"
-                style={{ left: width(point.plan) }}
-              />
-            </div>
+                <span className="flex-none text-xs text-ink-muted">
+                  No data reported
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate text-ink">
+                    {DEPARTMENT_LABEL[department]}
+                  </span>
+                  <span className="flex flex-none items-baseline gap-2">
+                    <Delta value={variancePct(point)} />
+                    <span className="tabular-nums text-ink">
+                      {formatValue(def.unit, point.actual)}
+                    </span>
+                  </span>
+                </div>
+                <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-muted">
+                  <div
+                    className="h-full rounded-full bg-brand"
+                    style={{ width: width(point.actual) }}
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-0 w-px bg-ink-muted"
+                    style={{ left: width(point.plan) }}
+                  />
+                </div>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -604,11 +666,20 @@ const ExceptionList = ({
 }: RendererProps<{ audience?: "ceo" | "cfo" | "both" }>) => {
   const { snapshot } = useBlockData();
 
-  if (snapshot.points.length === 0) {
+  // NO-DATA IS NOT NO-VARIANCE. Both halves of the ledger are required before
+  // this block can say anything: points to read a period off, and defs to
+  // classify a breach against (a row whose metric has no def is dropped
+  // below). Without either, "no variances" would be a claim the ledger cannot
+  // support — the exact conflation `MissingTile` exists to prevent.
+  if (snapshot.points.length === 0 || snapshot.metricDefs.length === 0) {
     return (
       <MissingTile
         title="Exceptions unavailable"
-        reason="No metric points on the ledger to derive exceptions from."
+        reason={
+          snapshot.points.length === 0
+            ? "No metric points on the ledger to derive exceptions from."
+            : "No metric definitions on the ledger to classify variances against."
+        }
       />
     );
   }
@@ -630,8 +701,15 @@ const ExceptionList = ({
   return (
     <Tile label={`Variances · ${formatPeriod(period)}`}>
       {rows.length === 0 ? (
+        // NOT "awaiting explanation": this list carries EXPLAINED rows too
+        // (that is what the per-row tag below is for), so an empty list means
+        // no variance breached at all — for whoever is reading. Claiming
+        // nothing awaits explanation would be a different, and often false,
+        // statement about the same ledger.
         <p className="text-sm text-ink-muted">
-          No variances awaiting explanation for this audience.
+          {audience === "both"
+            ? "No variances this period — every metric is within threshold."
+            : `No variances on the ${audience.toUpperCase()}'s list this period.`}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -648,7 +726,16 @@ const ExceptionList = ({
                 </span>
               </span>
               <span className="flex flex-none items-baseline gap-2">
-                <Delta value={exception.variancePct} />
+                {/*
+                  `tone="alert"`: every row here is a BREACH by construction —
+                  `store.exceptions()` only emits points past `isBreach`'s
+                  threshold, in either direction — so the colour says "this
+                  breached", never "this was positive". Colouring by sign
+                  painted an over-plan overrun green in this list while the CEO
+                  dashboard's strip painted the same exception red directly
+                  above it.
+                */}
+                <Delta value={exception.variancePct} tone="alert" />
                 <span className="text-xs text-ink-muted">
                   {exception.explained ? "explained" : "unexplained"}
                 </span>
