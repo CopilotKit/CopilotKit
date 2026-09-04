@@ -1018,6 +1018,134 @@
       }
     },
     {
+      "name": "@copilotkit/mcp-apps-renderer",
+      "version": "1.70.1",
+      "sourceDirectory": "packages/mcp-apps-renderer",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/index.d.mts",
+              "default": "./dist/index.mjs"
+            },
+            "require": {
+              "types": "./dist/index.d.cts",
+              "default": "./dist/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer/activity",
+          "exportKey": "./activity",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/activity.d.mts",
+              "default": "./dist/activity.mjs"
+            },
+            "require": {
+              "types": "./dist/activity.d.cts",
+              "default": "./dist/activity.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\"./activity\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer/web-components",
+          "exportKey": "./web-components",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/web-components/index.d.mts",
+              "default": "./dist/web-components/index.mjs"
+            },
+            "require": {
+              "types": "./dist/web-components/index.d.cts",
+              "default": "./dist/web-components/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\"./web-components\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/mcp-apps-renderer/web-components/define",
+          "exportKey": "./web-components/define",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/web-components/define.d.mts",
+              "default": "./dist/web-components/define.mjs"
+            },
+            "require": {
+              "types": "./dist/web-components/define.d.cts",
+              "default": "./dist/web-components/define.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "exports[\"./web-components/define\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "peerDependencies": {
+          "@ag-ui/client": "0.0.59",
+          "zod": ">=3.25"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "peerDependencies"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/mcp-apps-renderer/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/mcp-apps-renderer/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.monorepo.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/react-core",
       "version": "1.70.1",
       "sourceDirectory": "packages/react-core",
@@ -1103,10 +1231,9 @@
       ],
       "compatibility": {
         "peerDependencies": {
-          "@modelcontextprotocol/sdk": "^1.29.0",
           "react": "^18 || ^19 || ^19.0.0-rc",
           "react-dom": "^18 || ^19 || ^19.0.0-rc",
-          "zod": ">=3.25"
+          "zod": ">=3.0.0"
         },
         "provenance": [
           {

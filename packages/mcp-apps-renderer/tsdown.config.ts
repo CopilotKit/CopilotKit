@@ -14,7 +14,7 @@ const isExternal = (id: string) =>
 
 export default defineConfig([
   {
-    entry: ["src/index.ts"],
+    entry: ["src/index.ts", "src/activity.ts"],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,

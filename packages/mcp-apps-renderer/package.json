@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/mcp-apps-renderer",
-  "version": "0.0.0",
+  "version": "1.70.1",
   "private": false,
   "description": "Framework-agnostic MCP Apps host for CopilotKit - the app<->host protocol (ext-apps AppBridge), sandbox proxy, and shared renderer consumed by the React, Vue, and Angular frontends",
   "keywords": [
@@ -35,6 +35,16 @@
       "require": {
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
+      }
+    },
+    "./activity": {
+      "import": {
+        "types": "./dist/activity.d.mts",
+        "default": "./dist/activity.mjs"
+      },
+      "require": {
+        "types": "./dist/activity.d.cts",
+        "default": "./dist/activity.cjs"
       }
     },
     "./web-components": {
@@ -73,11 +83,11 @@
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "lit": "^3.3.2"
   },
   "peerDependencies": {
     "@ag-ui/client": "0.0.59",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": ">=3.25"
   },
   "devDependencies": {
