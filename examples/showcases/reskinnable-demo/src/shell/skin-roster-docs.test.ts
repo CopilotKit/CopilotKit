@@ -295,7 +295,8 @@ const ID_BRACE_GLOB = /\{([a-z][a-z,\s]*)\}/gi;
  * this narrow: broadening it to a bare "registered" false-positives on any true
  * sentence that merely mentions two skins near that word.
  */
-const EXHAUSTIVE_CUE = /valid ids?|registered set|are registered|LOCK_SKIN/i;
+const EXHAUSTIVE_CUE =
+  /valid ids?|registered set|registered roster|are registered|LOCK_SKIN/i;
 const CUE_LOOKBEHIND = 140;
 
 /**
@@ -689,6 +690,23 @@ describe("the roster checks themselves", () => {
     const envStyle =
       "# Valid ids: banking, airline, logistics, keel. An unrecognised value THROWS.";
     expect(findIncompleteRosters(envStyle, skinIds)[0]?.missing).toEqual([
+      "people",
+      "commerce",
+      "bookstore",
+      "exec",
+    ]);
+  });
+
+  it("catches CLAUDE.md's own 'registered roster is' phrasing", () => {
+    // The site CLAUDE.md's intro sentence actually uses ("The registered
+    // roster is `banking`, …"). Before `registered roster` was added to
+    // EXHAUSTIVE_CUE this phrasing fell outside every cue and an incomplete
+    // list here went undetected — this pins that the cue now reaches it.
+    const stale =
+      "The registered roster is `banking`, `airline`, `logistics`, `keel`.";
+    const hits = findIncompleteRosters(stale, skinIds);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].missing).toEqual([
       "people",
       "commerce",
       "bookstore",

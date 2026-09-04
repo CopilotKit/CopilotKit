@@ -162,9 +162,10 @@ any of them can be walked end to end and any of them is a fair reference.
 `bookstore` hits every beat it claims and skips two deliberately — multimodal
 ingest and teach-a-procedure — which its own beat map
 (`src/skins/bookstore/suggestions.ts`) records rather than hides, so read those two
-blanks as a scope decision. `people` and `commerce` were authored beat-first;
-`logistics`, `airline` and `keel` were raised to the bar afterwards, so read those
-three commit by commit if you need to do the same to an EXISTING skin. The per-beat
+blanks as a scope decision. `people`, `commerce` and `exec` were authored
+beat-first; `logistics`, `airline` and `keel` were raised to the bar afterwards,
+so read those three commit by commit if you need to do the same to an EXISTING
+skin. The per-beat
 coverage matrix, and the one-line commands that derive it instead of trusting it,
 are in [CLAUDE.md](./CLAUDE.md).
 
@@ -187,11 +188,11 @@ The banking skin doubles as a CopilotKit feature tour. Notable beats:
   no saved procedure, watches you clear one, and (in Intelligence mode) recalls
   it on a later thread. See `docs/teach-mode/`.
 
-### `people` and `commerce` — authored beat-first
+### `people`, `commerce` and `exec` — authored beat-first
 
-Both are built against the beat list from the start. Their beat maps are written
-out at the top of their own `src/skins/<id>/suggestions.ts`, one suggestion pill
-per beat in demo order.
+All three are built against the beat list from the start. Their beat maps are
+written out at the top of their own `src/skins/<id>/suggestions.ts`, one
+suggestion pill per beat in demo order.
 
 - **`people`** ("Rowan") — a People Ops command center over `/api/people/v1/*`.
   Its teachable gate is approving an **out-of-band** compensation request (422
@@ -205,6 +206,14 @@ per beat in demo order.
   floor** (422 `BELOW_MARGIN_FLOOR`), unlocked by a margin waiver filed under a
   justifying code. It is also the reference for a four-lever navigation — status,
   exception class, sort and top-N all arrive from the query string.
+- **`exec`** ("Vantage") — Cascade Industries' executive reporting desk over
+  `/api/exec/v1/*`. Its signature interaction is **conversational dashboard
+  composition**: agent-rendered a2ui metric blocks pinned to live CEO/CFO
+  dashboards, rather than a report canvas — it is one of the skins (with
+  `bookstore`) that omits `CanvasSurface`. Its teachable gate is publishing a
+  board pack while a metric's variance is unexplained (422
+  `UNEXPLAINED_VARIANCE`), unlocked by a variance narrative filed under a
+  justifying code.
 
 ### `logistics`, `airline` and `keel`
 
