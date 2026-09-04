@@ -1,5 +1,6 @@
 import {
   Component,
+  ComponentRef,
   Input,
   TemplateRef,
   ViewChild,
@@ -42,6 +43,17 @@ class DefaultComponent {
 })
 class CustomComponent {
   @Input() text = "Custom";
+}
+
+@Component({
+  standalone: true,
+  selector: "props-component",
+  template: `
+    <div class="props">{{ props.text }}</div>
+  `,
+})
+class PropsComponent {
+  @Input() props = { text: "Default" };
 }
 
 describe("slot utils", () => {
@@ -106,7 +118,7 @@ describe("slot utils", () => {
       expect(span?.textContent?.trim()).toBe("from template");
     });
 
-    it("applies inputs using setInput", () => {
+    it("binds declared inputs on the next change detection", () => {
       @Component({
         standalone: true,
         template: `
@@ -126,15 +138,44 @@ describe("slot utils", () => {
         defaultComponent: DefaultComponent,
         props: { text: "Updated" },
       });
+      fixture.detectChanges();
 
       expect(ref).toBeTruthy();
       expect((ref as any).instance.text).toBe("Updated");
+    });
+
+    it("binds the full context to a legacy props input", () => {
+      @Component({
+        standalone: true,
+        template: `
+          <div #container></div>
+        `,
+        imports: [PropsComponent],
+      })
+      class HostComponent {
+        @ViewChild("container", { read: ViewContainerRef })
+        container!: ViewContainerRef;
+      }
+
+      const fixture = TestBed.createComponent(HostComponent);
+      fixture.detectChanges();
+
+      const ref = renderSlot<any>(fixture.componentInstance.container, {
+        defaultComponent: PropsComponent,
+        props: { text: "Updated" },
+      });
+      fixture.detectChanges();
+
+      expect((ref as ComponentRef<PropsComponent>).instance.props).toEqual({
+        text: "Updated",
+      });
     });
   });
 
   describe("type guards", () => {
     it("detects component types", () => {
       expect(isComponentType(DefaultComponent)).toBe(true);
+      expect(isComponentType(class NotAnAngularComponent {})).toBe(false);
       expect(isComponentType(() => {})).toBe(false);
       expect(isComponentType(null)).toBe(false);
     });

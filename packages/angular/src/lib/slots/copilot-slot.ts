@@ -1,150 +1,100 @@
 import {
   Component,
   TemplateRef,
+  Type,
   ViewContainerRef,
-  OnInit,
-  OnChanges,
-  SimpleChanges,
-  Inject,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
+  computed,
+  effect,
   input,
-  ViewChild,
+  untracked,
+  viewChild,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { renderSlot } from "./slot.utils";
-import { Type } from "@angular/core";
+import { NgTemplateOutlet } from "@angular/common";
+import { SlotOutputs } from "./slot.types";
+import { slotBindings, slotInputNames } from "./slot.utils";
 
 /**
  * @internal - This component is for internal use only.
- * Simple slot component for rendering custom content or defaults.
- * Supports templates and components only.
+ * Renders a slot override, a default component, or the projected fallback.
+ *
+ * - A `TemplateRef` slot is rendered with `context` as its template context,
+ *   so context keys are available as `let-` variables.
+ * - A component slot (or `defaultComponent`) is created with `context` keys
+ *   bound to its matching inputs and `outputs` handlers bound to its matching
+ *   outputs. Bound values stay live; the component is only recreated when the
+ *   resolved type or set of bound input names changes.
+ * - With neither a slot nor a default component, the projected content shows.
  *
  * @example
  * ```html
- * <!-- With template -->
  * <copilot-slot [slot]="sendButtonTemplate" [context]="buttonContext">
  *   <button class="default-btn">Default</button>
  * </copilot-slot>
  * ```
  */
 @Component({
-  standalone: true,
   selector: "copilot-slot",
-  imports: [CommonModule],
+  imports: [NgTemplateOutlet],
   template: `
-    <!-- If slot template provided, render it -->
-    @if (slot() && isTemplate(slot)) {
-      <ng-container
-        [ngTemplateOutlet]="slot"
-        [ngTemplateOutletContext]="context || {}"
-      >
-      </ng-container>
+    @if (template(); as tpl) {
+      <ng-container *ngTemplateOutlet="tpl; context: context()" />
     }
-
-    <!-- If not a template, we'll handle in code -->
-    <ng-container #slotContainer></ng-container>
-
-    <!-- Default content (only shown if no slot) -->
-    @if (!slot && !defaultComponent) {
-      <ng-content></ng-content>
+    <ng-container #host />
+    @if (!slot() && !defaultComponent()) {
+      <ng-content />
     }
   `,
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CopilotSlot implements OnInit, OnChanges {
-  slot = input<TemplateRef<any> | Type<any> | undefined>(undefined);
-  context = input<any | undefined>(undefined);
-  defaultComponent = input<Type<any> | undefined>(undefined);
-  outputs = input<Record<string, (event: any) => void> | undefined>(undefined);
+export class CopilotSlot {
+  readonly slot = input<TemplateRef<unknown> | Type<unknown>>();
+  readonly context = input<object>();
+  readonly defaultComponent = input<Type<unknown>>();
+  readonly outputs = input<SlotOutputs>();
 
-  @ViewChild("slotContainer", { read: ViewContainerRef, static: true })
-  private slotContainer!: ViewContainerRef;
+  private readonly host = viewChild.required("host", {
+    read: ViewContainerRef,
+  });
 
-  private componentRef?: any;
+  protected readonly template = computed(() => {
+    const slot = this.slot();
+    return slot instanceof TemplateRef ? slot : undefined;
+  });
 
-  constructor(
-    @Inject(ViewContainerRef) private viewContainer: ViewContainerRef,
-    private cdr: ChangeDetectorRef,
-  ) {}
+  private readonly componentType = computed(() => {
+    const slot = this.slot();
+    return slot instanceof TemplateRef
+      ? undefined
+      : (slot ?? this.defaultComponent());
+  });
 
-  ngOnInit(): void {
-    this.renderSlot();
-  }
+  private readonly inputNames = computed(
+    () => {
+      const type = this.componentType();
+      return type ? slotInputNames(type, this.context()) : [];
+    },
+    {
+      equal: (previous, current) =>
+        previous.length === current.length &&
+        previous.every((name, index) => name === current[index]),
+    },
+  );
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes["slot"]) {
-      // Slot changed, need to re-render completely
-      this.renderSlot();
-    } else if (changes["context"] && this.componentRef) {
-      // Just context changed, update existing component
-      this.updateComponentProps();
-      this.cdr.detectChanges();
-    } else if (changes["context"]) {
-      // No component ref yet, render the slot
-      this.renderSlot();
-    }
-  }
-
-  isTemplate(value: any): value is TemplateRef<any> {
-    return value instanceof TemplateRef;
-  }
-
-  private renderSlot(): void {
-    // Skip if it's a template (handled by ngTemplateOutlet)
-    if (this.slot() && this.isTemplate(this.slot())) {
-      this.componentRef = null;
-      return;
-    }
-
-    // Clear previous content
-    this.slotContainer.clear();
-    this.componentRef = null;
-
-    // Skip if no slot and no default component
-    if (!this.slot() && !this.defaultComponent()) {
-      return;
-    }
-
-    // Use the utility to render other slot types
-    if (this.slot() || this.defaultComponent()) {
-      this.componentRef = renderSlot(this.slotContainer, {
-        slot: this.slot(),
-        defaultComponent: this.defaultComponent()!,
-        props: this.context(),
-        outputs: this.outputs(),
-      });
-    }
-  }
-
-  private updateComponentProps(): void {
-    if (!this.componentRef || !this.componentRef.instance) {
-      return;
-    }
-
-    const props = this.context();
-
-    // Update props using setInput, only for declared inputs
-    if (props) {
-      const ctor = this.componentRef.instance.constructor as any;
-      const cmpDef: any = ctor?.ɵcmp;
-      const declaredInputs = new Set<string>(Object.keys(cmpDef?.inputs ?? {}));
-
-      if (declaredInputs.has("props")) {
-        this.componentRef.setInput("props", props);
-      } else {
-        for (const key in props) {
-          if (declaredInputs.has(key)) {
-            const value = props[key];
-            this.componentRef.setInput(key, value);
-          }
-        }
-      }
-    }
-
-    // Trigger change detection
-    if (this.componentRef.changeDetectorRef) {
-      this.componentRef.changeDetectorRef.detectChanges();
-    }
+  constructor() {
+    effect((onCleanup) => {
+      const type = this.componentType();
+      if (!type) return;
+      const inputNames = this.inputNames();
+      const ref = untracked(() =>
+        this.host().createComponent(type, {
+          bindings: slotBindings(
+            type,
+            inputNames,
+            () => this.context(),
+            () => this.outputs(),
+          ),
+        }),
+      );
+      onCleanup(() => ref.destroy());
+    });
   }
 }
