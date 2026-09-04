@@ -57,7 +57,7 @@ describe("the LOCK_SKIN lint guard", () => {
    * Did `no-restricted-syntax` ITSELF report? Scoped to the rule id on purpose.
    * The predicate this replaced was `lint(code).length === 0`, which counts ANY
    * message as "guarded" — including ESLint's `ruleId: null` fatal parse error.
-   * A typo in the synthetic snippet above would therefore have made this test
+   * A typo in the synthetic snippets below would therefore have made this test
    * pass by failing to parse, which is the one way a guard test can be green and
    * prove nothing. Pinned by "does not mistake a PARSE ERROR…" below.
    */

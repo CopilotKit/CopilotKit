@@ -464,11 +464,13 @@ roster in the documents it names. Its boundary, honestly:
 longest.** "the only skin that ships X", "every skin does Y the same way",
 "all seven skins" — each is one `grep` away from being wrong the moment a
 sibling skin changes or a new one lands, and nothing type-checks, lints or
-tests a comment. Four review findings in one build were exactly this shape,
-each disproved by a single grep run against the tree at review time. **Cite
+tests a comment. This is the single most repeated finding class in this app's
+reviews, and every instance of it was disproved by one grep run against the
+tree at review time — which is the whole argument for not writing them. **Cite
 the SPECIFIC sibling file(s) you mean instead of quantifying over the skin
-set** — "see the same trap called out in `src/skins/banking/tools.tsx`'s
-comment above `setCardPin`", not "every skin handles this the same way." A
+set** — "see the same trap called out in the comment above `cardsRef` in
+`src/skins/banking/tools.tsx:153-172`", not "every skin handles this the same
+way." A
 named file is checkable by opening it; a quantifier is checkable only by
 someone willing to re-derive it, which is exactly the step the comment exists
 to save the reader from. If a comment genuinely needs to make a claim about
@@ -506,9 +508,11 @@ the codes are provided leaves a sentence that is now also false. Enumerate the
 channels — readable, schema, tool description, prompt, error body — and record a
 verdict for each (§ 11).
 
-🚨 **AND THE LIST OF FIVE IS NOT EXHAUSTIVE — enumerate YOUR skin's channels, not
-this file's.** The five above are the ones every skin has. A skin can invent a
-sixth: `airline`'s gate is grounded, so `Booking.waiverGround` holds a
+🚨 **AND THAT CHANNEL LIST IS NOT EXHAUSTIVE — enumerate YOUR skin's channels,
+not this file's.** Readable, schema, tool description, prompt and error body are
+the ones every skin has; the four numbered leaks above are worked examples on
+four of them. A skin can invent one more of its own:
+`airline`'s gate is grounded, so `Booking.waiverGround` holds a
 CODE-SHAPED token (`"schedule_change"`, `"medical"`) that maps 1:1 onto a justifying
 category. It lives on a record the ledger publishes, so an unstripped ledger
 readable hands the agent half the catalogue sideways — through no readable, schema,
@@ -733,7 +737,8 @@ Why each one misses it:
   build type-checks" is the natural conclusion.
 - **Vitest** transpiles. It does not type-check, at all, ever.
 - **ESLint** is not a type checker.
-- **`tsconfig.json` DOES include `**/*.tsx`\*\* — so the tests are *in\* the
+- **`tsconfig.json` DOES include the test files.** Its `include` array lists
+  `"**/*.ts"` and `"**/*.tsx"` (tsconfig.json:27-28), so the tests are _in_ the
   project. Nothing is looking at them.
 
 ```bash
@@ -801,7 +806,6 @@ CLIENT. With a plain object, `operatorId && IDENTITY[operatorId]` resolves truth
 for `"toString"`, and `.userId` on the inherited member is `undefined` — so
 `identifyUser` hands Intelligence an `undefined` memory bucket. No error. Writes
 and recall both go somewhere nobody intended, and beats 4/5/6 are precisely the
-beats that depend on that scope being right. `src/skins/commerce/intelligence/user-id.ts`
-
-- its `user-id.test.ts` are the worked pair; templates.md carries the same warning
-  inline.
+beats that depend on that scope being right.
+`src/skins/commerce/intelligence/user-id.ts` and its `user-id.test.ts` are the
+worked pair; templates.md carries the same warning inline.

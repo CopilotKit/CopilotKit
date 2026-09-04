@@ -212,8 +212,14 @@ src/skins/*/intelligence/seed-memories.ts` return the same set. The fallback pat
   `identifyUser` on a run, so both personas land in the same default bucket and
   switching operator/planner/shopper in the sidebar re-scopes NOTHING. That is
   exactly why the seeding always covers the **default** bucket, and in every skin
-  but banking the mapped identity's alongside it (`grep -n DEMO_DEFAULT_USER_ID
-src/app/api/*/v1/dev/reset/route.ts` is the check).
+  but banking the mapped identity's alongside it. Each skin's own
+  `src/app/api/<id>/v1/dev/reset/route.ts` is the authority for its seed set, and
+  the three spellings it can be written in are what the check has to cover:
+  `grep -n 'seedTargets\|SEED_TARGET_USER_IDS\|DEMO_DEFAULT_USER_ID'
+src/app/api/*/v1/dev/reset/route.ts` hits all eight routes. Grepping for
+  `DEMO_DEFAULT_USER_ID` alone does NOT: airline, commerce, keel and logistics
+  reach their default bucket through `memorySeedTargetUserIds()` and never name
+  the constant in the route.
   `airline` is a second special case for a different reason: one
   account holder, no switcher, so its resolver is not a "switch user and watch
   memory change" story at all.
@@ -441,10 +447,16 @@ takes over the page-content region with a "← Back" affordance:
   ambient a2ui store on this path, because `A2UI_RENDERERS` shadows the built-in
   renderer whose `ReactSurfaceHost` would otherwise have mounted one — so a
   block's surface state can never collide with the canvas's. `exec` is the only
-  skin on this path today; the `block:` spelling is duplicated by hand
-  (`BLOCK_SURFACE_PREFIX` in the shell module and again in
-  `src/skins/exec/blocks/build-block-ops.ts`) because the shell must not import
-  from `src/skins/`, and nothing checks the two stay in sync.
+  skin on this path today; the `block:` spelling is duplicated by hand across
+  THREE modules, because the shell must not import from `src/skins/` and the
+  canvas must not depend on the chat's renderer. `BLOCK_SURFACE_PREFIX` lives in
+  `src/skins/exec/blocks/build-block-ops.ts:22` (the write side, which MINTS the
+  ids), in `src/shell/chat/inline-block-surface.tsx:21` (the chat's read side),
+  and in `src/shell/canvas/canvas-context.tsx:36` (the classifier that keeps a
+  block off the canvas). A drift guard covers the first pair —
+  `src/skins/exec/blocks/build-block-ops.test.ts:46-61` runs minted ops through
+  the shell's own reader, so either of those two drifting fails there. The
+  canvas copy is the one no cross-module test reaches.
 
 Gen-UI components registered via `useComponent` (airline's flight card, banking's
 charts and queues) render in the chat transcript, not on the canvas — that is a
@@ -633,6 +645,12 @@ src/skins/*/skin.tsx`): `useBookstoreData` is a frozen 25-book seed catalog (the
 
 ### Demo-beat coverage
 
+Ten rows, NOT ten beats. The first nine are the nine beats of
+`.claude/skills/reskin/demo-beats.md` (1, 2, 3a–3d, 4, 5, 6, in that order); the
+tenth, presenter reset, is one of that file's "Presentation requirements (not
+beats, still mandatory)". Prose below that says "the nine beats" is counting the
+first nine rows.
+
 | Beat                             | banking              | people               | commerce             | airline                | logistics            | keel                   | bookstore                  | exec                       |
 | -------------------------------- | -------------------- | -------------------- | -------------------- | ---------------------- | -------------------- | ---------------------- | -------------------------- | -------------------------- |
 | Gen-UI in transcript             | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅                         | ✅ inline a2ui blocks       |
@@ -679,8 +697,9 @@ grep -c 'title:' src/skins/*/suggestions.ts
 ```
 
 **A count predicts nothing about coverage in either direction**, which is why they
-are not in the table. `exec` registers NO `useComponent` AT ALL — its one
-in-transcript render is a `useRenderTool` (`file_variance_narrative`), and its
+are not in the table. `exec` registers NO `useComponent` AT ALL — its
+in-transcript renders are two `useRenderTool` registrations
+(`file_variance_narrative` and `render_metric_block`, `src/skins/exec/tools.tsx`), and its
 dashboards are agent-authored a2ui blocks on the inline `block:` path — yet it runs
 the full beat list; `bookstore` registers the fewest of the skins that register any
 and hits seven of the nine beats; `commerce` is near the bottom of the same list and
@@ -694,8 +713,13 @@ mean per-user isolation, and no skin can demo that: the client's `properties`
 frequently do not reach `identifyUser` on a run, so the on-screen people collapse
 into one default bucket and a user/operator/planner/shopper switcher re-scopes
 nothing. That is why every skin with this beat seeds its DEFAULT bucket, and most
-seed it alongside the mapped person's (`grep -rn "DEMO_DEFAULT_USER_ID" src/app/api/*/v1/dev/reset/route.ts`
-is the check; banking is the one that seeds the default alone). Authorities: the
+seed it alongside the mapped person's (banking is the one that seeds the default
+alone). The check is each skin's own `dev/reset` route, and it has to allow for
+all three spellings of the seed set —
+`grep -n 'seedTargets\|SEED_TARGET_USER_IDS\|DEMO_DEFAULT_USER_ID' src/app/api/*/v1/dev/reset/route.ts`
+returns every route; the `DEMO_DEFAULT_USER_ID`-only form misses airline,
+commerce, keel and logistics, which go through
+`memorySeedTargetUserIds()`. Authorities: the
 CAVEAT block in `.env.example`, the flagged comments in
 `src/shell/agent-registry.ts`, and each skin's `intelligence/user-id.ts`.
 
@@ -757,7 +781,13 @@ wc -l`), and Vitest transpiles without type-checking at all. `tsconfig.json` DOE
   them. Treat the four gates as `pnpm lint` · `pnpm typecheck` ·
   `pnpm test:unit` · `pnpm build`, in that order (cheapest first).
 - `pnpm dev` — run the app (needs `OPENAI_API_KEY`; copy `.env` from
-  `.env.example`). Visit `/`, which redirects to the default skin.
+  `.env.example`). Visit `/`, which redirects to the default skin. It is NOT
+  enough for that default skin: seven of the eight run their agent in-process,
+  but `banking`'s is a Python deep agent in `agent/` reached over AG-UI as an
+  `HttpAgent` on :8124, so it needs a second process
+  (`cd agent && .venv/bin/python main.py`, after `uv sync`). Without it the app
+  boots and every page renders — only sending banking a message fails.
+  `./run-demo.sh` starts both (plus the Intelligence stack) and is re-runnable.
 - `pnpm build` — production build. It type-checks the app's own module graph, so
   it catches a broken page or tool; it is NOT the type-check gate for tests.
 - `pnpm start` — serve the production build.
@@ -794,7 +824,9 @@ Run tasks through Nx per the repo convention where applicable.
   guard in `src/shell/skin-roster-docs.test.ts` fails if the list above falls
   behind the registry, which is what makes writing it out safe here.)
   Open them for what each is the CLEANEST example of: `banking` the
-  reference and the richest gen-UI set, `people` and `commerce` beat-first authoring
+  reference implementation (`airline`, not `banking`, registers the most
+  `useComponent` renderers — 10 to banking's 9 on the census command in the
+  beat-coverage section above), `people` and `commerce` beat-first authoring
   with the beat map written out in `suggestions.ts`, `commerce` also a four-lever
   navigation, `logistics` layout chrome and the server-emitted a2ui canvas,
   `airline` runtime identity WITHOUT `RuntimeProviders` plus an entitlement-shaped

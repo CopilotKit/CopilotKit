@@ -72,9 +72,15 @@ import { test, expect } from "@playwright/test";
  *
  * (exact `renderMetricBlockParams` shape confirmed by reading `agent.ts`; the
  * `title`/metricId choice above is illustrative, not verified against a live
- * model.) `e2e/aimock-server.mjs` would also need to either merge this fixture
- * set into its default file or accept a second `AIMOCK_FIXTURES` path, since it
- * currently loads exactly one fixture file per server instance.
+ * model.) No launcher change is needed to serve it: `e2e/aimock-server.mjs`
+ * already reads `AIMOCK_FIXTURES` (an absolute path, or one relative to cwd) and
+ * `AIMOCK_PORT`, defaulting to `fixtures/memory-learning.fixtures.json` on 7099.
+ * One fixture file per server instance is the design, and the precedent for a
+ * second one already ships: `playwright.ogui.config.ts:22-28` starts its own
+ * aimock with `AIMOCK_FIXTURES=e2e/fixtures/ogui-routing.fixtures.json
+ * AIMOCK_PORT=7098`. Enabling this spec is therefore a config task — add an exec
+ * fixture file beside those two and a webServer entry (or project) that points
+ * an instance at it on a free port.
  *
  * ── WHY THE DASHBOARD ASSERTIONS MATCH A HEADING, NOT TEXT ───────────────────
  * A pinned card renders its title TWICE inside the app panel: once as the card

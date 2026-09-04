@@ -305,10 +305,11 @@ pnpm test:e2e:ogui       # open generative UI suite
 pnpm test:self-learning  # the memory CI gate
 ```
 
-There is no `typecheck` script, and **`pnpm build` is not a substitute for
-`pnpm typecheck`**: `next build` type-checks only what the app's module
-graph reaches, so it never visits the test files, and Vitest transpiles without
-type-checking at all. `tsconfig.json` includes them; only `tsc --noEmit` looks.
+**`pnpm build` and `pnpm test:unit` are not a substitute for `pnpm typecheck`**:
+`next build` type-checks only what the app's module graph reaches, so it never
+visits the test files, and Vitest transpiles without type-checking at all.
+`tsconfig.json` includes them; only `pnpm typecheck` (`tsc --noEmit`) looks at
+everything, which is why it is listed above as the only full check.
 
 ## Tech
 

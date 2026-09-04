@@ -807,7 +807,10 @@ depend on it.
 
 ## `catalog/index.tsx`
 
-Minimal (no a2ui report surface): pass empty definitions/renderers. For a real
+Minimal (no a2ui AT ALL): pass empty definitions/renderers. "No a2ui" means
+neither a `CanvasSurface` report nor the inline `block:` path — the inline path
+mounts `<A2UIProvider catalog={useSkin().catalog}>` and renders nothing against
+an empty catalog (see the `block:` note in the agent section above). For a real
 catalog with Zod definitions + React renderers, mirror
 `src/skins/airline/catalog/index.tsx`.
 
@@ -1312,11 +1315,28 @@ instead of falling back to the handoff pill; SKILL.md's "A `block:`-prefixed
 a2ui surface…" note has the full dispatch. The tool-side mechanism is
 otherwise identical to the canvas case above: still a SERVER `defineTool`
 returning `{ [A2UI_OPERATIONS_KEY]: buildOps(spec) }`. `src/skins/exec/blocks/build-block-ops.ts`
-is the worked example (`BLOCK_SURFACE_PREFIX = "block:"`) — the shell keeps
-its OWN copy of that exact string, because it must not import from
-`src/skins/`, so if you adopt this convention grep
-`src/shell/chat/inline-block-surface.tsx` for `BLOCK_SURFACE_PREFIX` and match
-it exactly; nothing checks the two spellings agree.
+is the worked example (`BLOCK_SURFACE_PREFIX = "block:"`).
+
+**This path is NOT catalog-free.** `InlineBlockSurface` mounts its own
+`<A2UIProvider catalog={useSkin().catalog}>`
+(`src/shell/chat/inline-block-surface.tsx:180,193`), so the empty
+definitions/renderers under "`catalog/index.tsx`" above are for a skin with NO
+a2ui at all — inline or canvas. If you mint `block:` ids you must ship a real
+catalog whose `catalogId` matches the one your `createSurface` op names; exec's
+(`src/skins/exec/catalog/index.ts`) is the worked example, and it registers zero
+`useComponent` renderers, so a catalog is not the same thing as transcript
+gen-UI.
+
+**Match the prefix in all THREE places.** The shell keeps its own copies of that
+exact string, because it must not import from `src/skins/` and its canvas must
+not depend on its chat renderer: `src/skins/exec/blocks/build-block-ops.ts:22`
+(the write side you copy), `src/shell/chat/inline-block-surface.tsx:21` (the
+chat's read side) and `src/shell/canvas/canvas-context.tsx:36` (the classifier
+that keeps a block off the canvas). The first two ARE checked against each
+other — the drift guard in
+`src/skins/exec/blocks/build-block-ops.test.ts:46-61` runs minted ops through
+the shell's own reader. The canvas copy is the one nothing checks, so grep for
+`BLOCK_SURFACE_PREFIX` and read all three before you settle on a spelling.
 
 **De-duplicate every array selection at the top of your op-builder.** zod arrays
 do not deduplicate, and the spec comes from the MODEL: `kpis:["valueAtRisk",
