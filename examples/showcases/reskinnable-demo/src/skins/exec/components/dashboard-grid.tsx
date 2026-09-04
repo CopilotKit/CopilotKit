@@ -7,6 +7,7 @@ import {
   A2UIRenderer,
   useA2UIActions,
   useA2UIError,
+  useA2UIState,
 } from "@copilotkit/a2ui-renderer";
 import { catalog } from "@/skins/exec/catalog";
 import { useExecLedger } from "@/skins/exec/data/ledger-context";
@@ -24,12 +25,12 @@ import type { DashboardId } from "@/skins/exec/data/types";
  * `../blocks/build-block-ops`'s doc comment). There is no separate "fetch this
  * block's ops" round trip — the ledger snapshot IS the data source.
  *
- * Mounts its OWN `<A2UIProvider catalog={catalog}>`, page-owned rather than
- * shared with the chat canvas surface: a dashboard's pinned blocks are a
- * different set of surfaces (`block:<blockId>`, one per pinned block) than
- * whatever the agent is drafting in-chat, and giving them their own provider
- * means a block can never collide with — or be clobbered by — the canvas's
- * surface state.
+ * Mounts NO `A2UIProvider` of its own: each `BlockCard` mounts its own, one
+ * per pinned block (see the note there). Page-level state is deliberately not
+ * shared with the chat canvas surface either — a dashboard's pinned blocks are
+ * a different set of surfaces (`block:<blockId>`, one per pinned block) than
+ * whatever the agent is drafting in-chat, so a block can never collide with,
+ * or be clobbered by, the canvas's surface state.
  *
  * Does NOT mount a `BlockDataProvider`. `ExecProviders` (`../providers.tsx`)
  * already mounts one — via its `BlockDataBridge`, adapting `useExecLedger()`
@@ -46,48 +47,52 @@ export function DashboardGrid({ dashboardId }: { dashboardId: DashboardId }) {
   const dashboard: ExecLedgerDashboard = snapshot.dashboards[dashboardId];
 
   return (
-    <A2UIProvider catalog={catalog}>
-      <SurfaceProcessingError />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {dashboard.blocks.length === 0 ? (
-          <EmptyState />
-        ) : (
-          dashboard.blocks.map((block, index) => (
-            <BlockCard
-              key={block.id}
-              dashboardId={dashboardId}
-              blockId={block.id}
-              title={block.spec.title}
-              ops={block.ops}
-              isFirst={index === 0}
-              isLast={index === dashboard.blocks.length - 1}
-              onRemove={removeBlock}
-              onMove={moveBlock}
-            />
-          ))
-        )}
-      </div>
-    </A2UIProvider>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {dashboard.blocks.length === 0 ? (
+        <EmptyState />
+      ) : (
+        dashboard.blocks.map((block, index) => (
+          <BlockCard
+            key={block.id}
+            dashboardId={dashboardId}
+            blockId={block.id}
+            title={block.spec.title}
+            ops={block.ops}
+            isFirst={index === 0}
+            isLast={index === dashboard.blocks.length - 1}
+            onRemove={removeBlock}
+            onMove={moveBlock}
+          />
+        ))
+      )}
+    </div>
   );
 }
 
 /**
- * LOUD failure line for a block whose ops the A2UI MessageProcessor rejected.
- * The provider swallows the throw and exposes it through `useA2UIError()`; left
- * unread, a rejected op list shows up as a silently empty card. Grid-level
- * rather than per-card because ONE `A2UIProvider` (and so one error slot) is
- * shared by every block in the grid — the error string names the offending
- * surface (`block:<blockId>`) itself.
+ * LOUD failure line for a block whose ops the A2UI MessageProcessor rejected,
+ * rendered above that block's surface. The provider swallows the throw and
+ * exposes it through `useA2UIError()`; left unread, a rejected op list shows
+ * up as a silently empty card.
+ *
+ * PER-CARD, because the provider is per-card. A grid-wide provider has ONE
+ * error slot, and the provider clears it on every successful `processMessages`
+ * — so any sibling block's success wiped the failing block's banner and the
+ * failed card sat silently blank.
+ *
+ * Names the block from the GRID's own context (`title`) rather than trusting
+ * the provider's message to do it: of the MessageProcessor's rejection
+ * messages only "Surface not found for message: <id>" and "Surface <id>
+ * already exists" name a surface — "Catalog not found", "Component '<c>' is
+ * missing an 'id'", "Cannot create component <id> without a type" and
+ * "Message contains multiple update types" do not.
  */
-function SurfaceProcessingError() {
+function SurfaceProcessingError({ title }: { title: string }) {
   const error = useA2UIError();
   if (error === null) return null;
   return (
-    <p
-      role="alert"
-      className="mb-4 rounded-xl border border-hairline bg-surface p-3 text-xs text-negative"
-    >
-      A block could not be rendered — {error}
+    <p role="alert" className="mb-3 text-xs text-negative">
+      {title}: this block could not be rendered — {error}
     </p>
   );
 }
@@ -119,7 +124,17 @@ interface BlockCardProps {
   ) => Promise<void>;
 }
 
-/** One pinned block's card chrome: remove/move controls wrapping its A2UI surface. */
+/**
+ * One pinned block's card chrome: remove/move controls wrapping its A2UI surface.
+ *
+ * Mounts its OWN `<A2UIProvider catalog={catalog}>`, one per block — the same
+ * call the shell's inline block card makes (`src/shell/chat/inline-block-surface.tsx`).
+ * A single grid-wide provider cannot report per-block outcomes: its error slot
+ * is shared (any block's success clears every block's error) and so is its
+ * `version` counter (a sibling's successful `processMessages` bumps it, which
+ * would read as THIS block's rejected op list having applied). One provider per
+ * block makes both signals belong to the block they describe.
+ */
 function BlockCard({
   dashboardId,
   blockId,
@@ -194,10 +209,11 @@ function BlockCard({
           </p>
         )}
         {surfaceId ? (
-          <>
+          <A2UIProvider catalog={catalog}>
             <SurfaceMessageProcessor operations={ops} surfaceId={surfaceId} />
+            <SurfaceProcessingError title={title} />
             <A2UIRenderer surfaceId={surfaceId} />
-          </>
+          </A2UIProvider>
         ) : (
           <p role="alert" className="text-sm text-negative">
             {title}: block has no A2UI surface to render.
@@ -218,10 +234,25 @@ function BlockCard({
  * the ops here come straight off `block.ops` rather than out of an agent
  * activity message.
  *
- * The hash latch is written only AFTER a successful `processMessages`: latching
- * first would make ANY failure permanent, because the next ledger read carries
- * the same op list and would be skipped as a duplicate forever, leaving the
- * card blank with no path back.
+ * HOW A REJECTED OP LIST IS DETECTED. `processMessages` never throws and
+ * returns nothing: the provider catches the processor's error, `console.warn`s
+ * it, records the message in its error state (which `useA2UIError()` exposes
+ * on the NEXT render — there is no synchronous read) and returns void. So the
+ * only success signal is the store's `version` counter, which it bumps ONLY
+ * after the op list applied. This effect therefore records the version it saw
+ * when it called, and latches the hash on a LATER run — the one the version
+ * bump itself schedules — and only if the version actually advanced. (This
+ * reading is per-block only because the provider is: see `BlockCard`.)
+ *
+ * Latching a REJECTED op list would make the failure permanent: the next
+ * ledger read carries the same list, which would be skipped as a duplicate
+ * forever, leaving the card blank with no path back. Leaving it unlatched
+ * means the next read REPLAYS the list, which is safe: `createSurface` is
+ * stripped once the surface exists (it is the one op the processor rejects on
+ * replay, "Surface … already exists"), and `updateComponents` is replace-style
+ * — it overwrites each component id's properties, or recreates the component
+ * when its type changed — so replaying it, including over the partial state a
+ * mid-list rejection leaves behind, converges on the same surface.
  */
 function SurfaceMessageProcessor({
   operations,
@@ -231,9 +262,22 @@ function SurfaceMessageProcessor({
   surfaceId: string;
 }) {
   const { processMessages, getSurface } = useA2UIActions();
+  const { version } = useA2UIState();
   const lastHashRef = useRef("");
+  const pendingRef = useRef<{ hash: string; version: number } | null>(null);
 
   useEffect(() => {
+    // Settle the previous call first: the version advanced ⇒ that op list
+    // applied ⇒ latch it. It did not ⇒ the processor rejected the list, so
+    // leave the hash unlatched and let a later ledger read try again. (The
+    // failure itself is on screen: `SurfaceProcessingError` renders this
+    // block's provider error state.)
+    const pending = pendingRef.current;
+    if (pending) {
+      pendingRef.current = null;
+      if (version > pending.version) lastHashRef.current = pending.hash;
+    }
+
     if (!operations.length) return;
     const hash = JSON.stringify(operations);
     if (hash === lastHashRef.current) return;
@@ -243,19 +287,10 @@ function SurfaceMessageProcessor({
       ? operations.filter((op) => !("createSurface" in op))
       : operations;
     if (!ops.length) return;
-    try {
-      processMessages(ops as Array<Record<string, unknown>>);
-    } catch (err) {
-      // Defense in depth: the provider's `processMessages` catches internally
-      // and reports through `useA2UIError()` (which `BlockCard` renders
-      // loudly), so this branch fires only if a future version lets one
-      // escape. Either way the latch stays unset, so the next snapshot retries
-      // instead of inheriting a dead surface.
-      console.warn("[exec-dashboard-grid] processMessages threw:", err);
-      return;
-    }
-    lastHashRef.current = hash;
-  }, [operations, processMessages, getSurface, surfaceId]);
+
+    pendingRef.current = { hash, version };
+    processMessages(ops as Array<Record<string, unknown>>);
+  }, [operations, processMessages, getSurface, surfaceId, version]);
 
   return null;
 }

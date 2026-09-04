@@ -17,9 +17,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import { createCatalog } from "@copilotkit/a2ui-renderer";
+import type * as A2UIRendererModule from "@copilotkit/a2ui-renderer";
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
 import { SkinProvider } from "@/shell/skin-provider";
@@ -27,6 +28,42 @@ import type { Skin } from "@/shell/skin-contract";
 import { InlineBlockSurface } from "./inline-block-surface";
 
 const CATALOG_ID = "https://cpk-a2ui.local/catalogs/shell-test/v1";
+
+/**
+ * Every `processMessages` call the card makes, in order. The provider's own
+ * `processMessages` swallows processor throws (it `console.warn`s, records the
+ * message in its error state and returns void), so a REJECTED op list is
+ * indistinguishable from an accepted one at the call site — counting calls is
+ * the only way to observe whether the card latched the op-list hash and
+ * stopped re-processing.
+ */
+const { processCalls } = vi.hoisted(() => ({
+  processCalls: [] as unknown[][],
+}));
+
+vi.mock("@copilotkit/a2ui-renderer", async (importOriginal) => {
+  const actual = await importOriginal<typeof A2UIRendererModule>();
+  const react = await import("react");
+  return {
+    ...actual,
+    // Wrap the store's `processMessages` in a recorder. Memoised on the
+    // (stable) actions object so the returned identity stays stable too —
+    // the card lists `processMessages` in an effect dependency array.
+    useA2UIActions: () => {
+      const actions = actual.useA2UIActions();
+      return react.useMemo(
+        () => ({
+          ...actions,
+          processMessages: ((messages) => {
+            processCalls.push(messages as unknown[]);
+            actions.processMessages(messages);
+          }) as typeof actions.processMessages,
+        }),
+        [actions],
+      );
+    },
+  };
+});
 
 /**
  * A throwaway two-component catalog, deliberately NOT the exec skin's — the
@@ -113,8 +150,8 @@ const skin = {
  * per-skin layout sets it) over SkinProvider. No A2UIProvider anywhere — that
  * is the point.
  */
-function mountInChain(content: unknown) {
-  return render(
+function chain(content: unknown) {
+  return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
@@ -124,11 +161,36 @@ function mountInChain(content: unknown) {
       <SkinProvider skin={skin}>
         <InlineBlockActivity content={content} />
       </SkinProvider>
-    </CopilotKitProvider>,
+    </CopilotKitProvider>
   );
 }
 
+function mountInChain(content: unknown) {
+  return render(chain(content));
+}
+
+/** Let every queued effect and state update flush before asserting. */
+async function settle() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+/** An op list the MessageProcessor rejects: `updateComponents` for a surface that was never created. */
+const rejectedContent = (surfaceId = "block:missing") => ({
+  a2ui_operations: [
+    {
+      version: "v0.9",
+      updateComponents: {
+        surfaceId,
+        components: [{ id: "root", component: "Root", children: [] }],
+      },
+    },
+  ],
+});
+
 beforeEach(() => {
+  processCalls.length = 0;
   // CopilotKitProvider probes `/api/copilotkit/info` on mount; jsdom has no
   // server. An empty agent registry is a valid runtime info payload, so the
   // provider connects cleanly instead of logging a connection failure.
@@ -160,23 +222,60 @@ describe("InlineBlockSurface in the real chat provider chain", () => {
     );
   });
 
-  it("renders a loud error state when the operations cannot be processed", async () => {
+  it("renders a loud error state naming the block when the operations cannot be processed", async () => {
     // `updateComponents` for a surface that was never created — the A2UI
     // MessageProcessor rejects it, and the card must SAY so rather than
     // render an empty box.
-    mountInChain({
-      a2ui_operations: [
-        {
-          version: "v0.9",
-          updateComponents: {
-            surfaceId: "block:missing",
-            components: [{ id: "root", component: "Root", children: [] }],
-          },
-        },
-      ],
-    });
+    mountInChain(rejectedContent());
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toMatch(/block/i);
+    // The card names the block from ITS OWN context (the surface id it
+    // resolved off the activity content), not from the provider's message —
+    // only 2 of the processor's 6 rejection messages mention the surface.
+    expect(alert.textContent).toMatch(/^block:missing:/);
+    expect(alert.textContent).toMatch(/could not be rendered/);
+  });
+
+  /**
+   * THE LATCH CONTRACT. `A2UIProvider.processMessages` never throws — it
+   * catches, `console.warn`s and records the message in its error state — so
+   * "did that op list apply?" can only be answered by the store's `version`
+   * counter, which advances ONLY on success.
+   *
+   * A card that latches the op-list hash on a REJECTED list is stuck: the
+   * next snapshot carrying that same list is skipped as a duplicate, and the
+   * card stays blank forever with no path back.
+   */
+  it("does not latch the ops hash when the op list is rejected, so the next snapshot retries", async () => {
+    const { rerender } = mountInChain(rejectedContent());
+    await screen.findByRole("alert");
+    await settle();
+
+    const callsAfterFirstSnapshot = processCalls.length;
+    expect(callsAfterFirstSnapshot).toBeGreaterThan(0);
+
+    // A fresh snapshot carrying the SAME op list (new array identity, as every
+    // activity-message re-emission produces). The rejected list must be
+    // re-processed, not skipped as an already-applied duplicate.
+    rerender(chain(rejectedContent()));
+    await settle();
+
+    expect(processCalls.length).toBeGreaterThan(callsAfterFirstSnapshot);
+    expect(screen.getByRole("alert").textContent).toMatch(/^block:missing:/);
+  });
+
+  it("does latch after a successful op list, so an unchanged snapshot is not re-processed", async () => {
+    const { rerender } = mountInChain(blockContent());
+    await waitFor(() =>
+      expect(screen.getByTestId("test-note").textContent).toBe("Q3 revenue"),
+    );
+    await settle();
+
+    const callsAfterFirstSnapshot = processCalls.length;
+    rerender(chain(blockContent()));
+    await settle();
+
+    expect(processCalls.length).toBe(callsAfterFirstSnapshot);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
