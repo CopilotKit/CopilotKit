@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env -S node --experimental-strip-types
 /**
  * verify-railway-image-refs.ts — Per-env drift assertion for Railway
  * showcase image refs.
@@ -26,7 +26,7 @@
  * before a bad deploy goes out.
  *
  * Usage:
- *   npx tsx showcase/scripts/verify-railway-image-refs.ts
+ *   node --experimental-strip-types showcase/scripts/verify-railway-image-refs.ts
  *
  * Requires: RAILWAY_TOKEN env var or ~/.railway/config.json
  * Exit: 0 when every env-scoped instance matches; 1 on any violation.
@@ -38,13 +38,16 @@ import {
   PROJECT_ID,
   SERVICES,
   repoNameFor,
-} from "./railway-envs";
-import type { EnvName } from "./railway-envs";
+} from "./railway-envs.ts";
+import type { EnvName } from "./railway-envs.ts";
 import {
   RAILWAY_GRAPHQL_ENDPOINT,
   sanitizeErrorBody,
-} from "./lib/railway-graphql";
-import { RailwayTokenError, resolveRailwayToken } from "./lib/railway-token";
+} from "./lib/railway-graphql.ts";
+import {
+  RailwayTokenError,
+  resolveRailwayToken,
+} from "./lib/railway-token.ts";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
