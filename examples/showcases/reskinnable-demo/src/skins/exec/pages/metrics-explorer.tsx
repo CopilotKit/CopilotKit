@@ -11,17 +11,18 @@ import {
   DEPARTMENT_VALUES,
   filterMetricRows,
   normalizeDepartmentLever,
+  normalizeMetricLever,
   normalizePeriodLever,
   parseTopLever,
 } from "./metric-rows";
 import type { MetricRow } from "./metric-rows";
-import type { Department, MetricUnit } from "../data/types";
+import type { Department, MetricId, MetricUnit } from "../data/types";
 
 /**
  * BEAT 3c — the exec skin's lever surface, Metrics Explorer.
  *
- * Four levers — `period`, `department`, `threshold` (breaches-only) and
- * `top` — are read straight off the QUERY STRING via `useSearchParams`,
+ * Five levers — `period`, `department`, `metric`, `threshold` (breaches-only)
+ * and `top` — are read straight off the QUERY STRING via `useSearchParams`,
  * exactly the way commerce's `orders.tsx` reads its own four (see that
  * file's header, ~line 40): this page holds NO lever state of its own, so a
  * typed link, a chip and the agent's own navigation are all the SAME
@@ -29,7 +30,7 @@ import type { Department, MetricUnit } from "../data/types";
  *
  * `filterMetricRows` (`./metric-rows`) is the one place the lever semantics
  * live. This page passes the query string straight to it rather than
- * re-implementing any of the four narrowing rules here — which is what keeps
+ * re-implementing any of the five narrowing rules here — which is what keeps
  * these rows in permanent agreement with that module's own tests
  * (`./metrics-explorer.test.tsx`).
  *
@@ -101,7 +102,15 @@ const usdCompact = new Intl.NumberFormat("en-US", {
  * silently absent from a table whose entire job is to show them, with no
  * error anywhere. The raw number goes on screen instead (wrong-looking, but
  * present and checkable) and the gap is shouted at the console.
+ *
+ * ONCE PER UNIT, THOUGH. This is called from inside the table's row map, twice
+ * a row, on every render — so a single unwired unit produced two lines per row
+ * per paint, and the seed's unlevered table is 528 rows. A thousand identical
+ * errors per paint is not a louder failure than one; it is a quieter one, since
+ * it buries every other message the demo is writing to the same console.
  */
+const reportedUnknownUnits = new Set<string>();
+
 export function formatMetricValue(
   unit: MetricUnit | undefined,
   value: number,
@@ -117,14 +126,19 @@ export function formatMetricValue(
       return `${value.toFixed(1)} d`;
     case "score":
       return value.toFixed(1);
-    default:
-      console.error(
-        `[exec/metrics] no formatting for metric unit ${JSON.stringify(unit)} — ` +
-          "rendering the raw value. Add an arm to `formatMetricValue` " +
-          "(`pages/metrics-explorer.tsx`) and to `catalog/renderers.tsx`'s " +
-          "`formatValue`, which must agree.",
-      );
+    default: {
+      const key = String(unit);
+      if (!reportedUnknownUnits.has(key)) {
+        reportedUnknownUnits.add(key);
+        console.error(
+          `[exec/metrics] no formatting for metric unit ${JSON.stringify(unit)} — ` +
+            "rendering the raw value. Add an arm to `formatMetricValue` " +
+            "(`pages/metrics-explorer.tsx`) and to `catalog/renderers.tsx`'s " +
+            "`formatValue`, which must agree.",
+        );
+      }
       return String(value);
+    }
   }
 }
 
@@ -198,6 +212,78 @@ export function explorerReadableRows(
 }
 
 /**
+ * How many rows the readable publishes, at most.
+ *
+ * Commerce's `orders.tsx` publishes its `visible` rows UNBOUNDED, and states
+ * the rule that a cap here would have to be a cap the panel applies too — but
+ * its whole book is ~28 orders, so the question never arises. This table is a
+ * different shape: the seed carries 528 points (24 monthly points for each of
+ * 14 metrics, plus 24 × 4 department-level points for two of them — see
+ * `../data/seed.ts`), and with NO lever set every one of them is on screen.
+ * Publishing all 528 as JSON is ~100KB — 25–30k tokens — re-sent on EVERY
+ * turn, for a page whose actual content is the lever state and the top of the
+ * table.
+ *
+ * So the readable is bounded, and it is bounded HONESTLY, which is the part
+ * `orders.tsx`'s rule is really about: `showingCount` still reports what is on
+ * screen, `matchingCount` still reports the denominator the caption prints,
+ * and `rowsTruncated` says in as many words that `rows` is a prefix. A cap
+ * that reported 25 as the whole view would be the same lie as a filtered count
+ * presented for an unfiltered one — the agent's move here is to narrow a lever
+ * and look again, and it can only know to do that if it is told.
+ */
+export const READABLE_ROW_LIMIT = 25;
+
+/** The five lever values, exactly as the readable states them. */
+export interface ExplorerFilters {
+  period: string | null;
+  department: Department | "all" | null;
+  metric: MetricId | null;
+  breachesOnly: boolean;
+  top: number | null;
+}
+
+/** Exactly what `useAgentContext` is handed below, before `JSON.stringify`. */
+export interface ExplorerReadable {
+  page: "metrics";
+  filters: ExplorerFilters;
+  activeLevers: string[];
+  matchingCount: number;
+  showingCount: number;
+  rowsTruncated: boolean;
+  rows: ExplorerReadableRow[];
+}
+
+/**
+ * The readable's whole value, built as a pure function of the two row lists
+ * the page already derived — so the counts it publishes can never be a second
+ * derivation of the ones the caption prints, and the cap above is testable
+ * without mounting the page.
+ */
+export function explorerReadableValue(
+  filters: ExplorerFilters,
+  matching: readonly MetricRow[],
+  rows: readonly MetricRow[],
+): ExplorerReadable {
+  const published = rows.slice(0, READABLE_ROW_LIMIT);
+  return {
+    page: "metrics",
+    filters,
+    activeLevers: [
+      filters.period !== null ? "period" : null,
+      filters.department !== null ? "department" : null,
+      filters.metric !== null ? "metric" : null,
+      filters.breachesOnly ? "threshold" : null,
+      filters.top !== null ? "top" : null,
+    ].filter((lever): lever is string => lever !== null),
+    matchingCount: matching.length,
+    showingCount: rows.length,
+    rowsTruncated: published.length < rows.length,
+    rows: explorerReadableRows(published),
+  };
+}
+
+/**
  * A control the AGENT set lights up — tint is per-CONTROL, not per-row (see
  * this page's own header, and `orders.tsx`'s `activeSelectClass`).
  */
@@ -223,14 +309,19 @@ function activeControlClass(active: boolean): string {
 interface LeverState {
   period: string | null;
   department: Department | "all" | null;
+  metric: MetricId | null;
   threshold: boolean;
   top: number | null;
 }
 
-/** What a single control push can override — a raw, unvalidated `department`. */
+/**
+ * What a single control push can override — a raw, unvalidated `department`
+ * or `metric`.
+ */
 interface LeverOverrides {
   period?: string | null;
   department?: string | null;
+  metric?: string | null;
   threshold?: boolean;
   top?: number | null;
 }
@@ -241,12 +332,12 @@ interface LeverOverrides {
  * (`./metrics-explorer.test.tsx`):
  *
  *  - UNRELATED params survive. `base` is a CLONE of the full current query
- *    string, and only the four known lever keys are ever set or deleted on
+ *    string, and only the five known lever keys are ever set or deleted on
  *    it — the same discipline `orders.tsx`'s `setLever` applies to its own
- *    writeback (~line 360). This used to rebuild the query from just the four
+ *    writeback (~line 360). This used to rebuild the query from just the
  *    levers via `execNavTarget`, which is right for a FRESH navigation (a
  *    chip, an exception-feed link) that owns its whole target, but wrong for
- *    a lever push: any param this page's four levers don't own — added by
+ *    a lever push: any param this page's own levers don't own — added by
  *    another surface, or by a link carrying its own tracking params — was
  *    silently dropped on the very next click.
  *  - `department` is restated at its VALIDATED value (`current.department`,
@@ -276,6 +367,14 @@ export function nextLeverSearchParams(
   if (nextDepartment) next.set("department", nextDepartment);
   else next.delete("department");
 
+  // Same discipline as `department`: restated at its VALIDATED value, never
+  // the raw query string, so a `?metric=bogus` this page was reached with
+  // cannot survive every other control's click forever.
+  const nextMetric =
+    "metric" in overrides ? (overrides.metric ?? null) : current.metric;
+  if (nextMetric) next.set("metric", nextMetric);
+  else next.delete("metric");
+
   const nextThreshold =
     "threshold" in overrides ? Boolean(overrides.threshold) : current.threshold;
   if (nextThreshold) next.set("threshold", "1");
@@ -294,7 +393,7 @@ export function MetricsExplorerPage() {
   const skinHref = useSkinHref("exec");
   const params = useSearchParams();
 
-  // ── The four levers, read straight off the query string ──────────────────
+  // ── The five levers, read straight off the query string ──────────────────
   // `period` is normalized through `normalizePeriodLever` — a blank or
   // whitespace-only `?period=` is treated as absent rather than as a real
   // (all-excluding) filter, matching how `department`/`top` already treat an
@@ -310,6 +409,19 @@ export function MetricsExplorerPage() {
   // rather than by two membership tests written the same way twice.
   const department: Department | "all" | null =
     normalizeDepartmentLever(departmentParam);
+
+  const unitById = useMemo(
+    () => new Map(snapshot.metricDefs.map((def) => [def.id, def.unit])),
+    [snapshot.metricDefs],
+  );
+
+  // Validated against THIS snapshot's defs, through the same
+  // `normalizeMetricLever` `filterMetricRows` narrows with — `unitById`'s keys
+  // are exactly those ids, so the two cannot disagree.
+  const metric: MetricId | null = useMemo(
+    () => normalizeMetricLever(params?.get("metric"), new Set(unitById.keys())),
+    [params, unitById],
+  );
 
   // A fresh, real `URLSearchParams` reconstructed from the query string via
   // `.toString()` — the same pattern `orders.tsx`'s own `setLever` uses
@@ -353,15 +465,10 @@ export function MetricsExplorerPage() {
     return TOP_OPTIONS;
   }, [top]);
 
-  const unitById = useMemo(
-    () => new Map(snapshot.metricDefs.map((def) => [def.id, def.unit])),
-    [snapshot.metricDefs],
-  );
-
   /**
    * ONE pipeline, TWO published lengths — the same split `orders.tsx`
    * documents for its own `matching`/`visible` (~line 370). `matching` is
-   * every row the period/department/threshold levers admit, BEFORE the
+   * every row the period/department/metric/threshold levers admit, BEFORE the
    * top-N limit; `rows` is what's actually on screen, after it. Both go
    * through the SAME `filterMetricRows`, so this page can never show a count
    * that pure function itself would disagree with: `matching` calls it again
@@ -382,52 +489,60 @@ export function MetricsExplorerPage() {
   /**
    * Every control writes back through here, via the pure `nextLeverSearchParams`
    * above. The current value of every lever it did NOT itself change comes
-   * from the (validated/parsed) values read above — `department` restates
-   * its VALIDATED form, never the raw query string — so a single push always
-   * restates the full set of four, and no control can clobber the other
-   * three, an unrelated param, or an unrecognised department that snuck in.
+   * from the (validated/parsed) values read above — `department` and `metric`
+   * restate their VALIDATED form, never the raw query string — so a single
+   * push always restates the full set of five, and no control can clobber the
+   * other four, an unrelated param, or an unrecognised value that snuck in.
    * `null` clears a lever; an absent key leaves it exactly as it was.
    */
   const pushLevers = (overrides: LeverOverrides) => {
     const next = nextLeverSearchParams(
       searchParams,
-      { period: periodParam, department, threshold, top },
+      { period: periodParam, department, metric, threshold, top },
       overrides,
     );
     const query = next.toString();
-    router.push(skinHref(`metrics${query ? `?${query}` : ""}`));
+    // REPLACE, not push. Every control here rewrites the query string of the
+    // page already on screen — it is the same page, differently narrowed, not
+    // a place the reader navigated to. Pushing gave each click its own history
+    // entry, so a presenter who set three levers needed three Backs to leave
+    // the explorer, and the agent's own `navigateTo` sequences buried whatever
+    // page came before under a stack of near-identical URLs. `orders.tsx`'s
+    // own lever writeback is the same shape.
+    router.replace(skinHref(`metrics${query ? `?${query}` : ""}`));
   };
 
   // ── BEAT 3b — which levers the agent set, and what's actually on screen ──
   useAgentContext({
     description:
       "The Metrics Explorer the user is currently viewing. `filters` are " +
-      "the active period, department, breaches-only toggle and top-N " +
-      "limit, read straight off the query string; `activeLevers` names " +
-      "which of those four are actually set right now. `matchingCount` is " +
-      "how many rows the period/department/threshold filters admit BEFORE " +
-      "the top-N limit, and `showingCount` is how many `rows` remain AFTER " +
-      "it — the rows actually on screen, in the order shown. Each row's " +
-      "`varianceDisplay` is the string that cell shows; quote that rather " +
-      "than the raw `variancePct` fraction beside it.",
-    value: JSON.stringify({
-      page: "metrics",
-      filters: {
-        period: periodParam,
-        department,
-        breachesOnly: threshold,
-        top,
-      },
-      activeLevers: [
-        periodParam !== null ? "period" : null,
-        department !== null ? "department" : null,
-        threshold ? "threshold" : null,
-        top !== null ? "top" : null,
-      ].filter((lever): lever is string => lever !== null),
-      matchingCount: matching.length,
-      showingCount: rows.length,
-      rows: explorerReadableRows(rows),
-    }),
+      "the active period, department, metric, breaches-only toggle and " +
+      "top-N limit, read straight off the query string; `activeLevers` names " +
+      "which of those five are actually set right now. `matchingCount` is " +
+      "how many rows the period/department/metric/threshold filters admit " +
+      "BEFORE the top-N limit, and `showingCount` is how many rows remain " +
+      "AFTER it — the rows actually on screen. `rows` lists those rows in the " +
+      "order shown, but only the first " +
+      `${READABLE_ROW_LIMIT}` +
+      " of them: when `rowsTruncated` is true there are `showingCount` rows " +
+      "on screen and you have been given a prefix, so narrow a lever (period, " +
+      "department, metric, breaches-only or top-N) and read it again rather " +
+      "than reporting `rows` as the whole view. Each row's `varianceDisplay` " +
+      "is the string that cell shows; quote that rather than the raw " +
+      "`variancePct` fraction beside it.",
+    value: JSON.stringify(
+      explorerReadableValue(
+        {
+          period: periodParam,
+          department,
+          metric,
+          breachesOnly: threshold,
+          top,
+        },
+        matching,
+        rows,
+      ),
+    ),
   });
 
   return (
@@ -490,8 +605,39 @@ export function MetricsExplorerPage() {
           </select>
         </label>
 
+        {/* The metric lever's own control. The CEO dashboard's exception cards
+            drill in with `?metric=…` (`./ceo-dashboard.tsx`), and a lever that
+            narrows the table with nothing on screen to show for it is a
+            filtered view the reader cannot account for — the same reason the
+            department select renders `DEPARTMENT_VALUES` itself. The options
+            are this snapshot's own defs, which is exactly the set
+            `normalizeMetricLever` validates against. */}
+        <label className="flex items-center gap-1.5">
+          <span className="text-[0.7rem] font-medium text-ink-muted">
+            Metric
+          </span>
+          <select
+            aria-label="Metric"
+            value={metric ?? ""}
+            onChange={(event) =>
+              pushLevers({ metric: event.target.value || null })
+            }
+            className={activeControlClass(metric !== null)}
+          >
+            <option value="">All metrics</option>
+            {snapshot.metricDefs.map((def) => (
+              <option key={def.id} value={def.id}>
+                {def.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <button
           type="button"
+          // The toggle's state, in the accessibility tree. The tint says it to
+          // a sighted reader; `aria-pressed` says it to everyone else.
+          aria-pressed={threshold}
           onClick={() => pushLevers({ threshold: !threshold })}
           className={activeControlClass(threshold)}
         >
@@ -509,18 +655,17 @@ export function MetricsExplorerPage() {
             }
             className={activeControlClass(top !== null)}
           >
+            {/* An off-vocabulary value is labelled exactly like the fixed
+                ones. It used to read "7 (from chat)", which claims a
+                provenance nothing here can know: `?top=7` typed into the
+                address bar, arriving on a shared link, or set by the agent
+                are the same query string. */}
             {topOptions.map((candidate) => (
               <option
                 key={String(candidate)}
                 value={candidate === null ? "" : String(candidate)}
               >
-                {candidate === null
-                  ? "All"
-                  : (TOP_OPTIONS as readonly (number | null)[]).includes(
-                        candidate,
-                      )
-                    ? `Top ${candidate}`
-                    : `${candidate} (from chat)`}
+                {candidate === null ? "All" : `Top ${candidate}`}
               </option>
             ))}
           </select>

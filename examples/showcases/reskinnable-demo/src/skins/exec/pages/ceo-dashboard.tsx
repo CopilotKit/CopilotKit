@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { cn } from "@/lib/utils";
@@ -7,6 +8,7 @@ import { useSkinHref } from "@/shell/skin-path";
 import { useExecLedger } from "../data/ledger-context";
 import { DashboardGrid } from "../components/dashboard-grid";
 import { execNavTarget } from "../nav-target";
+import { reportMissingMetricDef } from "./metric-rows";
 import type {
   Department,
   Initiative,
@@ -91,7 +93,11 @@ export interface VisibleException {
  *
  * An exception whose metric has no def is dropped — the same rule the
  * `ExceptionList` renderer applies — because without a def there is no label
- * to print and no threshold it can be said to have breached.
+ * to print and no threshold it can be said to have breached. The drop is
+ * ANNOUNCED, through the same one-shot reporter `filterMetricRows` uses
+ * (`./metric-rows`): this is the screen whose whole job is to show every
+ * breach, so a breach silently leaving it is the last thing that should
+ * happen quietly.
  */
 export function visibleExceptions(
   snapshot: Pick<LedgerSnapshot, "exceptions" | "metricDefs">,
@@ -99,7 +105,10 @@ export function visibleExceptions(
   return snapshot.exceptions
     .map((exception) => {
       const def = findMetricDef(snapshot.metricDefs, exception.metricId);
-      if (!def) return null;
+      if (!def) {
+        reportMissingMetricDef(exception.metricId, "visibleExceptions");
+        return null;
+      }
       return {
         metricId: exception.metricId,
         label: def.label,
@@ -110,6 +119,76 @@ export function visibleExceptions(
       };
     })
     .filter((row): row is VisibleException => row !== null);
+}
+
+/** One exception row as the page readable publishes it. */
+export interface CeoReadableException {
+  metric: string;
+  department: string;
+  period: string;
+  /** `null` when the figure cannot be ranked — see `varianceDisplay`. */
+  variancePct: number | null;
+  varianceDisplay: string;
+  explained: boolean;
+}
+
+/**
+ * The exception rows the readable publishes — the same list the strip renders,
+ * restated with the strings the strip actually shows.
+ *
+ * TWO THINGS THE RAW FIELD ALONE GOT WRONG, both the "readable must say what
+ * the screen says" rule the sibling Metrics Explorer readable already follows
+ * (`explorerReadableRows`, `./metrics-explorer.tsx`, and keel's
+ * `deriveRegisterKpiTiles` before it):
+ *
+ *  · The card renders `formatVariance(variancePct)` — "+12.0%" — while the
+ *    readable carried the bare `0.12`, so an assistant asked to read the
+ *    exception feed out loud said "zero point one two".
+ *  · A metric planned at zero divides by zero (`variancePct`, `../data/derive`),
+ *    giving `Infinity` or `NaN`. JSON holds neither: `JSON.stringify` turns
+ *    both into `null`, so the readable said "unknown" about a card plainly
+ *    reading "— n/a". The raw field is now nulled DELIBERATELY for exactly
+ *    those two values, and `varianceDisplay` carries the answer the screen
+ *    gives.
+ */
+export function ceoReadableExceptions(
+  exceptions: readonly VisibleException[],
+): CeoReadableException[] {
+  return exceptions.map((exception) => ({
+    metric: exception.label,
+    department: DEPARTMENT_LABEL[exception.department],
+    period: exception.period,
+    variancePct: Number.isFinite(exception.variancePct)
+      ? exception.variancePct
+      : null,
+    varianceDisplay: formatVariance(exception.variancePct),
+    explained: exception.explained,
+  }));
+}
+
+/**
+ * The card's drill-in target: the Metrics Explorer, narrowed to the row the
+ * reader actually pointed at.
+ *
+ * The card names a METRIC and a department ("Opex · Distribution"), but the
+ * link carried only the department, period and breaches-only toggle — so the
+ * click landed on every metric that department has and the one row it was
+ * about was somewhere in the list. `execNavTarget` (`../nav-target`) is the
+ * AGENT's navigation vocabulary and carries no `metric` argument, so the key
+ * is appended to its output here rather than the four shared levers being
+ * re-composed alongside it: those four still have exactly one composer.
+ */
+function exceptionDrillIn(exception: VisibleException): string {
+  const target = execNavTarget({
+    segment: "metrics",
+    department: exception.department,
+    period: exception.period,
+    threshold: true,
+  });
+  const [path, existing = ""] = target.split("?");
+  const params = new URLSearchParams(existing);
+  params.set("metric", exception.metricId);
+  return `${path}?${params.toString()}`;
 }
 
 export function ExceptionFeedStrip({
@@ -132,14 +211,7 @@ export function ExceptionFeedStrip({
       {exceptions.map((exception) => (
         <Link
           key={`${exception.metricId}-${exception.department}`}
-          href={skinHref(
-            execNavTarget({
-              segment: "metrics",
-              department: exception.department,
-              period: exception.period,
-              threshold: true,
-            }),
-          )}
+          href={skinHref(exceptionDrillIn(exception))}
           className="flex min-w-[13rem] flex-none flex-col gap-1 rounded-xl border border-hairline bg-surface px-3 py-2 shadow-soft transition-shadow hover:shadow-lift"
         >
           <span className="truncate text-[0.65rem] font-medium uppercase tracking-[0.1em] text-ink-muted">
@@ -229,7 +301,12 @@ export function CeoDashboardPage() {
 
   // One list, built once: the strip below RENDERS it and the readable REPORTS
   // it, so the agent can never describe a feed the screen isn't showing.
-  const exceptions = visibleExceptions(snapshot);
+  //
+  // MEMOIZED on the snapshot, because `visibleExceptions` is a linear
+  // `findMetricDef` scan of `metricDefs` PER exception — quadratic in the
+  // ledger's size — and it re-ran on every render of a page that also holds
+  // the dashboard grid. It only ever changes when the snapshot does.
+  const exceptions = useMemo(() => visibleExceptions(snapshot), [snapshot]);
 
   // ── WHAT IS VISIBLY ON SCREEN ─────────────────────────────────────────────
   // Not the whole ledger — the pinned block titles in the order the grid
@@ -242,17 +319,15 @@ export function CeoDashboardPage() {
       "The CEO dashboard the user is currently viewing: the pinned block " +
       "titles in the order shown, the exception feed rows (metric, " +
       "department and variance) actually on screen, and every tracked " +
-      "initiative's status, in the order shown.",
+      "initiative's status, in the order shown. Each exception's " +
+      "`varianceDisplay` is the string that card shows — quote that rather " +
+      "than the raw `variancePct` fraction beside it, which is `null` " +
+      "whenever the figure cannot be ranked (a metric planned at zero) and " +
+      'the card reads "— n/a".',
     value: JSON.stringify({
       page: "ceo-dashboard",
       pinnedBlocks: dashboard.blocks.map((block) => block.spec.title),
-      exceptions: exceptions.map((exception) => ({
-        metric: exception.label,
-        department: DEPARTMENT_LABEL[exception.department],
-        period: exception.period,
-        variancePct: exception.variancePct,
-        explained: exception.explained,
-      })),
+      exceptions: ceoReadableExceptions(exceptions),
       initiatives: snapshot.initiatives.map((initiative) => ({
         name: initiative.name,
         owner: initiative.owner,

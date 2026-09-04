@@ -122,14 +122,83 @@ export function normalizePeriodLever(
  * The `department` lever, validated against the field's own vocabulary. An
  * unrecognised value — including the `"any"` sentinel, which is a statement
  * ABOUT the lever rather than a value of it — is the same as absent.
+ *
+ * TRIMMED FIRST, for the reason `normalizePeriodLever` above spells out at
+ * length: a trim that does not reach the membership test is the same defect
+ * that function's own header calls a past one. `?department=%20distribution`
+ * — a hand-typed URL, a copied link, an agent that padded its argument —
+ * failed the test verbatim and resolved to `null`, so the table narrowed
+ * NOTHING while the address bar plainly named a department and the control sat
+ * untinted beside it. "Unusable narrows nothing" is the right rule for a
+ * department that does not exist; a padded one exists.
  */
 export function normalizeDepartmentLever(
   raw: string | null | undefined,
 ): Department | "all" | null {
   if (raw === null || raw === undefined) return null;
-  return (DEPARTMENT_VALUES as readonly string[]).includes(raw)
-    ? (raw as Department | "all")
+  const department = raw.trim();
+  return (DEPARTMENT_VALUES as readonly string[]).includes(department)
+    ? (department as Department | "all")
     : null;
+}
+
+/**
+ * The `metric` lever — the one the CEO dashboard's exception cards drill in
+ * with (`./ceo-dashboard.tsx`). Each card names a metric AND a department
+ * ("Opex · Distribution"); the drill-in used to carry only the department, so
+ * the click landed on every metric that department has and the row the reader
+ * actually pointed at was somewhere in the list.
+ *
+ * `known` is the set of metric ids the SNAPSHOT can render (its defs' ids), so
+ * this cannot admit a metric the table has no def for — which is the same
+ * all-excluding filter every other lever here refuses to become. Trimmed, and
+ * `"any"` means "no lever", exactly as `period` and `department` treat them.
+ */
+export function normalizeMetricLever(
+  raw: string | null | undefined,
+  known: ReadonlySet<string>,
+): MetricId | null {
+  if (raw === null || raw === undefined) return null;
+  const metric = raw.trim();
+  if (metric === "") return null;
+  if (metric.toLowerCase() === ANY_SENTINEL) return null;
+  return known.has(metric) ? (metric as MetricId) : null;
+}
+
+/**
+ * Metric ids already reported as def-less, so the diagnostic below is stated
+ * ONCE per id per context rather than once per point.
+ *
+ * Module-level, and it lives for the process: the seed carries 24 monthly
+ * points per metric (`../data/seed.ts`), so a single deleted def would
+ * otherwise shout 24 times per pass, on every render, for as long as the demo
+ * runs — which buries the message under itself.
+ */
+const reportedMissingDefs = new Set<string>();
+
+/**
+ * FAIL LOUD ON A DEF-LESS METRIC. Dropping the row is right — without a def
+ * there is no label to print and no threshold it can be said to have breached
+ * — but dropping it in SILENCE takes rows off a screen with no trace anywhere,
+ * and the count that remains is one nothing on the ledger explains.
+ *
+ * Exported because the CEO dashboard's exception feed applies the identical
+ * rule to the identical data (`./ceo-dashboard.tsx`'s `visibleExceptions`) and
+ * two hand-written diagnostics would drift.
+ */
+export function reportMissingMetricDef(
+  metricId: string,
+  context: string,
+): void {
+  const key = `${context}/${metricId}`;
+  if (reportedMissingDefs.has(key)) return;
+  reportedMissingDefs.add(key);
+  console.error(
+    `[exec/metrics] ${context}: dropped every row for metric ${JSON.stringify(metricId)} — ` +
+      "the ledger carries points for it but `snapshot.metricDefs` has no def, " +
+      "so there is no label to show and no threshold to breach against. Add " +
+      "the def to `../data/seed.ts` or stop emitting the points.",
+  );
 }
 
 /**
@@ -172,6 +241,9 @@ function byVarianceMagnitudeDesc(a: MetricRow, b: MetricRow): number {
  *    against the field's own vocabulary (the four departments plus `"all"`
  *    for company-wide rows) by `normalizeDepartmentLever`. An unrecognised
  *    value is the same as absent.
+ *  - `metric` — exact match against `MetricPoint.metricId`, validated against
+ *    THIS snapshot's own defs by `normalizeMetricLever`. A metric the snapshot
+ *    has no def for is the same as absent.
  *  - `threshold` — breaches-only when the raw value is exactly `"1"`.
  *    Anything else (absent, `"0"`, `"true"`, …) narrows nothing.
  *  - `top` — top-N by `|variancePct|`, through `parseTopLever` above. Only
@@ -188,17 +260,26 @@ export function filterMetricRows(
   const defsById = new Map(snapshot.metricDefs.map((def) => [def.id, def]));
   const period = normalizePeriodLever(searchParams.get("period"));
   const department = normalizeDepartmentLever(searchParams.get("department"));
+  const metric = normalizeMetricLever(
+    searchParams.get("metric"),
+    new Set(defsById.keys()),
+  );
   const breachesOnly = searchParams.get("threshold") === "1";
   const top = parseTopLever(searchParams.get("top"));
 
   const rows: MetricRow[] = [];
   for (const point of snapshot.points) {
     // A point whose metric has no def is unrenderable (no label, no
-    // threshold to breach against) rather than a row this table can show.
+    // threshold to breach against) rather than a row this table can show —
+    // and the drop is ANNOUNCED, once per id, rather than made in silence.
     const def = defsById.get(point.metricId);
-    if (!def) continue;
+    if (!def) {
+      reportMissingMetricDef(point.metricId, "filterMetricRows");
+      continue;
+    }
     if (period !== null && point.period !== period) continue;
     if (department !== null && point.department !== department) continue;
+    if (metric !== null && point.metricId !== metric) continue;
 
     const breaching = isBreach(def, point);
     if (breachesOnly && !breaching) continue;

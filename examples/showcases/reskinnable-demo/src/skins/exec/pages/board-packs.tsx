@@ -9,6 +9,7 @@ import type {
   BoardPack,
   DashboardId,
   MetricId,
+  Narrative,
   NarrativeCode,
 } from "../data/types";
 
@@ -68,6 +69,38 @@ function formatDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
+/**
+ * ONE dashboard title, for the card heading AND the readable.
+ *
+ * These were two expressions with two different fallbacks — `?? id` in the
+ * readable and `|| \`${id.toUpperCase()} dashboard\`` on the card — which
+ * disagree on the case that actually occurs. A dashboard whose `title` is the
+ * EMPTY STRING is falsy but not nullish, so the card read "CEO dashboard"
+ * while the readable told the agent the page was titled "ceo": the readable's
+ * whole contract is to say what the screen says, and here it could not even
+ * agree with the heading beside it. One function, so there is nothing left to
+ * diverge.
+ */
+function dashboardTitle(
+  dashboards: Partial<Record<DashboardId, { title?: string }>>,
+  id: DashboardId,
+): string {
+  return dashboards[id]?.title?.trim() || `${id.toUpperCase()} dashboard`;
+}
+
+/**
+ * Newest first — TOTAL and CONSISTENT, which `(a, b) => (a.x < b.x ? 1 : -1)`
+ * is not: fed two equal timestamps it answers -1 both ways round, telling the
+ * engine that a sorts before b AND that b sorts before a. That is not an
+ * ordering, and `Array.prototype.sort`'s stability guarantee — which is what
+ * keeps two packs published in the same second in insertion order — only holds
+ * for a comparator that returns 0 on a tie. Timestamps here are ISO-8601, so
+ * `localeCompare` is exact and lexicographic order is chronological order.
+ */
+function newestFirst(a: string, b: string): number {
+  return b.localeCompare(a);
+}
+
 export function BoardPacksPage() {
   const { snapshot } = useExecLedger();
   const { metricDefs, narratives, packs, dashboards } = snapshot;
@@ -84,13 +117,13 @@ export function BoardPacksPage() {
       grouped.get(pack.dashboardId)?.push(pack);
     }
     for (const list of grouped.values()) {
-      list.sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
+      list.sort((a, b) => newestFirst(a.publishedAt, b.publishedAt));
     }
     return grouped;
   }, [packs]);
 
   const filedNarratives = useMemo(
-    () => [...narratives].sort((a, b) => (a.filedAt < b.filedAt ? 1 : -1)),
+    () => [...narratives].sort((a, b) => newestFirst(a.filedAt, b.filedAt)),
     [narratives],
   );
 
@@ -104,14 +137,21 @@ export function BoardPacksPage() {
       "dashboard's published packs, newest first. `narrativesFiled` lists " +
       "every variance narrative filed so far, by metric and period, newest " +
       "first — it deliberately omits the narrative's code, which is withheld " +
-      "from you on every channel.",
+      "from you on every channel. Every timestamp comes in two forms: the raw " +
+      "ISO instant, for ordering and arithmetic, and a `…Display` string that " +
+      "is exactly what the row on screen reads — quote the display string.",
     value: JSON.stringify({
-      page: "Board Packs",
+      page: "packs",
       dashboards: DASHBOARD_IDS.map((id) => ({
         dashboardId: id,
-        title: dashboards[id]?.title ?? id,
+        title: dashboardTitle(dashboards, id),
         publishedPacks: (packsByDashboard.get(id) ?? []).map((pack) => ({
           publishedAt: pack.publishedAt,
+          // The screen renders `formatDate(publishedAt)` — a LOCAL-time
+          // `toLocaleString`. An agent quoting the ISO instant back read a
+          // different clock (and a different day, either side of midnight)
+          // than the row the operator was looking at.
+          publishedAtDisplay: formatDate(pack.publishedAt),
           blockCount: pack.blockIds.length,
           narrativeCount: pack.narrativeIds.length,
         })),
@@ -121,6 +161,7 @@ export function BoardPacksPage() {
         period: n.period,
         source: n.source,
         filedAt: n.filedAt,
+        filedAtDisplay: formatDate(n.filedAt),
       })),
     }),
   });
@@ -145,7 +186,7 @@ export function BoardPacksPage() {
           {DASHBOARD_IDS.map((id) => (
             <PublishedPacksCard
               key={id}
-              title={dashboards[id]?.title || `${id.toUpperCase()} dashboard`}
+              title={dashboardTitle(dashboards, id)}
               packs={packsByDashboard.get(id) ?? []}
             />
           ))}
@@ -163,7 +204,16 @@ export function BoardPacksPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
           Narratives filed
         </h2>
-        <FiledNarrativesList />
+        {/* The SAME list the readable above reports, and the same label map,
+            passed down rather than re-derived. This component built its own
+            copy of both — a second `Map` over `metricDefs` and a second sort
+            of `narratives` — so the audit log a human reads and the list the
+            agent is handed were two derivations that merely happened to
+            agree. */}
+        <FiledNarrativesList
+          narratives={filedNarratives}
+          metricLabel={metricLabel}
+        />
       </section>
     </div>
   );
@@ -256,7 +306,13 @@ function NarrativeFilingForm() {
     setBusy(true);
     setNote(null);
     beginRecording();
-    logStep(`Opened the narrative filing form for ${metricId} ${period}`);
+    // WHAT ACTUALLY JUST HAPPENED. This read "Opened the narrative filing
+    // form", logged from the SUBMIT handler — the form was opened whenever the
+    // operator navigated here, possibly minutes earlier and with different
+    // values in it. A demonstration feed that narrates a step the presenter
+    // did not just take is the one thing it cannot do: `awaitDemonstration`'s
+    // card is showing this feed as the record of what was done.
+    logStep(`Submitting a variance narrative for ${metricId} ${period}`);
     try {
       const filed = await fileNarrative({ metricId, period, code, body });
       setBody("");
@@ -379,20 +435,15 @@ function NarrativeFilingForm() {
  * DOM list a human reads — showing the code here is the same on-screen-only
  * exposure the filing form above makes, never a channel the agent reads.
  */
-function FiledNarrativesList() {
-  const { snapshot } = useExecLedger();
-  const { metricDefs, narratives } = snapshot;
-
-  const metricLabel = useMemo(() => {
-    const byId = new Map(metricDefs.map((d) => [d.id, d.label]));
-    return (id: MetricId) => byId.get(id) ?? id;
-  }, [metricDefs]);
-
-  const ordered = useMemo(
-    () => [...narratives].sort((a, b) => (a.filedAt < b.filedAt ? 1 : -1)),
-    [narratives],
-  );
-
+function FiledNarrativesList({
+  narratives: ordered,
+  metricLabel,
+}: {
+  /** Already newest-first — the page's own `filedNarratives`. */
+  narratives: readonly Narrative[];
+  /** The page's own `metricLabel`, not a second map over `metricDefs`. */
+  metricLabel: (id: MetricId) => string;
+}) {
   if (ordered.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-hairline bg-surface px-4 py-3 text-sm text-ink-muted">
