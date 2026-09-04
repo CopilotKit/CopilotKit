@@ -7,8 +7,11 @@ import { useAgentContext } from "@copilotkit/react-core/v2";
 import { cn } from "@/lib/utils";
 import { useSkinHref } from "@/shell/skin-path";
 import { useExecLedger } from "../data/ledger-context";
-import { execNavTarget } from "../nav-target";
-import { filterMetricRows, parseTopLever } from "./metric-rows";
+import {
+  filterMetricRows,
+  normalizePeriodLever,
+  parseTopLever,
+} from "./metric-rows";
 import type { MetricRow } from "./metric-rows";
 import type { Department, MetricUnit } from "../data/types";
 
@@ -32,10 +35,10 @@ import type { Department, MetricUnit } from "../data/types";
  * mirroring `orders.tsx`'s `activeSelectClass` (~line 173 of that file's
  * `primitives.tsx`): the half of beat 3c that shows the audience the
  * assistant reaching into the app's REAL controls, rather than a page that
- * merely renders filtered rows on faith. Writes go through `execNavTarget`
- * (`../nav-target`) plus `useSkinHref("exec")` — never a hardcoded
- * `/exec/...` path, so the same push works whether this skin is served at
- * `/exec` or, under a `LOCK_SKIN=exec` deploy, at `/`.
+ * merely renders filtered rows on faith. Writes go through `pushLevers`
+ * (below, built on `nextLeverSearchParams`) plus `useSkinHref("exec")` —
+ * never a hardcoded `/exec/...` path, so the same push works whether this
+ * skin is served at `/exec` or, under a `LOCK_SKIN=exec` deploy, at `/`.
  */
 
 const DEPARTMENT_LABEL: Record<Department | "all", string> = {
@@ -138,6 +141,84 @@ function activeControlClass(active: boolean): string {
   );
 }
 
+/**
+ * Every lever this page pushes back, restated as one bag — the shape
+ * `nextLeverSearchParams` and `pushLevers` below both key off.
+ *
+ * `department` is the VALIDATED value here (membership-checked against
+ * `DEPARTMENT_OPTIONS`, as computed below) — this is what `current` is built
+ * from. An override, by contrast, carries whatever RAW string a `<select>`'s
+ * `onChange` hands over (see `LeverOverrides`), which is why the two are
+ * separate types rather than one.
+ */
+interface LeverState {
+  period: string | null;
+  department: Department | "all" | null;
+  threshold: boolean;
+  top: number | null;
+}
+
+/** What a single control push can override — a raw, unvalidated `department`. */
+interface LeverOverrides {
+  period?: string | null;
+  department?: string | null;
+  threshold?: boolean;
+  top?: number | null;
+}
+
+/**
+ * The pure builder behind `pushLevers` below — factored out so the three
+ * rules it has to hold are directly testable without mounting the page
+ * (`./metrics-explorer.test.tsx`):
+ *
+ *  - UNRELATED params survive. `base` is a CLONE of the full current query
+ *    string, and only the four known lever keys are ever set or deleted on
+ *    it — the same discipline `orders.tsx`'s `setLever` applies to its own
+ *    writeback (~line 360). This used to rebuild the query from just the four
+ *    levers via `execNavTarget`, which is right for a FRESH navigation (a
+ *    chip, an exception-feed link) that owns its whole target, but wrong for
+ *    a lever push: any param this page's four levers don't own — added by
+ *    another surface, or by a link carrying its own tracking params — was
+ *    silently dropped on the very next click.
+ *  - `department` is restated at its VALIDATED value (`current.department`,
+ *    already membership-checked against `DEPARTMENT_OPTIONS`) whenever the
+ *    push doesn't itself touch that lever — never the raw query string. An
+ *    unrecognised `?department=bogus` this page was reached with used to
+ *    survive every OTHER control's click forever, unlike `top`/`threshold`,
+ *    which already restate their PARSED values.
+ *  - `top`/`threshold` keep restating their PARSED values, as before.
+ */
+export function nextLeverSearchParams(
+  base: URLSearchParams,
+  current: LeverState,
+  overrides: LeverOverrides,
+): URLSearchParams {
+  const next = new URLSearchParams(base);
+
+  const nextPeriod =
+    "period" in overrides ? (overrides.period ?? null) : current.period;
+  if (nextPeriod) next.set("period", nextPeriod);
+  else next.delete("period");
+
+  const nextDepartment =
+    "department" in overrides
+      ? (overrides.department ?? null)
+      : current.department;
+  if (nextDepartment) next.set("department", nextDepartment);
+  else next.delete("department");
+
+  const nextThreshold =
+    "threshold" in overrides ? Boolean(overrides.threshold) : current.threshold;
+  if (nextThreshold) next.set("threshold", "1");
+  else next.delete("threshold");
+
+  const nextTop = "top" in overrides ? (overrides.top ?? null) : current.top;
+  if (nextTop !== null) next.set("top", String(nextTop));
+  else next.delete("top");
+
+  return next;
+}
+
 export function MetricsExplorerPage() {
   const { snapshot } = useExecLedger();
   const router = useRouter();
@@ -145,7 +226,11 @@ export function MetricsExplorerPage() {
   const params = useSearchParams();
 
   // ── The four levers, read straight off the query string ──────────────────
-  const periodParam = params?.get("period") ?? null;
+  // `period` is normalized through `normalizePeriodLever` — a blank or
+  // whitespace-only `?period=` is treated as absent rather than as a real
+  // (all-excluding) filter, matching how `department`/`top` already treat an
+  // unusable value as no lever at all (see that function's header).
+  const periodParam = normalizePeriodLever(params?.get("period"));
   const departmentParam = params?.get("department") ?? null;
   const threshold = params?.get("threshold") === "1";
   const top = parseTopLever(params?.get("top"));
@@ -180,6 +265,27 @@ export function MetricsExplorerPage() {
     return [...values].sort();
   }, [snapshot.points, periodParam]);
 
+  /**
+   * `TOP_OPTIONS`, plus the current `top` value when the agent's own
+   * `navigateTo` landed on a value outside that fixed vocabulary (any
+   * positive integer, e.g. `?top=7`) — the same "show what's actually
+   * selected" rule `periodOptions` above already applies. Without this the
+   * `<select>` has no matching `<option>` for the active value, so it renders
+   * BLANK — no label at all — even though the rows are genuinely sliced to 7
+   * and the control tints, which reads as a broken control rather than a
+   * legitimately unusual one.
+   */
+  const topOptions = useMemo(() => {
+    if (top !== null && !(TOP_OPTIONS as readonly (number | null)[]).includes(top)) {
+      return [...TOP_OPTIONS, top].sort((a, b) => {
+        if (a === null) return -1;
+        if (b === null) return 1;
+        return a - b;
+      });
+    }
+    return TOP_OPTIONS;
+  }, [top]);
+
   const unitById = useMemo(
     () => new Map(snapshot.metricDefs.map((def) => [def.id, def.unit])),
     [snapshot.metricDefs],
@@ -207,42 +313,22 @@ export function MetricsExplorerPage() {
   }, [searchParams, snapshot, top, rows]);
 
   /**
-   * Every control writes back through here. The current value of every
-   * lever it did NOT itself change comes from the query string read above;
-   * the one it did change is the override — so a single push always
+   * Every control writes back through here, via the pure `nextLeverSearchParams`
+   * above. The current value of every lever it did NOT itself change comes
+   * from the (validated/parsed) values read above — `department` restates
+   * its VALIDATED form, never the raw query string — so a single push always
    * restates the full set of four, and no control can clobber the other
-   * three. `null` clears a lever; an absent key leaves it exactly as it was.
+   * three, an unrelated param, or an unrecognised department that snuck in.
+   * `null` clears a lever; an absent key leaves it exactly as it was.
    */
-  const pushLevers = (
-    overrides: Partial<{
-      period: string | null;
-      department: string | null;
-      threshold: boolean;
-      top: number | null;
-    }>,
-  ) => {
-    const nextPeriod: string | null =
-      "period" in overrides ? (overrides.period ?? null) : periodParam;
-    const nextDepartment: string | null =
-      "department" in overrides
-        ? (overrides.department ?? null)
-        : departmentParam;
-    const nextThreshold: boolean =
-      "threshold" in overrides ? Boolean(overrides.threshold) : threshold;
-    const nextTop: number | null =
-      "top" in overrides ? (overrides.top ?? null) : top;
-
-    router.push(
-      skinHref(
-        execNavTarget({
-          segment: "metrics",
-          period: nextPeriod ?? undefined,
-          department: nextDepartment ?? undefined,
-          threshold: nextThreshold,
-          top: nextTop ?? undefined,
-        }),
-      ),
+  const pushLevers = (overrides: LeverOverrides) => {
+    const next = nextLeverSearchParams(
+      searchParams,
+      { period: periodParam, department, threshold, top },
+      overrides,
     );
+    const query = next.toString();
+    router.push(skinHref(`metrics${query ? `?${query}` : ""}`));
   };
 
   // ── BEAT 3b — which levers the agent set, and what's actually on screen ──
@@ -355,12 +441,18 @@ export function MetricsExplorerPage() {
             }
             className={activeControlClass(top !== null)}
           >
-            {TOP_OPTIONS.map((candidate) => (
+            {topOptions.map((candidate) => (
               <option
                 key={String(candidate)}
                 value={candidate === null ? "" : String(candidate)}
               >
-                {candidate === null ? "All" : `Top ${candidate}`}
+                {candidate === null
+                  ? "All"
+                  : (TOP_OPTIONS as readonly (number | null)[]).includes(
+                        candidate,
+                      )
+                    ? `Top ${candidate}`
+                    : `${candidate} (from chat)`}
               </option>
             ))}
           </select>

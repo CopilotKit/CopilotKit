@@ -59,7 +59,7 @@ function formatVariance(value: number): string {
   return `${sign}${Math.abs(value * 100).toFixed(1)}%`;
 }
 
-interface VisibleException {
+export interface VisibleException {
   metricId: MetricId;
   label: string;
   department: Department | "all";
@@ -68,7 +68,7 @@ interface VisibleException {
   explained: boolean;
 }
 
-function ExceptionFeedStrip({
+export function ExceptionFeedStrip({
   exceptions,
   skinHref,
 }: {
@@ -102,16 +102,21 @@ function ExceptionFeedStrip({
             {exception.label} · {DEPARTMENT_LABEL[exception.department]}
           </span>
           <div className="flex items-baseline justify-between gap-2">
-            <span
-              className={cn(
-                "text-sm font-semibold tabular-nums",
-                exception.variancePct > 0
-                  ? "text-positive"
-                  : exception.variancePct < 0
-                    ? "text-negative"
-                    : "text-ink-muted",
-              )}
-            >
+            {/*
+              Every card in this strip is, by construction, a BREACH —
+              `data/store.ts`'s `exceptions()` only ever includes points past
+              `isBreach`'s |variance| threshold, in either direction — so this
+              is never "good news, colored red": it is always the metric the
+              CEO needs to look at. It shipped colored by SIGN instead
+              (`variancePct > 0` → positive/green), which painted an
+              over-plan breach (e.g. opex running hot) the SAME green as an
+              on-plan metric, while the Metrics Explorer colors that identical
+              number red via `row.breaching` (`./metrics-explorer.tsx`) — two
+              screens disagreeing about whether the same figure is bad. The
+              sign itself still shows, via `formatVariance`; only the color
+              is now "this breached" rather than "this was positive".
+            */}
+            <span className="text-sm font-semibold tabular-nums text-negative">
               {formatVariance(exception.variancePct)}
             </span>
             <span className="text-[0.65rem] text-ink-muted">

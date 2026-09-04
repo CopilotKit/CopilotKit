@@ -55,10 +55,31 @@ export function parseTopLever(raw: string | null | undefined): number | null {
 }
 
 /**
+ * The `period` lever, normalized the same way `department` and `top` already
+ * are: a value this module cannot honour is treated as ABSENT rather than as
+ * a real (if unusual) filter.
+ *
+ * `?period=` (or `?period=%20`) used to reach the `period !== null` check
+ * below as the literal string `""`, which narrows every row away — no point's
+ * `period` is ever the empty string — while still tinting the Metrics
+ * Explorer's period control and adding a second, indistinguishable blank
+ * option to its select. That is the exact "absent or unusable narrows
+ * NOTHING" defect `parseTopLever`'s own header warns against, one lever over:
+ * an unusable `period` must leave every row in, the same as an absent one.
+ */
+export function normalizePeriodLever(
+  raw: string | null | undefined,
+): string | null {
+  if (raw === null || raw === undefined) return null;
+  return raw.trim() === "" ? null : raw;
+}
+
+/**
  * The rows the Metrics Explorer renders for a given query string.
  *
  * Four levers, each narrowing independently and only when usable:
- *  - `period` — exact match against `MetricPoint.period`. Absent narrows
+ *  - `period` — exact match against `MetricPoint.period`, through
+ *    `normalizePeriodLever` above. Absent, or blank/whitespace-only, narrows
  *    nothing (every period stays in).
  *  - `department` — exact match against `MetricPoint.department`, validated
  *    against the field's own vocabulary (the four departments plus `"all"`
@@ -74,7 +95,7 @@ export function filterMetricRows(
   snapshot: LedgerSnapshot,
 ): MetricRow[] {
   const defsById = new Map(snapshot.metricDefs.map((def) => [def.id, def]));
-  const period = searchParams.get("period");
+  const period = normalizePeriodLever(searchParams.get("period"));
   const departmentParam = searchParams.get("department");
   const department =
     departmentParam !== null &&
