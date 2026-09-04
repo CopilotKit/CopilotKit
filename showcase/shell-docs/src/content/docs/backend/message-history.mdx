@@ -1,0 +1,199 @@
+---
+title: "Message history"
+icon: "lucide/Scissors"
+description: "Trim the conversation history CopilotKit forwards to an agent that already stores its own."
+---
+
+CopilotKit forwards the whole conversation on every run. The frontend holds the
+transcript, and each run carries it to your agent as `input.messages`. A
+stateless agent needs that, because the transcript is the only record of the
+conversation.
+
+An agent that stores its own history does not need it. If your backend keeps a
+LangGraph checkpointer, Mastra memory, an AWS Strands `SessionManager`, or a
+Microsoft Agent Framework chat-history provider, then two copies of the
+conversation exist. This page shows how to forward less.
+
+## When to trim
+
+Trim the forwarded history if your agent stores the conversation itself. Two
+symptoms point here:
+
+- **Duplicated history.** Your agent merges the messages CopilotKit sends with
+  the messages it already stored, so the model receives every turn twice. Token
+  cost doubles, and some providers reject the run. Anthropic returns an error
+  when a tool call is not followed by its own tool result, which is what a
+  doubled history produces.
+- **Large requests.** The request body grows with the conversation. Long threads
+  raise latency on every turn, and a proxy can reject the request with HTTP 413.
+
+Do not trim if your agent is stateless. A stateless agent reads the conversation
+only from `input.messages`, so a trimmed payload erases its memory of the
+thread.
+
+<Callout type="warn" title="Keep tool calls and tool results together">
+Every tool result you forward must have its tool call available to the model,
+either inside the payload you forward or inside your backend's own store. A
+filter that keeps "the last message only" splits that pair and breaks
+human-in-the-loop runs. The filter below keeps the pair intact.
+</Callout>
+
+## Write the filter
+
+Trimming needs two pieces: a filter that chooses the messages to forward, and an
+[AG-UI middleware](/agentic-protocols/ag-ui-middleware) that applies it. Put both
+in one module.
+
+The filter below keeps the final turn, which is the last user message and
+everything after it. A tool call and its result normally sit inside one turn, so
+the pair survives. The second pass covers the exception. A human-in-the-loop run
+can leave a tool call in an earlier turn, so the filter pulls that call back in.
+
+```ts title="trim-history.ts" doctest="component"
+import {
+  Middleware,
+  type AbstractAgent,
+  type Message,
+  type RunAgentInput,
+} from "@ag-ui/client";
+
+/** Keeps the final turn, plus any tool call a forwarded tool result needs. */
+export function lastTurnOnly(messages: Message[]): Message[] {
+  let start = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) return messages;
+
+  const kept = messages.slice(start);
+  const keptIds = new Set(kept.map((message) => message.id));
+  const neededCallIds = new Set(
+    kept.flatMap((message) => (message.role === "tool" ? [message.toolCallId] : [])),
+  );
+
+  const rescuedToolCalls = messages
+    .slice(0, start)
+    .filter(
+      (message) =>
+        message.role === "assistant" &&
+        !keptIds.has(message.id) &&
+        (message.toolCalls ?? []).some((call) => neededCallIds.has(call.id)),
+    );
+
+  return [...rescuedToolCalls, ...kept];
+}
+
+/** Rewrites the messages of one run, leaving the stored transcript alone. */
+export class TrimHistoryMiddleware extends Middleware {
+  constructor(private readonly trim: (messages: Message[]) => Message[]) {
+    super();
+  }
+
+  run(input: RunAgentInput, next: AbstractAgent) {
+    return this.runNext({ ...input, messages: this.trim(input.messages) }, next);
+  }
+}
+```
+
+Adapt the rule to what your backend stores. If your agent keeps the last ten
+turns, forward the same window.
+
+## Trim inside the runtime
+
+The middleware rewrites `input.messages` before the run reaches your agent. It
+runs server-side, inside the runtime, so the browser cannot change it. Attach it
+to the agent before you register the agent with the runtime:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
+
+const agent = new LangGraphAgent({
+  deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!,
+  graphId: "sample_agent",
+});
+agent.use(new TrimHistoryMiddleware(lastTurnOnly));
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+});
+```
+
+The runtime clones a registered agent for every run, and a clone keeps its
+middleware. One `.use()` call at startup therefore covers every run.
+
+This placement fixes duplicated history. It does not shrink the request the
+browser sends, because the browser still posts the full transcript to your
+runtime. To shrink that request, trim in the browser as well.
+
+## Trim in the browser
+
+The same middleware shrinks the request body when you attach it to an agent
+instance you construct yourself, through
+[`selfManagedAgents` or the local development option](/backend/self-managed-agents).
+The filtered messages become the HTTP body, and the transcript in the UI stays
+whole.
+
+<FrontendOnly frontend="react">
+```tsx title="app/page.tsx"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
+
+const supportAgent = new HttpAgent({ url: "https://agents.example.com/support" });
+supportAgent.use(new TrimHistoryMiddleware(lastTurnOnly));
+
+<CopilotKit selfManagedAgents={{ "support-agent": supportAgent }}>
+  <YourApp />
+</CopilotKit>;
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
+
+const supportAgent = new HttpAgent({ url: "https://agents.example.com/support" });
+supportAgent.use(new TrimHistoryMiddleware(lastTurnOnly));
+
+export const appConfig = {
+  providers: [
+    provideCopilotKit({
+      selfManagedAgents: { "support-agent": supportAgent },
+    }),
+  ],
+};
+```
+</FrontendOnly>
+
+<Callout type="info">
+The runtime constructs the agents it discovers from `runtimeUrl` inside
+CopilotKit, so the browser cannot attach middleware to those agents today.
+Follow
+[CopilotKit#1482](https://github.com/CopilotKit/CopilotKit/issues/1482) for a
+configuration option that reaches them.
+</Callout>
+
+## What trimming does not change
+
+- **The chat UI.** Trimming rewrites the payload of one run. The agent keeps its
+  own message list, and the transcript renders in full.
+- **Runtime persistence.** A runtime that stores threads records the events of
+  each run, so earlier turns stay in the thread.
+- **Agent state.** A middleware that rewrites `input.messages` leaves
+  `input.state`, `input.tools`, and `input.context` untouched.
+
+## Related
+
+- [AG-UI Middleware](/agentic-protocols/ag-ui-middleware): the middleware
+  lifecycle and the `Middleware` base class.
+- [Self-managed agents](/backend/self-managed-agents): passing your own agent
+  instances to the frontend provider.
+- [AgentRunner and persistence](/backend/agent-runner): where the runtime keeps
+  thread history.
