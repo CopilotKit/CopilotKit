@@ -11,6 +11,7 @@ import {
 import { useSkinHref } from "@/shell/skin-path";
 import { useRecording } from "@/shell/teach";
 import { useExecLedger } from "./data/ledger-context";
+import type { PublishPackResult } from "./data/ledger-context";
 import type { DashboardId, Exception, MetricDef, MetricId } from "./data/types";
 import { execNavTarget } from "./nav-target";
 import { execNav } from "./nav";
@@ -23,15 +24,14 @@ import { execNav } from "./nav";
  * mutable state through a ref rather than the closure, and nothing sensitive
  * goes into a tool result).
  *
- * This file is built up across several micro-tasks. It now registers beats
- * 3a/5 (`pinBlockToDashboard`, the agent's route to the same pin the block's
- * own "Add to dashboard" control performs), beat 3c
+ * It registers beats 3a/5 (`pinBlockToDashboard`, the agent's route to the
+ * same pin the block's own "Add to dashboard" control performs), beat 3c
  * (the explorer-lever navigation), beat 3a (`confirmPublishCountersign`, the
  * countersign-PIN card that is the ONLY publish path — keel's
  * `countersignRelease` and banking's card-PIN HITL, both in their own
  * `tools.tsx`, are the references), and beat 6 (the teach chain —
  * `offerWorkflowRecording` → `awaitDemonstration` → `saveLearnedProcedure`,
- * copied from airline's `tools.tsx` lines 1166–1360 and reworded for
+ * modelled on airline's teach chain in its own `tools.tsx` and reworded for
  * Vantage's domain: a board-pack publish refused for unexplained variance,
  * watched and learned as a narrative code filed on the Board Packs form).
  *
@@ -183,6 +183,56 @@ export function publishRefusalPayload(
 }
 
 /**
+ * What the countersign card does with ONE `publishPack` result: settle the
+ * interrupt with something, or keep the card open with a message.
+ */
+export type PublishSettle =
+  /** `respond()` this and close the card. */
+  | { settle: string | PublishRefusal }
+  /** Show this inline; the interrupt stays open for a retype. */
+  | { problem: string };
+
+/**
+ * The card's whole publish decision, extracted from `onSubmit` so the one
+ * question that matters — did this pack PUBLISH? — is assertable without a
+ * live interrupt.
+ *
+ * ⚠️ SUCCESS IS `published`, NEVER THE PRESENCE OF A PACK. `publishPack`
+ * answers a 2xx whose body would not parse with `published: true` and a `note`
+ * and NO `pack` (see `PublishPackResult`) — the write landed, only its receipt
+ * was lost. Keying this on `"pack" in outcome` read exactly that as a refusal:
+ * "Publish refused: publish pack succeeded but returned an unreadable body"
+ * printed over a pack that IS in the ledger, and the agent, which reads the
+ * same settle, published a second one.
+ *
+ * The `note` rides along in the settled sentence rather than being dropped: it
+ * is the only thing that says the view behind this receipt may not show the
+ * pack yet.
+ */
+export function publishSettleFor(
+  outcome: PublishPackResult,
+  dashboardTitle: string,
+  metricDefs: MetricDef[],
+): PublishSettle {
+  if (outcome.published) {
+    const published = `${dashboardTitle} is published as a board pack.`;
+    return {
+      settle: outcome.note ? `${published} ${outcome.note}` : published,
+    };
+  }
+  if (outcome.error === "BAD_COUNTERSIGN") {
+    // NOT settled — a typo is the presenter's to fix, and the agent has
+    // nothing to do with it (EXEC_PROMPT rule 5: "the card's business, not a
+    // puzzle"). The card stays open so they can retype the four digits.
+    return {
+      problem:
+        "That countersign PIN wasn't accepted. Nothing was published — try again.",
+    };
+  }
+  return { settle: publishRefusalPayload(outcome, metricDefs) };
+}
+
+/**
  * One breach field, as a string safe to render. The refusal body reaching this
  * point was PARSED, never validated — it is `JSON.parse` of whatever the
  * settle carried — so every field is `unknown` until proven otherwise, and a
@@ -278,7 +328,7 @@ const REFUSAL_PHRASES = new Map<string, string>([
  * What a refusal READS as: the producer's own message first, then this file's
  * phrasing for the code, and — for a code nobody has worded yet — the code
  * spelled as words rather than as an enum. The last arm is the one that keeps
- * this honest as `agent.ts` grows correctable errors (`KIND_PROP_UNSUPPORTED`
+ * this honest as `agent.ts` grows correctable errors (`UNSUPPORTED_BLOCK_PROP`
  * and friends) that this file has never heard of.
  */
 function refusalLine(settle: Extract<ToolSettle, { kind: "refusal" }>): string {
@@ -318,8 +368,8 @@ const PUBLISH_CANCELLED =
 // thread.
 //
 // The five things that string can be, per CopilotKit's settle semantics
-// (`copilotKitCore.runTool` JSON-stringifies whatever `respond()` was given,
-// for every tool, HITL included):
+// (`copilotKitCore.runTool` forwards a STRING verbatim and JSON-encodes
+// anything else, for every tool, HITL included):
 //
 //   respond("a sentence")  → the raw sentence
 //   respond({ … })         → its JSON encoding (so a refusal must be PARSED
@@ -841,8 +891,11 @@ const DASHBOARD_CHOICES = ["ceo", "cfo"] as const;
  * settling on it would end the interrupt, hand the agent a refusal it can do
  * nothing about, and force the presenter to ask for the card again. Only a
  * published pack or the variance refusal beat 6 turns on settle.
+ *
+ * Exported for `./tool-settle.test.tsx`, which drives the in-flight state and
+ * the radio group's focus behaviour. Nothing else imports it.
  */
-function PublishCountersignCard({
+export function PublishCountersignCard({
   initialDashboardId,
   dashboardTitle,
   onSubmit,
@@ -911,12 +964,16 @@ function PublishCountersignCard({
       return;
     }
     setPin("");
-    if (problem) {
-      // Still the presenter's card: re-enable it and say why, rather than
-      // leaving four disabled digits and a "Publishing…" button forever.
-      setBusy(false);
-      setError(problem);
-    }
+    // Cleared on BOTH arms. A refusal keeps the card open, so it obviously
+    // has to re-enable — but the success arm settles the interrupt, and
+    // whether the settled receipt has replaced this card by then is the
+    // transcript's business, not this component's. Leaving `busy` set on the
+    // path that WORKED left four disabled digits under a permanent
+    // "Publishing…" at the climax of the demo.
+    setBusy(false);
+    // Still the presenter's card: say why, rather than re-enabling four
+    // digits with no explanation for the ones that were rejected.
+    if (problem) setError(problem);
   };
 
   return (
@@ -966,7 +1023,12 @@ function PublishCountersignCard({
               // within it.
               tabIndex={active ? 0 : -1}
               disabled={busy}
-              onClick={() => setDashboardId(id)}
+              // `selectDashboard`, never a bare `setDashboardId`: the roving
+              // tabindex makes the UNSELECTED option `tabIndex={-1}`, so a
+              // mouse pick that moved the selection without moving focus left
+              // focus on a button that is no longer a tab stop — and the next
+              // Tab escaped the group entirely.
+              onClick={() => selectDashboard(id)}
               className={
                 active
                   ? // `dark:text-brand-violet` is not decoration: `text-brand-indigo`
@@ -1118,8 +1180,40 @@ export function NarrativeFiledReceipt({
           Nothing was filed: {refusalLine(settle)}
         </Receipt>
       );
-    case "success":
-      return <Receipt>Filed the variance narrative.</Receipt>;
+    case "success": {
+      // `agent.ts` files the row and adds a `note` when the (metric, period)
+      // it names has no OPEN exception: the write STANDS, but it clears
+      // nothing the publish gate is waiting on. That note was written for
+      // whoever is reading, and printing "Filed the variance narrative." over
+      // it leaves the gate looking like it is contradicting a filing that just
+      // worked, with the explanation visible only to the agent.
+      const note = readFilingNote(settle.text);
+      return (
+        <Receipt>
+          Filed the variance narrative.
+          {note ? (
+            <span className="mt-1 block text-ink-muted">{note}</span>
+          ) : null}
+        </Receipt>
+      );
+    }
+  }
+}
+
+/**
+ * `file_variance_narrative`'s optional `note`, off the JSON its success arm
+ * settles with. Returns `null` for anything else — the settle is whatever the
+ * runtime sent, never validated, so a body that will not parse (or carries no
+ * string `note`) simply has nothing extra to say.
+ */
+function readFilingNote(text: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object") return null;
+    const note = (parsed as { note?: unknown }).note;
+    return typeof note === "string" && note.trim().length ? note.trim() : null;
+  } catch {
+    return null;
   }
 }
 
@@ -1129,7 +1223,7 @@ export function NarrativeFiledReceipt({
  * ⚠️ ITS FAILURES ARE RESULTS, NOT THROWS. A parameter-validation failure
  * HANGS the call (see that tool's own comment), so every correctable mistake
  * comes back as an ordinary tool result shaped `{ error, message }` —
- * `METRIC_ID_REQUIRED` today, and a growing `KIND_PROP_UNSUPPORTED` family
+ * `METRIC_ID_REQUIRED` today, and a growing `UNSUPPORTED_BLOCK_PROP` family
  * naming a (kind, prop) pair. Without a render of its own, the shell's
  * wildcard chip ticked "Composing a block ✓" over every one of them: a block
  * reported as composed that does not exist, on stage and on every replay.
@@ -1485,11 +1579,10 @@ export function ExecTools() {
         // Replay-safe: keyed off `result`, never `status`. FOUR different
         // things settle this call — a publish, the gate's refusal, the
         // presenter's Cancel, and the platform's abort sentinel if the run
-        // ends with the card still open — and `core` JSON-stringifies
-        // whatever `respond()` was given before any of them lands here
-        // (`copilotKitCore.runTool` does this for every tool, human-in-the-
-        // -loop included), so `result` is always a plain string and telling
-        // the four apart is `classifyToolSettle`'s job. Only the first is a
+        // ends with the card still open. `core` passes a STRING `respond()`
+        // through verbatim and JSON-encodes anything else, so `result` is
+        // always a plain string but never a self-describing one — telling the
+        // four apart is `classifyToolSettle`'s job. Only the first is a
         // published board pack; anything else reading as one puts a receipt
         // for an unpublished pack on the screen in front of the room.
         if (typeof result === "string") {
@@ -1511,29 +1604,18 @@ export function ExecTools() {
             onSubmit={async (dashboardId, pin) => {
               const { snapshot, publishPack } = ledgerRef.current;
               const outcome = await publishPack(dashboardId, pin);
-              // `PublishPackResult` narrows on `status === 200` alone (its
-              // own doc comment), but `status`'s OTHER member is `number`,
-              // not a second literal — so TS can only narrow the success
-              // arm off `status === 200`, never exclude it from the arm
-              // that follows. `"pack" in outcome` narrows both directions
-              // instead, off the same `pack?: never` the type already uses
-              // to stay narrowable.
-              if ("pack" in outcome) {
-                const title =
-                  snapshot.dashboards[dashboardId]?.title ?? dashboardId;
-                respond?.(`${title} is published as a board pack.`);
-                return null;
-              }
-              if (outcome.error === "BAD_COUNTERSIGN") {
-                // NOT settled — a typo is the presenter's to fix, and the
-                // agent has nothing to do with it (EXEC_PROMPT rule 5: "the
-                // card's business, not a puzzle"). Returning the message
-                // keeps the card open so they can retype the four digits.
-                return "That countersign PIN wasn't accepted. Nothing was published — try again.";
-              }
-              // Forwarded by `publishRefusalPayload` — see its doc comment for
-              // what travels and what deliberately does not.
-              respond?.(publishRefusalPayload(outcome, snapshot.metricDefs));
+              // Every arm of that decision — including which shapes are a
+              // publish and which are a refusal — lives in
+              // `publishSettleFor`, so it can be asserted without a live
+              // interrupt. See its doc comment for why success is `published`
+              // and not the presence of a pack.
+              const decided = publishSettleFor(
+                outcome,
+                snapshot.dashboards[dashboardId]?.title ?? dashboardId,
+                snapshot.metricDefs,
+              );
+              if ("problem" in decided) return decided.problem;
+              respond?.(decided.settle);
               return null;
             }}
             // The literal `PUBLISH_CANCELLED` — the settle classifier
@@ -1553,9 +1635,9 @@ export function ExecTools() {
   // The chain, in order: offerWorkflowRecording → awaitDemonstration →
   // saveLearnedProcedure. All three are `followUp: true`, so the agent
   // advances to the next card as soon as one settles rather than stopping to
-  // narrate. Copied from airline's `tools.tsx` (lines 1166–1360) and
-  // reworded for Vantage's domain — never imported across the skin
-  // boundary.
+  // narrate. Modelled on the same three-card chain in airline's own
+  // `tools.tsx` and reworded for Vantage's domain — never imported across the
+  // skin boundary.
   //
   // EXEC_PROMPT rule 7 is this chain's whole trigger condition, spelled out
   // there rather than re-derived here: a publish refused with

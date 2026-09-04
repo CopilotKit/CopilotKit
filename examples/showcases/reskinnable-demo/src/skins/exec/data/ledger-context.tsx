@@ -63,17 +63,34 @@ export interface FileNarrativeInput {
  * client as the literal string.
  */
 export type PublishPackResult =
-  | { status: 200; pack: BoardPack }
-  // `pack?: never` does NOT let `status === 200` alone narrow this union —
-  // `status`'s other arm is the general `number`, which overlaps `200`, so TS
-  // can narrow the success arm IN on `status === 200` but can never exclude
-  // it FROM the arm below. The real discriminator is `"pack" in outcome` (or
-  // any check for `pack` being present) — see `tools.tsx`'s `onSubmit`.
-  // `pack?: never` only makes THAT check type-safe, by giving the failure arm
-  // an (absent) `pack` property for the `in` check to test against.
   | {
       status: number;
+      /**
+       * ⚠️ THE DISCRIMINATOR, and the only one. Neither `status === 200` nor
+       * `"pack" in outcome` can carry it: `status`'s other arm is the general
+       * `number`, which overlaps `200`, and `pack` is ABSENT from a publish
+       * whose 2xx body would not parse — a pack that IS written. Keying
+       * success on the pack's presence read exactly that case as a refusal,
+       * so the card printed "Publish refused: publish pack succeeded…" over a
+       * published pack and the agent's retry filed a duplicate. Ask whether
+       * it published; never whether the receipt arrived.
+       */
+      published: true;
+      /** The published pack — absent only when its 2xx body was unreadable. */
+      pack?: BoardPack;
+      /**
+       * Why this publish has no `pack`, in the caller's words to relay. Set
+       * only on that arm, so `note` being present IS "the write landed, the
+       * receipt did not".
+       */
+      note?: string;
+      error?: never;
+    }
+  | {
+      status: number;
+      published?: false;
       pack?: never;
+      note?: never;
       error: string;
       /**
        * The refusal's own human sentence, when the route sent one. Beside
@@ -159,6 +176,20 @@ async function throwWithBodyMessage(
     message?: string;
   } | null;
   throw new Error(`${action} failed: ${body?.message ?? res.status}`);
+}
+
+/**
+ * One block id, as a single URL path SEGMENT.
+ *
+ * Ids are strings the store hands out and `render_metric_block` relays, not a
+ * closed vocabulary this client validates — interpolated raw, an id carrying a
+ * `/` grows the URL an extra segment and one carrying a `#` truncates it into
+ * a fragment, so the DELETE lands on a route nobody wrote (or, worse, on a
+ * different block). `dashboardId` needs no such treatment: it is the
+ * `DashboardId` union, `"ceo" | "cfo"`.
+ */
+function blockPath(blockId: string): string {
+  return encodeURIComponent(blockId);
 }
 
 /**
@@ -313,7 +344,7 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
   const removeBlock = useCallback(
     async (dashboardId: DashboardId, blockId: string) => {
       const res = await fetch(
-        `/api/exec/v1/dashboards/${dashboardId}/blocks/${blockId}`,
+        `/api/exec/v1/dashboards/${dashboardId}/blocks/${blockPath(blockId)}`,
         { method: "DELETE" },
       );
       if (!res.ok) await throwWithBodyMessage("remove block", res);
@@ -329,7 +360,7 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
       direction: "up" | "down",
     ) => {
       const res = await fetch(
-        `/api/exec/v1/dashboards/${dashboardId}/blocks/${blockId}`,
+        `/api/exec/v1/dashboards/${dashboardId}/blocks/${blockPath(blockId)}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -354,7 +385,12 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
       // field was wrong, and the filing form renders the thrown string. A
       // bare status put "file narrative failed: 400" on beat 6's form with
       // nothing to act on.
-      if (res.status !== 201) await throwWithBodyMessage("file narrative", res);
+      //
+      // Gated on `res.ok`, like every sibling mutation above — the route
+      // answers 201 today, and insisting on that ONE code would turn a route
+      // that later answers 200 into "file narrative failed: 200" over a
+      // filing that worked.
+      if (!res.ok) await throwWithBodyMessage("file narrative", res);
       const filed = (await res.json()) as Narrative;
       await refresh();
       return filed;
@@ -418,12 +454,18 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
       // so the snapshot's `packs` is behind either way.
       await refresh();
       if (!pack) {
+        // A LOST RECEIPT, NOT A FAILED PUBLISH. This arm used to return the
+        // failure shape, which the card read as a refusal — so a pack that was
+        // written got "Publish refused" on screen, and the agent, reading the
+        // same settle, published a second one. The honest answer is the
+        // publish plus the caveat that this view may not show it yet.
         return {
           status: res.status,
-          error: `publish pack succeeded but returned an unreadable body (${res.status})`,
+          published: true,
+          note: `The pack published, but the ledger returned an unreadable receipt (${res.status}), so this view may be stale.`,
         };
       }
-      return { status: 200, pack };
+      return { status: res.status, published: true, pack };
     },
     [refresh],
   );
