@@ -50,6 +50,60 @@ describe("execNavTarget", () => {
     ).not.toContain("period");
   });
 
+  /**
+   * THE "any" SENTINEL, ON THIS SIDE TOO. `tools.tsx`'s `navigateTo` requires
+   * every lever and says "leave this one alone" with `"any"`, mapping it back
+   * to `undefined` at the call site (~line 1078). That mapping was the ONLY
+   * thing standing between the sentinel and the query string: any other caller
+   * — or a single dropped ternary there — emitted `?period=any`, which matches
+   * no point and empties the Metrics Explorer under a tinted control. The
+   * omission rule this module owns now covers the sentinel itself, so both
+   * ends of the URL agree without depending on a caller to remember.
+   */
+  it("omits the 'any' period sentinel, whatever its case", () => {
+    expect(execNavTarget({ segment: "metrics", period: "any" })).toBe(
+      "metrics",
+    );
+    expect(execNavTarget({ segment: "metrics", period: "ANY" })).toBe(
+      "metrics",
+    );
+    expect(execNavTarget({ segment: "metrics", period: " any " })).toBe(
+      "metrics",
+    );
+  });
+
+  it("omits the 'any' department sentinel rather than emitting a dead param", () => {
+    expect(execNavTarget({ segment: "metrics", department: "any" })).toBe(
+      "metrics",
+    );
+  });
+
+  it("omits a department outside the Metrics Explorer's vocabulary", () => {
+    expect(execNavTarget({ segment: "metrics", department: "bogus" })).toBe(
+      "metrics",
+    );
+    // "all" IS in the vocabulary — company-wide rows — and must survive.
+    expect(execNavTarget({ segment: "metrics", department: "all" })).toBe(
+      "metrics?department=all",
+    );
+  });
+
+  /**
+   * The same normalization the page reads with (`normalizePeriodLever`,
+   * `pages/metric-rows.ts`): a padded period is emitted TRIMMED, and a period
+   * that is not a "YYYY-MM" month is omitted rather than written into a URL
+   * the Metrics Explorer would then ignore.
+   */
+  it("trims a padded period and drops a malformed one", () => {
+    expect(execNavTarget({ segment: "metrics", period: " 2024-06 " })).toBe(
+      "metrics?period=2024-06",
+    );
+    expect(execNavTarget({ segment: "metrics", period: "q3" })).toBe("metrics");
+    expect(execNavTarget({ segment: "metrics", period: "2024-13" })).toBe(
+      "metrics",
+    );
+  });
+
   it("drops a fractional top", () => {
     expect(execNavTarget({ segment: "metrics", top: 2.5 })).toBe("metrics");
   });
@@ -72,7 +126,7 @@ describe("execNavTarget", () => {
     const out = execNavTarget({
       segment: "metrics",
       department: "distribution",
-      period: "q3",
+      period: "2024-06",
       top: 5,
       threshold: true,
     });
@@ -81,5 +135,25 @@ describe("execNavTarget", () => {
 
   it("returns an empty string when neither segment nor levers are set", () => {
     expect(execNavTarget({})).toBe("");
+  });
+
+  /**
+   * THE INDEX SEGMENT'S SHAPE, PINNED. `navigateTo`'s `segment` enum includes
+   * `""` (the CEO dashboard), so a levered nav to the index emits a
+   * query-only target. `useSkinHref` (`src/shell/skin-path.ts`) then joins it
+   * as `${base}/${suffix}`, which reads `/exec/?department=distribution` —
+   * a bare `?` right after the slash. That join is NOT this module's to make:
+   * it cannot see the base, and prefixing one here would double-apply it (see
+   * this file's header). This pins what this side emits so the fix in
+   * `skin-path.ts` — attach a query-only suffix without the separator — has
+   * something to hold onto.
+   */
+  it("emits a query-only target for the index segment", () => {
+    expect(execNavTarget({ department: "distribution" })).toBe(
+      "?department=distribution",
+    );
+    expect(execNavTarget({ segment: "", department: "distribution" })).toBe(
+      "?department=distribution",
+    );
   });
 });

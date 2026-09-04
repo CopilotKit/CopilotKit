@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils";
 import { useSkinHref } from "@/shell/skin-path";
 import { useExecLedger } from "../data/ledger-context";
 import {
+  DEPARTMENT_VALUES,
   filterMetricRows,
+  normalizeDepartmentLever,
   normalizePeriodLever,
   parseTopLever,
 } from "./metric-rows";
@@ -48,20 +50,6 @@ const DEPARTMENT_LABEL: Record<Department | "all", string> = {
   corporate: "Corporate",
   all: "Company-wide",
 };
-
-/**
- * The `department` lever's vocabulary, in display order — mirrors
- * `metric-rows.ts`'s own (unexported) `DEPARTMENT_VALUES`. `"all"` is a real,
- * narrowing choice here (company-wide rows only), distinct from leaving the
- * control on "All departments" (no department filter at all).
- */
-const DEPARTMENT_OPTIONS: readonly (Department | "all")[] = [
-  "manufacturing",
-  "distribution",
-  "field-services",
-  "corporate",
-  "all",
-];
 
 /** The `top` lever's fixed choices. `null` is "no limit". */
 const TOP_OPTIONS: readonly (number | null)[] = [null, 5, 10, 25];
@@ -105,8 +93,19 @@ const usdCompact = new Intl.NumberFormat("en-US", {
  * renderers use for `usd`/`pct`/`months`/`days`/`score` (see
  * `../catalog/renderers.tsx`'s own `formatValue`), so a figure in this table
  * never disagrees with the same metric rendered on a dashboard tile.
+ *
+ * FAILS LOUD ON AN UNKNOWN UNIT. This switch had no `default`, so a unit with
+ * no arm here — a sixth `MetricUnit` added to `../data/types` and not wired
+ * in, or a def whose unit never made it into `unitById` below — returned
+ * `undefined`, and React renders that as NOTHING: a plan and an actual
+ * silently absent from a table whose entire job is to show them, with no
+ * error anywhere. The raw number goes on screen instead (wrong-looking, but
+ * present and checkable) and the gap is shouted at the console.
  */
-function formatMetricValue(unit: MetricUnit, value: number): string {
+export function formatMetricValue(
+  unit: MetricUnit | undefined,
+  value: number,
+): string {
   switch (unit) {
     case "usd":
       return usdCompact.format(value);
@@ -118,6 +117,14 @@ function formatMetricValue(unit: MetricUnit, value: number): string {
       return `${value.toFixed(1)} d`;
     case "score":
       return value.toFixed(1);
+    default:
+      console.error(
+        `[exec/metrics] no formatting for metric unit ${JSON.stringify(unit)} — ` +
+          "rendering the raw value. Add an arm to `formatMetricValue` " +
+          "(`pages/metrics-explorer.tsx`) and to `catalog/renderers.tsx`'s " +
+          "`formatValue`, which must agree.",
+      );
+      return String(value);
   }
 }
 
@@ -126,6 +133,68 @@ function formatVariance(value: number): string {
   if (!Number.isFinite(value)) return "— n/a";
   const sign = value > 0 ? "+" : value < 0 ? "-" : "±";
   return `${sign}${Math.abs(value * 100).toFixed(1)}%`;
+}
+
+/**
+ * The period `<select>`'s options: every period this snapshot carries, plus
+ * the active `period` lever when it names one the window has no data for yet
+ * — the control must be able to SHOW what is selected rather than silently
+ * reading "All periods" while the rows are narrowed.
+ *
+ * ASCENDING (chronological). A deliberate divergence from `board-packs.tsx`,
+ * whose filing form lists periods NEWEST first: filing a narrative is almost
+ * always about the month that just closed, while this explorer reads as a
+ * timeline and its axis runs forwards. "YYYY-MM" sorts lexicographically in
+ * calendar order (see `latestClosedPeriod`, `../data/derive`), so a plain
+ * sort is exact.
+ */
+export function periodSelectOptions(
+  periods: Iterable<string>,
+  active: string | null,
+): string[] {
+  const values = new Set(periods);
+  if (active !== null) values.add(active);
+  return [...values].sort();
+}
+
+/** One row as the beat-3b readable publishes it — see `explorerReadableRows`. */
+export interface ExplorerReadableRow {
+  metric: string;
+  department: string;
+  period: string;
+  plan: number;
+  actual: number;
+  variancePct: number;
+  varianceDisplay: string;
+  breaching: boolean;
+}
+
+/**
+ * The rows the readable publishes, built ONCE and beside the display strings
+ * the table itself renders.
+ *
+ * The rule is keel's, stated by `deriveRegisterKpiTiles`
+ * (`skins/keel/components/register-kpis.tsx`): a readable holding a raw
+ * `0.6666…` gets quoted back on stage in a form that disagrees with the
+ * screen. Variance is the exec skin's instance of it — the cell says
+ * "+12.0%", the readable said `0.12`, and an assistant asked to read a row out
+ * loud read the fraction. The raw number stays (an agent comparing two rows
+ * needs it) with the ON-SCREEN string next to it, through the same
+ * `formatVariance` the cell uses, so the two cannot drift.
+ */
+export function explorerReadableRows(
+  rows: readonly MetricRow[],
+): ExplorerReadableRow[] {
+  return rows.map((row) => ({
+    metric: row.label,
+    department: DEPARTMENT_LABEL[row.department],
+    period: row.period,
+    plan: row.plan,
+    actual: row.actual,
+    variancePct: row.variancePct,
+    varianceDisplay: formatVariance(row.variancePct),
+    breaching: row.breaching,
+  }));
 }
 
 /**
@@ -146,7 +215,7 @@ function activeControlClass(active: boolean): string {
  * `nextLeverSearchParams` and `pushLevers` below both key off.
  *
  * `department` is the VALIDATED value here (membership-checked against
- * `DEPARTMENT_OPTIONS`, as computed below) — this is what `current` is built
+ * `DEPARTMENT_VALUES`, as computed below) — this is what `current` is built
  * from. An override, by contrast, carries whatever RAW string a `<select>`'s
  * `onChange` hands over (see `LeverOverrides`), which is why the two are
  * separate types rather than one.
@@ -181,7 +250,7 @@ interface LeverOverrides {
  *    another surface, or by a link carrying its own tracking params — was
  *    silently dropped on the very next click.
  *  - `department` is restated at its VALIDATED value (`current.department`,
- *    already membership-checked against `DEPARTMENT_OPTIONS`) whenever the
+ *    already validated against `DEPARTMENT_VALUES`) whenever the
  *    push doesn't itself touch that lever — never the raw query string. An
  *    unrecognised `?department=bogus` this page was reached with used to
  *    survive every OTHER control's click forever, unlike `top`/`threshold`,
@@ -235,16 +304,12 @@ export function MetricsExplorerPage() {
   const threshold = params?.get("threshold") === "1";
   const top = parseTopLever(params?.get("top"));
 
-  // Widened to `readonly string[]` for the membership test — the same
-  // widening `orders.tsx` applies to its own status/exception unions
-  // (~line 350), for the same reason: `DEPARTMENT_OPTIONS` is a narrow const
-  // tuple, so `.includes()` would otherwise refuse the arbitrary query-string
-  // value this is validating.
+  // Validated through `metric-rows.ts`'s own `normalizeDepartmentLever`, which
+  // is what `filterMetricRows` narrows with — the control's tint and the rows
+  // on screen therefore agree on what counts as a department by construction,
+  // rather than by two membership tests written the same way twice.
   const department: Department | "all" | null =
-    departmentParam !== null &&
-    (DEPARTMENT_OPTIONS as readonly string[]).includes(departmentParam)
-      ? (departmentParam as Department | "all")
-      : null;
+    normalizeDepartmentLever(departmentParam);
 
   // A fresh, real `URLSearchParams` reconstructed from the query string via
   // `.toString()` — the same pattern `orders.tsx`'s own `setLever` uses
@@ -255,15 +320,16 @@ export function MetricsExplorerPage() {
     [params],
   );
 
-  // Every period actually present in this snapshot, plus the current
-  // `period` lever's value if it names one this window doesn't (yet) carry
-  // data for — the select must still be able to SHOW what is selected
-  // rather than silently falling back to "All periods".
-  const periodOptions = useMemo(() => {
-    const values = new Set(snapshot.points.map((point) => point.period));
-    if (periodParam !== null) values.add(periodParam);
-    return [...values].sort();
-  }, [snapshot.points, periodParam]);
+  // See `periodSelectOptions` above — ascending, with the active period
+  // included even when this snapshot has no data for it.
+  const periodOptions = useMemo(
+    () =>
+      periodSelectOptions(
+        snapshot.points.map((point) => point.period),
+        periodParam,
+      ),
+    [snapshot.points, periodParam],
+  );
 
   /**
    * `TOP_OPTIONS`, plus the current `top` value when the agent's own
@@ -276,7 +342,8 @@ export function MetricsExplorerPage() {
    * legitimately unusual one.
    */
   const topOptions = useMemo(() => {
-    if (top !== null && !(TOP_OPTIONS as readonly (number | null)[]).includes(top)) {
+    const known = TOP_OPTIONS as readonly (number | null)[];
+    if (top !== null && !known.includes(top)) {
       return [...TOP_OPTIONS, top].sort((a, b) => {
         if (a === null) return -1;
         if (b === null) return 1;
@@ -340,7 +407,9 @@ export function MetricsExplorerPage() {
       "which of those four are actually set right now. `matchingCount` is " +
       "how many rows the period/department/threshold filters admit BEFORE " +
       "the top-N limit, and `showingCount` is how many `rows` remain AFTER " +
-      "it — the rows actually on screen, in the order shown.",
+      "it — the rows actually on screen, in the order shown. Each row's " +
+      "`varianceDisplay` is the string that cell shows; quote that rather " +
+      "than the raw `variancePct` fraction beside it.",
     value: JSON.stringify({
       page: "metrics",
       filters: {
@@ -357,15 +426,7 @@ export function MetricsExplorerPage() {
       ].filter((lever): lever is string => lever !== null),
       matchingCount: matching.length,
       showingCount: rows.length,
-      rows: rows.map((row) => ({
-        metric: row.label,
-        department: DEPARTMENT_LABEL[row.department],
-        period: row.period,
-        plan: row.plan,
-        actual: row.actual,
-        variancePct: row.variancePct,
-        breaching: row.breaching,
-      })),
+      rows: explorerReadableRows(rows),
     }),
   });
 
@@ -413,8 +474,15 @@ export function MetricsExplorerPage() {
             }
             className={activeControlClass(department !== null)}
           >
+            {/* `metric-rows.ts`'s `DEPARTMENT_VALUES` itself, not a copy —
+                this page used to keep a hand-written twin of that list, and a
+                control offering an option the rows cannot be filtered by (or
+                missing one they can) looks exactly like a working control.
+                `"all"` is a real, narrowing choice (company-wide rows only),
+                distinct from the "All departments" entry above, which is no
+                department filter at all. */}
             <option value="">All departments</option>
-            {DEPARTMENT_OPTIONS.map((candidate) => (
+            {DEPARTMENT_VALUES.map((candidate) => (
               <option key={candidate} value={candidate}>
                 {DEPARTMENT_LABEL[candidate]}
               </option>
@@ -487,7 +555,11 @@ export function MetricsExplorerPage() {
             </thead>
             <tbody>
               {rows.map((row) => {
-                const unit = unitById.get(row.metricId) ?? "usd";
+                // No `?? "usd"` fallback: a metric whose def carries no unit
+                // is not a dollar figure, and printing one as if it were is
+                // the quietest kind of wrong. `formatMetricValue` shouts and
+                // prints the raw number instead.
+                const unit = unitById.get(row.metricId);
                 return (
                   <tr
                     key={`${row.metricId}-${row.department}-${row.period}`}
