@@ -45,6 +45,20 @@ async function readJson(res: Response): Promise<unknown> {
   }
 }
 
+/**
+ * Which memory bucket a mocked request was aimed at. The forget helper sends
+ * `x-cpki-user-id` and the seed helper `X-Cpki-User-Id`, so this reads the
+ * header case-insensitively — the assertion is about the identity, not about
+ * which helper happened to spell it which way.
+ */
+const bucketOf = (init?: RequestInit): string => {
+  const headers = (init?.headers ?? {}) as Record<string, string>;
+  const hit = Object.entries(headers).find(
+    ([key]) => key.toLowerCase() === "x-cpki-user-id",
+  );
+  return hit?.[1] ?? "";
+};
+
 beforeEach(() => store.reset());
 afterEach(() => vi.unstubAllEnvs());
 
@@ -137,6 +151,20 @@ describe("POST /api/exec/v1/dev/reset — half-configured Intelligence", () => {
       global.fetch = fetchMock as unknown as typeof fetch;
       vi.spyOn(console, "error").mockImplementation(() => {});
 
+      // Something in the store to actually clear. Asserting "0 narratives"
+      // against a seed that HAS no narratives passes whether or not
+      // `store.reset()` ever ran — the assertion below only means anything
+      // because this filing is here to survive or not.
+      const [breach] = store.exceptions().filter((e) => !e.explained);
+      store.fileNarrative({
+        metricId: breach.metricId,
+        period: breach.period,
+        code: "VAR-TIMING",
+        body: "Shipment timing shift.",
+        source: "typed",
+      });
+      expect(store.snapshot().narratives).toHaveLength(1);
+
       const res = await POST();
       const body = (await readJson(res)) as {
         ok: boolean;
@@ -162,7 +190,9 @@ describe("POST /api/exec/v1/dev/reset — half-configured Intelligence", () => {
       // Never the network, and never a leaked address in the body.
       expect(fetchMock).not.toHaveBeenCalled();
       expect(JSON.stringify(body)).not.toContain("intelligence.invalid");
-      // The DATA half still ran.
+      // The DATA half still ran: the narrative filed above is gone. A
+      // misconfiguration must fail the MEMORY half loudly without silently
+      // skipping the store reset the presenter came for.
       expect(store.snapshot().narratives).toHaveLength(0);
     },
   );
@@ -271,6 +301,83 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
     );
   });
 
+  /**
+   * A PINNED `INTELLIGENCE_USER_ID` — which every other case in this file
+   * stubs to "" and therefore never exercises, leaving the route's pinned
+   * fan-out (`route.ts`'s `pinnedUserId` unions) dead code as far as this
+   * suite was concerned.
+   *
+   * It matters more than any other branch here: a pinned id short-circuits
+   * `resolveUserId`, so at runtime EVERY memory lands in that one bucket —
+   * which neither `SEEDED_USER_IDS` nor `SEED_TARGET_USER_IDS` names. Drop the
+   * union and a pinned deployment (Playwright pins one, and so can a booth)
+   * sweeps two buckets nothing was ever written to, leaves the live one
+   * intact, and still reports a clean reset: beat 6 opens already taught.
+   */
+  it("sweeps and seeds the PINNED bucket too, on top of the static lists", async () => {
+    const PINNED = "pinned-booth-operator";
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://intelligence.invalid");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
+    vi.stubEnv("INTELLIGENCE_USER_ID", PINNED);
+
+    const listed: string[] = [];
+    const seededBuckets: string[] = [];
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init?.method ?? "GET";
+        if (method === "GET" && url.endsWith("/api/memories")) {
+          listed.push(bucketOf(init));
+          return new Response(JSON.stringify({ memories: [] }), {
+            status: 200,
+          });
+        }
+        if (method === "POST" && url.endsWith("/api/memories")) {
+          seededBuckets.push(bucketOf(init));
+          return new Response(JSON.stringify({ id: "m1" }), { status: 201 });
+        }
+        throw new Error(`unexpected fetch in test: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await POST();
+    const body = (await readJson(res)) as {
+      ok: boolean;
+      seeded: number;
+      expectedSeeds: number;
+    };
+
+    // The pinned bucket is the one the run actually writes to, so it is the
+    // one that MUST be swept and re-seeded.
+    expect(listed).toContain(PINNED);
+    expect(seededBuckets).toContain(PINNED);
+
+    // …in ADDITION to the static lists, not instead of them: a deployment can
+    // be pinned today and unpinned tomorrow with rows left in both.
+    const expectedForgetBuckets = new Set([
+      ...SEEDED_USER_IDS,
+      DEMO_DEFAULT_USER_ID,
+      PINNED,
+    ]);
+    expect(new Set(listed)).toEqual(expectedForgetBuckets);
+    // Deduped: a pinned id already on a static list must not be swept twice —
+    // a wasted round trip and a double-counted `forgot`.
+    expect(listed).toHaveLength(expectedForgetBuckets.size);
+
+    const expectedSeedTargets = new Set([...SEED_TARGET_USER_IDS, PINNED]);
+    expect(new Set(seededBuckets)).toEqual(expectedSeedTargets);
+    const expectedSeeds = expectedSeedTargets.size * SEED_MEMORIES.length;
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    // `expectedSeeds` counts the pinned bucket too, so the seed-shortfall
+    // honesty check cannot be satisfied by seeding only the static targets.
+    expect(body.expectedSeeds).toBe(expectedSeeds);
+    expect(body.seeded).toBe(expectedSeeds);
+  });
+
   it("names the expected vs. actual seed count in a 502 even when every forget bucket succeeds", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
@@ -315,7 +422,7 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
     expect(body.memoryError).toContain(`0 of ${expectedSeeds}`);
   });
 
-  it("redacts the API key and backend address out of the 502 body, never the console log", async () => {
+  it("keeps the backend address out of the 502 body entirely — no `apiUrl` field to redact", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
     vi.stubEnv("INTELLIGENCE_API_URL", "http://intelligence.invalid");
@@ -341,20 +448,26 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const res = await POST();
-    const body = (await readJson(res)) as {
-      apiUrl: string;
-      memoryError: string;
-    };
+    const body = (await readJson(res)) as Record<string, unknown>;
 
     expect(res.status).toBe(502);
-    expect(body.apiUrl).not.toContain("cpk_super_secret_test_key");
-    expect(body.apiUrl).not.toContain("intelligence.invalid");
+    // `redactSecrets(apiUrl)` is by construction the CONSTANT
+    // "<intelligence-backend>" — `INTELLIGENCE_API_URL` is itself the needle,
+    // so the field carried zero information while inviting exactly the leak it
+    // was scrubbing. Keel's dev/reset says it plainly: the log is the only
+    // place the address appears, never a response body. So the field is gone,
+    // not merely redacted.
+    expect(body).not.toHaveProperty("apiUrl");
+    // What DOES still travel is the upstream failure text, which quoted the
+    // key and the address back at us — that is the redactor's actual job.
     expect(body.memoryError).not.toContain("cpk_super_secret_test_key");
     expect(body.memoryError).not.toContain("intelligence.invalid");
-    // The placeholders still name WHICH secret was removed, so the body stays
+    // The placeholder still names WHICH secret was removed, so the body stays
     // diagnosable without leaking the value itself.
-    expect(body.apiUrl).toBe("<intelligence-backend>");
     expect(body.memoryError).toContain("<intelligence-api-key>");
+    // Nothing else in the body smuggles either value back in.
+    expect(JSON.stringify(body)).not.toContain("cpk_super_secret_test_key");
+    expect(JSON.stringify(body)).not.toContain("intelligence.invalid");
   });
 
   it("takes the largest single-bucket skippedProjectScoped count rather than summing, since every bucket re-sees the same global project rows", async () => {
@@ -408,11 +521,8 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
 
   /**
    * THE SUCCESS ARM — which no test in this file used to execute at all. Every
-   * memory-half case above forces a failure, so the entire 200 body (its shape,
-   * its `reset: ["store", "memory"]` claim, and its `redactSecrets(apiUrl)`
-   * call) was unexercised: `redactSecrets` could be DELETED from that path and
-   * the suite stayed green while a booth reset echoed the backend address to
-   * any caller who could reach the box.
+   * memory-half case above forces a failure, so the entire 200 body (its shape
+   * and its `reset: ["store", "memory"]` claim) was unexercised.
    */
   it("reports ok with reset: [store, memory] once every bucket is swept and every seed lands", async () => {
     vi.stubEnv("NODE_ENV", "development");
@@ -451,9 +561,9 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
       expectedSeeds,
       skippedProjectScoped: 0,
     });
-    // The 200 path redacts too. Without this, `redactSecrets(apiUrl)` could be
-    // dropped from the success body and nothing would fail.
-    expect(body.apiUrl).toBe("<intelligence-backend>");
+    // The address is not in the SUCCESS body either — a reset that worked is
+    // still a reset anyone who can reach a booth deployment can trigger.
+    expect(body).not.toHaveProperty("apiUrl");
     expect(JSON.stringify(body)).not.toContain("intelligence.invalid");
     expect(JSON.stringify(body)).not.toContain("cpk_super_secret_test_key");
   });
