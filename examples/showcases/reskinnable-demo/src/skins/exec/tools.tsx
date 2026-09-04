@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 import { z } from "zod";
 import {
   useFrontendTool,
@@ -14,6 +15,7 @@ import { useExecLedger } from "./data/ledger-context";
 import type { PublishPackResult } from "./data/ledger-context";
 import type { DashboardId, Exception, MetricDef, MetricId } from "./data/types";
 import { execNavTarget } from "./nav-target";
+import { normalizePeriodLever } from "./pages/metric-rows";
 import { execNav } from "./nav";
 
 /**
@@ -322,17 +324,68 @@ const REFUSAL_PHRASES = new Map<string, string>([
     "METRIC_ID_REQUIRED",
     "that block shows exactly one metric, and none was named.",
   ],
+  [
+    "UNSUPPORTED_BLOCK_PROP",
+    "that block kind doesn't draw one of the settings it was given.",
+  ],
+  [
+    "METRIC_NOT_BY_DEPARTMENT",
+    "that metric is company-wide and has no per-department series to scope to.",
+  ],
+  ["MONTHS_INVALID", "that trailing window isn't a whole number of months."],
+  ["PERIOD_INVALID", "that isn't a period this desk can open."],
+  ["TOP_INVALID", "that row limit isn't a whole number of rows."],
+  ["TOOL_FAILED", "that step couldn't complete, and nothing was changed."],
 ]);
 
 /**
- * What a refusal READS as: the producer's own message first, then this file's
- * phrasing for the code, and — for a code nobody has worded yet — the code
- * spelled as words rather than as an enum. The last arm is the one that keeps
- * this honest as `agent.ts` grows correctable errors (`UNSUPPORTED_BLOCK_PROP`
- * and friends) that this file has never heard of.
+ * Whether a producer's `message` was written FOR THE MODEL rather than for the
+ * room.
+ *
+ * ⚠️ THE REFUSALS THIS SKIN RECEIVES ARE NOT ALL ADDRESSED TO THE SAME READER.
+ * `agent.ts` words every correctable error as an instruction to the agent —
+ * "Call get_metrics again with a positive whole number", "do not retry the
+ * same call" — because the whole point of answering a mistake with a RESULT is
+ * that one retry fixes it. Printed verbatim, the room watches the presenter's
+ * assistant being told what to do, in the second person, about a function it
+ * has never heard of. The store's refusals are the opposite: written for the
+ * operator, and saying more than any per-code phrasing could (EMPTY_DASHBOARD
+ * is the case that proves it).
+ *
+ * So the message is used ONLY when it is already operator-safe, and these are
+ * the tells that it is not. Deliberately a small, explicit list rather than a
+ * cleverer test: the primary mechanism is `REFUSAL_PHRASES` above, and this is
+ * the backstop for a code nobody has worded yet.
+ */
+const MODEL_ADDRESSED = [
+  // A snake_case identifier — a backend tool or parameter name, i.e. the
+  // model's own API surface named out loud.
+  /\b[a-z][a-z0-9]*_[a-z0-9_]+\b/,
+  // Instructions about what to call next, and what not to.
+  /\bcall\b[^.]*\bagain\b/i,
+  /\bdo not\b/i,
+  /\bretry\b/i,
+];
+
+function writtenForTheModel(message: string): boolean {
+  return MODEL_ADDRESSED.some((tell) => tell.test(message));
+}
+
+/**
+ * What a refusal READS as: the producer's own message when it was written for
+ * the room, then this file's phrasing for the code, and — for a code nobody
+ * has worded yet — the code spelled as words rather than as an enum. The last
+ * arm is the one that keeps this honest as `agent.ts` grows correctable errors
+ * (`UNSUPPORTED_BLOCK_PROP` and friends) that this file has never heard of.
+ *
+ * The message is still relayed to the MODEL untouched — it is the tool result,
+ * and this only decides what is drawn. See `writtenForTheModel` for why the
+ * two readers cannot share one sentence.
  */
 function refusalLine(settle: Extract<ToolSettle, { kind: "refusal" }>): string {
-  if (settle.message) return settle.message;
+  if (settle.message && !writtenForTheModel(settle.message)) {
+    return settle.message;
+  }
   return (
     REFUSAL_PHRASES.get(settle.error) ??
     `${settle.error.toLowerCase().replace(/_+/g, " ").trim()}.`
@@ -346,6 +399,34 @@ function refusalLine(settle: Extract<ToolSettle, { kind: "refusal" }>): string {
  * failed one.
  */
 const PIN_FAILED_PREFIX = "Could not pin that block";
+
+/**
+ * The whole sentence a failed pin settles with — the ledger's own explanation
+ * of what went wrong, under this file's one stable prefix.
+ *
+ * ⚠️ TWO PREFIXES ARE STRIPPED, NOT ONE. `useExecLedger().addBlock` throws
+ * `"add block failed: <message>"` (`throwWithBodyMessage`), and the message it
+ * relays is the store's own `"<CODE>: <human message>"` (`data/store.ts`, the
+ * same convention `store-errors.ts` maps onto HTTP statuses). Stripping only
+ * the ledger's half left "Could not pin that block: ALREADY_PINNED: block …"
+ * on screen — a store enum read out to the room, which is exactly what
+ * `REFUSAL_PHRASES` above exists to prevent for every other refusal in this
+ * file. The remedy the store wrote beside the throw is what the sentence is
+ * for, and it survives the strip untouched, for the model and for the room
+ * alike.
+ *
+ * Exported for `./tool-settle.test.tsx`.
+ */
+export function pinFailedLine(error: unknown): string {
+  const detail = (error instanceof Error ? error.message : String(error))
+    .replace(/^add block failed:\s*/i, "")
+    // The store's coded prefix. Anchored and ALL-CAPS-only, so a human
+    // sentence that happens to open on a capitalised word keeps it.
+    .replace(/^[A-Z][A-Z0-9_]*:\s*/, "")
+    // …and the full stop it already carries — one prefix, one full stop.
+    .replace(/\.+\s*$/, "");
+  return `${PIN_FAILED_PREFIX}: ${detail}.`;
+}
 
 /**
  * The sentence `confirmPublishCountersign`'s Cancel button settles the
@@ -446,9 +527,9 @@ type KnownSettles = {
 
 /**
  * Every tool in this file that has a settle vocabulary of its own, keyed by
- * tool name. A tool absent from a field has none — `navigateTo` cannot fail
- * (it pushes a route) and has no card to cancel, so the shared rules are all
- * it needs.
+ * tool name. A tool absent from a field has none — `navigateTo` cannot FAIL
+ * (it pushes a route, and the push cannot throw) and has no card to cancel,
+ * so it declares only how its lever refusals are worded.
  *
  * Exported for `./tool-settle.test.tsx`, which drives the settled arms of
  * `confirmPublishCountersign`, `pinBlockToDashboard`, `navigateTo`,
@@ -468,7 +549,21 @@ export const EXEC_SETTLES = {
     failed: [PIN_FAILED_PREFIX],
     nothingDone: "Nothing was pinned.",
   },
-  navigateTo: {},
+  navigateTo: {
+    refusedLabel: "Didn't open that page",
+    nothingDone: "The desk did not move.",
+  },
+  // The two BACKEND READS. They have no receipt of their own — the figures
+  // they return are for the agent, not for the room — but a refusal from
+  // either must not tick through as a read that happened.
+  get_metrics: {
+    refusedLabel: "Couldn't read that metric",
+    nothingDone: "Nothing was read.",
+  },
+  list_exceptions: {
+    refusedLabel: "Couldn't scan the exceptions",
+    nothingDone: "Nothing was read.",
+  },
   // The two BACKEND tools with renders of their own (`NarrativeFiledReceipt`
   // and `MetricBlockSettle`).
   file_variance_narrative: { nothingDone: "Nothing was filed." },
@@ -576,6 +671,29 @@ function PendingChip({ label }: { label: string }) {
 }
 
 /**
+ * The same line, settled: the activity happened and there is nothing to show
+ * for it beyond that it did.
+ *
+ * The counterpart of `PendingChip` for a tool whose RESULT is for the agent
+ * rather than for the room (the two backend reads). Taking those tools off the
+ * shell's wildcard chip is what lets a failed read read as failed — but the
+ * chip's settled state ("Reading metrics ✓") is the only thing that ever said
+ * the agent had gone and looked, so it is kept here rather than dropped, with
+ * the same check the shell draws.
+ */
+function DoneChip({ label }: { label: string }) {
+  return (
+    <div
+      data-settle-tone="done"
+      className="my-1.5 flex items-center gap-1.5 text-[0.8125rem] text-ink-muted"
+    >
+      <Check className="h-3.5 w-3.5 flex-none" aria-hidden />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+/**
  * The settled arm EVERY tool render in this file draws, given that tool's
  * `EXEC_SETTLES` entry. Renders nothing while the call is `pending` unless a
  * `pendingLabel` is given, so a HITL caller can fall through to its own card
@@ -647,6 +765,127 @@ function segmentLabel(segment: string): string {
   return (
     execNav.find((route) => route.segment === segment)?.label ?? "that page"
   );
+}
+
+/**
+ * `navigateTo`'s parameters — SHAPE ONLY, for exactly the reason `agent.ts`
+ * states at length for its own schemas and enforces for `months`.
+ *
+ * ⚠️ NO VALUE CONSTRAINT MAY LIVE HERE. `period` carried
+ * `.regex(/^\d{4}-(0[1-9]|1[0-2])$|^any$/)` and `top` carried `.int().min(0)`,
+ * and both are VALUE constraints: the AI SDK rejects the call at the parameter
+ * boundary and emits a `tool-error` stream part, which `@copilotkit/runtime`
+ * has no arm for (verified against `ai@6.0.259`). No TOOL_CALL_RESULT is
+ * emitted at all, so an off-format period — "June 2024", "2024-6", "Q2" —
+ * left the chip spinning "Navigating…" forever, with nothing rendered and
+ * nothing said, for a mistake one retry would have fixed.
+ *
+ * The regex bought nothing even when it fired: `execNavTarget`
+ * (`./nav-target`) already DROPS a lever the Metrics Explorer could not read,
+ * through the very functions that page reads the query string back with. What
+ * was missing was not the rejection but the telling, so the values are checked
+ * in `navLeverRefusal` below and answered as a correctable RESULT.
+ *
+ * Types and enums STAY: a JSON schema can express them, the model cannot get
+ * them subtly wrong, and `segment` is what routes the call at all.
+ *
+ * Exported for `./tool-settle.test.tsx`.
+ */
+export const navigateToParams = z.object({
+  segment: z
+    .enum(["", "finance", "metrics", "packs"])
+    .describe(
+      "Which page to open: '' for the CEO dashboard, 'finance' for " +
+        "the CFO dashboard, 'metrics' for the Metrics Explorer, " +
+        "'packs' for Board packs.",
+    ),
+  department: z
+    .enum([
+      "manufacturing",
+      "distribution",
+      "field-services",
+      "corporate",
+      "all",
+      "any",
+    ])
+    .describe(
+      "Restrict the Metrics Explorer to one department, 'all' for " +
+        "company-wide rows only, or 'any' to leave every department " +
+        "in. Use 'any' unless the operator named a department.",
+    ),
+  // A plain string, NOT `.regex(...)` — see this schema's header.
+  period: z
+    .string()
+    .describe(
+      'One period, spelled "YYYY-MM" (e.g. "2024-06"), or "any" to ' +
+        'leave every period in. Use "any" unless the operator named a ' +
+        "period.",
+    ),
+  threshold: z
+    .boolean()
+    .describe(
+      "true to show only metrics breaching their threshold, false " +
+        "to leave every metric in.",
+    ),
+  // A plain number, NOT `.int().min(0)` — see this schema's header.
+  top: z
+    .number()
+    .describe(
+      "Limit to the top N rows by |variance|, as a whole number greater " +
+        "than zero. Use 0 for no limit.",
+    ),
+});
+
+/**
+ * The two VALUE checks `navigateToParams` deliberately does not make, in the
+ * one place that may make them: inside the call, answered as a result.
+ *
+ * `period` is validated through `normalizePeriodLever` — the SAME function the
+ * Metrics Explorer reads `?period=` back with (`./pages/metric-rows`) — so
+ * this tool can neither refuse a period that page would honour nor accept one
+ * it would silently ignore. The `"any"` sentinel is a statement ABOUT the
+ * lever rather than a value of it, and that function returns `null` for both,
+ * so the sentinel is recognised here first.
+ *
+ * `top`'s `0` is the same kind of sentinel ("no limit"). Anything else has to
+ * be a whole number greater than zero, which is exactly what `execNavTarget`
+ * will forward — a `2.5` or a `-3` is dropped there, so left unsaid it would
+ * navigate under a lever the operator was told had been set.
+ *
+ * Returns the refusal, or `undefined` when there is nothing to refuse.
+ * Exported for `./tool-settle.test.tsx`.
+ */
+export function navLeverRefusal({
+  period,
+  top,
+}: {
+  period: string;
+  top: number;
+}): { error: string; message: string } | undefined {
+  const spelled = period.trim();
+  if (
+    spelled.toLowerCase() !== "any" &&
+    normalizePeriodLever(spelled) === null
+  ) {
+    return {
+      error: "PERIOD_INVALID",
+      message:
+        `period is one month spelled "YYYY-MM" (e.g. "2024-06"), or "any" to ` +
+        `leave every period in — "${period}" is neither, so the desk did not ` +
+        `move. Call navigateTo again with a period in that spelling, or ` +
+        `"any" if the operator named none.`,
+    };
+  }
+  if (top !== 0 && !(Number.isInteger(top) && top > 0)) {
+    return {
+      error: "TOP_INVALID",
+      message:
+        `top is a row limit, so it must be a whole number greater than zero ` +
+        `— ${String(top)} is not, and the desk did not move. Call navigateTo ` +
+        `again with a whole number of rows, or 0 to leave the limit off.`,
+    };
+  }
+  return undefined;
 }
 
 // ══ BEAT 6 — TEACH-MODE DIRECTIVE STRINGS ═══════════════════════════════
@@ -1255,6 +1494,43 @@ export function MetricBlockSettle({ result }: { result: unknown }) {
   }
 }
 
+/**
+ * The settled arm of the two BACKEND READS (`get_metrics`, `list_exceptions`).
+ *
+ * ⚠️ A FAILED READ IS NOT A READ. Both answer a correctable mistake with an
+ * error RESULT rather than a throw — a throw is the hang `agent.ts` documents
+ * at the top of itself — and the shell's wildcard chip keys "done" off STATUS
+ * alone (`src/shell/chat/tool-activity.tsx` draws a check the moment the call
+ * completes, whatever came back). So a refused read ticked "Reading metrics ✓"
+ * in front of the room and the agent went on to state figures it never got.
+ * Same mechanism, and same fix, as `MetricBlockSettle` above.
+ *
+ * The `success` arm draws the LABEL, never the payload: a successful read
+ * settles with the whole metric series, and `SettleReceipt`'s success arm
+ * prints its text verbatim — which is right for the receipt-shaped tools and
+ * would put a JSON blob of plan/actual rows in the transcript for these two.
+ *
+ * Exported for `./tool-settle.test.tsx`.
+ */
+export function ReadSettle({
+  tool,
+  result,
+}: {
+  tool: "get_metrics" | "list_exceptions";
+  result: unknown;
+}) {
+  const known = EXEC_SETTLES[tool];
+  const settle = classifyToolSettle(result, known);
+  switch (settle.kind) {
+    case "pending":
+      return <PendingChip label={execToolLabels[tool]} />;
+    case "success":
+      return <DoneChip label={execToolLabels[tool]} />;
+    default:
+      return <SettleReceipt result={result} known={known} />;
+  }
+}
+
 export function ExecTools() {
   const router = useRouter();
   const skinHref = useSkinHref("exec");
@@ -1318,6 +1594,35 @@ export function ExecTools() {
   // as A2UI operations, which the runtime middleware turns into their own
   // `a2ui` tool call with its own renderer; this renderer only replaces the
   // activity line for `render_metric_block` itself.
+  // ══ RULE 1's READ HALF — A FAILED READ MUST READ AS FAILED ══════════════
+  //
+  // Neither read draws anything of its own: what they return is for the agent.
+  // They are registered here only so that a refusal from either stops being
+  // drawn by the shell's wildcard chip, which ticks a check off status alone
+  // and so reported "Reading metrics ✓" over a read that returned an error.
+  // See `ReadSettle`.
+  useRenderTool(
+    {
+      name: "get_metrics",
+      // Reads the tool's `result`, never the agent's arguments — see the
+      // narrative renderer above for why the schema is a passthrough.
+      parameters: z.object({}).passthrough(),
+      render: ({ result }) => <ReadSettle tool="get_metrics" result={result} />,
+    },
+    [],
+  );
+
+  useRenderTool(
+    {
+      name: "list_exceptions",
+      parameters: z.object({}).passthrough(),
+      render: ({ result }) => (
+        <ReadSettle tool="list_exceptions" result={result} />
+      ),
+    },
+    [],
+  );
+
   useRenderTool(
     {
       name: "render_metric_block",
@@ -1382,15 +1687,9 @@ export function ExecTools() {
           // that happened from one that did not, or it confirms a dashboard
           // card that is not on screen.
           console.error("[exec] pinBlockToDashboard failed:", err);
-          // `useExecLedger().addBlock` throws "add block failed: <message>"
-          // (`throwWithBodyMessage`), so pasting it in whole read "Could not
-          // pin that block: add block failed: NOT_FOUND: …..". Strip the
-          // ledger's own prefix and the trailing stop it already carries — one
-          // prefix, one full stop.
-          const detail = (err instanceof Error ? err.message : String(err))
-            .replace(/^add block failed:\s*/i, "")
-            .replace(/\.+\s*$/, "");
-          return `${PIN_FAILED_PREFIX}: ${detail}.`;
+          // Both prefixes the throw arrives wearing are stripped there, and
+          // the store's remedy is kept — see `pinFailedLine`.
+          return pinFailedLine(err);
         }
         return `Pinned to the ${title}.`;
       },
@@ -1455,51 +1754,12 @@ export function ExecTools() {
         "claims a choice they never made. The levers only take effect on " +
         "the Metrics Explorer; passing them for another page is harmless " +
         "but has no effect.",
-      parameters: z.object({
-        segment: z
-          .enum(["", "finance", "metrics", "packs"])
-          .describe(
-            "Which page to open: '' for the CEO dashboard, 'finance' for " +
-              "the CFO dashboard, 'metrics' for the Metrics Explorer, " +
-              "'packs' for Board packs.",
-          ),
-        department: z
-          .enum([
-            "manufacturing",
-            "distribution",
-            "field-services",
-            "corporate",
-            "all",
-            "any",
-          ])
-          .describe(
-            "Restrict the Metrics Explorer to one department, 'all' for " +
-              "company-wide rows only, or 'any' to leave every department " +
-              "in. Use 'any' unless the operator named a department.",
-          ),
-        period: z
-          .string()
-          .regex(/^\d{4}-(0[1-9]|1[0-2])$|^any$/)
-          .describe(
-            'One period, spelled "YYYY-MM" (e.g. "2024-06"), or "any" to ' +
-              'leave every period in. Use "any" unless the operator named a ' +
-              "period.",
-          ),
-        threshold: z
-          .boolean()
-          .describe(
-            "true to show only metrics breaching their threshold, false " +
-              "to leave every metric in.",
-          ),
-        top: z
-          .number()
-          .int()
-          .min(0)
-          .describe(
-            "Limit to the top N rows by |variance|. Use 0 for no limit.",
-          ),
-      }),
+      parameters: navigateToParams,
       handler: async ({ segment, department, period, threshold, top }) => {
+        // The value guards the schema may not carry, answered as a RESULT the
+        // model can correct in one retry — see `navigateToParams`.
+        const badLever = navLeverRefusal({ period, top });
+        if (badLever) return badLever;
         const target = execNavTarget({
           segment,
           department: department === "any" ? undefined : department,
