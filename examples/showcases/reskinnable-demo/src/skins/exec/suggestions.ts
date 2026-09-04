@@ -27,6 +27,11 @@ import type { Suggestion } from "@/shell/skin-contract";
  * moved from a margin miss to an opex overrun) after the table above was
  * written — the table stays verbatim as the historical beat map; the pills
  * below are the demo script actually wired.
+ *
+ * One further divergence, decided against the built seed rather than on
+ * paper: 3c's pill dropped the "top 5" count both the table and the plan
+ * carried. See that pill's own comment — the seed does not breach five
+ * Distribution metrics, so the count was a promise the screen could not keep.
  */
 
 /**
@@ -61,11 +66,19 @@ export const execSuggestions: Suggestion[] = [
       "Look at the page I'm on right now and tell me what's on screen — the key elements and the figures shown.",
   },
   // 3c — navigate + filter + sort the metrics explorer via its four levers.
+  //
+  // No COUNT in either string. The old title promised "5 metrics", and the
+  // seed only breaches one department-level metric in Distribution
+  // (`opex`, see `data/seed.ts`) — so a top-5 lever set on a board with
+  // fewer than five Distribution rows put a number on the pill the screen
+  // could not honour. The levers still do the work; the ask is now for the
+  // worst variances, which is true whatever the board holds.
   {
-    title: "Top 5 worst variances in Distribution",
+    title: "Show the worst Distribution variances",
     message:
       "Take me to the metrics explorer, filter to the Distribution " +
-      "department, and show me the 5 metrics with the worst variance this quarter.",
+      "department, and show me the worst variances there — the biggest one " +
+      "at the top of the list.",
   },
   // 3d — intercepted in skin.tsx; stages the generated memo PDF.
   {

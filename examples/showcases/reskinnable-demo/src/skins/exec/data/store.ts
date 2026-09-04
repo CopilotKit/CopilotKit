@@ -15,8 +15,9 @@
  * Drafts (blocks created by `render_metric_block` before anyone pins them)
  * live in a separate `drafts` map, never on a dashboard, until
  * `addBlockToDashboard` moves them across — that separation is what makes a
- * chat-rendered block invisible to the dashboard pages until "Add to
- * dashboard" is actually clicked.
+ * chat-rendered block invisible to the dashboard pages until it is pinned —
+ * the operator's "Add to dashboard" click or the agent's
+ * `pinBlockToDashboard` call.
  */
 
 import {

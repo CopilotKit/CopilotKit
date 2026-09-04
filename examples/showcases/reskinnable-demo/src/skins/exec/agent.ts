@@ -137,9 +137,14 @@ export const listExceptionsTool = defineTool({
  * selection, and the block binds live figures on the client.
  *
  * The block is created as a DRAFT (`store.createDraftBlock`): it exists, it can
- * be pinned by the "Add to dashboard" control the ops carry, and until someone
- * clicks that control it is on no dashboard at all. A rendered block is not a
- * pin.
+ * be pinned by the "Add to dashboard" control the ops carry OR by the frontend
+ * `pinBlockToDashboard` tool (`./tools.tsx`), and until one of those runs it is
+ * on no dashboard at all. A rendered block is not a pin.
+ *
+ * The draft's id is returned alongside the ops as `blockId`, which is the ONLY
+ * handle `pinBlockToDashboard` accepts — without it the agent could compose the
+ * three blocks beat 5's saved procedure asks for and then have no way to pin
+ * any of them.
  */
 const renderMetricBlockParams = z
   .object({
@@ -216,12 +221,17 @@ export const renderMetricBlockTool = defineTool({
     "line, variance bar, initiative table or exception list. This is how you " +
     "SHOW a number: the block binds live figures on the client, so never pass " +
     "or restate numbers. The block arrives with an 'Add to dashboard' control; " +
-    "rendering it pins nothing. Always pair the block with one sentence of " +
-    "prose answering what was actually asked.",
+    "rendering it pins nothing. The result carries a 'blockId' — that is the " +
+    "id you pass to pinBlockToDashboard if this block is meant to land on a " +
+    "dashboard. Always pair the block with one sentence of prose answering " +
+    "what was actually asked.",
   parameters: renderMetricBlockParams,
   execute: async (spec) => {
     const block = store.createDraftBlock(spec);
-    return { [A2UI_OPERATIONS_KEY]: buildBlockOps(spec, block.id) };
+    return {
+      [A2UI_OPERATIONS_KEY]: buildBlockOps(spec, block.id),
+      blockId: block.id,
+    };
   },
 });
 
@@ -334,16 +344,22 @@ export const fileVarianceNarrativeTool = defineTool({
 /**
  * BEAT 6's GATE — publish, or read back exactly why not.
  *
+ * ⚠️ EXPORTED BUT DELIBERATELY NOT REGISTERED. It is absent from `execAgent()`'s
+ * `tools` array on purpose: the PIN is beat 3a's withheld secret, so the agent's
+ * only publish path is the frontend `confirmPublishCountersign` card, which
+ * POSTs `/api/exec/v1/packs` itself and hands the agent back the verbatim
+ * refusal (`./tools.tsx`). Registering this tool as well would advertise a
+ * second publish route the agent can only ever call with a PIN it invented —
+ * exactly the retry EXEC_PROMPT rules 4 and 6 forbid. The export stays because
+ * `agent-tools.test.ts` invokes its `execute` directly to pin the SHAPE the gate
+ * reads back, and because the REST route it wraps is the same one the card uses.
+ *
  * The refusal is returned VERBATIM (`{ error: code, breaches }`, the same shape
  * the REST route sends): the teach arc only fires if the agent SEES
  * `UNEXPLAINED_VARIANCE` and the breaches behind it, rather than a swallowed,
  * reshaped or summarized error. Keel's `render_impact_brief` error shape makes
  * the same argument from the other side — a tool that returns nothing useful on
  * failure gets retried identically.
- *
- * The PIN is beat 3a's withheld secret: it is typed into the countersign card
- * and only ever arrives here as an argument. The agent neither knows it nor
- * needs to.
  */
 export const publishBoardPackTool = defineTool({
   name: "publish_board_pack",
@@ -401,17 +417,19 @@ structured data is shown here.
 
 3. BLOCKS ARE THE SURFACE. This desk has NO canvas report tool: a single metric
 renders as an INLINE BLOCK in the chat, and those blocks ARE the story on
-screen. Do not look for a report, canvas or dashboard-rendering tool, do not
-apologise for not having one, and do not describe a dashboard in prose as a
-substitute. Several things to show means several blocks, one call each, each with
-its own sentence. Rendering a block pins NOTHING: it arrives with an "Add to
-dashboard" control, and the dashboards only grow when that control is used.
+screen. Do not look for a canvas report tool, do not apologise for not having
+one, and do not describe a dashboard in prose as a substitute. Several things to
+show means several blocks, one call each, each with its own sentence. Rendering
+a block pins NOTHING: it arrives with an "Add to dashboard" control, and the
+dashboards only grow when the operator uses that control OR you call
+pinBlockToDashboard with the blockId render_metric_block gave you.
 
 4. YOU DO NOT KNOW THE COUNTERSIGN PIN. Publishing a board pack is countersigned
-by a HUMAN. Call confirmPublishCountersign so the operator types the PIN into
-the card; you will never see, ask for, receive or repeat those digits, and you
-must never invent them or retry publish_board_pack with a PIN you composed. A
-publish refused for BAD_COUNTERSIGN is the card's business, not a puzzle.
+by a HUMAN, and confirmPublishCountersign is the ONLY way you publish one. Call
+it so the operator types the PIN into the card; you will never see, ask for,
+receive or repeat those digits, and you must never invent them or compose a PIN
+of your own. A publish refused for BAD_COUNTERSIGN is the card's business, not a
+puzzle.
 
 5. YOU DO NOT KNOW THE NARRATIVE CODES EITHER. The catalogue a variance
 narrative is filed under is the operator's — it lives on the filing form, is
@@ -423,10 +441,9 @@ whatever you are given VERBATIM.
 
 6. A PUBLISH REFUSED FOR UNEXPLAINED VARIANCE — ACTION DISCIPLINE.
 A publish is refused with UNEXPLAINED_VARIANCE — the refusal comes back as
-confirmPublishCountersign's result, never publish_board_pack's, since you are
-never the one calling that tool with a real PIN — and the exact breaches
-behind it while a dashboard's metrics have variance nobody has explained. Handle
-it in this order and no other.
+confirmPublishCountersign's result, the only publish path you have — and the
+exact breaches behind it while a dashboard's metrics have variance nobody has
+explained. Handle it in this order and no other.
   1. Call recall_memory and look for a saved procedure for publishing a pack
      that was refused for unexplained variance. If you find one, FOLLOW IT
      exactly, then re-attempt the SAME publish that was refused. Do not offer to
@@ -497,8 +514,12 @@ that throttle does not apply to the separate recall a refused publish requires
 11. A SAVED PROCEDURE IS EXECUTED, NOT DESCRIBED. When the operator asks for
 something a saved procedure covers — assembling the month-end board pack, however
 vaguely they put it — recall it and RUN it, step by step, immediately, without
-asking for confirmation between steps. When every step is done, confirm what you
-did in ONE short sentence. Assembling a pack is a DIFFERENT situation from
+asking for confirmation between steps. Every step is EXECUTABLE, pinning
+included: a step that says to put blocks on a dashboard means calling
+pinBlockToDashboard once per block, with the blockId each render_metric_block
+call handed back — never a sentence saying you would. When every step is done,
+confirm what you did in ONE short sentence. Assembling a pack is a DIFFERENT
+situation from
 getting a refused publish past unexplained variance (rule 6); do not confuse the
 two, and do NOT offer to record anything here — you already know this one, and
 offering to learn a procedure you are in the middle of running is the single most
@@ -516,10 +537,23 @@ confusing thing you can do on this screen.
 - Save a given fact once. Supersede rather than adding a near-duplicate.
 - Never stop mid-procedure to save something. Finish the procedure first.
 
+OPEN GENERATIVE UI. generateSandboxedUi is for genuinely novel UI this desk has
+no block for — an interactive what-if explorer, a treemap, something the block
+catalog cannot express. Do not reach for it when render_metric_block would do:
+every metric, trend, variance, initiative and exception view goes through
+render_metric_block, which binds live figures on the client. When you do use it,
+obtain every figure through the exposed sandbox functions rather than typing
+numbers into the generated markup.
+
 Backend tools available to you: get_metrics and list_exceptions to READ the
-ledger (rule 1), render_metric_block to SHOW it (rules 2 and 3),
-file_variance_narrative to explain a breach (rules 5 and 7), and
-publish_board_pack to take a dashboard to the countersign gate (rules 4 and 6).
+ledger (rule 1), render_metric_block to SHOW it (rules 2 and 3), and
+file_variance_narrative to explain a breach (rules 5 and 7).
+
+Frontend tools available to you: pinBlockToDashboard to pin a block you already
+rendered onto a dashboard (rules 3 and 11), navigateTo to move the desk and set
+the explorer's levers (rule 9), confirmPublishCountersign to take a dashboard to
+the countersign gate (rules 4 and 6), and the teach chain
+offerWorkflowRecording / awaitDemonstration / saveLearnedProcedure (rule 6).
 
 Keep prose tight and executive: short sentences, the movement before the level,
 no filler. Render the block instead of describing its data, then add at most one
@@ -536,12 +570,12 @@ export const execAgent = () =>
     // model routes the multi-step arc more reliably.
     model: "openai/gpt-5.4",
     prompt: EXEC_PROMPT,
+    // `publishBoardPackTool` is DELIBERATELY absent — see its doc comment.
     tools: [
       getMetricsTool,
       listExceptionsTool,
       renderMetricBlockTool,
       fileVarianceNarrativeTool,
-      publishBoardPackTool,
     ],
     // Temperature 0 for deterministic tool routing — every other skin pins it
     // for the same reason. The scripted arc (render → file → publish → teach)

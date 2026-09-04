@@ -44,9 +44,23 @@ export const POST = async (
     );
   }
 
-  const block = store.addBlockToDashboard(
-    parsedDashboardId.data,
-    parsedBody.data.blockId,
-  );
-  return Response.json(block, { status: 200 });
+  // `addBlockToDashboard` THROWS `NOT_FOUND: no draft block "<id>"` for an id
+  // with no draft behind it — the shape a hallucinated `blockId` from
+  // `pinBlockToDashboard` (`src/skins/exec/tools.tsx`) takes. Unhandled that
+  // is a 500 with a stack trace, which reaches the agent as an opaque
+  // failure it will retry identically; a 404 carrying the message says which
+  // id was not found and that rendering the block first is the fix.
+  try {
+    const block = store.addBlockToDashboard(
+      parsedDashboardId.data,
+      parsedBody.data.blockId,
+    );
+    return Response.json(block, { status: 200 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.startsWith("NOT_FOUND")) {
+      return Response.json({ error: "NOT_FOUND", message }, { status: 404 });
+    }
+    throw error;
+  }
 };

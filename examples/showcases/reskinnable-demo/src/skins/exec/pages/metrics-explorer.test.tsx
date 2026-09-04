@@ -12,8 +12,9 @@ import type {
  * A synthetic snapshot, not the app's live seed. The plan's test case turns
  * on top-5 among MORE than five breaching Distribution metrics, and the real
  * seed (`data/seed.ts`) deliberately keeps only one department-level breach
- * (`opex`/distribution) so that the demo's teaching narrative has exactly two
- * unexplained exceptions to work with. Depending on that count here would
+ * (`opex`/distribution); its whole breach budget is three unexplained
+ * exceptions, one per gate the demo's teaching narrative has to hit (see that
+ * file's breach block). Depending on that count here would
  * make this test fail the moment the seed's breach budget changes for
  * reasons that have nothing to do with `filterMetricRows`.
  */

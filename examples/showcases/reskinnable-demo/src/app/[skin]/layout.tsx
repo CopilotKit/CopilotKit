@@ -37,10 +37,6 @@ import {
  * handing off to the canvas. `blockSurfaceIdFrom` (shared with the exec skin's
  * op-builder by hand, see that module's comment) recognizes the convention;
  * any other `a2ui-surface` id falls back to the same handoff pill as before.
- *
- * Module-level so the array reference stays stable across renders
- * (CopilotKitProvider requires a stable renderActivityMessages array). Both
- * activity types are handled here — the OGUI pill is not dropped.
  */
 function A2UISurfaceActivity(props: { content: unknown }) {
   const surfaceId = blockSurfaceIdFrom(props.content);
@@ -76,6 +72,11 @@ function OguiHandoffPill() {
   );
 }
 
+/**
+ * Module-level so the array reference stays stable across renders
+ * (CopilotKitProvider requires a stable renderActivityMessages array). Both
+ * activity types are handled here — the OGUI pill is not dropped.
+ */
 const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
   {
     activityType: "a2ui-surface",

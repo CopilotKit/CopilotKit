@@ -16,10 +16,12 @@ import { sandboxFunctions } from "./sandbox-functions";
 import { attachMemoByHand, sendMemoWithAttachment } from "./attach-memo";
 
 // Human-readable activity-chip labels for this skin's own tools. `execToolLabels`
-// (tools.tsx) covers the report/metric/memory beats; the five FRONTEND tool
+// (tools.tsx) covers the report/metric/memory beats; the six FRONTEND tool
 // labels below — beat 6's teach chain (offer/await/save), beat 3a's
 // countersign card (refused the first time, requested again at the end of
-// the arc), and beat 3c's `navigateTo` — are added HERE (not there) on
+// the arc), beat 3c's `navigateTo`, and the beat 3a/5 pin support
+// (`pinBlockToDashboard`, the agent's half of "Add to dashboard") — are added
+// HERE (not there) on
 // reviewer recommendation so the teach-chain and countersign chips narrate
 // the arc the room is watching: it does not know, it asks to be shown, it
 // watches, it writes up what it learned, and then it asks again for the
@@ -36,6 +38,7 @@ const TOOL_LABELS: Record<string, string> = {
   saveLearnedProcedure: "Writing up what it learned",
   confirmPublishCountersign: "Requesting the countersign",
   navigateTo: "Navigating",
+  pinBlockToDashboard: "Pinning to the dashboard",
   generateSandboxedUi: "Generating an interactive view",
 };
 

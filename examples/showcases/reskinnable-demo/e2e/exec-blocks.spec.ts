@@ -76,6 +76,15 @@ import { test, expect } from "@playwright/test";
  * set into its default file or accept a second `AIMOCK_FIXTURES` path, since it
  * currently loads exactly one fixture file per server instance.
  *
+ * ── WHY THE DASHBOARD ASSERTIONS MATCH A HEADING, NOT TEXT ───────────────────
+ * A pinned card renders its title TWICE inside the app panel: once as the card
+ * chrome's uppercase `<span>` (`../src/skins/exec/components/dashboard-grid
+ * .tsx`) and once as the block's own `<h2>` (the `Heading` catalog renderer,
+ * from the ops). `getByText(blockTitle)` therefore resolves two nodes and
+ * fails Playwright's strict mode — a latent trap that would only fire once the
+ * fixture above exists. `getByRole("heading", { name })` is exact: the chrome
+ * span carries no heading role.
+ *
  * ── WHY test.fixme (headless CI honesty) ──────────────────────────────────────
  * Same call as `e2e/a2ui-canvas.spec.ts`: this gate needs the aimock fixture
  * above loaded and a first green run confirmed against it, which has not
@@ -92,59 +101,57 @@ import { test, expect } from "@playwright/test";
 const BEAT_1_PILL_TITLE = "Show revenue vs. plan this quarter";
 
 test.describe("exec (Vantage) dashboard blocks", () => {
-  test.fixme(
-    "the beat-1 pill renders an inline block that pins to the CEO dashboard and survives a reload",
-    async ({ page }) => {
-      // Start on a different exec page so the later "navigate to the CEO
-      // dashboard" step is a real route change, not a no-op — see header.
-      await page.goto("/exec/metrics");
+  test.fixme("the beat-1 pill renders an inline block that pins to the CEO dashboard and survives a reload", async ({
+    page,
+  }) => {
+    // Start on a different exec page so the later "navigate to the CEO
+    // dashboard" step is a real route change, not a no-op — see header.
+    await page.goto("/exec/metrics");
 
-      // Send the beat-1 pill. Suggestions are the shell's generic
-      // `demo-suggestion-<index>` pills (shell/chat/demo-suggestions.tsx);
-      // beat 1 is execSuggestions[0].
-      const pill = page.getByTestId("demo-suggestion-0");
-      await expect(pill).toHaveText(BEAT_1_PILL_TITLE);
-      await pill.click();
+    // Send the beat-1 pill. Suggestions are the shell's generic
+    // `demo-suggestion-<index>` pills (shell/chat/demo-suggestions.tsx);
+    // beat 1 is execSuggestions[0].
+    const pill = page.getByTestId("demo-suggestion-0");
+    await expect(pill).toHaveText(BEAT_1_PILL_TITLE);
+    await pill.click();
 
-      // The block renders INLINE in the transcript (not a canvas handoff
-      // pill — the `block:`-prefixed surface id routes to InlineBlockSurface).
-      const inlineSurface = page.getByTestId("inline-block-surface");
-      await expect(inlineSurface).toBeVisible({ timeout: 30_000 });
+    // The block renders INLINE in the transcript (not a canvas handoff
+    // pill — the `block:`-prefixed surface id routes to InlineBlockSurface).
+    const inlineSurface = page.getByTestId("inline-block-surface");
+    await expect(inlineSurface).toBeVisible({ timeout: 30_000 });
 
-      // Capture the block's own title so the later dashboard-grid assertion
-      // does not have to hardcode agent-authored text (the model, not this
-      // test, picks the block's `title`).
-      const blockTitle = await inlineSurface
-        .getByRole("heading")
-        .innerText();
-      expect(blockTitle.length).toBeGreaterThan(0);
+    // Capture the block's own title so the later dashboard-grid assertion
+    // does not have to hardcode agent-authored text (the model, not this
+    // test, picks the block's `title`).
+    const blockTitle = await inlineSurface.getByRole("heading").innerText();
+    expect(blockTitle.length).toBeGreaterThan(0);
 
-      // Pin it to the CEO dashboard. `AddToDashboard` also renders a "Pin to
-      // CFO dashboard" button, so name the exact one.
-      await inlineSurface
-        .getByRole("button", { name: "Pin to CEO dashboard" })
-        .click();
+    // Pin it to the CEO dashboard. `AddToDashboard` also renders a "Pin to
+    // CFO dashboard" button, so name the exact one.
+    await inlineSurface
+      .getByRole("button", { name: "Pin to CEO dashboard" })
+      .click();
 
-      // The whole control collapses to "Pinned ✓" on success (never a live
-      // second button — see AddToDashboard's doc comment) — wait for it
-      // before navigating away, so a failed pin fails HERE, not three steps
-      // later as a missing dashboard card.
-      await expect(inlineSurface.getByRole("status")).toHaveText("Pinned ✓");
+    // The whole control collapses to "Pinned ✓" on success (never a live
+    // second button — see AddToDashboard's doc comment) — wait for it
+    // before navigating away, so a failed pin fails HERE, not three steps
+    // later as a missing dashboard card.
+    await expect(inlineSurface.getByRole("status")).toHaveText("Pinned ✓");
 
-      // Navigate to the CEO dashboard via the sidebar's own nav link — a real
-      // client-side route change, not a re-render of the page we started on.
-      await page.getByRole("link", { name: "CEO dashboard" }).click();
-      await expect(page).toHaveURL(/\/exec$/);
+    // Navigate to the CEO dashboard via the sidebar's own nav link — a real
+    // client-side route change, not a re-render of the page we started on.
+    await page.getByRole("link", { name: "CEO dashboard" }).click();
+    await expect(page).toHaveURL(/\/exec$/);
 
-      // The block card is on the page, in the app panel (not the chat
-      // transcript, which still shows its own copy of the same title).
-      const appPanel = page.getByTestId("app-panel");
-      await expect(appPanel.getByText(blockTitle)).toBeVisible();
+    // The block card is on the page, in the app panel (not the chat
+    // transcript, which still shows its own copy of the same title).
+    const appPanel = page.getByTestId("app-panel");
+    const blockHeading = appPanel.getByRole("heading", { name: blockTitle });
+    await expect(blockHeading).toBeVisible();
 
-      // Reload — proves the pin is a server-side write (the ledger API), not
-      // component state a hard refresh would have torn down.
-      await page.reload();
-      await expect(appPanel.getByText(blockTitle)).toBeVisible();
-    },
-  );
+    // Reload — proves the pin is a server-side write (the ledger API), not
+    // component state a hard refresh would have torn down.
+    await page.reload();
+    await expect(blockHeading).toBeVisible();
+  });
 });
