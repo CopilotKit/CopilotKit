@@ -5,6 +5,8 @@ export type VueHumanInTheLoopRenderProps<T> =
   | {
       name: string;
       description: string;
+      toolCallId: string;
+      agentId?: string;
       args: Partial<T>;
       status: ToolCallStatus.InProgress;
       result: undefined;
@@ -13,6 +15,8 @@ export type VueHumanInTheLoopRenderProps<T> =
   | {
       name: string;
       description: string;
+      toolCallId: string;
+      agentId?: string;
       args: T;
       status: ToolCallStatus.Executing;
       result: undefined;
@@ -21,6 +25,8 @@ export type VueHumanInTheLoopRenderProps<T> =
   | {
       name: string;
       description: string;
+      toolCallId: string;
+      agentId?: string;
       args: T;
       status: ToolCallStatus.Complete;
       result: string;
