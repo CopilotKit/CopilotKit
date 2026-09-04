@@ -1,8 +1,16 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { COUNTERSIGN_PIN } from "./data/store";
 import {
+  COUNTERSIGN_PIN_HINT,
   DemonstrationSettle,
   EXEC_SETTLES,
+  HITL_ABORTED,
+  HITL_ABORT_MESSAGE,
+  MetricBlockSettle,
   OfferSettle,
   SaveProcedureSettle,
   SettleReceipt,
@@ -56,6 +64,8 @@ const countersign = (result: unknown) => (
     known={EXEC_SETTLES.confirmPublishCountersign}
   />
 );
+
+const block = (result: unknown) => <MetricBlockSettle result={result} />;
 
 describe("classifyToolSettle", () => {
   it("treats a pre-completion result as pending, not as an outcome", () => {
@@ -180,7 +190,10 @@ describe("confirmPublishCountersign's settled render", () => {
       ),
     );
     expect(tone(container)).toBe("negative");
-    expect(screen.getByText(/UNEXPLAINED_VARIANCE/)).toBeTruthy();
+    // The CODE is the agent's; the room gets a sentence — see the
+    // "relays the refusal's own message" tests below.
+    expect(container.textContent).not.toMatch(/UNEXPLAINED_VARIANCE/);
+    expect(container.textContent).toMatch(/Publish refused/);
     expect(container.querySelectorAll("li")).toHaveLength(2);
     expect(container.textContent).toMatch(/Operating expense/);
     expect(container.textContent).toMatch(/manufacturing/);
@@ -200,14 +213,198 @@ describe("confirmPublishCountersign's settled render", () => {
     for (const body of cases) {
       const { container, unmount } = render(countersign(body));
       expect(tone(container), body).toBe("negative");
-      expect(container.textContent, body).toMatch(/UNEXPLAINED_VARIANCE/);
+      expect(container.textContent, body).toMatch(/Publish refused/);
       unmount();
     }
   });
 
   it("renders nothing at all before the call completes", () => {
+    // No `pendingLabel`: this render falls THROUGH to the card itself while
+    // the interrupt is open, so anything drawn here would sit above it.
     const { container } = render(countersign(undefined));
     expect(container.textContent).toBe("");
+  });
+
+  it("does not say the card was never answered when it was answered with nothing", () => {
+    // `respond()` / `respond(null)` settles with the EMPTY string: the card
+    // WAS answered, it just reported nothing. "never answered" is the abort's
+    // line and describes a different thing entirely.
+    const { container } = render(countersign(""));
+    expect(tone(container)).toBe("neutral");
+    expect(container.textContent).not.toMatch(/never answered/i);
+    expect(container.textContent).toMatch(/nothing was published/i);
+  });
+
+  it("relays the refusal's own message rather than the bare code", () => {
+    // The routes and `agent.ts` both answer a coded refusal as
+    // `{ error, message }`, and the message is the only half written for a
+    // human. Printing `error` alone puts "Publish refused:
+    // UNEXPLAINED_VARIANCE." on the screen at the climax of the demo.
+    const { container } = render(
+      countersign(
+        JSON.stringify({
+          error: "UNEXPLAINED_VARIANCE",
+          message:
+            "Two metrics on this dashboard breach without a filed narrative.",
+        }),
+      ),
+    );
+    expect(container.textContent).toMatch(
+      /Two metrics on this dashboard breach/,
+    );
+    expect(container.textContent).not.toMatch(/UNEXPLAINED_VARIANCE/);
+  });
+
+  it("never prints a bare enum when the refusal carried no message", () => {
+    const { container } = render(
+      countersign(JSON.stringify({ error: "UNEXPLAINED_VARIANCE" })),
+    );
+    expect(tone(container)).toBe("negative");
+    expect(container.textContent).not.toMatch(/UNEXPLAINED_VARIANCE/);
+    expect(container.textContent).toMatch(/narrative/i);
+  });
+
+  it("still says something human for a code it has no phrasing for", () => {
+    const { container } = render(
+      countersign(JSON.stringify({ error: "SOME_NEW_GATE" })),
+    );
+    expect(container.textContent).not.toMatch(/SOME_NEW_GATE/);
+    expect(container.textContent).toMatch(/some new gate/);
+  });
+});
+
+describe("the countersign card's PIN hint", () => {
+  it("is the same four digits the store validates against", () => {
+    // The card hardcodes the PIN deliberately — `data/store.ts` is a SERVER
+    // module and importing it into this client component would drag the whole
+    // ledger into the browser bundle. A test may import it, so the
+    // duplication is pinned here instead: the room is told to type a PIN, and
+    // it has to be the one that works.
+    expect(COUNTERSIGN_PIN_HINT).toBe(COUNTERSIGN_PIN);
+    // …and the card's own `^\d{4}$` guard has to accept it.
+    expect(COUNTERSIGN_PIN_HINT).toMatch(/^\d{4}$/);
+  });
+});
+
+describe("render_metric_block's settled render", () => {
+  it("reads METRIC_ID_REQUIRED as a refusal, never as a block that was composed", () => {
+    // `agent.ts` returns this as an ordinary tool RESULT (a thrown parameter
+    // error hangs the call), so without an arm of its own the shell's
+    // wildcard chip ticks "Composing a block ✓" over a block that does not
+    // exist.
+    const { container } = render(
+      block(
+        JSON.stringify({
+          error: "METRIC_ID_REQUIRED",
+          message:
+            'A "metricTile" block renders exactly one metric, so metricId is required and nothing was rendered.',
+        }),
+      ),
+    );
+    expect(tone(container)).toBe("negative");
+    expect(container.textContent).toMatch(/nothing was rendered/i);
+    expect(container.textContent).not.toMatch(/METRIC_ID_REQUIRED/);
+  });
+
+  it("renders ANY error-shaped result from that tool as a refusal", () => {
+    // The tool's correctable-error vocabulary is still growing
+    // (`KIND_PROP_UNSUPPORTED`-style codes naming a kind and a prop), so the
+    // arm keys off the SHAPE and relays the message rather than enumerating
+    // codes it would have to be kept in step with.
+    const { container } = render(
+      block(
+        JSON.stringify({
+          error: "TREND_LINE_MONTHS_UNSUPPORTED",
+          message: 'A "trendLine" block has no "months" prop.',
+        }),
+      ),
+    );
+    expect(tone(container)).toBe("negative");
+    expect(container.textContent).toMatch(/has no "months" prop/);
+  });
+
+  it("never prints the block's own ops payload as a receipt", () => {
+    // A successful render settles with the A2UI operations that DRAW the
+    // block. The block itself is the receipt; the JSON behind it is not for
+    // the room.
+    const { container } = render(
+      block(
+        JSON.stringify({
+          a2ui_operations: [{ op: "add", path: "/root" }],
+          blockId: "blk_1",
+        }),
+      ),
+    );
+    expect(container.textContent).not.toMatch(/a2ui_operations|blk_1/);
+  });
+
+  it("shows an in-flight line while the block is still being composed", () => {
+    // Registering an exact renderer takes the tool off the shell's wildcard
+    // chip, spinner included — returning null here leaves the room watching
+    // nothing at all happen.
+    const { container } = render(block(undefined));
+    expect(container.textContent).toMatch(/Composing a block/);
+  });
+});
+
+describe("the platform abort sentinel this file reconstructs", () => {
+  /**
+   * `HITL_ABORTED` is spelled out here because NEITHER half is exported: the
+   * message comes from `@copilotkit/react-core`'s v2
+   * `use-human-in-the-loop.tsx`, and the `Error: ` prefix from
+   * `@copilotkit/core`'s `CopilotKitCore.executeToolHandler`. These tests read
+   * the INSTALLED packages so an upstream reword fails here — loudly, naming
+   * the file to look in — instead of silently turning every aborted card back
+   * into a green receipt.
+   */
+  // Plain path joining, NOT `new URL(…, import.meta.url)`: vite rewrites that
+  // pattern at build time as an asset reference, which resolves to an
+  // http://localhost URL under `.pnpm/` (or to "undefined" when the argument
+  // is interpolated) rather than to a readable path.
+  const distOf = (pkg: string) =>
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../../node_modules/@copilotkit",
+      pkg,
+      "dist",
+    );
+
+  it("classifies the exact string CopilotKit settles an aborted card with", () => {
+    expect(classifyToolSettle(HITL_ABORTED)).toMatchObject({
+      kind: "cancelled",
+      via: "abort",
+    });
+  });
+
+  it("still recognises the abort when the platform wraps its own message", () => {
+    // Matched by CONTAINMENT, not by prefix: the prefix is upstream's and has
+    // already changed shape once. A wrapped sentinel read as a plain error
+    // reports a write that was attempted and rejected — nothing ran at all.
+    expect(
+      classifyToolSettle(`Error: Tool call failed: ${HITL_ABORT_MESSAGE}`),
+    ).toMatchObject({ kind: "cancelled", via: "abort" });
+  });
+
+  it("fails if @copilotkit/react-core rewords the abort message", () => {
+    const dir = distOf("react-core");
+    const bundles = readdirSync(dir).filter((f) => f.endsWith(".mjs"));
+    const found = bundles.some((f) =>
+      readFileSync(join(dir, f), "utf8").includes(HITL_ABORT_MESSAGE),
+    );
+    expect(
+      found,
+      `"${HITL_ABORT_MESSAGE}" is no longer in @copilotkit/react-core's bundles — ` +
+        "re-read v2 use-human-in-the-loop.tsx and update HITL_ABORT_MESSAGE.",
+    ).toBe(true);
+  });
+
+  it("fails if @copilotkit/core rewords the `Error: ` prefix it wraps a rejection in", () => {
+    const source = readFileSync(join(distOf("core"), "index.mjs"), "utf8");
+    expect(
+      source.includes("toolCallResult = `Error: ${errorMessage}`"),
+      "CopilotKitCore.executeToolHandler no longer prefixes a rejected tool " +
+        "handler with `Error: ` — re-read it and update HITL_ABORTED.",
+    ).toBe(true);
   });
 });
 
