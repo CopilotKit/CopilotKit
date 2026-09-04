@@ -2194,6 +2194,21 @@ class TestAutoA2UI:
     def test_resolve_catalog_none_when_absent(self):
         assert CopilotKitMiddleware._resolve_a2ui_catalog({"messages": []}) is None
 
+    def test_resolve_catalog_from_underscore_key(self):
+        """Underscore ag_ui key fallback (LangGraph normalization, see #5463)."""
+        schema, catalog_id = CopilotKitMiddleware._resolve_a2ui_catalog(
+            {
+                "ag_ui": {
+                    "a2ui_schema": json.dumps(
+                        {"catalogId": "cat-u", "components": []}
+                    )
+                }
+            }
+        )
+        # Native path: toolkit reads a2ui_schema from state, so no guide needed.
+        assert schema is None
+        assert catalog_id == "cat-u"
+
     # --- A2UI injectA2UITool flag (forwarded → ag-ui state) ------------------
 
     def test_inject_decision_reads_ag_ui_flag(self):
@@ -2204,6 +2219,20 @@ class TestAutoA2UI:
         # No flag at all → None (opt-in: no injection).
         assert read({"ag-ui": {}}) is None
         assert read({"messages": []}) is None
+        # Underscore fallback (LangGraph normalizes "ag-ui" → "ag_ui", see #5463).
+        assert read({"ag_ui": {"inject_a2ui_tool": True}}) is True
+        assert read({"ag_ui": {"inject_a2ui_tool": "render_x"}}) == "render_x"
+        assert read({"ag_ui": {}}) is None
+        # Hyphenated key wins when both are present.
+        assert (
+            read(
+                {
+                    "ag-ui": {"inject_a2ui_tool": False},
+                    "ag_ui": {"inject_a2ui_tool": True},
+                }
+            )
+            is False
+        )
 
     def test_render_tool_dropped_when_ours_injected(self):
         """When we inject generate_a2ui, the runtime's render_a2ui (forwarded as
