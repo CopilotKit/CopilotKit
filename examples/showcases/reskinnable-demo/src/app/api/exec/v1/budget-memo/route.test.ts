@@ -368,6 +368,120 @@ describe("the memo only ever narrates an over-plan breach", () => {
   });
 });
 
+describe("the driver split holds for every overrun the ledger can hold", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /**
+   * THE ROUNDING TIE. The split is `DRIVER_SPLIT` (0.62) of the overrun, and
+   * the memo prints whole dollars — so with round-to-nearest, an overrun of
+   * $2 splits 1/1 and an overrun of $4 splits 2/2. Both TIE, and a tie plants
+   * no VAR-TIMING cue at all, which is exactly what the builder's
+   * `DriverSplitError` refuses. The route then had no answer but HTTP 500:
+   * the attach chain died on a $2 overrun the ledger is perfectly entitled to
+   * hold. The split must put timing strictly above the one-off for EVERY
+   * overrun, not merely for the seed's current one.
+   */
+  it.each([
+    // 2 and 4 are the ties; the rest bracket them, up to the seed's own.
+    { overrun: 1 },
+    { overrun: 2 },
+    { overrun: 3 },
+    { overrun: 4 },
+    { overrun: 5 },
+    { overrun: 7 },
+    { overrun: 19_440 },
+  ])(
+    "serves a memo whose timing driver is strictly the larger for an overrun of $overrun",
+    async ({ overrun }) => {
+      const plan = 216_000;
+      stubLedger(store, { ...overrunPoint("2026-08"), actual: plan + overrun });
+
+      const res = await call();
+      expect(res.status).toBe(200);
+
+      const amounts = [...(await textOf(res)).matchAll(/\$[\d,]+/g)].map((m) =>
+        Number(m[0].replace(/[$,]/g, "")),
+      );
+      // Document order: actual, plan, overrun (Summary), then the two drivers.
+      const [timingUsd, oneOffUsd] = amounts.slice(3);
+      expect(timingUsd + oneOffUsd).toBe(overrun);
+      expect(timingUsd).toBeGreaterThan(oneOffUsd);
+    },
+  );
+});
+
+describe("the builder's refusals reach the caller as refusals, not as faults", () => {
+  afterEach(async () => {
+    vi.doUnmock("@/skins/exec/data/budget-memo-pdf");
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * `buildBudgetMemoPdf` refusing an input is a statement about THE LEDGER —
+   * there is no overrun this memo's prose can narrate — not a fault in this
+   * route. Reporting it as HTTP 500 sent whoever is debugging beat 3d to the
+   * server logs hunting a crash that never happened, and buried the one fact
+   * that explains the failure. The breach here carries a positive
+   * `variancePct` while its point sits AT plan, so the route's own sign guard
+   * passes it through and the builder is what refuses.
+   */
+  it("maps a non-overrun the route's own guard let through to a coded 404", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const point = { ...overrunPoint("2026-08"), actual: 216_000 };
+    vi.spyOn(store, "exceptions").mockReturnValue([
+      {
+        metricId: "opex",
+        period: "2026-08",
+        department: "distribution",
+        // Skewed: positive here, flat in the point the memo would print.
+        variancePct: 0.09,
+        explained: false,
+      },
+    ]);
+    vi.spyOn(store, "metricSeries").mockReturnValue([point]);
+
+    const res = await call();
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: "NOT_AN_OVERRUN" });
+    expect(warn).toHaveBeenCalled();
+  });
+
+  /**
+   * The other refusal, forced from the builder itself: with the split fixed
+   * above, no ledger value reaches it any more, so the mapping can only be
+   * exercised by making the builder throw.
+   */
+  it("maps a broken driver split to its own code rather than a bare 500", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.resetModules();
+    vi.doMock("@/skins/exec/data/budget-memo-pdf", async (importOriginal) => {
+      // The error is constructed from the ORIGINAL module resolved through
+      // this factory, not from this file's own import: after
+      // `vi.resetModules()` the route sees a fresh module instance, and an
+      // error thrown from the stale one would fail the route's `instanceof`
+      // for a reason that has nothing to do with the mapping under test.
+      const actual = await importOriginal<{
+        DriverSplitError: new (message: string) => Error;
+      }>();
+      return {
+        ...actual,
+        buildBudgetMemoPdf: () => {
+          throw new actual.DriverSplitError("drivers 1 + 1 do not add up");
+        },
+      };
+    });
+    const { GET: freshGet } = await import("./route");
+
+    const res = await freshGet();
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "DRIVER_SPLIT" });
+    expect(error).toHaveBeenCalled();
+  });
+});
+
 describe("the memo's author matches the seed's initiative owner", () => {
   /**
    * The memo names an author distinct from anyone in `seedInitiatives()`

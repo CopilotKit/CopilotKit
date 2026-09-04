@@ -43,10 +43,17 @@ import type { Definitions } from "./definitions";
 
 const GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6", xl: "gap-10" } as const;
 
-// Text props in the catalog are `string | { path }` (a data-bound ref). The
-// A2UI runtime resolves refs before render, so a `{ path }` still standing at
-// render time is a BROKEN BINDING — the path named nothing in the data model.
-type TextRef = string | { path: string };
+// Text props in the catalog are declared `string | { path }` (a data-bound
+// ref), but that is the shape the AGENT sends, not the shape a renderer sees:
+// the A2UI binder (`GenericBinder`, `@a2ui/web_core`) resolves every dynamic
+// prop BEFORE render and hands the renderer the RESOLVED value. A path that
+// names nothing in the data model therefore arrives as `undefined` — the
+// binder never leaves a standing `{ path }` object behind. So anything that
+// is not a string here is a BROKEN BINDING, and `undefined` is its ordinary
+// shape; `UnresolvedText` reports whichever shape arrives rather than reading
+// into it. (`{ path }` stays in the union for a surface built by hand, past
+// the binder — the guard names the path when there is one to name.)
+type TextRef = string | { path: string } | undefined;
 
 /** MetricTile's sparkline window — six closed months, per the block spec. */
 const SPARKLINE_MONTHS = 6;
@@ -69,6 +76,21 @@ const DEPARTMENT_LABEL: Record<Department | "all", string> = {
   corporate: "Corporate",
   all: "Company-wide",
 };
+
+/**
+ * A department's display label, falling back to the RAW KEY.
+ *
+ * `department` is part of the query descriptor the AGENT sends, so a key
+ * outside the four seeded departments is reachable — and it lands on the
+ * FAILURE path by construction, since no series exists for it. The map lookup
+ * yields `undefined` there, and the failure sentence lower-cases it: the one
+ * path that exists to REPORT a bad query used to throw on one, taking the
+ * whole A2UI surface down instead of showing the block that could not be
+ * built. Printing the raw key also keeps the report answerable — "no data for
+ * ... at logistics" names what was actually asked for.
+ */
+const departmentLabel = (department: string): string =>
+  DEPARTMENT_LABEL[department as Department | "all"] ?? department;
 
 const MONTH_LABEL = [
   "Jan",
@@ -205,12 +227,26 @@ function MissingTile({ title, reason }: { title: string; reason: string }) {
   );
 }
 
-/** A text prop that is still a `{ path }` at render time — a broken binding. */
-function UnresolvedText({ label, path }: { label: string; path: string }) {
+/**
+ * A text prop that did not resolve to a string — a broken binding (see
+ * `TextRef`). The value is read DEFENSIVELY: `undefined` is what the binder
+ * passes for an unresolved ref, and reaching into `.path` on it threw a
+ * `TypeError` out of the renderer, which takes down the whole A2UI surface
+ * instead of the one label that failed to bind.
+ */
+function UnresolvedText({ label, text }: { label: string; text: unknown }) {
+  const path =
+    typeof text === "object" && text !== null && "path" in text
+      ? (text as { path?: unknown }).path
+      : undefined;
   return (
     <MissingTile
       title={`${label} unavailable`}
-      reason={`Unresolved data reference "${path}" — the text never bound.`}
+      reason={
+        typeof path === "string"
+          ? `Unresolved data reference "${path}" — the text never bound.`
+          : "Unresolved data reference — the text never bound."
+      }
     />
   );
 }
@@ -347,7 +383,7 @@ const Stack = ({
 
 const Heading = ({ props }: RendererProps<{ text: TextRef }>) => {
   if (typeof props.text !== "string") {
-    return <UnresolvedText label="Heading" path={props.text.path} />;
+    return <UnresolvedText label="Heading" text={props.text} />;
   }
   return (
     <h2 className="text-lg font-semibold tracking-tight text-ink">
@@ -368,7 +404,7 @@ const Text = ({
   props,
 }: RendererProps<{ text: TextRef; tone?: "default" | "muted" }>) => {
   if (typeof props.text !== "string") {
-    return <UnresolvedText label="Text" path={props.text.path} />;
+    return <UnresolvedText label="Text" text={props.text} />;
   }
   return (
     <p
@@ -401,7 +437,7 @@ const MetricTile = ({
     return (
       <MissingTile
         title="Metric unavailable"
-        reason={`No data for "${props.metricId}" at ${DEPARTMENT_LABEL[department].toLowerCase()}.`}
+        reason={`No data for "${props.metricId}" at ${departmentLabel(department).toLowerCase()}.`}
       />
     );
   }
@@ -414,7 +450,7 @@ const MetricTile = ({
 
   return (
     <Tile
-      label={`${def.label} · ${DEPARTMENT_LABEL[department]} · ${formatPeriod(point.period)}`}
+      label={`${def.label} · ${departmentLabel(department)} · ${formatPeriod(point.period)}`}
     >
       <div className="flex items-baseline gap-2">
         {/*
@@ -460,7 +496,7 @@ const TrendLine = ({
     return (
       <MissingTile
         title="Trend unavailable"
-        reason={`No data for "${props.metricId}" at ${DEPARTMENT_LABEL[department].toLowerCase()}.`}
+        reason={`No data for "${props.metricId}" at ${departmentLabel(department).toLowerCase()}.`}
       />
     );
   }
@@ -469,7 +505,7 @@ const TrendLine = ({
   // to display — the figures below all come from the points it selects.
   const months = props.months ?? DEFAULT_TREND_MONTHS;
   const trend = lastMonths(series, months);
-  const label = `${def.label} · ${DEPARTMENT_LABEL[department]} · ${trend.length}mo`;
+  const label = `${def.label} · ${departmentLabel(department)} · ${trend.length}mo`;
 
   if (trend.length < 2) {
     return (

@@ -285,6 +285,40 @@ describe("exec catalog MetricTile renderer", () => {
   });
 
   /**
+   * A DEPARTMENT THE LABEL MAP HAS NEVER HEARD OF. `department` comes from
+   * the AGENT, so a key outside the four seeded departments is a value this
+   * renderer must survive — and it lands on the failure path by construction,
+   * since no series exists for it. Reading the label map at that key yields
+   * `undefined`, and the failure sentence used to call `.toLowerCase()` on it:
+   * the one path that exists to REPORT a bad query was the path that threw on
+   * one, taking the whole surface down with it.
+   */
+  it("reports an unknown department through the block-error surface", () => {
+    const data = makeBlockData({
+      snapshot: makeSnapshot({
+        metricDefs: [makeMetricDef({ id: "revenue" })],
+        points: [makeMetricPoint({ metricId: "revenue" })],
+      }),
+    });
+
+    let result: ReturnType<typeof renderMetricTile> | undefined;
+    expect(() => {
+      result = renderMetricTile(data, {
+        metricId: "revenue",
+        department: "logistics" as Department,
+      });
+    }, "an unknown department must not throw out of the renderer").not.toThrow();
+
+    const error = result?.container.querySelector(
+      '[data-testid="block-error"]',
+    );
+    expect(error).not.toBeNull();
+    expect(error?.getAttribute("role")).toBe("alert");
+    // The raw key still names WHICH department was asked for.
+    expect(error?.textContent ?? "").toContain("logistics");
+  });
+
+  /**
    * THE NON-FINITE GUARD. Variance is `(actual - plan) / plan`, so a zero
    * plan (or zero forecast) yields ±Infinity, and zero-over-zero yields NaN.
    * `Delta` reports either as unavailable — printing "Infinity%" or "NaN%" on
@@ -345,21 +379,25 @@ describe("exec catalog MetricTile renderer", () => {
 
 /**
  * THE UNRESOLVED DATA REF. `Heading`/`Text` take `string | { path }` because
- * the catalog declares a data-bound ref as a legal value; the A2UI runtime is
- * supposed to resolve the ref BEFORE render. When it doesn't — a path that
- * names nothing in the data model — the component still gets the `{ path }`
- * object. Painting that as an empty string puts a blank heading on a board
- * pack, which reads as "this section is intentionally untitled" rather than
- * "the binding broke"; this file's own rule (`MissingTile`) is that a block
- * whose query resolved to nothing must SAY so.
+ * the catalog declares a data-bound ref as a legal value; the A2UI binder
+ * resolves the ref BEFORE render and hands the renderer the RESOLVED value.
+ * When the path names nothing in the data model there is no value to hand
+ * over, so what arrives is `undefined` — not a standing `{ path }` object.
+ * Painting that as an empty string puts a blank heading on a board pack,
+ * which reads as "this section is intentionally untitled" rather than "the
+ * binding broke"; this file's own rule (`MissingTile`) is that a block whose
+ * query resolved to nothing must SAY so.
+ *
+ * The props are typed `unknown` here on purpose: the point of these cases is
+ * the shapes the CATALOG's own type does not admit but the runtime delivers.
  */
 const LabelOnly = {
   Heading: renderers.Heading as (
-    props: RendererProps<{ text: string | { path: string } }>,
+    props: RendererProps<{ text: unknown }>,
   ) => React.ReactElement,
   Text: renderers.Text as (
     props: RendererProps<{
-      text: string | { path: string };
+      text: unknown;
       tone?: "default" | "muted";
     }>,
   ) => React.ReactElement,
@@ -399,6 +437,39 @@ describe.each(["Heading", "Text"] as const)(
       expect(error?.getAttribute("role")).toBe("alert");
       // It names the path, or nobody can tell WHICH binding broke.
       expect(error?.textContent ?? "").toContain("/metrics/revenue/label");
+    });
+
+    /**
+     * WHAT AN UNRESOLVED BINDING ACTUALLY LOOKS LIKE HERE. The binder
+     * (`GenericBinder`, `@a2ui/web_core`) resolves every dynamic prop before
+     * render and passes on whatever the data model yielded — `undefined` for
+     * a path that names nothing, and whatever non-string value a mistyped
+     * path happens to name. Reaching into `.path` on those threw a
+     * `TypeError` out of the renderer, which takes down the WHOLE A2UI
+     * surface rather than the one label that failed to bind.
+     */
+    it.each([
+      { shape: "an unresolved binding (undefined)", text: undefined },
+      { shape: "a null value", text: null },
+      { shape: "a non-string value", text: 42 },
+    ])("reports $shape through the block-error surface", ({ text }) => {
+      let result: ReturnType<typeof render> | undefined;
+      expect(() => {
+        result = render(
+          <Component
+            props={{ text }}
+            // eslint-disable-next-line react/no-children-prop
+            children={() => null as unknown as React.ReactNode}
+          />,
+        );
+      }, "a broken binding must fail as one block, not as a thrown render").not.toThrow();
+
+      const error = result?.container.querySelector(
+        '[data-testid="block-error"]',
+      );
+      expect(error).not.toBeNull();
+      expect(error?.getAttribute("role")).toBe("alert");
+      expect(error?.textContent ?? "").toContain(`${name} unavailable`);
     });
   },
 );
@@ -591,6 +662,25 @@ describe("exec catalog TrendLine renderer", () => {
     expect(error).not.toBeNull();
     expect(error?.getAttribute("role")).toBe("alert");
     expect(error?.textContent ?? "").toContain("burnRate");
+  });
+
+  /** The same agent-supplied unknown department, on the other failure path. */
+  it("reports an unknown department through the block-error surface", () => {
+    const data = makeBlockData({ snapshot: monthlySnapshot(6) });
+
+    let result: ReturnType<typeof renderTrendLine> | undefined;
+    expect(() => {
+      result = renderTrendLine(data, {
+        metricId: "burnRate",
+        department: "logistics" as Department,
+      });
+    }, "an unknown department must not throw out of the renderer").not.toThrow();
+
+    const error = result?.container.querySelector(
+      '[data-testid="block-error"]',
+    );
+    expect(error).not.toBeNull();
+    expect(error?.textContent ?? "").toContain("logistics");
   });
 });
 

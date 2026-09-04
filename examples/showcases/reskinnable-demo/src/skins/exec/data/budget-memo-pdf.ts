@@ -152,10 +152,11 @@ export function buildBudgetMemoPdf(input: BudgetMemoInput): Uint8Array {
   //
   // Checked on the ROUNDED figures because those are the ones the memo
   // prints (`CURRENCY` renders whole dollars), so this asserts what the
-  // reader actually sees rather than a precision they are never shown. The
-  // route's fixed `DRIVER_SPLIT` satisfies both for every overrun the live
-  // seed produces; this guard is here for the same reason the sign guard is,
-  // which is that `buildBudgetMemoPdf` is exported.
+  // reader actually sees rather than a precision they are never shown —
+  // which is exactly the precision the route's `splitOverrun` had to be
+  // written in to satisfy both properties for EVERY overrun rather than for
+  // the seed's current one. This guard is here for the same reason the sign
+  // guard is, which is that `buildBudgetMemoPdf` is exported.
   const timing = Math.round(input.timingUsd);
   const oneOff = Math.round(input.oneOffUsd);
   const overrun = Math.round(overrunUsd);
