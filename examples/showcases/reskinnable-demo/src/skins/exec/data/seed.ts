@@ -263,6 +263,17 @@ const PERIOD_COUNT = 24;
  * never breaches — EXCEPT the four latest-period points overridden at the
  * end of this function, which are the seed's only breaches (three) plus one
  * deliberate non-breaching variance (revenue).
+ *
+ * For `byDepartment` metrics, `department: "all"` is NEVER an independent
+ * draw: it is derived as the sum of the four department rows (plan, actual,
+ * and forecast each summed). Both granularities are rendered together in the
+ * Metrics Explorer and both are returned by `metricSeries`, so an
+ * independent "all" draw would let the numbers contradict each other on
+ * stage. `safeMax` below (`thresholdPct * 0.6`) bounds the weighted average
+ * of the four department variances well under `thresholdPct`, so summing
+ * department rows can never introduce an accidental breach at "all" — see
+ * the opex/distribution override below, which is the one case close enough
+ * to the margin to need checking explicitly.
  */
 export function seedPoints(): MetricPoint[] {
   const defs = seedMetricDefs();
@@ -279,21 +290,13 @@ export function seedPoints(): MetricPoint[] {
     periods.forEach((period, i) => {
       const totalPlan = planValue(def.id, i);
 
-      const allVariance = variancePctFor(`${def.id}|${period}|all`, safeMax);
-      const allForecastVariance = variancePctFor(
-        `${def.id}|${period}|all|forecast`,
-        forecastMax,
-      );
-      points.push({
-        metricId: def.id,
-        period,
-        department: "all",
-        plan: round(totalPlan, def.unit),
-        actual: round(totalPlan * (1 + allVariance), def.unit),
-        forecast: round(totalPlan * (1 + allForecastVariance), def.unit),
-      });
-
       if (def.byDepartment) {
+        // Generate the department rows first, then derive "all" as their
+        // sum — never an independent draw — so the two granularities can
+        // never disagree.
+        let sumPlan = 0;
+        let sumActual = 0;
+        let sumForecast = 0;
         DEPARTMENTS.forEach((dept) => {
           const deptPlan = totalPlan * DEPT_WEIGHT[dept];
           const deptVariance = variancePctFor(
@@ -304,14 +307,48 @@ export function seedPoints(): MetricPoint[] {
             `${def.id}|${period}|${dept}|forecast`,
             forecastMax,
           );
+          const plan = round(deptPlan, def.unit);
+          const actual = round(deptPlan * (1 + deptVariance), def.unit);
+          const forecast = round(
+            deptPlan * (1 + deptForecastVariance),
+            def.unit,
+          );
           points.push({
             metricId: def.id,
             period,
             department: dept,
-            plan: round(deptPlan, def.unit),
-            actual: round(deptPlan * (1 + deptVariance), def.unit),
-            forecast: round(deptPlan * (1 + deptForecastVariance), def.unit),
+            plan,
+            actual,
+            forecast,
           });
+          sumPlan += plan;
+          sumActual += actual;
+          sumForecast += forecast;
+        });
+        points.push({
+          metricId: def.id,
+          period,
+          department: "all",
+          plan: sumPlan,
+          actual: sumActual,
+          forecast: sumForecast,
+        });
+      } else {
+        const allVariance = variancePctFor(
+          `${def.id}|${period}|all`,
+          safeMax,
+        );
+        const allForecastVariance = variancePctFor(
+          `${def.id}|${period}|all|forecast`,
+          forecastMax,
+        );
+        points.push({
+          metricId: def.id,
+          period,
+          department: "all",
+          plan: round(totalPlan, def.unit),
+          actual: round(totalPlan * (1 + allVariance), def.unit),
+          forecast: round(totalPlan * (1 + allForecastVariance), def.unit),
         });
       }
     });
@@ -338,6 +375,37 @@ export function seedPoints(): MetricPoint[] {
         `seed: expected point ${metricId}/${period}/${department} to exist`,
       );
     point.actual = round(point.plan * (1 + variancePct), unitOf(metricId));
+  }
+
+  /**
+   * Re-derive a `byDepartment` metric's "all" row at `period` as the sum of
+   * its four department rows. Call this after any override mutates a
+   * department-level point, so `department: "all"` never goes stale and
+   * drifts back out of agreement with the rows it is supposed to aggregate.
+   */
+  function recomputeAllFromDepartments(metricId: MetricId, period: string): void {
+    const deptPoints = DEPARTMENTS.map((dept) => {
+      const point = points.find(
+        (p) =>
+          p.metricId === metricId &&
+          p.period === period &&
+          p.department === dept,
+      );
+      if (!point)
+        throw new Error(
+          `seed: expected point ${metricId}/${period}/${dept} to exist`,
+        );
+      return point;
+    });
+    const allPoint = points.find(
+      (p) =>
+        p.metricId === metricId && p.period === period && p.department === "all",
+    );
+    if (!allPoint)
+      throw new Error(`seed: expected point ${metricId}/${period}/all to exist`);
+    allPoint.plan = deptPoints.reduce((sum, p) => sum + p.plan, 0);
+    allPoint.actual = deptPoints.reduce((sum, p) => sum + p.actual, 0);
+    allPoint.forecast = deptPoints.reduce((sum, p) => sum + p.forecast, 0);
   }
 
   // ── THE SEED'S THREE UNEXPLAINED BREACHES, ALL IN THE LATEST PERIOD ──────
@@ -367,6 +435,14 @@ export function seedPoints(): MetricPoint[] {
   // DIFFERENT metrics minimum, so the taught case and the replay can never
   // collapse onto the same one.
   overrideVariance("opex", latestPeriod, "distribution", 0.09); // threshold 0.05 -> breach
+  // `opex`/"all" is derived, so the distribution override above must flow
+  // into it. Re-summing here keeps `all.actual === sum(dept.actual)` true
+  // after the override — and it stays a NON-breach: distribution is 30% of
+  // opex, so even at +9% the recomputed "all" variance tops out well under
+  // opex's 5% threshold (worst case ~4.8%, given every other department is
+  // held under `safeMax`). If the department weights or `safeMax` ever
+  // change, `store.test.ts`'s breach-set invariant will catch a regression.
+  recomputeAllFromDepartments("opex", latestPeriod);
   overrideVariance("burnRate", latestPeriod, "all", 0.1); // threshold 0.06, company-wide -> breach
   overrideVariance("dsoDays", latestPeriod, "all", 0.12); // threshold 0.08, company-wide -> breach
   // A deliberate non-breach: variance without tripping the gate.

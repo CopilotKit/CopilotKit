@@ -20,6 +20,65 @@ describe("seed invariants", () => {
   it("has 24 monthly periods for every company-wide metric", () => {
     expect(store.metricSeries({ metricId: "revenue" })).toHaveLength(24);
   });
+  /**
+   * `byDepartment` metrics (opex, headcountCost) render at BOTH granularities
+   * — the "all" row and the four department rows — in the same Metrics
+   * Explorer table, and `metricSeries` returns both. If "all" were an
+   * independent draw instead of the sum of the department rows, the two
+   * granularities could (and did) contradict each other on stage: opex@latest
+   * showed "all" actual down 2.25% vs plan while the four departments summed
+   * to up 3.47% vs plan — the same metric, same period, opposite story.
+   */
+  it("derives byDepartment 'all' rows as the sum of the four department rows, every period", () => {
+    const snap = store.snapshot();
+    const departments = ["manufacturing", "distribution", "field-services", "corporate"] as const;
+    const byDeptMetrics = snap.metricDefs.filter((d) => d.byDepartment);
+    expect(byDeptMetrics.length).toBeGreaterThan(0);
+
+    for (const def of byDeptMetrics) {
+      const rows = snap.points.filter((p) => p.metricId === def.id);
+      const periods = [...new Set(rows.map((p) => p.period))];
+      expect(periods.length).toBe(24);
+
+      for (const period of periods) {
+        const all = rows.find(
+          (p) => p.period === period && p.department === "all",
+        );
+        expect(all, `${def.id}/${period}/all missing`).toBeDefined();
+
+        const depts = departments.map((dept) => {
+          const p = rows.find(
+            (r) => r.period === period && r.department === dept,
+          );
+          expect(p, `${def.id}/${period}/${dept} missing`).toBeDefined();
+          return p!;
+        });
+
+        expect(all!.plan).toBe(depts.reduce((sum, p) => sum + p.plan, 0));
+        expect(all!.actual).toBe(depts.reduce((sum, p) => sum + p.actual, 0));
+        expect(all!.forecast).toBe(
+          depts.reduce((sum, p) => sum + p.forecast, 0),
+        );
+      }
+    }
+  });
+  /**
+   * Hardens the Wave-2 "no other breach" invariant: the seed's breach budget
+   * is spent on EXACTLY these three (metricId, department) pairs — see the
+   * breach block in `seed.ts` for why the count and the specific metrics
+   * matter to the demo's beat order. In particular, deriving `opex`/"all"
+   * from the (overridden) department rows must not itself tip `opex`/"all"
+   * into an unintended fourth breach.
+   */
+  it("seeds exactly the breach set {opex/distribution, dsoDays/all, burnRate/all} and no others", () => {
+    const breaches = store.exceptions().filter((e) => !e.explained);
+    const actual = new Set(
+      breaches.map((b) => `${b.metricId}/${b.department}`),
+    );
+    expect(actual).toEqual(
+      new Set(["opex/distribution", "dsoDays/all", "burnRate/all"]),
+    );
+  });
 });
 
 describe("variance and the publish gate", () => {
