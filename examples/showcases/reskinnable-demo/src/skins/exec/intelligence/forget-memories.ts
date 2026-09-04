@@ -24,14 +24,27 @@
  *
  * Rather than guess a pagination parameter, this VERIFIES it saw everything:
  * list → delete what it saw → list again. Deleting a truncated page's rows is
- * what makes the next page's rows visible, so the loop converges on a genuinely
- * empty list, and `complete: true` is only claimed once a pass came back with
- * nothing left to delete. Bounded by `maxPasses` so a backend that keeps
- * re-listing deleted rows cannot spin forever — in which case `complete` is
- * FALSE and `incompleteReason` says which way it fell short. The booth failure
- * all of this guards against: a reset that misses rows, reports a plausible
- * count, reads as success — and leaves beat 6 already taught, so the agent
- * "learns" a procedure it demonstrably already knew.
+ * what makes the next page's rows visible, so the loop converges on a list with
+ * nothing deletable left, and `complete: true` is only claimed once a pass came
+ * back with nothing left to delete. Bounded by `maxPasses` so a backend that
+ * keeps re-listing deleted rows cannot spin forever — in which case `complete`
+ * is FALSE and `incompleteReason` says which way it fell short. The booth
+ * failure all of this guards against: a reset that misses rows, reports a
+ * plausible count, reads as success — and leaves beat 6 already taught, so the
+ * agent "learns" a procedure it demonstrably already knew.
+ *
+ * ⚠ THE PROOF HAS ONE KNOWN GAP, and it is stated rather than papered over:
+ * the argument above turns on "deleting the page shrinks it". Project-scoped
+ * rows are deliberately never deleted (see the skip below), so a page made
+ * ONLY of them can never be made to shrink. If this backend paginates and such
+ * a page fills it, deletable rows could sit behind them and never be listed at
+ * all. That residual cannot be probed away (no query string is accepted) and it
+ * is NOT reported as `complete: false`: banking seeds a project-scoped memory
+ * into the instance every skin here shares, so every exec sweep ends on an
+ * all-project page and failing them all would make `dev/reset` a permanent 502
+ * that tells a presenter nothing actionable. `skippedProjectScoped` is returned
+ * instead — non-zero means the stop was NOT proven by an empty list — and
+ * `dev/reset` prints it. See {@link ForgetResult.complete}.
  *
  * PORTED from the other skins' equivalent rather than imported: a skin's only inbound
  * dependency is the shell's contract, so src/skins/exec/** must never reach
@@ -71,6 +84,13 @@ interface MemoryRow {
   scope?: string;
 }
 
+/** One row this sweep could NOT confirm gone. */
+export interface ForgetFailure {
+  id: string;
+  /** Why it could not be deleted — an HTTP status and body, or a transport error. */
+  reason: string;
+}
+
 export interface ForgetResult {
   /** Rows this sweep deleted (2xx). */
   forgot: number;
@@ -86,12 +106,26 @@ export interface ForgetResult {
    * to go investigate.
    */
   skippedProjectScoped: number;
+  /**
+   * Rows that failed to delete for a reason other than "already gone". These do
+   * NOT abort the sweep: one 500 on one row used to abandon this bucket, so a
+   * single bad row left every row behind it — including the ones where mid-demo
+   * teaching actually lands — never even attempted. Non-empty always forces
+   * `complete: false`.
+   */
+  failed: ForgetFailure[];
   /** How many list→delete passes ran. */
   passes: number;
   /**
-   * TRUE only when a list pass PROVED there was nothing deletable left. False
-   * means PARTIAL — the caller must not report the clear as done. See the
-   * pagination note in the header.
+   * TRUE only when a list pass came back with nothing DELETABLE left and no row
+   * failed. False means PARTIAL — the caller must not report the clear as done.
+   *
+   * ⚠ It does NOT prove the listing was exhausted when
+   * `skippedProjectScoped > 0`: rows this sweep never deletes cannot be made to
+   * shrink out of a page, so under an unknown pagination contract deletable rows
+   * could remain behind them. See the header's gap note — that residual is
+   * reported through `skippedProjectScoped` rather than through this flag, on
+   * purpose.
    */
   complete: boolean;
   /** Set whenever `complete` is false; says which way the sweep fell short. */
@@ -99,15 +133,19 @@ export interface ForgetResult {
 }
 
 /**
- * Thrown when a bucket's sweep cannot finish (the list call failed or came
- * back malformed, or a DELETE came back non-OK for a reason other than
- * "already gone"). Carries `forgot` — rows THIS bucket already deleted before
- * the failure — so a `throw` does not discard progress the loop already made:
- * a plain `Error` here used to mean 9-of-10 deletes succeeding and then a
- * single failing 10th made the whole bucket report `forgot: 0` to the caller,
- * understating a nearly-complete wipe as a total failure. `dev/reset`'s
- * per-userId `catch` reads `.forgot` off this to keep that progress in its
- * running total instead of losing it.
+ * Thrown when a bucket cannot be ENUMERATED — the list call failed, or came
+ * back malformed. Nothing else throws: a DELETE that comes back non-OK is
+ * recorded in {@link ForgetResult.failed} and the sweep carries on, because
+ * aborting on one bad row abandoned every row behind it.
+ *
+ * Carries `forgot` — rows THIS bucket already deleted before the failure — so a
+ * `throw` does not discard progress the loop already made: a plain `Error` here
+ * used to mean 9-of-10 deletes succeeding and then a single failing 10th made
+ * the whole bucket report `forgot: 0` to the caller, understating a
+ * nearly-complete wipe as a total failure. `dev/reset`'s per-userId `catch`
+ * reads `.forgot` off this to keep that progress in its running total instead of
+ * losing it — still reachable, since a later pass's list can fail after earlier
+ * passes deleted rows.
  *
  * EVERY failure path out of `forgetAllMemories` is this type — including a
  * malformed 200, which used to escape as a bare `TypeError` ("Cannot read
@@ -155,6 +193,13 @@ export async function forgetAllMemories(
    * point of this number is that a presenter can trust it.
    */
   const skippedProjectIds = new Set<string>();
+  const failed: ForgetFailure[] = [];
+  /**
+   * Ids a DELETE already refused. Excluded from later passes' `pending` so the
+   * sweep cannot spend its whole pass budget re-attempting one wedged row and
+   * then blame the budget for a failure it already knows the real reason for.
+   */
+  const failedIds = new Set<string>();
   /** Ids this sweep already confirmed absent — never re-deleted, never re-counted. */
   const confirmedGone = new Set<string>();
   let incompleteReason: string | undefined;
@@ -193,7 +238,9 @@ export async function forgetAllMemories(
     const listed = new Set(
       memories.filter((m) => m.scope !== "project").map((m) => m.id),
     );
-    const pending = [...listed].filter((id) => !confirmedGone.has(id));
+    const pending = [...listed].filter(
+      (id) => !failedIds.has(id) && !confirmedGone.has(id),
+    );
 
     if (pending.length === 0) {
       // Nothing new to delete, so this is the last pass. Decide honestly WHY.
@@ -204,33 +251,48 @@ export async function forgetAllMemories(
         incompleteReason =
           `the backend still lists ${zombies.length} row(s) this sweep already ` +
           `deleted (first: ${zombies[0]})`;
+      } else if (failedIds.size > 0) {
+        incompleteReason = `${failedIds.size} row(s) failed to delete`;
       }
       break;
     }
 
     for (const id of pending) {
-      // `forgot` is threaded in so a throw from here carries however many of
-      // THIS bucket's rows already went, rather than reporting 0.
-      const outcome = await deleteMemory(base, headers, id, timeoutMs, forgot);
+      const outcome = await deleteMemory(base, headers, id, timeoutMs);
       if (outcome.kind === "deleted") {
         forgot += 1;
-      } else {
+        confirmedGone.add(id);
+      } else if (outcome.kind === "absent") {
         // A 404/410 means the row is gone — a harmless race (a concurrent
-        // reset, a backend TTL) that used to THROW and abandon every remaining
-        // row in this bucket, including the ones where mid-demo teaching
-        // actually lands. The desired end state was already reached.
+        // reset, a backend TTL). The desired end state was already reached.
         alreadyGone += 1;
+        confirmedGone.add(id);
+      } else {
+        // A hard failure does NOT abandon the bucket: it used to throw, so one
+        // 500 left every row behind it — including the ones where mid-demo
+        // teaching actually lands — never even attempted, and `dev/reset` got
+        // one opaque error instead of one named bad row.
+        failed.push({ id, reason: outcome.reason });
+        failedIds.add(id);
       }
-      confirmedGone.add(id);
     }
 
     if (passes === maxPasses) {
+      // Deliberately NOT "rows are still being returned": the budget runs out
+      // immediately after a delete round, before any further list, so this
+      // branch has no idea whether anything is still listed. It can only say
+      // that it stopped before a list pass could prove the bucket empty.
       incompleteReason =
-        `pass budget (${maxPasses}) exhausted with rows still being returned; ` +
-        `remaining rows are unverified`;
+        `pass budget (${maxPasses}) exhausted before a list pass could prove ` +
+        `the bucket empty; whether rows remain was never verified`;
     }
   }
 
+  if (failed.length > 0 && incompleteReason === undefined) {
+    // Reached when the budget ran out on the same pass a row failed, or when
+    // the loop ended without a terminating list pass to notice `failedIds`.
+    incompleteReason = `${failed.length} row(s) failed to delete`;
+  }
   if (passes === 0) {
     // maxPasses <= 0. Nothing was even listed, so "clear" is unprovable.
     incompleteReason = `no list pass ran (maxPasses was ${maxPasses})`;
@@ -240,6 +302,7 @@ export async function forgetAllMemories(
     forgot,
     alreadyGone,
     skippedProjectScoped: skippedProjectIds.size,
+    failed,
     passes,
     complete: incompleteReason === undefined,
     ...(incompleteReason === undefined ? {} : { incompleteReason }),
@@ -249,7 +312,7 @@ export async function forgetAllMemories(
 /**
  * Enumerate one bucket. THROWS on any failure: without a list there is nothing
  * to delete and nothing truthful to report, so aborting is correct here —
- * unlike an already-absent DELETE, which is counted and stepped over.
+ * unlike a single DELETE, which is recorded and stepped over.
  */
 async function listMemories(
   base: string,
@@ -329,15 +392,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** A DELETE either removed the row or found it already absent. Anything else throws. */
-type DeleteOutcome = { kind: "deleted" } | { kind: "absent" };
+/**
+ * A DELETE removed the row, found it already absent, or failed. It NEVER
+ * throws: the caller records a failure and moves to the next row, so one bad
+ * row cannot abandon the rows behind it.
+ */
+type DeleteOutcome =
+  | { kind: "deleted" }
+  | { kind: "absent" }
+  | { kind: "failed"; reason: string };
 
 async function deleteMemory(
   base: string,
   headers: Record<string, string>,
   id: string,
   timeoutMs: number,
-  forgot: number,
 ): Promise<DeleteOutcome> {
   let res: Response;
   try {
@@ -347,20 +416,19 @@ async function deleteMemory(
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
-    throw new ForgetMemoriesError(
-      `${LAYER} delete memory ${id} failed: no response after ${timeoutMs}ms ` +
-        `or in transport: ${describeError(err)}`,
-      { forgot, cause: err },
-    );
+    return {
+      kind: "failed",
+      reason: `no response after ${timeoutMs}ms or in transport: ${describeError(err)}`,
+    };
   }
   // 204 No Content on success; `ok` covers it.
   if (res.ok) return { kind: "deleted" };
   // Already absent — the desired end state, reached by someone else.
   if (res.status === 404 || res.status === 410) return { kind: "absent" };
-  throw new ForgetMemoriesError(
-    `${LAYER} delete memory ${id} failed: ${res.status} ${await safeText(res)}`,
-    { forgot },
-  );
+  return {
+    kind: "failed",
+    reason: `HTTP ${res.status} ${await safeText(res)}`,
+  };
 }
 
 function describeError(err: unknown): string {
