@@ -136,8 +136,18 @@ const params = Promise.resolve({ skin: "airline" });
 const sandboxFunctionsOf = (props: Record<string, unknown>) =>
   (props.openGenerativeUI as { sandboxFunctions?: unknown })?.sandboxFunctions;
 
+/**
+ * Loaded ONCE, at module scope, rather than per mount. `layout.tsx` drags in the
+ * whole shell tree (frame, chat, canvas, thread and skin modules), and paying
+ * for that inside a test body put the first `act()` over vitest's 5s limit
+ * whenever the file ran alongside the rest of the suite — green in isolation,
+ * red under load. `vi.mock` is hoisted above this import, so the stand-ins above
+ * still apply.
+ */
+const layoutModule = import("./layout");
+
 async function mountLayout() {
-  const { default: SkinLayout } = await import("./layout");
+  const { default: SkinLayout } = await layoutModule;
   const tree = () => (
     <Suspense fallback={null}>
       <SkinLayout params={params}>{null}</SkinLayout>
@@ -162,7 +172,17 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("SkinLayout provider props", () => {
+/**
+ * Raised from vitest's 5s default. `layout.tsx` pulls the entire shell tree in
+ * behind it, and vite's transform of that graph is what the first mount waits
+ * on: ~1s when this file runs alone, but past 5s whenever it competes for the
+ * transform pool with the other 60-odd suites. That made `pnpm vitest run
+ * src/shell src/app` fail here on most runs while the same file passed on its
+ * own — a timeout on a build step, not on anything these tests assert.
+ */
+const MOUNT_TIMEOUT_MS = 30_000;
+
+describe("SkinLayout provider props", { timeout: MOUNT_TIMEOUT_MS }, () => {
   it("does not churn CopilotKitProvider's array props across renders", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const view = await mountLayout();
