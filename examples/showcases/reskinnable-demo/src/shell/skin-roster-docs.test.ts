@@ -482,6 +482,22 @@ const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 const REGISTERED = skinIds.length;
 const ROSTER = `${REGISTERED} skins are registered (${skinIds.join(", ")})`;
 
+/**
+ * The stale-roster fixtures below all enumerate exactly these four ids — the
+ * shape a doc froze at when the registry held four skins. What such a list OMITS
+ * is therefore "everything else in `skinIds`", which is DERIVED here rather than
+ * written out: a literal `["people", "commerce", "bookstore", "exec"]` in each
+ * assertion is itself an instance of the defect this file exists to catch, and
+ * goes stale the moment a ninth skin is registered.
+ */
+const STALE_FOUR: readonly string[] = [
+  "banking",
+  "airline",
+  "logistics",
+  "keel",
+];
+const OMITTED_BY_STALE_FOUR = skinIds.filter((id) => !STALE_FOUR.includes(id));
+
 describe("the documented skin roster", () => {
   it("checks every file it claims to check", () => {
     // A renamed or moved doc must not silently drop out of coverage.
@@ -638,6 +654,14 @@ describe("the roster checks themselves", () => {
     // it has to be re-derived when the roster grows or the rule flags it. Keep
     // this list a set of SHAPES; do not prune it back to whatever the docs happen
     // to say this month, and do not add a shape that is false.
+    // The denominator of the subset fixture below is DERIVED, so the shape stays
+    // pinned as the roster grows instead of being hand-bumped (which is how it
+    // last went false: a "six of the seven" was incremented to "seven of the
+    // eight" rather than re-counted, and the numerator was never checked).
+    const registeredWord = Object.keys(NUMBER_WORDS).find(
+      (w) => NUMBER_WORDS[w] === REGISTERED,
+    );
+    expect(registeredWord).toBeDefined();
     const legitimate = [
       "naming four skins for two releases after `people` and `commerce` shipped",
       "it named four skins for two releases after `people` and `commerce` shipped",
@@ -646,8 +670,14 @@ describe("the roster checks themselves", () => {
       "Set by the six REST-backed skins — banking, people and commerce",
       "It was the mechanism the two in-memory skins used",
       // A subset count whose DENOMINATOR is the registered count: truthful, and
-      // therefore never flagged. Re-derive it when the roster grows.
-      "That is seven of the eight skins; **bookstore** is the only one without one",
+      // therefore never flagged. RE-DERIVE BOTH HALVES when the roster grows —
+      // do not increment them. The denominator comes from `skinIds`; the
+      // numerator is `grep -lE '^\s+CanvasSurface[,:]' src/skins/*/skin.tsx`,
+      // which names six today (bookstore and exec are the two that omit it —
+      // `skin-contract.ts` documents `CanvasSurface?` as optional for exactly
+      // that reason).
+      `That is six of the ${registeredWord} skins; **bookstore** and **exec** ` +
+        "are the two with no `CanvasSurface`",
       "The gated `dev/reset` route was the wider set: four skins had one",
       "The ask is 8–12 skins spanning that space",
       "banking, logistics, keel, people and commerce all five shipped them",
@@ -678,23 +708,19 @@ describe("the roster checks themselves", () => {
     const stale =
       "Set `LOCK_SKIN` to a skin id (`banking`, `airline`, `logistics`, `keel`) and " +
       "the deploy becomes single-tenant.";
+    // Guard the guard: if the registry ever shrank to exactly `STALE_FOUR`,
+    // every "omits" assertion below would pass vacuously against an empty array.
+    expect(OMITTED_BY_STALE_FOUR.length).toBeGreaterThan(0);
+
     const hits = findIncompleteRosters(stale, skinIds);
     expect(hits).toHaveLength(1);
-    expect(hits[0].missing).toEqual([
-      "people",
-      "commerce",
-      "bookstore",
-      "exec",
-    ]);
+    expect(hits[0].missing).toEqual(OMITTED_BY_STALE_FOUR);
 
     const envStyle =
       "# Valid ids: banking, airline, logistics, keel. An unrecognised value THROWS.";
-    expect(findIncompleteRosters(envStyle, skinIds)[0]?.missing).toEqual([
-      "people",
-      "commerce",
-      "bookstore",
-      "exec",
-    ]);
+    expect(findIncompleteRosters(envStyle, skinIds)[0]?.missing).toEqual(
+      OMITTED_BY_STALE_FOUR,
+    );
   });
 
   it("catches CLAUDE.md's own 'registered roster is' phrasing", () => {
@@ -706,12 +732,7 @@ describe("the roster checks themselves", () => {
       "The registered roster is `banking`, `airline`, `logistics`, `keel`.";
     const hits = findIncompleteRosters(stale, skinIds);
     expect(hits).toHaveLength(1);
-    expect(hits[0].missing).toEqual([
-      "people",
-      "commerce",
-      "bookstore",
-      "exec",
-    ]);
+    expect(hits[0].missing).toEqual(OMITTED_BY_STALE_FOUR);
   });
 
   it("leaves a deliberate subset list alone", () => {
@@ -737,19 +758,13 @@ describe("the roster checks themselves", () => {
     const before =
       "mirror the four shipped skins (`src/skins/{banking,airline,logistics,keel}/`)";
     expect(findIncompleteRosters(before, skinIds)).toMatchObject([
-      {
-        rule: "brace-glob",
-        missing: ["people", "commerce", "bookstore", "exec"],
-      },
+      { rule: "brace-glob", missing: OMITTED_BY_STALE_FOUR },
     ]);
 
     const after =
       "- `src/skins/{banking,airline,logistics,keel}/skin.tsx` — four implementations.";
     expect(findIncompleteRosters(after, skinIds)).toMatchObject([
-      {
-        rule: "brace-glob",
-        missing: ["people", "commerce", "bookstore", "exec"],
-      },
+      { rule: "brace-glob", missing: OMITTED_BY_STALE_FOUR },
     ]);
   });
 });
