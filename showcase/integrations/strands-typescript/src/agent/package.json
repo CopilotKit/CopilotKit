@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --import tsx --watch server.ts",
     "start": "node --import tsx server.ts",
-    "test": "pnpm exec vitest run --config ../../../vitest.config.ts"
+    "test": "pnpm exec vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@ag-ui/a2ui-toolkit": "0.0.4",

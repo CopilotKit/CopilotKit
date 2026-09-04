@@ -17,18 +17,14 @@ name: test / unit / showcase-integrations
 on:
   pull_request:
     paths:
-      - "showcase/integrations/**/*.test.ts"
-      - "showcase/integrations/**/*.test.tsx"
-      - "showcase/integrations/**/src/agent/**"
-      - "showcase/integrations/vitest.config.ts"
+      - "showcase/integrations/strands-typescript/src/agent/**"
+      - "showcase/integrations/strands-typescript/src/cvdiag/**"
       - ".github/workflows/test_unit-showcase-integrations.yml"
   push:
     branches: [main]
     paths:
-      - "showcase/integrations/**/*.test.ts"
-      - "showcase/integrations/**/*.test.tsx"
-      - "showcase/integrations/**/src/agent/**"
-      - "showcase/integrations/vitest.config.ts"
+      - "showcase/integrations/strands-typescript/src/agent/**"
+      - "showcase/integrations/strands-typescript/src/cvdiag/**"
       - ".github/workflows/test_unit-showcase-integrations.yml"
 
 permissions:
@@ -67,12 +63,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Run integration unit tests
-        # Driven by showcase/integrations/vitest.config.ts, whose include list
-        # is an allowlist that grows one integration at a time. Run from the
-        # repo root so the tests use the monorepo's vitest: the integrations
-        # ship no test dependency of their own, which keeps their Docker images
-        # free of dev tooling. `--passWithNoTests` is deliberately NOT set, so
-        # an include list that stops matching fails the job instead of passing
-        # an empty run.
-        run: pnpm exec vitest run --config showcase/integrations/vitest.config.ts
+      - name: Install the agent package's own dependencies
+        # The integration is deliberately outside the pnpm workspace: its agent
+        # process resolves openai and @strands-agents from its OWN
+        # node_modules, installed here exactly as the Dockerfile does. Without
+        # this the tests fail on a clean checkout with "Cannot find package
+        # '@strands-agents/sdk'" while passing on any machine that happens to
+        # have the directory already.
+        working-directory: showcase/integrations/strands-typescript/src/agent
+        run: npm ci --legacy-peer-deps
+
+      - name: Run agent unit tests
+        # The config is the one that already lives beside the tests, so this
+        # runs exactly what a developer runs with `npm test` in that directory.
+        # `--passWithNoTests` is deliberately NOT set, so an include list that
+        # stops matching fails the job instead of reporting an empty success.
+        working-directory: showcase/integrations/strands-typescript/src/agent
+        run: pnpm exec vitest run --config vitest.config.ts
