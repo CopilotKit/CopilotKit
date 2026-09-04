@@ -65,18 +65,47 @@ const isNarrativeCode = (value: string): value is NarrativeCode => {
   return Object.prototype.hasOwnProperty.call(accepted, value);
 };
 
+/**
+ * A code is a short token like the four the form offers. The bound is a SIZE
+ * bound only — it says nothing about which tokens are accepted, so it leaks
+ * nothing (see the doc comment above) — and it is generous enough that no
+ * plausible code is near it.
+ */
+const MAX_CODE_LENGTH = 64;
+
+/**
+ * Beat 6's body is a paragraph read off the budget memo, so the bound sits
+ * well clear of a real explanation. It exists because this store is a
+ * process-lifetime singleton that never evicts (see store.ts): unbounded text
+ * on an ungated POST is a demo box filling up, and every filed narrative rides
+ * back out through the ledger GET on every page load.
+ */
+const MAX_BODY_LENGTH = 4_000;
+
 const FileNarrativeBody = z.object({
   metricId,
   period: z
     .string()
     .regex(PERIOD_RE, 'Period must be "YYYY-MM" (01–12), e.g. "2026-08".'),
-  // Deliberately unconstrained beyond "a string": see the doc comment above.
-  // `.trim()` mirrors the agent tool's own trim so a code pasted out of a memo
-  // with stray whitespace files instead of being refused.
-  code: z.string().trim(),
+  // Unconstrained in CONTENT — never a `z.enum`, never a `.refine` that knows
+  // the accepted set: see the doc comment above. `.trim()` mirrors the agent
+  // tool's own trim so a code pasted out of a memo with stray whitespace files
+  // instead of being refused, and it runs BEFORE `.min(1)` so a whitespace-only
+  // code is refused as the empty field it is rather than reaching the BAD_CODE
+  // arm and coming back as `"" is not a code this ledger files under` — a
+  // refusal that names nothing and reads as though some other code was tried.
+  code: z
+    .string()
+    .trim()
+    .min(1, "Narrative code cannot be empty.")
+    .max(MAX_CODE_LENGTH, "Narrative code is too long."),
   // `.trim()` first so a whitespace-only body ("   ") still fails `.min(1)`
   // instead of filing an empty explanation that flips `explained` to true.
-  body: z.string().trim().min(1, "Narrative body cannot be empty."),
+  body: z
+    .string()
+    .trim()
+    .min(1, "Narrative body cannot be empty.")
+    .max(MAX_BODY_LENGTH, "Narrative body is too long."),
   source: z.enum(["typed", "ingested-memo"]).default("typed"),
 });
 
@@ -109,6 +138,44 @@ export const POST = async (req: Request) => {
       { status: 400 },
     );
   }
+  // ── THE (metricId, period) HAS TO NAME A ROW THIS LEDGER HOLDS ────────────
+  //
+  // The same guard `agent.ts`'s `fileVarianceNarrativeTool` applies, and it has
+  // to be HERE too rather than only there: beat 6's filing form POSTs to this
+  // route, and its metric/period `<select>`s are not constrained to the pairs
+  // the ledger actually covers. Without it a shape-valid period the store holds
+  // no point for filed cleanly — 201 "filed", a narrative appended that matches
+  // nothing, and `exceptions()` (which pairs narrative to breach by EXACT
+  // (metricId, period)) still reporting the breach unexplained. The form showed
+  // success while the publish gate went on refusing, with nothing on screen
+  // connecting the two. The periods move with the calendar (the seed builds the
+  // 24 months ending at the latest CLOSED one), which is exactly why a period
+  // cannot be reasoned out and has to be READ.
+  //
+  // 422, not 400: the payload is well-formed — every field passed its own
+  // validator — and what failed is the reference to a row this ledger does not
+  // hold, which no amount of reshaping the body fixes.
+  const hasPoint = store
+    .metricSeries({ metricId: rest.metricId })
+    .some((p) => p.period === rest.period);
+  if (!hasPoint) {
+    // Word-for-word the tool's `NO_LEDGER_POINT` arm, for the same reason the
+    // BAD_CODE refusal above is word-for-word its BAD_CODE arm: the REST layer
+    // and the tool layer must not tell the operator's agent two different
+    // stories about the same rejected filing. Pinned by a test that runs both.
+    return Response.json(
+      {
+        error: "NO_LEDGER_POINT",
+        message:
+          `This ledger holds no ${rest.metricId} row for ${rest.period}, so ` +
+          `nothing was filed. Call get_metrics for ${rest.metricId} to see ` +
+          `the periods it actually covers, or list_exceptions for the ones ` +
+          `waiting on an explanation, then file against one of those.`,
+      },
+      { status: 422 },
+    );
+  }
+
   const filed = store.fileNarrative({ ...rest, code });
   return Response.json(filed, { status: 201 });
 };
