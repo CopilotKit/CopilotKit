@@ -646,7 +646,7 @@ describe("the roster checks themselves", () => {
       "It was the mechanism the two in-memory skins used",
       // A subset count whose DENOMINATOR is the registered count: truthful, and
       // therefore never flagged. Re-derive it when the roster grows.
-      "That is six of the seven skins; **bookstore** is the only one without one",
+      "That is seven of the eight skins; **bookstore** is the only one without one",
       "The gated `dev/reset` route was the wider set: four skins had one",
       "The ask is 8–12 skins spanning that space",
       "banking, logistics, keel, people and commerce all five shipped them",
@@ -659,7 +659,7 @@ describe("the roster checks themselves", () => {
       // leave alone — the numeral-free forms this test's own failure message
       // recommends, plus a truthful total.
       "Every registered skin hits every row.",
-      "all seven skins run behind the same `Skin` contract",
+      "all eight skins run behind the same `Skin` contract",
       "`useData` has exactly one implementor",
     ];
     expect(
@@ -679,7 +679,12 @@ describe("the roster checks themselves", () => {
       "the deploy becomes single-tenant.";
     const hits = findIncompleteRosters(stale, skinIds);
     expect(hits).toHaveLength(1);
-    expect(hits[0].missing).toEqual(["people", "commerce", "bookstore"]);
+    expect(hits[0].missing).toEqual([
+      "people",
+      "commerce",
+      "bookstore",
+      "exec",
+    ]);
 
     const envStyle =
       "# Valid ids: banking, airline, logistics, keel. An unrecognised value THROWS.";
@@ -687,6 +692,7 @@ describe("the roster checks themselves", () => {
       "people",
       "commerce",
       "bookstore",
+      "exec",
     ]);
   });
 
@@ -713,13 +719,19 @@ describe("the roster checks themselves", () => {
     const before =
       "mirror the four shipped skins (`src/skins/{banking,airline,logistics,keel}/`)";
     expect(findIncompleteRosters(before, skinIds)).toMatchObject([
-      { rule: "brace-glob", missing: ["people", "commerce", "bookstore"] },
+      {
+        rule: "brace-glob",
+        missing: ["people", "commerce", "bookstore", "exec"],
+      },
     ]);
 
     const after =
       "- `src/skins/{banking,airline,logistics,keel}/skin.tsx` — four implementations.";
     expect(findIncompleteRosters(after, skinIds)).toMatchObject([
-      { rule: "brace-glob", missing: ["people", "commerce", "bookstore"] },
+      {
+        rule: "brace-glob",
+        missing: ["people", "commerce", "bookstore", "exec"],
+      },
     ]);
   });
 });

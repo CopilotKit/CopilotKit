@@ -759,11 +759,14 @@ it entirely, and the preference persists shell-global.
 If nobody named a domain, pick one that a Fortune 500 buyer sees themselves in.
 The ask is 8–12 skins spanning that space. Two are called out explicitly:
 
-- **Business intelligence / executive analytics — the highest-stakes skin.**
-  "Take my data and show it real pretty for me, and then manipulate and do stuff
-  with it." This is the one that opens doors at CEO / CFO / COO / VP level, and
-  it has to be **the prettiest thing we ship** — "ultra, ultra pretty, as pretty
-  as we can possibly make it."
+- **Business intelligence / executive analytics — the highest-stakes skin,
+  shipped as `exec` (brand "Vantage").** "Take my data and show it real pretty
+  for me, and then manipulate and do stuff with it." This is the one that opens
+  doors at CEO / CFO / COO / VP level, and it has to be **the prettiest thing we
+  ship** — "ultra, ultra pretty, as pretty as we can possibly make it." Its
+  block op-builder (`src/skins/exec/blocks/`) is also the worked example of the
+  `block:`-prefixed inline a2ui convention — SKILL.md's "A `block:`-prefixed
+  a2ui surface…" note and templates.md's `agent.ts` section have the mechanism.
 - **Real-time collaborative editing with AI.** Notoriously painful to build
   yourself, which is exactly why showing it working closes people.
 
@@ -809,6 +812,7 @@ instead, because a set rots and a command does not.
 | Seeded memories (beats 4, 5)              | `ls src/skins/*/intelligence/seed-memories.ts` — copy any one that scopes `user`      |
 | Debugged layout + meta-utility strip      | `logistics`, `people`, `commerce`                                                     |
 | Server-emitted a2ui canvas                | `logistics` (`renderBrief`), `banking` (`render_report`)                              |
+| An INLINE (non-canvas) a2ui surface       | `exec` — `block:`-prefixed surface ids render in chat; `blocks/build-block-ops.ts`    |
 | Per-user identity plumbing                | `ls src/skins/*/intelligence/user-id.ts` — all of them; `commerce`'s is the `Map` one |
 | Runtime identity with NO context to read  | `airline` — `useRuntimeProperties` + `identifyUser`, no `RuntimeProviders`            |
 | Parameterized routes in `resolvePage`     | `keel` (`knowledge/<docId>`, `runs/<runId>`), `bookstore` (`book/<slug>`)             |

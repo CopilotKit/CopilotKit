@@ -3,7 +3,7 @@
 Copy each block into `src/skins/<id>/<file>` and replace `<id>` / `<Brand>` /
 domain specifics. These are written against this app's frozen `Skin` contract
 (`src/shell/skin-contract.ts`) and mirror every shipped skin
-(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore}/`) — see
+(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec}/`) — see
 [demo-beats.md](./demo-beats.md) § "Which skin to copy for what" for which one to
 open for which problem.
 
@@ -1303,6 +1303,20 @@ export const <id>Agent = () =>
     tools: [renderReportTool],
   });
 ```
+
+**Want the visual inline in the chat instead of a full canvas takeover?** Skip
+`CanvasSurface` entirely and prefix the surface id your op-builder mints with
+`block:` — the shell's chat renderer recognizes that prefix and renders the
+surface right in the transcript (`src/shell/chat/inline-block-surface.tsx`)
+instead of falling back to the handoff pill; SKILL.md's "A `block:`-prefixed
+a2ui surface…" note has the full dispatch. The tool-side mechanism is
+otherwise identical to the canvas case above: still a SERVER `defineTool`
+returning `{ [A2UI_OPERATIONS_KEY]: buildOps(spec) }`. `src/skins/exec/blocks/build-block-ops.ts`
+is the worked example (`BLOCK_SURFACE_PREFIX = "block:"`) — the shell keeps
+its OWN copy of that exact string, because it must not import from
+`src/skins/`, so if you adopt this convention grep
+`src/shell/chat/inline-block-surface.tsx` for `BLOCK_SURFACE_PREFIX` and match
+it exactly; nothing checks the two spellings agree.
 
 **De-duplicate every array selection at the top of your op-builder.** zod arrays
 do not deduplicate, and the spec comes from the MODEL: `kpis:["valueAtRisk",
