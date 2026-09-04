@@ -215,11 +215,14 @@ test("managed quickstarts provision a project API key instead of a license key",
   for (const file of quickstarts) {
     const source = fs.readFileSync(file, "utf8").replace(/\s+/g, " ");
 
-    expect(source).not.toMatch(/(?:get|receive|create) (?:a )?license key/i);
+    expect(source).not.toMatch(/license key/i);
     expect(source).not.toMatch(/free developer account/i);
 
     if (source.includes("`CPK_INTELLIGENCE_API_KEY`")) {
       expect(source).toContain("project API key");
+      expect(source).toMatch(
+        /npx copilotkit@latest (?:project select|init(?:\s|`))/,
+      );
     }
   }
 });

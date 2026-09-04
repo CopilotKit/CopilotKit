@@ -27,7 +27,13 @@ Before you begin, you'll need the following:
     <Step>
         ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_agno_quickstart_step1">Start managed onboarding</SignupLink> and create or select a project. The CLI's `create` flow—or `project select` in an existing app—writes the server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. Managed setup does not issue `COPILOTKIT_LICENSE_TOKEN`.
+        <SignupLink surface="docs_agno_quickstart_step1">Sign in to managed Intelligence</SignupLink>. When you are in the app directory created or cloned below, connect it to a project:
+
+        ```bash title="Terminal"
+        npx copilotkit@latest project select
+        ```
+
+        The command creates or selects a project and writes its server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. Managed setup does not issue `COPILOTKIT_LICENSE_TOKEN`.
     </Step>
 
     <Step>
