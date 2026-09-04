@@ -304,6 +304,7 @@ const eslintConfig = [
       "src/skins/logistics/**/*.tsx",
       "src/skins/airline/**/*.tsx",
       "src/skins/keel/**/*.tsx",
+      "src/skins/exec/**/*.tsx",
     ],
     ignores: SKIN_TEST_FILES,
     rules: {

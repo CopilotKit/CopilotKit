@@ -195,6 +195,17 @@ describe("the resolved no-restricted-syntax selectors", () => {
         "statusKeyedTerminalRender",
       ],
     ],
+    // Any other exec .tsx — same shape as the logistics row above: exec carries
+    // beat 2 but not beat 6 outside its two agent-facing files.
+    [
+      "src/skins/exec/catalog/renderers.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+      ],
+    ],
     // The human filing FORMS are deliberately OUTSIDE the beat-6 block: each one
     // legitimately imports its skin's label map, because the operator reads it and
     // the agent learns the code by WATCHING them choose one. A withheld catalogue
