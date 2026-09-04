@@ -125,7 +125,8 @@ describe("POST /api/exec/v1/narratives", () => {
   });
 
   it('defaults `source` to "typed" when the filing omits it', async () => {
-    const { source: _omitted, ...withoutSource } = VALID_BODY;
+    const withoutSource: Partial<typeof VALID_BODY> = { ...VALID_BODY };
+    delete withoutSource.source;
     const res = await file(withoutSource);
     expect(res.status).toBe(201);
     const narrative: Narrative = await res.json();
