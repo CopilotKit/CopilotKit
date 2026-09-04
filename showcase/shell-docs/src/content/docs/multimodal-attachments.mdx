@@ -42,6 +42,7 @@ The `attachments` prop accepts an `AttachmentsConfig` object:
 | `enabled` | `boolean` | — | Enable file attachments in the chat input. |
 | `accept` | `string` | `"*/*"` | MIME type filter. Supports patterns like `"image/*"`, `".pdf,.docx"`, or comma-separated lists. |
 | `maxSize` | `number` | `20 * 1024 * 1024` | Maximum file size in bytes. |
+| `maxConcurrentUploads` | `number` | `3` | How many files upload at the same time. See [Upload concurrency](#upload-concurrency). |
 | `onUpload` | `(file: File) => AttachmentUploadResult \| Promise<...>` | — | Custom upload handler. See [Custom upload handler](#custom-upload-handler). |
 | `onUploadFailed` | `(error: AttachmentUploadError) => void` | — | Called when a file fails validation or upload. See [Handling upload errors](#handling-upload-errors). |
 
@@ -127,6 +128,26 @@ onUpload: async (file) => {
 ```
 
 The filename is always included in metadata automatically — you don't need to add it yourself.
+
+## Upload concurrency
+
+When a user attaches several files at once, three of them upload at the same time and the rest start as slots free up. Every picked file shows in the attachment queue immediately, whether or not its upload has started.
+
+Set `maxConcurrentUploads` to change how many run together — raise it for small files, or set it to `1` if your upload endpoint expects one request at a time:
+
+```tsx
+<CopilotChat
+  attachments={{
+    enabled: true,
+    maxConcurrentUploads: 1, // one file at a time
+    onUpload: async (file) => uploadToStorage(file),
+  }}
+/>
+```
+
+The limit covers every upload in flight, not each batch: if a paste lands while a dropped selection is still uploading, both share the same slots. `Infinity` lifts the limit entirely.
+
+Your `onUpload` handler is called once per file and may be called concurrently, so it must not rely on the previous file having finished.
 
 ## Handling upload errors
 
