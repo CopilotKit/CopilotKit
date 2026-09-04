@@ -4,6 +4,7 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { ToolCallStatus } from "@copilotkit/core";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { HttpAgent } from "@ag-ui/client";
@@ -359,10 +360,23 @@ describe("CopilotKitProvider", () => {
         (rc) => rc.name === "approvalTool",
       );
       expect(approvalTool).toBeDefined();
-      expect(approvalTool?.render).toBe(TestComponent);
+      // The registered render is a wrapper that supplies the human-in-the-loop
+      // prop contract, so assert that it renders the caller's component rather
+      // than comparing identity.
+      const Registered = approvalTool!.render;
+      const { getByText } = render(
+        <Registered
+          name="approvalTool"
+          toolCallId="tc-1"
+          args={{}}
+          status={ToolCallStatus.InProgress}
+          result={undefined}
+        />,
+      );
+      expect(getByText("Test")).toBeDefined();
     });
 
-    it("creates placeholder handlers for humanInTheLoop tools", async () => {
+    it("keeps a humanInTheLoop tool call waiting instead of resolving it", async () => {
       const TestComponent: React.FC<any> = () => <div>Test</div>;
       const humanInTheLoopTools: ReactHumanInTheLoop[] = [
         {
@@ -388,19 +402,18 @@ describe("CopilotKitProvider", () => {
       })?.handler;
       expect(handler).toBeDefined();
 
-      // Call the handler and check for warning
-      const handlerPromise = handler!({ data: "test" }, {} as any);
+      const settled = vi.fn();
+      void handler!({ data: "test" }, {
+        toolCall: { id: "tc-1", function: { name: "interactiveTool" } },
+      } as any).then(settled, settled);
 
-      await waitFor(() => {
-        expect(consoleWarnSpy).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "Human-in-the-loop tool 'interactiveTool' called",
-          ),
-        );
-      });
-
-      const result2 = await handlerPromise;
-      expect(result2).toBeUndefined();
+      // The handler parks until the render calls `respond`. It must not settle
+      // on its own, and it must not warn: waiting is the contract, not a gap.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(settled).not.toHaveBeenCalled();
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("no interactive handler is set up"),
+      );
     });
 
     it("warns when humanInTheLoop prop changes", async () => {
@@ -575,8 +588,20 @@ describe("CopilotKitProvider", () => {
       expect(directRenderTool).toBeDefined();
 
       expect(frontendRenderTool?.render).toBe(TestComponent1);
-      expect(humanRenderTool?.render).toBe(TestComponent2);
       expect(directRenderTool?.render).toBe(TestComponent3);
+      // A humanInTheLoop render is wrapped to receive `respond`, so check that
+      // the wrapper renders the caller's component instead of its identity.
+      const HumanRender = humanRenderTool!.render;
+      const { getByText } = render(
+        <HumanRender
+          name="humanRenderTool"
+          toolCallId="tc-1"
+          args={{}}
+          status={ToolCallStatus.InProgress}
+          result={undefined}
+        />,
+      );
+      expect(getByText("Test2")).toBeDefined();
     });
   });
 

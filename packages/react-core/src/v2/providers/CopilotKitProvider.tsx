@@ -2,8 +2,10 @@
 
 import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
+import { ToolCallStatus } from "@copilotkit/core";
 import type React from "react";
 import {
+  createElement,
   useMemo,
   useCallback,
   useEffect,
@@ -88,6 +90,12 @@ const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
 const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
 const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
+/** Registration name of a catch-all tool: handles any otherwise-unhandled call. */
+const WILDCARD_TOOL_NAME = "*";
+// Same message `useHumanInTheLoop` rejects with, so an aborted interrupt reads
+// identically whichever registration path declared the tool (see #5554).
+const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
+  "Human-in-the-loop interaction aborted";
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -506,6 +514,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     frontendTools,
     "frontendTools must be a stable array. If you want to dynamically add or remove tools, use `useFrontendTool` instead.",
   );
+  /**
+   * A `humanInTheLoop` prop tool call that is parked, waiting on the user.
+   * Keyed by tool call id, so parallel calls of one tool stay independent.
+   */
+  const pendingHumanInTheLoopRef = useRef<
+    Map<
+      string,
+      { resolve: (result: unknown) => void; detachAbort?: () => void }
+    >
+  >(new Map());
+
   const humanInTheLoopList = useStableArrayProp<ReactHumanInTheLoop>(
     humanInTheLoop,
     "humanInTheLoop must be a stable array. If you want to dynamically add or remove human-in-the-loop tools, use `useHumanInTheLoop` instead.",
@@ -530,27 +549,75 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         parameters: tool.parameters,
         followUp: tool.followUp,
         ...(tool.agentId && { agentId: tool.agentId }),
-        handler: async () => {
-          // This handler will be replaced by the hook when it runs
-          // For provider-level tools, we create a basic handler that waits for user interaction
-          return new Promise((resolve) => {
-            // The actual implementation will be handled by the render component
-            // This is a placeholder that the hook will override
-            console.warn(
-              `Human-in-the-loop tool '${tool.name}' called but no interactive handler is set up.`,
-            );
-            resolve(undefined);
+        // Park the tool call until the render calls `respond`, matching
+        // `useHumanInTheLoop`. Resolving here would hand the agent an empty
+        // result and leave the render stranded at `Complete`.
+        handler: async (_args, context) => {
+          const signal = context?.signal;
+          const key = context?.toolCall?.id ?? tool.name;
+
+          return new Promise((resolve, reject) => {
+            // Aborted before the handler ran: reject so core records an
+            // explicit error tool result instead of an empty success.
+            if (signal?.aborted) {
+              reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
+              return;
+            }
+
+            const pending: {
+              resolve: (result: unknown) => void;
+              detachAbort?: () => void;
+            } = { resolve };
+            pendingHumanInTheLoopRef.current.set(key, pending);
+
+            if (signal) {
+              const onAbort = () => {
+                pendingHumanInTheLoopRef.current.delete(key);
+                reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
+              };
+              signal.addEventListener("abort", onAbort, { once: true });
+              pending.detachAbort = () => {
+                signal.removeEventListener("abort", onAbort);
+              };
+            }
           });
         },
       };
       processedTools.push(frontendTool);
 
-      // Add the render component to renderToolCalls
+      // Add the render component to renderToolCalls, wrapped so it receives the
+      // full human-in-the-loop prop contract the hook path also provides.
       if (tool.render) {
+        const ToolComponent = tool.render as React.ComponentType<any>;
+        const RenderComponent: React.ComponentType<any> = (props) =>
+          createElement(ToolComponent, {
+            ...props,
+            // `props.name` is the tool actually invoked. It equals `tool.name`
+            // for a named registration; for a catch-all it is the only place
+            // the real name exists, which is what lets one render serve N tools.
+            name: tool.name === WILDCARD_TOOL_NAME ? props.name : tool.name,
+            description: tool.description || "",
+            agentId: tool.agentId,
+            // `respond` is live only while the call is executing — the one
+            // phase with a promise waiting on the user.
+            respond:
+              props.status === ToolCallStatus.Executing
+                ? async (result: unknown) => {
+                    const pending = pendingHumanInTheLoopRef.current.get(
+                      props.toolCallId,
+                    );
+                    if (!pending) return;
+                    pending.detachAbort?.();
+                    pendingHumanInTheLoopRef.current.delete(props.toolCallId);
+                    pending.resolve(result);
+                  }
+                : undefined,
+          });
+
         processedRenderToolCalls.push({
           name: tool.name,
           args: tool.parameters,
-          render: tool.render as React.ComponentType<any>,
+          render: RenderComponent,
           ...(tool.agentId && { agentId: tool.agentId }),
         });
       }
