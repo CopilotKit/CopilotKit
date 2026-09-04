@@ -29,6 +29,7 @@ import type {
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
+import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -269,7 +270,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
     if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
-      return super.connectAgent(parameters, subscriber);
+      // A self-hosted `/connect` response replays the thread's history, so it
+      // can carry several past runs — including one that ended in RUN_ERROR
+      // followed by a later RUN_STARTED. The base pipeline's `verifyEvents`
+      // step enforces single-run lifecycle rules and rejects that stream
+      // outright, so an existing thread never hydrates (#4943).
+      return ɵconnectWithoutEventVerification(this, parameters, subscriber);
     }
 
     // If the delegate already has an active run (e.g. from a previous

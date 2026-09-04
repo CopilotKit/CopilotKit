@@ -110,6 +110,7 @@ import { handleAnnotate } from "../handlers/handle-user-actions";
 import {
   parseMethodCall,
   createJsonRequest,
+  createResourceRequest,
   expectString,
   detectSingleRouteEnvelope,
 } from "../endpoints/single-route-helpers";
@@ -332,6 +333,7 @@ export function createCopilotRuntimeHandler(
   ): Promise<Response> => {
     const url = new URL(request.url, "http://localhost");
     const path = url.pathname;
+    let handlerPath = path;
     const requestOrigin = request.headers.get("origin");
 
     // Base hook context (route not yet known)
@@ -374,13 +376,26 @@ export function createCopilotRuntimeHandler(
       let response: Response;
 
       if (mode === "single-route") {
-        const resolved = await resolveSingleRoute(request, basePath, path);
+        const resolved = await resolveSingleRoute(
+          request,
+          basePath,
+          path,
+          runtime.exposeMemoryRoutes === true,
+        );
         route = resolved.route;
+        request = resolved.request;
+        handlerPath = resolved.path;
         const { methodCall } = resolved;
+        if (methodCall.method === "resource/request") {
+          const methodError = validateHttpMethod(request.method, route);
+          if (methodError) {
+            throw methodError;
+          }
+        }
         // 5. onBeforeHandler hook
         request = await runOnBeforeHandler(hooks, {
           request,
-          path,
+          path: handlerPath,
           runtime,
           route,
         });
@@ -394,7 +409,8 @@ export function createCopilotRuntimeHandler(
           request = createJsonRequest(request, methodCall.body);
         }
         response = await dispatchRoute(runtime, request, route, {
-          threadEndpointsEnabled: false,
+          threadEndpointsEnabled: methodCall.method === "resource/request",
+          singleRouteResourceOperationsEnabled: true,
         });
       } else {
         // Multi-route: match URL pattern
@@ -455,6 +471,7 @@ export function createCopilotRuntimeHandler(
         // 6. Handler dispatch
         response = await dispatchRoute(runtime, request, route, {
           threadEndpointsEnabled: true,
+          singleRouteResourceOperationsEnabled: false,
         });
       }
 
@@ -462,7 +479,7 @@ export function createCopilotRuntimeHandler(
       response = await runOnResponse(hooks, {
         request,
         response,
-        path,
+        path: handlerPath,
         runtime,
         route,
       });
@@ -476,10 +493,10 @@ export function createCopilotRuntimeHandler(
       callAfterRequestMiddleware({
         runtime,
         response: response.clone(),
-        path,
+        path: handlerPath,
       }).catch((error: unknown) => {
         logger.error(
-          { err: error, url: request.url, path },
+          { err: error, url: request.url, path: handlerPath },
           "Error running after request middleware",
         );
       });
@@ -491,7 +508,7 @@ export function createCopilotRuntimeHandler(
         const finalResponse = await runOnResponse(hooks, {
           request,
           response: error,
-          path,
+          path: handlerPath,
           runtime,
           route: route ?? { method: "info" },
         });
@@ -503,7 +520,7 @@ export function createCopilotRuntimeHandler(
         const errorResponse = await runOnError(hooks, {
           request,
           error,
-          path,
+          path: handlerPath,
           runtime,
           route,
         });
@@ -513,13 +530,18 @@ export function createCopilotRuntimeHandler(
         }
       } catch (hookError: unknown) {
         logger.error(
-          { err: hookError, originalErr: error, url: request.url, path },
+          {
+            err: hookError,
+            originalErr: error,
+            url: request.url,
+            path: handlerPath,
+          },
           "onError hook threw",
         );
       }
 
       logger.error(
-        { err: error, url: request.url, path },
+        { err: error, url: request.url, path: handlerPath },
         "Unhandled error in CopilotKit runtime handler",
       );
 
@@ -562,7 +584,10 @@ function dispatchRoute(
   runtime: CopilotRuntimeLike,
   request: Request,
   route: RouteInfo,
-  options: { threadEndpointsEnabled: boolean },
+  options: {
+    threadEndpointsEnabled: boolean;
+    singleRouteResourceOperationsEnabled: boolean;
+  },
 ): Promise<Response> {
   if (
     isIntelligenceRuntime(runtime) &&
@@ -616,6 +641,8 @@ function dispatchRoute(
         runtime,
         request,
         threadEndpointsEnabled: options.threadEndpointsEnabled,
+        singleRouteResourceOperationsEnabled:
+          options.singleRouteResourceOperationsEnabled,
       });
     case "inspector/metadata":
       return handleInspectorMetadata({ runtime, request });
@@ -692,12 +719,15 @@ function dispatchRoute(
 interface SingleRouteResolution {
   route: RouteInfo;
   methodCall: MethodCall;
+  request: Request;
+  path: string;
 }
 
 async function resolveSingleRoute(
   request: Request,
   basePath: string | undefined,
   pathname: string,
+  memoryRoutesExposed: boolean,
 ): Promise<SingleRouteResolution> {
   if (basePath) {
     const normalizedBase =
@@ -751,6 +781,31 @@ async function resolveSingleRoute(
     case "transcribe":
       route = { method: "transcribe" };
       break;
+    case "resource/request": {
+      const resourceRequest = createResourceRequest(
+        request,
+        expectString(methodCall.params, "path"),
+        expectString(methodCall.params, "httpMethod"),
+        methodCall.body,
+      );
+      const resourceUrl = new URL(resourceRequest.url);
+      const resourceRoute = matchRoute(resourceUrl.pathname, pathname);
+      if (!resourceRoute || !isSingleRouteResourceRoute(resourceRoute)) {
+        throw jsonResponse({ error: "Not found" }, 404);
+      }
+      if (
+        resourceRoute.method.startsWith("memories/") &&
+        !memoryRoutesExposed
+      ) {
+        throw jsonResponse({ error: "Not found" }, 404);
+      }
+      return {
+        route: resourceRoute,
+        methodCall,
+        request: resourceRequest,
+        path: resourceUrl.pathname,
+      };
+    }
     default: {
       // Exhaustiveness guard: a new `METHOD_NAMES`/`EndpointMethod` variant
       // added without a case above becomes a compile error here instead of
@@ -760,7 +815,29 @@ async function resolveSingleRoute(
     }
   }
 
-  return { route, methodCall };
+  return { route, methodCall, request, path: pathname };
+}
+
+/** Limits the generic envelope bridge to the Runtime's resource APIs. */
+function isSingleRouteResourceRoute(route: RouteInfo): boolean {
+  switch (route.method) {
+    case "threads/list":
+    case "threads/subscribe":
+    case "threads/update":
+    case "threads/archive":
+    case "threads/messages":
+    case "threads/events":
+    case "threads/state":
+    case "threads/clear":
+    case "memories/list":
+    case "memories/recall":
+    case "memories/subscribe":
+    case "memories/mutate":
+    case "annotate":
+      return true;
+    default:
+      return false;
+  }
 }
 
 /* ------------------------------------------------------------------------------------------------

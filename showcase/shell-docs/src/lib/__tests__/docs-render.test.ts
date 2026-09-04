@@ -265,18 +265,19 @@ describe("loadDoc", () => {
     expect(overview).toContain("threads-diagram-dark.png");
   });
 
-  it("links locked Inspector users to a complete Rich Threads Runtime repair journey", () => {
+  it("links locked Inspector users to both Rich Threads Runtime route modes", () => {
     const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
     const inspector = loadDoc("inspector")?.source ?? "";
 
     expect(runtimeEndpoints).toContain("## Enable Rich Threads routes");
-    expect(runtimeEndpoints).toContain('Remove `mode: "single-route"`');
+    expect(runtimeEndpoints).toContain('mode: "single-route"');
     expect(runtimeEndpoints).toContain(
       'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
     );
     expect(runtimeEndpoints).toContain("`useSingleEndpoint={false}`");
     expect(runtimeEndpoints).toContain("`identifyUser`");
-    expect(runtimeEndpoints).toContain("GET, POST, PATCH, and DELETE");
+    expect(runtimeEndpoints).toContain("`GET`, `POST`, `PATCH`, and `DELETE`");
+    expect(runtimeEndpoints).toContain('"resourceOperations": true');
     expect(runtimeEndpoints).toContain('"list": true');
     expect(runtimeEndpoints).toContain('"inspect": true');
     expect(inspector).toContain(
@@ -551,9 +552,7 @@ describe("framework nav", () => {
       ),
     ).toMatchObject({ icon: "lucide/Sparkles" });
     expect(
-      navTree.find(
-        (node) => node.type === "section" && node.title === "Other",
-      ),
+      navTree.find((node) => node.type === "section" && node.title === "Other"),
     ).toMatchObject({ icon: "lucide/Wrench" });
     expect(
       navTree
@@ -580,7 +579,7 @@ describe("framework nav", () => {
       { title: "Rich threads", slug: "threads" },
       {
         title: "Automatic learning",
-        slug: "intelligence/automatic-learning",
+        slug: "learning",
       },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
@@ -588,11 +587,14 @@ describe("framework nav", () => {
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
     ]);
     expect(findPageByTitle(navTree, "Automatic learning")).toMatchObject({
-      href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
+      slug: "learning",
     });
     expect(findPageByTitle(navTree, "WebMCP")).toMatchObject({
       slug: "webmcp",
     });
+    expect(hasSectionPage(navTree, "Agent capabilities", "Learning")).toBe(
+      true,
+    );
     expect(sectionNodes(navTree, "Backend").map((node) => node.title)).toEqual([
       "Runtime",
       "Deployment",
@@ -645,9 +647,7 @@ describe("framework nav", () => {
     expect(hasSectionPage(authoredNav, "Backend", "Copilot Runtime")).toBe(
       true,
     );
-    expect(hasSectionPage(authoredNav, "Intelligence", "Overview")).toBe(
-      true,
-    );
+    expect(hasSectionPage(authoredNav, "Intelligence", "Overview")).toBe(true);
     expect(
       sectionNodes(generatedNav, "Agent capabilities").some(
         (node) => node.type === "group" && node.title === "LangGraph (Python)",
@@ -901,7 +901,7 @@ describe("framework nav", () => {
       { title: "Rich threads", slug: "threads" },
       {
         title: "Automatic learning",
-        slug: "intelligence/automatic-learning",
+        slug: "learning",
       },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([

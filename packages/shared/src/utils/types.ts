@@ -51,7 +51,10 @@ interface RuntimeEntitlement {
   /** Whether the resolved entitlement currently grants product access. */
   active: boolean;
   /** Deployment authority that produced this entitlement. */
-  source: "managedOrgSubscription" | "selfHostedDeploymentLicense";
+  source:
+    | "managedOrgSubscription"
+    | "selfHostedDeploymentLicense"
+    | "awsMarketplaceDeploymentLicense";
   /** Boolean feature grants keyed by stable feature id. */
   features: Record<string, boolean>;
   /** Numeric limits keyed by stable feature id. */
@@ -104,6 +107,14 @@ export interface A2UIRuntimeInfo {
   agents?: string[];
 }
 
+/** Intelligence resource support available through a single runtime route. */
+export interface SingleRouteRuntimeInfo {
+  /** Whether the runtime accepts resource requests through the single route. */
+  resourceOperations: boolean;
+  /** Thread features available through the single-route resource bridge. */
+  threadEndpoints: ThreadEndpointRuntimeInfo;
+}
+
 export interface RuntimeInfo {
   version: string;
   agents: Record<string, AgentDescription>;
@@ -111,6 +122,8 @@ export interface RuntimeInfo {
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
   threadEndpoints?: ThreadEndpointRuntimeInfo;
+  /** Optional capabilities exposed by runtimes that use one HTTP route. */
+  singleRoute?: SingleRouteRuntimeInfo;
   /** Whether this runtime exposes trusted inspector metadata. */
   inspectorMetadata?: boolean;
   /**

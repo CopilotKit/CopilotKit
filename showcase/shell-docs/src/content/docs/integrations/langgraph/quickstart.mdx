@@ -338,22 +338,16 @@ Before you begin, you'll need the following:
               mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
               ```
 
-              <Callout type="warn" title="This route is enough for chat, not for Threads or the Inspector">
-                A single `POST /api/copilotkit` is the *minimum* wiring: it runs
-                the runtime in single-route mode, which is all chat needs.
-                Persistent Threads and the Inspector's saved-Threads list need the
-                multi-route handler instead — a catch-all
-                `app/api/copilotkit/[[...slug]]/route.ts` that exports `GET`,
-                `POST`, `PATCH` and `DELETE`, so list, rename, archive and delete
-                requests can reach the runtime. If the Inspector shows **Finish
-                setting up Rich Threads**, this is why. See
-                [Runtime HTTP endpoints](/backend/runtime-endpoints#enable-rich-threads-routes)
-                for the route and the provider setup that goes with it.
+              <Callout type="info" title="One route supports the full Intelligence experience">
+                A current client and Runtime can carry chat, Threads, Memory,
+                annotations, and Inspector requests through one `POST`
+                endpoint. They negotiate this support before sending resource
+                requests. The example below uses that mode.
               </Callout>
 
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
-                  ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
+                  ```tsx title="app/api/copilotkit/route.ts"
                   import {
                     CopilotKitIntelligence,
                     CopilotRuntime,
@@ -385,14 +379,14 @@ Before you begin, you'll need the following:
                   const handler = createCopilotRuntimeHandler({
                     runtime,
                     basePath: "/api/copilotkit",
+                    mode: "single-route",
                   });
 
-                  export const GET = handler;
                   export const POST = handler;
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
+                ```tsx title="app/api/copilotkit/route.ts"
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
@@ -422,9 +416,9 @@ Before you begin, you'll need the following:
                 const handler = createCopilotRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
+                  mode: "single-route",
                 });
 
-                export const GET = handler;
                 export const POST = handler;
               ```
               </Tab>
@@ -450,14 +444,9 @@ Before you begin, you'll need the following:
 
               Wrap your application with the CopilotKit provider:
 
-              <Callout type="info" title="Which provider goes with which handler?">
-                `<CopilotKit>` here is the backward-compatible wrapper, and every
-                released version pins it to the single-route transport — which is why
-                it needs the explicit `useSingleEndpoint={false}` below to reach the
-                multi-route `createCopilotRuntimeHandler` route above.
-                `<CopilotKitProvider>` is the v2 provider from the same package and
-                detects the transport from `/info` on its own. They are not aliases —
-                see
+              <Callout type="info" title="Match the provider to the handler">
+                `useSingleEndpoint` pins the provider to the single-route
+                handler above. See
                 [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
 
@@ -474,7 +463,7 @@ Before you begin, you'll need the following:
                   <html lang="en">
                     <body>
                       {/* [!code highlight:3] */}
-                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
+                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint>
                         {children}
                       </CopilotKit>
                     </body>

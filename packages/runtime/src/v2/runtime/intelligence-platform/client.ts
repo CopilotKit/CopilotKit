@@ -34,7 +34,11 @@ function isRetryableRuntimeEntitlementStatus(status: number): boolean {
 const runtimeEntitlementSchema = z
   .object({
     active: z.boolean(),
-    source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
+    source: z.enum([
+      "managedOrgSubscription",
+      "selfHostedDeploymentLicense",
+      "awsMarketplaceDeploymentLicense",
+    ]),
     features: z.record(z.string(), z.boolean()),
     limits: z.record(z.string(), z.number()),
     planCode: z.string().optional(),
