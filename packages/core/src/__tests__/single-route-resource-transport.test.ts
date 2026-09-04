@@ -171,6 +171,30 @@ test("single transport keeps legacy resource behavior without the capability", a
   }
 });
 
+test("single transport parses JSON media types without case sensitivity", async () => {
+  const context = await setup({ capability: true });
+
+  try {
+    context.fetchMock.mockClear();
+    await context.core.ɵruntimeFetch(`${RUNTIME_URL}/annotate`, {
+      method: "POST",
+      headers: { "Content-Type": "Application/JSON; Charset=UTF-8" },
+      body: JSON.stringify({ threadId: "thread-1" }),
+    });
+
+    const [, init] = context.fetchMock.mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit,
+    ];
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      method: "resource/request",
+      body: { threadId: "thread-1" },
+    });
+  } finally {
+    context.teardown();
+  }
+});
+
 test("REST transport ignores the single-route capability", async () => {
   const context = await setup({ capability: true, transport: "rest" });
   const url = `${RUNTIME_URL}/threads`;

@@ -284,6 +284,27 @@ test("single-route resource requests reject hidden memory routes before hooks", 
   expect(onBeforeHandler).not.toHaveBeenCalled();
 });
 
+test("single-route hidden memory routes return 404 before method validation", async () => {
+  const runtime = new CopilotRuntime({ agents: {} });
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+    activateChannels: false,
+  });
+
+  const response = await handler(
+    resourceRequest({
+      path: "/memories",
+      httpMethod: "PUT",
+      route: { method: "memories/list" },
+    }),
+  );
+
+  expect(response.status).toBe(404);
+  expect(response.headers.get("allow")).toBeNull();
+});
+
 test("single-route resource requests reject unsafe paths and non-resource routes", async () => {
   const runtime = new CopilotRuntime({ agents: {} });
   const handler = createCopilotRuntimeHandler({

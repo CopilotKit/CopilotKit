@@ -376,7 +376,12 @@ export function createCopilotRuntimeHandler(
       let response: Response;
 
       if (mode === "single-route") {
-        const resolved = await resolveSingleRoute(request, basePath, path);
+        const resolved = await resolveSingleRoute(
+          request,
+          basePath,
+          path,
+          runtime.exposeMemoryRoutes === true,
+        );
         route = resolved.route;
         request = resolved.request;
         handlerPath = resolved.path;
@@ -724,6 +729,7 @@ async function resolveSingleRoute(
   request: Request,
   basePath: string | undefined,
   pathname: string,
+  memoryRoutesExposed: boolean,
 ): Promise<SingleRouteResolution> {
   if (basePath) {
     const normalizedBase =
@@ -787,6 +793,12 @@ async function resolveSingleRoute(
       const resourceUrl = new URL(resourceRequest.url);
       const resourceRoute = matchRoute(resourceUrl.pathname, pathname);
       if (!resourceRoute || !isSingleRouteResourceRoute(resourceRoute)) {
+        throw jsonResponse({ error: "Not found" }, 404);
+      }
+      if (
+        resourceRoute.method.startsWith("memories/") &&
+        !memoryRoutesExposed
+      ) {
         throw jsonResponse({ error: "Not found" }, 404);
       }
       const methodError = validateHttpMethod(

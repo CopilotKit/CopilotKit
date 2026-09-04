@@ -31,7 +31,7 @@ async function readResourceBody(
   }
   if (!text) return undefined;
 
-  if (headers.get("content-type")?.includes("application/json")) {
+  if (headers.get("content-type")?.toLowerCase().includes("application/json")) {
     try {
       return JSON.parse(text) as unknown;
     } catch {
