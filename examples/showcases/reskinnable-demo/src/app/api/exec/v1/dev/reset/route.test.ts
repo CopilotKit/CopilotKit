@@ -103,6 +103,89 @@ describe("POST /api/exec/v1/dev/reset", () => {
   });
 });
 
+/**
+ * A backend that is configured HALF-WAY: exactly one of the two vars set.
+ *
+ * HERMETIC: `global.fetch` is replaced with a mock that THROWS, so if the route
+ * ever takes the network path from a half-configured env, the test fails loudly
+ * instead of quietly reaching whatever address is set.
+ */
+describe("POST /api/exec/v1/dev/reset — half-configured Intelligence", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    ["url without key", "http://intelligence.invalid", ""],
+    ["key without url", "", "cpk_test"],
+  ])(
+    "refuses to call a %s configuration a clean OSS reset",
+    async (_label, apiUrl, apiKey) => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+      vi.stubEnv("INTELLIGENCE_API_URL", apiUrl);
+      vi.stubEnv("CPK_INTELLIGENCE_API_KEY", apiKey);
+      vi.stubEnv("INTELLIGENCE_USER_ID", "");
+
+      const fetchMock = vi.fn(() => {
+        throw new Error("half-configured reset must never reach the network");
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const res = await POST();
+      const body = (await readJson(res)) as {
+        ok: boolean;
+        reset: string[];
+        memoryError?: string;
+      };
+
+      // THE DEFECT: `!apiUrl || !apiKey` lumped this in with the no-backend
+      // OSS path and returned `ok: true`, so a booth with a typo'd/expired key
+      // — or a deploy that set the URL and forgot the secret — got a green
+      // Reset button while durable memory was NEVER swept. Beat 6 then opens
+      // already taught, and nothing on screen ever said so.
+      expect(res.status).toBe(500);
+      expect(body.ok).toBe(false);
+      // The store half genuinely did happen, and saying otherwise would send a
+      // presenter to re-reset something that is already correct.
+      expect(body.reset).toEqual(["store"]);
+      // Both var NAMES, in either order — the message has to say which one is
+      // missing AND which one is set, or it does not diagnose anything.
+      expect(body.memoryError).toContain("INTELLIGENCE_API_URL");
+      expect(body.memoryError).toContain("CPK_INTELLIGENCE_API_KEY");
+      expect(body.memoryError).toMatch(/half|only one|both/i);
+      // Never the network, and never a leaked address in the body.
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(JSON.stringify(body)).not.toContain("intelligence.invalid");
+      // The DATA half still ran.
+      expect(store.snapshot().narratives).toHaveLength(0);
+    },
+  );
+
+  it("still treats NEITHER var being set as the OSS path", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "");
+
+    const fetchMock = vi.fn(() => {
+      throw new Error("the OSS path must never reach the network");
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await POST();
+
+    expect(res.status).toBe(200);
+    expect(await readJson(res)).toEqual({ ok: true, reset: ["store"] });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", () => {
   const originalFetch = global.fetch;
 
@@ -321,5 +404,169 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
     // this process, which is exactly the "N× the truth" bug keel's and
     // commerce's dev/reset routes already fixed for the same reason.
     expect(body.skippedProjectScoped).toBe(2);
+  });
+
+  /**
+   * THE SUCCESS ARM — which no test in this file used to execute at all. Every
+   * memory-half case above forces a failure, so the entire 200 body (its shape,
+   * its `reset: ["store", "memory"]` claim, and its `redactSecrets(apiUrl)`
+   * call) was unexercised: `redactSecrets` could be DELETED from that path and
+   * the suite stayed green while a booth reset echoed the backend address to
+   * any caller who could reach the box.
+   */
+  it("reports ok with reset: [store, memory] once every bucket is swept and every seed lands", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://intelligence.invalid");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_super_secret_test_key");
+    vi.stubEnv("INTELLIGENCE_USER_ID", "");
+
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init?.method ?? "GET";
+        if (method === "GET" && url.endsWith("/api/memories")) {
+          return new Response(JSON.stringify({ memories: [] }), {
+            status: 200,
+          });
+        }
+        if (method === "POST" && url.endsWith("/api/memories")) {
+          return new Response(JSON.stringify({ id: "m1" }), { status: 201 });
+        }
+        throw new Error(`unexpected fetch in test: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await POST();
+    const body = (await readJson(res)) as Record<string, unknown>;
+    const expectedSeeds = SEED_TARGET_USER_IDS.length * SEED_MEMORIES.length;
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      ok: true,
+      reset: ["store", "memory"],
+      forgot: 0,
+      seeded: expectedSeeds,
+      expectedSeeds,
+      skippedProjectScoped: 0,
+    });
+    // The 200 path redacts too. Without this, `redactSecrets(apiUrl)` could be
+    // dropped from the success body and nothing would fail.
+    expect(body.apiUrl).toBe("<intelligence-backend>");
+    expect(JSON.stringify(body)).not.toContain("intelligence.invalid");
+    expect(JSON.stringify(body)).not.toContain("cpk_super_secret_test_key");
+  });
+
+  it("adds up the rows actually deleted across every bucket into `forgot`", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://intelligence.invalid");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
+    vi.stubEnv("INTELLIGENCE_USER_ID", "");
+
+    // Two learned rows per bucket on the FIRST list of that bucket, then an
+    // empty list once they are deleted — the shape a real sweep sees, and the
+    // one that proves `forgot` is a real total rather than a hardcoded 0 (the
+    // only value every other case in this file ever asserts).
+    const served = new Set<string>();
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init?.method ?? "GET";
+        const bucket = String(
+          (init?.headers as Record<string, string> | undefined)?.[
+            "x-cpki-user-id"
+          ] ?? "",
+        );
+        if (method === "GET" && url.endsWith("/api/memories")) {
+          if (served.has(bucket)) {
+            return new Response(JSON.stringify({ memories: [] }), {
+              status: 200,
+            });
+          }
+          served.add(bucket);
+          return new Response(
+            JSON.stringify({
+              memories: [
+                { id: `${bucket}-1`, scope: "user" },
+                { id: `${bucket}-2`, scope: "user" },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        if (method === "DELETE" && url.includes("/api/memories/")) {
+          return new Response(null, { status: 204 });
+        }
+        if (method === "POST" && url.endsWith("/api/memories")) {
+          return new Response("", { status: 201 });
+        }
+        throw new Error(`unexpected fetch in test: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await POST();
+    const body = (await readJson(res)) as { ok: boolean; forgot: number };
+
+    const bucketCount = new Set([...SEEDED_USER_IDS, DEMO_DEFAULT_USER_ID])
+      .size;
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.forgot).toBe(bucketCount * 2);
+    // Every DELETE really was a DELETE against a per-id path.
+    const deletes = fetchMock.mock.calls.filter(
+      ([, init]) => (init as RequestInit | undefined)?.method === "DELETE",
+    );
+    expect(deletes).toHaveLength(bucketCount * 2);
+  });
+
+  /**
+   * A sweep that could not PROVE the bucket was emptied must not be reported as
+   * a clean reset — that is the whole point of `ForgetResult.complete`. Left
+   * unwired, a paginated backend leaves rows behind while the button reads
+   * "done" and beat 6 opens already taught.
+   */
+  it("refuses to claim memory was reset when a bucket's sweep came back incomplete", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://intelligence.invalid");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
+    vi.stubEnv("INTELLIGENCE_USER_ID", "");
+
+    // A backend that keeps re-listing the row it just said it deleted: the
+    // sweep converges on `complete: false` rather than spinning.
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init?.method ?? "GET";
+        if (method === "GET" && url.endsWith("/api/memories")) {
+          return new Response(
+            JSON.stringify({ memories: [{ id: "zombie", scope: "user" }] }),
+            { status: 200 },
+          );
+        }
+        if (method === "DELETE") return new Response(null, { status: 204 });
+        if (method === "POST" && url.endsWith("/api/memories")) {
+          return new Response("", { status: 201 });
+        }
+        throw new Error(`unexpected fetch in test: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST();
+    const body = (await readJson(res)) as {
+      ok: boolean;
+      reset: string[];
+      memoryError: string;
+    };
+
+    expect(res.status).toBe(502);
+    expect(body.ok).toBe(false);
+    expect(body.reset).toEqual(["store"]);
+    expect(body.memoryError).toMatch(/incomplete|already deleted/i);
   });
 });
