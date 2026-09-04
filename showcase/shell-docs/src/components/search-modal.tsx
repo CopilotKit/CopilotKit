@@ -5,7 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, Search, X } from "lucide-react";
 import searchIndex from "@/data/search-index.json";
 import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
-import { frontendFromPathname } from "@/lib/frontend-options";
+import { frontendFromPathname, isFrontendId } from "@/lib/frontend-options";
+import type { FrontendId } from "@/lib/frontend-options";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import type { Registry } from "@/lib/registry";
@@ -22,21 +23,30 @@ import {
   resolveChannelSearchResults,
 } from "@/lib/search-hrefs";
 import type { FrameworkSearchOption } from "@/lib/search-hrefs";
+import { matchIntelligenceSearchCta } from "@/lib/intelligence-search-ctas";
+import {
+  activateIntelligenceSearchCta,
+  IntelligenceSearchCtaBlock,
+} from "./intelligence-search-cta";
 
-// Integrations explorer + per-integration demo pages live on the shell
-// host (showcase.copilotkit.ai), not on shell-docs. Search results that
-// surface an integration or one of its demos route there directly. The
-// shell host is now read at runtime from window.__SHOWCASE_CONFIG__
-// (set by the root layout) so a single built artifact can serve
-// staging vs prod without rebuilding — see lib/runtime-config.client.
+// This modal searches DOCS ONLY. The integrations explorer and the
+// feature matrix live on the shell host (showcase.copilotkit.ai) and are
+// deliberately not searchable from here: readers asking a docs question
+// were getting showcase destinations mixed into their results, and the
+// feature rows had no docs page to point at at all.
+//
+// The registry is still loaded, for two reasons that have nothing to do
+// with producing results: the framework scope picker is built from it,
+// and the integration-docs branch below needs its docs-folder map.
+//
+// `/integrations` and `/matrix` can still reach the result list from a
+// stale cached search index, so normalizeHref() keeps rewriting those two
+// onto the shell host rather than letting them 404 here. The host is read
+// at runtime from window.__SHOWCASE_CONFIG__ (set by the root layout) so a
+// single built artifact serves staging and prod — see
+// lib/runtime-config.client.
 
-type SearchResultType =
-  | "integration"
-  | "feature"
-  | "page"
-  | "reference"
-  | "ag-ui"
-  | "docs";
+type SearchResultType = "page" | "reference" | "ag-ui" | "docs";
 
 interface SearchIndexEntry {
   type: "page" | "reference" | "ag-ui";
@@ -56,6 +66,13 @@ interface SearchResult {
   frameworkName?: string;
   frameworkCount?: number;
 }
+
+// Ties the search input to the result list for assistive technology:
+// the input is the combobox, the list is its popup, and the selected row
+// is announced through aria-activedescendant as arrow keys move.
+const RESULTS_LISTBOX_ID = "docs-search-results";
+const CTA_GROUP_ID = "docs-search-recommendation";
+const CTA_OPTION_ID = `${CTA_GROUP_ID}-primary`;
 
 function isExternalHref(href: string): boolean {
   // Protocol-relative or http(s) URLs, plus non-navigable schemes that
@@ -115,12 +132,66 @@ function buildDocsFolderMap(
   return map;
 }
 
+// Punctuation a reader routinely leaves out when typing a title they half
+// remember: apostrophes (straight and curly), hyphens, dots and slashes.
+// It is DELETED rather than turned into a space, and on both sides, so
+// "whats new" reaches "What's New" and "self hosting" reaches
+// "Self-hosting" — replacing with a space would leave "what s new", which
+// the query "whats" still could not find.
+const IGNORED_PUNCTUATION = /['’./-]+/g;
+
+// The boundary inside a camelCase or PascalCase identifier: a lower-case
+// letter or digit immediately followed by a capital. Split on the HAYSTACK
+// side only — the reader types words, the docs are full of identifiers —
+// so "use Copilot kit" reaches `useCopilotKit` and "copilot chat" reaches
+// `CopilotChat`.
+const CAMEL_CASE_BOUNDARY = /([a-z0-9])([A-Z])/g;
+
+/**
+ * The searchable form of an entry's text: the plain form AND, when the text
+ * holds an identifier, the camel-split form appended after it.
+ *
+ * Both are needed. Splitting alone would break the reader who types the
+ * identifier as one word — `useCopilotKit` split to "use copilot kit" no
+ * longer contains "usecopilotkit" — and not splitting is what made
+ * "use Copilot kit" miss in the first place.
+ *
+ * This runs over every entry on every keystroke, so it stays two regex
+ * passes over one already-joined string rather than a tokenizer, and skips
+ * the concatenation entirely for text with no identifier in it.
+ */
+function normalizeHaystack(text: string): string {
+  const plain = text.replace(IGNORED_PUNCTUATION, "").toLowerCase();
+  const split = text
+    .replace(CAMEL_CASE_BOUNDARY, "$1 $2")
+    .replace(IGNORED_PUNCTUATION, "")
+    .toLowerCase();
+  return split === plain ? plain : `${plain} ${split}`;
+}
+
+/** The query with the same punctuation removed, still split into words. */
+function normalizeQuery(query: string): string {
+  return query.replace(IGNORED_PUNCTUATION, "").toLowerCase();
+}
+
+/**
+ * Punctuation, camelCase boundaries and spacing all removed. Used only to
+ * recognise a title the reader spelled out in words — "ag ui" for "AG-UI",
+ * "whats new" for "What's New", "use Copilot kit" for `useCopilotKit`.
+ */
+function condense(text: string): string {
+  return text
+    .replace(IGNORED_PUNCTUATION, "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
 function matchesQuery(
   fields: Array<string | undefined>,
   query: string,
 ): boolean {
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const haystack = fields.filter(Boolean).join(" ").toLowerCase();
+  const terms = normalizeQuery(query).split(/\s+/).filter(Boolean);
+  const haystack = normalizeHaystack(fields.filter(Boolean).join(" "));
   return terms.every((term) => haystack.includes(term));
 }
 
@@ -130,25 +201,207 @@ function formatType(type: SearchResultType): string {
   return type;
 }
 
-function scoreResult(result: SearchResult, query: string): number {
-  const q = query.toLowerCase();
-  const title = result.title.toLowerCase();
+const WORD_CHARACTER = /[a-z0-9]/;
+
+/**
+ * True when `needle` appears in `haystack` standing on its own rather than
+ * buried inside a longer word. Both arguments must already be lowercased.
+ *
+ * Used instead of a `\b` regex so the query needs no escaping and so a
+ * query with leading or trailing punctuation still behaves sensibly.
+ */
+function matchesWholeWord(haystack: string, needle: string): boolean {
+  if (!needle) return false;
+  for (let from = 0; ; from += 1) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) return false;
+    const before = at === 0 ? "" : haystack[at - 1];
+    const after = haystack[at + needle.length] ?? "";
+    if (!WORD_CHARACTER.test(before) && !WORD_CHARACTER.test(after)) {
+      return true;
+    }
+    from = at;
+  }
+}
+
+// ---------------------------------------------------------------------
+// Frontend affinity
+//
+// The index is one flat list across every frontend, so a React reader
+// searching "chat" got a screen of Angular: of 78 matches, roughly 38
+// belonged to a frontend they are not using. Those rows are DEMOTED,
+// never filtered — a React reader who wants the Angular page must still
+// find it by typing "angular chat", and because both words then match,
+// those rows climb back to the top on their own merits.
+// ---------------------------------------------------------------------
+
+/**
+ * The frontend a destination belongs to, or null when it is
+ * frontend-agnostic. Agnostic destinations are never penalized.
+ *
+ * Two shapes name a frontend: a leading `/vue/…`, `/angular/…`,
+ * `/react-native/…`, `/slack/…`, `/teams/…` segment, and the same names
+ * one segment into the API reference (`/reference/angular/…`). Reference
+ * sub-trees that are not frontends — `/reference/hooks`, `/reference/core`,
+ * `/reference/channels`, `/reference/v1` — fall through to null.
+ */
+function frontendFromHref(href: string): FrontendId | null {
+  const segments = href.split(/[?#]/)[0].split("/").filter(Boolean);
+  if (segments.length === 0) return null;
+  const candidate = segments[0] === "reference" ? segments[1] : segments[0];
+  return isFrontendId(candidate) ? candidate : null;
+}
+
+/** Words that count as the reader naming a frontend in their query. */
+const FRONTEND_QUERY_PHRASES: Record<FrontendId, readonly string[]> = {
+  react: ["react"],
+  "react-spa": ["react spa"],
+  vue: ["vue"],
+  "react-native": ["react native"],
+  angular: ["angular"],
+  slack: ["slack"],
+  teams: ["teams"],
+};
+
+/**
+ * Frontends the query names outright. Their pages keep their natural rank,
+ * so "angular chat" puts Angular back on top from any surface.
+ */
+function frontendsNamedInQuery(query: string): Set<FrontendId> {
+  // Padded with spaces and matched as whole phrases so "react" does not
+  // count as naming React Native, and so a typed "react-native" — where
+  // the hyphen is a word separator, not noise — still counts.
+  const padded = ` ${query
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()} `;
+  const named = new Set<FrontendId>();
+  for (const [frontend, phrases] of Object.entries(FRONTEND_QUERY_PHRASES)) {
+    if (phrases.some((phrase) => padded.includes(` ${phrase} `))) {
+      named.add(frontend as FrontendId);
+    }
+  }
+  return named;
+}
+
+interface RankingContext {
+  /**
+   * The frontend the reader is on. `frontendFromPathname` returns null both
+   * on the root surface and under `/react/…`, and React is the effective
+   * default there — so a React reader sees agnostic and React pages ahead
+   * of Angular and Vue rather than the other way round.
+   */
+  readerFrontend: FrontendId;
+  namedFrontends: ReadonlySet<FrontendId>;
+}
+
+/**
+ * Added to the score of a row belonging to a frontend the reader is not
+ * using and did not ask for.
+ *
+ * 40 is the smallest round number that makes the demotion reliable. The
+ * widest swing the title bonuses can produce inside one result type is 36
+ * — an exact title match (-30) on a framework-scoped docs row (-6) — so
+ * anything above that guarantees a foreign-frontend row sits below every
+ * same-type row that is agnostic or matches the reader. It is deliberately
+ * not larger: the whole type ladder spans 0 to 40, so a demoted row falls
+ * by about one ladder height and may mix with the next type down, but the
+ * types keep their relative order among demoted rows and nothing is
+ * dropped from the list.
+ */
+const FOREIGN_FRONTEND_PENALTY = 40;
+
+/**
+ * The V1 reference is deprecated and answers with an API that no longer
+ * exists. Its 35-odd entries sort below everything else — handled as its
+ * own comparator tier rather than a score, because "always last" is a
+ * rule, not a weighting that another bonus could out-argue.
+ */
+function isDeprecatedV1Href(href: string): boolean {
+  return href === "/reference/v1" || href.startsWith("/reference/v1/");
+}
+
+function scoreResult(
+  result: SearchResult,
+  query: string,
+  context: RankingContext,
+): number {
+  // The title tiers below compare the same normalized forms the filter
+  // uses. Without that, a query the filter now accepts could still score
+  // zero against the very page it was typed for: "ag ui" matched "AG-UI"
+  // but was ranked as if it had matched nothing, and so never surfaced.
+  const q = normalizeQuery(query);
+  const title = normalizeHaystack(result.title);
   const typePriority: Record<SearchResultType, number> = {
     docs: 0,
     page: 1,
-    integration: 2,
     reference: 3,
     "ag-ui": 4,
-    feature: 6,
   };
 
   let score = typePriority[result.type] * 10;
+
+  const frontend = frontendFromHref(result.href);
+  if (
+    frontend !== null &&
+    frontend !== context.readerFrontend &&
+    !context.namedFrontends.has(frontend)
+  ) {
+    score += FOREIGN_FRONTEND_PENALTY;
+  }
+
   if (result.frameworkName) score -= 6;
-  if (title === q) score -= 30;
-  else if (title.startsWith(q)) score -= 18;
+  // Spelling the title out in words is still naming it exactly: "ag ui"
+  // for "AG-UI", "use Copilot kit" for `useCopilotKit`.
+  if (condense(result.title) === condense(query)) score -= 30;
+  // A whole-word hit anywhere in the title beats one buried inside a
+  // longer word. This slot used to be `title.startsWith(q)`, which was a
+  // crude stand-in for the same idea: it rewarded the query only when it
+  // was the FIRST word, so searching "threads" put "Threads Drawer" above
+  // the canonical "Rich Threads" guide, and left "useThreads" — where
+  // "threads" is not a word at all — tied with it.
+  else if (matchesWholeWord(title, q)) score -= 18;
   else if (title.includes(q)) score -= 8;
 
   return score;
+}
+
+/**
+ * Total order over results for one query. Everything the score leaves tied
+ * is settled here, so the result order can never fall back on the order the
+ * search index happened to be generated in.
+ */
+function compareResults(
+  a: SearchResult,
+  b: SearchResult,
+  query: string,
+  context: RankingContext,
+): number {
+  // Deprecated V1 reference pages sink below every other result, whatever
+  // their frontend and however well their title matches.
+  const byDeprecation =
+    Number(isDeprecatedV1Href(a.href)) - Number(isDeprecatedV1Href(b.href));
+  if (byDeprecation !== 0) return byDeprecation;
+
+  const byScore =
+    scoreResult(a, query, context) - scoreResult(b, query, context);
+  if (byScore !== 0) return byScore;
+
+  // A shorter title is nearly always the more general, canonical page for
+  // a topic: "Rich Threads" is the Threads guide, "Threads Drawer" is one
+  // component within it.
+  if (a.title.length !== b.title.length) {
+    return a.title.length - b.title.length;
+  }
+
+  const byTitle = a.title.localeCompare(b.title);
+  if (byTitle !== 0) return byTitle;
+
+  // Two rows can share a title — the same reference symbol documented for
+  // several frontends, say. Destination is the last discriminator and makes
+  // the order total, so it never falls through to the order the index
+  // happened to be generated in.
+  return a.href.localeCompare(b.href);
 }
 
 export function SearchModal({ onClose }: { onClose: () => void }) {
@@ -164,6 +417,10 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   const [registryError, setRegistryError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedIndexRef = useRef(0);
+  // What moved the selection last. The result list scrolls to follow the
+  // selection only for "keyboard": hover moves the selection too, and
+  // scrolling on hover would slide the list out from under the pointer.
+  const selectionSourceRef = useRef<"keyboard" | "pointer">("pointer");
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const activeFrontend = frontendFromPathname(pathname);
@@ -396,43 +653,13 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
       });
     }
 
-    if (registryData) {
-      for (const i of registryData.integrations || []) {
-        if (
-          process.env.NODE_ENV !== "production" &&
-          (!i.description || i.description.trim() === "")
-        ) {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[search-modal] integration "${i.slug}" has no description — fix upstream in registry`,
-          );
-        }
-        if (matchesQuery([i.name, i.description], q)) {
-          items.push({
-            id: `integration:${i.slug}`,
-            type: "integration",
-            title: i.name,
-            subtitle: (i.description || "").slice(0, 80),
-            href: `${shellHost}/integrations/${i.slug}`,
-          });
-        }
-      }
-
-      for (const f of registryData.feature_registry?.features || []) {
-        if (matchesQuery([f.name, f.description], q)) {
-          items.push({
-            id: `feature:${f.id}`,
-            type: "feature",
-            title: f.name,
-            subtitle: f.description,
-            href: "/",
-          });
-        }
-      }
-    }
+    const ranking: RankingContext = {
+      readerFrontend: activeFrontend ?? "react",
+      namedFrontends: frontendsNamedInQuery(q),
+    };
 
     return dedupeResults(items)
-      .sort((a, b) => scoreResult(a, q) - scoreResult(b, q))
+      .sort((a, b) => compareResults(a, b, q, ranking))
       .slice(0, 12);
   }, [
     query,
@@ -443,11 +670,47 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     activeFrontend,
   ]);
 
+  // The curated Intelligence recommendation, when the query asks for a
+  // topic Intelligence answers directly. It is an ADDITION above the
+  // result list, never a replacement: it takes no result slot and the
+  // twelve organic results below it are untouched.
+  const intelligenceCta = useMemo(
+    () => matchIntelligenceSearchCta(query),
+    [query],
+  );
+
+  // One selection model for the whole modal. When the recommendation is
+  // showing it occupies index 0 and results shift down by one, so
+  // arrow-down out of the block lands on the first result and Enter
+  // activates whatever is selected.
+  const ctaOffset = intelligenceCta ? 1 : 0;
+  const selectableCount = ctaOffset + results.length;
+
   useEffect(() => {
     setSelectedIndex((idx) =>
-      results.length === 0 ? 0 : Math.min(idx, results.length - 1),
+      selectableCount === 0 ? 0 : Math.min(idx, selectableCount - 1),
     );
-  }, [results.length]);
+  }, [selectableCount]);
+
+  // The result list is a fixed-height scroller, so arrowing past the fifth
+  // or sixth row used to move the selection out of sight. Rows carry a
+  // stable DOM id, so the selected one is found by id rather than through
+  // a ref array. `block: "nearest"` is the minimal scroll: the list moves
+  // only when the row would otherwise be off-screen, instead of recentring
+  // on every keystroke. The recommendation block sits outside the scroller
+  // and stays visible, so there is nothing to scroll to while the
+  // selection is on it.
+  useEffect(() => {
+    if (selectionSourceRef.current !== "keyboard") return;
+    const rowIndex = selectedIndex - ctaOffset;
+    if (rowIndex < 0) return;
+    const row = document.getElementById(
+      `${RESULTS_LISTBOX_ID}-option-${rowIndex}`,
+    );
+    // Optional call: jsdom and older engines do not implement it, and a
+    // missing scroll must never break navigation.
+    row?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedIndex, ctaOffset]);
 
   const navigateTo = useCallback(
     (href: string) => {
@@ -469,23 +732,50 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
       if (e.nativeEvent.isComposing) return;
 
       if (e.key === "ArrowDown") {
-        if (results.length === 0) return;
+        if (selectableCount === 0) return;
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
+        selectionSourceRef.current = "keyboard";
+        // Clamped, never wrapped: at the end of the list the selection
+        // stays on the last row rather than jumping back to the top.
+        setSelectedIndex((i) => Math.min(i + 1, selectableCount - 1));
       } else if (e.key === "ArrowUp") {
-        if (results.length === 0) return;
+        if (selectableCount === 0) return;
         e.preventDefault();
+        selectionSourceRef.current = "keyboard";
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter") {
         const idx = selectedIndexRef.current;
-        const chosen = results[idx];
+        if (intelligenceCta && idx === 0) {
+          e.preventDefault();
+          activateIntelligenceSearchCta({
+            cta: intelligenceCta,
+            query,
+            destination: intelligenceCta.primary.href,
+            attribution: {
+              frontend: activeFrontend ?? undefined,
+              backend: selectedFramework,
+            },
+            navigate: navigateTo,
+          });
+          return;
+        }
+        const chosen = results[idx - ctaOffset];
         if (chosen) {
           e.preventDefault();
           navigateTo(chosen.href);
         }
       }
     },
-    [results, navigateTo],
+    [
+      activeFrontend,
+      ctaOffset,
+      intelligenceCta,
+      navigateTo,
+      query,
+      results,
+      selectableCount,
+      selectedFramework,
+    ],
   );
 
   const registryLoading = !registryData && !registryError;
@@ -495,8 +785,18 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   const hasContentBelowScope =
     registryError ||
     (hasQuery && registryLoading) ||
+    intelligenceCta !== null ||
     results.length > 0 ||
     (hasQuery && results.length === 0 && !registryLoading);
+
+  // Announces the current selection to assistive technology whether it
+  // sits on the recommendation or on a result row.
+  const activeDescendantId =
+    selectableCount === 0
+      ? undefined
+      : intelligenceCta && selectedIndex === 0
+        ? CTA_OPTION_ID
+        : `${RESULTS_LISTBOX_ID}-option-${selectedIndex - ctaOffset}`;
 
   return (
     <>
@@ -531,10 +831,20 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
+                selectionSourceRef.current = "keyboard";
                 setSelectedIndex(0);
               }}
               onKeyDown={onInputKeyDown}
-              placeholder="Search docs, API reference, integrations..."
+              role="combobox"
+              aria-expanded={selectableCount > 0}
+              aria-controls={
+                intelligenceCta
+                  ? `${CTA_GROUP_ID} ${RESULTS_LISTBOX_ID}`
+                  : RESULTS_LISTBOX_ID
+              }
+              aria-activedescendant={activeDescendantId}
+              aria-autocomplete="list"
+              placeholder="Search docs, guides, API reference..."
               className="min-w-0 flex-1 bg-transparent text-[15px] text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
             />
             <button
@@ -549,7 +859,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                 e.stopPropagation();
                 onClose();
               }}
-              className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+              className="shell-docs-radius-control inline-flex h-7 w-7 cursor-pointer items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
               aria-label="Close search"
             >
               <X className="h-4 w-4" />
@@ -569,7 +879,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 disabled={!hasFrameworkPicker}
                 onClick={() => setFrameworkPickerOpen((open) => !open)}
-                className="shell-docs-radius-control inline-flex h-8 max-w-[min(56vw,220px)] items-center justify-between gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-left text-xs font-semibold text-[var(--text)] outline-none transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-hover)] focus-visible:border-[var(--accent)] disabled:opacity-60"
+                className="shell-docs-radius-control inline-flex h-8 max-w-[min(56vw,220px)] cursor-pointer items-center justify-between gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-left text-xs font-semibold text-[var(--text)] outline-none transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-hover)] focus-visible:border-[var(--accent)] disabled:cursor-default disabled:opacity-60"
                 aria-haspopup="listbox"
                 aria-expanded={frameworkPickerOpen}
                 aria-label={`Choose docs framework. Currently ${
@@ -606,7 +916,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                         role="option"
                         aria-selected={selected}
                         onClick={() => chooseFramework(option.slug)}
-                        className={`shell-docs-radius-control flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
+                        className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
                           selected
                             ? "bg-[var(--accent)]/10 text-[var(--text)]"
                             : "text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
@@ -651,31 +961,72 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          {intelligenceCta && (
+            <IntelligenceSearchCtaBlock
+              cta={intelligenceCta}
+              query={query}
+              groupId={CTA_GROUP_ID}
+              optionId={CTA_OPTION_ID}
+              selected={selectedIndex === 0}
+              onHover={() => {
+                selectionSourceRef.current = "pointer";
+                setSelectedIndex(0);
+              }}
+              onNavigate={navigateTo}
+              attribution={{
+                frontend: activeFrontend ?? undefined,
+                backend: selectedFramework,
+              }}
+            />
+          )}
+
           {results.length > 0 && (
-            <div className="max-h-[390px] overflow-y-auto p-2">
+            <div
+              id={RESULTS_LISTBOX_ID}
+              role="listbox"
+              aria-label="Search results"
+              className="max-h-[390px] overflow-y-auto p-2"
+            >
               {results.map((r, idx) => (
                 <button
                   key={r.id}
+                  id={`${RESULTS_LISTBOX_ID}-option-${idx}`}
                   type="button"
-                  className={`shell-docs-radius-control flex w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
-                    idx === selectedIndex
+                  role="option"
+                  aria-selected={idx + ctaOffset === selectedIndex}
+                  className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-3 px-3 py-3 text-left transition-colors ${
+                    idx + ctaOffset === selectedIndex
                       ? "bg-[var(--bg-elevated)]"
                       : "hover:bg-[var(--bg-hover)]"
                   }`}
                   onClick={() => navigateTo(r.href)}
-                  onMouseEnter={() => setSelectedIndex(idx)}
+                  onMouseEnter={() => {
+                    selectionSourceRef.current = "pointer";
+                    setSelectedIndex(idx + ctaOffset);
+                  }}
                 >
                   <span className="text-[10px] font-mono text-[var(--text-faint)] uppercase w-16 shrink-0">
                     {formatType(r.type)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[13px] font-semibold text-[var(--text)]">
+                      <span
+                        data-search-result-title
+                        className="truncate text-[13px] font-semibold text-[var(--text)]"
+                      >
                         {r.title}
                       </span>
                       {r.section && (
                         <span className="hidden shrink-0 text-[11px] font-normal text-[var(--text-faint)] sm:inline">
                           {r.section}
+                        </span>
+                      )}
+                      {isDeprecatedV1Href(r.href) && (
+                        <span
+                          data-search-result-deprecated
+                          className="shell-docs-radius-icon shrink-0 border border-[var(--border)] px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-[var(--text-faint)]"
+                        >
+                          Deprecated
                         </span>
                       )}
                     </div>
@@ -692,8 +1043,12 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                     )}
                   </div>
                   <ArrowRight
+                    // Must use the same offset selection test as the row's
+                    // own background and aria-selected: comparing the bare
+                    // `idx` lit the arrow one row BELOW the selected one
+                    // whenever the recommendation block took index 0.
                     className={`h-4 w-4 shrink-0 transition-colors ${
-                      idx === selectedIndex
+                      idx + ctaOffset === selectedIndex
                         ? "text-[var(--accent)]"
                         : "text-[var(--text-faint)]"
                     }`}
