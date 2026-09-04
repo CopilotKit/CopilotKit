@@ -4,11 +4,13 @@ import type { RendererProps } from "@copilotkit/a2ui-renderer";
 import type {
   DashboardId,
   Department,
+  Initiative,
   LedgerSnapshot,
   MetricDef,
   MetricId,
   MetricPoint,
 } from "@/skins/exec/data/types";
+import * as store from "../data/store";
 import { BlockDataProvider } from "../block-data";
 import type { BlockData } from "../block-data";
 import { renderers } from "./renderers";
@@ -235,6 +237,267 @@ describe("exec catalog MetricTile renderer", () => {
   });
 });
 
+/**
+ * THE UNRESOLVED DATA REF. `Heading`/`Text` take `string | { path }` because
+ * the catalog declares a data-bound ref as a legal value; the A2UI runtime is
+ * supposed to resolve the ref BEFORE render. When it doesn't — a path that
+ * names nothing in the data model — the component still gets the `{ path }`
+ * object. Painting that as an empty string puts a blank heading on a board
+ * pack, which reads as "this section is intentionally untitled" rather than
+ * "the binding broke"; this file's own rule (`MissingTile`) is that a block
+ * whose query resolved to nothing must SAY so.
+ */
+const LabelOnly = {
+  Heading: renderers.Heading as (
+    props: RendererProps<{ text: string | { path: string } }>,
+  ) => React.ReactElement,
+  Text: renderers.Text as (
+    props: RendererProps<{
+      text: string | { path: string };
+      tone?: "default" | "muted";
+    }>,
+  ) => React.ReactElement,
+};
+
+describe.each(["Heading", "Text"] as const)(
+  "exec catalog %s renderer",
+  (name) => {
+    const Component = LabelOnly[name];
+
+    it("renders the resolved label text", () => {
+      const { container } = render(
+        <Component
+          props={{ text: "Board pack" }}
+          // eslint-disable-next-line react/no-children-prop
+          children={() => null as unknown as React.ReactNode}
+        />,
+      );
+      expect(container.textContent).toContain("Board pack");
+      expect(container.querySelector('[data-testid="block-error"]')).toBeNull();
+    });
+
+    it("reports an UNRESOLVED data ref through the block-error surface", () => {
+      const { container } = render(
+        <Component
+          props={{ text: { path: "/metrics/revenue/label" } }}
+          // eslint-disable-next-line react/no-children-prop
+          children={() => null as unknown as React.ReactNode}
+        />,
+      );
+
+      const error = container.querySelector('[data-testid="block-error"]');
+      expect(
+        error,
+        "an unresolved ref must not render as an empty label",
+      ).not.toBeNull();
+      expect(error?.getAttribute("role")).toBe("alert");
+      // It names the path, or nobody can tell WHICH binding broke.
+      expect(error?.textContent ?? "").toContain("/metrics/revenue/label");
+    });
+  },
+);
+
+const TrendLine = renderers.TrendLine as (
+  props: RendererProps<{
+    metricId: MetricId;
+    department?: Department | "all";
+    months?: number;
+  }>,
+) => React.ReactElement;
+
+function renderTrendLine(
+  data: BlockData,
+  props: {
+    metricId: MetricId;
+    department?: Department | "all";
+    months?: number;
+  },
+) {
+  return render(
+    <BlockDataProvider value={data}>
+      <TrendLine
+        props={props}
+        // `children` is the RendererProps render-callback, not React children.
+        // eslint-disable-next-line react/no-children-prop
+        children={() => null as unknown as React.ReactNode}
+      />
+    </BlockDataProvider>,
+  );
+}
+
+/** The i-th consecutive "YYYY-MM" from 2026-01, rolling the year over. */
+function periodAt(i: number): string {
+  const year = 2026 + Math.floor(i / 12);
+  const month = (i % 12) + 1;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+/** `count` consecutive monthly points from 2026-01, actual = plan + `i`×10%. */
+function monthlySnapshot(count: number): LedgerSnapshot {
+  return makeSnapshot({
+    metricDefs: [makeMetricDef({ id: "burnRate", label: "Burn Rate" })],
+    points: Array.from({ length: count }, (_, i) =>
+      makeMetricPoint({
+        metricId: "burnRate",
+        period: periodAt(i),
+        plan: 100,
+        // +0%, +10%, +20%, … so every period's figures are distinguishable.
+        actual: 100 + i * 10,
+        forecast: 100,
+      }),
+    ),
+  });
+}
+
+describe("exec catalog TrendLine renderer", () => {
+  /**
+   * `months` is a QUERY parameter — how much history to fetch. A renderer that
+   * ignores it charts the whole 24-month series while the label claims the
+   * window the agent asked for, so the assertions are about which periods'
+   * figures reached the screen, not about the prop being echoed.
+   */
+  it("narrows the series to the trailing `months` window", () => {
+    const data = makeBlockData({ snapshot: monthlySnapshot(6) });
+
+    const { container } = renderTrendLine(data, {
+      metricId: "burnRate",
+      months: 3,
+    });
+    const text = container.textContent ?? "";
+
+    // The window's OWN endpoints, and the label counting what it charted.
+    expect(text).toContain("3mo");
+    expect(text).toContain("Apr 2026");
+    expect(text).toContain("Jun 2026");
+    // Everything before the window stays off the chart's axis labels.
+    expect(text).not.toContain("Jan 2026");
+    expect(text).not.toContain("Mar 2026");
+  });
+
+  it("defaults to a 12-month window when the agent omits `months`", () => {
+    const data = makeBlockData({ snapshot: monthlySnapshot(18) });
+
+    const { container } = renderTrendLine(data, { metricId: "burnRate" });
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("12mo");
+    // 18 periods ending at 2027-06; the 12-month window opens at 2026-07.
+    expect(text).toContain("Jul 2026");
+    expect(text).not.toContain("Jun 2026");
+  });
+
+  /**
+   * THE LATEST-PERIOD READ. The footer reports one variance and one absolute
+   * figure: they must be the WINDOW'S LAST period, not its first and not the
+   * first matching row. A renderer that reads `trend[0]` still draws a
+   * plausible chart while reporting a fourteen-month-old number as today's.
+   */
+  it("reports the window's LATEST period in the footer, not its first", () => {
+    const data = makeBlockData({ snapshot: monthlySnapshot(4) });
+
+    const { container } = renderTrendLine(data, { metricId: "burnRate" });
+    const text = container.textContent ?? "";
+
+    // Latest point: plan 100, actual 130 -> +30.0%.
+    expect(text).toMatch(/▲/);
+    expect(text).toMatch(/\+30\.0%/);
+    expect(text).toContain("$130");
+    // The first period's own variance (+0.0%) is not what the footer reports.
+    expect(text).not.toMatch(/±0\.0%/);
+  });
+
+  /**
+   * THE ONE-POINT ARM. Two points are the minimum a line can be drawn from;
+   * with one, `linePoints` would emit a single coordinate and the SVG would
+   * render an invisible "trend". Say there is not enough history instead.
+   */
+  it("says there is not enough history rather than charting a single point", () => {
+    const data = makeBlockData({ snapshot: monthlySnapshot(1) });
+
+    const { container } = renderTrendLine(data, { metricId: "burnRate" });
+
+    expect(container.textContent ?? "").toMatch(/not enough history/i);
+    expect(container.querySelector("polyline")).toBeNull();
+  });
+
+  it("reports a metric with no series through the block-error surface", () => {
+    const data = makeBlockData({ snapshot: monthlySnapshot(6) });
+
+    const { container } = renderTrendLine(data, {
+      metricId: "burnRate",
+      department: "distribution",
+    });
+
+    const error = container.querySelector('[data-testid="block-error"]');
+    expect(error).not.toBeNull();
+    expect(error?.getAttribute("role")).toBe("alert");
+    expect(error?.textContent ?? "").toContain("burnRate");
+  });
+});
+
+const InitiativeTable = renderers.InitiativeTable as (
+  props: RendererProps<Record<string, never>>,
+) => React.ReactElement;
+
+function renderInitiativeTable(data: BlockData) {
+  return render(
+    <BlockDataProvider value={data}>
+      <InitiativeTable
+        props={{}}
+        // `children` is the RendererProps render-callback, not React children.
+        // eslint-disable-next-line react/no-children-prop
+        children={() => null as unknown as React.ReactNode}
+      />
+    </BlockDataProvider>,
+  );
+}
+
+const INITIATIVES: Initiative[] = [
+  {
+    id: "init-a",
+    name: "Distribution center automation",
+    owner: "Priya Nair",
+    status: "red",
+    note: "Integrator delay pushed go-live past quarter close.",
+  },
+  {
+    id: "init-b",
+    name: "ERP migration, phase 2",
+    owner: "Dana Kim",
+    status: "green",
+    note: "On track for next month's cutover window.",
+  },
+];
+
+describe("exec catalog InitiativeTable renderer", () => {
+  it("renders one row per initiative, with owner, status and note", () => {
+    const data = makeBlockData({
+      snapshot: makeSnapshot({ initiatives: INITIATIVES }),
+    });
+
+    const { container } = renderInitiativeTable(data);
+    const text = container.textContent ?? "";
+
+    expect(container.querySelectorAll("tbody tr").length).toBe(2);
+    for (const initiative of INITIATIVES) {
+      expect(text).toContain(initiative.name);
+      expect(text).toContain(initiative.owner);
+      expect(text).toContain(initiative.status);
+      expect(text).toContain(initiative.note);
+    }
+  });
+
+  it("reports an empty initiative list through the block-error surface", () => {
+    const { container } = renderInitiativeTable(
+      makeBlockData({ snapshot: makeSnapshot({ initiatives: [] }) }),
+    );
+
+    const error = container.querySelector('[data-testid="block-error"]');
+    expect(error).not.toBeNull();
+    expect(error?.getAttribute("role")).toBe("alert");
+  });
+});
+
 const VarianceBar = renderers.VarianceBar as (
   props: RendererProps<{ metricId: MetricId }>,
 ) => React.ReactElement;
@@ -349,6 +612,47 @@ describe("exec catalog VarianceBar renderer", () => {
     expect(text).toContain("$90");
 
     // And NOTHING from the stale period: $1K / +900.0% appear only there.
+    expect(text).not.toContain("900.0%");
+    expect(text).not.toContain("$1K");
+  });
+
+  /**
+   * A DEPARTMENT WITH NO ROW AT THE LATEST PERIOD IS NEWS, NOT AN ABSENCE.
+   *
+   * Dropping it silently produces a three-bar chart of a four-department
+   * company: the reader has no way to tell "corporate did not report this
+   * month" from "corporate is not a department". Worse, the bars are drawn
+   * against a max taken over the rows that survived, so the whole chart's
+   * scale silently shifts when a department goes missing — every remaining
+   * bar changes length for a reason nothing on screen explains.
+   */
+  it("renders a department missing from the latest period as an explicit unavailable row", () => {
+    const snapshot = twoPeriodOpexSnapshot();
+    const data = makeBlockData({
+      snapshot: {
+        ...snapshot,
+        // Corporate reported in January and then stopped.
+        points: snapshot.points.filter(
+          (p) => !(p.department === "corporate" && p.period === "2026-02"),
+        ),
+      },
+    });
+
+    const { container } = renderVarianceBar(data, "opex");
+    const text = container.textContent ?? "";
+
+    // Still four rows — one per department, in the fixed order.
+    const rows = container.querySelectorAll('[data-testid="variance-bar-row"]');
+    expect(rows.length).toBe(4);
+
+    const corporate = Array.from(rows).find((row) =>
+      row.textContent?.includes("Corporate"),
+    );
+    expect(corporate, "the missing department still gets a row").toBeDefined();
+    expect(corporate?.textContent ?? "").toMatch(/no data|not reported/i);
+    // And it reports NOTHING quantitative: no bar, no figure, no variance.
+    expect(corporate?.textContent ?? "").not.toMatch(/%|\$/);
+    // Least of all January's stale $1K / +900.0%.
     expect(text).not.toContain("900.0%");
     expect(text).not.toContain("$1K");
   });
@@ -478,13 +782,67 @@ describe("exec catalog ExceptionList renderer", () => {
     expect(text).not.toMatch(/55\.5%/);
   });
 
-  it("says so rather than rendering an empty list when no exception matches", () => {
+  /**
+   * COLOUR BY BREACH, NOT BY SIGN — the same rule the CEO dashboard's fixed
+   * strip already follows (`../pages/ceo-dashboard.tsx`).
+   *
+   * Every row here is, by construction, a breach: `store.exceptions()` only
+   * ever emits points past `isBreach`'s threshold, in either direction. The
+   * shared `Delta` glyph colours by the SIGN of the variance, so an over-plan
+   * breach (opex running hot) rendered GREEN in this list while the exact same
+   * exception rendered red in the strip directly above it on the CEO page, and
+   * red again in the Metrics Explorer. A breach is bad whichever way it went.
+   */
+  it.each([
+    { name: "an over-plan (positive) breach", text: "▲ +11.1%" },
+    { name: "an under-plan (negative) breach", text: "▼ -11.1%" },
+  ])("colours $name with the alert treatment, not the sign", ({ text }) => {
+    const snapshot = audienceSnapshot();
+    const sign = text.startsWith("▲") ? 1 : -1;
+    const { container } = renderExceptionList(
+      makeBlockData({
+        snapshot: {
+          ...snapshot,
+          exceptions: [
+            {
+              metricId: "revenue",
+              period: "2026-02",
+              department: "all",
+              variancePct: 0.111 * sign,
+              explained: false,
+            },
+          ],
+        },
+      }),
+      { audience: "ceo" },
+    );
+
+    const delta = Array.from(container.querySelectorAll("span")).find(
+      (el) => el.textContent === text,
+    );
+    expect(delta, `expected a "${text}" delta on the row`).toBeDefined();
+    expect(delta?.className ?? "").toContain("text-negative");
+    expect(delta?.className ?? "").not.toContain("text-positive");
+  });
+
+  /**
+   * THE EMPTY STATE HAS TO BE TRUE. The list carries EXPLAINED rows as well as
+   * unexplained ones (the `explained`/`unexplained` tag on each row is the
+   * whole point), so "no variances awaiting explanation" described a different
+   * list than the one this block renders: with one explained breach on the
+   * ledger the block would go empty and claim there was nothing to explain,
+   * which is exactly the sentence a board pack must never print falsely.
+   */
+  it("says there are no variances — not that none await explanation — when none match", () => {
     const snapshot = audienceSnapshot();
     const { container } = renderExceptionList(
       makeBlockData({ snapshot: { ...snapshot, exceptions: [] } }),
       { audience: "cfo" },
     );
-    expect(container.textContent ?? "").toMatch(/No variances awaiting/i);
+    const text = container.textContent ?? "";
+
+    expect(text).toMatch(/no variances/i);
+    expect(text).not.toMatch(/awaiting explanation/i);
   });
 
   it("reports an empty ledger through the block-error surface", () => {
@@ -495,6 +853,64 @@ describe("exec catalog ExceptionList renderer", () => {
     const error = container.querySelector('[data-testid="block-error"]');
     expect(error).not.toBeNull();
     expect(error?.getAttribute("role")).toBe("alert");
+  });
+
+  /**
+   * NO-DATA IS NOT NO-VARIANCE. A ledger with points but no metric DEFS has
+   * nothing to classify a breach against — every row is dropped for want of a
+   * def — and the block printed "no variances", i.e. "everything is within
+   * threshold", about a ledger that cannot say whether anything is.
+   */
+  it("reports a ledger with points but no metric defs as unavailable, not as no-variance", () => {
+    const { container } = renderExceptionList(
+      makeBlockData({
+        snapshot: makeSnapshot({
+          metricDefs: [],
+          points: [makeMetricPoint({ metricId: "revenue", period: "2026-02" })],
+          exceptions: [
+            {
+              metricId: "revenue",
+              period: "2026-02",
+              department: "all",
+              variancePct: 0.111,
+              explained: false,
+            },
+          ],
+        }),
+      }),
+      {},
+    );
+
+    const error = container.querySelector('[data-testid="block-error"]');
+    expect(
+      error,
+      "a ledger that cannot classify a breach must not claim there are none",
+    ).not.toBeNull();
+    expect(error?.getAttribute("role")).toBe("alert");
+    expect(container.textContent ?? "").not.toMatch(/no variances/i);
+  });
+
+  /**
+   * THE SEED'S AUDIENCE CONTRACT, at the surface that reads it.
+   *
+   * Burn rate and DSO are exec-grade: runway and collections are board-pack
+   * figures, not CFO-desk-only ones, and the demo's beat-6 replay turns on the
+   * CEO's own surfaces carrying a breach. The opex overrun stays CFO-grade —
+   * it is a departmental cost line, and beat 3a's memo is the CFO's to file.
+   * With all three seeded breaches tagged `cfo`, a CEO-scoped list of the
+   * seeded ledger was EMPTY.
+   */
+  it("surfaces the seeded exec-grade breaches, not the CFO-desk one, on a CEO-scoped list", () => {
+    store.reset();
+    const { container } = renderExceptionList(
+      makeBlockData({ snapshot: store.snapshot() }),
+      { audience: "ceo" },
+    );
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Burn Rate");
+    expect(text).toContain("DSO");
+    expect(text).not.toContain("Opex");
   });
 });
 
@@ -554,6 +970,12 @@ describe("exec catalog AddToDashboard renderer", () => {
 
     expect(addBlock).toHaveBeenCalledWith("ceo", "block-1");
     expect(await screen.findByText("Pinned ✓")).toBeDefined();
+    // The WHOLE control collapses — pinning is single-home, so a still-live
+    // "Pin to CFO dashboard" beside "Pinned ✓" advertises an action
+    // `store.addBlockToDashboard` would refuse with ALREADY_PINNED. Asserting
+    // only that "Pinned ✓" appeared let exactly that render pass.
+    expect(screen.queryByText("Pin to CEO dashboard")).toBeNull();
+    expect(screen.queryByText("Pin to CFO dashboard")).toBeNull();
   });
 
   /**
