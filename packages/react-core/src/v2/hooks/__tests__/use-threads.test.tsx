@@ -992,4 +992,59 @@ describe("useThreads", () => {
       expect(result.current.isLoading).toBe(false);
     });
   });
+  // OSS-1133: single-route transport carries no thread routes, so every thread
+  // feature stayed empty with no error and no warning at all.
+  describe("single-route transport warning", () => {
+    function setupTransport(runtimeTransport: string) {
+      mockUseCopilotKit.mockReset();
+      mockUseCopilotKit.mockReturnValue({
+        copilotkit: {
+          runtimeUrl: "http://localhost:4000",
+          runtimeTransport,
+          runtimeConnectionStatus:
+            CopilotKitCoreRuntimeConnectionStatus.Connected,
+          headers: {},
+          threadEndpoints: supportedThreadEndpoints,
+          intelligence: { wsUrl: "ws://localhost:4000/client" },
+          ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
+          registerThreadStore: vi.fn(),
+          unregisterThreadStore: vi.fn(),
+        },
+      });
+    }
+
+    it("names the transport as the cause under single-route", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      setupTransport("single");
+
+      renderHook(() => useThreads(defaultInput));
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      const message = String(warn.mock.calls[0]![0]);
+      expect(message).toContain("useThreads");
+      expect(message).toContain('"single"');
+      expect(message).toContain("useSingleEndpoint");
+      warn.mockRestore();
+    });
+
+    it("stays quiet on a multi-route transport", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      setupTransport("rest");
+
+      renderHook(() => useThreads(defaultInput));
+
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("stays quiet while the hook is disabled", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      setupTransport("single");
+
+      renderHook(() => useThreads({ ...defaultInput, enabled: false }));
+
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+  });
 });
