@@ -140,6 +140,99 @@ describe("exec catalog MetricTile renderer", () => {
     expect(text).toMatch(/\+20(\.0+)?%/);
     expect(text).not.toMatch(/▼/);
   });
+
+  /**
+   * THE EXPLICIT FAILURE SURFACE. A block whose query resolves to nothing has
+   * to SAY so: a silently empty tile is indistinguishable from one that has
+   * not loaded, and on a board pack that reads as "no variance" rather than
+   * "no data". `data-testid="block-error"` plus `role="alert"` is the contract
+   * (`MissingTile` in `./renderers.tsx`), so this asserts the surface rather
+   * than the sentence.
+   */
+  it("reports a missing metric def through the block-error surface", () => {
+    const data = makeBlockData({
+      snapshot: makeSnapshot({
+        // A point exists, but NO def — so there is no label, and no threshold
+        // to breach against. Unrenderable, not zero.
+        metricDefs: [],
+        points: [
+          makeMetricPoint({ metricId: "revenue", plan: 100, actual: 120 }),
+        ],
+      }),
+    });
+
+    const { container } = renderMetricTile(data, { metricId: "revenue" });
+
+    const error = container.querySelector('[data-testid="block-error"]');
+    expect(
+      error,
+      "a block that resolved to nothing must render the error surface",
+    ).not.toBeNull();
+    expect(error?.getAttribute("role")).toBe("alert");
+    // It names WHAT is missing, or the operator is left guessing which block failed.
+    expect(error?.textContent ?? "").toContain("revenue");
+    // And it renders no figure at all — a tile drawn from a missing def would
+    // print the point's raw number under no label.
+    expect(container.textContent ?? "").not.toMatch(/\$|%/);
+  });
+
+  /**
+   * THE NON-FINITE GUARD. Variance is `(actual - plan) / plan`, so a zero
+   * plan (or zero forecast) yields ±Infinity, and zero-over-zero yields NaN.
+   * `Delta` reports either as unavailable — printing "Infinity%" or "NaN%" on
+   * a board pack is worse than printing nothing, because it looks like a
+   * figure.
+   */
+  it.each([
+    { name: "a zero plan (Infinity)", plan: 0, actual: 5 },
+    { name: "a zero plan and zero actual (NaN)", plan: 0, actual: 0 },
+  ])("reports variance against $name as unavailable", ({ plan, actual }) => {
+    const data = makeBlockData({
+      snapshot: makeSnapshot({
+        metricDefs: [makeMetricDef({ id: "revenue" })],
+        points: [makeMetricPoint({ metricId: "revenue", plan, actual })],
+      }),
+    });
+
+    const { container } = renderMetricTile(data, {
+      metricId: "revenue",
+      compare: "plan",
+    });
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("n/a");
+    expect(text).not.toMatch(/Infinity|NaN/);
+    // No percentage AT ALL: the delta is the one percentage on the tile.
+    expect(text).not.toMatch(/%/);
+    // No direction glyph either — a ▲/▼ over "n/a" claims a direction the
+    // arithmetic could not produce.
+    expect(text).not.toMatch(/[▲▼]/);
+  });
+
+  it("reports a non-finite variance against forecast as unavailable too", () => {
+    const data = makeBlockData({
+      snapshot: makeSnapshot({
+        metricDefs: [makeMetricDef({ id: "revenue" })],
+        points: [
+          makeMetricPoint({
+            metricId: "revenue",
+            plan: 100,
+            actual: 120,
+            forecast: 0,
+          }),
+        ],
+      }),
+    });
+
+    const { container } = renderMetricTile(data, {
+      metricId: "revenue",
+      compare: "forecast",
+    });
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("n/a");
+    expect(text).not.toMatch(/Infinity|NaN/);
+  });
 });
 
 const VarianceBar = renderers.VarianceBar as (
@@ -159,37 +252,59 @@ function renderVarianceBar(data: BlockData, metricId: MetricId) {
   );
 }
 
+const DEPARTMENTS: Department[] = [
+  "manufacturing",
+  "distribution",
+  "field-services",
+  "corporate",
+];
+
+/**
+ * Two periods for the same four departments, with the LATEST period's numbers
+ * deliberately unlike the earlier one's, per department.
+ *
+ * The earlier period is a uniform 10x blowout ($1K actual, +900.0%); the
+ * latest carries four distinct, modest variances. So the rendered figures
+ * alone say which period the renderer read — which is the only thing a
+ * period-narrowing test can honestly assert here (see the test below).
+ */
+const STALE_ACTUAL = 1000;
+const LATEST_ACTUAL: Record<Department, number> = {
+  manufacturing: 105, // +5.0%
+  distribution: 120, // +20.0%
+  "field-services": 90, // -10.0%
+  corporate: 100, // ±0.0%
+};
+
+function twoPeriodOpexSnapshot(): LedgerSnapshot {
+  return makeSnapshot({
+    metricDefs: [
+      makeMetricDef({ id: "opex", label: "Opex", byDepartment: true }),
+    ],
+    points: DEPARTMENTS.flatMap((department) => [
+      makeMetricPoint({
+        metricId: "opex",
+        period: "2026-01",
+        department,
+        plan: 100,
+        actual: STALE_ACTUAL,
+        forecast: 100,
+      }),
+      makeMetricPoint({
+        metricId: "opex",
+        period: "2026-02",
+        department,
+        plan: 100,
+        actual: LATEST_ACTUAL[department],
+        forecast: 100,
+      }),
+    ]),
+  });
+}
+
 describe("exec catalog VarianceBar renderer", () => {
   it("renders exactly one bar per department", () => {
-    const departments: Department[] = [
-      "manufacturing",
-      "distribution",
-      "field-services",
-      "corporate",
-    ];
-    // Two periods so the renderer must narrow to the LATEST closed period —
-    // if it doesn't, it would render 8 rows (2 periods x 4 departments)
-    // instead of 4.
-    const points: MetricPoint[] = ["2026-01", "2026-02"].flatMap((period) =>
-      departments.map((department) =>
-        makeMetricPoint({
-          metricId: "opex",
-          period,
-          department,
-          plan: 100,
-          actual: 105,
-          forecast: 100,
-        }),
-      ),
-    );
-    const data = makeBlockData({
-      snapshot: makeSnapshot({
-        metricDefs: [
-          makeMetricDef({ id: "opex", label: "Opex", byDepartment: true }),
-        ],
-        points,
-      }),
-    });
+    const data = makeBlockData({ snapshot: twoPeriodOpexSnapshot() });
 
     const { container } = renderVarianceBar(data, "opex");
 
@@ -200,6 +315,186 @@ describe("exec catalog VarianceBar renderer", () => {
     // eventual implementation makes.
     const rows = container.querySelectorAll('[data-testid="variance-bar-row"]');
     expect(rows.length).toBe(4);
+  });
+
+  /**
+   * PERIOD NARROWING, ASSERTED ON THE VALUES — the only place it shows.
+   *
+   * A row COUNT cannot test this: the renderer walks the fixed `DEPARTMENTS`
+   * list and takes at most one point each, so it emits at most four rows
+   * whatever the snapshot holds and whether or not it narrows by period at
+   * all. Dropping the `latestClosedPeriod` narrowing left the count at 4 and
+   * kept the old test green — while the bars silently reported a
+   * fourteen-month-old month's figures.
+   *
+   * So: two periods with distinguishable numbers, and every assertion is
+   * about which period's FIGURES reached the screen.
+   */
+  it("renders the LATEST period's figures, not an earlier period's", () => {
+    const data = makeBlockData({ snapshot: twoPeriodOpexSnapshot() });
+
+    const { container } = renderVarianceBar(data, "opex");
+    const text = container.textContent ?? "";
+
+    // The label names the period the figures came from.
+    expect(text).toContain("Feb 2026");
+    expect(text).not.toContain("Jan 2026");
+
+    // Each department's own latest variance and absolute figure.
+    expect(text).toContain("+5.0%");
+    expect(text).toContain("+20.0%");
+    expect(text).toContain("-10.0%");
+    expect(text).toContain("$105");
+    expect(text).toContain("$120");
+    expect(text).toContain("$90");
+
+    // And NOTHING from the stale period: $1K / +900.0% appear only there.
+    expect(text).not.toContain("900.0%");
+    expect(text).not.toContain("$1K");
+  });
+});
+
+const ExceptionList = renderers.ExceptionList as (
+  props: RendererProps<{ audience?: "ceo" | "cfo" | "both" }>,
+) => React.ReactElement;
+
+function renderExceptionList(
+  data: BlockData,
+  props: { audience?: "ceo" | "cfo" | "both" },
+) {
+  return render(
+    <BlockDataProvider value={data}>
+      <ExceptionList
+        props={props}
+        // `children` is the RendererProps render-callback, not React children.
+        // eslint-disable-next-line react/no-children-prop
+        children={() => null as unknown as React.ReactNode}
+      />
+    </BlockDataProvider>,
+  );
+}
+
+/**
+ * One CEO-only metric, one CFO-only metric, one flagged for BOTH — plus two
+ * rows that must never appear on any reader's list: an exception from an
+ * earlier period, and one whose metric has no def.
+ */
+function audienceSnapshot(): LedgerSnapshot {
+  return makeSnapshot({
+    metricDefs: [
+      makeMetricDef({ id: "revenue", label: "Revenue", audience: "ceo" }),
+      makeMetricDef({ id: "dsoDays", label: "DSO days", audience: "cfo" }),
+      makeMetricDef({ id: "cash", label: "Cash", audience: "both" }),
+    ],
+    // The latest closed period is read off the POINTS, so they set the window.
+    points: [
+      makeMetricPoint({ metricId: "revenue", period: "2026-01" }),
+      makeMetricPoint({ metricId: "revenue", period: "2026-02" }),
+    ],
+    exceptions: [
+      {
+        metricId: "revenue",
+        period: "2026-02",
+        department: "all",
+        variancePct: 0.111,
+        explained: false,
+      },
+      {
+        metricId: "dsoDays",
+        period: "2026-02",
+        department: "all",
+        variancePct: 0.222,
+        explained: false,
+      },
+      {
+        metricId: "cash",
+        period: "2026-02",
+        department: "all",
+        variancePct: 0.333,
+        explained: true,
+      },
+      // Earlier period — outside the window, whatever the audience.
+      {
+        metricId: "revenue",
+        period: "2026-01",
+        department: "all",
+        variancePct: 0.444,
+        explained: false,
+      },
+      // No def on the ledger: no label, no threshold it breached. Dropped.
+      {
+        metricId: "nps",
+        period: "2026-02",
+        department: "all",
+        variancePct: 0.555,
+        explained: false,
+      },
+    ],
+  });
+}
+
+describe("exec catalog ExceptionList renderer", () => {
+  it("shows the CFO's metrics plus the shared ones, and none of the CEO-only ones", () => {
+    const { container } = renderExceptionList(
+      makeBlockData({ snapshot: audienceSnapshot() }),
+      { audience: "cfo" },
+    );
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("DSO days");
+    // A metric flagged for "both" belongs on EITHER reader's list.
+    expect(text).toContain("Cash");
+    expect(text).not.toContain("Revenue");
+    expect(text).not.toMatch(/11\.1%/);
+  });
+
+  it("shows the CEO's metrics plus the shared ones, and none of the CFO-only ones", () => {
+    const { container } = renderExceptionList(
+      makeBlockData({ snapshot: audienceSnapshot() }),
+      { audience: "ceo" },
+    );
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Revenue");
+    expect(text).toContain("Cash");
+    expect(text).not.toContain("DSO days");
+    expect(text).not.toMatch(/22\.2%/);
+  });
+
+  it("shows every audience's metrics when the audience is unset", () => {
+    const { container } = renderExceptionList(
+      makeBlockData({ snapshot: audienceSnapshot() }),
+      {},
+    );
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Revenue");
+    expect(text).toContain("DSO days");
+    expect(text).toContain("Cash");
+    // The window and the def requirement hold even with no audience filter:
+    // the earlier period's row (+44.4%) and the def-less row (+55.5%) stay out.
+    expect(text).toContain("Feb 2026");
+    expect(text).not.toMatch(/44\.4%/);
+    expect(text).not.toMatch(/55\.5%/);
+  });
+
+  it("says so rather than rendering an empty list when no exception matches", () => {
+    const snapshot = audienceSnapshot();
+    const { container } = renderExceptionList(
+      makeBlockData({ snapshot: { ...snapshot, exceptions: [] } }),
+      { audience: "cfo" },
+    );
+    expect(container.textContent ?? "").toMatch(/No variances awaiting/i);
+  });
+
+  it("reports an empty ledger through the block-error surface", () => {
+    const { container } = renderExceptionList(
+      makeBlockData({ snapshot: makeSnapshot({}) }),
+      { audience: "cfo" },
+    );
+    const error = container.querySelector('[data-testid="block-error"]');
+    expect(error).not.toBeNull();
+    expect(error?.getAttribute("role")).toBe("alert");
   });
 });
 

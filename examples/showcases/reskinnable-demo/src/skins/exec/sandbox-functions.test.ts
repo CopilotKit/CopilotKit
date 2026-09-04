@@ -12,7 +12,42 @@ const fn = (name: string) => {
   return f;
 };
 
-const points: MetricPoint[] = [
+/**
+ * THE FIXTURE CARRIES A FIELD THE DTO MUST DROP.
+ *
+ * The projection assertions below are `toEqual` against the exact DTO keys,
+ * which is only a real allowlist check if the SOURCE row has something extra
+ * in it. Against a fixture whose rows are already DTO-shaped, a handler that
+ * returned `snapshot.points` untouched — no `toSafeMetricPoint` at all —
+ * satisfies every one of them: there was nothing to leak.
+ *
+ * `internalNote` stands in for whatever a domain row grows next (an author, an
+ * approval trail, an internal comment). Nothing in the iframe's
+ * LLM-authored JS is entitled to it, and the boundary the DTOs exist to hold
+ * is the only thing keeping it out.
+ */
+const LEAKED_NOTE = "internal: do not surface to the sandbox";
+type LedgerMetricPoint = MetricPoint & { internalNote: string };
+type LedgerException = Exception & { internalNote: string };
+
+/** The DTO keys each projection is allowed to emit — `internalNote` is not among them. */
+const SAFE_POINT_KEYS = [
+  "metricId",
+  "period",
+  "department",
+  "plan",
+  "actual",
+  "forecast",
+];
+const SAFE_EXCEPTION_KEYS = [
+  "metricId",
+  "period",
+  "department",
+  "variancePct",
+  "explained",
+];
+
+const points: LedgerMetricPoint[] = [
   {
     metricId: "revenue",
     period: "2025-11",
@@ -20,6 +55,7 @@ const points: MetricPoint[] = [
     plan: 100,
     actual: 95,
     forecast: 98,
+    internalNote: LEAKED_NOTE,
   },
   {
     metricId: "revenue",
@@ -28,6 +64,7 @@ const points: MetricPoint[] = [
     plan: 100,
     actual: 105,
     forecast: 102,
+    internalNote: LEAKED_NOTE,
   },
   {
     metricId: "revenue",
@@ -36,6 +73,7 @@ const points: MetricPoint[] = [
     plan: 100,
     actual: 110,
     forecast: 108,
+    internalNote: LEAKED_NOTE,
   },
   {
     metricId: "opex",
@@ -44,6 +82,7 @@ const points: MetricPoint[] = [
     plan: 50,
     actual: 55,
     forecast: 52,
+    internalNote: LEAKED_NOTE,
   },
   {
     metricId: "opex",
@@ -52,15 +91,17 @@ const points: MetricPoint[] = [
     plan: 20,
     actual: 18,
     forecast: 19,
+    internalNote: LEAKED_NOTE,
   },
 ];
-const exceptions: Exception[] = [
+const exceptions: LedgerException[] = [
   {
     metricId: "opex",
     period: "2026-01",
     department: "manufacturing",
     variancePct: 0.1,
     explained: false,
+    internalNote: LEAKED_NOTE,
   },
 ];
 
@@ -95,6 +136,23 @@ describe("getMetricSeries", () => {
     });
   });
 
+  it("drops every field outside the DTO allowlist", async () => {
+    const out = (await fn("getMetricSeries").handler({
+      metricId: "revenue",
+    })) as Record<string, unknown>[];
+
+    // The fixture rows all carry `internalNote`; no projected row may.
+    for (const row of out) {
+      expect(row.internalNote, "leaked a non-DTO field").toBeUndefined();
+      expect(Object.keys(row).sort()).toEqual([...SAFE_POINT_KEYS].sort());
+    }
+    expect(JSON.stringify(out)).not.toContain(LEAKED_NOTE);
+
+    // And the projection is a COPY: handing the sandbox the live domain row
+    // would let iframe JS mutate the app's snapshot through it.
+    expect(out[0]).not.toBe(points[0]);
+  });
+
   it("narrows rows when filtered by department", async () => {
     const out = (await fn("getMetricSeries").handler({
       metricId: "opex",
@@ -107,6 +165,40 @@ describe("getMetricSeries", () => {
     })) as Array<{ department: string }>;
     expect(filtered).toHaveLength(1);
     expect(filtered[0].department).toBe("manufacturing");
+  });
+
+  /**
+   * `"all"` IS A VALUE OF THE FIELD, NOT A DEPARTMENT. It is in the parameter
+   * enum and the schema's own `.describe()` tells the model to pass it for the
+   * company-wide series, so it has to narrow to exactly the `"all"` rows —
+   * not fall through as "no department given" and return every department's
+   * series, which would answer a company-wide question with four series.
+   */
+  it('narrows to the company-wide series when department is "all"', async () => {
+    setSandboxSnapshot({
+      ...fixture,
+      points: [
+        ...points,
+        {
+          metricId: "opex",
+          period: "2026-01",
+          department: "all",
+          plan: 70,
+          actual: 73,
+          forecast: 71,
+          internalNote: LEAKED_NOTE,
+        },
+      ],
+    });
+
+    const out = (await fn("getMetricSeries").handler({
+      metricId: "opex",
+      department: "all",
+    })) as Array<{ department: string; actual: number }>;
+
+    expect(out).toHaveLength(1);
+    expect(out[0].department).toBe("all");
+    expect(out[0].actual).toBe(73);
   });
 
   it("narrows rows when filtered by months", async () => {
@@ -176,5 +268,19 @@ describe("getExceptions", () => {
         explained: false,
       },
     ]);
+  });
+
+  it("drops every field outside the DTO allowlist", async () => {
+    const out = (await fn("getExceptions").handler({})) as Record<
+      string,
+      unknown
+    >[];
+
+    for (const row of out) {
+      expect(row.internalNote, "leaked a non-DTO field").toBeUndefined();
+      expect(Object.keys(row).sort()).toEqual([...SAFE_EXCEPTION_KEYS].sort());
+    }
+    expect(JSON.stringify(out)).not.toContain(LEAKED_NOTE);
+    expect(out[0]).not.toBe(exceptions[0]);
   });
 });

@@ -17,10 +17,37 @@ describe("execNavTarget", () => {
       execNavTarget({
         segment: "metrics",
         department: "distribution",
+        period: "2024-06",
         top: 5,
         threshold: true,
       }),
-    ).toBe("metrics?department=distribution&top=5&threshold=1");
+    ).toBe("metrics?department=distribution&period=2024-06&top=5&threshold=1");
+  });
+
+  /**
+   * THE `period` LEVER, ROUND-TRIPPED. Every other lever had an assertion that
+   * reads its key back out of the query string; `period` had none — the only
+   * test that passed one asserted the result is not `/exec`-prefixed, which
+   * holds whether or not the key is written at all. Deleting
+   * `params.set("period", period)` kept this suite green.
+   */
+  it("round-trips period into the query string", () => {
+    expect(execNavTarget({ segment: "metrics", period: "2024-06" })).toBe(
+      "metrics?period=2024-06",
+    );
+    expect(
+      new URLSearchParams(
+        execNavTarget({ segment: "metrics", period: "2024-06" }).split("?")[1],
+      ).get("period"),
+    ).toBe("2024-06");
+  });
+
+  it("omits period when unset or empty rather than defaulting it", () => {
+    expect(execNavTarget({ segment: "metrics" })).not.toContain("period");
+    expect(execNavTarget({ segment: "metrics", period: "" })).toBe("metrics");
+    expect(
+      execNavTarget({ segment: "metrics", department: "distribution" }),
+    ).not.toContain("period");
   });
 
   it("drops a fractional top", () => {

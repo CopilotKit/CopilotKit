@@ -209,6 +209,28 @@ describe("execAgent configuration", () => {
       "file_variance_narrative",
     ]);
   });
+
+  /**
+   * EXPORTED BUT NOT REGISTERED — both halves, stated as one assertion.
+   *
+   * The roster above pins the four names, but nothing pinned the pair of
+   * facts `publish_board_pack` actually turns on: it exists under exactly that
+   * name (the suite below calls its `execute` as the only caller there is, and
+   * the countersign card in `tools.tsx` reaches it by name), AND it is absent
+   * from what the model can call. Registering it would hand the agent a
+   * publish path around the countersign card; renaming or dropping the export
+   * would silently leave the card with nothing to call.
+   */
+  it("exports publish_board_pack without registering it for the model", () => {
+    expect(publishBoardPackTool.name).toBe("publish_board_pack");
+    expect(typeof publishBoardPackTool.execute).toBe("function");
+
+    const names = (config().tools as { name: string }[]).map((t) => t.name);
+    expect(
+      names,
+      "the countersign card is the only publish path — a registered publish tool routes around it",
+    ).not.toContain(publishBoardPackTool.name);
+  });
 });
 
 /**
