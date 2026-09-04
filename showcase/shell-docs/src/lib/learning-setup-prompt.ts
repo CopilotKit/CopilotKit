@@ -1,0 +1,10 @@
+/** Canonical coding-agent prompt for configuring Automatic Learning. */
+export const LEARNING_SETUP_PROMPT = `Read https://docs.copilotkit.ai/learning and set up Automatic Learning in this repository.
+
+First inspect the repository's agent instructions, installed CopilotKit versions, Runtime adapter, existing CopilotKit Intelligence client, authentication, and tests. Preserve the current frontend, agent framework, deployment model, authentication, and unrelated behavior. Use the current CopilotKit v2 APIs; do not add the deprecated \`\u0275learning\` Runtime option.
+
+If CopilotKit Intelligence is not connected yet, follow https://docs.copilotkit.ai/intelligence/quickstart without inventing an API key, project, user identity, or access policy. Ask me which existing Intelligence project or trusted identity source to use if the repository does not make that clear.
+
+Choose one focused workflow that would benefit from repeated examples. Reuse an existing Learning container and stable ID when the repository already names one. Otherwise, propose a descriptive lowercase, hyphenated container ID and ask me to create or confirm that container in CopilotKit Intelligence. Configure \`getLearningContainerId\` on the existing \`CopilotKitIntelligence\` client so only the intended new Threads are assigned. Return \`undefined\` for unrelated runs, keep each Thread's assignment stable, and do not imply that existing Threads will be backfilled.
+
+Run focused tests, lint, and typecheck. If the app and required credentials are available, start it, complete one representative workflow, and confirm that the Thread reaches the selected Learning container. Then give me the exact remaining steps to run Learning, review the evidence-backed Insights, approve a proposed Skill, and download the published Skill with the CopilotKit CLI. Report the files changed, commands run, verification result, and any dashboard action I still need to take. If blocked, explain the missing input instead of inventing setup.`;
