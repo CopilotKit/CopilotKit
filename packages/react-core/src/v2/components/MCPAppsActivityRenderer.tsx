@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -240,6 +240,25 @@ const MCP_OPEN_LINK_BLOCKED_SCHEMES = new Set([
  */
 export const MCPAppsActivityType = "mcp-apps";
 
+// Ref-counted body scroll lock shared across renderer instances, so two widgets
+// in fullscreen at once don't let the first one to exit unlock the page while
+// the second is still open.
+let fullscreenLockCount = 0;
+let bodyOverflowBeforeLock = "";
+function acquireBodyScrollLock(): void {
+  if (fullscreenLockCount === 0) {
+    bodyOverflowBeforeLock = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  fullscreenLockCount += 1;
+}
+function releaseBodyScrollLock(): void {
+  fullscreenLockCount = Math.max(0, fullscreenLockCount - 1);
+  if (fullscreenLockCount === 0) {
+    document.body.style.overflow = bodyOverflowBeforeLock;
+  }
+}
+
 // Zod schema for activity content validation (middleware 0.0.2 format)
 export const MCPAppsActivityContentSchema = z.object({
   result: z.object({
@@ -320,7 +339,7 @@ const CopilotKitUiMessageSchema = z.object({
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
   function MCPAppsActivityRenderer({ content, agent }) {
     const { copilotkit } = useCopilotKit();
-    const containerRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDialogElement>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
     const [iframeReady, setIframeReady] = useState(false);
     const [error, setError] = useState<Error | null>(null);
@@ -342,6 +361,111 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
 
     // ext-apps host bridge for this widget instance (owns the app<->host protocol).
     const bridgeRef = useRef<AppBridge | null>(null);
+
+    // Current MCP Apps display mode. Host supports "inline" and "fullscreen";
+    // "pip" (and unknown) is never granted.
+    const [displayMode, setDisplayMode] = useState<
+      "inline" | "fullscreen" | "pip"
+    >("inline");
+    // Latest displayMode for the bridge request handler (assigned once in setup).
+    const displayModeRef = useRef(displayMode);
+    displayModeRef.current = displayMode;
+    const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+    // Inform the widget of the current display mode. `setHostContext` merges the
+    // partial context and emits ui/notifications/host-context-changed, and also
+    // refreshes the bridge's cached hostContext (so the app SDK's getHostContext
+    // sees it). Emitted for BOTH host- and widget-initiated changes. Entering
+    // fullscreen also advertises the available render surface via
+    // containerDimensions.
+    const notifyDisplayMode = useCallback(
+      (mode: "inline" | "fullscreen" | "pip") => {
+        // ext-apps `setHostContext` REPLACES the bridge's cached host context
+        // (it only diffs to decide what to notify), so pass the FULL context —
+        // otherwise theme/platform/availableDisplayModes would be dropped from
+        // the cache on a mode change. The emitted host-context-changed still
+        // carries only the changed fields (the bridge computes that diff).
+        const hostContext: Record<string, unknown> = {
+          theme: "light",
+          platform: "web",
+          availableDisplayModes: ["inline", "fullscreen"],
+          displayMode: mode,
+        };
+        if (mode === "fullscreen") {
+          hostContext.containerDimensions = {
+            width: Math.round(window.innerWidth),
+            height: Math.round(window.innerHeight),
+          };
+        }
+        bridgeRef.current?.setHostContext(hostContext);
+      },
+      [],
+    );
+
+    // Apply a display mode and inform the widget. Single source of truth for both
+    // the widget-initiated ui/request-display-mode and the host-initiated exit.
+    const applyDisplayMode = useCallback(
+      (mode: "inline" | "fullscreen" | "pip") => {
+        setDisplayMode(mode);
+        notifyDisplayMode(mode);
+      },
+      [notifyDisplayMode],
+    );
+
+    // Host-initiated exit from fullscreen (close button or Escape key).
+    const exitFullscreen = useCallback(() => {
+      applyDisplayMode("inline");
+    }, [applyDisplayMode]);
+
+    // Tracks whether the dialog was opened modally, so we can transition modes
+    // without relying on the `:modal` pseudo-class (jsdom lacks it).
+    const dialogModalRef = useRef(false);
+
+    // Drive the native <dialog> open mode from displayMode. The iframe lives
+    // inside this dialog and is NEVER reparented, so toggling between inline
+    // (show, in normal flow) and fullscreen (showModal, top layer) preserves the
+    // widget's state (no srcdoc reload). Fullscreen relies on the top layer,
+    // which escapes ancestor containing blocks — v2's chat container uses
+    // `container-type`, which would otherwise trap a plain `position: fixed`
+    // overlay inside the chat panel instead of filling the viewport.
+    useEffect(() => {
+      const dlg = containerRef.current;
+      if (!dlg) return;
+      const wantModal = displayMode === "fullscreen";
+      // Environments without full <dialog> support (e.g. jsdom's top layer):
+      // just make sure the content renders.
+      if (
+        typeof dlg.showModal !== "function" ||
+        typeof dlg.show !== "function"
+      ) {
+        if (!dlg.open) dlg.setAttribute("open", "");
+        dialogModalRef.current = wantModal;
+        return;
+      }
+      if (dlg.open && dialogModalRef.current !== wantModal) {
+        dlg.close();
+      }
+      if (!dlg.open) {
+        if (wantModal) dlg.showModal();
+        else dlg.show();
+        dialogModalRef.current = wantModal;
+      }
+    }, [displayMode, isLoading, fetchedResource]);
+
+    // While fullscreen: keep containerDimensions in sync on viewport resize and
+    // lock the background page scroll (ref-counted so concurrent fullscreen
+    // widgets don't unlock the page early). Focus containment, focus restore, and
+    // Escape are handled natively by the modal <dialog> (showModal + onCancel).
+    useEffect(() => {
+      if (displayMode !== "fullscreen") return;
+      const onResize = () => notifyDisplayMode("fullscreen");
+      window.addEventListener("resize", onResize);
+      acquireBodyScrollLock();
+      return () => {
+        window.removeEventListener("resize", onResize);
+        releaseBodyScrollLock();
+      };
+    }, [displayMode, notifyDisplayMode]);
 
     // Ref to track fetch state - survives StrictMode remounts
     const fetchStateRef = useRef<{
@@ -539,10 +663,18 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             // Seed the host context at construction (before connect) so it is
             // already in place when the widget's ui/initialize is handled. Doing
             // this via setHostContext after connect would only win the race by
-            // luck (it depends on the notification landing before initialize),
-            // and #6689 relies on this seam to advertise displayMode /
-            // availableDisplayModes at initialize.
-            { hostContext: { theme: "light", platform: "web" } },
+            // luck (it depends on the notification landing before initialize).
+            // The host renders "inline" and "fullscreen"; advertise both and the
+            // current mode here so request-display-mode is negotiated at
+            // initialize rather than after a race.
+            {
+              hostContext: {
+                theme: "light",
+                platform: "web",
+                displayMode: displayModeRef.current,
+                availableDisplayModes: ["inline", "fullscreen"],
+              },
+            },
           );
 
           // Sandbox handshake: when the proxy is ready, load the widget HTML into
@@ -670,6 +802,33 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             return (runResult.result as CallToolResult) || { content: [] };
           };
 
+          // ui/request-display-mode: the widget asks to switch display mode.
+          // ext-apps host behavior:
+          // - A mode is available only if the host supports it AND, when the app
+          //   declared appCapabilities.availableDisplayModes, it also appears
+          //   there (the host MUST NOT switch to a mode outside that list).
+          // - If the requested mode is not available, the host does NOT switch
+          //   and returns the CURRENT display mode (not a hardcoded fallback).
+          // The host supports "inline" and "fullscreen"; "pip" is never granted.
+          bridge.onrequestdisplaymode = async ({ mode }) => {
+            const hostSupported = ["inline", "fullscreen"] as const;
+            const declaredByApp =
+              bridge?.getAppCapabilities()?.availableDisplayModes ?? null;
+            const isAvailable =
+              hostSupported.includes(mode as (typeof hostSupported)[number]) &&
+              (declaredByApp === null || declaredByApp.includes(mode));
+            if (isAvailable) {
+              // Apply AND emit host-context-changed (via applyDisplayMode ->
+              // setHostContext): the app SDK caches hostContext from the
+              // notification, not from this response, so a widget-driven toggle
+              // needs the notification to observe the new mode later.
+              applyDisplayMode(mode);
+              return { mode };
+            }
+            // Not available: leave the mode unchanged and report the current one.
+            return { mode: displayModeRef.current };
+          };
+
           // --- App -> host notifications ---
           bridge.onsizechange = (p) => {
             if (!mounted) return;
@@ -686,15 +845,21 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             console.log("[MCPAppsRenderer] App log:", p);
           };
 
+          // Publish the bridge BEFORE connecting so an app request that arrives
+          // during connect() (e.g. request-display-mode) sees it: otherwise the
+          // handler could apply a mode while notifyDisplayMode's
+          // bridgeRef.current is still null, skipping host-context-changed.
+          // Host context (theme/platform + displayMode/availableDisplayModes) was
+          // seeded at construction (see the AppBridge options above), so it is
+          // already advertised by the time ui/initialize runs.
+          bridgeRef.current = bridge;
           const transport = new PostMessageTransport(win, win);
           await bridge.connect(transport);
           if (!mounted) {
+            bridgeRef.current = null;
             await bridge.close();
             return;
           }
-          // Host context was seeded at construction (see the AppBridge options
-          // above), so it is already advertised by the time ui/initialize runs.
-          bridgeRef.current = bridge;
         } catch (err) {
           console.error("[MCPAppsRenderer] Setup error:", err);
           if (mounted) {
@@ -715,21 +880,35 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         }
         iframeRef.current = null;
       };
-    }, [isLoading, fetchedResource, copilotkit]);
+    }, [isLoading, fetchedResource, copilotkit, applyDisplayMode]);
 
-    // Effect 2: Update iframe size when it changes
+    // Effect 2: Update iframe size when it changes.
+    // In fullscreen the iframe must fill the overlay (100% of the fixed
+    // container), otherwise it would keep its widget-reported inline height and
+    // render as a small widget inside a full-viewport panel.
     useEffect(() => {
-      if (iframeRef.current) {
-        if (iframeSize.width !== undefined) {
-          // Use minWidth with min() to allow expansion but cap at 100%
-          iframeRef.current.style.minWidth = `min(${iframeSize.width}px, 100%)`;
-          iframeRef.current.style.width = "100%";
-        }
-        if (iframeSize.height !== undefined) {
-          iframeRef.current.style.height = `${iframeSize.height}px`;
-        }
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      if (displayMode === "fullscreen") {
+        iframe.style.minWidth = "100%";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+        return;
       }
-    }, [iframeSize]);
+      if (iframeSize.width !== undefined) {
+        // Use minWidth with min() to allow expansion but cap at 100%
+        iframe.style.minWidth = `min(${iframeSize.width}px, 100%)`;
+        iframe.style.width = "100%";
+      }
+      if (iframeSize.height !== undefined) {
+        iframe.style.height = `${iframeSize.height}px`;
+      } else {
+        // No widget-reported height: restore the initial inline height. Without
+        // this, a widget that never sent size-changed keeps the `100%` set while
+        // fullscreen after returning to inline.
+        iframe.style.height = "100px";
+      }
+    }, [iframeSize, displayMode]);
 
     // Effect 3: Send tool input when iframe ready
     useEffect(() => {
@@ -761,18 +940,90 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           }
         : {};
 
+    const isFullscreen = displayMode === "fullscreen";
+
+    // The widget surface is a native <dialog>. Fullscreen opens it modally
+    // (showModal → browser top layer), which fills the viewport regardless of
+    // ancestor containing blocks — v2's chat container uses `container-type`,
+    // which would trap a plain `position: fixed` overlay inside the chat panel.
+    // Inline opens it non-modally (show) in normal flow. The iframe lives inside
+    // this dialog and is never reparented, so toggling modes preserves widget
+    // state (no srcdoc reload). Open mode is driven by the effect above; Escape,
+    // focus containment, and focus restore come from the modal dialog natively.
     return (
-      <div
+      <dialog
         ref={containerRef}
-        style={{
-          width: "100%",
-          height: iframeSize.height ? `${iframeSize.height}px` : "auto",
-          minHeight: "100px",
-          overflow: "hidden",
-          position: "relative",
-          ...borderStyle,
+        aria-label={isFullscreen ? "Fullscreen widget" : undefined}
+        onCancel={(e) => {
+          // Escape on the modal dialog: exit to inline via the host path
+          // (keeps React state in sync and emits host-context-changed).
+          e.preventDefault();
+          exitFullscreen();
         }}
+        style={
+          isFullscreen
+            ? {
+                position: "fixed",
+                inset: 0,
+                margin: 0,
+                padding: 0,
+                border: "none",
+                maxWidth: "none",
+                maxHeight: "none",
+                width: "100vw",
+                height: "100vh",
+                overflow: "auto",
+                zIndex: 2147483000,
+                // Theme-aware token so the overlay does not flash white in dark
+                // mode (v2 defines --background for light and .dark).
+                background: "var(--background, #fff)",
+              }
+            : {
+                // Neutralize the UA <dialog> styles so inline renders like a
+                // normal in-flow block in the chat.
+                position: "static",
+                margin: 0,
+                padding: 0,
+                border: "none",
+                maxWidth: "none",
+                width: "100%",
+                height: iframeSize.height ? `${iframeSize.height}px` : "auto",
+                minHeight: "100px",
+                overflow: "hidden",
+                background: "transparent",
+                ...borderStyle,
+              }
+        }
       >
+        {isFullscreen && (
+          <button
+            ref={closeButtonRef}
+            type="button"
+            aria-label="Exit fullscreen"
+            onClick={exitFullscreen}
+            style={{
+              position: "absolute",
+              top: "8px",
+              right: "8px",
+              zIndex: 1,
+              width: "32px",
+              height: "32px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
+              border: "none",
+              borderRadius: "50%",
+              background: "rgba(0, 0, 0, 0.6)",
+              color: "#fff",
+              fontSize: "18px",
+              lineHeight: 1,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        )}
         {isLoading && (
           <div style={{ padding: "1rem", color: "#666" }}>Loading...</div>
         )}
@@ -781,6 +1032,6 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             Error: {error.message}
           </div>
         )}
-      </div>
+      </dialog>
     );
   };
