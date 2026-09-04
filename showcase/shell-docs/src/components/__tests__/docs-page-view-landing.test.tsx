@@ -15,6 +15,23 @@ function componentNames(node: unknown, out: string[] = []): string[] {
   return out;
 }
 
+/** Find the first element in the tree whose className contains `marker`. */
+function findByClassName(node: unknown, marker: string): string | undefined {
+  if (!React.isValidElement(node)) return undefined;
+  const props = node.props as {
+    className?: string;
+    children?: React.ReactNode;
+  };
+  if (typeof props.className === "string" && props.className.includes(marker)) {
+    return props.className;
+  }
+  let found: string | undefined;
+  React.Children.forEach(props.children, (child) => {
+    if (!found) found = findByClassName(child, marker);
+  });
+  return found;
+}
+
 describe("DocsPageView landing mode", () => {
   it("renders the page-tools row on an ordinary docs page", async () => {
     const tree = await DocsPageView({
@@ -72,5 +89,45 @@ describe("DocsPageView landing mode", () => {
     const names = componentNames(tree);
     expect(names).not.toContain("nav");
     expect(names).not.toContain("hr");
+  });
+
+  // The content container's top padding is part of the same suppressed-chrome
+  // switch: on an ordinary docs page it clears space for the breadcrumb trail
+  // and title that render there, but a landing page's own hero already
+  // supplies that space, so the container must not double it up. This mirrors
+  // the `pt-0` recipe the data-driven framework-root path
+  // (`app/[framework]/[[...slug]]/page.tsx`'s `FrameworkRootShell`) already
+  // uses for the same suppressed chrome.
+  it("has no top padding on the content container when landingPage is set", async () => {
+    const tree = await DocsPageView({
+      slugPath: "",
+      contentSlugPath: "integrations/mastra/index",
+      slugHrefPrefix: "/mastra",
+      frameworkOverride: "mastra",
+      landingPage: true,
+      navTree: [],
+    });
+
+    const className = findByClassName(tree, "docs-inner-content");
+    expect(className).toBeDefined();
+    expect(className).toContain("pt-0");
+    expect(className).not.toContain("pt-2");
+    expect(className).not.toContain("md:pt-3");
+    expect(className).not.toContain("xl:pt-4");
+  });
+
+  it("keeps the top padding on the content container on an ordinary docs page", async () => {
+    const tree = await DocsPageView({
+      slugPath: "quickstart",
+      slugHrefPrefix: "/mastra",
+      frameworkOverride: "mastra",
+      navTree: [],
+    });
+
+    const className = findByClassName(tree, "docs-inner-content");
+    expect(className).toBeDefined();
+    expect(className).toContain("pt-2");
+    expect(className).toContain("md:pt-3");
+    expect(className).toContain("xl:pt-4");
   });
 });

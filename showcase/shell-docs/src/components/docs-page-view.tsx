@@ -276,7 +276,11 @@ export async function DocsPageView({
         tableOfContentPopover={{ enabled: false }}
       >
         <MaybeEarlyAccessGate gate={doc.fm.earlyAccess}>
-          <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+          <div
+            className={`docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pb-6 ${
+              landingPage ? "pt-0" : "pt-2 md:pt-3 xl:pt-4"
+            }`}
+          >
             {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb,
              * but tighter: this should read as quiet page chrome, not a
              * second title row above the H1.
