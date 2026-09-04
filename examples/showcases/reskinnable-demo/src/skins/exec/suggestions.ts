@@ -28,10 +28,16 @@ import type { Suggestion } from "@/shell/skin-contract";
  * written — the table stays verbatim as the historical beat map; the pills
  * below are the demo script actually wired.
  *
- * One further divergence, decided against the built seed rather than on
- * paper: 3c's pill dropped the "top 5" count both the table and the plan
- * carried. See that pill's own comment — the seed does not breach five
- * Distribution metrics, so the count was a promise the screen could not keep.
+ * Two further divergences, both decided against the built app rather than on
+ * paper:
+ *
+ *  - 3c's pill dropped the "top 5" count both the table and the plan carried.
+ *    See that pill's own comment — the seed does not breach five Distribution
+ *    metrics, so the count was a promise the screen could not keep.
+ *  - 3a is a TWO-TURN beat: the agent drafts the narrative and asks for the
+ *    code, and the presenter answers with it. See that pill's own comment —
+ *    the narrative codes are withheld from the agent by design, so a one-shot
+ *    "file it" pill could only be satisfied by inventing one.
  */
 
 /**
@@ -52,12 +58,33 @@ export const execSuggestions: Suggestion[] = [
     title: "Show revenue vs. plan this quarter",
     message: "Show me revenue vs. plan for this quarter.",
   },
-  // 3a — a mutation whose confirmation never reaches the assistant (HITL PIN).
+  // 3a — the agent drives a backend write it cannot complete unaided.
+  //
+  // ⚠️ DELIBERATELY A TWO-TURN BEAT, and the pill says so. The old message
+  // ("File a variance narrative for the Q3 opex overrun … then save it") asked
+  // for a filing and supplied no code — while EXEC_PROMPT rule 6 forbids
+  // composing one and the ledger refuses anything outside its catalogue
+  // (`agent.ts`'s `isNarrativeCode`). The only ways that could end were an
+  // invented code (refused, and the exact behaviour the prompt spends a rule
+  // forbidding) or a stall the pill had not prepared the room for.
+  //
+  // So the pill now ASKS FOR THE ASK: read the overrun, draft the narrative,
+  // and request the code. The presenter answers in the next line with the code
+  // off the Board packs form, and the agent files it verbatim — which is the
+  // withheld-vocabulary discipline demonstrated rather than described.
+  //
+  // NO LITERAL CODE IN THIS STRING. A pill is agent-facing text; spelling a
+  // `VAR-*` code here would publish the catalogue's shape into every run and
+  // hand beat 6 an answer it is supposed to have to be taught. Naming the
+  // FORM is safe — that is where the operator reads it from, not the agent.
   {
     title: "File a narrative for the Q3 opex overrun",
     message:
-      "File a variance narrative for the Q3 opex overrun — explain what " +
-      "happened and why, then save it against that metric and period.",
+      "Distribution opex ran over plan in the latest closed month. Write up " +
+      "the variance narrative for it — what happened and why — and file it " +
+      "against that metric and period. You don't have the code catalogue, so " +
+      "show me the explanation you'd file and ask me which code to file it " +
+      "under; I'll read it off the Board packs form and you file it verbatim.",
   },
   // 3b — ask it on one page, navigate, ask it again.
   {
