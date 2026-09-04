@@ -55,9 +55,6 @@ const RUNTIME_URL = "https://runtime.launcher-island-direction.test";
 const LAUNCHER_SIZE = 52;
 const EDGE_MARGIN = 16;
 const ISLAND_WIDTH = 272;
-/** The island's overhang past the mark — the part that actually needs room. */
-const OVERHANG = ISLAND_WIDTH - LAUNCHER_SIZE; // 220
-
 /**
  * A `mark.left` inside the range the two rules used to disagree over.
  *

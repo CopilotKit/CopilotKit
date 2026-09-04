@@ -934,11 +934,13 @@ test("the drawer paints behind the capsule, which paints behind the mark", async
     expect(m, `${name} must declare an explicit z-index`).not.toBeNull();
     return Number(m![1]);
   };
-  const drawer = z(".cpk-launcher-drawer", "the drawer");
-  const capsule = z(".cpk-launcher-capsule", "the capsule");
-  const mark = z(".console-button", "the launcher");
-  expect(drawer).toBeLessThan(capsule);
-  expect(capsule).toBeLessThan(mark);
+  // Named with the axis, not after the elements: bare `capsule`/`drawer`
+  // shadow this file's own element helpers of the same name.
+  const drawerZ = z(".cpk-launcher-drawer", "the drawer");
+  const capsuleZ = z(".cpk-launcher-capsule", "the capsule");
+  const markZ = z(".console-button", "the launcher");
+  expect(drawerZ).toBeLessThan(capsuleZ);
+  expect(capsuleZ).toBeLessThan(markZ);
 });
 
 test("the launcher declares its own ring instead of trusting the Tailwind border utility", async () => {
