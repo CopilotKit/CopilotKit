@@ -20,7 +20,11 @@ import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
 import {
-<<<<<<< HEAD
+  a2uiRenderToolNames,
+  buildA2uiOperationsFromRenderArgs,
+  catalogIdFromA2UIContext,
+} from "../a2ui-render-tool";
+import {
   aggregateRunUsage,
   collectStandardRunFinishedDetails,
   getNonEmptyString,
@@ -28,12 +32,6 @@ import {
   isRecord,
 } from "./usage";
 import type { AgentRunFinishedDetails } from "./usage";
-=======
-  a2uiRenderToolNames,
-  buildA2uiOperationsFromRenderArgs,
-  catalogIdFromA2UIContext,
-} from "../a2ui-render-tool";
->>>>>>> 926b34c4f (fix(runtime): run render_a2ui locally so BuiltInAgent A2UI can paint)
 
 type ContentPartSource =
   | { type: "data"; value: string; mimeType: string }
