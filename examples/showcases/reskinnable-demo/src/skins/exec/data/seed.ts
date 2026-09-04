@@ -334,10 +334,7 @@ export function seedPoints(): MetricPoint[] {
           forecast: sumForecast,
         });
       } else {
-        const allVariance = variancePctFor(
-          `${def.id}|${period}|all`,
-          safeMax,
-        );
+        const allVariance = variancePctFor(`${def.id}|${period}|all`, safeMax);
         const allForecastVariance = variancePctFor(
           `${def.id}|${period}|all|forecast`,
           forecastMax,
@@ -383,7 +380,10 @@ export function seedPoints(): MetricPoint[] {
    * department-level point, so `department: "all"` never goes stale and
    * drifts back out of agreement with the rows it is supposed to aggregate.
    */
-  function recomputeAllFromDepartments(metricId: MetricId, period: string): void {
+  function recomputeAllFromDepartments(
+    metricId: MetricId,
+    period: string,
+  ): void {
     const deptPoints = DEPARTMENTS.map((dept) => {
       const point = points.find(
         (p) =>
@@ -399,10 +399,14 @@ export function seedPoints(): MetricPoint[] {
     });
     const allPoint = points.find(
       (p) =>
-        p.metricId === metricId && p.period === period && p.department === "all",
+        p.metricId === metricId &&
+        p.period === period &&
+        p.department === "all",
     );
     if (!allPoint)
-      throw new Error(`seed: expected point ${metricId}/${period}/all to exist`);
+      throw new Error(
+        `seed: expected point ${metricId}/${period}/all to exist`,
+      );
     allPoint.plan = deptPoints.reduce((sum, p) => sum + p.plan, 0);
     allPoint.actual = deptPoints.reduce((sum, p) => sum + p.actual, 0);
     allPoint.forecast = deptPoints.reduce((sum, p) => sum + p.forecast, 0);

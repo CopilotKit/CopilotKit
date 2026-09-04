@@ -32,7 +32,12 @@ describe("seed invariants", () => {
    */
   it("derives byDepartment 'all' rows as the sum of the four department rows, every period", () => {
     const snap = store.snapshot();
-    const departments = ["manufacturing", "distribution", "field-services", "corporate"] as const;
+    const departments = [
+      "manufacturing",
+      "distribution",
+      "field-services",
+      "corporate",
+    ] as const;
     const byDeptMetrics = snap.metricDefs.filter((d) => d.byDepartment);
     expect(byDeptMetrics.length).toBeGreaterThan(0);
 
