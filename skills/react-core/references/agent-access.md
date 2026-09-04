@@ -323,16 +323,17 @@ sees.
 
 Source: `packages/react-core/src/v2/hooks/use-agent-context.tsx` (no `agentId` parameter); `packages/core/src/core/context-store.ts:26-31`
 
-### MEDIUM — Two components using the same `(agentId, threadId)` expecting isolation
+### MEDIUM — Two components using the same `agentId` expecting isolated state
 
 Wrong:
 
 ```tsx
 function A() {
-  const { agent } = useAgent({ agentId: "default", threadId: "t1" });
+  useAgent({ agentId: "default" });
 }
+
 function B() {
-  const { agent } = useAgent({ agentId: "default", threadId: "t1" });
+  useAgent({ agentId: "default" });
 }
 ```
 
@@ -340,16 +341,29 @@ Correct:
 
 ```tsx
 function A() {
-  useAgent({ agentId: "default", threadId: "a" });
+  useAgent({
+    agentId: "chat-a",
+    runtimeAgentId: "default",
+    threadId: "thread-a",
+  });
 }
+
 function B() {
-  useAgent({ agentId: "default", threadId: "b" });
+  useAgent({
+    agentId: "chat-b",
+    runtimeAgentId: "default",
+    threadId: "thread-b",
+  });
 }
 ```
 
-Per-thread clones are cached in a module-level WeakMap keyed by
-`(registryAgent, threadId)`. Two consumers of the same `(agentId,
-threadId)` observe the same state. Give each surface a distinct `threadId`
-when isolation is intentional.
+Both hooks using the same `agentId` resolve to the same registered agent
+instance. `threadId` does not create a new frontend agent or isolate state.
 
-Source: `packages/react-core/src/v2/hooks/use-agent.tsx:78-119`
+When multiple frontend surfaces need independent state while targeting the
+same runtime agent, use `runtimeAgentId` with distinct local `agentId` values.
+The local `agentId` identifies the frontend proxy, while `runtimeAgentId`
+controls which runtime agent receives requests.
+
+Source: `packages/react-core/src/v2/hooks/use-agent.tsx`;
+`packages/core/src/core/core.ts` (`registerProxiedAgent`)
