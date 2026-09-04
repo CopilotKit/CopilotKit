@@ -85,6 +85,26 @@ describe("NarrativeFiledReceipt", () => {
     expect(screen.queryByText(/Filed the variance narrative/)).toBeNull();
   });
 
+  it("does not read an error-relayed settle as a filing that happened", () => {
+    // Same rule as every other render in `tools.tsx` (see
+    // `./tool-settle.test.tsx`): the PRESENCE of a settled string is not an
+    // outcome. A relayed runtime error is not a filed narrative.
+    const refresh = vi.fn(() => Promise.resolve());
+    const { container } = render(
+      <NarrativeFiledReceipt
+        toolCallId="call-4"
+        result="Error: the ledger did not answer"
+        refresh={refresh}
+      />,
+    );
+    expect(container.textContent).not.toMatch(/Filed the variance narrative/);
+    expect(
+      container
+        .querySelector("[data-settle-tone]")
+        ?.getAttribute("data-settle-tone"),
+    ).toBe("negative");
+  });
+
   it("survives a refresh that rejects, without throwing into the transcript", async () => {
     const error = vi
       .spyOn(console, "error")

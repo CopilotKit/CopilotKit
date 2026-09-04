@@ -34,6 +34,13 @@ import { execNav } from "./nav";
  * copied from airline's `tools.tsx` lines 1166–1360 and reworded for
  * Vantage's domain: a board-pack publish refused for unexplained variance,
  * watched and learned as a narrative code filed on the Board Packs form).
+ *
+ * ⚠️ ONE PLACE CLASSIFIES A SETTLE. Every render below reads its outcome
+ * through `classifyToolSettle` / `SettleReceipt` (see the block comment above
+ * them), never off `typeof result === "string"` — that says a call SETTLED and
+ * nothing about how, and the ad-hoc per-render checks this replaced printed
+ * green receipts over a cancelled countersign, an aborted card and an
+ * error-prefixed relay alike.
  */
 
 /**
@@ -73,10 +80,15 @@ export const execToolLabels: Record<string, string> = {
 };
 
 /**
- * A one-line "this happened" receipt. `tone` picks the framing — every write
- * so far has settled positively, but `confirmPublishCountersign` below is the
- * first whose settled result is sometimes a gate refusal, so the negative
- * tone this comment used to only anticipate is now in use.
+ * A one-line "this happened" receipt. `tone` picks the framing: `positive` for
+ * a write that landed, `negative` for one that was refused or failed. A
+ * settle that reports NOTHING happening — a cancel, an abort — is neither, and
+ * uses `StatusNote` instead; `SettleReceipt` is the one place that choice is
+ * made.
+ *
+ * `data-settle-tone` carries the choice into the DOM: it is the only
+ * externally visible difference between the three framings, so it is what
+ * `./tool-settle.test.tsx` asserts on rather than a Tailwind class string.
  */
 function Receipt({
   tone = "positive",
@@ -87,6 +99,7 @@ function Receipt({
 }) {
   return (
     <div
+      data-settle-tone={tone}
       className={
         tone === "positive"
           ? "my-1 rounded-md border border-positive/30 bg-surface px-3 py-2 text-sm text-ink"
@@ -118,41 +131,279 @@ function metricLabel(defs: MetricDef[], id: MetricId): string {
   return defs.find((d) => d.id === id)?.label ?? id;
 }
 
+/** A breach as the refusal render prints it — three display strings, always present. */
+type Breach = { metric: string; department: string; period: string };
+
 interface PublishRefusal {
   error: string;
-  breaches?: { metric: string; department: string; period: string }[];
+  breaches?: Breach[];
 }
 
 /**
- * A settled `confirmPublishCountersign` result is always a string (see the
- * render's own comment on why), but a REFUSAL was recorded as a JSON-encoded
- * `{ error, breaches }`. Parse that back out so the render can tell a
- * refusal from a plain success sentence; anything that doesn't parse to that
- * shape (i.e. the success sentence itself) is `null`, not a refusal.
+ * One breach field, as a string safe to render. The refusal body reaching this
+ * point was PARSED, never validated — it is `JSON.parse` of whatever the
+ * settle carried — so every field is `unknown` until proven otherwise, and a
+ * missing one prints a placeholder rather than "undefined" or (worse) throwing
+ * out of a transcript render.
+ */
+function breachField(value: unknown, fallback: string): string {
+  if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return fallback;
+}
+
+/**
+ * A settled `confirmPublishCountersign` result is always a string (see
+ * `classifyToolSettle`'s comment on why), but a REFUSAL was recorded as a
+ * JSON-encoded `{ error, breaches }`. Parse that back out so the render can
+ * tell a refusal from a plain success sentence; anything that doesn't parse to
+ * that shape (i.e. the success sentence itself) is `null`, not a refusal.
+ *
+ * ⚠️ THE SHAPE IS GUARDED, not trusted. `breaches` is only mapped when it is
+ * actually an array, and each entry's three fields go through
+ * `breachField` — a body with `breaches: [null]` or `breaches: "…"` used to
+ * throw `Cannot read properties of null` INSIDE the render, which in a
+ * transcript means the whole chat column unmounts mid-demo rather than one
+ * malformed receipt reading badly.
  */
 function parseRefusal(result: string): PublishRefusal | null {
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(result);
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      "error" in parsed &&
-      typeof (parsed as { error: unknown }).error === "string"
-    ) {
-      return parsed as PublishRefusal;
-    }
+    parsed = JSON.parse(result);
   } catch {
     // Not JSON — the success sentence, or an unrelated settled string.
+    return null;
   }
-  return null;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  const body = parsed as Record<string, unknown>;
+  if (typeof body.error !== "string") return null;
+  if (!Array.isArray(body.breaches)) return { error: body.error };
+  const breaches = body.breaches.map((entry): Breach => {
+    const b: Record<string, unknown> =
+      entry && typeof entry === "object"
+        ? (entry as Record<string, unknown>)
+        : {};
+    return {
+      metric: breachField(b.metric, "an unnamed metric"),
+      department: breachField(b.department, "—"),
+      period: breachField(b.period, "—"),
+    };
+  });
+  return { error: body.error, breaches };
 }
 
 /**
- * The stable prefix `pinBlockToDashboard`'s FAILURE arm settles with, and the
- * only thing its render classifies off. Anchored at the start so nothing in a
- * relayed error message can flip a successful pin into a failed one.
+ * The stable prefix `pinBlockToDashboard`'s FAILURE arm settles with, declared
+ * to the settle classifier as that tool's `failed` vocabulary. Anchored at the
+ * start so nothing in a relayed error message can flip a successful pin into a
+ * failed one.
  */
 const PIN_FAILED_PREFIX = "Could not pin that block";
+
+/**
+ * The sentence `confirmPublishCountersign`'s Cancel button settles the
+ * interrupt with. A CONSTANT rather than an inline literal because two places
+ * need the identical bytes: the `onCancel` that produces it, and the settle
+ * classifier that has to recognise it as "nothing happened" rather than as a
+ * publish receipt.
+ */
+const PUBLISH_CANCELLED =
+  "The presenter cancelled the countersignature. Nothing was published.";
+
+// ══ THE SETTLE CLASSIFIER ════════════════════════════════════════════════
+//
+// EVERY render in this file reads the same kind of value: the string the tool
+// (or a HITL card's `respond`) settled the call with. `typeof result ===
+// "string"` says the call SETTLED and nothing whatsoever about how — so a
+// render that branches on presence alone prints a green receipt over a cancel
+// and over an abort. On stage that is a board pack reported as published that
+// was never published, and it re-reads identically on every replay of the
+// thread.
+//
+// The five things that string can be, per CopilotKit's settle semantics
+// (`copilotKitCore.runTool` JSON-stringifies whatever `respond()` was given,
+// for every tool, HITL included):
+//
+//   respond("a sentence")  → the raw sentence
+//   respond({ … })         → its JSON encoding (so a refusal must be PARSED
+//                            back out; it is never readable off `result`)
+//   respond() / respond(null) → the EMPTY string — answered, nothing said
+//   never answered + the run aborts → the platform's `HITL_ABORTED` sentinel
+//   still streaming        → `undefined` (no settle at all)
+//
+// `classifyToolSettle` is the ONE place that distinction is made and
+// `SettleReceipt` the one place it is drawn, so a new render cannot re-invent
+// a looser rule. The per-tool vocabularies live in `EXEC_SETTLES`: a card's
+// own cancel sentence and a handler's own failure prefix are the only
+// tool-specific strings, and each is declared beside the code that produces
+// it rather than sniffed for with a regex.
+
+/**
+ * The literal string CopilotKit settles a NEVER-ANSWERED interrupt with when
+ * the run ends under it. It arrives error-prefixed, but it is not a failure of
+ * the write — the write never ran — so it classifies as cancelled, and the
+ * sentinel itself never reaches the screen: it names the platform's internals
+ * in front of the room.
+ */
+const HITL_ABORTED = "Error: Human-in-the-loop interaction aborted";
+
+/**
+ * The tool-specific half of the classification. `cancelled` holds the card's
+ * OWN cancel/withdraw sentences (compared whole, never pattern-matched);
+ * `failed` holds the handler's own failure prefixes (anchored at the start, so
+ * nothing inside a relayed message can flip an outcome); `refusedLabel` words
+ * the gate refusal.
+ */
+type KnownSettles = {
+  cancelled?: readonly string[];
+  failed?: readonly string[];
+  refusedLabel?: string;
+  /**
+   * What this particular tool did NOT do, for the neutral line an abort or an
+   * empty settle reads as ("Nothing was published.", "…nothing was
+   * captured."). Optional: the generic line is honest, just vaguer.
+   */
+  nothingDone?: string;
+};
+
+/**
+ * Every tool in this file that has a settle vocabulary of its own, keyed by
+ * tool name. A tool absent from a field has none — `navigateTo` cannot fail
+ * (it pushes a route) and has no card to cancel, so the shared rules are all
+ * it needs.
+ *
+ * Exported for `./tool-settle.test.tsx`, which renders each tool's settled arm
+ * exactly as the registration below does.
+ */
+export const EXEC_SETTLES = {
+  confirmPublishCountersign: {
+    cancelled: [PUBLISH_CANCELLED],
+    refusedLabel: "Publish refused",
+    nothingDone:
+      "The countersign card was never answered. Nothing was published.",
+  },
+  pinBlockToDashboard: {
+    failed: [PIN_FAILED_PREFIX],
+    nothingDone: "Nothing was pinned.",
+  },
+  navigateTo: {},
+  // The one BACKEND tool with a render of its own (`NarrativeFiledReceipt`).
+  file_variance_narrative: { nothingDone: "Nothing was filed." },
+  offerWorkflowRecording: {
+    nothingDone: "The offer was never answered — nothing was captured.",
+  },
+  awaitDemonstration: {
+    nothingDone: "The demonstration wasn't completed — nothing was captured.",
+  },
+  saveLearnedProcedure: {
+    nothingDone: "This was never confirmed — nothing was written to memory.",
+  },
+} satisfies Record<string, KnownSettles>;
+
+export type ToolSettle =
+  | { kind: "pending" }
+  | { kind: "refusal"; error: string; breaches?: Breach[] }
+  | { kind: "cancelled"; via: "choice" | "abort" | "empty"; text: string }
+  | { kind: "error"; message: string }
+  | { kind: "success"; text: string };
+
+/**
+ * Classify one settled tool result. `known` is that tool's own vocabulary from
+ * `EXEC_SETTLES`; omitting it applies only the universal rules, which is why
+ * the same cancel sentence classifies as `success` without it — no render may
+ * recognise a cancel it was not told about.
+ *
+ * Exported for `./tool-settle.test.tsx`.
+ */
+export function classifyToolSettle(
+  result: unknown,
+  known?: KnownSettles,
+): ToolSettle {
+  if (typeof result !== "string") return { kind: "pending" };
+  const text = result.trim();
+  // Answered with nothing (`respond()` / `respond(null)`). The interrupt is
+  // closed, so `pending`'s "Waiting on you…" would be a lie too — but nothing
+  // was reported, so nothing may be claimed.
+  if (text.length === 0) return { kind: "cancelled", via: "empty", text };
+  if (text.startsWith(HITL_ABORTED)) {
+    return { kind: "cancelled", via: "abort", text };
+  }
+  if (known?.cancelled?.some((sentence) => text === sentence.trim())) {
+    return { kind: "cancelled", via: "choice", text };
+  }
+  const refusal = parseRefusal(text);
+  if (refusal) return { kind: "refusal", ...refusal };
+  // `\b` so a sentence merely CONTAINING the word ("Errors were cleared…")
+  // is still the success it is.
+  if (/^Error\b/i.test(text)) return { kind: "error", message: text };
+  if (known?.failed?.some((prefix) => text.startsWith(prefix))) {
+    return { kind: "error", message: text };
+  }
+  return { kind: "success", text };
+}
+
+/**
+ * The line a cancelled settle reads as. `via: "choice"` prints the card's own
+ * sentence — this file wrote it, for the room, and it says more than any
+ * generic phrasing could. The other two have no such sentence to print.
+ */
+function cancelledLine(
+  settle: Extract<ToolSettle, { kind: "cancelled" }>,
+  known?: KnownSettles,
+): string {
+  if (settle.via === "choice") return settle.text;
+  return known?.nothingDone ?? "This wasn't completed — nothing was done.";
+}
+
+/**
+ * The settled arm EVERY tool render in this file draws, given that tool's
+ * `EXEC_SETTLES` entry. Renders nothing while the call is `pending`, so a
+ * caller can fall through to its own card.
+ *
+ * ⚠️ The `success` arm prints the settled text VERBATIM, which is right for
+ * the receipt-shaped tools (their result IS the receipt) and wrong for the
+ * teach chain, whose results are directives addressed to the agent. Those
+ * three renders word their own success line and delegate only the other kinds
+ * here — see `OfferSettle` and its siblings.
+ *
+ * Exported for `./tool-settle.test.tsx`.
+ */
+export function SettleReceipt({
+  result,
+  known,
+}: {
+  result: unknown;
+  known?: KnownSettles;
+}) {
+  const settle = classifyToolSettle(result, known);
+  switch (settle.kind) {
+    case "pending":
+      return null;
+    case "cancelled":
+      return <StatusNote>{cancelledLine(settle, known)}</StatusNote>;
+    case "error":
+      return <Receipt tone="negative">{settle.message}</Receipt>;
+    case "refusal":
+      return (
+        <Receipt tone="negative">
+          {known?.refusedLabel ?? "Refused"}: {settle.error}.
+          {settle.breaches && settle.breaches.length > 0 ? (
+            <ul className="mt-1 list-disc pl-4">
+              {settle.breaches.map((b, i) => (
+                <li key={i}>
+                  {b.metric} · {b.department} · {b.period}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Receipt>
+      );
+    case "success":
+      return <Receipt tone="positive">{settle.text}</Receipt>;
+  }
+}
 
 /**
  * The nav rail's OWN label for a segment (`./nav`), so a navigation receipt
@@ -247,18 +498,19 @@ const SAVE_PROCEDURE_CONFIRMED =
 const SAVE_PROCEDURE_DECLINED =
   "The presenter declined to save it. Do not call save_memory.";
 
-type SaveProcedureOutcome = "pending" | "saved" | "declined" | "unknown";
+type SaveProcedureOutcome = "saved" | "declined" | "unknown";
 
 /**
  * BOTH buttons settle this card with a string, so `typeof result === "string"`
  * says the card was answered and NOTHING about the answer. Branching on
  * presence alone would print "Saved" over a decline — a durable write
  * asserted on stage that never happened, and identically on every replay.
+ *
+ * Called only for a `success` settle (`classifyToolSettle` has already ruled
+ * out the empty, aborted, cancelled and error cases), so it decides one thing
+ * only: which of the two DIRECTIVES this is.
  */
-function classifySaveProcedureResult(result: unknown): SaveProcedureOutcome {
-  if (typeof result !== "string") return "pending";
-  const text = result.trim();
-  if (text.length === 0) return "pending";
+function classifySaveProcedureResult(text: string): SaveProcedureOutcome {
   if (text === SAVE_PROCEDURE_CONFIRMED) return "saved";
   if (text === SAVE_PROCEDURE_DECLINED) return "declined";
   // Tolerate a paraphrase, but never GUESS "saved": a decline must read as a
@@ -269,16 +521,109 @@ function classifySaveProcedureResult(result: unknown): SaveProcedureOutcome {
 }
 
 /**
- * A neutral "here's what happened" status line for the teach chain's three
- * settles (offered/declined, steps recorded, saved/declined) — not a
- * `Receipt`, because these report a CHOICE or an observation, not a write
- * that succeeded or was refused; `Receipt`'s tone dichotomy does not fit.
+ * A neutral "here's what happened" status line — not a `Receipt`, because it
+ * reports a CHOICE, an observation, or a thing that simply did not happen,
+ * none of which is a write that succeeded or was refused; `Receipt`'s tone
+ * dichotomy does not fit any of them.
+ *
+ * Used by the teach chain's three settles (offered/declined, steps recorded,
+ * saved/declined) AND by every cancelled-or-aborted settle in the file, via
+ * `SettleReceipt` — a cancel drawn in `Receipt`'s green is the bug this whole
+ * classifier exists to prevent.
  */
 function StatusNote({ children }: { children: React.ReactNode }) {
   return (
-    <div className="my-1 rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink-muted">
+    <div
+      data-settle-tone="neutral"
+      className="my-1 rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink-muted"
+    >
       {children}
     </div>
+  );
+}
+
+// ══ BEAT 6 — THE TEACH CHAIN'S THREE SETTLED ARMS ═══════════════════════
+//
+// Each one runs the SHARED classifier first and only words its own line for a
+// `success` — a cancel, an abort or an error is drawn by `SettleReceipt` like
+// everywhere else in this file. That ordering is the point: these three cards
+// settle with DIRECTIVES addressed to the agent, and a render that reads a
+// directive out of the abort sentinel reports a choice ("Left it for now") or
+// an observation ("Recorded the demonstration") that nobody made. They print
+// a human line rather than `result` for the same reason the offer card always
+// did: the directive is the demo's own wiring, and it is not for the room.
+//
+// Exported for `./tool-settle.test.tsx`.
+
+export function OfferSettle({ result }: { result: unknown }) {
+  const settle = classifyToolSettle(
+    result,
+    EXEC_SETTLES.offerWorkflowRecording,
+  );
+  if (settle.kind !== "success") {
+    return (
+      <SettleReceipt
+        result={result}
+        known={EXEC_SETTLES.offerWorkflowRecording}
+      />
+    );
+  }
+  // BOTH buttons settle with a directive, so only the ACCEPTED one may read
+  // as accepted — a decline is a real answer and says so.
+  return (
+    <StatusNote>
+      {readOfferAccepted(settle.text)
+        ? "Watching you do it once."
+        : "Left it for now — nothing was recorded."}
+    </StatusNote>
+  );
+}
+
+export function DemonstrationSettle({ result }: { result: unknown }) {
+  const settle = classifyToolSettle(result, EXEC_SETTLES.awaitDemonstration);
+  if (settle.kind !== "success") {
+    return (
+      <SettleReceipt result={result} known={EXEC_SETTLES.awaitDemonstration} />
+    );
+  }
+  // The count is the RECORDER's, read back off its own directive — never
+  // re-counted out of this prose. An UNREADABLE count means nothing is known
+  // about what was captured, and a count of zero means nothing was: neither
+  // may read as "Recorded the demonstration.", which asserts an observation
+  // in the exact case where there is none.
+  const count = readDemonstratedStepCount(settle.text);
+  if (count === null || count === 0) {
+    return (
+      <StatusNote>The demonstration ended with nothing captured.</StatusNote>
+    );
+  }
+  return (
+    <StatusNote>
+      Recorded {count} {count === 1 ? "step" : "steps"}.
+    </StatusNote>
+  );
+}
+
+export function SaveProcedureSettle({ result }: { result: unknown }) {
+  const settle = classifyToolSettle(result, EXEC_SETTLES.saveLearnedProcedure);
+  if (settle.kind !== "success") {
+    return (
+      <SettleReceipt
+        result={result}
+        known={EXEC_SETTLES.saveLearnedProcedure}
+      />
+    );
+  }
+  // CLASSIFIED, never merely detected — see `classifySaveProcedureResult`.
+  const outcome = classifySaveProcedureResult(settle.text);
+  return (
+    <StatusNote>
+      {outcome === "saved"
+        ? "Saved — I'll use this next time without being asked."
+        : outcome === "declined"
+          ? "Left it unsaved — nothing was written to memory."
+          : "This card was answered, but not in a way I can report — nothing is claimed either way."}
+    </StatusNote>
   );
 }
 
@@ -470,7 +815,11 @@ export function NarrativeFiledReceipt({
   result: string | undefined;
   refresh: () => Promise<void>;
 }) {
-  const settled = typeof result === "string" && result.length > 0;
+  const settle = classifyToolSettle(
+    result,
+    EXEC_SETTLES.file_variance_narrative,
+  );
+  const settled = settle.kind !== "pending";
   const refreshRef = useRef(refresh);
   useEffect(() => {
     refreshRef.current = refresh;
@@ -485,17 +834,34 @@ export function NarrativeFiledReceipt({
     });
   }, [toolCallId, settled]);
 
-  if (!settled) return null;
-  // The backend result is the filed row (or a `BAD_CODE` refusal). Both are
-  // JSON the agent reads and neither is a sentence worth printing, so the
-  // receipt says only which of the two happened.
-  return result.includes("BAD_CODE") ? (
-    <Receipt tone="negative">
-      That code isn&rsquo;t one this ledger files under — nothing was filed.
-    </Receipt>
-  ) : (
-    <Receipt>Filed the variance narrative.</Receipt>
-  );
+  // The backend result is the filed row, a refusal (`{ error: "BAD_CODE" }`),
+  // or — like every other settle in this file — an error relay or the empty
+  // settle. All are JSON or wiring the agent reads and none is a sentence
+  // worth printing, so the receipt says only WHICH happened; and it goes
+  // through the same classifier as the rest, so a settle that is not a filed
+  // row cannot read as "Filed."
+  switch (settle.kind) {
+    case "pending":
+      return null;
+    case "cancelled":
+    case "error":
+      return (
+        <SettleReceipt
+          result={result}
+          known={EXEC_SETTLES.file_variance_narrative}
+        />
+      );
+    case "refusal":
+      return settle.error === "BAD_CODE" ? (
+        <Receipt tone="negative">
+          That code isn&rsquo;t one this ledger files under — nothing was filed.
+        </Receipt>
+      ) : (
+        <Receipt tone="negative">Nothing was filed: {settle.error}.</Receipt>
+      );
+    case "success":
+      return <Receipt>Filed the variance narrative.</Receipt>;
+  }
 }
 
 export function ExecTools() {
@@ -605,17 +971,17 @@ export function ExecTools() {
         }
         return `Pinned to the ${title}.`;
       },
-      // Replay-safe: the recorded sentence IS the receipt, and the failure
-      // arm is classified off its own prefix rather than off the mere
-      // presence of a settle — a failed pin must never read as a pin.
-      render: ({ result }) => {
-        if (typeof result !== "string") return null;
-        return result.startsWith(PIN_FAILED_PREFIX) ? (
-          <Receipt tone="negative">{result}</Receipt>
-        ) : (
-          <Receipt>{result}</Receipt>
-        );
-      },
+      // Replay-safe: the recorded sentence IS the receipt, and it is
+      // CLASSIFIED (`PIN_FAILED_PREFIX`, plus the shared error/abort rules)
+      // rather than read off the mere presence of a settle — a failed pin, or
+      // a call the runtime settled with an error string, must never read as a
+      // pin that happened.
+      render: ({ result }) => (
+        <SettleReceipt
+          result={result}
+          known={EXEC_SETTLES.pinBlockToDashboard}
+        />
+      ),
     },
     [],
   );
@@ -719,11 +1085,12 @@ export function ExecTools() {
       },
       // Replay-safe: the recorded sentence IS the receipt. Nothing here reads
       // `status`, so a reopened thread shows what happened rather than
-      // "Opening…" forever.
-      render: ({ result }) => {
-        const text = typeof result === "string" ? result : null;
-        return text ? <Receipt>{text}</Receipt> : null;
-      },
+      // "Opening…" forever — and it goes through the shared classifier, so a
+      // settle the runtime turned into an error string does not read as a
+      // page that opened.
+      render: ({ result }) => (
+        <SettleReceipt result={result} known={EXEC_SETTLES.navigateTo} />
+      ),
     },
     [router, skinHref],
   );
@@ -763,32 +1130,23 @@ export function ExecTools() {
           ),
       }),
       render: ({ args, result, respond }) => {
-        // Replay-safe: keyed off `result`, never `status`. A refusal settles
-        // this call just as much as a publish does — but EITHER way, `core`
-        // JSON-stringifies whatever `respond()` was given before it lands
-        // here (`copilotKitCore.runTool` does this for every tool, human-in-
-        // -the-loop included), so a settled `result` is always a plain
-        // string and the refusal shape below has to be parsed back out of
-        // it rather than read directly off `result`.
+        // Replay-safe: keyed off `result`, never `status`. FOUR different
+        // things settle this call — a publish, the gate's refusal, the
+        // presenter's Cancel, and the platform's abort sentinel if the run
+        // ends with the card still open — and `core` JSON-stringifies
+        // whatever `respond()` was given before any of them lands here
+        // (`copilotKitCore.runTool` does this for every tool, human-in-the-
+        // -loop included), so `result` is always a plain string and telling
+        // the four apart is `classifyToolSettle`'s job. Only the first is a
+        // published board pack; anything else reading as one puts a receipt
+        // for an unpublished pack on the screen in front of the room.
         if (typeof result === "string") {
-          const refusal = parseRefusal(result);
-          if (refusal) {
-            return (
-              <Receipt tone="negative">
-                Publish refused: {refusal.error}.
-                {refusal.breaches && refusal.breaches.length > 0 ? (
-                  <ul className="mt-1 list-disc pl-4">
-                    {refusal.breaches.map((b, i) => (
-                      <li key={i}>
-                        {b.metric} · {b.department} · {b.period}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </Receipt>
-            );
-          }
-          return <Receipt tone="positive">{result}</Receipt>;
+          return (
+            <SettleReceipt
+              result={result}
+              known={EXEC_SETTLES.confirmPublishCountersign}
+            />
+          );
         }
         if (!respond) return <AwaitingCard />;
 
@@ -840,11 +1198,11 @@ export function ExecTools() {
               });
               return null;
             }}
-            onCancel={() =>
-              respond?.(
-                "The presenter cancelled the countersignature. Nothing was published.",
-              )
-            }
+            // The literal `PUBLISH_CANCELLED` — the settle classifier
+            // recognises that exact sentence as "nothing happened", so the
+            // two must not drift apart into a cancel that renders as a
+            // publish.
+            onCancel={() => respond?.(PUBLISH_CANCELLED)}
           />
         );
       },
@@ -902,19 +1260,9 @@ export function ExecTools() {
           ),
       }),
       render: ({ args, result, respond }) => {
-        // Replay-safe, and a HUMAN line rather than `result`: that string is
-        // an internal directive addressed to the agent ("Call
-        // awaitDemonstration now…"), and printing it verbatim puts the
-        // demo's own wiring on screen in front of the room.
-        if (typeof result === "string") {
-          return (
-            <StatusNote>
-              {readOfferAccepted(result)
-                ? "Watching you do it once."
-                : "Left it for now — nothing was recorded."}
-            </StatusNote>
-          );
-        }
+        // Replay-safe, and a HUMAN line rather than `result` — see
+        // `OfferSettle`, which owns both that rule and the classification.
+        if (typeof result === "string") return <OfferSettle result={result} />;
         if (!respond) return <AwaitingCard />;
         return (
           <div className="flex flex-col gap-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -962,19 +1310,11 @@ export function ExecTools() {
         "Packs form.",
       parameters: z.object({}),
       render: ({ result, respond }) => {
-        // Replay-safe, and the count is the one the RECORDER reported —
-        // never one re-counted out of this prose.
+        // Replay-safe, and the count is the one the RECORDER reported — never
+        // one re-counted out of this prose, and never asserted at all when
+        // there is none. See `DemonstrationSettle`.
         if (typeof result === "string") {
-          const count = readDemonstratedStepCount(result);
-          return (
-            <StatusNote>
-              Recorded{" "}
-              {count === null
-                ? "the demonstration"
-                : `${count} ${count === 1 ? "step" : "steps"}`}
-              .
-            </StatusNote>
-          );
+          return <DemonstrationSettle result={result} />;
         }
         if (!respond) return <AwaitingCard />;
         // Its own component, so it subscribes to the recorder directly and
@@ -1009,21 +1349,10 @@ export function ExecTools() {
           ),
       }),
       render: ({ args, result, respond }) => {
-        // CLASSIFIED, never merely detected — see
-        // `classifySaveProcedureResult`'s doc comment.
+        // CLASSIFIED, never merely detected — see `SaveProcedureSettle` and
+        // `classifySaveProcedureResult`'s doc comments.
         if (typeof result === "string") {
-          const outcome = classifySaveProcedureResult(result);
-          return (
-            <StatusNote>
-              {outcome === "saved"
-                ? "Saved — I'll use this next time without being asked."
-                : outcome === "declined"
-                  ? "Left it unsaved — nothing was written to memory."
-                  : outcome === "unknown"
-                    ? "This card was already answered."
-                    : "Writing up what I saw…"}
-            </StatusNote>
-          );
+          return <SaveProcedureSettle result={result} />;
         }
         if (!respond) return <AwaitingCard />;
         return (
