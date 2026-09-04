@@ -39,6 +39,8 @@
  *     one another.
  */
 
+import { redactSecrets } from "@/lib/redact-secrets";
+
 /**
  * Per-request timeout, matching keel/commerce/airline/logistics' seed helpers.
  * Several buckets are seeded SERIALLY on a presenter reset, so an unbounded
@@ -156,12 +158,52 @@ export async function seedMemories(
         body: JSON.stringify(memory),
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (res.ok) stored += 1;
-      else console.error(`[exec/seed-memories] ${userId}: HTTP ${res.status}`);
+      if (res.ok) {
+        stored += 1;
+      } else {
+        // The BODY, not just the status. `dev/reset` reports a seed shortfall
+        // as a count, so this log line is the only place the reason survives —
+        // and `422` alone does not say WHICH field the backend rejected, while
+        // `422 MEMORY_VALIDATION_ERROR: kind must be one of …` names it. That
+        // is the difference between fixing this file and guessing at it while
+        // beats 4/5 stay unarmed.
+        console.error(
+          `[exec/seed-memories] ${userId}: HTTP ${res.status} ${await safeText(res)}`,
+        );
+      }
     } catch (err) {
-      console.error(`[exec/seed-memories] ${userId}: ${String(err)}`);
+      console.error(`[exec/seed-memories] ${userId}: ${describeError(err)}`);
     }
   }
 
   return stored;
+}
+
+/**
+ * Body text for a log line: never throws, never floods, never echoes a secret.
+ *
+ * REDACTED even though this is a server LOG rather than a response body — the
+ * usual rule (see `src/lib/redact-secrets.ts`) is that logs keep their secrets
+ * because a human debugging a reset needs to see which backend was touched.
+ * This text is different in kind: it is UNTRUSTED bytes composed upstream, and
+ * a backend that quotes the rejected request back at us echoes the
+ * `Authorization` header's key into wherever these logs are shipped. The
+ * address and status this line already carries are what the debugging needs;
+ * the credential is not.
+ */
+async function safeText(res: Response): Promise<string> {
+  let text: string;
+  try {
+    text = await res.text();
+  } catch {
+    return "<unreadable body>";
+  }
+  const redacted = redactSecrets(text);
+  return redacted.length > 400 ? `${redacted.slice(0, 400)}…` : redacted;
+}
+
+function describeError(err: unknown): string {
+  const described =
+    err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  return redactSecrets(described);
 }
