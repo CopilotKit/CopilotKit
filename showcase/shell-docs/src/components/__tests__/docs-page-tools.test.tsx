@@ -79,7 +79,16 @@ it("renders one split CTA with copy prompt as its root action", async () => {
 it("renders the onboarding button when a framework is passed", () => {
   renderRow({ slug: "mastra", name: "Mastra" });
 
-  expect(screen.getByRole("button", { name: /copy prompt/i })).toBeTruthy();
+  const button = screen.getByRole("button", { name: /copy prompt/i });
+  const descriptionId = button.getAttribute("aria-describedby");
+
+  expect(button.getAttribute("data-tooltip")).toBe(
+    "Copy a prompt that guides your coding agent through CopilotKit setup.",
+  );
+  expect(descriptionId).toBeTruthy();
+  expect(document.getElementById(descriptionId!)?.textContent).toBe(
+    "Copy a prompt that guides your coding agent through CopilotKit setup.",
+  );
 });
 
 it("gives the onboarding button the same .mdx URL as the markdown button", async () => {

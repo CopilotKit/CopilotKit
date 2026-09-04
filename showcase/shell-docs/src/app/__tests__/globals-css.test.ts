@@ -132,32 +132,30 @@ describe("globals.css docs page actions", () => {
         }
       `),
     );
-    expect(normalizedGlobalsCss).toContain(
-      normalizeWhitespace(`
-        --docs-page-actions-hover: color-mix(
-          in oklch,
-          var(--accent-fill) 68%,
-          black
-        );
-      `),
+    expect(globalsCss).toContain(
+      "--docs-page-actions-hover: color-mix(in oklch, var(--accent-fill) 68%, black);",
     );
+    expect(globalsCss).toContain("--docs-page-actions-orbit: 0deg;");
   });
 
-  it("gives the primary action a reduced-motion-safe shimmer", () => {
-    expect(globalsCss).toContain("@keyframes docs-page-actions-shimmer");
+  it("gives the primary action a reduced-motion-safe orbiting halo", () => {
+    expect(globalsCss).toContain("@property --docs-page-actions-orbit");
+    expect(globalsCss).toContain("@keyframes docs-page-actions-halo");
     expect(globalsCss).toContain(
-      "animation: docs-page-actions-shimmer 4.5s ease-in-out infinite;",
+      "animation: docs-page-actions-halo 3.4s linear infinite;",
     );
+    expect(globalsCss).toContain("mask-composite: exclude;");
     expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
     expect(globalsCss).toContain("animation: none;");
+    expect(globalsCss).not.toContain("docs-page-actions-shimmer");
   });
 
-  it("keeps the mobile shimmer fitted to the split control", () => {
+  it("keeps the mobile halo fitted without showing a hover-only tooltip", () => {
     expect(globalsCss).toContain(
       ".docs-page-tools {\n    max-width: 100%;\n    overflow-x: auto;",
     );
-    expect(globalsCss).not.toContain(
-      ".docs-page-tools {\n    width: 100%;\n    overflow-x: auto;",
+    expect(globalsCss).toContain(
+      ".docs-page-actions-primary[data-tooltip]::before,\n  .docs-page-actions-primary[data-tooltip]::after {\n    display: none;",
     );
   });
 });
