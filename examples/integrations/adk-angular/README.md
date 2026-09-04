@@ -16,7 +16,7 @@ The Angular app talks to the runtime (`http://localhost:8200/api/copilotkit`), a
 
 ## Prerequisites
 
-- Node.js 20.19+ (required by the Angular 21 toolchain; the managed-Intelligence path below needs ≥ 22)
+- Node.js `^22.22.3`, `^24.15.0`, or `^26.0.0` (required by the Angular 22 toolchain)
 - Python 3.12+
 - [`uv`](https://docs.astral.sh/uv/getting-started/installation/) (installs the Python agent's dependencies)
 - Google Makersuite API Key (for the ADK agent) — see https://makersuite.google.com/app/apikey
@@ -95,7 +95,7 @@ in-memory runner and the drawer stays locked.
 
 > **Notes for the Intelligence path:**
 >
-> - The managed-Intelligence path requires **Node.js ≥ 22** (the base UI + runtime run on Node 20+).
+> - The Angular 22 Node.js requirement above also covers the managed-Intelligence runtime; no separate Node upgrade is needed.
 > - `server.ts` ships a demo `identifyUser` stub returning `demo-user`. CopilotKit Intelligence requires the identified user to actually exist, so thread persistence needs a **real, provisioned user id** — replace the stub with your auth-derived identity (the `copilotkit` CLI provisions one when it scaffolds a project). Leaving `demo-user` in place can cause thread operations to fail.
 > - The runtime selects managed Intelligence from `CPK_INTELLIGENCE_API_KEY`;
 >   `COPILOTKIT_LICENSE_TOKEN` is only for self-hosted or offline licensing.
