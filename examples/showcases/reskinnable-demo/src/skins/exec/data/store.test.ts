@@ -1,8 +1,25 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { storeErrorResponse } from "./store-errors";
 import * as store from "./store";
-import type { BlockSpec } from "./types";
+import type { BlockSpec, DashboardId } from "./types";
 
 beforeEach(() => store.reset());
+
+/** Strips every block off a dashboard, leaving it legitimately blank. */
+function emptyDashboard(id: DashboardId): void {
+  // Ids first: `removeBlock` rewrites the block list it is iterating over.
+  const blockIds = store.snapshot().dashboards[id].blocks.map((b) => b.id);
+  for (const blockId of blockIds) store.removeBlock(id, blockId);
+  expect(store.snapshot().dashboards[id].blocks).toHaveLength(0);
+}
+
+/** Pins one freshly-built block onto `id` and returns its block id. */
+function pinOnly(id: DashboardId, spec: BlockSpec): string {
+  emptyDashboard(id);
+  const draft = store.createDraftBlock(spec);
+  store.addBlockToDashboard(id, draft.id);
+  return draft.id;
+}
 
 describe("seed invariants", () => {
   it("seeds at least TWO breaching, unexplained exceptions so the taught case and the replay differ", () => {
@@ -88,9 +105,34 @@ describe("seed invariants", () => {
 });
 
 describe("variance and the publish gate", () => {
-  it("derives variance, never stores it", () => {
+  /**
+   * Pinned against a HAND-COMPUTED number, not against a re-expression of the
+   * formula: `expect(variancePct(p)).toBeCloseTo((p.actual - p.plan) / p.plan)`
+   * restates the implementation, so swapping the denominator (`/ actual`,
+   * `/ forecast`) mutates both sides identically and the test still passes.
+   * 25/100 vs 25/125 vs 25/110 are three different numbers here, and the
+   * exact-equality assertion separates all three.
+   */
+  it("derives variance as (actual - plan) / plan — signed, plan-denominated", () => {
+    const point = {
+      metricId: "revenue",
+      period: "2024-01",
+      department: "all",
+      plan: 100,
+      actual: 125,
+      forecast: 110,
+    } as const;
+    expect(store.variancePct(point)).toBe(0.25); // NOT 0.2 (/actual), NOT ~0.1364 (/forecast)
+    expect(store.variancePct({ ...point, actual: 80 })).toBe(-0.2); // sign preserved
+  });
+  it("derives variance from the ledger's own points, never stores it", () => {
     const p = store.metricSeries({ metricId: "revenue", months: 1 })[0];
-    expect(store.variancePct(p)).toBeCloseTo((p.actual - p.plan) / p.plan);
+    // Full float precision, not toBeCloseTo's default 2 decimals: the seeded
+    // revenue point sits at -2% vs plan, and /actual vs /plan differ only in
+    // the third decimal there.
+    expect(store.variancePct(p)).toBe((p.actual - p.plan) / p.plan);
+    expect(store.variancePct(p)).not.toBe((p.actual - p.plan) / p.actual);
+    expect("variancePct" in p).toBe(false);
   });
   it("refuses to publish while a breach is unexplained (422 UNEXPLAINED_VARIANCE)", () => {
     const r = store.publishPack("cfo", store.COUNTERSIGN_PIN);
@@ -103,18 +145,179 @@ describe("variance and the publish gate", () => {
       expect(r.breaches.length).toBeGreaterThan(0);
   });
   it("publishes once every breach has a narrative filed for its (metricId, period)", () => {
-    for (const b of store.exceptions().filter((e) => !e.explained)) {
+    const filed = store.exceptions().map((b) =>
       store.fileNarrative({
         metricId: b.metricId,
         period: b.period,
         code: "VAR-TIMING",
         body: "Shipment timing shift.",
         source: "typed",
-      });
+      }),
+    );
+    const r = store.publishPack("cfo", store.COUNTERSIGN_PIN);
+    expect(r).toMatchObject({ ok: true });
+    if (!r.ok) return;
+
+    // The pack is the RECORD of what was published, so both id lists have to
+    // be real: `blockIds` is exactly the dashboard's blocks in order, and
+    // `narrativeIds` covers the metrics this dashboard references (opex,
+    // burnRate) and no others — dsoDays is on no CFO block.
+    expect(r.pack.dashboardId).toBe("cfo");
+    expect(r.pack.blockIds).toEqual(
+      store.snapshot().dashboards.cfo.blocks.map((b) => b.id),
+    );
+    expect(r.pack.blockIds.length).toBeGreaterThan(0);
+
+    const byId = new Map(store.snapshot().narratives.map((n) => [n.id, n]));
+    expect(new Set(r.pack.narrativeIds).size).toBe(r.pack.narrativeIds.length);
+    expect(
+      new Set(r.pack.narrativeIds.map((id) => byId.get(id)?.metricId)),
+    ).toEqual(new Set(["opex", "burnRate"]));
+    for (const id of r.pack.narrativeIds) {
+      expect(filed.map((n) => n.id)).toContain(id);
     }
+    expect(store.snapshot().packs.map((p) => p.id)).toEqual([r.pack.id]);
+  });
+
+  /**
+   * The gate is PER DASHBOARD. Deleting `publishPack`'s dashboard filter — so
+   * every unexplained breach on the ledger blocks every pack — leaves the
+   * refusal tests above green, because the seeded dashboards happen to
+   * reference breaching metrics. This is the test that dies: a dashboard
+   * bound only to `revenue` (a deliberate seeded NON-breach) must publish
+   * while opex/burnRate/dsoDays are all still unexplained.
+   */
+  it("scopes the publish gate to the metrics THIS dashboard references", () => {
+    pinOnly("cfo", {
+      kind: "metricTile",
+      title: "Revenue vs plan",
+      metricId: "revenue",
+      department: "all",
+      compare: "plan",
+    });
+    expect(
+      store.exceptions().filter((e) => !e.explained).length,
+    ).toBeGreaterThan(0);
     expect(store.publishPack("cfo", store.COUNTERSIGN_PIN)).toMatchObject({
       ok: true,
     });
+    // ...and the CEO board, whose exceptionList makes its gate consider every
+    // metric, still refuses on the very breaches the CFO pack ignored.
+    expect(store.publishPack("ceo", store.COUNTERSIGN_PIN)).toMatchObject({
+      ok: false,
+      code: "UNEXPLAINED_VARIANCE",
+    });
+  });
+
+  /**
+   * THE VACUOUS-GATE GUARD. `referencedMetrics` reports `includesAll: false`
+   * and an EMPTY metric set for a dashboard with no metric-bound and no
+   * `exceptionList` block, so the breach filter matched nothing and an empty
+   * board published `ok: true` with three unexplained breaches sitting on the
+   * ledger — the demo's climactic 422 refusal erased by clicking Remove on
+   * every block. A board pack with nothing metric-bound in it is refused on
+   * its own terms, under its OWN code: reporting it as UNEXPLAINED_VARIANCE
+   * would name breaches the pack does not contain.
+   */
+  it("refuses to publish a dashboard with NO metric-bearing blocks (422 EMPTY_DASHBOARD)", () => {
+    emptyDashboard("cfo");
+    const r = store.publishPack("cfo", store.COUNTERSIGN_PIN);
+    expect(r).toMatchObject({
+      ok: false,
+      status: 422,
+      code: "EMPTY_DASHBOARD",
+    });
+    expect(store.snapshot().packs).toHaveLength(0);
+    expect(
+      store.exceptions().filter((e) => !e.explained).length,
+    ).toBeGreaterThan(0);
+    if (!r.ok && r.code === "EMPTY_DASHBOARD") {
+      expect(r.message).toMatch(/metric/i);
+      // The withheld narrative vocabulary never rides out on an error the
+      // routes forward to the agent.
+      expect(r.message).not.toMatch(/VAR-/);
+      expect(r.message).not.toContain(store.COUNTERSIGN_PIN);
+    }
+  });
+
+  it("refuses an initiativeTable-only dashboard the same way — it binds no metric", () => {
+    pinOnly("cfo", { kind: "initiativeTable", title: "Key Initiatives" });
+    expect(store.publishPack("cfo", store.COUNTERSIGN_PIN)).toMatchObject({
+      ok: false,
+      status: 422,
+      code: "EMPTY_DASHBOARD",
+    });
+  });
+
+  /**
+   * An `exceptionList`-only board is NOT empty: that block surfaces every
+   * metric's exceptions, so its gate considers ALL metrics and must still
+   * refuse on variance. Guards the fix above against over-refusing.
+   */
+  it("treats an exceptionList-only dashboard as metric-bearing, still gated on variance", () => {
+    pinOnly("cfo", { kind: "exceptionList", title: "Open Exceptions" });
+    expect(store.publishPack("cfo", store.COUNTERSIGN_PIN)).toMatchObject({
+      ok: false,
+      status: 422,
+      code: "UNEXPLAINED_VARIANCE",
+    });
+  });
+
+  it("checks the countersign PIN before the empty-dashboard refusal", () => {
+    emptyDashboard("cfo");
+    expect(store.publishPack("cfo", "0000")).toMatchObject({
+      ok: false,
+      status: 403,
+      code: "BAD_COUNTERSIGN",
+    });
+  });
+
+  it("refuses to publish an unknown dashboard with a mapped NOT_FOUND, not a crash", () => {
+    expect(() =>
+      store.publishPack("nope" as DashboardId, store.COUNTERSIGN_PIN),
+    ).not.toThrow();
+    expect(
+      store.publishPack("nope" as DashboardId, store.COUNTERSIGN_PIN),
+    ).toMatchObject({ ok: false, status: 404, code: "NOT_FOUND" });
+  });
+
+  /**
+   * Two narratives for the SAME (metricId, period) — the operator types one
+   * and the agent files another from the ingested memo, which beats 3a/3d do
+   * back to back — must not both land in the pack: `narrativeIds` is the
+   * record of WHAT EXPLAINS the pack, and one explanation counted twice
+   * inflates every count read off it.
+   */
+  it("records at most one narrative per (metricId, period) in a pack", () => {
+    for (const b of store.exceptions()) {
+      store.fileNarrative({
+        metricId: b.metricId,
+        period: b.period,
+        code: "VAR-TIMING",
+        body: "Typed by the chief of staff.",
+        source: "typed",
+      });
+      store.fileNarrative({
+        metricId: b.metricId,
+        period: b.period,
+        code: "VAR-ONEOFF",
+        body: "Re-filed from the ingested budget memo.",
+        source: "ingested-memo",
+      });
+    }
+    const r = store.publishPack("cfo", store.COUNTERSIGN_PIN);
+    expect(r).toMatchObject({ ok: true });
+    if (!r.ok) return;
+
+    const byId = new Map(store.snapshot().narratives.map((n) => [n.id, n]));
+    const pairs = r.pack.narrativeIds.map((id) => {
+      const n = byId.get(id);
+      expect(n, `pack narrative ${id} is not on the ledger`).toBeDefined();
+      return `${n!.metricId}/${n!.period}`;
+    });
+    expect(new Set(pairs).size).toBe(pairs.length);
+    // Both filings are still ON the ledger — dedupe is about the pack record.
+    expect(store.snapshot().narratives.length).toBeGreaterThan(pairs.length);
   });
   /**
    * THE BEAT-ORDER SEAM GUARD. Beats 3a and 3d file a narrative for the
@@ -194,7 +397,77 @@ describe("variance and the publish gate", () => {
   });
 });
 
+/**
+ * THE `months` WINDOW CONTRACT. `months` reaches here straight off a
+ * `BlockSpec` (`trendLine`'s window) and off the agent's `get_metrics`
+ * arguments, so 0, a negative and a NaN are all reachable inputs, not
+ * hypotheticals. The old `if (q.months)` guard made 0 mean "all 24 periods"
+ * (falsy, so no narrowing at all) while -3 meant `slice(-(-3))` === `slice(3)`
+ * — the OLDEST 21 periods, an inverted window silently answering a chart that
+ * asked for the newest three.
+ */
+describe("metricSeries window", () => {
+  const periodsOf = (months?: number) => [
+    ...new Set(
+      store.metricSeries({ metricId: "revenue", months }).map((p) => p.period),
+    ),
+  ];
+
+  it("keeps the last N DISTINCT periods for a positive N", () => {
+    const all = periodsOf();
+    expect(all).toHaveLength(24);
+    expect(periodsOf(3)).toEqual(all.slice(-3));
+    expect(periodsOf(1)).toEqual(all.slice(-1));
+  });
+
+  it("returns the full history for an omitted or zero window", () => {
+    expect(periodsOf(undefined)).toHaveLength(24);
+    expect(periodsOf(0)).toHaveLength(24);
+  });
+
+  /** Never an INVERTED window: -3 must not hand back the oldest 21 periods. */
+  it("returns the full history for a negative or non-finite window", () => {
+    const all = periodsOf();
+    expect(periodsOf(-3)).toEqual(all);
+    expect(periodsOf(Number.NaN)).toEqual(all);
+    expect(periodsOf(Number.POSITIVE_INFINITY)).toEqual(all);
+  });
+
+  it("floors a fractional window rather than dropping a partial period", () => {
+    const all = periodsOf();
+    expect(periodsOf(2.7)).toEqual(all.slice(-2));
+  });
+
+  it("windows by PERIOD, not by row, across a department filter", () => {
+    const rows = store.metricSeries({ metricId: "opex", months: 2 });
+    const periods = [...new Set(rows.map((r) => r.period))];
+    expect(periods).toHaveLength(2);
+    // opex is byDepartment: 5 rows ("all" + 4 departments) per period, so a
+    // row-slice would have truncated mid-period.
+    expect(rows).toHaveLength(10);
+  });
+});
+
 describe("dashboard blocks", () => {
+  /**
+   * An unknown dashboard id must arrive as the SAME coded refusal a bad block
+   * id gets, not as a raw `TypeError: Cannot read properties of undefined` —
+   * `store-errors.ts` maps `NOT_FOUND` to 404, and an unmapped throw is a 500
+   * with no actionable body for the agent or the presenter.
+   */
+  it("throws NOT_FOUND — never a raw TypeError — for an unknown dashboard id", () => {
+    const nope = "nope" as DashboardId;
+    for (const call of [
+      () => store.addBlockToDashboard(nope, "seed-ceo-revenue"),
+      () => store.removeBlock(nope, "seed-ceo-revenue"),
+      () => store.moveBlock(nope, "seed-ceo-revenue", "up"),
+    ]) {
+      expect(call).toThrow(/^NOT_FOUND/);
+      expect(call).toThrow(/nope/);
+      expect(call).not.toThrow(TypeError);
+    }
+  });
+
   /**
    * `render_metric_block`'s `execute` guard (agent.ts) already screens a
    * missing `metricId` before calling `store.createDraftBlock`, so this
@@ -225,13 +498,27 @@ describe("dashboard blocks", () => {
     store.addBlockToDashboard("ceo", draft.id); // second add is a no-op
     expect(store.snapshot().dashboards.ceo.blocks.length).toBe(before + 1);
   });
-  it("moves and removes blocks", () => {
+  /**
+   * BOTH directions have to move something. The old version only ever moved
+   * the second block "up" and asserted the head — "down" was exercised solely
+   * by the boundary no-op test below, so a `moveBlock` that ignored
+   * `direction: "down"` entirely was green.
+   */
+  it("swaps a block with its neighbour in BOTH directions, and removes it", () => {
     const ids = () => store.snapshot().dashboards.ceo.blocks.map((b) => b.id);
-    const [first, second] = ids();
+    const [first, second, third] = ids();
+    expect(third, "ceo seed needs three blocks for this test").toBeDefined();
+
     store.moveBlock("ceo", second, "up");
-    expect(ids()[0]).toBe(second);
+    expect(ids()).toEqual([second, first, third]);
+
+    // A real swap downwards: `first` moves past `third`, and only those two
+    // positions change.
+    store.moveBlock("ceo", first, "down");
+    expect(ids()).toEqual([second, third, first]);
+
     store.removeBlock("ceo", first);
-    expect(ids()).not.toContain(first);
+    expect(ids()).toEqual([second, third]);
   });
 
   /**
@@ -360,5 +647,78 @@ describe("dashboard blocks", () => {
       store.moveBlock("ceo", before[before.length - 1], "down"),
     ).not.toThrow();
     expect(ids()).toEqual(before);
+  });
+});
+
+/**
+ * The `CODE: message` convention, from the throw site to the HTTP status.
+ * These are the store's own throws going through the one table the block
+ * routes share, so they live with the mutators that raise them.
+ */
+describe("store throws → storeErrorResponse", () => {
+  const parse = async (error: unknown) => {
+    const res = storeErrorResponse(error);
+    return res && { status: res.status, body: await res.json() };
+  };
+
+  it("maps a real store throw to its status and forwards the message verbatim", async () => {
+    const thrown = (() => {
+      try {
+        store.removeBlock("ceo", "block-nope");
+        return null;
+      } catch (error) {
+        return error;
+      }
+    })();
+    expect(await parse(thrown)).toEqual({
+      status: 404,
+      body: {
+        error: "NOT_FOUND",
+        message: `NOT_FOUND: no block "block-nope" on the "ceo" dashboard`,
+      },
+    });
+  });
+
+  /**
+   * A thrown value that is not `instanceof Error` still has to map. Two ways
+   * that happens for real: a cross-realm Error (thrown through a different
+   * JS realm — Next's server/edge boundaries, a vm context — where the
+   * `instanceof` identity check fails even though it IS an Error), and a
+   * plain object thrown by a helper. `String(value)` was the fallback, and it
+   * stringifies the FIRST as `"Error: NOT_FOUND: …"` and the SECOND as
+   * `"[object Object]"` — so the code parsed out was `"Error"` or
+   * `"[object Object]"`, never a real code, and every one of those became an
+   * unmapped re-throw: a 500 with a stack where a 404 was sitting right there
+   * in the message.
+   */
+  it("maps a non-Error throw that carries the same coded message", async () => {
+    const crossRealm = { name: "Error", message: 'NOT_FOUND: no block "x"' };
+    expect(await parse(crossRealm)).toEqual({
+      status: 404,
+      body: { error: "NOT_FOUND", message: 'NOT_FOUND: no block "x"' },
+    });
+    expect(await parse('ALREADY_PINNED: block "x" is on "ceo"')).toEqual({
+      status: 409,
+      body: {
+        error: "ALREADY_PINNED",
+        message: 'ALREADY_PINNED: block "x" is on "ceo"',
+      },
+    });
+  });
+
+  /**
+   * `null` (→ the call site re-throws for Next to log with a stack), never a
+   * response built from a bogus status. A prototype-chain key is the case the
+   * `Map` exists for: on a plain-object table `"toString"` resolves to a
+   * truthy FUNCTION, which sails past an `=== undefined` guard and reaches
+   * `Response.json(body, { status: fn })` — a RangeError at the route, i.e. a
+   * 500 with a confusing stack, not the honest re-throw below.
+   */
+  it("returns null for an uncoded throw and for prototype-chain keys", async () => {
+    expect(await parse(new Error("kaboom"))).toBeNull();
+    expect(await parse(new Error("toString: not a code"))).toBeNull();
+    expect(await parse(new Error("constructor: not a code"))).toBeNull();
+    expect(await parse(new Error("__proto__: not a code"))).toBeNull();
+    expect(await parse(undefined)).toBeNull();
   });
 });
