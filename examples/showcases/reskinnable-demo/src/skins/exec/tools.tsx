@@ -456,6 +456,13 @@ export function ExecTools() {
   // on an id with no draft behind it, and that refusal is relayed to the agent
   // rather than swallowed, so a hallucinated id fails loudly in the transcript
   // instead of looking like a pin that happened.
+  //
+  // The refusal is relayed VERBATIM and this arm appends no advice of its own.
+  // It used to end every failure with "Render the block first", which is
+  // right for `NOT_FOUND` and actively harmful for `ALREADY_PINNED` (a block
+  // the other dashboard holds): re-rendering produces a SECOND block instead
+  // of unpinning the one that exists. Each code's remedy is written once,
+  // beside the throw, in `store.addBlockToDashboard`.
   useFrontendTool(
     {
       name: "pinBlockToDashboard",
@@ -464,7 +471,9 @@ export function ExecTools() {
         "Pass the 'blockId' that render_metric_block returned — never an id " +
         "you composed, and never a title. Render the block first; this tool " +
         "pins an existing one, it does not create anything. Idempotent: " +
-        "pinning the same block to the same dashboard twice leaves one card.",
+        "pinning the same block to the same dashboard twice leaves one card. " +
+        "A block lives on ONE dashboard — to move it, the operator unpins it " +
+        "from the dashboard holding it first; never render a second copy.",
       parameters: z.object({
         blockId: z
           .string()
@@ -486,10 +495,7 @@ export function ExecTools() {
           // that happened from one that did not, or it confirms a dashboard
           // card that is not on screen.
           console.error("[exec] pinBlockToDashboard failed:", err);
-          return (
-            `${PIN_FAILED_PREFIX}: ${err instanceof Error ? err.message : String(err)}. ` +
-            `Render the block first and pin the blockId it returns.`
-          );
+          return `${PIN_FAILED_PREFIX}: ${err instanceof Error ? err.message : String(err)}.`;
         }
         return `Pinned to the ${title}.`;
       },

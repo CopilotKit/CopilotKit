@@ -666,17 +666,27 @@ const ExceptionList = ({
  *
  * Once the block is pinned, the WHOLE control collapses to a single "Pinned ✓"
  * — not a per-button flip. That is a semantic requirement, not a styling
- * choice: `store.addBlockToDashboard` CONSUMES the draft, so a second pin to
- * the other dashboard would fail with NOT_FOUND. Offering a still-live second
- * button after a successful pin would advertise an action that cannot succeed.
+ * choice: pinning is single-home, so `store.addBlockToDashboard` refuses a
+ * second pin to the other dashboard with `ALREADY_PINNED`. Offering a
+ * still-live second button after a successful pin would advertise an action
+ * that cannot succeed.
+ *
+ * Pinned-ness is read ONLY from `isPinned` — the ledger snapshot, derived
+ * fresh (see `../providers.tsx`'s `BlockDataBridge`) — never mirrored into
+ * local state. This control stays mounted in the transcript for the whole
+ * conversation, so it outlives the pin: `store.removeBlock` returns the block
+ * to `drafts`, at which point a re-pin genuinely succeeds and these buttons
+ * must come back. A local `pinned` flag set on success never cleared, leaving
+ * "Pinned ✓" over an unpinned block with no route back.
  */
 const AddToDashboard = ({ props }: RendererProps<{ blockId: string }>) => {
   const { addBlock, isPinned } = useBlockData();
-  const [pinned, setPinned] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (pinned || isPinned(props.blockId)) {
+  // `addBlock` awaits the ledger refresh before resolving, so by the time a
+  // pin's `await` returns, `isPinned` already reports the new truth.
+  if (isPinned(props.blockId)) {
     return (
       <div className="text-sm font-medium text-positive" role="status">
         Pinned ✓
@@ -689,9 +699,9 @@ const AddToDashboard = ({ props }: RendererProps<{ blockId: string }>) => {
     setError(null);
     try {
       await addBlock(dashboardId, props.blockId);
-      setPinned(true);
     } catch (e) {
-      // Loud: a pin that failed must never look like a pin that worked.
+      // Loud: a pin that failed must never look like a pin that worked. The
+      // message carries the server's code and the dashboard involved.
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);

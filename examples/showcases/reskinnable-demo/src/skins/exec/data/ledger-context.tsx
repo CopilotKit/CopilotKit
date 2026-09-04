@@ -101,6 +101,33 @@ const EMPTY: ExecLedgerSnapshot = {
   exceptions: [],
 };
 
+/**
+ * Throws a block mutation's failure with the SERVER's message, not just its
+ * status.
+ *
+ * Every `blocks` route answers a coded refusal as `{ error, message }` (see
+ * `@/skins/exec/data/store-errors`), and that message is the only thing that
+ * says WHICH block id, and which dashboard, was involved: `NOT_FOUND` on a
+ * DELETE means the id is not on that dashboard, `ALREADY_PINNED` on a POST
+ * names the dashboard already holding it. `dashboard-grid.tsx` and the chat's
+ * `AddToDashboard` control both render this string verbatim, so dropping it
+ * for a bare status code puts "remove block failed: 404" on screen and sends
+ * the reader to the network tab.
+ *
+ * Returns `Promise<never>` so a call site can `await` it as its whole failure
+ * branch — the awaited value is uninhabited, so nothing downstream can
+ * accidentally treat a non-OK response as usable.
+ */
+async function throwWithBodyMessage(
+  action: string,
+  res: Response,
+): Promise<never> {
+  const body = (await res.json().catch(() => null)) as {
+    message?: string;
+  } | null;
+  throw new Error(`${action} failed: ${body?.message ?? res.status}`);
+}
+
 export function ExecLedgerProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<ExecLedgerSnapshot>(EMPTY);
   const [loaded, setLoaded] = useState(false);
@@ -159,16 +186,7 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blockId }),
       });
-      if (!res.ok) {
-        // Read the body before throwing: the route answers a bad blockId
-        // with 404 `{ error: "NOT_FOUND", message }`, and that message is
-        // the only thing that says WHICH id had no draft behind it. A bare
-        // status code sends the reader to the network tab instead.
-        const body = (await res.json().catch(() => null)) as {
-          message?: string;
-        } | null;
-        throw new Error(`add block failed: ${body?.message ?? res.status}`);
-      }
+      if (!res.ok) await throwWithBodyMessage("add block", res);
       await refresh();
     },
     [refresh],
@@ -180,7 +198,7 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
         `/api/exec/v1/dashboards/${dashboardId}/blocks/${blockId}`,
         { method: "DELETE" },
       );
-      if (!res.ok) throw new Error(`remove block failed: ${res.status}`);
+      if (!res.ok) await throwWithBodyMessage("remove block", res);
       await refresh();
     },
     [refresh],
@@ -200,7 +218,7 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ direction }),
         },
       );
-      if (!res.ok) throw new Error(`move block failed: ${res.status}`);
+      if (!res.ok) await throwWithBodyMessage("move block", res);
       await refresh();
     },
     [refresh],
