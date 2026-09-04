@@ -68,6 +68,51 @@ describe("dashboard blocks — add, reorder, remove", () => {
     expect(res.status).toBe(400);
   });
 
+  /**
+   * `state.dashboards[dashboardId]` is a plain object index, so an unvalidated
+   * dashboardId does not fall through to a coded refusal — it throws reading
+   * `.blocks` off `undefined`, which surfaces as an opaque 500 with a stack
+   * trace. DELETE and PATCH need the same param guard the POST has; only the
+   * POST's was covered.
+   *
+   * The exact status is deliberately not pinned here (400 today; the store may
+   * grow a NOT_FOUND arm) — what must hold is that the handler RESOLVES with a
+   * non-2xx rather than throwing, and leaves the dashboards untouched.
+   */
+  it("refuses DELETE and PATCH for an unknown dashboardId without throwing", async () => {
+    const before = JSON.stringify(store.snapshot().dashboards);
+    const seeded = store.snapshot().dashboards.ceo.blocks[0];
+
+    for (const res of [
+      await deleteBlock("not-a-real-dashboard", seeded.id),
+      await patchBlock("not-a-real-dashboard", seeded.id, { direction: "up" }),
+    ]) {
+      expect(res.ok).toBe(false);
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      // A refusal, not an empty body the caller has to guess at.
+      expect((await res.json()).error).toEqual(expect.any(String));
+    }
+
+    expect(JSON.stringify(store.snapshot().dashboards)).toBe(before);
+  });
+
+  it("rejects a malformed POST body with 400", async () => {
+    const badBodies = [
+      "{ not json",
+      JSON.stringify({}),
+      JSON.stringify({ blockId: 42 }),
+      JSON.stringify({ blokcId: "typo" }),
+    ];
+    for (const body of badBodies) {
+      const res = await POST(
+        new Request("http://localhost/x", { method: "POST", body }),
+        { params: Promise.resolve({ dashboardId: "ceo" }) },
+      );
+      expect(res.status, body).toBe(400);
+      expect((await res.json()).error).toBe("BAD_REQUEST");
+    }
+  });
+
   it("404s NOT_FOUND for a blockId with no draft behind it", async () => {
     // The shape a hallucinated id from `pinBlockToDashboard` takes. Without
     // the route's own catch this is a thrown 500 with a stack trace, which

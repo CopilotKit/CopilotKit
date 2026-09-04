@@ -1,5 +1,7 @@
 import { beforeEach, expect, it } from "vitest";
+import { buildBlockOps } from "@/skins/exec/blocks/build-block-ops";
 import * as store from "@/skins/exec/data/store";
+import type { BlockSpec } from "@/skins/exec/data/types";
 import { GET } from "./route";
 
 beforeEach(() => store.reset());
@@ -18,4 +20,93 @@ it("GET ledger returns dashboards with pinned ops per block", async () => {
     for (const b of dashboard.blocks) expect(b.ops.length).toBeGreaterThan(0);
   }
   expect(JSON.stringify(body.dashboards)).not.toContain("AddToDashboard");
+});
+
+/**
+ * The "not.toContain(AddToDashboard)" assertion above is only meaningful if
+ * the component is emitted SOMEWHERE — otherwise it would keep passing after
+ * the pin control was deleted outright. This pins both halves against the
+ * SAME spec: unpinned ops carry the control, and the ledger's pinned ops for
+ * that identical spec do not. `buildBlockOps` is imported directly for the
+ * unpinned half because drafts are deliberately not exposed over HTTP.
+ */
+it("emits AddToDashboard for an UNPINNED build of the very spec the ledger serves pinned", async () => {
+  const body = await (await GET()).json();
+  const pinned = body.dashboards.ceo.blocks[0] as {
+    id: string;
+    spec: BlockSpec;
+    ops: unknown[];
+  };
+
+  const unpinnedOps = buildBlockOps(pinned.spec, pinned.id);
+  expect(JSON.stringify(unpinnedOps)).toContain("AddToDashboard");
+
+  const pinnedOps = buildBlockOps(pinned.spec, pinned.id, { pinned: true });
+  expect(JSON.stringify(pinnedOps)).not.toContain("AddToDashboard");
+  // ...and what the route actually served matches the pinned build.
+  expect(pinned.ops).toEqual(pinnedOps);
+});
+
+/**
+ * The route spreads the whole snapshot and only re-maps `dashboards`. Every
+ * consumer surface (readables, the CEO/CFO pages, the exception list) reads
+ * one of the spread fields, so dropping the spread breaks them all at once
+ * while `dashboards` keeps looking fine.
+ */
+it("serves the whole snapshot, not just dashboards", async () => {
+  const body = await (await GET()).json();
+
+  expect(body.metricDefs.length).toBeGreaterThan(0);
+  expect(body.metricDefs[0]).toMatchObject({
+    id: expect.any(String),
+    label: expect.any(String),
+    unit: expect.any(String),
+    thresholdPct: expect.any(Number),
+    byDepartment: expect.any(Boolean),
+  });
+
+  expect(body.exceptions.length).toBeGreaterThan(0);
+  expect(body.exceptions[0]).toMatchObject({
+    metricId: expect.any(String),
+    period: expect.any(String),
+    department: expect.any(String),
+    variancePct: expect.any(Number),
+    explained: expect.any(Boolean),
+  });
+  expect(body.exceptions).toEqual(store.snapshot().exceptions);
+
+  expect(body.dashboards.ceo).toMatchObject({
+    id: "ceo",
+    title: expect.any(String),
+  });
+  expect(body.points.length).toBeGreaterThan(0);
+  expect(body.initiatives.length).toBeGreaterThan(0);
+  expect(body.narratives).toEqual([]);
+  expect(body.packs).toEqual([]);
+});
+
+/**
+ * A draft block is UNPINNED — invisible to the dashboard pages until someone
+ * pins it. That separation is asserted in the store's own tests; this asserts
+ * it survives the HTTP boundary, where a leak would render the block on the
+ * dashboard the moment the agent called `render_metric_block`.
+ */
+it("excludes drafts from the ledger response until they are pinned", async () => {
+  const spec: BlockSpec = {
+    kind: "metricTile",
+    title: "Unpinned Draft Tile",
+    metricId: "nps",
+    department: "all",
+  };
+  const draft = store.createDraftBlock(spec);
+
+  const before = await (await GET()).text();
+  expect(before).not.toContain(draft.id);
+  expect(before).not.toContain(spec.title);
+
+  // Pinning is the only thing that makes it visible here.
+  store.addBlockToDashboard("ceo", draft.id);
+  const after = await (await GET()).text();
+  expect(after).toContain(draft.id);
+  expect(after).toContain(spec.title);
 });
