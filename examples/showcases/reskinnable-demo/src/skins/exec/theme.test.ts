@@ -47,6 +47,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { VANTAGE_DESIGN_SKILL } from "./design-skill";
 
 const THEME_CSS = path.join(__dirname, "theme.css");
 /** `src/`, so a site can name a shell file as well as one of this skin's. */
@@ -119,6 +120,17 @@ export function composite(tint: Hsl, base: Hsl, alpha: number): Rgb {
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
+ * An `H S% L%` body pulled out of an `hsl(...)` literal, as a token triple.
+ * Throws rather than returning `undefined` for anything else: a malformed
+ * colour in the design brief is a value the model would copy verbatim.
+ */
+function asToken(hsl: string): Hsl {
+  const m = hsl.match(/^(-?[\d.]+) ([\d.]+)% ([\d.]+)%$/);
+  if (!m) throw new Error(`brief has a non-\`H S% L%\` value: \`${hsl}\``);
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+
+/**
  * Pull the `H S% L%` declarations out of one rule body. Only triplet-valued
  * tokens are collected — `--radius`, `color-scheme` and the dark-capable flag
  * are not colours and are deliberately skipped.
@@ -170,18 +182,14 @@ type Site = { readonly file: string; readonly pattern: RegExp };
 const lineAt = (text: string, index: number) =>
   text.slice(0, index).split("\n").length;
 
-/** `file:line` for every match of every pattern, in file order. */
-function findSites(sites: readonly Site[]): string[] {
-  return sites.flatMap(({ file, pattern }) => {
-    const text = readFileSync(path.join(SRC_ROOT, file), "utf8");
-    const re = new RegExp(
-      pattern.source,
-      pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
-    );
-    return [...text.matchAll(re)].map(
-      (m) => `${file}:${lineAt(text, m.index)}`,
-    );
-  });
+/** `file:line` for every match of ONE site's pattern, in file order. */
+function findSite({ file, pattern }: Site): string[] {
+  const text = readFileSync(path.join(SRC_ROOT, file), "utf8");
+  const re = new RegExp(
+    pattern.source,
+    pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+  );
+  return [...text.matchAll(re)].map((m) => `${file}:${lineAt(text, m.index)}`);
 }
 
 /**
@@ -261,12 +269,16 @@ const TEXT_PAIRS: readonly Pair[] = [
     bg: { token: "--brand-soft" },
     modes: ["dark"],
     label:
-      "shared chrome's dark pewter on brand-soft: dropdown/select focus rows, avatar initials, secondary + ghost button labels",
+      "dark pewter on brand-soft: the shared chrome's dropdown/select focus rows, avatar initials, secondary + ghost button labels, and this skin's dashboard selector",
     sites: [
       "components/ui/dropdown-menu.tsx",
       "components/ui/select.tsx",
       "components/ui/avatar.tsx",
       "components/ui/button.tsx",
+      // This skin's own holdout: the dashboard selector's active button opts
+      // out of the shared chrome and inks brand-soft itself, so it carries the
+      // `dark:` pewter override too. See the EXCLUSIONS note below.
+      `${EXEC}/tools.tsx`,
     ].map((file) => ({
       file,
       pattern: /\bbg-brand-soft\b[^"]*\bdark:(?:\w+:)?text-brand-violet\b/,
@@ -382,8 +394,11 @@ const TEXT_PAIRS: readonly Pair[] = [
  *   `skins/commerce/theme.test.ts` already DERIVES the un-overridden shared-chrome
  *   holdouts and fails when that set changes; duplicating that scan per skin
  *   would give five copies of one shell-wide guard, so it is deliberately not
- *   repeated here. This skin's own `tools.tsx` holdout is being given a
- *   `dark:text-brand-violet` counterpart separately.
+ *   repeated here. This skin's own `tools.tsx` holdout (the dashboard
+ *   selector's active button) already CARRIES its `dark:text-brand-violet`
+ *   counterpart, so in dark it renders the pewter pair asserted above rather
+ *   than the indigo one — `tools.tsx` is listed among that pair's `sites`, so
+ *   the claim is grepped rather than promised.
  * - `--brand` as a BORDER or ring (`border-brand/50`, `border-l-brand`,
  *   `focus-visible:ring-brand`) is a graphic boundary at 3:1 under WCAG 1.4.11,
  *   not text. Deepening `--brand` for the pair above only improved these, so no
@@ -441,20 +456,32 @@ describe("Vantage theme.css contrast", () => {
   }
 
   describe("the pairs are the pairs that render", () => {
-    // A pair whose class pair no longer appears anywhere is guarding a
-    // combination the app does not paint, and must fail rather than keep
-    // passing. The located lines are printed so the next reader can go and look.
+    // A pair whose class pair no longer appears is guarding a combination the
+    // app does not paint, and must fail rather than keep passing.
+    //
+    // PER SITE, NOT PER PAIR. This scanned the pair's sites as one flat list
+    // and asserted the list was non-empty, so a pair citing five files passed
+    // on ONE surviving match: gutting `pages/ceo-dashboard.tsx` entirely left
+    // all 46 cases green, because `catalog/renderers.tsx` still matched the
+    // same pattern. Each cited file is a claim about that file, so each is
+    // asserted on its own. The located lines are printed so the next reader
+    // can go and look.
     for (const pair of TEXT_PAIRS) {
       if (!pair.sites) continue;
-      it(`still renders ${pair.fg} on ${groundName(pair)} somewhere`, () => {
-        const found = findSites(pair.sites!);
-        expect(
-          found,
-          `no source matches the class pair for ${pair.fg} on ${groundName(pair)} — ` +
-            `either the pattern is wrong or this pair no longer renders`,
-        ).not.toEqual([]);
-        console.info(`${pair.fg} on ${groundName(pair)}: ${found.join(", ")}`);
-      });
+      for (const site of pair.sites) {
+        it(`still renders ${pair.fg} on ${groundName(pair)} in ${site.file}`, () => {
+          const found = findSite(site);
+          expect(
+            found,
+            `${site.file} matches nothing for ${pair.fg} on ${groundName(pair)} ` +
+              `(${site.pattern.source}) — either the pattern is wrong or this ` +
+              `pair no longer renders there`,
+          ).not.toEqual([]);
+          console.info(
+            `${pair.fg} on ${groundName(pair)}: ${found.join(", ")}`,
+          );
+        });
+      }
     }
   });
 
@@ -519,6 +546,122 @@ describe("Vantage theme.css contrast", () => {
       "--brand-soft",
       "--brand-violet",
     ]);
+  });
+
+  /**
+   * THE OGUI BRIEF'S LITERALS ARE A COPY OF THIS FILE, AND COPIES DRIFT.
+   *
+   * `design-skill.ts` inlines every colour as a literal `hsl(...)` on purpose —
+   * the sandbox iframe ships a bare CSS reset, so `var(--brand)` resolves to
+   * nothing in there (see that file's doc comment). The cost of the copy is
+   * that a contrast fix landed in `theme.css` leaves the brief behind: the
+   * brief shipped the PRE-fix `43 55% 45%` brand, `152 50% 38%` positive,
+   * `0 65% 60%` dark negative and `220 9% 44%` muted ink — three of them the
+   * exact values the header above records as the failures this file was
+   * written to catch. Generated UI then rendered the unreadable palette the
+   * app itself no longer has.
+   *
+   * So the brief is PARSED and each literal checked against the token it names.
+   * The count check is what makes it exhaustive: a colour added to the brief
+   * without a mapping here fails rather than riding along unpinned.
+   */
+  describe("the OGUI design brief quotes theme.css", () => {
+    /** Newlines are wrapping, not structure — the brief is prose. */
+    const brief = VANTAGE_DESIGN_SKILL.replace(/\s+/g, " ");
+
+    /** The one literal a regex captured, or a failure naming the regex. */
+    const capture = (re: RegExp, group: number): Hsl => {
+      const m = brief.match(re);
+      if (!m) throw new Error(`the brief no longer matches ${re.source}`);
+      return asToken(m[group]);
+    };
+
+    /** The chrome bullets: `Light: … .` and `Dark: … .`, each a label list. */
+    const chromeSegment = (lead: "Light" | "Dark") => {
+      const m = brief.match(new RegExp(`${lead}: ([^.]*)\\.`));
+      if (!m) throw new Error(`the brief has no \`${lead}:\` chrome bullet`);
+      return m[1];
+    };
+
+    /**
+     * `<label> hsl(...)` inside one chrome bullet. The label is anchored to a
+     * comma-separated item boundary, so looking up `ink` cannot land on
+     * `secondary ink` (a bare substring match would, and would then compare the
+     * muted ink against `--ink` and pass or fail for the wrong reason).
+     */
+    const chromeValue = (segment: string, label: string): Hsl => {
+      const m = segment.match(
+        new RegExp(`(?:^|, )${escapeRe(label)} hsl\\(([^)]*)\\)`),
+      );
+      if (!m) throw new Error(`the brief no longer names \`${label}\``);
+      return asToken(m[1]);
+    };
+
+    const CHROME: ReadonlyArray<readonly [label: string, token: string]> = [
+      ["canvas", "--canvas"],
+      ["surfaces", "--surface"],
+      ["muted surface", "--surface-muted"],
+      ["ink", "--ink"],
+      ["secondary ink", "--ink-muted"],
+      ["hairline", "--hairline"],
+    ];
+
+    for (const [mode, lead, tokens] of [
+      ["light", "Light", lightTokens],
+      ["dark", "Dark", darkTokens],
+    ] as const) {
+      for (const [label, token] of CHROME) {
+        it(`quotes ${mode} ${token} for "${label}"`, () => {
+          expect(chromeValue(chromeSegment(lead), label)).toEqual(
+            tokens[token],
+          );
+        });
+      }
+    }
+
+    it("distinguishes `ink` from `secondary ink`", () => {
+      // The two labels overlap as substrings, so the anchored lookup above is
+      // load-bearing. This proves the two tokens differ — without it, a lookup
+      // that silently matched `secondary ink` for `ink` would still pass every
+      // assertion above and pin nothing.
+      expect(lightTokens["--ink"]).not.toEqual(lightTokens["--ink-muted"]);
+      expect(darkTokens["--ink"]).not.toEqual(darkTokens["--ink-muted"]);
+      const light = chromeSegment("Light");
+      expect(chromeValue(light, "ink")).not.toEqual(
+        chromeValue(light, "secondary ink"),
+      );
+    });
+
+    it("quotes --brand for the single accent, in both modes", () => {
+      expect(capture(/gold — hsl\(([^)]*)\) on light/, 1)).toEqual(
+        lightTokens["--brand"],
+      );
+      expect(capture(/on light, hsl\(([^)]*)\) on dark/, 1)).toEqual(
+        darkTokens["--brand"],
+      );
+    });
+
+    it("quotes --positive and --negative for variance, in both modes", () => {
+      const positive = /positive hsl\(([^)]*)\) light \/ hsl\(([^)]*)\) dark/;
+      expect(capture(positive, 1)).toEqual(lightTokens["--positive"]);
+      expect(capture(positive, 2)).toEqual(darkTokens["--positive"]);
+      const negative = /negative hsl\(([^)]*)\) light \/ hsl\(([^)]*)\) dark/;
+      expect(capture(negative, 1)).toEqual(lightTokens["--negative"]);
+      expect(capture(negative, 2)).toEqual(darkTokens["--negative"]);
+    });
+
+    it("pins EVERY colour it states — no literal rides along unchecked", () => {
+      const stated = [...brief.matchAll(/hsl\(([^)]*)\)/g)].map((m) => m[1]);
+      // The brief also says the words "written as a literal `hsl(...)` value";
+      // that placeholder is the ONE non-colour occurrence, and spelling it out
+      // is what keeps the count below a count of colours.
+      expect(stated.filter((value) => value === "...")).toHaveLength(1);
+      // 6 chrome tokens × 2 modes, + accent × 2, + positive/negative × 2.
+      expect(
+        stated.filter((value) => value !== "..."),
+        "the brief states a colour with no assertion above; add it to this suite",
+      ).toHaveLength(CHROME.length * 2 + 2 + 4);
+    });
   });
 
   it("keeps the calculator honest against known WCAG values", () => {
