@@ -260,8 +260,8 @@ const PERIOD_COUNT = 24;
  * 24 monthly points per metric at `department: "all"`, plus 24 × 4
  * department-level points for `opex` and `headcountCost`. Every variance is a
  * deterministic PRNG draw kept well inside the metric's `thresholdPct` so it
- * never breaches — EXCEPT the three latest-period points overridden at the
- * end of this function, which are the seed's only breaches (two) plus one
+ * never breaches — EXCEPT the four latest-period points overridden at the
+ * end of this function, which are the seed's only breaches (three) plus one
  * deliberate non-breaching variance (revenue).
  */
 export function seedPoints(): MetricPoint[] {
@@ -340,8 +340,34 @@ export function seedPoints(): MetricPoint[] {
     point.actual = round(point.plan * (1 + variancePct), unitOf(metricId));
   }
 
-  // The seed's exactly-two unexplained breaches, both in the latest period:
+  // ── THE SEED'S THREE UNEXPLAINED BREACHES, ALL IN THE LATEST PERIOD ──────
+  //
+  // The count is THREE, not two, and the third one is what keeps the demo's
+  // beats in the order they are scripted in. The breach budget is spent on
+  // one breach per GATE the arc has to hit:
+  //
+  //  · `opex`/distribution — beat 3a's and beat 3d's narrative subject (the
+  //    generated budget memo is about this exact overrun). Filing it CONSUMES
+  //    this breach.
+  //  · `burnRate`/all — beat 6's TEACH gate. The CFO dashboard's blocks
+  //    reference `opex` AND `burnRate` (`seedDashboards` below), so with opex
+  //    alone the seed had a fatal beat-ORDER dependency: a presenter who ran
+  //    3a or 3d before 6 filed the only breach the CFO pack could refuse on,
+  //    the publish sailed through, and beat 6's whole teach arc silently
+  //    stopped existing. `burnRate` is never a narrative subject in any
+  //    earlier beat, so the CFO refusal survives every pill run before it.
+  //  · `dsoDays`/all — beat 6's unaided REPLAY gate. The CEO dashboard
+  //    carries an `exceptionList`, which makes its publish gate consider
+  //    EVERY metric (`referencedMetrics` in `store.ts`), and `dsoDays` is on
+  //    no dashboard block of its own — so the CEO pack still refuses after
+  //    both of the above are explained, which is what the agent replays the
+  //    just-taught procedure against.
+  //
+  // Three metrics also keep `store.test.ts`'s seed invariant honest: two
+  // DIFFERENT metrics minimum, so the taught case and the replay can never
+  // collapse onto the same one.
   overrideVariance("opex", latestPeriod, "distribution", 0.09); // threshold 0.05 -> breach
+  overrideVariance("burnRate", latestPeriod, "all", 0.1); // threshold 0.06, company-wide -> breach
   overrideVariance("dsoDays", latestPeriod, "all", 0.12); // threshold 0.08, company-wide -> breach
   // A deliberate non-breach: variance without tripping the gate.
   overrideVariance("revenue", latestPeriod, "all", -0.02); // threshold 0.05 -> not a breach
@@ -396,9 +422,12 @@ const SEED_ADDED_AT = "2024-01-01T00:00:00.000Z";
 /**
  * CEO and CFO starter dashboards. CEO gets `revenue` (metricTile) plus an
  * `initiativeTable` and `exceptionList` (3 blocks, ≥2). CFO gets `opex`
- * (varianceBar) plus `burnRate` (trendLine) (2 blocks, ≥2) — the `opex` block
- * is what surfaces the seeded, unexplained breach that makes the seeded
- * publish attempt on `cfo` return 422 UNEXPLAINED_VARIANCE.
+ * (varianceBar) plus `burnRate` (trendLine) (2 blocks, ≥2) — those two blocks
+ * are what put the seeded `opex` and `burnRate` breaches inside the CFO
+ * pack's gate, so the seeded publish attempt on `cfo` returns 422
+ * UNEXPLAINED_VARIANCE. `burnRate` is the one that keeps returning it after
+ * beats 3a/3d have explained `opex` — see `seedPoints`' breach block for why
+ * the seed spends a breach on a metric no earlier beat touches.
  */
 export function seedDashboards(): Record<DashboardId, Dashboard> {
   return {

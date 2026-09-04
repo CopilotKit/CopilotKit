@@ -68,6 +68,19 @@ describe("dashboard blocks — add, reorder, remove", () => {
     expect(res.status).toBe(400);
   });
 
+  it("404s NOT_FOUND for a blockId with no draft behind it", async () => {
+    // The shape a hallucinated id from `pinBlockToDashboard` takes. Without
+    // the route's own catch this is a thrown 500 with a stack trace, which
+    // reaches the agent as an opaque failure and gets retried identically.
+    const res = await addToDashboard("ceo", "block-does-not-exist");
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("NOT_FOUND");
+    // The message names the id, so a presenter can tell a bad id from a
+    // broken route.
+    expect(body.message).toContain("block-does-not-exist");
+  });
+
   it("rejects a bogus direction with 400", async () => {
     const seeded = store.snapshot().dashboards.ceo.blocks[0];
     const res = await patchBlock("ceo", seeded.id, { direction: "sideways" });

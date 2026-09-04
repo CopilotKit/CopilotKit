@@ -60,13 +60,35 @@ export const POST = async () => {
   // identity failed rather than a single opaque error.
   const failures: string[] = [];
 
-  const userIds = [...SEEDED_USER_IDS, DEMO_DEFAULT_USER_ID];
+  // A pinned `INTELLIGENCE_USER_ID` (Playwright pins one) short-circuits
+  // `resolveUserId` (`intelligence/user-id.ts`), so at runtime EVERY memory
+  // lands in that one bucket — which neither of the static lists below names.
+  // Without it a pinned run resets two buckets nothing was ever written to
+  // and leaves the live one intact: beat 6 starts out already taught and the
+  // reset still reports success. Bookstore's reset route makes the same move
+  // (a Set, since a pinned id may already be in the list, and clearing one
+  // bucket twice is a wasted round trip and a double-counted `forgot`).
+  const pinnedUserId = process.env.INTELLIGENCE_USER_ID;
+  const userIds = [
+    ...new Set([
+      ...SEEDED_USER_IDS,
+      DEMO_DEFAULT_USER_ID,
+      ...(pinnedUserId ? [pinnedUserId] : []),
+    ]),
+  ];
+  const seedTargets = [
+    ...new Set([
+      ...SEED_TARGET_USER_IDS,
+      ...(pinnedUserId ? [pinnedUserId] : []),
+    ]),
+  ];
   // Name the backend and the exact ids BEFORE mutating. Several demos in this
   // repo vendor the same Intelligence stack, so if this process ever resolved a
   // neighbour's apiUrl, this line is where a human sees the reset was about to
   // reach across into someone else's memory.
   console.warn(
-    `[exec] presenter reset: forgetting memories at ${apiUrl} for ${userIds.join(", ")}`,
+    `[exec] presenter reset: forgetting memories at ${apiUrl} for ${userIds.join(", ")}` +
+      `; re-seeding ${seedTargets.join(", ")}`,
   );
 
   // `forgetAllMemories` THROWS on the first failed DELETE within a bucket.
@@ -94,7 +116,7 @@ export const POST = async () => {
   // leaves recall looking at an empty bucket and beats 4/5 fail silently.
   // `seedMemories` never throws (failures are counted/logged internally), so
   // no per-bucket try/catch is needed here.
-  for (const userId of SEED_TARGET_USER_IDS) {
+  for (const userId of seedTargets) {
     seeded += await seedMemories({ apiUrl, apiKey, userId });
   }
 

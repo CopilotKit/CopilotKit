@@ -51,6 +51,75 @@ describe("variance and the publish gate", () => {
       ok: true,
     });
   });
+  /**
+   * THE BEAT-ORDER SEAM GUARD. Beats 3a and 3d file a narrative for the
+   * `opex`/distribution overrun; beat 6 then needs the CFO publish to STILL
+   * be refused (teach) and the CEO publish to STILL be refused after that
+   * (unaided replay). With only the opex breach seeded, running 3a or 3d
+   * before 6 cleared the CFO gate and beat 6's whole teach arc silently
+   * stopped existing — a demo failure that compiles, passes and looks fine
+   * until stage. The seed's third breach (`burnRate`, see `seed.ts`) is what
+   * makes the order irrelevant, and this test is what stops anyone dropping
+   * it again.
+   */
+  it("keeps beat 6's gates armed no matter which order the beats run in", () => {
+    const opex = store
+      .exceptions()
+      .find((e) => e.metricId === "opex" && !e.explained);
+    expect(
+      opex,
+      "seed no longer carries an unexplained opex breach",
+    ).toBeDefined();
+
+    // Beats 3a/3d: the opex narrative is filed.
+    store.fileNarrative({
+      metricId: opex!.metricId,
+      period: opex!.period,
+      code: "VAR-TIMING",
+      body: "Shipment timing shift into the next month.",
+      source: "typed",
+    });
+
+    // Beat 6's TEACH gate: the CFO pack references opex AND burnRate, so it
+    // still refuses — on burnRate, which no earlier beat explains.
+    const cfo = store.publishPack("cfo", store.COUNTERSIGN_PIN);
+    expect(cfo).toMatchObject({
+      ok: false,
+      status: 422,
+      code: "UNEXPLAINED_VARIANCE",
+    });
+    if (!cfo.ok && cfo.code === "UNEXPLAINED_VARIANCE") {
+      expect(cfo.breaches.map((b) => b.metricId)).toContain("burnRate");
+    }
+
+    // Beat 6's teach files burnRate's narrative — and the CEO pack, whose
+    // `exceptionList` block makes its gate consider every metric, STILL
+    // refuses on dsoDays. That refusal is the unaided replay.
+    const burn = store
+      .exceptions()
+      .find((e) => e.metricId === "burnRate" && !e.explained);
+    expect(
+      burn,
+      "seed no longer carries an unexplained burnRate breach",
+    ).toBeDefined();
+    store.fileNarrative({
+      metricId: burn!.metricId,
+      period: burn!.period,
+      code: "VAR-PLAN",
+      body: "Plan was set before the hiring freeze landed.",
+      source: "typed",
+    });
+
+    const ceo = store.publishPack("ceo", store.COUNTERSIGN_PIN);
+    expect(ceo).toMatchObject({
+      ok: false,
+      status: 422,
+      code: "UNEXPLAINED_VARIANCE",
+    });
+    if (!ceo.ok && ceo.code === "UNEXPLAINED_VARIANCE") {
+      expect(ceo.breaches.map((b) => b.metricId)).toContain("dsoDays");
+    }
+  });
   it("refuses a wrong countersign PIN before checking variance (403 BAD_COUNTERSIGN)", () => {
     expect(store.publishPack("cfo", "0000")).toMatchObject({
       ok: false,

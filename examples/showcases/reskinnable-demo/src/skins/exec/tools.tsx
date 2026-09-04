@@ -19,9 +19,11 @@ import { execNav } from "./nav";
  * mutable state through a ref rather than the closure, and nothing sensitive
  * goes into a tool result).
  *
- * This file is built up across several micro-tasks. It now registers beat 3c
+ * This file is built up across several micro-tasks. It now registers beats
+ * 3a/5 (`pinBlockToDashboard`, the agent's route to the same pin the block's
+ * own "Add to dashboard" control performs), beat 3c
  * (the explorer-lever navigation), beat 3a (`confirmPublishCountersign`, the
- * countersign-PIN card gating `publish_board_pack` — keel's
+ * countersign-PIN card that is the ONLY publish path — keel's
  * `countersignRelease` and banking's card-PIN HITL, both in their own
  * `tools.tsx`, are the references), and beat 6 (the teach chain —
  * `offerWorkflowRecording` → `awaitDemonstration` → `saveLearnedProcedure`,
@@ -32,9 +34,9 @@ import { execNav } from "./nav";
 
 /**
  * Human labels for the BACKEND tool-activity chips, keyed to the backend tool
- * names: the five `agent.ts` registers (`get_metrics`, `list_exceptions`,
- * `render_metric_block`, `file_variance_narrative`, `publish_board_pack`)
- * plus the platform's `recall_memory` / `save_memory`, which arrive over the
+ * names: the four `agent.ts` registers (`get_metrics`, `list_exceptions`,
+ * `render_metric_block`, `file_variance_narrative`) plus the platform's
+ * `recall_memory` / `save_memory`, which arrive over the
  * Intelligence MCP path (`src/app/api/copilotkit/[[...slug]]/route.ts`) and
  * match through the shell's `includes` lookup despite their
  * `mcp__intelligence__` prefix — so the transcript reads as phrases rather
@@ -42,8 +44,13 @@ import { execNav } from "./nav";
  * the sibling skins' `TOOL_LABELS` (e.g. `src/skins/commerce/skin.tsx`), but
  * lives here rather than in `skin.tsx` because this file is where the rest of
  * the beat map is assembled; `skin.tsx` spreads this into its `toolLabels`,
- * adding the five FRONTEND tool labels registered below plus the platform's
+ * adding the six FRONTEND tool labels registered below plus the platform's
  * `generateSandboxedUi`.
+ *
+ * `publish_board_pack` is labelled even though `agent.ts` deliberately does
+ * NOT register it (see that tool's doc comment): the REST write it wraps is
+ * the one the countersign card drives, so the label documents that activity
+ * if it is ever surfaced, and costs nothing while it is not.
  */
 export const execToolLabels: Record<string, string> = {
   get_metrics: "Reading metrics",
@@ -129,6 +136,13 @@ function parseRefusal(result: string): PublishRefusal | null {
   }
   return null;
 }
+
+/**
+ * The stable prefix `pinBlockToDashboard`'s FAILURE arm settles with, and the
+ * only thing its render classifies off. Anchored at the start so nothing in a
+ * relayed error message can flip a successful pin into a failed one.
+ */
+const PIN_FAILED_PREFIX = "Could not pin that block";
 
 /**
  * The nav rail's OWN label for a segment (`./nav`), so a navigation receipt
@@ -265,6 +279,13 @@ function StatusNote({ children }: { children: React.ReactNode }) {
  * `onSubmit` POSTs them straight to `/api/exec/v1/packs` via `publishPack`
  * (`useExecLedger`). The agent never sees the digits — see the tool's own
  * description below for the full rule.
+ *
+ * A MISTYPED PIN IS NOT AN OUTCOME. `onSubmit` returns a message when the
+ * card should stay OPEN instead of settling the interrupt — which is exactly
+ * the 403 BAD_COUNTERSIGN arm: on stage a typo is one wrong keystroke, and
+ * settling on it would end the interrupt, hand the agent a refusal it can do
+ * nothing about, and force the presenter to ask for the card again. Only a
+ * published pack or the variance refusal beat 6 turns on settle.
  */
 function PublishCountersignCard({
   initialDashboardId,
@@ -275,7 +296,11 @@ function PublishCountersignCard({
   initialDashboardId?: DashboardId;
   /** `snapshot.dashboards[id].title`, read live through the caller's ref. */
   dashboardTitle: (id: DashboardId) => string;
-  onSubmit: (dashboardId: DashboardId, pin: string) => Promise<void>;
+  /**
+   * Resolves `null` once it has settled the interrupt, or a message to show
+   * inline while the card stays open for a retype.
+   */
+  onSubmit: (dashboardId: DashboardId, pin: string) => Promise<string | null>;
   onCancel: () => void;
 }) {
   const [dashboardId, setDashboardId] = useState<DashboardId>(
@@ -292,13 +317,15 @@ function PublishCountersignCard({
     }
     setBusy(true);
     setError(null);
+    let problem: string | null;
     try {
-      // Settles the interrupt itself (success or refusal) — see onSubmit's
-      // implementation below. Only an unexpected exception (a dropped
-      // request, a bad response body) reaches this catch, and THAT stays
-      // local: nothing was published, so the card stays open to retry
-      // rather than handing the agent a made-up outcome.
-      await onSubmit(dashboardId, pin);
+      // Settles the interrupt itself on a publish or the variance refusal,
+      // and returns a message instead when the card must stay open — see
+      // onSubmit's implementation below. Only an unexpected exception (a
+      // dropped request, a bad response body) reaches this catch, and THAT
+      // stays local too: nothing was published, so the card stays open to
+      // retry rather than handing the agent a made-up outcome.
+      problem = await onSubmit(dashboardId, pin);
     } catch (err) {
       console.error("[exec] publish countersign failed:", err);
       setBusy(false);
@@ -306,6 +333,12 @@ function PublishCountersignCard({
       return;
     }
     setPin("");
+    if (problem) {
+      // Still the presenter's card: re-enable it and say why, rather than
+      // leaving four disabled digits and a "Publishing…" button forever.
+      setBusy(false);
+      setError(problem);
+    }
   };
 
   return (
@@ -408,6 +441,72 @@ export function ExecTools() {
   useEffect(() => {
     ledgerRef.current = ledger;
   }, [ledger]);
+
+  // ══ BEATS 3a / 5 — PIN A RENDERED BLOCK ══════════════════════════════════
+  //
+  // The agent's own half of the pin. `render_metric_block` (`agent.ts`) creates
+  // a DRAFT and hands back its `blockId`; the operator can pin it from the
+  // block's own "Add to dashboard" control, and this tool is the agent's route
+  // to the same server write (`useExecLedger().addBlock` → POST
+  // `/api/exec/v1/dashboards/<id>/blocks`). Without it beat 5's seeded
+  // procedure ("pin all three to the CEO dashboard") had no executable step 4
+  // and could only ever be narrated.
+  //
+  // It pins an ALREADY-RENDERED block and cannot conjure one: `addBlock` 404s
+  // on an id with no draft behind it, and that refusal is relayed to the agent
+  // rather than swallowed, so a hallucinated id fails loudly in the transcript
+  // instead of looking like a pin that happened.
+  useFrontendTool(
+    {
+      name: "pinBlockToDashboard",
+      description:
+        "Pin a block you ALREADY rendered onto one of the two dashboards. " +
+        "Pass the 'blockId' that render_metric_block returned — never an id " +
+        "you composed, and never a title. Render the block first; this tool " +
+        "pins an existing one, it does not create anything. Idempotent: " +
+        "pinning the same block to the same dashboard twice leaves one card.",
+      parameters: z.object({
+        blockId: z
+          .string()
+          .describe(
+            "The id render_metric_block returned for the block to pin, " +
+              "verbatim.",
+          ),
+        dashboardId: z
+          .enum(["ceo", "cfo"])
+          .describe("Which dashboard the block lands on."),
+      }),
+      handler: async ({ blockId, dashboardId }) => {
+        const { addBlock, snapshot } = ledgerRef.current;
+        const title = snapshot.dashboards[dashboardId]?.title ?? dashboardId;
+        try {
+          await addBlock(dashboardId, blockId);
+        } catch (err) {
+          // Relayed, not swallowed: the agent has to be able to tell a pin
+          // that happened from one that did not, or it confirms a dashboard
+          // card that is not on screen.
+          console.error("[exec] pinBlockToDashboard failed:", err);
+          return (
+            `${PIN_FAILED_PREFIX}: ${err instanceof Error ? err.message : String(err)}. ` +
+            `Render the block first and pin the blockId it returns.`
+          );
+        }
+        return `Pinned to the ${title}.`;
+      },
+      // Replay-safe: the recorded sentence IS the receipt, and the failure
+      // arm is classified off its own prefix rather than off the mere
+      // presence of a settle — a failed pin must never read as a pin.
+      render: ({ result }) => {
+        if (typeof result !== "string") return null;
+        return result.startsWith(PIN_FAILED_PREFIX) ? (
+          <Receipt tone="negative">{result}</Receipt>
+        ) : (
+          <Receipt>{result}</Receipt>
+        );
+      },
+    },
+    [],
+  );
 
   // ══ BEAT 3c — NAVIGATE WITH LEVERS ═══════════════════════════════════════
   //
@@ -522,12 +621,12 @@ export function ExecTools() {
   // The agent names nothing but (optionally) which dashboard — the presenter
   // picks the dashboard and types the four-digit countersign PIN inside
   // `PublishCountersignCard` itself, which calls `publishPack` from
-  // `useExecLedger()` DIRECTLY. This is deliberately NOT a second path to
-  // `publish_board_pack` (`agent.ts`'s backend tool of the same write): that
-  // tool exists only so `store.publishPack`'s gate has one implementation,
-  // never as a route this card also drives — see that tool's own doc comment
-  // and EXEC_PROMPT rule 4 for why the agent must never call it with a PIN it
-  // composed. The agent's `respond()` gets either one sentence naming the
+  // `useExecLedger()` DIRECTLY. This card is the agent's ONLY publish path:
+  // `agent.ts`'s `publish_board_pack` tool of the same write is exported for
+  // its gate's unit tests and deliberately NOT registered, so there is no
+  // second route the agent could take with a PIN it composed — see that
+  // tool's own doc comment and EXEC_PROMPT rule 4. The agent's `respond()`
+  // gets either one sentence naming the
   // published pack, or the refusal `{ error, breaches }` VERBATIM — never the
   // digits, and never fewer than `UNEXPLAINED_VARIANCE` itself needs to
   // trigger beat 6's teach loop.
@@ -601,7 +700,14 @@ export function ExecTools() {
                 const title =
                   snapshot.dashboards[dashboardId]?.title ?? dashboardId;
                 respond?.(`${title} is published as a board pack.`);
-                return;
+                return null;
+              }
+              if (outcome.error === "BAD_COUNTERSIGN") {
+                // NOT settled — a typo is the presenter's to fix, and the
+                // agent has nothing to do with it (EXEC_PROMPT rule 4: "the
+                // card's business, not a puzzle"). Returning the message
+                // keeps the card open so they can retype the four digits.
+                return "That countersign PIN wasn't accepted. Nothing was published — try again.";
               }
               // Forwarded VERBATIM: `UNEXPLAINED_VARIANCE` must survive as
               // the literal string for beat 6's teach loop to fire, and each
@@ -620,6 +726,7 @@ export function ExecTools() {
                     }
                   : {}),
               });
+              return null;
             }}
             onCancel={() =>
               respond?.(

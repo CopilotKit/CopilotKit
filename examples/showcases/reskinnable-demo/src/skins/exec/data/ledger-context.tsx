@@ -159,7 +159,16 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blockId }),
       });
-      if (!res.ok) throw new Error(`add block failed: ${res.status}`);
+      if (!res.ok) {
+        // Read the body before throwing: the route answers a bad blockId
+        // with 404 `{ error: "NOT_FOUND", message }`, and that message is
+        // the only thing that says WHICH id had no draft behind it. A bare
+        // status code sends the reader to the network tab instead.
+        const body = (await res.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        throw new Error(`add block failed: ${body?.message ?? res.status}`);
+      }
       await refresh();
     },
     [refresh],

@@ -60,9 +60,14 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
   },
   {
     // ── BEAT 5 ──────────────────────────────────────────────────────────────
-    // A PROCEDURE, so recall produces visible ACTION — four tool calls in a
-    // row, each changing something on screen — rather than a reformatted
-    // answer. The parenthetical disjointness clause is load-bearing: without
+    // A PROCEDURE, so recall produces visible ACTION — six tool calls in a
+    // row (three renders, then three pins), each changing something on screen
+    // — rather than a reformatted answer. Step 4 names
+    // `pinBlockToDashboard` explicitly because it IS executable: the agent's
+    // half of the block's "Add to dashboard" control (`../tools.tsx`), taking
+    // the `blockId` each `render_metric_block` call returns. A step the agent
+    // can only narrate is a step the room watches not happen.
+    // The parenthetical disjointness clause is load-bearing: without
     // it the agent conflates this with beat 6 and starts offering to file a
     // variance narrative it already knows how to do.
     kind: "operational",
@@ -82,7 +87,8 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
       "a different situation, do not confuse them, and do not offer to record " +
       "anything here): (1) render a revenue-vs-plan metric tile for the " +
       "latest closed month, (2) render an opex variance bar, (3) render the " +
-      "initiative table, (4) pin all three to the CEO dashboard. Run all " +
+      "initiative table, (4) pin all three to the CEO dashboard, using " +
+      "pinBlockToDashboard with each rendered block's id. Run all " +
       "steps immediately, in order, without asking for confirmation, then " +
       "confirm what was done in one short sentence.",
   },

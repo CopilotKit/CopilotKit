@@ -22,8 +22,11 @@ import {
  * draft (`store.createDraftBlock`) is a block "Add to dashboard" can never
  * find, which fails silently a step later, on a different screen.
  *
- * `publish_board_pack` is the beat-6 gate: the agent has to be able to read
- * `UNEXPLAINED_VARIANCE` and its `breaches` back VERBATIM, because the whole
+ * `publish_board_pack` is the beat-6 gate. It is EXPORTED BUT NOT REGISTERED
+ * (see its doc comment in `agent.ts`) — the countersign card is the agent's
+ * only publish path — so this suite is the only caller of its `execute`, and
+ * that is exactly what it is for: the refusal shape has to read back
+ * `UNEXPLAINED_VARIANCE` and its `breaches` VERBATIM, because the whole
  * teach arc (offerWorkflowRecording → awaitDemonstration →
  * saveLearnedProcedure) only fires if the agent actually sees the refusal
  * rather than a swallowed or reshaped error.
@@ -75,6 +78,37 @@ describe("render_metric_block", () => {
     const pinned = store.addBlockToDashboard("cfo", blockId);
     expect(pinned.id).toBe(blockId);
     expect(pinned.spec.metricId).toBe("revenue");
+  });
+
+  /**
+   * The pin handle. `pinBlockToDashboard` (`./tools.tsx`) is the agent's route
+   * to the same write "Add to dashboard" performs, and the ONLY id it accepts
+   * is the one this result carries — an agent that cannot read a `blockId` off
+   * the render result cannot execute beat 5's step 4 at all, and would have to
+   * guess an id `addBlockToDashboard` throws NOT_FOUND on.
+   */
+  it("returns a blockId that store.addBlockToDashboard accepts", async () => {
+    const result = (await renderMetricBlockTool.execute!({
+      kind: "trendLine",
+      title: "Burn rate trend",
+      metricId: "burnRate",
+      department: "all",
+      months: 12,
+    })) as Record<string, unknown>;
+
+    const blockId = result.blockId;
+    expect(typeof blockId, "the pin needs a string blockId").toBe("string");
+
+    // The surface id and the pin handle are the SAME block — two ids here
+    // would pin something other than what the transcript is showing.
+    const ops = result[A2UI_OPERATIONS_KEY] as Record<string, unknown>[];
+    expect(extractSurfaceId(ops)).toBe(`${BLOCK_SURFACE_PREFIX}${blockId}`);
+
+    const pinned = store.addBlockToDashboard("ceo", blockId as string);
+    expect(pinned.id).toBe(blockId);
+    expect(store.snapshot().dashboards.ceo.blocks.map((b) => b.id)).toContain(
+      blockId,
+    );
   });
 });
 
