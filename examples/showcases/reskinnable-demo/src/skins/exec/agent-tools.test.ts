@@ -155,6 +155,82 @@ describe("render_metric_block", () => {
     },
   );
 
+  /**
+   * THE PHANTOM LEVER. Every prop the schema offers is accepted for every
+   * kind, but `buildKindComponent` forwards only the ones that kind's catalog
+   * definition declares — so `compare` on a trendLine, `months` on a
+   * metricTile and `department` on a varianceBar were taken, silently dropped,
+   * and then PERSISTED into the stored spec. On screen the varianceBar still
+   * drew all four departments while the agent said, truthfully as far as it
+   * knew, that it had scoped the block to Distribution.
+   *
+   * Refused as a RESULT rather than stripped: a strip is the same silence with
+   * extra steps, and the model has no way to learn that the block it is
+   * looking at is not the block it asked for.
+   */
+  it.each([
+    ["trendLine", "compare", { compare: "plan" }],
+    ["metricTile", "months", { months: 6 }],
+    ["varianceBar", "department", { department: "distribution" }],
+    ["varianceBar", "compare", { compare: "forecast" }],
+  ] as const)(
+    "refuses %s + %s as a READABLE RESULT instead of dropping the prop",
+    async (kind, prop, extra) => {
+      const result = (await renderMetricBlockTool.execute!({
+        kind,
+        title: "Scoped to something it cannot honour",
+        metricId: "opex",
+        ...extra,
+      })) as Record<string, unknown>;
+
+      expect(result.error).toBe("UNSUPPORTED_BLOCK_PROP");
+      expect(String(result.message)).toContain(kind);
+      expect(String(result.message)).toContain(prop);
+
+      // Nothing rendered and nothing stored — a dropped prop must not reach
+      // the spec the ledger route rebuilds ops from on every read.
+      expect(result[A2UI_OPERATIONS_KEY]).toBeUndefined();
+      expect(result.blockId).toBeUndefined();
+    },
+  );
+
+  it("refuses a metricId on the self-binding kinds, which bind their own rows", async () => {
+    const result = (await renderMetricBlockTool.execute!({
+      kind: "exceptionList",
+      title: "Open exceptions",
+      metricId: "opex",
+    })) as Record<string, unknown>;
+
+    expect(result.error).toBe("UNSUPPORTED_BLOCK_PROP");
+    expect(String(result.message)).toContain("metricId");
+    expect(result.blockId).toBeUndefined();
+  });
+
+  it("still renders every prop each kind actually honours", async () => {
+    // The guard must be a scalpel: metricTile keeps department + compare and
+    // trendLine keeps department + months, or beat 1 and beat 4 lose the two
+    // blocks they are built from.
+    const tile = (await renderMetricBlockTool.execute!({
+      kind: "metricTile",
+      title: "Distribution opex vs plan",
+      metricId: "opex",
+      department: "distribution",
+      compare: "plan",
+    })) as Record<string, unknown>;
+    expect(tile.error).toBeUndefined();
+    expect(typeof tile.blockId).toBe("string");
+
+    const trend = (await renderMetricBlockTool.execute!({
+      kind: "trendLine",
+      title: "Distribution opex trend",
+      metricId: "opex",
+      department: "distribution",
+      months: 6,
+    })) as Record<string, unknown>;
+    expect(trend.error).toBeUndefined();
+    expect(typeof trend.blockId).toBe("string");
+  });
+
   it("still renders the two self-binding kinds with no metricId", async () => {
     // The guard must be scoped to the metric-bound kinds only — an
     // exceptionList carries its own rows, and refusing it would break beat 6's
@@ -273,6 +349,22 @@ describe("exec agent-facing text", () => {
     expect(prompt).toMatch(/"any"/);
   });
 
+  /**
+   * THE INVENTORY HAS TO MATCH THE RULES. Rules 7, 11 and 13 all instruct the
+   * model to call `recall_memory` (and 7/13 to `save_memory`), but the closing
+   * inventory listed only the backend and frontend tools — so the two tools
+   * three numbered rules turn on were the only ones the model was never told
+   * it had. They attach over MCP (`app/api/copilotkit/[[...slug]]/route.ts`),
+   * which is exactly why the prompt has to name them: they are not in the
+   * agent's own `tools` array for the roster test above to cover.
+   */
+  it("lists the memory tools its own numbered rules tell the model to call", () => {
+    const prompt = surfaces()[0];
+    const inventory = prompt.slice(prompt.indexOf("Backend tools available"));
+    expect(inventory).toContain("recall_memory");
+    expect(inventory).toContain("save_memory");
+  });
+
   it("tells the model to render blocks one at a time", () => {
     // Two `render_metric_block` calls in one step collide on a single a2ui
     // surface and the second replaces the first (upstream
@@ -292,19 +384,56 @@ describe("exec agent-facing text", () => {
  * nothing. Both refusals must stay CODE-FREE, same as `BAD_CODE` above.
  */
 describe("file_variance_narrative", () => {
-  const VALID_ARGS = {
-    metricId: "opex" as const,
-    period: "2024-06",
-    code: "VAR-TIMING",
-    body: "Shipment timing shift pushed the spend into this period.",
+  /**
+   * DERIVED FROM THE SEED, NEVER HARDCODED. The ledger's 24 periods end at the
+   * latest CLOSED month (`data/seed.ts`'s `latestClosedMonth`), so they MOVE
+   * with the calendar: the literal "2024-06" this fixture used to carry named
+   * a period the store stopped holding, which is exactly the filing the
+   * existence guard below now refuses.
+   */
+  const openBreach = () => {
+    const exception = store
+      .exceptions()
+      .find((e) => e.metricId === "opex" && !e.explained);
+    if (!exception) {
+      throw new Error(
+        "fixture assumption broken: the seed no longer leaves an opex breach open",
+      );
+    }
+    return exception;
   };
 
+  /** An opex period the ledger HOLDS but does not breach — 24 months back. */
+  const settledPeriod = () => {
+    const rows = store.metricSeries({ metricId: "opex", department: "all" });
+    const period = rows[0]?.period;
+    if (!period || period === openBreach().period) {
+      throw new Error(
+        "fixture assumption broken: the seed no longer holds a settled opex period",
+      );
+    }
+    return period;
+  };
+
+  const validArgs = () => ({
+    metricId: "opex" as const,
+    period: openBreach().period,
+    code: "VAR-TIMING",
+    body: "Shipment timing shift pushed the spend into this period.",
+  });
+
   const WITHHELD_CODES = ["VAR-TIMING", "VAR-ONEOFF", "VAR-FX", "VAR-PLAN"];
+
+  /** No refusal may hand the model a code it is supposed to be taught. */
+  const namesNoCode = (result: unknown) => {
+    const text = JSON.stringify(result);
+    for (const code of WITHHELD_CODES) expect(text).not.toContain(code);
+  };
 
   it("refuses a malformed period and names no code — the store gains no narrative", async () => {
     const before = store.snapshot().narratives.length;
     const result = (await fileVarianceNarrativeTool.execute!({
-      ...VALID_ARGS,
+      ...validArgs(),
       period: "2024-6",
     })) as Record<string, unknown>;
 
@@ -319,26 +448,145 @@ describe("file_variance_narrative", () => {
   it("refuses a whitespace-only body and names no code — the store gains no narrative", async () => {
     const before = store.snapshot().narratives.length;
     const result = (await fileVarianceNarrativeTool.execute!({
-      ...VALID_ARGS,
+      ...validArgs(),
       body: "   ",
     })) as Record<string, unknown>;
 
     expect(result.error).toBe("EMPTY_BODY");
-    const text = JSON.stringify(result);
-    for (const code of WITHHELD_CODES) {
-      expect(text).not.toContain(code);
-    }
+    namesNoCode(result);
     expect(store.snapshot().narratives.length).toBe(before);
   });
 
-  it("files a valid narrative with the body trimmed", async () => {
+  it("files a valid narrative with the body trimmed, and clears its exception", async () => {
+    const { period } = openBreach();
     const result = (await fileVarianceNarrativeTool.execute!({
-      ...VALID_ARGS,
+      ...validArgs(),
       body: "  Shipment timing shift.  ",
     })) as Record<string, unknown>;
 
     const narrative = result.narrative as { body: string } | undefined;
     expect(narrative?.body).toBe("Shipment timing shift.");
+
+    // Filing against a REAL open breach carries no note — there is nothing to
+    // warn about, and a note here would read as a failure on the happy path.
+    expect(result.note).toBeUndefined();
+    expect(
+      store
+        .exceptions()
+        .find((e) => e.metricId === "opex" && e.period === period)?.explained,
+    ).toBe(true);
+  });
+
+  /**
+   * THE CODE COPIED VERBATIM — WITH ITS WHITESPACE. EXEC_PROMPT rule 6 tells
+   * the model to use a code exactly as the operator, a saved procedure or an
+   * attached document gave it, and forbids retrying with a different one. A
+   * code lifted off a filing form or out of a PDF arrives padded ("VAR-… \n"),
+   * and refusing THAT with BAD_CODE is a dead end on stage: the model did
+   * everything the prompt asked and has nothing left it is allowed to try.
+   */
+  it("files a code that arrived with stray whitespace around it", async () => {
+    const result = (await fileVarianceNarrativeTool.execute!({
+      ...validArgs(),
+      code: "  VAR-TIMING\n",
+    })) as Record<string, unknown>;
+
+    expect(result.error).toBeUndefined();
+    const narrative = result.narrative as { code: string } | undefined;
+    expect(narrative?.code).toBe("VAR-TIMING");
+    expect(store.snapshot().narratives).toHaveLength(1);
+  });
+
+  /**
+   * THE REFUSAL THAT MUST TEACH NOTHING. An invented code is refused — but the
+   * refusal is the one place a catalogue could leak by way of "did you mean",
+   * a list of accepted values, or a zod enum error. Asserted against the
+   * RESULT OBJECT, not just the prompt: the withheld-vocabulary suite above
+   * only sweeps `config.prompt` and the tool descriptions, and a code named in
+   * an error body reaches the model just as surely.
+   */
+  it("refuses an invented code as a readable result that names no valid code", async () => {
+    const before = store.snapshot().narratives.length;
+    const result = (await fileVarianceNarrativeTool.execute!({
+      ...validArgs(),
+      code: "VAR-MADE-UP",
+    })) as Record<string, unknown>;
+
+    expect(
+      result.error,
+      "the refusal has to arrive as a tool RESULT; a throw never reaches the client at all",
+    ).toBe("BAD_CODE");
+    namesNoCode(result);
+
+    // It says what to do instead — ask — or the model simply guesses again.
+    expect(String(result.message)).toMatch(/ask/i);
+    expect(store.snapshot().narratives.length).toBe(before);
+  });
+
+  it("refuses a code that is only whitespace-padded nonsense, still naming none", async () => {
+    const result = (await fileVarianceNarrativeTool.execute!({
+      ...validArgs(),
+      code: "   ",
+    })) as Record<string, unknown>;
+
+    expect(result.error).toBe("BAD_CODE");
+    namesNoCode(result);
+    expect(store.snapshot().narratives).toHaveLength(0);
+  });
+
+  /**
+   * THE GREEN LIE. A shape-valid (metricId, period) that names no row in the
+   * ledger used to file cleanly: the tool said "filed", the store gained a
+   * narrative matching no point, and the publish gate went on refusing with
+   * nothing to connect the two. The agent's only readable signal was success,
+   * so rule 7 sent it round the same loop again.
+   */
+  it("refuses a period the ledger holds no row for — the store gains no narrative", async () => {
+    const before = store.snapshot().narratives.length;
+    const result = (await fileVarianceNarrativeTool.execute!({
+      ...validArgs(),
+      period: "2030-01",
+    })) as Record<string, unknown>;
+
+    expect(result.error).toBe("NO_LEDGER_POINT");
+    expect(String(result.message)).toContain("2030-01");
+    expect(String(result.message)).toContain("opex");
+    // It names the way out: read the ledger and file against a real period.
+    expect(String(result.message)).toMatch(/get_metrics|list_exceptions/);
+    namesNoCode(result);
+    expect(result.narrative).toBeUndefined();
+    expect(store.snapshot().narratives.length).toBe(before);
+  });
+
+  /**
+   * EXISTING BUT NOT BREACHING — filed, and SAID SO. The write semantics do
+   * not change (a narrative against a real period is a legitimate record), but
+   * the result has to tell the model this filing cleared nothing, or a publish
+   * still refused for UNEXPLAINED_VARIANCE looks like the gate contradicting
+   * a filing that just succeeded.
+   */
+  it("files against a real non-breaching period but says no open breach matched", async () => {
+    const period = settledPeriod();
+    const result = (await fileVarianceNarrativeTool.execute!({
+      ...validArgs(),
+      period,
+    })) as Record<string, unknown>;
+
+    expect(result.error).toBeUndefined();
+    expect((result.narrative as { period: string }).period).toBe(period);
+    expect(store.snapshot().narratives).toHaveLength(1);
+
+    const note = String(result.note ?? "");
+    expect(
+      note,
+      "a filing that clears nothing must say so, or the model reads the publish refusal as a contradiction",
+    ).not.toBe("");
+    expect(note).toContain(period);
+    expect(note).toMatch(/list_exceptions/);
+    // The NOTE names no code — the filed narrative echoed back beside it does
+    // carry one, and must: that is the store's record of what the operator
+    // gave the agent, not the tool teaching it a code it did not have.
+    namesNoCode({ note });
   });
 });
 

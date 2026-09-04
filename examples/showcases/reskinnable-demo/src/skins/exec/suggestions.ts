@@ -100,6 +100,14 @@ export const execSuggestions: Suggestion[] = [
   // fewer than five Distribution rows put a number on the pill the screen
   // could not honour. The levers still do the work; the ask is now for the
   // worst variances, which is true whatever the board holds.
+  //
+  // "THE BIGGEST ONE AT THE TOP" IS PAIRED WITH EXEC_PROMPT RULE 10. The
+  // explorer sorts by |variance| only while the `top` lever holds a positive
+  // integer (`pages/metric-rows.ts`), and rule 10's default answer for a lever
+  // the operator did not name is the `0` sentinel — which sorts nothing. Rule
+  // 10 therefore carries an explicit exception for a "worst/biggest" ask, and
+  // `suggestions.test.ts` pins the two together: reword this promise and that
+  // test asks you to reword the rule with it.
   {
     title: "Show the worst Distribution variances",
     message:
