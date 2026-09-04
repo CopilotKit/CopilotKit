@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   A2UI_OPERATIONS_KEY,
+  BLOCK_KIND_PROPS,
   buildBlockOps,
   extractSurfaceId,
   isBlockSurfaceId,
+  METRIC_BOUND_KINDS,
   BLOCK_SURFACE_PREFIX,
 } from "./build-block-ops";
 import type { A2UIOp } from "./build-block-ops";
@@ -228,7 +230,7 @@ describe("buildBlockOps", () => {
     ["initiativeTable", "metricId", { metricId: "revenue" }],
     ["exceptionList", "department", { department: "all" }],
   ] as const)(
-    "throws KIND_PROP_UNSUPPORTED for %s carrying %s",
+    "throws UNSUPPORTED_BLOCK_PROP for %s carrying %s",
     (kind, prop, extra) => {
       // Metric-bound kinds need a metricId to get past METRIC_ID_REQUIRED;
       // the other two do not support one at all.
@@ -242,10 +244,67 @@ describe("buildBlockOps", () => {
         ...extra,
       } as BlockSpec;
       expect(() => buildBlockOps(offending, "b1")).toThrow(
-        `KIND_PROP_UNSUPPORTED: a "${kind}" block does not support "${prop}"`,
+        `UNSUPPORTED_BLOCK_PROP: a "${kind}" block does not support "${prop}"`,
       );
     },
   );
+
+  /**
+   * ONE SPELLING, TWO ENFORCERS. `agent.ts`'s `render_metric_block` returns
+   * this same condition as a friendly RESULT (so the model can retry) where
+   * `assertValidBlockSpec` THROWS it (so every other caller fails loud), and
+   * the two used to disagree on the code itself — `UNSUPPORTED_BLOCK_PROP`
+   * there, `KIND_PROP_UNSUPPORTED` here — while five comments across three
+   * files claimed they matched. Nothing keys on the spelling at runtime
+   * (`tools.tsx`'s settle classifier reads the error SHAPE), which is exactly
+   * why the drift survived: it cost nothing until someone grepped for one
+   * spelling and concluded the other path did not exist.
+   */
+  it("throws the same code agent.ts returns for the same condition", () => {
+    const offending = {
+      kind: "varianceBar",
+      title: "T",
+      metricId: "opex",
+      department: "all",
+    } as BlockSpec;
+    expect(() => buildBlockOps(offending, "b1")).toThrow(
+      /^UNSUPPORTED_BLOCK_PROP/,
+    );
+  });
+
+  /**
+   * THE DRIFT GUARD for the table `agent.ts` now DERIVES its tool-boundary
+   * guard from. `BLOCK_KIND_PROPS` is exported so the tool no longer
+   * hand-copies a module-private list; that only helps if the exported table
+   * still describes what `buildKindComponent` actually forwards. Asserted
+   * against the built ops rather than against the switch's source, so a case
+   * arm that stops forwarding a declared prop fails here.
+   */
+  it("declares, per kind, exactly the props buildKindComponent forwards", () => {
+    for (const [kind, props] of Object.entries(BLOCK_KIND_PROPS)) {
+      const declaring = {
+        kind,
+        title: "T",
+        ...(METRIC_BOUND_KINDS.has(kind as BlockSpec["kind"])
+          ? { metricId: "opex" }
+          : {}),
+        ...Object.fromEntries(
+          Object.keys(props).map((p) => [
+            p,
+            { metricId: "opex", department: "all", compare: "plan", months: 6 }[
+              p as "metricId" | "department" | "compare" | "months"
+            ],
+          ]),
+        ),
+      } as BlockSpec;
+      const kindComponent = componentsOf(buildBlockOps(declaring, "b1")).find(
+        (c) => c.id === "kind",
+      );
+      expect(Object.keys(kindComponent!).sort()).toEqual(
+        ["id", "component", ...Object.keys(props)].sort(),
+      );
+    }
+  });
 
   it("accepts every spec the seeded dashboards store", () => {
     const seeded: BlockSpec[] = [

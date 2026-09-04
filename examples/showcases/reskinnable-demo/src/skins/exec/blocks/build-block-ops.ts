@@ -46,7 +46,7 @@ export const METRIC_BOUND_KINDS: ReadonlySet<BlockKind> = new Set([
 /**
  * Every optional QUERY prop a `BlockSpec` can carry, keyed off the interface
  * itself: adding a field to `BlockSpec` fails to compile until it is listed
- * here (and therefore placed in `KIND_PROPS` below), instead of silently
+ * here (and therefore placed in `BLOCK_KIND_PROPS` below), instead of silently
  * becoming a prop no kind declares and no guard checks.
  */
 const SPEC_QUERY_PROPS = {
@@ -66,8 +66,16 @@ type SpecQueryProp = keyof typeof SPEC_QUERY_PROPS;
  * `satisfies Record<BlockKind, …>` is what makes this EXHAUSTIVE: a new
  * `BlockKind` fails to compile here (and in `buildKindComponent`'s switch)
  * rather than compiling fine and being rejected at runtime as unknown.
+ *
+ * EXPORTED because `agent.ts`'s `render_metric_block` guard needs the same
+ * table to phrase its correctable refusal, and used to keep a hand-written
+ * copy of it — a copy nothing compared against this one, so the two could
+ * drift into a tool that refuses a prop the builder happily forwards (or the
+ * reverse) with no test and no compile error anywhere. The tool derives from
+ * this now; `build-block-ops.test.ts` pins this against what
+ * `buildKindComponent` actually emits.
  */
-const KIND_PROPS = {
+export const BLOCK_KIND_PROPS = {
   metricTile: { metricId: true, department: true, compare: true },
   trendLine: { metricId: true, department: true, months: true },
   varianceBar: { metricId: true },
@@ -76,7 +84,7 @@ const KIND_PROPS = {
 } satisfies Record<BlockKind, Partial<Record<SpecQueryProp, true>>>;
 
 const ALL_BLOCK_KINDS: ReadonlySet<BlockKind> = new Set(
-  Object.keys(KIND_PROPS) as BlockKind[],
+  Object.keys(BLOCK_KIND_PROPS) as BlockKind[],
 );
 
 /**
@@ -114,9 +122,12 @@ const CATALOG_METRIC_IDS: ReadonlySet<string> = new Set(
  *    narrow. The catalog declares `months` a positive int, so any other value
  *    can only produce a wrong window or a silently defaulted one.
  *
- * Codes and wording match `agent.ts`'s guard (`METRIC_ID_REQUIRED`) and
- * `store-errors.ts`'s `CODE: message` convention, so a caller that relays the
- * thrown message tells the same story either way.
+ * Codes and wording match `agent.ts`'s guards (`METRIC_ID_REQUIRED`,
+ * `UNSUPPORTED_BLOCK_PROP`, `MONTHS_INVALID`) and `store-errors.ts`'s
+ * `CODE: message` convention, so a caller that relays the thrown message tells
+ * the same story either way. `agent.ts` RETURNS those codes where this THROWS
+ * them, and one spelling per condition is what lets a grep for either arm find
+ * both.
  */
 export function assertValidBlockSpec(spec: BlockSpec): void {
   if (!ALL_BLOCK_KINDS.has(spec.kind)) {
@@ -130,12 +141,13 @@ export function assertValidBlockSpec(spec: BlockSpec): void {
     );
   }
 
-  const supported: Partial<Record<SpecQueryProp, true>> = KIND_PROPS[spec.kind];
+  const supported: Partial<Record<SpecQueryProp, true>> =
+    BLOCK_KIND_PROPS[spec.kind];
   for (const prop of Object.keys(SPEC_QUERY_PROPS) as SpecQueryProp[]) {
     if (spec[prop] === undefined) continue;
     if (!supported[prop]) {
       throw new Error(
-        `KIND_PROP_UNSUPPORTED: a "${spec.kind}" block does not support "${prop}"`,
+        `UNSUPPORTED_BLOCK_PROP: a "${spec.kind}" block does not support "${prop}"`,
       );
     }
   }
@@ -200,9 +212,12 @@ export function buildBlockOps(
 
 /**
  * Build the one kind-specific component, forwarding only the props its catalog
- * definition declares — the runtime mirror of `KIND_PROPS` above, which
+ * definition declares — the runtime mirror of `BLOCK_KIND_PROPS` above, which
  * `assertValidBlockSpec` has already checked the spec against, so nothing
- * reaching here carries a prop this switch would have to drop.
+ * reaching here carries a prop this switch would have to drop. Forwarding an
+ * undeclared prop is not an error the catalog reports: its zod schemas STRIP
+ * what they do not recognise, so the block renders as if the prop had never
+ * been asked for.
  */
 function buildKindComponent(id: string, spec: BlockSpec): Component {
   switch (spec.kind) {
@@ -223,11 +238,8 @@ function buildKindComponent(id: string, spec: BlockSpec): Component {
         months: spec.months,
       };
     case "varianceBar":
-      // VarianceBar's catalog definition declares { metricId } only — do NOT
-      // forward compare/department/months, zod would strip extras silently.
       return { id, component: "VarianceBar", metricId: spec.metricId };
     case "initiativeTable":
-      // InitiativeTable takes no props.
       return { id, component: "InitiativeTable" };
     case "exceptionList":
       // ExceptionList takes `audience`, not part of BlockSpec — omit.
