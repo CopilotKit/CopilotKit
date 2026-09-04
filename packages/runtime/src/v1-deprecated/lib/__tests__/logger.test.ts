@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Typed so the call tuple carries pino's own (options, stream) shape. An
+// untyped vi.fn() has an empty tuple, and reading calls[0] then fails
+// `tsc --noEmit` with TS2493.
 const { createPinoLogger } = vi.hoisted(() => ({
-  createPinoLogger: vi.fn(() => ({
-    child: vi.fn(() => ({ __child: true })),
-  })),
+  createPinoLogger: vi.fn(
+    (_options: Record<string, unknown>, _stream?: unknown) => ({
+      child: vi.fn(() => ({ __child: true })),
+    }),
+  ),
 }));
 
 vi.mock("pino", () => ({ default: createPinoLogger }));
@@ -11,9 +16,13 @@ vi.mock("pino-pretty", () => ({ default: vi.fn(() => ({ __stream: true })) }));
 
 import { createLogger } from "../logger";
 
-function optionsPassedToPino() {
+function optionsPassedToPino(): Record<string, unknown> {
   expect(createPinoLogger).toHaveBeenCalled();
-  return createPinoLogger.mock.calls.at(-1)![0] as Record<string, unknown>;
+  const lastCall = createPinoLogger.mock.calls.at(-1);
+  if (lastCall === undefined) {
+    throw new Error("createLogger did not call pino");
+  }
+  return lastCall[0];
 }
 
 beforeEach(() => {
