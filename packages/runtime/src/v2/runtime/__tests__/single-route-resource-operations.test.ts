@@ -330,3 +330,35 @@ test("single-route resource requests preserve REST method errors", async () => {
   expect(response.status).toBe(405);
   expect(response.headers.get("allow")).toBe("GET");
 });
+
+test("single-route resource errors report the matched resource path", async () => {
+  const onError = vi.fn().mockReturnValue(new Response(null, { status: 503 }));
+  const runtime = new CopilotRuntime({ agents: {} });
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+    activateChannels: false,
+    hooks: {
+      onBeforeHandler: () => {
+        throw new Error("resource failed");
+      },
+      onError,
+    },
+  });
+
+  const response = await handler(
+    resourceRequest({
+      path: "/threads/thread-1/messages",
+      httpMethod: "GET",
+      route: { method: "threads/messages", threadId: "thread-1" },
+    }),
+  );
+
+  expect(response.status).toBe(503);
+  expect(onError).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: "/api/copilotkit/threads/thread-1/messages",
+    }),
+  );
+});

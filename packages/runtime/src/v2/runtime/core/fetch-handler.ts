@@ -493,7 +493,7 @@ export function createCopilotRuntimeHandler(
         path: handlerPath,
       }).catch((error: unknown) => {
         logger.error(
-          { err: error, url: request.url, path },
+          { err: error, url: request.url, path: handlerPath },
           "Error running after request middleware",
         );
       });
@@ -517,7 +517,7 @@ export function createCopilotRuntimeHandler(
         const errorResponse = await runOnError(hooks, {
           request,
           error,
-          path,
+          path: handlerPath,
           runtime,
           route,
         });
@@ -527,13 +527,18 @@ export function createCopilotRuntimeHandler(
         }
       } catch (hookError: unknown) {
         logger.error(
-          { err: hookError, originalErr: error, url: request.url, path },
+          {
+            err: hookError,
+            originalErr: error,
+            url: request.url,
+            path: handlerPath,
+          },
           "onError hook threw",
         );
       }
 
       logger.error(
-        { err: error, url: request.url, path },
+        { err: error, url: request.url, path: handlerPath },
         "Unhandled error in CopilotKit runtime handler",
       );
 
