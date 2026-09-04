@@ -15,7 +15,9 @@ import {
   SaveProcedureSettle,
   SettleReceipt,
   classifyToolSettle,
+  publishRefusalPayload,
 } from "./tools";
+import type { Exception, MetricDef } from "./data/types";
 
 /**
  * Every render in `tools.tsx` reads the SAME kind of value: whatever string
@@ -270,6 +272,92 @@ describe("confirmPublishCountersign's settled render", () => {
     );
     expect(container.textContent).not.toMatch(/SOME_NEW_GATE/);
     expect(container.textContent).toMatch(/some new gate/);
+  });
+});
+
+/**
+ * The hop BETWEEN the two renders above and the store: whatever `publishPack`
+ * resolved with has to reach `respond()` intact, or the receipt's message arm
+ * is unreachable no matter how well it renders. `EMPTY_DASHBOARD` is the
+ * case that proves it — `REFUSAL_PHRASES` has no wording of its own for that
+ * code, so the store's sentence IS the whole explanation, and dropping it in
+ * this hop put "Publish refused: empty dashboard." on the screen instead.
+ */
+describe("the countersign card's refusal forwarding", () => {
+  const METRIC_DEFS = [
+    { id: "opex", label: "Operating expense" },
+  ] as unknown as MetricDef[];
+
+  const EMPTY_DASHBOARD_MESSAGE =
+    'The "cfo" dashboard has no metric-bound block, so a board pack built ' +
+    "from it would report nothing and its variance gate would check nothing.";
+
+  it("prints the store's explanation for a code the receipt cannot word itself", () => {
+    const payload = publishRefusalPayload(
+      { error: "EMPTY_DASHBOARD", message: EMPTY_DASHBOARD_MESSAGE },
+      METRIC_DEFS,
+    );
+    expect(payload.message).toBe(EMPTY_DASHBOARD_MESSAGE);
+
+    const { container } = render(countersign(JSON.stringify(payload)));
+    expect(tone(container)).toBe("negative");
+    expect(container.textContent).toMatch(/no metric-bound block/);
+    expect(container.textContent).not.toMatch(/EMPTY_DASHBOARD/);
+    // Not the enum spelled as words either — that fallback is what having a
+    // message is supposed to displace.
+    expect(container.textContent).not.toMatch(/empty dashboard/);
+  });
+
+  it("carries the message alongside breaches without disturbing either", () => {
+    const breaches = [
+      {
+        metricId: "opex",
+        period: "2024-06",
+        department: "manufacturing",
+        variancePct: 12,
+        explained: false,
+      },
+    ] as unknown as Exception[];
+    const payload = publishRefusalPayload(
+      {
+        error: "UNEXPLAINED_VARIANCE",
+        message: "Two metrics breach without a filed narrative.",
+        breaches,
+      },
+      METRIC_DEFS,
+    );
+
+    const { container } = render(countersign(JSON.stringify(payload)));
+    expect(container.textContent).toMatch(/Two metrics breach/);
+    // The breach list is reshaped to the display trio, and the metric id is
+    // resolved to its label.
+    expect(payload.breaches).toEqual([
+      {
+        metric: "Operating expense",
+        department: "manufacturing",
+        period: "2024-06",
+      },
+    ]);
+    expect(container.querySelectorAll("li")).toHaveLength(1);
+  });
+
+  it("still answers BAD_COUNTERSIGN with the code and NOTHING else", () => {
+    // The PIN gate runs first precisely so a bad countersign learns nothing;
+    // this hop must never grow it a body.
+    expect(
+      publishRefusalPayload({ error: "BAD_COUNTERSIGN" }, METRIC_DEFS),
+    ).toEqual({ error: "BAD_COUNTERSIGN" });
+  });
+
+  it("omits a message the store never sent rather than forwarding undefined", () => {
+    const payload = publishRefusalPayload(
+      { error: "UNEXPLAINED_VARIANCE" },
+      METRIC_DEFS,
+    );
+    expect("message" in payload).toBe(false);
+    // …and the receipt falls back to this file's own phrasing.
+    const { container } = render(countersign(JSON.stringify(payload)));
+    expect(container.textContent).toMatch(/narrative/i);
   });
 });
 

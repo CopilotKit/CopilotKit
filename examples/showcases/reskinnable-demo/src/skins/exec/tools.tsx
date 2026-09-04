@@ -11,7 +11,7 @@ import {
 import { useSkinHref } from "@/shell/skin-path";
 import { useRecording } from "@/shell/teach";
 import { useExecLedger } from "./data/ledger-context";
-import type { DashboardId, MetricDef, MetricId } from "./data/types";
+import type { DashboardId, Exception, MetricDef, MetricId } from "./data/types";
 import { execNavTarget } from "./nav-target";
 import { execNav } from "./nav";
 
@@ -145,6 +145,41 @@ interface PublishRefusal {
    */
   message?: string;
   breaches?: Breach[];
+}
+
+/**
+ * What the countersign card's `respond()` hands the transcript when the
+ * publish gate REFUSES — the one hop between `publishPack`'s parsed result and
+ * `parseRefusal`, extracted from the card's `onSubmit` so the forwarding is
+ * assertable on its own.
+ *
+ * `error` travels VERBATIM: `UNEXPLAINED_VARIANCE` must survive as the literal
+ * string for beat 6's teach loop to fire. `message` travels beside it because
+ * it is the only half written for a person, and `EMPTY_DASHBOARD` — which
+ * `REFUSAL_PHRASES` has no wording of its own for — has nothing else to say.
+ * Each breach is reshaped to metric/department/period only, never the withheld
+ * narrative-code vocabulary (which no `Exception` even carries).
+ *
+ * Both extras are spread CONDITIONALLY: a `BAD_COUNTERSIGN` refusal answers
+ * `{ error }` and nothing else, and this must never grow it a body.
+ */
+export function publishRefusalPayload(
+  outcome: { error: string; message?: string; breaches?: Exception[] },
+  metricDefs: MetricDef[],
+): PublishRefusal {
+  return {
+    error: outcome.error,
+    ...(outcome.message ? { message: outcome.message } : {}),
+    ...(outcome.breaches
+      ? {
+          breaches: outcome.breaches.map((b) => ({
+            metric: metricLabel(metricDefs, b.metricId),
+            department: b.department,
+            period: b.period,
+          })),
+        }
+      : {}),
+  };
 }
 
 /**
@@ -1496,23 +1531,9 @@ export function ExecTools() {
                 // keeps the card open so they can retype the four digits.
                 return "That countersign PIN wasn't accepted. Nothing was published — try again.";
               }
-              // Forwarded VERBATIM: `UNEXPLAINED_VARIANCE` must survive as
-              // the literal string for beat 6's teach loop to fire, and each
-              // breach is reshaped to metric/department/period only — never
-              // the withheld narrative-code vocabulary, which no Exception
-              // even carries.
-              respond?.({
-                error: outcome.error,
-                ...(outcome.breaches
-                  ? {
-                      breaches: outcome.breaches.map((b) => ({
-                        metric: metricLabel(snapshot.metricDefs, b.metricId),
-                        department: b.department,
-                        period: b.period,
-                      })),
-                    }
-                  : {}),
-              });
+              // Forwarded by `publishRefusalPayload` — see its doc comment for
+              // what travels and what deliberately does not.
+              respond?.(publishRefusalPayload(outcome, snapshot.metricDefs));
               return null;
             }}
             // The literal `PUBLISH_CANCELLED` — the settle classifier
