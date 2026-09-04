@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   BarChart3,
+  Brain,
   MessagesSquare,
   Server,
   Sparkles,
@@ -28,6 +29,13 @@ const FEATURES = [
     href: "/threads",
     cta: "Open the Rich Threads guide",
     icon: MessagesSquare,
+  },
+  {
+    title: "Memory",
+    body: "Carry durable facts and preferences across conversations without tying them to one thread.",
+    href: "/intelligence/memories",
+    cta: "Open the Memory guide",
+    icon: Brain,
   },
   {
     title: "Analytics",

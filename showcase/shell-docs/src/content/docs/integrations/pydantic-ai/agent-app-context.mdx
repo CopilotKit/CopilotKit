@@ -4,6 +4,8 @@ icon: "lucide/BookA"
 description: Share app specific context with your Pydantic AI agent.
 ---
 
+import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
+
 One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
 This way, you can notify CopilotKit of what is going on in your app in real time.
 Some examples might be: the current user, the current page, etc.
@@ -12,6 +14,8 @@ This context can then be shared with your Pydantic AI agent.
 
 ## Implementation
 
+
+<AgentContextJsonString />
 <Callout>
     Check out the [Frontend Data documentation](/langgraph-python/agent-app-context) to understand what this is and how to use it.
 </Callout>

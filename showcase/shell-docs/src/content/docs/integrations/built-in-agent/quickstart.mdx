@@ -1,10 +1,11 @@
 ---
 title: Quickstart
-description: Get started with CopilotKit's Built-in Agent in minutes.
+description: Build a working AI chat with CopilotKit in minutes.
 icon: "lucide/Play"
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+import { QuickstartIntelligenceCta } from "@/components/quickstart-intelligence-cta";
 
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import {
@@ -14,11 +15,6 @@ import {
   MonitorIcon,
 } from "lucide-react";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
-
-<IntelligenceOnboardingPrompt
-  feature="learning"
-  surface="docs_built_in_agent_quickstart"
-/>
 
 ## Prerequisites
 
@@ -32,15 +28,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Set up CopilotKit Intelligence
-
-        <SignupLink surface="docs_built_in_agent_quickstart_step1">Sign in to managed Intelligence</SignupLink>. Managed setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
-    </Step>
-
-    <Step>
         ### Create your frontend
 
-        CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+        CopilotKit's React components work with Next.js, React Router, Remix, TanStack Start, Vite, and other React apps. This walkthrough uses Next.js because it can host the frontend and runtime in one project.
 
         ```bash
         npx create-next-app@latest my-copilot-app
@@ -48,7 +38,7 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="Already have an app?">
-          Skip this step and install CopilotKit into your existing React or Next.js project. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) scaffolds a brand-new project in its own directory — it does not add CopilotKit to an app you already have.
+          Keep your current setup and install CopilotKit there. Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
         </Callout>
     </Step>
     <Step>
@@ -58,7 +48,7 @@ Before you begin, you'll need the following:
         npm install @copilotkit/react-core @copilotkit/runtime
         ```
 
-        The components used below (`CopilotKit`, `CopilotSidebar`) and the
+        The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
         stylesheet all come from `@copilotkit/react-core/v2`, so
         `@copilotkit/react-ui` is not needed for this setup.
     </Step>
@@ -72,7 +62,7 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="What about other models?">
-          This example uses OpenAI's GPT-4o. See [Model Selection](/model-selection) for Anthropic, Google, or custom model setup.
+          This example uses an OpenAI model. See [Model Selection](/model-selection) for Anthropic, Google, or custom model setup.
         </Callout>
     </Step>
     <Step>
@@ -96,7 +86,6 @@ Before you begin, you'll need the following:
 
         ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
         import {
-          CopilotKitIntelligence,
           CopilotRuntime,
           createCopilotRuntimeHandler,
         } from "@copilotkit/runtime/v2";
@@ -108,15 +97,6 @@ Before you begin, you'll need the following:
 
         const runtime = new CopilotRuntime({
           agents: { default: builtInAgent }, // [!code highlight],
-          // [!code highlight:8]
-          intelligence: new CopilotKitIntelligence({
-            apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
-          }),
-          // Threads are per-user. Without this, every visitor shares one history.
-          identifyUser: (request) => ({
-            id: request.headers.get("x-user-id") ?? "anonymous",
-            name: request.headers.get("x-user-name") ?? "Anonymous",
-          }),
         });
 
         const handler = createCopilotRuntimeHandler({
@@ -127,44 +107,14 @@ Before you begin, you'll need the following:
         export const GET = handler;
         export const POST = handler;
         ```
-
-        From this frontend app directory, connect the runtime to an Intelligence project:
-
-        ```bash title="Terminal"
-        npx copilotkit@latest project select
-        ```
-
-        The command writes the server-side project API key to `.env`. The runtime reads it here:
-
-        ```plaintext title=".env"
-        CPK_INTELLIGENCE_API_KEY=cpk-...
-        ```
-
-        <Callout type="info" title="Running without the Intelligence Platform?">
-          Drop the `intelligence` and `identifyUser` options and the runtime falls back
-          to SSE mode with an in-memory runner. Chat still works, but Threads and the
-          Inspector stay locked and the key is never read. See
-          [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the
-          full constructor and how to confirm the key is in use.
-        </Callout>
     </Step>
     <Step>
         ### Configure CopilotKit Provider
 
         Wrap your application with the CopilotKit provider:
 
-        <Callout type="info" title="Which provider goes with which handler?">
-          `<CopilotKit>` here is the backward-compatible wrapper, and every released
-          version pins it to the single-route transport — which is why it needs the
-          explicit `useSingleEndpoint={false}` below to reach the multi-route
-          `createCopilotRuntimeHandler` route above. `<CopilotKitProvider>` is the v2
-          provider from the same package and detects the transport from `/info` on
-          its own. They are not aliases — see
-          [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
-        </Callout>
-
         ```tsx title="app/layout.tsx"
-        import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { CopilotKitProvider } from "@copilotkit/react-core/v2"; // [!code highlight]
         import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
         import './globals.css';
 
@@ -175,9 +125,9 @@ Before you begin, you'll need the following:
             <html lang="en">
               <body>
                 {/* [!code highlight:3] */}
-                <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+                <CopilotKitProvider runtimeUrl="/api/copilotkit">
                   {children}
-                </CopilotKit>
+                </CopilotKitProvider>
               </body>
             </html>
           );
@@ -238,7 +188,7 @@ Before you begin, you'll need the following:
         </Tabs>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
         Your AI agent is now ready to use! Try asking it some questions:
 
@@ -280,9 +230,17 @@ Before you begin, you'll need the following:
 
 </Steps>
 
+## Keep conversations between visits
+
+Your sample chat is running. When you need production conversation history,
+CopilotKit Intelligence can keep each user's messages, generated interfaces,
+and tool activity available across sessions and devices.
+
+<QuickstartIntelligenceCta />
+
 ## What's next?
 
-Now that you have your basic agent setup, explore these advanced features:
+Now that your basic chat is running, explore these advanced features:
 
 <Cards>
   <Card

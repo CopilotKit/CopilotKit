@@ -32,10 +32,14 @@
  * --fd-banner-height is set dynamically by Banners (40px / 0px). */
 :root {
   --fd-nav-height: 64px;
-  --shell-docs-layout-width: calc(97rem + 11px);
+  /* Keep the desktop docs shell inside one centered editorial frame. This is
+   * wide enough for comfortable prose, demos, and a TOC without returning the
+   * sidebar to the browser edge like the previous 97rem default did. */
+  --shell-docs-layout-width: min(88rem, 100vw);
+  --fd-layout-width: var(--shell-docs-layout-width);
   --shell-docs-grid-gutter: 0px;
   --shell-docs-grid-top-offset: 0px;
-  --docs-reading-width: 42.5rem;
+  --docs-reading-width: 46rem;
   --docs-breakout-width: 51.25rem;
   --docs-content-gutter: 1rem;
   --radius: 0.875rem;
@@ -964,6 +968,15 @@ figure.shiki > div:first-child[class*="border-b"] {
     grid-column: 1 / -1 !important;
     width: 100% !important;
   }
+
+  /* Fumadocs assigns the compact TOC to its desktop `toc-popover` grid
+   * area. Once the mobile grid collapses to one column, make the sticky
+   * control follow that column instead of leaving it in an implicit rail. */
+  #nd-docs-layout > [data-toc-popover] {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
 }
 
 @media (min-width: 768px) and (max-width: 1279px) {
@@ -983,6 +996,9 @@ figure.shiki > div:first-child[class*="border-b"] {
 
 @media (min-width: 1280px) {
   #nd-docs-layout {
+    width: var(--shell-docs-layout-width) !important;
+    max-width: calc(100% - 2rem) !important;
+    margin-inline: auto !important;
     margin-top: var(--shell-docs-grid-top-offset) !important;
     padding-top: 0 !important;
     /* Override fumadocs's `--fd-docs-row-1: var(--fd-banner-height, 0px)`.
@@ -1132,13 +1148,12 @@ figure.shiki > div:first-child[class*="border-b"] {
 
 @media (min-width: 1280px) {
   #nd-docs-layout:not(:has(#nd-toc)) article#nd-page[data-full="true"] {
-    grid-column: main-start / toc-end;
+    grid-column: main;
   }
 }
 
-/* Content-page header — one compact reading cluster rather than four stacked
- * bands. The title remains the dominant element; utility actions stay neutral
- * and share its row when the real copy fits, then wrap naturally as a group. */
+/* Content-page header — one compact reading cluster. The title and description
+ * establish the page before the primary setup action appears directly below. */
 .docs-page-header {
   margin-bottom: 2.75rem;
 }
@@ -1192,11 +1207,8 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 .docs-page-tools {
-  --docs-page-actions-hover: color-mix(
-    in oklch,
-    var(--accent-fill) 68%,
-    black
-  );
+  --docs-page-actions-hover: color-mix(in oklch, var(--accent-fill) 68%, black);
+  --docs-page-actions-orbit: 0deg;
   position: relative;
   isolation: isolate;
   flex: 0 0 auto;
@@ -1206,30 +1218,126 @@ figure.shiki > div:first-child[class*="border-b"] {
   border-radius: var(--shell-docs-radius-control);
 }
 
-/* One low-contrast light pass gives the primary page action a little energy
- * without turning a reading surface into a looping attention trap. The long
- * hold between passes keeps it quieter than an indeterminate loading state. */
+@property --docs-page-actions-orbit {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* A quiet perimeter light draws the eye without washing across the label.
+ * The blurred underlay supplies the halo; the masked overlay keeps the orbit
+ * crisp enough to read as a ring around the complete split action. */
+.docs-page-tools::before,
 .docs-page-tools::after {
   content: "";
   position: absolute;
-  inset: 0;
-  z-index: 2;
-  border-radius: inherit;
-  background: linear-gradient(
-    110deg,
-    transparent 32%,
-    color-mix(in srgb, white 22%, transparent) 48%,
-    transparent 64%
+  background: conic-gradient(
+    from var(--docs-page-actions-orbit),
+    color-mix(in oklch, var(--accent) 52%, white) 0deg 190deg,
+    color-mix(in oklch, var(--accent) 68%, white) 225deg,
+    color-mix(in oklch, #72d8ff 72%, var(--accent)) 260deg,
+    color-mix(in oklch, #c8b8ff 76%, white) 290deg,
+    color-mix(in oklch, var(--accent) 66%, white) 325deg,
+    color-mix(in oklch, var(--accent) 52%, white) 360deg
   );
-  background-position: 130% 0;
-  background-size: 260% 100%;
   pointer-events: none;
-  animation: docs-page-actions-shimmer 4.5s ease-in-out infinite;
+  animation: docs-page-actions-halo 3.4s linear infinite;
+}
+
+.docs-page-tools::before {
+  inset: -0.375rem;
+  z-index: 0;
+  border-radius: calc(var(--shell-docs-radius-control) + 0.375rem);
+  filter: blur(0.5rem);
+  opacity: 0.4;
+}
+
+.docs-page-tools::after {
+  inset: -2px;
+  z-index: 2;
+  border-radius: calc(var(--shell-docs-radius-control) + 2px);
+  padding: 2px;
+  opacity: 1;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
 }
 
 .docs-page-tools > * {
+  position: relative;
+  z-index: 1;
   flex: none;
   white-space: nowrap;
+}
+
+.docs-page-actions-primary[data-tooltip]::before,
+.docs-page-actions-primary[data-tooltip]::after {
+  position: absolute;
+  top: 50%;
+  right: auto;
+  z-index: 4;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 140ms ease-out,
+    transform 160ms ease-out,
+    visibility 140ms;
+}
+
+.docs-page-actions-primary[data-tooltip]::before {
+  content: "";
+  left: calc(100% + 2.4375rem);
+  width: 0.625rem;
+  height: 0.625rem;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--text);
+  transform: translate(0.25rem, -50%) rotate(45deg);
+}
+
+.docs-page-actions-primary[data-tooltip]::after {
+  content: attr(data-tooltip);
+  left: calc(100% + 2.75rem);
+  width: max-content;
+  max-width: min(17rem, calc(100vw - 2rem));
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: var(--text);
+  box-shadow: 0 0.5rem 1.5rem rgba(1, 5, 7, 0.16);
+  color: var(--bg-surface);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  transform: translate(0.25rem, -50%);
+}
+
+.docs-page-actions-primary[data-tooltip]:hover,
+.docs-page-actions-primary[data-tooltip]:focus-visible {
+  z-index: 4;
+}
+
+.docs-page-actions-primary[data-tooltip]:hover::before,
+.docs-page-actions-primary[data-tooltip]:hover::after,
+.docs-page-actions-primary[data-tooltip]:focus-visible::before,
+.docs-page-actions-primary[data-tooltip]:focus-visible::after {
+  visibility: visible;
+  opacity: 1;
+}
+
+.docs-page-actions-primary[data-tooltip]:hover::before,
+.docs-page-actions-primary[data-tooltip]:focus-visible::before {
+  transform: translate(0, -50%) rotate(45deg);
+}
+
+.docs-page-actions-primary[data-tooltip]:hover::after,
+.docs-page-actions-primary[data-tooltip]:focus-visible::after {
+  transform: translate(0, -50%);
 }
 
 .docs-page-actions-primary {
@@ -1262,7 +1370,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 .docs-page-actions-primary:focus-visible,
 .docs-page-actions-trigger:focus-visible {
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
 
 .docs-page-actions-primary:hover,
@@ -1272,20 +1380,15 @@ figure.shiki > div:first-child[class*="border-b"] {
   background-color: var(--docs-page-actions-hover) !important;
 }
 
-@keyframes docs-page-actions-shimmer {
-  0%,
-  68% {
-    background-position: 130% 0;
-  }
-  88%,
-  100% {
-    background-position: -80% 0;
+@keyframes docs-page-actions-halo {
+  to {
+    --docs-page-actions-orbit: 360deg;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .docs-page-tools::before,
   .docs-page-tools::after {
-    background: none;
     animation: none;
   }
 }
@@ -1297,6 +1400,12 @@ figure.shiki > div:first-child[class*="border-b"] {
   font-size: 1.125rem;
   line-height: 1.5556;
   text-wrap: pretty;
+}
+
+.docs-page-actions-row {
+  display: flex;
+  align-items: center;
+  margin-top: 1rem;
 }
 
 @media (max-width: 767px) {
@@ -1317,6 +1426,16 @@ figure.shiki > div:first-child[class*="border-b"] {
     overflow-x: auto;
     padding-bottom: 0.125rem;
     scrollbar-width: none;
+  }
+
+  .docs-page-tools::after {
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  .docs-page-actions-primary[data-tooltip]::before,
+  .docs-page-actions-primary[data-tooltip]::after {
+    display: none;
   }
 
   .docs-page-tools::-webkit-scrollbar {
