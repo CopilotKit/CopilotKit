@@ -93,7 +93,9 @@ the principles and points at the shipped `commerce` code for each; the per-file
 scaffolds stay in [templates.md](./templates.md).
 
 ⚠️ Beats **2, 4, 5 and 6 are runtime-conditional**: they need all three
-`INTELLIGENCE_*` env vars, and beats 4/5 additionally need a seeded-memory file
+Intelligence env vars — `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`
+and `CPK_INTELLIGENCE_API_KEY`, which does NOT match an `INTELLIGENCE_*` glob
+and is the one people miss — and beats 4/5 additionally need a seeded-memory file
 (`src/skins/<id>/intelligence/seed-memories.ts`). Without those they degrade
 **silently** — the agent simply doesn't know you. See demo-beats.md.
 
@@ -151,8 +153,17 @@ the `A2UI_RENDERERS` array so the reference stays stable across renders —
 `createSurface`/`updateComponents`/`updateDataModel` surface id, and checks
 whether that id starts with `block:`. A match renders
 `InlineBlockSurface` (`src/shell/chat/inline-block-surface.tsx`) right where
-the activity message appears, feeding the same ambient a2ui store the canvas
-uses. Anything else — including a `CanvasSurface` report like banking's
+the activity message appears. **That card mounts its OWN `<A2UIProvider>` per
+rendered activity, and must:** there is no ambient a2ui store on this path.
+`CopilotKitProvider`'s `a2ui.catalog` prop mounts no provider — the only thing
+that would is the built-in `a2ui-surface` renderer's `ReactSurfaceHost`, and the
+shell's `renderActivityMessages` array SHADOWS that built-in (user-supplied
+renderers resolve first), so `useA2UIActions()` would throw and take the page
+down. The isolation is also deliberate: one provider per activity means a
+block's surface state can never collide with, or be clobbered by, the canvas's.
+The catalog comes from `useSkin().catalog` — the same object the layout hands
+`CopilotKitProvider` — reached through the contract rather than by importing
+from `src/skins/`. Anything else — including a `CanvasSurface` report like banking's
 `render_report` or logistics' `renderBrief` — still falls back to
 `ReportHandoffPill`; this convention adds a second inline path, it does not
 change the existing one. Because the shell must not import from
@@ -186,15 +197,19 @@ which produce a generated panel that renders and is wrong:
   `…Ratio` + a `…Label` string built with the app's own formatter, which also makes
   the generated panel read identically to the app card beside it.
 
-**An a2ui `CanvasSurface` must be fed by a SERVER tool, never a client one.** If
-your skin ships a `CanvasSurface`, emit its `{ [A2UI_OPERATIONS_KEY]:
-buildOps(spec) }` payload from a **server-side `defineTool` on the `BuiltInAgent`
-in `agent.ts`** — not from a client `useFrontendTool`. The a2ui middleware only
-converts that payload into an `a2ui-surface` activity when it observes it in an
-in-stream `TOOL_CALL_RESULT` event, which a client frontend-tool result never
-produces — do it client-side and the canvas stays permanently blank. Both banking
-(`render_report`) and logistics (`renderBrief`) do it server-side; the `agent.ts`
-template shows the shape.
+**EVERY a2ui surface must be fed by a SERVER tool, never a client one — the
+canvas `CanvasSurface` path and the inline `block:` path alike.** Emit the
+`{ [A2UI_OPERATIONS_KEY]: buildOps(spec) }` payload from a **server-side
+`defineTool` on the `BuiltInAgent` in `agent.ts`** — not from a client
+`useFrontendTool`. The a2ui middleware only converts that payload into an
+`a2ui-surface` activity when it observes it in an in-stream `TOOL_CALL_RESULT`
+event, which a client frontend-tool result never produces. Do it client-side and
+NO `a2ui-surface` activity is ever minted, so the canvas stays permanently blank
+AND the inline block card never appears — the rule is about how the activity is
+born, not about where it renders. Banking (`render_report`) and logistics
+(`renderBrief`) do it server-side for the canvas; exec's `render_metric_block`
+(`src/skins/exec/agent.ts`) does it server-side for the inline block path. The
+`agent.ts` template shows the shape.
 
 ---
 
@@ -386,11 +401,19 @@ process.env.NODE_ENV !== "production"` (mirror
 Five rules that the `tools.tsx` template bakes in; miss any and the failure is
 silent.
 
-- **Every `useComponent` / `useFrontendTool` / `useHumanInTheLoop` registration
-  closes with a deps array.** Each takes an **optional deps array as a second
-  argument** (`useFrontendTool(tool, deps?: ReadonlyArray<unknown>)`,
-  `useHumanInTheLoop(tool, deps?)`, `useComponent(spec, deps?)` — the installed
-  types in `@copilotkit/react-core/dist/copilotkit-CBCT7BlL.d.cts` confirm it).
+- **Every `useComponent` / `useFrontendTool` / `useHumanInTheLoop` /
+  `useRenderTool` registration closes with a deps array.** Each takes an
+  **optional deps array as a second argument**
+  (`useFrontendTool(tool, deps?: ReadonlyArray<unknown>)`,
+  `useHumanInTheLoop(tool, deps?)`, `useComponent(spec, deps?)`,
+  `useRenderTool(config, deps?)` — the installed types confirm it). Do not skip
+  `useRenderTool` because it is the rarer hook: it is exactly the one a skin
+  reaches for when a render needs `status`/`result` (banking's, and exec's
+  `file_variance_narrative`), which is live-data rendering, which is where a
+  stale closure hurts most. The declarations live in the hashed bundle type
+  file — `ls node_modules/@copilotkit/react-core/dist | grep d.cts` finds it
+  (`copilotkit-B1K0Tgnz.d.cts` today; the hash changes on every SDK bump, so
+  derive it rather than copying this one).
   Omit it and the closure captures whatever the data was at REGISTRATION time —
   for a REST-backed skin, the EMPTY array from before the first fetch — forever.
   This is the nastiest bug in the app because it **compiles, lints, and passes
@@ -525,12 +548,16 @@ skin claiming beats 4, 5 or 6 cannot: durable memory needs a stable bucket. Read
 this if your skin has its own end-user identity. It is a three-part client→server
 mechanism — banking implements all three:
 
-**The three parts are separable, and `airline` is the proof.** It supplies
-`useRuntimeProperties` and a server `identifyUser` and NO `RuntimeProviders`:
-there is one account holder and no switcher, so the hook reads no context and
-returns a frozen module constant instead (`src/skins/airline/runtime-properties.ts`).
-Part 1 exists to let a hook read CONTEXT above the provider; if yours does not
-need to, do not mount an empty provider for symmetry.
+**The three parts are separable, and `airline` and `exec` are the proof.** Both
+supply `useRuntimeProperties` and a server `identifyUser` and NO
+`RuntimeProviders`: each has ONE persona and no switcher (airline's account
+holder, exec's chief of staff), so the hook reads no context and returns a frozen
+module constant instead (`src/skins/airline/runtime-properties.ts`,
+`src/skins/exec/runtime-properties.ts` — the latter's header docblock writes the
+reasoning out). Part 1 exists to let a hook read CONTEXT above the provider; if
+yours does not need to, do not mount an empty provider for symmetry.
+`grep -LE '^\s+RuntimeProviders[,:]' src/skins/*/skin.tsx` derives the set, so
+this stays checkable as skins are added.
 
 1. **`RuntimeProviders`** (client, in `providers.tsx`) — a provider stack the
    shell mounts **above** `CopilotKitProvider`. Put whatever context supplies
@@ -585,10 +612,18 @@ src/skins/<id>/
 ├── suggestions.ts    # Suggestion[] — ONE PILL PER BEAT, in demo order
 ├── design-skill.ts   # the OGUI design-brief string
 ├── data/             # seed data, types, derivations (+ an OPTIONAL useXData hook → useData)
-├── ledger-context.tsx # the ONE `GET /ledger` read every page/tool/canvas shares
+│   └── ledger-context.tsx  # the ONE `GET /ledger` every page/tool/surface shares
 ├── intelligence/     # user-id.ts (identifyUser) + seed-memories.ts + forget-memories.ts
 └── agent.ts          # SERVER-ONLY: export const <id>Agent = () => new BuiltInAgent(...)
 ```
+
+`data/ledger-context.tsx` is where the majority put it (`commerce`, `exec`,
+`people`); `airline` and `keel` keep theirs at the skin root instead
+(`find src/skins -name 'ledger-context.tsx'` settles it). Either works — the
+contract does not see the path. And "every surface" is literal: pages, tools, the
+OGUI sandbox functions, and whichever a2ui surface the skin ships — a canvas
+`CanvasSurface` for most, the inline `block:` cards for `exec`, which has no
+canvas at all.
 
 Slots the CONTRACT calls optional, and what the tree actually does with them:
 `providers.tsx` (→ `Providers` and/or `RuntimeProviders` +
@@ -598,9 +633,11 @@ Slots the CONTRACT calls optional, and what the tree actually does with them:
 
 **A demo-complete skin sets nearly all of them, so do not read "optional" as "skip
 it".** Every omission in the tree has a stated reason beside it — `airline` omits
-`sandboxFunctions` and `RuntimeProviders`; `bookstore`, the one skin that skips
-beats by direction, omits the five that serve the beats it skips. Derive it,
-since this paragraph rots:
+`sandboxFunctions` and `RuntimeProviders`; `exec` omits `RuntimeProviders` (one
+persona, no switcher) and `CanvasSurface` (its a2ui blocks render inline on the
+`block:` path, not on the canvas), and states both in `skin.tsx`; `bookstore`,
+the one skin that skips beats by direction, omits the five that serve the beats
+it skips. Derive it, since this paragraph rots:
 
 ```bash
 grep -nE '^\s+(Providers|CanvasSurface|sandboxFunctions|toolLabels|chatHeaderActions|onSuggestionSelect|RuntimeProviders|useRuntimeProperties|useData)[,:]' src/skins/*/skin.tsx
@@ -619,7 +656,8 @@ human phrases ("Pulling up your flight") instead of raw tool names (`showFlight`
 Every skin ships one. `RuntimeProviders`/`useRuntimeProperties`/`identifyUser` are
 for a skin with its own end-user identity (see the identity section above), and
 they are SEPARABLE — every skin ships `useRuntimeProperties` and `identifyUser`;
-`airline` ships no `RuntimeProviders` because its hook reads no context.
+`airline` and `exec` ship no `RuntimeProviders`, because in each the hook reads no
+context (`grep -LE '^\s+RuntimeProviders[,:]' src/skins/*/skin.tsx`).
 
 `intelligence/seed-memories.ts` is **not** optional if you are building beats 4
 and 5 — "it already knows me" is a seeded file, not emergent behaviour, so every
@@ -740,6 +778,7 @@ export const LINTED_SKIN_IDS = [
   "people",
   "commerce",
   "bookstore",
+  "exec",
   "support", // ← add
 ];
 ```
@@ -763,6 +802,7 @@ export const skinIds = [
   "people",
   "commerce",
   "bookstore",
+  "exec",
   "support", // ← add
 ] as const;
 ```

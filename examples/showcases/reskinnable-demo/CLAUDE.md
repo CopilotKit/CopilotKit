@@ -137,7 +137,7 @@ Optional:
 | Field                   | Type                                                 | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ----------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `Providers?`            | `ComponentType<{ children: ReactNode }>`             | Escape hatch: a skin-specific provider stack mounted **below** `CopilotKitProvider`, for anything that must consume CopilotKit context. Derive who sets it, do not trust a count — `grep -lE '^\s+Providers[,:]' src/skins/*/skin.tsx` names every registered skin except `bookstore` — each mounts the shell's teach-mode `RecordingProvider` there, because beat 6's recorder is the one context that must enclose BOTH the app card and the chat card, and most also mount the ledger context their OGUI sandbox functions read. A skin that omits it gets a shell pass-through.                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `CanvasSurface?`        | `ComponentType`                                      | Renders this skin's own a2ui report surface full-region on the shared canvas. Omit if the skin has no a2ui report canvas — derive who ships one rather than trusting a count: `grep -lE '^\s+CanvasSurface[,:]' src/skins/*/skin.tsx` names every registered skin except `bookstore` and `exec`, each of which also files a brief.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `CanvasSurface?`        | `ComponentType`                                      | Renders this skin's own a2ui report surface full-region on the shared canvas. Omit if the skin has no a2ui report canvas — derive who ships one rather than trusting a count: `grep -lE '^\s+CanvasSurface[,:]' src/skins/*/skin.tsx` names every registered skin except `bookstore` and `exec`, neither of which files a brief/report at all — `bookstore` emits no a2ui surface, and `exec`'s metric blocks take the inline `block:` path instead (see § "The shared canvas and OGUI").                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `sandboxFunctions?`     | `SandboxFunction[]`                                  | Functions exposed inside OGUI sandboxed iframes for this skin (e.g. banking's spend-data getters). Set by every skin except `airline` and `bookstore` (`grep -lE '^\s+sandboxFunctions[,:]' src/skins/*/skin.tsx` derives the set).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `toolLabels?`           | `Record<string, string>`                             | Human labels for this skin's own tool-activity chips, keyed by tool name. Unlisted tools fall back to a prettified raw name.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `chatHeaderActions?`    | `ChatHeaderAction[]`                                 | Buttons this skin contributes to the shared chat header, drawn before the shell's own controls.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -324,10 +324,14 @@ agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
   provider) → `SkinSuggestions` + `Tools` + `LayoutPreferencesProvider` →
   `ShellFrame`, which receives the skin's `Layout` (wrapping `CanvasRegion`) as its
   `app` slot and the shared `ChatPanel` as its `chat` slot.
-- **The inspector is shell-mounted for every skin** by the provider's
-  development default. A skin contributes nothing to it. It is not part of the
-  standard demo flow, but is useful for showing the AG-UI event stream or
-  debugging a skin.
+- **The inspector is NOT mounted, on any host.** `SkinCopilotRuntime` passes no
+  `showDevConsole`, and the v2 `CopilotKitProvider` defaults that prop to
+  `false` — it renders `CopilotKitInspector` only for `showDevConsole={true}`
+  (everywhere) or `"auto"` (localhost only). There is no "development default"
+  that brings it back: `grep -rn showDevConsole src/` is empty. A skin
+  contributes nothing to it either way, so if you want the AG-UI event stream
+  viewer for a technical audience, add the prop to the provider in
+  `src/app/[skin]/layout.tsx`.
 - `src/app/[skin]/[[...rest]]/page.tsx` — renders `skin.resolvePage(rest)`, or a
   404 when it returns `null`. `resolvePage` receives **all** remaining segments, so
   a skin can resolve parameterized routes — `keel` is the worked example
@@ -417,8 +421,30 @@ takes over the page-content region with a "← Back" affordance:
 - **a2ui report** — a report tool result becomes an `a2ui-surface` activity;
   the canvas defers to the active skin's own `CanvasSurface`. A skin without one
   renders nothing for that kind; `bookstore` and `exec` omit it
-  (`grep -lE '^\s+CanvasSurface[,:]' src/skins/*/skin.tsx` derives the rest), so
-  that branch IS exercised.
+  (`grep -lE '^\s+CanvasSurface[,:]' src/skins/*/skin.tsx` derives the rest).
+  That `return null` in `ReportCanvas` is DEFENSIVE, not exercised: `bookstore`
+  emits no `a2ui-surface` activity at all (it ships no report tool), and
+  `exec`'s are all `block:`-prefixed, which `useLatestCanvasSurface` skips
+  before it can claim the region (`src/shell/canvas/canvas-context.tsx`, the
+  `blockSurfaceIdFrom(m.content)` guard). Keep the branch — a future skin that
+  emits a non-block report without a `CanvasSurface` lands on it — but do not
+  cite it as covered.
+- **a2ui `block:` surface** — INLINE in the transcript, never the canvas. The
+  shell's chat activity renderer `A2UISurfaceActivity`
+  (`src/app/[skin]/layout.tsx`, wired module-level into `A2UI_RENDERERS` so the
+  array reference stays stable) reads the activity's `content.a2ui_operations`,
+  takes the first `createSurface`/`updateComponents`/`updateDataModel` surface
+  id, and dispatches on the `block:` prefix: a match renders
+  `InlineBlockSurface` (`src/shell/chat/inline-block-surface.tsx`) where the
+  activity message sits; anything else still gets the report handoff pill. The
+  card mounts its OWN `<A2UIProvider catalog={useSkin().catalog}>` — there is no
+  ambient a2ui store on this path, because `A2UI_RENDERERS` shadows the built-in
+  renderer whose `ReactSurfaceHost` would otherwise have mounted one — so a
+  block's surface state can never collide with the canvas's. `exec` is the only
+  skin on this path today; the `block:` spelling is duplicated by hand
+  (`BLOCK_SURFACE_PREFIX` in the shell module and again in
+  `src/skins/exec/blocks/build-block-ops.ts`) because the shell must not import
+  from `src/skins/`, and nothing checks the two stay in sync.
 
 Gen-UI components registered via `useComponent` (airline's flight card, banking's
 charts and queues) render in the chat transcript, not on the canvas — that is a
@@ -587,7 +613,7 @@ src/skins/*/skin.tsx`): `useBookstoreData` is a frozen 25-book seed catalog (the
 
 - **`exec`** ("Vantage") — **REST-backed**, Cascade Industries' executive
   reporting desk. Pages `""` (CEO dashboard), `finance` (CFO dashboard),
-  `metrics` (Metrics explorer), `packs` (Board packs), over `/api/exec/v1/*`
+  `metrics` (Metrics), `packs` (Board packs), over `/api/exec/v1/*`
   (dashboards, ledger, narratives, packs, a generated department budget memo PDF,
   and a gated `dev/reset`). Like the others it **omits `useData`**: components
   read its ledger via `useExecLedger()` directly. Sets `Providers`,
@@ -653,7 +679,10 @@ grep -c 'title:' src/skins/*/suggestions.ts
 ```
 
 **A count predicts nothing about coverage in either direction**, which is why they
-are not in the table. `bookstore` registers the FEWEST gen-UI components in the tree
+are not in the table. `exec` registers NO `useComponent` AT ALL — its one
+in-transcript render is a `useRenderTool` (`file_variance_narrative`), and its
+dashboards are agent-authored a2ui blocks on the inline `block:` path — yet it runs
+the full beat list; `bookstore` registers the fewest of the skins that register any
 and hits seven of the nine beats; `commerce` is near the bottom of the same list and
 is one of the cleanest demo references in it; `keel` ships the most pills of any skin
 for a reason that has nothing to do with beats (four identity pills that map to no

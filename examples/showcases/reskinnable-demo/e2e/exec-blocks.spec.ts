@@ -117,13 +117,23 @@ test.describe("exec (Vantage) dashboard blocks", () => {
 
     // The block renders INLINE in the transcript (not a canvas handoff
     // pill — the `block:`-prefixed surface id routes to InlineBlockSurface).
-    const inlineSurface = page.getByTestId("inline-block-surface");
+    // `.first()`: the agent is instructed to render one block per turn, but
+    // nothing in the transcript ENFORCES that, and an unqualified locator
+    // matching two cards is a strict-mode violation rather than a useful
+    // failure. Assert against the first card and let a wrong count show up as
+    // a content mismatch below.
+    const inlineSurface = page.getByTestId("inline-block-surface").first();
     await expect(inlineSurface).toBeVisible({ timeout: 30_000 });
 
     // Capture the block's own title so the later dashboard-grid assertion
     // does not have to hardcode agent-authored text (the model, not this
-    // test, picks the block's `title`).
-    const blockTitle = await inlineSurface.getByRole("heading").innerText();
+    // test, picks the block's `title`). `.first()` for the same reason: a
+    // catalog-composed block may carry more than one heading level, and the
+    // outermost one is the title.
+    const blockTitle = await inlineSurface
+      .getByRole("heading")
+      .first()
+      .innerText();
     expect(blockTitle.length).toBeGreaterThan(0);
 
     // Pin it to the CEO dashboard. `AddToDashboard` also renders a "Pin to

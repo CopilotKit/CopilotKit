@@ -39,8 +39,11 @@ one **skin** per route segment `/[skin]/...`. The registered set lives in
   teachable `UNEXPLAINED_VARIANCE` board-pack publish gate.
 
 All of them run behind the **same** `Skin` contract on purpose. Every skin gets
-the same inset frame, shared chat panel, tool-activity lines, suggestion pills,
-and full-region canvas from the shell. The contract is substrate-agnostic:
+the same inset frame, shared chat panel, tool-activity lines and suggestion pills
+from the shell. The shared canvas region is there for every skin too, but a skin
+only fills it if it supplies a `CanvasSurface` — `bookstore` and `exec` do not
+(`exec` renders its a2ui blocks inline in the transcript instead; see the `exec`
+entry below). The contract is substrate-agnostic:
 changing a skin's data substrate requires **no change to the contract and no
 change to the shell** — and both substrates are live, so the claim has evidence on
 either side. `grep -l 'useData:' src/skins/*/skin.tsx` names the skins that hold

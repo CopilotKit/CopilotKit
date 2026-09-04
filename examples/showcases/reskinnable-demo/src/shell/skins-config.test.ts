@@ -45,9 +45,27 @@ describe("the LOCK_SKIN lint guard", () => {
     expect(LINTED_SKIN_IDS).toEqual([...skinIds]);
   });
 
+  const linter = new Linter();
+  const lint = (code: string) =>
+    linter.verify(code, {
+      rules: {
+        "no-restricted-syntax": restrictedSyntax as Linter.RuleEntry,
+      },
+      languageOptions: { ecmaVersion: "latest", sourceType: "module" },
+    });
+  /**
+   * Did `no-restricted-syntax` ITSELF report? Scoped to the rule id on purpose.
+   * The predicate this replaced was `lint(code).length === 0`, which counts ANY
+   * message as "guarded" — including ESLint's `ruleId: null` fatal parse error.
+   * A typo in the synthetic snippet above would therefore have made this test
+   * pass by failing to parse, which is the one way a guard test can be green and
+   * prove nothing. Pinned by "does not mistake a PARSE ERROR…" below.
+   */
+  const flaggedByRestrictedSyntax = (code: string) =>
+    lint(code).some((msg) => msg.ruleId === "no-restricted-syntax");
+
   it("reports a hardcoded skin route prefix in every registered skin", () => {
     expect(Array.isArray(restrictedSyntax)).toBe(true);
-    const linter = new Linter();
     // Both hardcoding shapes the selectors are meant to catch: a bare literal and
     // a template whose first quasi opens with the prefix. Plain JS on purpose —
     // the selectors match shape, not types, so the default parser suffices.
@@ -55,17 +73,24 @@ describe("the LOCK_SKIN lint guard", () => {
       [
         `router.push("/${id}/orders");`,
         `router.push(\`/${id}/orders/\${orderId}\`);`,
-      ].filter(
-        (code) =>
-          linter.verify(code, {
-            rules: {
-              "no-restricted-syntax": restrictedSyntax as Linter.RuleEntry,
-            },
-            languageOptions: { ecmaVersion: "latest", sourceType: "module" },
-          }).length === 0,
-      ),
+      ].filter((code) => !flaggedByRestrictedSyntax(code)),
     );
     expect(unguarded).toEqual([]);
+  });
+
+  it("does not mistake a PARSE ERROR for a caught violation", () => {
+    // Red-green fixture for the predicate above. This snippet is unparseable
+    // (unbalanced parenthesis), so `lint()` returns a fatal message with no
+    // `ruleId` — and under the old `.length === 0` predicate that is
+    // indistinguishable from the selector firing, so a broken snippet would have
+    // been silently scored as GUARDED.
+    const unparseable = `router.push("/${skinIds[0]}/orders";`;
+    const messages = lint(unparseable);
+    expect(messages.length).toBeGreaterThan(0);
+    expect(messages.every((msg) => msg.ruleId !== "no-restricted-syntax")).toBe(
+      true,
+    );
+    expect(flaggedByRestrictedSyntax(unparseable)).toBe(false);
   });
 });
 

@@ -59,6 +59,19 @@ row, card) from live skin data, as the answer to the very first pill. Pair the
 visual with one or two sentences of prose — a chart with no words reads as a
 glitch, and prose with no chart wastes the beat.
 
+**The sanctioned alternative: a server-driven a2ui surface.** `useComponent` is
+the default and what most skins should reach for. But the beat asks for a real
+visual as the answer to the first pill, and a server tool that returns
+`{ [A2UI_OPERATIONS_KEY]: … }` satisfies it too — the operations become an
+`a2ui-surface` activity that renders as a catalog-bound surface, either
+full-region on the shared canvas (`CanvasSurface`) or inline in the transcript
+(the `block:` prefix). `exec` is the worked example of the inline form: its
+`render_metric_block` (`src/skins/exec/agent.ts`) is a server `defineTool`, it
+registers NO `useComponent` at all, and its first pill still answers with a
+rendered metric block. Pick this path when the AGENT should compose the visual
+out of a catalog rather than call a fixed component; pick `useComponent` when
+the visual is a component you already wrote. Either way the prose rule stands.
+
 **Banking:** pill `"Show the spending trend"` → `showSpendingTrend`
 (`tools.tsx:797`) renders a hand-rolled SVG chart from the live ledger. Its
 sibling charts (`showBudgetUsage`, `showSpendBreakdown`,
@@ -89,6 +102,16 @@ written to be replay-safe.** This is the part that silently breaks:
 - **Re-derive display state from the replayed result.** Never depend on client
   state that only existed during the live call.
 - **Keep secrets out of what you re-derive** (see beat 3a).
+
+**On the a2ui path (beat 1's alternative), replay works differently and the
+burden moves.** An `a2ui-surface` is an ACTIVITY MESSAGE in the thread, not a
+tool-call render, so it replays with the thread without any `useComponent`
+registration — there is no `status`-vs-`result` trap to fall into. What replaces
+it: the operations must be built DETERMINISTICALLY server-side from the tool's
+own spec (`exec`'s `buildBlockOps` in `src/skins/exec/blocks/build-block-ops.ts`),
+and the catalog renderers must re-bind live figures on the client rather than
+bake numbers into the ops — otherwise a reopened thread shows a card of stale
+values with total confidence, which is the same defect wearing a different hat.
 
 **Banking:** `setCardPin` re-derives its resolved card from the replayed tool
 result plus a module-level map holding only `brand`/`last4` — never the PIN
@@ -355,10 +378,16 @@ Three mechanics worth copying verbatim:
     sendMessageWithAttachment(DOC, <ID>_ATTACHMENT_MESSAGE);
   ```
 
-  That is the whole file. Every shipped wrapper that runs this beat
-  (`banking/attach-invoice.ts`, `people/attach-offer-letter.ts`,
-  `commerce/attach-price-sheet.ts`, `logistics/attach-rate-sheet.ts`) is about 45
-  lines, most of it comment.
+  That is the whole file — the two exports and the document constant. The shipped
+  wrappers are all small and mostly comment, but "about 45 lines" is not the
+  measure: derive the roster and the sizes together with
+  `wc -l src/skins/*/attach-*.ts | grep -v test`, which today spans the low
+  forties (`banking/attach-invoice.ts`, `people/attach-offer-letter.ts`,
+  `commerce/attach-price-sheet.ts`) through the high eighties
+  (`keel/attach-bulletin.ts`), with `exec/attach-memo.ts`,
+  `logistics/attach-rate-sheet.ts` and `airline/attach-hotel-confirmation.ts` in
+  between. The longer ones are longer because their document is generated or
+  their staging has more to explain, not because the shape changed.
 
   **The attachment chain must fail LOUD, and must never send without the file.**
   This is not defensive polish; it is what makes the beat honest. If any failure
