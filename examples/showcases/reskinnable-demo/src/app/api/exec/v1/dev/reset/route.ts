@@ -75,15 +75,20 @@ export const POST = async () => {
     const present = apiUrl
       ? "INTELLIGENCE_API_URL"
       : "CPK_INTELLIGENCE_API_KEY";
-    const memoryError = redactSecrets(
+    const reason =
       `Intelligence is HALF-configured: ${present} is set but ${missing} is ` +
-        `not, so durable memory was NOT swept or re-seeded. Set both (or ` +
-        `neither, for the OSS path) and reset again — beats 4/5 are not armed ` +
-        `and beat 6 may still be taught from a previous run.`,
-    );
-    console.error(`[exec] presenter reset: ${memoryError}`);
+      `not, so durable memory was NOT swept or re-seeded. Set both (or ` +
+      `neither, for the OSS path) and reset again — beats 4/5 are not armed ` +
+      `and beat 6 may still be taught from a previous run.`;
+    // LOG RAW, SERIALIZE REDACTED — redact-secrets.ts's contract, and the
+    // shape the failure arm at the bottom of this route already uses. Logging
+    // the redacted form instead inverts it: the log is the one place these
+    // values BELONG (a human debugging a booth needs to see which backend was
+    // configured; this repo vendors several stacks on several ports), and the
+    // response body is the one place they must not appear.
+    console.error(`[exec] presenter reset: ${reason}`);
     return Response.json(
-      { ok: false, reset: ["store"], memoryError },
+      { ok: false, reset: ["store"], memoryError: redactSecrets(reason) },
       { status: 500 },
     );
   }
@@ -135,6 +140,15 @@ export const POST = async () => {
   // repo vendor the same Intelligence stack, so if this process ever resolved a
   // neighbour's apiUrl, this line is where a human sees the reset was about to
   // reach across into someone else's memory.
+  //
+  // THE LOG IS THE ONLY PLACE THE ADDRESS APPEARS — keel's dev/reset states the
+  // same rule. Do not echo `apiUrl` in a response body: `PRESENTER_RESET_ENABLED`
+  // is a demo convenience, not an authorization boundary, so that would hand the
+  // internal backend's address to anyone who can reach a booth deployment. The
+  // bodies below used to carry `redactSecrets(apiUrl)`, which is by construction
+  // the constant "<intelligence-backend>" — `INTELLIGENCE_API_URL` is itself the
+  // needle — so the field said nothing at all while inviting the exact leak it
+  // was scrubbing.
   console.warn(
     `[exec] presenter reset: forgetting memories at ${apiUrl} for ${userIds.join(", ")}` +
       `; re-seeding ${seedTargets.join(", ")}`,
@@ -221,10 +235,6 @@ export const POST = async () => {
         // seed shortfall means it is not — see keel's/commerce's dev/reset
         // for the same rule.
         reset: ["store"],
-        // Redacted: an upstream `Error.message` (or a rejected backend
-        // response body) can quote the API key or the backend address back
-        // verbatim. See src/lib/redact-secrets.ts.
-        apiUrl: redactSecrets(apiUrl),
         forgot,
         alreadyGone,
         seeded,
@@ -239,7 +249,6 @@ export const POST = async () => {
   return Response.json({
     ok: true,
     reset: ["store", "memory"],
-    apiUrl: redactSecrets(apiUrl),
     forgot,
     alreadyGone,
     seeded,
