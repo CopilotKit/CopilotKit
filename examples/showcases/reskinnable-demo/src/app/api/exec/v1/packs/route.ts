@@ -13,6 +13,17 @@ const PublishPackBody = z.object({
  * VERBATIM — the agent reads the refusal back and the teach loop depends on
  * `UNEXPLAINED_VARIANCE` reaching the client as the literal string, not a
  * re-worded message or a generic 500.
+ *
+ * Each refusal arm carries a DIFFERENT payload beside `code` — `breaches` for
+ * `UNEXPLAINED_VARIANCE`, a human `message` for `EMPTY_DASHBOARD` and
+ * `NOT_FOUND`, neither for `BAD_COUNTERSIGN` — so both are spread
+ * conditionally rather than read off a fixed shape. Dropping `message` is not
+ * cosmetic: `EMPTY_DASHBOARD` is the one code the receipt has no phrasing of
+ * its own for (`REFUSAL_PHRASES` in `../../../../../skins/exec/tools.tsx`), so
+ * without it the room reads the enum spelled as words instead of the sentence
+ * saying what the pack lacks. `BAD_COUNTERSIGN` still answers `{ error }` and
+ * NOTHING else — the PIN gate runs first precisely so a bad countersign learns
+ * nothing, and this spread must never grow it a body.
  */
 export const POST = async (req: Request) => {
   const raw = await req.json().catch(() => null);
@@ -37,6 +48,7 @@ export const POST = async (req: Request) => {
     return Response.json(
       {
         error: result.code,
+        ...("message" in result ? { message: result.message } : {}),
         ...("breaches" in result ? { breaches: result.breaches } : {}),
       },
       { status: result.status },

@@ -512,12 +512,17 @@ export const fileVarianceNarrativeTool = defineTool({
  * `agent-tools.test.ts` invokes its `execute` directly to pin the SHAPE the gate
  * reads back, and because the REST route it wraps is the same one the card uses.
  *
- * The refusal is returned VERBATIM (`{ error: code, breaches }`, the same shape
- * the REST route sends): the teach arc only fires if the agent SEES
- * `UNEXPLAINED_VARIANCE` and the breaches behind it, rather than a swallowed,
- * reshaped or summarized error. Keel's `render_impact_brief` error shape makes
+ * The refusal is returned VERBATIM (`{ error: code }` plus whatever that arm
+ * carries — `breaches` for `UNEXPLAINED_VARIANCE`, `message` for
+ * `EMPTY_DASHBOARD` and `NOT_FOUND` — the same shape the REST route sends):
+ * the teach arc only fires if the agent SEES `UNEXPLAINED_VARIANCE` and the
+ * breaches behind it, rather than a swallowed, reshaped or summarized error.
+ * Both extras are spread conditionally off `in`, so `BAD_COUNTERSIGN` stays
+ * `{ error }` and nothing else. Keel's `render_impact_brief` error shape makes
  * the same argument from the other side — a tool that returns nothing useful on
- * failure gets retried identically.
+ * failure gets retried identically, and `EMPTY_DASHBOARD` without its `message`
+ * is exactly that: a code with no statement of what the pack lacks, which
+ * nothing downstream words for it.
  */
 export const publishBoardPackTool = defineTool({
   name: "publish_board_pack",
@@ -543,6 +548,7 @@ export const publishBoardPackTool = defineTool({
     if (!result.ok) {
       return {
         error: result.code,
+        ...("message" in result ? { message: result.message } : {}),
         ...("breaches" in result ? { breaches: result.breaches } : {}),
       };
     }
