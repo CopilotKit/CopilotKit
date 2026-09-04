@@ -39,8 +39,8 @@ const FEATURES = [
   {
     title: "Automatic Learning",
     body: "Agents improve from real usage. No fine-tuning pipeline required.",
-    href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
-    cta: "See Automatic Learning on the product page",
+    href: "/learning",
+    cta: "Open the Learning guide",
     icon: Sparkles,
   },
   {

@@ -1,0 +1,183 @@
+---
+title: Learning
+description: Give agents durable memory and turn evidence from real application use into reviewed, reusable Skills.
+icon: "lucide/Sparkles"
+frontend: universal
+doc_type: how-to
+---
+
+Learning gives an agent two ways to improve from real use:
+
+- **Memory** carries useful facts, preferences, events, and procedures into future runs.
+- **Learning containers** turn patterns across completed runs into evidence-backed Insights and reusable Skills.
+
+Together, they let an agent remember how a user likes work done and learn workflows that can be reused in another thread, surface, or agent. Learning works from the messages and application activity already stored in [Rich Threads](/threads); it does not fine-tune your model or require your Runtime to upload a second transcript.
+
+<div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
+  <iframe
+    src="https://www.loom.com/embed/2978fbfe42324e509057ac5fd46b7a70"
+    title="Learning and Memory in CopilotKit"
+    className="h-full w-full"
+    frameBorder="0"
+    allowFullScreen
+  />
+</div>
+
+In the walkthrough, Memory recalls how spend summaries should be grouped, ordered, and rounded. Learning then observes how an unfamiliar charge is investigated and how a policy exception is filed, proposes those workflows as Skills, and makes the approved behavior reusable in a new thread.
+
+<Callout type="info" title="Learning is an Intelligence capability">
+  Connect your Runtime to [CopilotKit Intelligence](/intelligence/quickstart) before you continue. Learning must also be enabled for your organization.
+</Callout>
+
+## Memory and Learning solve different problems
+
+| Capability | Best for | When it becomes available |
+| --- | --- | --- |
+| User Memory | A person's preferences, facts, and recurring procedures | As soon as the agent saves the Memory; it can be recalled in later threads for that user |
+| Project Memory | Shared product or team knowledge | As soon as the agent saves the Memory; it can be recalled by authorized users in the project |
+| Learning container | Patterns supported by evidence from completed runs | After you run Learning, review the resulting Insights, and approve a Skill candidate |
+
+Memory is contextual data supplied to an agent. A learned Skill is a versioned set of instructions stored as `SKILL.md`. Neither changes the model's weights.
+
+## How Learning works
+
+1. **You define the boundary.** Create a Learning container for a stable problem area such as support quality, expense review, or onboarding. A container groups the Threads that should learn together.
+2. **The Runtime assigns Threads.** `getLearningContainerId` returns the container's stable ID when a run starts. A Thread binds to one container before its first agent run and cannot move later.
+3. **Intelligence records exact evidence.** When an assigned run finishes or errors, Intelligence derives a canonical snapshot from the persisted AG-UI events. Messages, tool calls, and application interactions remain traceable to their source Thread.
+4. **You start a Learning run.** Learning freezes a repeatable input set, analyzes the new snapshots in bounded batches, and combines the findings with the container's current Insights and published Skills.
+5. **Learning produces Insights and candidates.** Each Insight includes a statement, expected impact, and evidence references. Patterns suitable for reuse can produce a Skill addition, update, or removal candidate.
+6. **A human reviews the change.** Approving a candidate publishes a new immutable Skill revision. Rejecting it leaves the published registry unchanged.
+7. **You make published Skills available to agents.** Download the container's bundle and load the generated Skill directories with the skill loader used by your agents.
+
+Only terminal runs that occur after the Thread is assigned are eligible. Existing Threads can be assigned only if they have not run an agent yet, so Learning does not backfill earlier runs.
+
+## Configure Learning
+
+<Steps>
+  <Step>
+    ### Create a Learning container
+
+    Open your project in CopilotKit Intelligence, select **Learning**, and choose **Create Learning container**. Set:
+
+    - a stable ID, such as `expense-review`;
+    - a descriptive name; and
+    - optional prompt context that tells Learning what good behavior looks like in this domain.
+
+    Stable IDs contain 1–64 lowercase letters, numbers, or single hyphens. Treat the ID as application configuration rather than a display label.
+  </Step>
+
+  <Step>
+    ### Assign Threads from your Runtime
+
+    Return the stable ID from `getLearningContainerId` on your `CopilotKitIntelligence` client.
+
+    ```ts title="Your CopilotKit runtime"
+    import {
+      CopilotKitIntelligence,
+      CopilotRuntime,
+    } from "@copilotkit/runtime/v2";
+
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+      getLearningContainerId: ({ agentId }) =>
+        agentId === "expense-agent" ? "expense-review" : undefined,
+    });
+
+    const runtime = new CopilotRuntime({
+      agents,
+      intelligence,
+      identifyUser,
+    });
+    ```
+
+    Return `null` or `undefined` when a run should not participate in Learning. The callback also receives the resolved application user, surface (`web` or `channel`), and AG-UI run input, so you can route different workflows to different containers.
+
+    <Callout type="warn" title="Keep a Thread's assignment stable">
+      The callback must return the same container ID for every run in a Thread. Changing the result later causes a container conflict instead of moving the Thread or mixing two learning domains.
+    </Callout>
+  </Step>
+
+  <Step>
+    ### Generate representative runs
+
+    Use the application normally and complete the workflows that Learning should study. Include corrections, tool use, and application interactions that demonstrate the desired outcome. A container benefits from a focused set of related work more than a mix of unrelated tasks.
+  </Step>
+
+  <Step>
+    ### Run Learning and review the evidence
+
+    Return to the container's **Runs** tab and select **Run Learning**. Only one run can be active for a container at a time, although different containers can run concurrently.
+
+    After the run succeeds:
+
+    1. Open **Insights** and follow the evidence back to the source Threads.
+    2. Open **Candidates**, inspect the proposed `SKILL.md` and supporting Insights, then approve or reject each candidate independently.
+    3. Open **Skills** to see the published revision history.
+
+    A successful run can produce Insights without a Skill candidate. That means Learning found useful evidence but did not find a sufficiently reusable procedure to publish.
+  </Step>
+</Steps>
+
+## Enable long-term Memory
+
+Memory access is controlled per authenticated request. Add a policy to the Intelligence Runtime to choose whether the agent and browser client can read or write user- and project-scoped Memory.
+
+```ts title="Your CopilotKit runtime"
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser,
+  memory: {
+    access: ({ consumer }) => ({
+      user: "read-write",
+      project: consumer === "agent" ? "read-write" : "read",
+    }),
+  },
+});
+```
+
+The Intelligence middleware gives compatible agents three tools: `recall_memory`, `save_memory`, and `forget_memory`. Memories have a scope and a kind:
+
+| Dimension | Values |
+| --- | --- |
+| Scope | `user` for one person's context; `project` for knowledge shared across authorized users |
+| Kind | `topical` for facts and preferences; `episodic` for past events; `operational` for triggers, steps, and reusable procedures |
+
+Base the access policy on your server-side authorization rules. Do not save secrets or unnecessary personal data. `forget_memory` retires a Memory so it is no longer recalled while preserving its audit history.
+
+## Use published Skills
+
+From a directory connected to the same Intelligence project, download the published registry:
+
+```bash title="Terminal"
+copilotkit project select
+copilotkit skills download expense-review --output ./learned-skills
+```
+
+The output contains a directory and `SKILL.md` for each published Skill. The command verifies the bundle and refuses to overwrite an existing output directory. Downloading is the handoff from Intelligence to your agent environment; configure that environment to load `./learned-skills` before expecting the new behavior in a run.
+
+## Design good learning boundaries
+
+- Create containers around one enduring workflow or quality bar, not around individual users or temporary Threads.
+- Use user Memory for personal preferences and project Memory only for information that is safe and useful to share.
+- Write prompt context as evaluation guidance: describe the outcome, policy, or constraints Learning should look for.
+- Let representative runs accumulate before starting Learning. Sparse or unrelated evidence produces weaker Insights.
+- Review the cited Threads and proposed `SKILL.md` before approval. Publishing is deliberately separate from generation.
+- Keep Skills small enough to reuse. A procedure tied to one UI state or one customer is usually better represented as Memory.
+
+## Troubleshooting
+
+| Problem | What to check |
+| --- | --- |
+| A Thread never appears in the container | Confirm the callback returned an existing stable ID before the Thread's first run and that the run reached a terminal state. |
+| The Runtime reports a container conflict | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread. |
+| A run has no new evidence | Learning consumes new terminal snapshots. Runs created before assignment, still in progress, or already included in an earlier Learning run are not new input. |
+| A run succeeds without a Skill candidate | Inspect the Insights. The evidence may be useful but not eligible for a reusable procedural Skill. |
+| An approved Skill does not affect the agent | Download the latest bundle and confirm that your agent environment loads the generated Skill directory. |
+
+## Related guides
+
+- [Connect CopilotKit Intelligence](/intelligence/quickstart)
+- [Rich Threads](/threads)
+- [Threads & Persistence Architecture](/intelligence/threads-explained)
+- [CopilotKit CLI](/cli)

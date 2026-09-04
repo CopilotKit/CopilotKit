@@ -54,6 +54,7 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(snippet).toContain("## What the platform adds");
   expect(snippet).toContain("| Analytics |");
   expect(snippet).toContain("| Automatic learning |");
+  expect(snippet).toContain("[Learning](/learning)");
   expect(snippet).toContain("<IntelligenceFeatureCards");
   expect(snippet).toContain(
     "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
@@ -62,6 +63,9 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(
     existsSync(resolve(here, "../../content/docs/intelligence/quickstart.mdx")),
   ).toBe(true);
+  expect(existsSync(resolve(here, "../../content/docs/learning.mdx"))).toBe(
+    true,
+  );
   expect(snippet.indexOf("## What the platform adds")).toBeLessThan(
     snippet.indexOf("<IntelligenceFeatureCards"),
   );

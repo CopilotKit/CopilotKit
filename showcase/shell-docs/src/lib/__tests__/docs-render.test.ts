@@ -551,9 +551,7 @@ describe("framework nav", () => {
       ),
     ).toMatchObject({ icon: "lucide/Sparkles" });
     expect(
-      navTree.find(
-        (node) => node.type === "section" && node.title === "Other",
-      ),
+      navTree.find((node) => node.type === "section" && node.title === "Other"),
     ).toMatchObject({ icon: "lucide/Wrench" });
     expect(
       navTree
@@ -580,7 +578,7 @@ describe("framework nav", () => {
       { title: "Rich threads", slug: "threads" },
       {
         title: "Automatic learning",
-        slug: "intelligence/automatic-learning",
+        slug: "learning",
       },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
@@ -588,11 +586,14 @@ describe("framework nav", () => {
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
     ]);
     expect(findPageByTitle(navTree, "Automatic learning")).toMatchObject({
-      href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
+      slug: "learning",
     });
     expect(findPageByTitle(navTree, "WebMCP")).toMatchObject({
       slug: "webmcp",
     });
+    expect(hasSectionPage(navTree, "Agent capabilities", "Learning")).toBe(
+      true,
+    );
     expect(sectionNodes(navTree, "Backend").map((node) => node.title)).toEqual([
       "Runtime",
       "Deployment",
@@ -645,9 +646,7 @@ describe("framework nav", () => {
     expect(hasSectionPage(authoredNav, "Backend", "Copilot Runtime")).toBe(
       true,
     );
-    expect(hasSectionPage(authoredNav, "Intelligence", "Overview")).toBe(
-      true,
-    );
+    expect(hasSectionPage(authoredNav, "Intelligence", "Overview")).toBe(true);
     expect(
       sectionNodes(generatedNav, "Agent capabilities").some(
         (node) => node.type === "group" && node.title === "LangGraph (Python)",
@@ -901,7 +900,7 @@ describe("framework nav", () => {
       { title: "Rich threads", slug: "threads" },
       {
         title: "Automatic learning",
-        slug: "intelligence/automatic-learning",
+        slug: "learning",
       },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([

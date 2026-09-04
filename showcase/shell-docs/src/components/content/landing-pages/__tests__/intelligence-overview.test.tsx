@@ -118,13 +118,9 @@ describe("IntelligenceOverview", () => {
     );
     expect(
       screen
-        .getByRole("link", {
-          name: "See Automatic Learning on the product page",
-        })
+        .getByRole("link", { name: "Open the Learning guide" })
         .getAttribute("href"),
-    ).toBe(
-      "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
-    );
+    ).toBe("/learning");
     expect(
       screen
         .getByRole("link", { name: "Open the self-hosting guide" })
