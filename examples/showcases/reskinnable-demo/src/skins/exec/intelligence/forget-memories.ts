@@ -43,6 +43,30 @@ export interface ForgetResult {
   skippedProjectScoped: number;
 }
 
+/**
+ * Thrown when a bucket's sweep cannot finish (the list call failed, or a
+ * DELETE came back non-OK). Carries `forgot` — rows THIS bucket already
+ * deleted before the failure — so a `throw` does not discard progress the
+ * loop already made: a plain `Error` here used to mean 9-of-10 deletes
+ * succeeding and then a single failing 10th made the whole bucket report
+ * `forgot: 0` to the caller, understating a nearly-complete wipe as a total
+ * failure. `dev/reset`'s per-userId `catch` reads `.forgot` off this to keep
+ * that progress in its running total instead of losing it.
+ */
+export class ForgetMemoriesError extends Error {
+  /** Rows this bucket deleted before the failure that ended its sweep. */
+  readonly forgot: number;
+
+  constructor(message: string, options: { forgot: number; cause?: unknown }) {
+    super(
+      message,
+      options.cause === undefined ? undefined : { cause: options.cause },
+    );
+    this.name = "ForgetMemoriesError";
+    this.forgot = options.forgot;
+  }
+}
+
 export async function forgetAllMemories(
   params: ForgetMemoriesParams,
 ): Promise<ForgetResult> {
@@ -55,8 +79,13 @@ export async function forgetAllMemories(
 
   const listRes = await fetch(`${base}/api/memories`, { headers });
   if (!listRes.ok) {
-    throw new Error(
+    // Nothing has been deleted yet at this point, so `forgot: 0` is exact,
+    // not a placeholder — this branch still goes through the same error type
+    // as the delete loop below so every throw out of this function carries
+    // the same shape for `dev/reset`'s catch to read.
+    throw new ForgetMemoriesError(
       `${LAYER} list memories failed: ${listRes.status} ${await listRes.text()}`,
+      { forgot: 0 },
     );
   }
   const { memories } = (await listRes.json()) as MemoriesListResponse;
@@ -98,8 +127,12 @@ export async function forgetAllMemories(
     );
     // DELETE returns 204 on success; response.ok covers it.
     if (!delRes.ok) {
-      throw new Error(
+      // `forgot` at this point is however many of THIS bucket's rows already
+      // deleted before this one failed — carried on the error rather than
+      // lost, so a 9-of-10 bucket reports 9, not 0.
+      throw new ForgetMemoriesError(
         `${LAYER} delete memory ${id} failed: ${delRes.status} ${await delRes.text()}`,
+        { forgot },
       );
     }
     forgot += 1;

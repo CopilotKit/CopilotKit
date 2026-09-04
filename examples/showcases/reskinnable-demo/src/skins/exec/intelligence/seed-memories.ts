@@ -37,7 +37,17 @@ export interface SeedMemoriesParams {
 
 interface SeedMemory {
   kind: "topical" | "episodic" | "operational";
-  scope: "user" | "project";
+  /**
+   * `"user"` ONLY — `"project"` is deliberately not a member of this type,
+   * not just an unused option. `forget-memories.ts` NEVER deletes
+   * `scope: "project"` rows (they are global to the backend instance, shared
+   * with every other skin), so a project-scoped seed here would survive
+   * every presenter reset forever: exactly the "beat 6 starts out already
+   * taught" failure the reset exists to prevent (see the header's rule 3 and
+   * `dev/reset`'s doc comment). Widening this back to `"user" | "project"`
+   * would silently reopen that hole the next time someone adds a memory here.
+   */
+  scope: "user";
   content: string;
 }
 

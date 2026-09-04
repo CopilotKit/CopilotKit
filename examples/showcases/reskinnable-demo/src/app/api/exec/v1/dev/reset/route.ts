@@ -1,7 +1,14 @@
 import * as store from "@/skins/exec/data/store";
 import { presenterResetEnabled } from "@/lib/presenter";
-import { forgetAllMemories } from "@/skins/exec/intelligence/forget-memories";
-import { seedMemories } from "@/skins/exec/intelligence/seed-memories";
+import { redactSecrets } from "@/lib/redact-secrets";
+import {
+  ForgetMemoriesError,
+  forgetAllMemories,
+} from "@/skins/exec/intelligence/forget-memories";
+import {
+  SEED_MEMORIES,
+  seedMemories,
+} from "@/skins/exec/intelligence/seed-memories";
 import {
   DEMO_DEFAULT_USER_ID,
   SEED_TARGET_USER_IDS,
@@ -100,11 +107,23 @@ export const POST = async () => {
     try {
       const result = await forgetAllMemories({ apiUrl, apiKey, userId });
       forgot += result.forgot;
+      // MAX, not a sum: verified against the running Intelligence stack (see
+      // the doc comment on `skippedProjectScoped` in forget-memories.ts and
+      // `intelligence/user-id.ts`'s header), the bare list returns every
+      // `scope: "project"` row for ANY user id — project scope is global to
+      // the backend instance, not partitioned per bucket. Every userId's list
+      // call re-sees the SAME project-scoped rows, so summing across buckets
+      // would report N× the truth; the largest single-bucket count is exact.
       skippedProjectScoped = Math.max(
         skippedProjectScoped,
         result.skippedProjectScoped,
       );
     } catch (err) {
+      // `ForgetMemoriesError` carries however many rows THIS bucket deleted
+      // before the failure that ended its sweep — without reading it, a
+      // 9-of-10 bucket reported `forgot: 0` on throw, discarding progress the
+      // loop already made. See forget-memories.ts.
+      if (err instanceof ForgetMemoriesError) forgot += err.forgot;
       failures.push(
         `forget ${userId}: ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -120,16 +139,42 @@ export const POST = async () => {
     seeded += await seedMemories({ apiUrl, apiKey, userId });
   }
 
-  if (failures.length > 0) {
+  // `seedMemories` NEVER throws — it counts stored rows and logs the rest —
+  // so reaching this line proves nothing about whether memory was written.
+  // Without this comparison, a backend that rejected every single seed POST
+  // still earned `ok: true, reset: ["store", "memory"]`: beats 4/5 dead on
+  // arrival, reported as a clean reset. The expected count is knowable
+  // (`SEED_MEMORIES` is a fixed literal, `seedTargets` a derived list), so it
+  // is compared rather than assumed.
+  const expectedSeeds = seedTargets.length * SEED_MEMORIES.length;
+  const seedShortfall = seeded < expectedSeeds;
+
+  if (failures.length > 0 || seedShortfall) {
+    if (seedShortfall) {
+      failures.push(
+        `seeded ${seeded} of ${expectedSeeds} expected memories across ` +
+          `${seedTargets.length} bucket(s); beats 4/5 are not armed`,
+      );
+    }
+    const memoryError = redactSecrets(failures.join("; "));
+    console.error(`[exec] presenter reset: ${failures.join("; ")}`);
     return Response.json(
       {
         ok: false,
-        reset: forgot > 0 ? ["store", "memory"] : ["store"],
-        apiUrl,
+        // NOT ["store", "memory"] even when some forgets succeeded: memory
+        // only counts as reset once it is wiped AND fully re-seeded, and a
+        // seed shortfall means it is not — see keel's/commerce's dev/reset
+        // for the same rule.
+        reset: ["store"],
+        // Redacted: an upstream `Error.message` (or a rejected backend
+        // response body) can quote the API key or the backend address back
+        // verbatim. See src/lib/redact-secrets.ts.
+        apiUrl: redactSecrets(apiUrl),
         forgot,
         seeded,
+        expectedSeeds,
         skippedProjectScoped,
-        memoryError: failures.join("; "),
+        memoryError,
       },
       { status: 502 },
     );
@@ -138,9 +183,10 @@ export const POST = async () => {
   return Response.json({
     ok: true,
     reset: ["store", "memory"],
-    apiUrl,
+    apiUrl: redactSecrets(apiUrl),
     forgot,
     seeded,
+    expectedSeeds,
     skippedProjectScoped,
   });
 };

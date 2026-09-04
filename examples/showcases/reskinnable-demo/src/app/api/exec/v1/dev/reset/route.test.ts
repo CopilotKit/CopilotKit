@@ -121,27 +121,29 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
     vi.stubEnv("INTELLIGENCE_USER_ID", "");
 
     const calls: Array<{ method: string; url: string }> = [];
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input.toString();
-      const method = init?.method ?? "GET";
-      calls.push({ method, url });
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init?.method ?? "GET";
+        calls.push({ method, url });
 
-      if (method === "GET" && url.endsWith("/api/memories")) {
-        // No rows to delete: keeps this test focused on fan-out coverage
-        // rather than the DELETE path, which forget-memories.ts already
-        // covers on its own.
-        return new Response(JSON.stringify({ memories: [] }), {
-          status: 200,
-        });
-      }
-      if (method === "POST" && url.endsWith("/api/memories")) {
-        // Every seed POST fails on the mocked network. This is what proves
-        // `seedMemories` never reached anything real: no assertion here
-        // depends on a live backend being reachable.
-        return new Response("", { status: 500 });
-      }
-      throw new Error(`unexpected fetch in test: ${method} ${url}`);
-    });
+        if (method === "GET" && url.endsWith("/api/memories")) {
+          // No rows to delete: keeps this test focused on fan-out coverage
+          // rather than the DELETE path, which forget-memories.ts already
+          // covers on its own.
+          return new Response(JSON.stringify({ memories: [] }), {
+            status: 200,
+          });
+        }
+        if (method === "POST" && url.endsWith("/api/memories")) {
+          // Every seed POST fails on the mocked network. This is what proves
+          // `seedMemories` never reached anything real: no assertion here
+          // depends on a live backend being reachable.
+          return new Response("", { status: 500 });
+        }
+        throw new Error(`unexpected fetch in test: ${method} ${url}`);
+      },
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const res = await POST();
@@ -158,9 +160,8 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
 
     // One POST per seed memory per seed target bucket.
     const seedCalls = calls.filter((c) => c.method === "POST");
-    expect(seedCalls).toHaveLength(
-      SEED_TARGET_USER_IDS.length * SEED_MEMORIES.length,
-    );
+    const expectedSeeds = SEED_TARGET_USER_IDS.length * SEED_MEMORIES.length;
+    expect(seedCalls).toHaveLength(expectedSeeds);
 
     // The mock is the only thing that answered — nothing here can have
     // reached a real Intelligence backend.
@@ -168,18 +169,157 @@ describe("POST /api/exec/v1/dev/reset — the memory half (fetch isolation)", ()
       forgetCalls.length + seedCalls.length,
     );
 
-    // KNOWN GAP, tracked and owned separately (not fixed in this test file):
-    // every seed POST above failed, `seeded` is 0, and the route still
-    // reports `ok: true`. This assertion pins the route's CURRENT behavior
-    // so the fetch-isolation coverage this test adds doesn't silently start
-    // asserting the honesty fix too — it is not an endorsement of "seeded: 0
-    // is success".
-    expect(res.status).toBe(200);
+    // Every seed POST above failed, so `seeded` is 0 against an `expectedSeeds`
+    // that is knowable and non-zero — the route must not call this a clean
+    // reset. Beats 4/5 would be dead on stage while the button read "done".
+    expect(res.status).toBe(502);
     expect(body).toMatchObject({
-      ok: true,
-      reset: ["store", "memory"],
+      ok: false,
+      reset: ["store"],
       forgot: 0,
       seeded: 0,
+      expectedSeeds,
     });
+    expect((body as { memoryError: string }).memoryError).toMatch(
+      new RegExp(`seeded 0 of ${expectedSeeds} expected memories`),
+    );
+    expect((body as { memoryError: string }).memoryError).toMatch(
+      /beats 4\/5 are not armed/,
+    );
+  });
+
+  it("names the expected vs. actual seed count in a 502 even when every forget bucket succeeds", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://intelligence.invalid");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
+    vi.stubEnv("INTELLIGENCE_USER_ID", "");
+
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init?.method ?? "GET";
+        if (method === "GET" && url.endsWith("/api/memories")) {
+          return new Response(JSON.stringify({ memories: [] }), {
+            status: 200,
+          });
+        }
+        if (method === "POST" && url.endsWith("/api/memories")) {
+          // Every seed rejected — an all-failed seeding, the case the honesty
+          // check exists for.
+          return new Response("", { status: 500 });
+        }
+        throw new Error(`unexpected fetch in test: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await POST();
+    const body = (await readJson(res)) as {
+      ok: boolean;
+      reset: string[];
+      seeded: number;
+      expectedSeeds: number;
+      memoryError: string;
+    };
+
+    const expectedSeeds = SEED_TARGET_USER_IDS.length * SEED_MEMORIES.length;
+    expect(res.status).toBe(502);
+    expect(body.ok).toBe(false);
+    expect(body.reset).toEqual(["store"]);
+    expect(body.seeded).toBe(0);
+    expect(body.expectedSeeds).toBe(expectedSeeds);
+    expect(body.memoryError).toContain(`0 of ${expectedSeeds}`);
+  });
+
+  it("redacts the API key and backend address out of the 502 body, never the console log", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://intelligence.invalid");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_super_secret_test_key");
+    vi.stubEnv("INTELLIGENCE_USER_ID", "");
+
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init?.method ?? "GET";
+        if (method === "GET" && url.endsWith("/api/memories")) {
+          // The backend rejects the key and echoes it back in the body — the
+          // exact shape that would leak the bearer key into a response body
+          // if nothing redacted it.
+          return new Response(
+            `{"error":"unauthorized: bad Authorization: Bearer cpk_super_secret_test_key for ${url}"}`,
+            { status: 401 },
+          );
+        }
+        throw new Error(`unexpected fetch in test: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await POST();
+    const body = (await readJson(res)) as {
+      apiUrl: string;
+      memoryError: string;
+    };
+
+    expect(res.status).toBe(502);
+    expect(body.apiUrl).not.toContain("cpk_super_secret_test_key");
+    expect(body.apiUrl).not.toContain("intelligence.invalid");
+    expect(body.memoryError).not.toContain("cpk_super_secret_test_key");
+    expect(body.memoryError).not.toContain("intelligence.invalid");
+    // The placeholders still name WHICH secret was removed, so the body stays
+    // diagnosable without leaking the value itself.
+    expect(body.apiUrl).toBe("<intelligence-backend>");
+    expect(body.memoryError).toContain("<intelligence-api-key>");
+  });
+
+  it("takes the largest single-bucket skippedProjectScoped count rather than summing, since every bucket re-sees the same global project rows", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://intelligence.invalid");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
+    vi.stubEnv("INTELLIGENCE_USER_ID", "");
+
+    let getCalls = 0;
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init?.method ?? "GET";
+        if (method === "GET" && url.endsWith("/api/memories")) {
+          getCalls += 1;
+          // Two buckets see the SAME global project-scoped rows (as the
+          // verified backend behaviour documented in forget-memories.ts and
+          // user-id.ts says they must) — this pins that a real backend would
+          // never actually vary this count per bucket, but even if a flaky
+          // list did, MAX (not sum) is the number that cannot overstate a
+          // fixed set of rows past its true size.
+          const projectRows =
+            getCalls === 1
+              ? [{ id: "p1", scope: "project" }]
+              : [
+                  { id: "p1", scope: "project" },
+                  { id: "p2", scope: "project" },
+                ];
+          return new Response(JSON.stringify({ memories: projectRows }), {
+            status: 200,
+          });
+        }
+        if (method === "POST" && url.endsWith("/api/memories")) {
+          return new Response("", { status: 500 });
+        }
+        throw new Error(`unexpected fetch in test: ${method} ${url}`);
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await POST();
+    const body = (await readJson(res)) as { skippedProjectScoped: number };
+
+    // MAX of {1, 2, ...} across every forget bucket, never their sum (3+):
+    // summing would report more skipped rows than the backend has ever shown
+    // this process, which is exactly the "N× the truth" bug keel's and
+    // commerce's dev/reset routes already fixed for the same reason.
+    expect(body.skippedProjectScoped).toBe(2);
   });
 });
