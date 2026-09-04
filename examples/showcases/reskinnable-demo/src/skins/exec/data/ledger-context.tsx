@@ -6,6 +6,7 @@ import {
   useContext,
   useMemo,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { ReactNode } from "react";
@@ -74,7 +75,12 @@ export type PublishPackResult =
 
 interface ExecLedgerContextValue {
   snapshot: ExecLedgerSnapshot;
-  /** Re-fetch after a mutation. Every write path calls this. */
+  /**
+   * Re-fetch after a mutation. Every write path calls this. NEVER rejects —
+   * failures become the provider's own first-load panel or stale-view banner,
+   * so awaiting this is not confirmation that the view is current. See the
+   * implementation's doc comment.
+   */
   refresh: () => Promise<void>;
   addBlock: (dashboardId: DashboardId, blockId: string) => Promise<void>;
   removeBlock: (dashboardId: DashboardId, blockId: string) => Promise<void>;
@@ -107,8 +113,7 @@ const EMPTY: ExecLedgerSnapshot = {
 };
 
 /**
- * Throws a block mutation's failure with the SERVER's message, not just its
- * status.
+ * Throws a mutation's failure with the SERVER's message, not just its status.
  *
  * Every `blocks` route answers a coded refusal as `{ error, message }` (see
  * `@/skins/exec/data/store-errors`), and that message is the only thing that
@@ -118,6 +123,13 @@ const EMPTY: ExecLedgerSnapshot = {
  * `AddToDashboard` control both render this string verbatim, so dropping it
  * for a bare status code puts "remove block failed: 404" on screen and sends
  * the reader to the network tab.
+ *
+ * The narratives route uses the same envelope for the same reason — its 400
+ * `message` is the field-specific "Period must be \"YYYY-MM\"" or "Narrative
+ * body cannot be empty", and beat 6's filing form (`pages/board-packs.tsx`)
+ * renders the thrown string as the form's note. It deliberately does NOT
+ * enumerate the accepted narrative codes; forwarding its `message` forwards
+ * only what that route chose to say.
  *
  * Returns `Promise<never>` so a call site can `await` it as its whole failure
  * branch — the awaited value is uninhabited, so nothing downstream can
@@ -165,15 +177,48 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
   // `await refresh()`, since that mutation already wrote server-side). The
   // last good snapshot stays on screen; this is what says it might be stale.
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  // True while a `refresh` is in flight. Exists so a retry that ends in the
+  // BYTE-IDENTICAL error string it ended in last time still repaints — see
+  // `refresh`'s doc comment.
+  const [refreshing, setRefreshing] = useState(false);
+  // `loaded` again, as a ref, because `refresh` needs to read it at CATCH
+  // time rather than at bind time. Reading the state variable instead put
+  // `loaded` in the callback's dependency list, which re-created `refresh`
+  // (and with it every mutation and the whole context value) the moment the
+  // first load landed — and, worse, let a refresh that STARTED before that
+  // first load report its late failure to the first-load panel off the
+  // `false` it captured, blowing away a tree that had since mounted.
+  const loadedRef = useRef(false);
 
-  // Note the `await` comes FIRST: nothing here sets state synchronously, which
-  // is what keeps the mount effect below off React's cascading-render path
-  // (`react-hooks/set-state-in-effect`).
+  /**
+   * Re-fetch the ledger after a mutation, or as the first-load panel's retry.
+   *
+   * NEVER rejects. Every failure is caught here and turned into on-screen
+   * state — the loud first-load panel when no snapshot has ever landed, the
+   * dismissible "may be stale" banner once one has. So `await refresh()`
+   * tells a caller NOTHING about whether the re-read worked, and callers must
+   * not treat it as confirmation: a mutation's own success or failure comes
+   * from ITS response, and the staleness of the view that follows is this
+   * provider's story to tell, not the caller's. (That is deliberate — a write
+   * that succeeded must not be reported as failed just because the re-read
+   * after it didn't.)
+   *
+   * `refreshing` flips SYNCHRONOUSLY, before the first `await`, so that every
+   * invocation produces an observable state transition: React bails out of a
+   * re-render that sets state to the value it already holds, so re-setting an
+   * identical `firstLoadError` repainted nothing and the panel's Retry button
+   * read as dead. The cost of that synchronous setState is that `refresh`
+   * must never be called from an effect BODY
+   * (`react-hooks/set-state-in-effect`) — which is why the mount effect below
+   * inlines its own fetch instead of calling this.
+   */
   const refresh = useCallback(async () => {
+    setRefreshing(true);
     try {
       const res = await fetch("/api/exec/v1/ledger", { cache: "no-store" });
       if (!res.ok) throw new Error(`ledger fetch failed: ${res.status}`);
       setSnapshot((await res.json()) as ExecLedgerSnapshot);
+      loadedRef.current = true;
       setLoaded(true);
       setFirstLoadError(null);
       setRefreshError(null);
@@ -187,13 +232,15 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
       // already succeeded server-side; the honest message is that the write
       // happened but the view may not reflect it yet, surfaced as a
       // dismissible banner while the last good snapshot stays on screen.
-      if (!loaded) {
+      if (!loadedRef.current) {
         setFirstLoadError(message);
       } else {
         setRefreshError(`saved, but the view may be stale: ${message}`);
       }
+    } finally {
+      setRefreshing(false);
     }
-  }, [loaded]);
+  }, []);
 
   // The FIRST load is inlined as a promise chain rather than a call to
   // `refresh`, mirroring people's provider: invoking any setState-calling
@@ -211,6 +258,9 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         if (cancelled) return;
         setSnapshot(data);
+        // Both, in step — `refresh`'s catch reads the ref (see above) and
+        // would keep routing failures to the first-load panel without it.
+        loadedRef.current = true;
         setLoaded(true);
       })
       .catch((error) => {
@@ -283,9 +333,12 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (res.status !== 201) {
-        throw new Error(`file narrative failed: ${res.status}`);
-      }
+      // Same envelope, same reason as the block mutations: this route's 400
+      // carries the field-specific `message` (and `issues`) that says WHICH
+      // field was wrong, and the filing form renders the thrown string. A
+      // bare status put "file narrative failed: 400" on beat 6's form with
+      // nothing to act on.
+      if (res.status !== 201) await throwWithBodyMessage("file narrative", res);
       const filed = (await res.json()) as Narrative;
       await refresh();
       return filed;
@@ -308,14 +361,42 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ dashboardId, countersignPin }),
       });
       if (!res.ok) {
-        const body = (await res.json()) as {
-          error: string;
-          breaches?: Exception[];
+        // `.catch(() => null)`, not a bare `res.json()`: a 500 from the
+        // framework or a proxy in front of it is an HTML page, and parsing it
+        // rejected with a `SyntaxError` — a REJECTION, which is precisely
+        // what this function's contract says it does not produce, and which
+        // the HITL publish card (`tools.tsx`'s `onSubmit`) has no arm for.
+        const body = (await res.json().catch(() => null)) as {
+          error?: unknown;
+          breaches?: unknown;
+        } | null;
+        return {
+          status: res.status,
+          // Validated, not cast. `tools.tsx` compares this against the
+          // literal codes `BAD_COUNTERSIGN`/`UNEXPLAINED_VARIANCE` and
+          // otherwise forwards it to the agent, so an `undefined` off a body
+          // that had no `error` settled the card with nothing to say. Any
+          // shape other than a string becomes a message that at least names
+          // the status.
+          error:
+            typeof body?.error === "string"
+              ? body.error
+              : `publish pack failed: ${res.status}`,
+          ...(Array.isArray(body?.breaches)
+            ? { breaches: body.breaches as Exception[] }
+            : {}),
         };
-        return { status: res.status, ...body };
       }
-      const pack = (await res.json()) as BoardPack;
+      const pack = (await res.json().catch(() => null)) as BoardPack | null;
+      // The pack IS published at this point whether or not its body parsed,
+      // so the snapshot's `packs` is behind either way.
       await refresh();
+      if (!pack) {
+        return {
+          status: res.status,
+          error: `publish pack succeeded but returned an unreadable body (${res.status})`,
+        };
+      }
       return { status: 200, pack };
     },
     [refresh],
@@ -328,15 +409,24 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
         string,
         unknown
       > | null;
-      // Every non-OK body except the 403 FORBIDDEN gate carries a `reset`
-      // array, because the route's FIRST act after that gate is
-      // `store.reset()` — so its presence is what tells this apart from a
-      // refusal that touched nothing. `refresh()` never throws (it logs and
-      // keeps the last good snapshot on a failed fetch), so calling it here
-      // is a safe best-effort refresh of state that DID already change —
-      // without it the screen would keep showing pre-reset data while the
-      // store behind it had already been restored.
-      if (Array.isArray(body?.reset)) await refresh();
+      // Refresh unless the response PROVES nothing changed. The route's only
+      // exit BEFORE `store.reset()` is the 403 FORBIDDEN gate; every later
+      // failure leaves the store already restored while the screen still
+      // shows pre-reset data. That includes an unhandled throw mid-route,
+      // which answers with no JSON body at all — so the earlier guard here,
+      // keyed on the 502 body's `reset` array, silently skipped exactly the
+      // case with no body to key on. `refresh()` never throws (it logs and
+      // keeps the last good snapshot on a failed fetch), so best-effort
+      // refetching a failure that turns out to have changed nothing costs one
+      // wasted GET and nothing else.
+      //
+      // KNOWN GAP, elsewhere: `handleReset` in `layout.tsx` still picks its
+      // "data was reset, memory seeding failed" wording off
+      // `Array.isArray(err.body?.reset)`, so a bodiless 500 alerts with the
+      // bare "Reset failed" even though the store did reset and this
+      // refreshed.
+      const untouched = res.status === 403 && body?.error === "FORBIDDEN";
+      if (!untouched) await refresh();
       throw new ResetDemoError(`reset demo failed: ${res.status}`, body);
     }
     await refresh();
@@ -381,12 +471,22 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
           Could not load the exec ledger
         </p>
         <p className="max-w-md text-xs text-ink">{firstLoadError}</p>
+        {/*
+          `aria-busy`/`disabled`/the label are all driven off `refreshing`
+          because a retry that fails the SAME way as the last one sets an
+          identical `firstLoadError` — React bails out, nothing repaints, and
+          the operator concludes the button is broken. The in-flight state is
+          what makes every click land visibly, whatever it ends in.
+        */}
         <button
           type="button"
-          className="rounded-full border border-hairline bg-surface px-4 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-muted"
+          data-testid="ledger-retry"
+          disabled={refreshing}
+          aria-busy={refreshing}
+          className="rounded-full border border-hairline bg-surface px-4 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-muted disabled:opacity-60"
           onClick={() => void refresh()}
         >
-          Retry
+          {refreshing ? "Retrying…" : "Retry"}
         </button>
       </div>
     );
