@@ -8,10 +8,15 @@ import {
 } from "@/skins/exec/data/derive";
 import {
   A2UI_OPERATIONS_KEY,
+  BLOCK_KIND_PROPS,
   buildBlockOps,
   METRIC_BOUND_KINDS,
 } from "@/skins/exec/blocks/build-block-ops";
-import type { NarrativeCode } from "@/skins/exec/data/types";
+import type {
+  MetricDef,
+  MetricId,
+  NarrativeCode,
+} from "@/skins/exec/data/types";
 
 // SERVER-SAFE. No client directive, no JSX, no React. Imported only by the
 // server agent registry (src/shell/agent-registry.ts), never by the client skin
@@ -52,6 +57,112 @@ const department = z.enum([
 ]);
 
 /**
+ * ⚠️ THE HANG, STATED ONCE FOR EVERY TOOL BELOW.
+ *
+ * `@copilotkit/runtime`'s event translation has NO `tool-error` arm
+ * (`dist/agent/index.mjs` handles `tool-call`, `tool-result`, `error`, the
+ * text/reasoning parts and `finish` — verified against `ai@6.0.259`). Two
+ * different mistakes therefore produce the same dead screen:
+ *
+ *  - a value zod rejects at the PARAMETER boundary — the AI SDK turns it into
+ *    a `tool-error` stream part, `execute` is never entered;
+ *  - anything that THROWS inside `execute` — same stream part, same silence.
+ *
+ * Either way no TOOL_CALL_RESULT is emitted for the call, so the transcript's
+ * chip spins InProgress forever with nothing rendered and nothing said, for a
+ * mistake the model could have fixed in one retry.
+ *
+ * So: the schemas below constrain SHAPE only (types and enums, which the model
+ * cannot get subtly wrong and which a JSON schema can express), every VALUE
+ * constraint is enforced inside `execute`, and every `execute` body that can
+ * throw is wrapped so the throw comes back as an ordinary result instead.
+ */
+
+/**
+ * A thrown error, re-shaped into the `{ error, message }` result every guard in
+ * this file returns.
+ *
+ * `store` and `build-block-ops` both raise `"<CODE>: <human message>"` (see
+ * `store-errors.ts`, which maps the same convention to HTTP statuses), so a
+ * coded throw keeps its code and its message: the model reads exactly what it
+ * would have read had the guard fired first.
+ *
+ * Anything else is a BUG, not a correctable mistake, so it is logged with its
+ * original value — a swallowed exception is the thing this file exists to
+ * avoid — and reported under a code that says so rather than being dressed up
+ * as a spec the model can fix.
+ */
+// `[\s\S]` rather than `.` with the `s` flag: the message half of a coded
+// throw can run to several lines, and this file's tsconfig target predates
+// `dotAll`.
+const CODED_THROW = /^([A-Z][A-Z0-9_]*): ([\s\S]+)$/;
+
+function thrownAsResult(
+  error: unknown,
+  tool: string,
+): { error: string; message: string } {
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : String(error);
+  const coded = CODED_THROW.exec(raw);
+  if (coded) return { error: coded[1], message: coded[2] };
+  console.error(`[exec] ${tool} threw an uncoded error`, error);
+  return {
+    error: "TOOL_FAILED",
+    message:
+      `${tool} could not complete and nothing was changed. This is not a ` +
+      `mistake in what you asked for — do not retry the same call; say what ` +
+      `you were trying to do and move on.`,
+  };
+}
+
+/**
+ * `months` is a TRAILING WINDOW, so only a positive whole number narrows
+ * anything — and it is checked here rather than as `.int().positive()` on the
+ * schema for the reason stated above: a schema rejection hangs the chip.
+ *
+ * `0` is the value that makes this worth a guard rather than a shrug. Both
+ * consumers slice with a negated window (`store.periodWindow`, and TrendLine's
+ * `periods.slice(-months)` in `../catalog/renderers.tsx`), and `slice(-0)` is
+ * `slice(0)`: the FULL history, silently, for a caller that asked to narrow.
+ * A negative reads the OLDEST periods instead of the newest. Neither is
+ * visible on screen as an error, which is why neither may pass.
+ *
+ * Returns the refusal, or `undefined` when there is nothing to refuse.
+ */
+function monthsRefusal(
+  months: number | undefined,
+  what: string,
+): { error: string; message: string } | undefined {
+  if (months === undefined) return undefined;
+  if (Number.isInteger(months) && months > 0) return undefined;
+  return {
+    error: "MONTHS_INVALID",
+    message:
+      `months is ${what}, so it must be a whole number of months greater ` +
+      `than zero — ${String(months)} is not, and nothing was returned. Call ` +
+      `again with a positive whole number, or omit months entirely for the ` +
+      `full history.`,
+  };
+}
+
+/**
+ * The metric's definition, or `undefined` for an id this ledger does not hold.
+ *
+ * ⚠️ `store.snapshot()` RECOMPUTES `exceptions()` on every call, which is more
+ * work than reading a static definition list needs. `store` exposes no cheaper
+ * defs accessor today and is outside this change's blast radius, so the cost
+ * is paid — but paid ONCE, here, rather than at each call site, so adding one
+ * is a one-line change when it lands.
+ */
+function metricDefOf(id: MetricId): MetricDef | undefined {
+  return store.snapshot().metricDefs.find((d) => d.id === id);
+}
+
+/**
  * Backend tool: the agent's data sense. Returns the raw monthly series AND the
  * variance rows derived from it via `./data/derive` — the same functions the
  * client catalog renderers use, so a figure the agent says out loud and a
@@ -77,34 +188,47 @@ export const getMetricsTool = defineTool({
         "Omit to get every series for the metric; pass 'all' for the " +
           "company-wide one.",
       ),
+    // A plain number, NOT `.int().positive()` — see `monthsRefusal`.
     months: z
       .number()
-      .int()
-      .positive()
       .optional()
-      .describe("Trailing window, in months. Omit for the full history."),
+      .describe(
+        "Trailing window, as a whole number of months greater than zero. " +
+          "Omit for the full history.",
+      ),
   }),
   execute: async ({ metricId: id, department: dept, months }) => {
-    const def = store.snapshot().metricDefs.find((d) => d.id === id);
-    const rows = store.metricSeries({ metricId: id, department: dept, months });
-    return {
-      metricId: id,
-      label: def?.label,
-      unit: def?.unit,
-      // The threshold the breach flag below was measured against, so the agent
-      // can explain WHY a row is a breach instead of asserting that it is one.
-      thresholdPct: def?.thresholdPct,
-      rows: rows.map((p) => ({
-        period: p.period,
-        department: p.department,
-        plan: p.plan,
-        actual: p.actual,
-        forecast: p.forecast,
-        variancePct: variancePct(p),
-        varianceVsForecastPct: varianceVsForecast(p),
-        breach: def ? isBreach(def, p) : false,
-      })),
-    };
+    const badMonths = monthsRefusal(months, "a trailing window in months");
+    if (badMonths) return badMonths;
+    try {
+      const def = metricDefOf(id);
+      const rows = store.metricSeries({
+        metricId: id,
+        department: dept,
+        months,
+      });
+      return {
+        metricId: id,
+        label: def?.label,
+        unit: def?.unit,
+        // The threshold the breach flag below was measured against, so the
+        // agent can explain WHY a row is a breach instead of asserting that it
+        // is one.
+        thresholdPct: def?.thresholdPct,
+        rows: rows.map((p) => ({
+          period: p.period,
+          department: p.department,
+          plan: p.plan,
+          actual: p.actual,
+          forecast: p.forecast,
+          variancePct: variancePct(p),
+          varianceVsForecastPct: varianceVsForecast(p),
+          breach: def ? isBreach(def, p) : false,
+        })),
+      };
+    } catch (error) {
+      return thrownAsResult(error, "get_metrics");
+    }
   },
 });
 
@@ -123,29 +247,21 @@ export const listExceptionsTool = defineTool({
     "('explained'). Call this for 'what needs explaining', 'what's off plan', " +
     "or before assembling or publishing a board pack.",
   parameters: z.object({}),
-  execute: async () => ({ exceptions: store.exceptions() }),
+  execute: async () => {
+    try {
+      return { exceptions: store.exceptions() };
+    } catch (error) {
+      return thrownAsResult(error, "list_exceptions");
+    }
+  },
 });
 
 /**
- * BEAT 1 — the block that lands in the chat.
- *
- * The agent picks a small selection (`BlockSpec`); `buildBlockOps` expands it
- * deterministically into A2UI operations, which the A2UI middleware turns into
- * an `a2ui-surface` activity the shell renders INLINE (a `block:`-prefixed
- * surface id is what routes it to the transcript rather than to a canvas).
- * Building the ops in code, rather than having the model author component JSON,
- * is what keeps generation fast and reliable — the model emits only the tiny
- * selection, and the block binds live figures on the client.
- *
- * The block is created as a DRAFT (`store.createDraftBlock`): it exists, it can
- * be pinned by the "Add to dashboard" control the ops carry OR by the frontend
- * `pinBlockToDashboard` tool (`./tools.tsx`), and until one of those runs it is
- * on no dashboard at all. A rendered block is not a pin.
- *
- * The draft's id is returned alongside the ops as `blockId`, which is the ONLY
- * handle `pinBlockToDashboard` accepts — without it the agent could compose the
- * three blocks beat 5's saved procedure asks for and then have no way to pin
- * any of them.
+ * The selection `render_metric_block` accepts — SHAPE ONLY. Every value
+ * constraint (a metric-bound kind's `metricId`, the props a kind actually
+ * honours, `months`, whether the metric breaks out by department) is enforced
+ * inside that tool's `execute` instead, for the reason given at the top of this
+ * file: a schema rejection hangs the chip.
  */
 const renderMetricBlockParams = z.object({
   kind: z
@@ -191,18 +307,30 @@ const renderMetricBlockParams = z.object({
     .describe(
       "What a metricTile's delta is measured against — metricTile ONLY.",
     ),
+  // A plain number, NOT `.int().positive()` — see `monthsRefusal`.
   months: z
     .number()
-    .int()
-    .positive()
     .optional()
     .describe(
-      "A trendLine's trailing window in months (default 12) — trendLine ONLY.",
+      "A trendLine's trailing window, as a whole number of months greater " +
+        "than zero (default 12) — trendLine ONLY.",
     ),
 });
 
+/** Every query prop the schema above offers, in the order a refusal lists them. */
+const BLOCK_QUERY_PROPS = [
+  "metricId",
+  "department",
+  "compare",
+  "months",
+] as const;
+
+type BlockQueryProp = (typeof BLOCK_QUERY_PROPS)[number];
+type BlockKindName = z.infer<typeof renderMetricBlockParams>["kind"];
+
 /**
- * The props each block kind actually RENDERS, keyed by kind.
+ * The props a block kind actually RENDERS, DERIVED from the ops builder's own
+ * `BLOCK_KIND_PROPS` rather than re-listed here.
  *
  * ⚠️ THE PHANTOM-LEVER GUARD. `renderMetricBlockParams` offers every prop to
  * every kind — zod cannot express "compare, but only for a metricTile" without
@@ -215,34 +343,49 @@ const renderMetricBlockParams = z.object({
  * four departments while the agent says, truthfully as far as it knows, that
  * it scoped the block.
  *
- * Kept here rather than in `build-block-ops.ts` because it is the TOOL
- * BOUNDARY's job: this table decides what the model is told, and the ops
- * builder stays the deterministic expander it is. Mirrors that module's
- * `METRIC_BOUND_KINDS` in spirit — one list, read by the guard that fires
- * first.
+ * This table used to be HAND-COPIED from that module's (then module-private)
+ * list, which made the tool boundary and the builder two independent
+ * statements of one fact: they could disagree, and the disagreement would show
+ * up only as a prop refused here that the builder would happily have forwarded,
+ * or the reverse. Derived instead, the two cannot drift — and the derivation
+ * is what `agent-tools.test.ts` walks to assert both directions per kind.
  */
-const SUPPORTED_BLOCK_PROPS: Record<
-  z.infer<typeof renderMetricBlockParams>["kind"],
-  readonly ("metricId" | "department" | "compare" | "months")[]
-> = {
-  metricTile: ["metricId", "department", "compare"],
-  trendLine: ["metricId", "department", "months"],
-  varianceBar: ["metricId"],
-  initiativeTable: [],
-  exceptionList: [],
-};
+function supportedBlockProps(kind: BlockKindName): BlockQueryProp[] {
+  const declared: Partial<Record<BlockQueryProp, true>> =
+    BLOCK_KIND_PROPS[kind];
+  return BLOCK_QUERY_PROPS.filter((prop) => declared[prop] === true);
+}
 
 /** One sentence naming what a kind DOES take, so the refusal is correctable. */
-function describeSupportedProps(
-  kind: keyof typeof SUPPORTED_BLOCK_PROPS,
-): string {
-  const supported = SUPPORTED_BLOCK_PROPS[kind];
+function describeSupportedProps(kind: BlockKindName): string {
+  const supported = supportedBlockProps(kind);
   if (supported.length === 0) {
     return `A "${kind}" binds its own rows and takes no metric or scope props at all.`;
   }
   return `A "${kind}" takes ${supported.join(", ")} — nothing else.`;
 }
 
+/**
+ * BEAT 1 — the block that lands in the chat.
+ *
+ * The agent picks a small selection (`BlockSpec`); `buildBlockOps` expands it
+ * deterministically into A2UI operations, which the A2UI middleware turns into
+ * an `a2ui-surface` activity the shell renders INLINE (a `block:`-prefixed
+ * surface id is what routes it to the transcript rather than to a canvas).
+ * Building the ops in code, rather than having the model author component JSON,
+ * is what keeps generation fast and reliable — the model emits only the tiny
+ * selection, and the block binds live figures on the client.
+ *
+ * The block is created as a DRAFT (`store.createDraftBlock`): it exists, it can
+ * be pinned by the "Add to dashboard" control the ops carry OR by the frontend
+ * `pinBlockToDashboard` tool (`./tools.tsx`), and until one of those runs it is
+ * on no dashboard at all. A rendered block is not a pin.
+ *
+ * The draft's id is returned alongside the ops as `blockId`, which is the ONLY
+ * handle `pinBlockToDashboard` accepts — without it the agent could compose the
+ * three blocks beat 5's saved procedure asks for and then have no way to pin
+ * any of them.
+ */
 export const renderMetricBlockTool = defineTool({
   name: "render_metric_block",
   description:
@@ -256,27 +399,18 @@ export const renderMetricBlockTool = defineTool({
     "what was actually asked.",
   parameters: renderMetricBlockParams,
   execute: async (spec) => {
-    // ⚠️ ENFORCED HERE, INSIDE `execute` — NEVER AS A SCHEMA REFINEMENT.
+    // ⚠️ EVERY GUARD BELOW IS ENFORCED HERE, INSIDE `execute` — NEVER AS A
+    // SCHEMA REFINEMENT, and never left to the throw `assertValidBlockSpec`
+    // raises for the same conditions. Both are the hang described at the top
+    // of this file; a RESULT is an ordinary tool output the model reads and
+    // corrects in one retry.
     //
-    // This guard used to be a `.superRefine()` on `renderMetricBlockParams`,
-    // which is a HANG. A parameter-validation failure never reaches this
-    // function: the AI SDK turns it into a `tool-error` stream part, and
-    // @copilotkit/runtime's event translation has no case for that part
-    // (`dist/agent/index.mjs` handles `tool-call`, `tool-result`, `error`,
-    // the text/reasoning parts and `finish` — there is no `tool-error` arm),
-    // so no TOOL_CALL_RESULT is ever emitted for the call. On screen that is a
-    // tool chip spinning InProgress forever with no block and no explanation,
-    // for a mistake the model could have fixed in one retry.
-    //
-    // Returned as a RESULT it is an ordinary tool output: the model reads it
-    // and sends the corrected spec. Same shape and same reasoning as
-    // `fileVarianceNarrativeTool`'s BAD_CODE branch below.
-    //
-    // This must run BEFORE `store.createDraftBlock` / `buildBlockOps` below:
-    // both now also call `assertValidBlockSpec` and THROW on the same
-    // condition (their fallback for callers other than this tool — see that
-    // function's doc comment), which would surface here as an unhandled
-    // exception instead of the friendly tool result the model can act on.
+    // They must also run BEFORE `store.createDraftBlock` / `buildBlockOps`
+    // below: both call `assertValidBlockSpec`, which THROWS on the same
+    // conditions (its fallback for callers other than this tool — see that
+    // function's doc comment). The `catch` at the end is the backstop for a
+    // condition that function screens and these guards do not, not a licence
+    // to drop one of them.
     if (METRIC_BOUND_KINDS.has(spec.kind) && !spec.metricId) {
       return {
         error: "METRIC_ID_REQUIRED",
@@ -289,14 +423,14 @@ export const renderMetricBlockTool = defineTool({
     }
 
     // ── THE SAME ERROR-RESULT PATTERN, FOR THE PROPS THAT USED TO VANISH ──
-    // See `SUPPORTED_BLOCK_PROPS` above. Refused rather than stripped: a
+    // See `supportedBlockProps` above. Refused rather than stripped: a
     // strip is the same silence with extra steps — the block still comes back
     // green, and the model has no way to learn that what is on screen is not
     // what it asked for. Named as a RESULT, one retry corrects it.
-    const supported = new Set<string>(SUPPORTED_BLOCK_PROPS[spec.kind]);
-    const unsupported = (
-      ["metricId", "department", "compare", "months"] as const
-    ).filter((prop) => spec[prop] !== undefined && !supported.has(prop));
+    const supported = new Set<string>(supportedBlockProps(spec.kind));
+    const unsupported = BLOCK_QUERY_PROPS.filter(
+      (prop) => spec[prop] !== undefined && !supported.has(prop),
+    );
     if (unsupported.length > 0) {
       const named = unsupported.map((p) => `"${p}"`).join(" or ");
       return {
@@ -309,11 +443,55 @@ export const renderMetricBlockTool = defineTool({
       };
     }
 
-    const block = store.createDraftBlock(spec);
-    return {
-      [A2UI_OPERATIONS_KEY]: buildBlockOps(spec, block.id),
-      blockId: block.id,
-    };
+    const badMonths = monthsRefusal(
+      spec.months,
+      `a trendLine's trailing window`,
+    );
+    if (badMonths) return badMonths;
+
+    // ── THE BLOCK THAT SETTLES GREEN AND RENDERS RED ────────────────────────
+    //
+    // Only 'opex' and 'headcountCost' carry per-department series
+    // (`MetricDef.byDepartment`). A varianceBar draws one bar per department,
+    // so asked for a company-wide metric it passed every guard above, returned
+    // ops, settled as a composed block — and the catalog renderer drew a
+    // "Variance unavailable" card (`../catalog/renderers.tsx`). The agent then
+    // said it had shown the variance while the room looked at an error tile. A
+    // department-scoped metricTile or trendLine is the same story through
+    // `metricSeries`, which filters to no rows at all.
+    //
+    // `department: "all"` is the COMPANY-WIDE series rather than a department,
+    // so it stays legal everywhere — it is the only value of this prop that
+    // means anything for a company-wide metric.
+    const def = spec.metricId ? metricDefOf(spec.metricId) : undefined;
+    const scopedToADepartment =
+      spec.department !== undefined && spec.department !== "all";
+    if (
+      def &&
+      !def.byDepartment &&
+      (spec.kind === "varianceBar" || scopedToADepartment)
+    ) {
+      return {
+        error: "METRIC_NOT_BY_DEPARTMENT",
+        message:
+          `"${spec.metricId}" (${def.label}) is a company-wide metric with no ` +
+          `per-department series, so nothing was rendered — a block scoped to ` +
+          `a department would have drawn an "unavailable" card. Call ` +
+          `render_metric_block again for "${spec.metricId}" without a ` +
+          `department (a metricTile or trendLine), or keep the department ` +
+          `scope and pick a metric that breaks out by department.`,
+      };
+    }
+
+    try {
+      const block = store.createDraftBlock(spec);
+      return {
+        [A2UI_OPERATIONS_KEY]: buildBlockOps(spec, block.id),
+        blockId: block.id,
+      };
+    } catch (error) {
+      return thrownAsResult(error, "render_metric_block");
+    }
   },
 });
 
@@ -454,48 +632,55 @@ export const fileVarianceNarrativeTool = defineTool({
     // move with the calendar (the seed builds the 24 months ending at the
     // latest CLOSED one), which is exactly why a period cannot be reasoned
     // out and has to be READ.
-    const pointsAtPeriod = store
-      .metricSeries({ metricId: id })
-      .filter((p) => p.period === period);
-    if (pointsAtPeriod.length === 0) {
+    try {
+      const pointsAtPeriod = store
+        .metricSeries({ metricId: id })
+        .filter((p) => p.period === period);
+      if (pointsAtPeriod.length === 0) {
+        return {
+          error: "NO_LEDGER_POINT",
+          message:
+            `This ledger holds no ${id} row for ${period}, so nothing was ` +
+            `filed. Call get_metrics for ${id} to see the periods it actually ` +
+            `covers, or list_exceptions for the ones waiting on an ` +
+            `explanation, then file against one of those.`,
+        };
+      }
+
+      // Read BEFORE the write — filing is what flips `explained`, so asking
+      // afterwards always answers "explained".
+      const clearsAnOpenBreach = store
+        .exceptions()
+        .some((e) => e.metricId === id && e.period === period && !e.explained);
+
+      const narrative = store.fileNarrative({
+        metricId: id,
+        period,
+        code: trimmedCode,
+        body: trimmedBody,
+        source: ingestedFromAttachment ? "ingested-memo" : "typed",
+      });
+
+      // The row is real, so the filing STANDS (the store write is unchanged) —
+      // but a narrative against a period nothing is breaching clears no publish
+      // gate, and a plain success here reads as the gate contradicting a filing
+      // that just worked. Said in the result so the model can self-correct
+      // rather than re-publishing and hoping.
+      if (clearsAnOpenBreach) return { narrative };
       return {
-        error: "NO_LEDGER_POINT",
-        message:
-          `This ledger holds no ${id} row for ${period}, so nothing was ` +
-          `filed. Call get_metrics for ${id} to see the periods it actually ` +
-          `covers, or list_exceptions for the ones waiting on an ` +
-          `explanation, then file against one of those.`,
+        narrative,
+        note:
+          `Filed — but ${id} has no OPEN exception at ${period} (either it does ` +
+          `not breach its threshold there, or it is already explained), so this ` +
+          `filing clears nothing the publish gate is waiting on. Call ` +
+          `list_exceptions to see which breaches are still unexplained.`,
       };
+    } catch (error) {
+      // A throw out of the store would otherwise leave the agent looking at a
+      // chip that never settles, mid-beat-6, with a publish still refused and
+      // nothing said about why.
+      return thrownAsResult(error, "file_variance_narrative");
     }
-
-    // Read BEFORE the write — filing is what flips `explained`, so asking
-    // afterwards always answers "explained".
-    const clearsAnOpenBreach = store
-      .exceptions()
-      .some((e) => e.metricId === id && e.period === period && !e.explained);
-
-    const narrative = store.fileNarrative({
-      metricId: id,
-      period,
-      code: trimmedCode,
-      body: trimmedBody,
-      source: ingestedFromAttachment ? "ingested-memo" : "typed",
-    });
-
-    // The row is real, so the filing STANDS (the store write is unchanged) —
-    // but a narrative against a period nothing is breaching clears no publish
-    // gate, and a plain success here reads as the gate contradicting a filing
-    // that just worked. Said in the result so the model can self-correct
-    // rather than re-publishing and hoping.
-    if (clearsAnOpenBreach) return { narrative };
-    return {
-      narrative,
-      note:
-        `Filed — but ${id} has no OPEN exception at ${period} (either it does ` +
-        `not breach its threshold there, or it is already explained), so this ` +
-        `filing clears nothing the publish gate is waiting on. Call ` +
-        `list_exceptions to see which breaches are still unexplained.`,
-    };
   },
 });
 
@@ -544,15 +729,19 @@ export const publishBoardPackTool = defineTool({
       ),
   }),
   execute: async ({ dashboardId, countersignPin }) => {
-    const result = store.publishPack(dashboardId, countersignPin);
-    if (!result.ok) {
-      return {
-        error: result.code,
-        ...("message" in result ? { message: result.message } : {}),
-        ...("breaches" in result ? { breaches: result.breaches } : {}),
-      };
+    try {
+      const result = store.publishPack(dashboardId, countersignPin);
+      if (!result.ok) {
+        return {
+          error: result.code,
+          ...("message" in result ? { message: result.message } : {}),
+          ...("breaches" in result ? { breaches: result.breaches } : {}),
+        };
+      }
+      return { pack: result.pack };
+    } catch (error) {
+      return thrownAsResult(error, "publish_board_pack");
     }
-    return { pack: result.pack };
   },
 });
 
@@ -572,7 +761,9 @@ it, do not recompute it, and do not round a breach away.
 
 2. A BLOCK IS SHOWN, AN ANSWER IS SAID — ALWAYS BOTH. Every render_metric_block
 call is paired with ONE sentence of prose that answers what was actually asked
-("Distribution opex ran 9% over plan in the latest closed month"). The block
+— name the metric, the department and the period, and quote the variance you
+READ off get_metrics for them (rule 1); never a figure carried over from this
+instruction or from an earlier turn's block. The block
 replaces LISTING the raw numbers; it never replaces the answer. A block with no
 sentence is a chart handed to someone who asked a question, and a sentence with
 no block is a number nobody can see. If the user asked no specific question, one
@@ -781,11 +972,16 @@ export const execAgent = () =>
       renderMetricBlockTool,
       fileVarianceNarrativeTool,
     ],
-    // Temperature 0 for deterministic tool routing — every other skin pins it
-    // for the same reason. The scripted arc (render → file → publish → teach)
-    // needs the agent to pick the same path every time, not sample
-    // alternatives, or the demo drifts between run-throughs.
-    temperature: 0,
+    // NO `temperature`. Keel pins it to 0 and this skin used to as well, under
+    // a comment claiming "every other skin pins it for the same reason" —
+    // which was false in both directions: bookstore, commerce and people all
+    // deliberately omit it, and they say why. `gpt-5.4` is a reasoning model
+    // that REJECTS the parameter: the dev server logs 'The feature
+    // "temperature" is not supported' on every run and the value is discarded,
+    // so pinning it changed nothing except what the next reader believed.
+    // Carrying a silently-ignored option under a comment promising run-to-run
+    // determinism is worse than not setting it. Determinism here comes from
+    // the prompt's explicit routing rules (rules 1-13) instead.
     // ⚠️ REQUIRED, NOT AN OPTIMISATION. `@copilotkit/runtime` passes
     // `stopWhen: config.maxSteps ? stepCountIs(config.maxSteps) : undefined`
     // into `streamText` (`dist/agent/index.mjs:479`), and the AI SDK's own
@@ -806,11 +1002,16 @@ export const execAgent = () =>
     // promise-blocking handler, not a server-side `interrupt: true` tool: the
     // runtime converts client-provided tools with NO `execute`
     // (`runtime/dist/agent/index.mjs:326-329`), and the AI SDK only continues
-    // the loop when every client tool call in the step produced an output
-    // (`clientToolCalls.length > 0 && clientToolOutputs.length ===
-    // clientToolCalls.length`, `ai/dist/index.mjs:8185`). An unanswered
-    // frontend tool call therefore ENDS the step cleanly, with no error and
-    // regardless of `stopWhen`, exactly as it does today. The `maxSteps: 1`
+    // the loop when every client tool call in the step produced an output OR a
+    // provider-executed tool is still owed a deferred result
+    // (`(clientToolCalls.length > 0 && clientToolOutputs.length ===
+    // clientToolCalls.length) || pendingDeferredToolCalls.size > 0`,
+    // `ai@6.0.259/dist/index.mjs:8185`). That second disjunct cannot fire
+    // here: it is populated only for tools whose `type` is `"provider"` and
+    // which declare `supportsDeferredResults` (`:8159-8172`), and this skin
+    // registers none. An unanswered frontend tool call therefore ENDS the step
+    // cleanly, with no error and regardless of `stopWhen`, exactly as it does
+    // today. The `maxSteps: 1`
     // requirement documented at `runtime/dist/agent/index.d.mts:103` applies
     // only to server-side `defineTool({ interrupt: true })` entries in
     // `config.tools` (collected at `index.mjs:606-607`) — this skin registers
