@@ -54,6 +54,9 @@ class PredictStateTool:
 
 State = Dict[str, Any]
 SchemaKeys = Dict[str, List[str]]
+# The buckets the base class's get_schema_keys returns. Keys under any other
+# name in config["schema_keys"] are ignored rather than merged blindly.
+SCHEMA_KEY_BUCKETS = ("input", "output", "config", "context")
 TextMessageEvents = Union[
     TextMessageStartEvent, TextMessageContentEvent, TextMessageEndEvent
 ]
@@ -89,6 +92,75 @@ class LangGraphAGUIAgent(LangGraphAgent):
         )
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
         self._copilotkit_runtime_payload: dict[str, Any] | None = None
+        # Validated at construction rather than inside get_schema_keys, which runs
+        # once per run: a bad `schema_keys` is static misuse, so it should fail
+        # before the first run instead of on every one.
+        self._configured_schema_keys = self._read_configured_schema_keys(config)
+
+    @staticmethod
+    def _read_configured_schema_keys(
+        config: Union[Optional[RunnableConfig], dict],
+    ) -> SchemaKeys:
+        """Extract and validate `config["schema_keys"]`, ignoring unknown buckets."""
+        if not isinstance(config, dict):
+            return {}
+
+        configured = config.get("schema_keys")
+        if configured is None:
+            return {}
+        if not isinstance(configured, dict):
+            raise CopilotKitMisuseError(
+                f"config['schema_keys'] must be a dict, got {type(configured).__name__}"
+            )
+
+        validated: SchemaKeys = {}
+        for bucket in SCHEMA_KEY_BUCKETS:
+            keys = configured.get(bucket)
+            if keys is None:
+                continue
+            if not isinstance(keys, (list, tuple)):
+                raise CopilotKitMisuseError(
+                    f"config['schema_keys']['{bucket}'] must be a list of strings, "
+                    f"got {type(keys).__name__}"
+                )
+            for key in keys:
+                if not isinstance(key, str):
+                    raise CopilotKitMisuseError(
+                        f"config['schema_keys']['{bucket}'] must contain only strings, "
+                        f"got {type(key).__name__}"
+                    )
+            validated[bucket] = list(keys)
+
+        return validated
+
+    def get_schema_keys(self, config: RunnableConfig) -> SchemaKeys:
+        """Add keys declared in `config["schema_keys"]` to the graph-derived ones.
+
+        Graph introspection only sees fields declared on the state schema, so a
+        state key that cannot be declared there is filtered out of every
+        STATE_SNAPSHOT. Declaring it in the agent's `config` puts it back:
+
+            LangGraphAGUIAgent(
+                name="demo",
+                graph=graph,
+                config={"schema_keys": {"output": ["steps"]}},
+            )
+
+        Configured keys are appended to what the base class derived, never
+        substituted for them, so a bucket the caller does not mention keeps its
+        derived keys exactly. Wrapping `super()` also means the base class's
+        introspection-failure fallback still honours configured keys.
+        """
+        schema_keys = super().get_schema_keys(config)
+
+        for bucket, configured in self._configured_schema_keys.items():
+            derived = schema_keys.get(bucket) or []
+            # Append only what is missing, preserving the derived order. The
+            # filter does a membership test, so duplicates are harmless, but
+            # keeping the lists minimal makes them readable when logged.
+            schema_keys[bucket] = derived + [k for k in configured if k not in derived]
+
+        return schema_keys
 
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
