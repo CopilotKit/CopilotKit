@@ -6,6 +6,7 @@ import {
   A2UIProvider,
   A2UIRenderer,
   useA2UIActions,
+  useA2UIError,
 } from "@copilotkit/a2ui-renderer";
 import { catalog } from "@/skins/exec/catalog";
 import { useExecLedger } from "@/skins/exec/data/ledger-context";
@@ -46,6 +47,7 @@ export function DashboardGrid({ dashboardId }: { dashboardId: DashboardId }) {
 
   return (
     <A2UIProvider catalog={catalog}>
+      <SurfaceProcessingError />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {dashboard.blocks.length === 0 ? (
           <EmptyState />
@@ -66,6 +68,27 @@ export function DashboardGrid({ dashboardId }: { dashboardId: DashboardId }) {
         )}
       </div>
     </A2UIProvider>
+  );
+}
+
+/**
+ * LOUD failure line for a block whose ops the A2UI MessageProcessor rejected.
+ * The provider swallows the throw and exposes it through `useA2UIError()`; left
+ * unread, a rejected op list shows up as a silently empty card. Grid-level
+ * rather than per-card because ONE `A2UIProvider` (and so one error slot) is
+ * shared by every block in the grid — the error string names the offending
+ * surface (`block:<blockId>`) itself.
+ */
+function SurfaceProcessingError() {
+  const error = useA2UIError();
+  if (error === null) return null;
+  return (
+    <p
+      role="alert"
+      className="mb-4 rounded-xl border border-hairline bg-surface p-3 text-xs text-negative"
+    >
+      A block could not be rendered — {error}
+    </p>
   );
 }
 
@@ -189,11 +212,16 @@ function BlockCard({
  * Feeds one block's operations into the A2UI provider. The ledger snapshot
  * carries the FULL operation list on every read, so this strips a duplicate
  * `createSurface` once the surface already exists (the MessageProcessor
- * throws on it) and skips re-processing an identical op list. Copied from
+ * rejects it) and skips re-processing an identical op list. Copied from
  * the banking skin's canvas-surface `SurfaceMessageProcessor` — same hash-ref
  * guard, same duplicate-`createSurface` strip — the only difference is that
  * the ops here come straight off `block.ops` rather than out of an agent
  * activity message.
+ *
+ * The hash latch is written only AFTER a successful `processMessages`: latching
+ * first would make ANY failure permanent, because the next ledger read carries
+ * the same op list and would be skipped as a duplicate forever, leaving the
+ * card blank with no path back.
  */
 function SurfaceMessageProcessor({
   operations,
@@ -209,7 +237,6 @@ function SurfaceMessageProcessor({
     if (!operations.length) return;
     const hash = JSON.stringify(operations);
     if (hash === lastHashRef.current) return;
-    lastHashRef.current = hash;
 
     const isExisting = !!getSurface(surfaceId);
     const ops = isExisting
@@ -219,8 +246,15 @@ function SurfaceMessageProcessor({
     try {
       processMessages(ops as Array<Record<string, unknown>>);
     } catch (err) {
+      // Defense in depth: the provider's `processMessages` catches internally
+      // and reports through `useA2UIError()` (which `BlockCard` renders
+      // loudly), so this branch fires only if a future version lets one
+      // escape. Either way the latch stays unset, so the next snapshot retries
+      // instead of inheriting a dead surface.
       console.warn("[exec-dashboard-grid] processMessages threw:", err);
+      return;
     }
+    lastHashRef.current = hash;
   }, [operations, processMessages, getSurface, surfaceId]);
 
   return null;
