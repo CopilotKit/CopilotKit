@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  execAgent,
   renderMetricBlockTool,
   publishBoardPackTool,
   fileVarianceNarrativeTool,
@@ -110,6 +111,152 @@ describe("render_metric_block", () => {
     expect(store.snapshot().dashboards.ceo.blocks.map((b) => b.id)).toContain(
       blockId,
     );
+  });
+
+  /**
+   * THE HANG. `metricId` is required for the three metric-bound kinds, and
+   * that requirement used to live in the parameter schema as a
+   * `.superRefine()`. A zod failure at the parameter boundary NEVER reaches
+   * `execute`: the AI SDK emits a `tool-error` stream part, and
+   * `@copilotkit/runtime`'s event translation has no arm for one, so no
+   * TOOL_CALL_RESULT is emitted and the transcript's chip spins InProgress
+   * forever — with no block and nothing said, for a mistake one retry would
+   * have fixed.
+   *
+   * These two tests exercise the guard THROUGH `execute`, which is the only
+   * place it can produce a result the model can read and act on. They are
+   * also why the guard cannot go back into the schema: invoked directly, as
+   * every test in this file invokes it, a schema refinement is not run at
+   * all, so these assertions fail outright rather than passing by accident.
+   */
+  it.each(["metricTile", "trendLine", "varianceBar"] as const)(
+    "refuses a %s with no metricId as a READABLE RESULT, never a validation throw",
+    async (kind) => {
+      const result = (await renderMetricBlockTool.execute!({
+        kind,
+        title: "Missing its metric",
+      })) as Record<string, unknown>;
+
+      expect(
+        result.error,
+        "the refusal has to arrive as a tool RESULT the model can read; a zod/throw refusal never reaches the client at all",
+      ).toBe("METRIC_ID_REQUIRED");
+
+      // It must name the problem AND the way out, or the model retries the
+      // identical call.
+      expect(String(result.message)).toContain("metricId");
+      expect(String(result.message)).toContain(kind);
+
+      // And it rendered NOTHING: no ops to draw an empty block from, and no
+      // blockId that would let a later `pinBlockToDashboard` pin a tile bound
+      // to no metric.
+      expect(result[A2UI_OPERATIONS_KEY]).toBeUndefined();
+      expect(result.blockId).toBeUndefined();
+    },
+  );
+
+  it("still renders the two self-binding kinds with no metricId", async () => {
+    // The guard must be scoped to the metric-bound kinds only — an
+    // exceptionList carries its own rows, and refusing it would break beat 6's
+    // "what needs explaining" block.
+    const result = (await renderMetricBlockTool.execute!({
+      kind: "exceptionList",
+      title: "Open exceptions",
+    })) as Record<string, unknown>;
+
+    expect(result.error).toBeUndefined();
+    expect(result[A2UI_OPERATIONS_KEY]).toBeDefined();
+    expect(typeof result.blockId).toBe("string");
+  });
+});
+
+/**
+ * THE ONE-STEP RUN. `@copilotkit/runtime` forwards `maxSteps` into
+ * `streamText` as `stopWhen: config.maxSteps ? stepCountIs(config.maxSteps) :
+ * undefined`, and the AI SDK's own default is `stopWhen = stepCountIs(1)`.
+ * With `maxSteps` unset the run therefore ENDS the moment a backend tool
+ * returns — no follow-up model turn, so `get_metrics` never becomes a
+ * sentence, `render_metric_block` never gets the prose EXEC_PROMPT rule 2
+ * requires, and neither beat 5's render→pin procedure nor beat 6's
+ * read→file→re-publish arc can chain. Nothing else in the stack papers over
+ * it: `CopilotKitCore` starts a follow-up run only when a FRONTEND tool
+ * executed.
+ *
+ * Read through the same `as unknown as { config }` cast keel's
+ * `agent.test.ts` uses (`config` is `private` to TypeScript and present at
+ * runtime) so this pins the value actually handed to `BuiltInAgent`, not a
+ * copy of it.
+ */
+describe("execAgent configuration", () => {
+  const config = () =>
+    (execAgent() as unknown as { config: Record<string, unknown> }).config;
+
+  it("sets maxSteps so a backend tool call is not the end of the run", () => {
+    expect(
+      config().maxSteps,
+      "unset means stopWhen: stepCountIs(1) — the run ends on the first tool result",
+    ).toBe(12);
+  });
+
+  it("registers exactly the four tools EXEC_PROMPT advertises", () => {
+    // `publish_board_pack` must stay OUT: the countersign card is the agent's
+    // only publish path (see that tool's doc comment in `agent.ts`).
+    const names = (config().tools as { name: string }[]).map((t) => t.name);
+    expect(names).toEqual([
+      "get_metrics",
+      "list_exceptions",
+      "render_metric_block",
+      "file_variance_narrative",
+    ]);
+  });
+});
+
+/**
+ * BEAT 6's WITHHELD VOCABULARY, as an invariant rather than a comment.
+ *
+ * The publish gate is cleared by FILING a narrative, so an agent that can read
+ * a valid code off any agent-facing string clears the gate unaided and the
+ * teach arc silently stops existing. The prompt and every registered tool
+ * description are agent-facing, so none of them may name a code — and the
+ * `code` parameter must stay a free string rather than an enum, which would
+ * publish the whole catalogue into the tool's JSON schema.
+ */
+describe("exec agent-facing text", () => {
+  const surfaces = () => {
+    const config = (
+      execAgent() as unknown as {
+        config: { prompt: string; tools: { description: string }[] };
+      }
+    ).config;
+    return [config.prompt, ...config.tools.map((t) => t.description)];
+  };
+
+  it("names no narrative code anywhere the model can read", () => {
+    for (const text of surfaces()) {
+      expect(
+        text,
+        `leaked a narrative code: ${text.slice(0, 60)}…`,
+      ).not.toMatch(/VAR-/);
+    }
+  });
+
+  it("tells the model to SAY a lever is unset rather than omit it", () => {
+    // navigateTo's levers are all REQUIRED with explicit sentinels
+    // ("any"/0/false — see `tools.tsx`). The prompt used to tell the model to
+    // "leave the others unset", which the schema does not allow: told to omit
+    // an enum it cannot omit, gpt-5.4 fills it and puts an empty board on
+    // screen under four confidently tinted controls.
+    const prompt = surfaces()[0];
+    expect(prompt).not.toMatch(/leave the others unset/i);
+    expect(prompt).toMatch(/"any"/);
+  });
+
+  it("tells the model to render blocks one at a time", () => {
+    // Two `render_metric_block` calls in one step collide on a single a2ui
+    // surface and the second replaces the first (upstream
+    // @ag-ui/a2ui-middleware key collision on parallel tool calls), so the
+    // prompt has to forbid the batch.
+    expect(surfaces()[0]).toMatch(/ONE BLOCK AT A TIME/);
   });
 });
 

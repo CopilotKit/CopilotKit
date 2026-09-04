@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { useFrontendTool, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import {
+  useFrontendTool,
+  useHumanInTheLoop,
+  useRenderTool,
+} from "@copilotkit/react-core/v2";
 import { useSkinHref } from "@/shell/skin-path";
 import { useRecording } from "@/shell/teach";
 import { useExecLedger } from "./data/ledger-context";
@@ -51,6 +55,12 @@ import { execNav } from "./nav";
  * NOT register it (see that tool's doc comment): the REST write it wraps is
  * the one the countersign card drives, so the label documents that activity
  * if it is ever surfaced, and costs nothing while it is not.
+ *
+ * `file_variance_narrative`'s label is likewise a FALLBACK now: `ExecTools`
+ * registers an exact tool-call renderer for it (see `NarrativeFiledReceipt`),
+ * and CopilotKit prefers an exact renderer over the shell's wildcard chip. The
+ * entry stays so the chip is still labelled if that registration is ever
+ * removed.
  */
 export const execToolLabels: Record<string, string> = {
   get_metrics: "Reading metrics",
@@ -228,7 +238,7 @@ function readDemonstratedStepCount(result: unknown): number | null {
 
 /**
  * The save card's two directives. SCOPE IS `user`: this deployment shares
- * one memory backend with other products (EXEC_PROMPT rule 12), so a
+ * one memory backend with other products (EXEC_PROMPT rule 13), so a
  * project-scoped row would leak into every sibling skin.
  */
 const SAVE_PROCEDURE_CONFIRMED =
@@ -426,6 +436,68 @@ function PublishCountersignCard({
   );
 }
 
+/**
+ * The receipt for a filed narrative — AND the one thing that puts it on screen.
+ *
+ * `file_variance_narrative` is exec's only BACKEND write (`agent.ts`): it calls
+ * `store.fileNarrative` inside the runtime process, so no client code runs and
+ * nothing re-reads `GET /api/exec/v1/ledger`. Every other write in this skin
+ * goes through `useExecLedger`'s mutation wrappers, which `await refresh()`
+ * themselves (`./data/ledger-context.tsx`) — this one had no such hook, so the
+ * Board Packs narrative list, the exception rows and their `explained` flags all
+ * stayed on the snapshot from before the filing until some unrelated write
+ * happened to refresh. On stage that reads as a filing that did not take.
+ *
+ * `refresh` is called from an EFFECT keyed on `toolCallId`, so it fires exactly
+ * once per completed call: React remounts this component per tool call, and a
+ * reopened thread re-running it once is not just harmless but right — the
+ * reopened page should show current data.
+ *
+ * The receipt itself is keyed off `result`, never `status` (see the file
+ * header's first rule), so a replayed thread shows what happened rather than
+ * "Filing…" forever.
+ *
+ * Exported for `./narrative-filed-receipt.test.tsx` only — the refresh is the
+ * whole point of it and is invisible from the outside, so it is the one thing
+ * here worth a test of its own. Nothing else imports it.
+ */
+export function NarrativeFiledReceipt({
+  toolCallId,
+  result,
+  refresh,
+}: {
+  toolCallId: string;
+  result: string | undefined;
+  refresh: () => Promise<void>;
+}) {
+  const settled = typeof result === "string" && result.length > 0;
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!settled) return;
+    // Fire-and-log: a failed re-read must not throw inside a transcript
+    // render, and `refresh` already keeps the last good snapshot on screen.
+    void refreshRef.current().catch((err) => {
+      console.error("[exec] ledger refresh after narrative filing failed", err);
+    });
+  }, [toolCallId, settled]);
+
+  if (!settled) return null;
+  // The backend result is the filed row (or a `BAD_CODE` refusal). Both are
+  // JSON the agent reads and neither is a sentence worth printing, so the
+  // receipt says only which of the two happened.
+  return result.includes("BAD_CODE") ? (
+    <Receipt tone="negative">
+      That code isn&rsquo;t one this ledger files under — nothing was filed.
+    </Receipt>
+  ) : (
+    <Receipt>Filed the variance narrative.</Receipt>
+  );
+}
+
 export function ExecTools() {
   const router = useRouter();
   const skinHref = useSkinHref("exec");
@@ -441,6 +513,40 @@ export function ExecTools() {
   useEffect(() => {
     ledgerRef.current = ledger;
   }, [ledger]);
+
+  // ══ BEATS 3a / 3d / 6 — REFRESH AFTER THE BACKEND FILES A NARRATIVE ══════
+  //
+  // `useRenderTool`, NOT `useFrontendTool`: this registers a renderer for a
+  // tool that is executed SOMEWHERE ELSE (the runtime process) without also
+  // declaring a frontend tool of that name, which would shadow the backend
+  // one. Same mechanism and same reason as banking's `submit_expense_report`
+  // renderer (`src/skins/banking/tools.tsx`, whose comment spells out why
+  // `useComponent` cannot do this: it hands the render only the parsed args,
+  // so `status` and `result` would both be permanently undefined).
+  //
+  // Registering an exact renderer takes this tool off the shell's wildcard
+  // tool-activity chip (`src/shell/chat/tool-activity.tsx`), which is the
+  // trade: a durable "Filed the variance narrative." receipt, in the same
+  // shape as the pin and publish receipts below, in place of a chip that
+  // vanished after two more tool calls. `execToolLabels`' entry stays as the
+  // fallback label if this registration is ever removed.
+  useRenderTool(
+    {
+      name: "file_variance_narrative",
+      // The renderer validates nothing of the agent's arguments — it reads the
+      // tool's `result`. `z.object({}).passthrough()` keeps the registration
+      // shape without rejecting the real (fully populated) argument object.
+      parameters: z.object({}).passthrough(),
+      render: ({ toolCallId, result }) => (
+        <NarrativeFiledReceipt
+          toolCallId={toolCallId}
+          result={result}
+          refresh={ledgerRef.current.refresh}
+        />
+      ),
+    },
+    [],
+  );
 
   // ══ BEATS 3a / 5 — PIN A RENDERED BLOCK ══════════════════════════════════
   //
@@ -516,7 +622,7 @@ export function ExecTools() {
 
   // ══ BEAT 3c — NAVIGATE WITH LEVERS ═══════════════════════════════════════
   //
-  // `navigateTo`, deliberately camelCase: it is what EXEC_PROMPT's rule 9
+  // `navigateTo`, deliberately camelCase: it is what EXEC_PROMPT's rule 10
   // names verbatim (`agent.ts`), and matches the app-wide convention for a
   // FRONTEND tool name (contrast the backend tools above, which are
   // snake_case). No confirmation card — unlike commerce's `showOrderQueue` or
@@ -631,7 +737,7 @@ export function ExecTools() {
   // `agent.ts`'s `publish_board_pack` tool of the same write is exported for
   // its gate's unit tests and deliberately NOT registered, so there is no
   // second route the agent could take with a PIN it composed — see that
-  // tool's own doc comment and EXEC_PROMPT rule 4. The agent's `respond()`
+  // tool's own doc comment and EXEC_PROMPT rule 5. The agent's `respond()`
   // gets either one sentence naming the
   // published pack, or the refusal `{ error, breaches }` VERBATIM — never the
   // digits, and never fewer than `UNEXPLAINED_VARIANCE` itself needs to
@@ -710,7 +816,7 @@ export function ExecTools() {
               }
               if (outcome.error === "BAD_COUNTERSIGN") {
                 // NOT settled — a typo is the presenter's to fix, and the
-                // agent has nothing to do with it (EXEC_PROMPT rule 4: "the
+                // agent has nothing to do with it (EXEC_PROMPT rule 5: "the
                 // card's business, not a puzzle"). Returning the message
                 // keeps the card open so they can retype the four digits.
                 return "That countersign PIN wasn't accepted. Nothing was published — try again.";
@@ -755,7 +861,7 @@ export function ExecTools() {
   // reworded for Vantage's domain — never imported across the skin
   // boundary.
   //
-  // EXEC_PROMPT rule 6 is this chain's whole trigger condition, spelled out
+  // EXEC_PROMPT rule 7 is this chain's whole trigger condition, spelled out
   // there rather than re-derived here: a publish refused with
   // UNEXPLAINED_VARIANCE, recall_memory turning up nothing, then (once the
   // presenter agrees) awaitDemonstration watching them file a narrative on

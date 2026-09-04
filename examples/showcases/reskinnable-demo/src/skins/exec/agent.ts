@@ -146,73 +146,61 @@ export const listExceptionsTool = defineTool({
  * three blocks beat 5's saved procedure asks for and then have no way to pin
  * any of them.
  */
-const renderMetricBlockParams = z
-  .object({
-    kind: z
-      .enum([
-        "metricTile",
-        "trendLine",
-        "varianceBar",
-        "initiativeTable",
-        "exceptionList",
-      ])
-      .describe(
-        "metricTile = one KPI with its delta; trendLine = one metric over " +
-          "time; varianceBar = actual vs plan for one metric (per-department " +
-          "metrics only); initiativeTable = the initiative roster; " +
-          "exceptionList = the current variance exceptions.",
-      ),
-    title: z
-      .string()
-      .describe(
-        "A short LABEL for the block — no figures, percentages or trend " +
-          "claims; the block binds its own live data.",
-      ),
-    metricId: metricId
-      .optional()
-      .describe(
-        "REQUIRED for metricTile, trendLine and varianceBar — each renders " +
-          "exactly one metric. Omit only for initiativeTable and " +
-          "exceptionList, which bind their own rows.",
-      ),
-    department: department
-      .optional()
-      .describe(
-        "Scopes the block to one department. Only meaningful for the " +
-          "per-department metrics ('opex', 'headcountCost').",
-      ),
-    compare: z
-      .enum(["plan", "forecast"])
-      .optional()
-      .describe("What a metricTile's delta is measured against."),
-    months: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe("A trendLine's trailing window in months (default 12)."),
-  })
-  // The catalog REQUIRES `metricId` for the three metric-bound kinds and the op
-  // builder forwards it unguarded, so a metricTile without one reaches the
-  // client as a tile bound to nothing: a block that renders empty, on stage,
-  // with no error anywhere. Refuse it at the boundary instead, with a message
-  // that tells the model exactly what to send next.
-  .superRefine((spec, ctx) => {
-    const metricBound =
-      spec.kind === "metricTile" ||
-      spec.kind === "trendLine" ||
-      spec.kind === "varianceBar";
-    if (metricBound && !spec.metricId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["metricId"],
-        message:
-          `A "${spec.kind}" block renders exactly one metric, so metricId is ` +
-          `required. Pass the metric this block is about, or choose a kind ` +
-          `that binds its own rows (initiativeTable, exceptionList).`,
-      });
-    }
-  });
+const renderMetricBlockParams = z.object({
+  kind: z
+    .enum([
+      "metricTile",
+      "trendLine",
+      "varianceBar",
+      "initiativeTable",
+      "exceptionList",
+    ])
+    .describe(
+      "metricTile = one KPI with its delta; trendLine = one metric over " +
+        "time; varianceBar = actual vs plan for one metric (per-department " +
+        "metrics only); initiativeTable = the initiative roster; " +
+        "exceptionList = the current variance exceptions.",
+    ),
+  title: z
+    .string()
+    .describe(
+      "A short LABEL for the block — no figures, percentages or trend " +
+        "claims; the block binds its own live data.",
+    ),
+  metricId: metricId
+    .optional()
+    .describe(
+      "REQUIRED for metricTile, trendLine and varianceBar — each renders " +
+        "exactly one metric, and one of those kinds sent WITHOUT a metricId " +
+        "is refused with an error result you then have to correct. Omit it " +
+        "only for initiativeTable and exceptionList, which bind their own " +
+        "rows.",
+    ),
+  department: department
+    .optional()
+    .describe(
+      "Scopes the block to one department. Only meaningful for the " +
+        "per-department metrics ('opex', 'headcountCost').",
+    ),
+  compare: z
+    .enum(["plan", "forecast"])
+    .optional()
+    .describe("What a metricTile's delta is measured against."),
+  months: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("A trendLine's trailing window in months (default 12)."),
+});
+
+/**
+ * The three block kinds that render EXACTLY ONE metric, and so cannot be built
+ * without a `metricId`. The catalog requires it and `buildBlockOps` forwards it
+ * unguarded, so a `metricTile` without one reaches the client as a tile bound to
+ * nothing: a block that renders empty, on stage, with no error anywhere.
+ */
+const METRIC_BOUND_KINDS = new Set(["metricTile", "trendLine", "varianceBar"]);
 
 export const renderMetricBlockTool = defineTool({
   name: "render_metric_block",
@@ -227,6 +215,31 @@ export const renderMetricBlockTool = defineTool({
     "what was actually asked.",
   parameters: renderMetricBlockParams,
   execute: async (spec) => {
+    // ⚠️ ENFORCED HERE, INSIDE `execute` — NEVER AS A SCHEMA REFINEMENT.
+    //
+    // This guard used to be a `.superRefine()` on `renderMetricBlockParams`,
+    // which is a HANG. A parameter-validation failure never reaches this
+    // function: the AI SDK turns it into a `tool-error` stream part, and
+    // @copilotkit/runtime's event translation has no case for that part
+    // (`dist/agent/index.mjs` handles `tool-call`, `tool-result`, `error`,
+    // the text/reasoning parts and `finish` — there is no `tool-error` arm),
+    // so no TOOL_CALL_RESULT is ever emitted for the call. On screen that is a
+    // tool chip spinning InProgress forever with no block and no explanation,
+    // for a mistake the model could have fixed in one retry.
+    //
+    // Returned as a RESULT it is an ordinary tool output: the model reads it
+    // and sends the corrected spec. Same shape and same reasoning as
+    // `fileVarianceNarrativeTool`'s BAD_CODE branch below.
+    if (METRIC_BOUND_KINDS.has(spec.kind) && !spec.metricId) {
+      return {
+        error: "METRIC_ID_REQUIRED",
+        message:
+          `A "${spec.kind}" block renders exactly one metric, so metricId is ` +
+          `required and nothing was rendered. Call render_metric_block again ` +
+          `with the metric this block is about, or choose a kind that binds ` +
+          `its own rows (initiativeTable, exceptionList).`,
+      };
+    }
     const block = store.createDraftBlock(spec);
     return {
       [A2UI_OPERATIONS_KEY]: buildBlockOps(spec, block.id),
@@ -291,11 +304,12 @@ export const fileVarianceNarrativeTool = defineTool({
     "explanation an exception is waiting on. When the body is drawn from a " +
     "document the user attached, set ingestedFromAttachment true AND say in " +
     "your reply that the explanation came from that document. YOU DO NOT KNOW " +
-    "THE CODES: the catalogue lives on the operator's filing form, is " +
-    "deliberately not published to you, and only the operator or a saved " +
-    "procedure can give you one. Call this ONLY with a code you were handed, " +
-    "VERBATIM — never invent one, never guess, and never file one to see what " +
-    "happens.",
+    "THE CODES: the catalogue lives on the operator's filing form and is " +
+    "deliberately not published to you. Call this ONLY with a code you were " +
+    "GIVEN — one the operator stated, one a saved procedure names, or one an " +
+    "attached document determines unambiguously — and use it VERBATIM. Never " +
+    "compose a code, never guess at the shape of one, and never file one to " +
+    "see what happens.",
   parameters: z.object({
     metricId: metricId.describe("The metric the narrative explains."),
     period: z
@@ -304,9 +318,10 @@ export const fileVarianceNarrativeTool = defineTool({
     code: z
       .string()
       .describe(
-        "The exact code, copied verbatim from what the operator told you or " +
-          "from a saved procedure. The valid codes are WITHHELD from you on " +
-          "purpose — you cannot derive one, so do not try.",
+        "The exact code, copied verbatim from what the operator told you, " +
+          "from a saved procedure, or from an attached document that " +
+          "determines it unambiguously. The catalogue itself is WITHHELD from " +
+          "you on purpose — you cannot compose a code, so do not try.",
       ),
     body: z
       .string()
@@ -372,7 +387,7 @@ export const fileVarianceNarrativeTool = defineTool({
  * POSTs `/api/exec/v1/packs` itself and hands the agent back the verbatim
  * refusal (`./tools.tsx`). Registering this tool as well would advertise a
  * second publish route the agent can only ever call with a PIN it invented —
- * exactly the retry EXEC_PROMPT rules 4 and 6 forbid. The export stays because
+ * exactly the retry EXEC_PROMPT rules 5 and 7 forbid. The export stays because
  * `agent-tools.test.ts` invokes its `execute` directly to pin the SHAPE the gate
  * reads back, and because the REST route it wraps is the same one the card uses.
  *
@@ -446,22 +461,44 @@ a block pins NOTHING: it arrives with an "Add to dashboard" control, and the
 dashboards only grow when the operator uses that control OR you call
 pinBlockToDashboard with the blockId render_metric_block gave you.
 
-4. YOU DO NOT KNOW THE COUNTERSIGN PIN. Publishing a board pack is countersigned
+4. ONE BLOCK AT A TIME — NEVER TWO RENDER CALLS IN THE SAME TURN. When a
+request needs several blocks, render them ONE PER TURN: call
+render_metric_block once, let the block come back, then call it again for the
+next one. Never issue two render_metric_block calls side by side in a single
+step, and never batch three renders before saying anything. Two blocks composed
+in the same turn collide on the surface they are drawn onto and the second one
+REPLACES the first: the room sees one block where there should be two, and you
+carry on as though both were on screen. This applies to a saved procedure's
+render steps (rule 12) exactly as much as to a one-off request.
+
+5. YOU DO NOT KNOW THE COUNTERSIGN PIN. Publishing a board pack is countersigned
 by a HUMAN, and confirmPublishCountersign is the ONLY way you publish one. Call
 it so the operator types the PIN into the card; you will never see, ask for,
 receive or repeat those digits, and you must never invent them or compose a PIN
 of your own. A publish refused for BAD_COUNTERSIGN is the card's business, not a
 puzzle.
 
-5. YOU DO NOT KNOW THE NARRATIVE CODES EITHER. The catalogue a variance
-narrative is filed under is the operator's — it lives on the filing form, is
-deliberately not given to you, and only the operator or a saved procedure can
-hand you one. So do not guess a code, do not invent one, and do not file one to
-see what happens: a wrong code is refused and explains nothing. If you have no
-code, say so plainly and ask, or follow the procedure that names one. Quote
-whatever you are given VERBATIM.
+6. YOU DO NOT KNOW THE NARRATIVE CODES EITHER — AND YOU NEVER INVENT ONE. The
+catalogue a variance narrative is filed under is the operator's: it lives on the
+filing form and is deliberately not published to you. So never compose a code,
+never guess at the shape of one, and never file one to see what happens — a
+wrong code is refused and explains nothing. A code is yours to use in exactly
+three situations, and no others:
+  a. THE OPERATOR STATED IT — in this message or an earlier one in this thread.
+  b. A SAVED PROCEDURE NAMES IT — recall it and use it as written.
+  c. AN ATTACHED DOCUMENT DETERMINES IT — a document the operator gave you
+     accounts for the variance itself and points at ONE unambiguous driver (for
+     example a memo whose own figures make a timing shift the dominant cause).
+     A document that is merely consistent with several drivers determines
+     nothing.
+Whichever it is, use the code VERBATIM. Under (c), also QUOTE THE EVIDENCE in
+your reply — the line of the document that decided it — so the operator can
+check your reading rather than take it on trust. If none of the three applies,
+you have no code: say so plainly in one sentence, say what you would file, and
+ask for the code. Do not file anything in the meantime, and do not offer a
+different code as a stand-in.
 
-6. A PUBLISH REFUSED FOR UNEXPLAINED VARIANCE — ACTION DISCIPLINE.
+7. A PUBLISH REFUSED FOR UNEXPLAINED VARIANCE — ACTION DISCIPLINE.
 A publish is refused with UNEXPLAINED_VARIANCE — the refusal comes back as
 confirmPublishCountersign's result, the only publish path you have — and the
 exact breaches behind it while a dashboard's metrics have variance nobody has
@@ -475,7 +512,7 @@ explained. Handle it in this order and no other.
      then call offerWorkflowRecording. That call IS how you ask — do not ask in
      prose instead.
   3. While you are blocked, do not do something else that looks helpful. Do not
-     guess a narrative code (rule 5), do not re-publish hoping for a different
+     guess a narrative code (rule 6), do not re-publish hoping for a different
      answer, do not remove the offending block from the dashboard to make the
      refusal go away, and do not offer the countersign card as a way past it — a
      PIN confirms WHO is publishing, never WHAT may be published. There is no
@@ -489,7 +526,7 @@ explained. Handle it in this order and no other.
      it. The period they demonstrated on is ALREADY explained — do not re-file
      the same narrative before re-attempting the publish.
 
-7. AN OUT-OF-PLAN MONTH IS EXPLAINED BY FILING, NOT BY TALKING. When the
+8. AN OUT-OF-PLAN MONTH IS EXPLAINED BY FILING, NOT BY TALKING. When the
 operator asks you to explain, write up or account for a variance, call
 file_variance_narrative with the metric, the period, the code you were given and
 the explanation in prose. Filing is what clears an exception; saying what you
@@ -499,7 +536,7 @@ DOCUMENT — those are the facts only a reader of the attachment knows — set
 ingestedFromAttachment true, and SAY in your reply that the explanation came
 from that memo. Never restate the attachment as if you had known it.
 
-8. SCREEN AWARENESS — YOUR CONTEXT IS THE SCREEN. Everything you are given is a
+9. SCREEN AWARENESS — YOUR CONTEXT IS THE SCREEN. Everything you are given is a
 description of what the executive is looking at RIGHT NOW: the route readable
 names the page they are on, and each page's own readable describes what is
 VISIBLY on it — which dashboard, the blocks pinned to it in the order shown, the
@@ -512,15 +549,19 @@ that you "only know from context" — that context IS the screen. If one specifi
 figure is genuinely absent from your context, say that one figure is unavailable
 and answer the rest.
 
-9. THE EXPLORER'S LEVERS ARE A MANEUVER, NOT A LINK. When the operator asks for
+10. THE EXPLORER'S LEVERS ARE A MANEUVER, NOT A LINK. When the operator asks for
 the worst variances, a department's metrics, or a slice of the ledger, use
 navigateTo with the explorer's levers set — department, period, threshold and
-top-N — so the app's real controls move on screen. Set only the levers the
-request implies and leave the others unset; a filter the operator did not ask
-for narrows the board for no reason and claims a choice they never made.
-Afterwards, say what the board is now showing.
+top-N — so the app's real controls move on screen. EVERY LEVER IS REQUIRED, so
+leaving one alone is something you SAY, not something you omit: pass "any" for a
+department or a period the operator did not name, false for threshold, 0 for
+top-N. Those are the sentinels that mean "do not touch this control", and they
+are the only way to mean it. Set only the levers the request actually implies,
+and never fill one merely because the schema has a slot for it — a filter the
+operator did not ask for narrows the board for no reason and claims a choice
+they never made. Afterwards, say what the board is now showing.
 
-10. COMPOSITION PREFERENCES ARE REMEMBERED, AND SAYING SO IS THE POINT. Before
+11. COMPOSITION PREFERENCES ARE REMEMBERED, AND SAYING SO IS THE POINT. Before
 you compose ANY block or summarize how this desk reads its numbers, call
 recall_memory first and look for the standing preferences about how blocks are
 composed. Apply what you find, and then SAY WHICH ONE YOU APPLIED, in your own
@@ -531,23 +572,25 @@ remembers, not like a system reporting a cache hit. If recall_memory comes back
 with nothing, say so plainly rather than inventing a preference. Call
 recall_memory at most once for a composition preference per operator message;
 that throttle does not apply to the separate recall a refused publish requires
-(rule 6).
+(rule 7).
 
-11. A SAVED PROCEDURE IS EXECUTED, NOT DESCRIBED. When the operator asks for
+12. A SAVED PROCEDURE IS EXECUTED, NOT DESCRIBED. When the operator asks for
 something a saved procedure covers — assembling the month-end board pack, however
 vaguely they put it — recall it and RUN it, step by step, immediately, without
 asking for confirmation between steps. Every step is EXECUTABLE, pinning
 included: a step that says to put blocks on a dashboard means calling
 pinBlockToDashboard once per block, with the blockId each render_metric_block
-call handed back — never a sentence saying you would. When every step is done,
-confirm what you did in ONE short sentence. Assembling a pack is a DIFFERENT
-situation from
-getting a refused publish past unexplained variance (rule 6); do not confuse the
+call handed back — never a sentence saying you would. A procedure whose steps
+render several blocks still renders them ONE PER TURN (rule 4) — "immediately,
+without asking" means without pausing for the operator, not all in one step.
+When every step is done, confirm what you did in ONE short sentence. Assembling
+a pack is a DIFFERENT situation from
+getting a refused publish past unexplained variance (rule 7); do not confuse the
 two, and do NOT offer to record anything here — you already know this one, and
 offering to learn a procedure you are in the middle of running is the single most
 confusing thing you can do on this screen.
 
-12. GENERAL MEMORY
+13. GENERAL MEMORY
 - Recall before you answer anything a standing preference could change.
 - Save durable preferences and procedures the operator teaches you. Never save a
   one-off figure, the countersign PIN, or anything read out of a document they
@@ -568,14 +611,14 @@ obtain every figure through the exposed sandbox functions rather than typing
 numbers into the generated markup.
 
 Backend tools available to you: get_metrics and list_exceptions to READ the
-ledger (rule 1), render_metric_block to SHOW it (rules 2 and 3), and
-file_variance_narrative to explain a breach (rules 5 and 7).
+ledger (rule 1), render_metric_block to SHOW it (rules 2, 3 and 4), and
+file_variance_narrative to explain a breach (rules 6 and 8).
 
 Frontend tools available to you: pinBlockToDashboard to pin a block you already
-rendered onto a dashboard (rules 3 and 11), navigateTo to move the desk and set
-the explorer's levers (rule 9), confirmPublishCountersign to take a dashboard to
-the countersign gate (rules 4 and 6), and the teach chain
-offerWorkflowRecording / awaitDemonstration / saveLearnedProcedure (rule 6).
+rendered onto a dashboard (rules 3 and 12), navigateTo to move the desk and set
+the explorer's levers (rule 10), confirmPublishCountersign to take a dashboard to
+the countersign gate (rules 5 and 7), and the teach chain
+offerWorkflowRecording / awaitDemonstration / saveLearnedProcedure (rule 7).
 
 Keep prose tight and executive: short sentences, the movement before the level,
 no filler. Render the block instead of describing its data, then add at most one
@@ -604,4 +647,38 @@ export const execAgent = () =>
     // needs the agent to pick the same path every time, not sample
     // alternatives, or the demo drifts between run-throughs.
     temperature: 0,
+    // ⚠️ REQUIRED, NOT AN OPTIMISATION. `@copilotkit/runtime` passes
+    // `stopWhen: config.maxSteps ? stepCountIs(config.maxSteps) : undefined`
+    // into `streamText` (`dist/agent/index.mjs:479`), and the AI SDK's own
+    // default is `stopWhen = stepCountIs(1)` (`ai/dist/index.mjs:4432`,
+    // `:6974`). Left unset, THE RUN ENDS THE MOMENT A BACKEND TOOL RETURNS:
+    // the tool result is emitted and there is no follow-up model turn, so
+    // `get_metrics` never becomes a sentence, `render_metric_block` never gets
+    // the prose rule 2 requires, and no multi-step arc — beat 5's
+    // render → render → render → pin ×3 procedure, or beat 6's
+    // read → file → re-publish — can chain at all. The client does not paper
+    // over it either: `CopilotKitCore` only starts a follow-up run when a
+    // FRONTEND tool executed (`@copilotkit/core/dist/index.mjs:2317-2331`
+    // sets `needsFollowUp` inside the frontend-tool loop only), and a backend
+    // tool call sets nothing.
+    //
+    // SAFE WITH THIS SKIN'S HITL CARDS, verified rather than assumed.
+    // `useHumanInTheLoop` (react-core v2) is a FRONTEND tool with a
+    // promise-blocking handler, not a server-side `interrupt: true` tool: the
+    // runtime converts client-provided tools with NO `execute`
+    // (`runtime/dist/agent/index.mjs:326-329`), and the AI SDK only continues
+    // the loop when every client tool call in the step produced an output
+    // (`clientToolCalls.length > 0 && clientToolOutputs.length ===
+    // clientToolCalls.length`, `ai/dist/index.mjs:8185`). An unanswered
+    // frontend tool call therefore ENDS the step cleanly, with no error and
+    // regardless of `stopWhen`, exactly as it does today. The `maxSteps: 1`
+    // requirement documented at `runtime/dist/agent/index.d.mts:103` applies
+    // only to server-side `defineTool({ interrupt: true })` entries in
+    // `config.tools` (collected at `index.mjs:606-607`) — this skin registers
+    // none.
+    //
+    // 12: comfortably above the longest scripted arc (beat 5 is six tool
+    // calls plus a recall and a closing sentence) and low enough that a model
+    // stuck in a retry loop stops instead of billing indefinitely.
+    maxSteps: 12,
   });
