@@ -13,6 +13,7 @@ import {
   METRIC_BOUND_KINDS,
 } from "@/skins/exec/blocks/build-block-ops";
 import type {
+  Department,
   MetricDef,
   MetricId,
   NarrativeCode,
@@ -23,38 +24,67 @@ import type {
 // module — it pulls in @copilotkit/runtime, which must never reach the browser
 // bundle. Keyed by the same id as the skin: "exec".
 //
-// Zod schemas cannot import TS types at runtime, so the enums below mirror the
-// literal unions in `./data/types.ts` by hand — keep them in sync, exactly as
-// `./catalog/definitions.ts` does for the same unions.
+// Zod schemas cannot import TS types at runtime, so the enums below restate the
+// literal unions in `./data/types.ts` — but the restatement is checked by the
+// COMPILER (`satisfies Record<MetricId, true>`) rather than kept in sync by
+// eye, exactly as `./catalog/definitions.ts`, `./sandbox-functions.ts` and
+// `src/app/api/exec/v1/narratives/route.ts` do for the same unions.
 //
 // ⚠️ ONE UNION IS DELIBERATELY ABSENT: `NarrativeCode`. See
 // `fileVarianceNarrativeTool` for why the four variance codes are never spelled
 // in any schema, description or prompt line in this file.
 
-const metricId = z.enum([
-  "revenue",
-  "growthQoQ",
-  "growthYoY",
-  "operatingMargin",
-  "ebitda",
-  "cash",
-  "runwayMonths",
-  "nps",
-  "burnRate",
-  "arAgingDays",
-  "dsoDays",
-  "opex",
-  "headcountCost",
-  "forecastAccuracy",
-]);
+/**
+ * THE VOCABULARY, CHECKED BY THE COMPILER rather than by eye. `as const
+ * satisfies Record<MetricId, true>` fails BOTH ways — a metric added to
+ * `./data/types.ts` leaves a key missing here, and a typo or a removed metric
+ * leaves a key the union does not have — so a metric the agent can no longer
+ * ask for is a typecheck error instead of a tool that quietly refuses it.
+ *
+ * Same guard, same reason, as `./sandbox-functions.ts`, `./catalog/
+ * definitions.ts` and `src/app/api/exec/v1/narratives/route.ts`;
+ * `./data/vocabulary-parity.test.ts` pins all four against each other and
+ * against the seed, which `satisfies` alone cannot do.
+ */
+const METRIC_IDS = {
+  revenue: true,
+  growthQoQ: true,
+  growthYoY: true,
+  operatingMargin: true,
+  ebitda: true,
+  cash: true,
+  runwayMonths: true,
+  nps: true,
+  burnRate: true,
+  arAgingDays: true,
+  dsoDays: true,
+  opex: true,
+  headcountCost: true,
+  forecastAccuracy: true,
+} as const satisfies Record<MetricId, true>;
 
-const department = z.enum([
-  "manufacturing",
-  "distribution",
-  "field-services",
-  "corporate",
-  "all",
-]);
+const DEPARTMENTS = {
+  manufacturing: true,
+  distribution: true,
+  "field-services": true,
+  corporate: true,
+} as const satisfies Record<Department, true>;
+
+/**
+ * `"all"` is a value of `MetricPoint.department` — the company-wide series —
+ * not a department, so it is added HERE rather than to the guarded record
+ * above, exactly as `./sandbox-functions.ts` does it.
+ */
+const DEPARTMENT_FILTERS = { ...DEPARTMENTS, all: true } as const;
+
+const metricId = z.enum(Object.keys(METRIC_IDS) as [MetricId, ...MetricId[]]);
+
+const department = z.enum(
+  Object.keys(DEPARTMENT_FILTERS) as [
+    Department | "all",
+    ...Array<Department | "all">,
+  ],
+);
 
 /**
  * ⚠️ THE HANG, STATED ONCE FOR EVERY TOOL BELOW.
