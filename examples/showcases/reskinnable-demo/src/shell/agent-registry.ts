@@ -13,6 +13,8 @@ import { commerceAgent } from "@/skins/commerce/agent";
 import { commerceIdentifyUser } from "@/skins/commerce/intelligence/user-id";
 import { bookstoreAgent } from "@/skins/bookstore/agent";
 import { bookstoreIdentifyUser } from "@/skins/bookstore/intelligence/user-id";
+import { execAgent } from "@/skins/exec/agent";
+import { execIdentifyUser } from "@/skins/exec/intelligence/user-id";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -63,7 +65,7 @@ export interface AgentRegistration {
    * `Record<string, AbstractAgent>` and the v2 tree contains no
    * `instanceof BuiltInAgent` branch anywhere.
    *
-   * SIX skins return a `BuiltInAgent`. `banking` returns an `HttpAgent` — its
+   * SEVEN skins return a `BuiltInAgent`. `banking` returns an `HttpAgent` — its
    * agent is a Python deep agent in a separate service (see
    * `src/skins/banking/agent.ts` for why the whole agent moved and not just one
    * tool). Narrowing this back to `BuiltInAgent` would reject that registration
@@ -80,7 +82,7 @@ export interface AgentRegistration {
   identifyUser?: IdentifyRunUser;
 }
 
-export const agentRegistry: Record<string, AgentRegistration> = {
+const REGISTRATIONS: Record<string, AgentRegistration> = {
   // Banking scopes Intelligence per member/role (durable memory demo), so it
   // contributes its own resolver — the route no longer knows banking's scheme.
   banking: { createAgent: bankingAgent, identifyUser: bankingIdentifyUser },
@@ -171,6 +173,48 @@ export const agentRegistry: Record<string, AgentRegistration> = {
     createAgent: bookstoreAgent,
     identifyUser: bookstoreIdentifyUser,
   },
+  // Vantage (exec) resolves a per-operator identity for its single on-screen
+  // persona — the chief of staff — via `OPERATOR_IDENTITY` mapping
+  // `cascade-chief-of-staff` 1:1, and its seeded beat-4 reporting preference is
+  // theirs.
+  //
+  // ⚠ Same caveat as Rowan, Bellwether, Keel and Bookstore above: do NOT
+  // present this as per-operator memory isolation on stage. The client's
+  // `properties` frequently do not reach `identifyUser` on a run, so runs
+  // actually resolve to the `vantage-demo-user` default bucket regardless of
+  // the mapped operator —
+  // which is exactly why `SEED_TARGET_USER_IDS` seeds BOTH the default bucket
+  // AND the mapped chief-of-staff id. Read `intelligence/user-id.ts` before
+  // claiming otherwise.
+  exec: { createAgent: execAgent, identifyUser: execIdentifyUser },
 };
+
+/**
+ * The registry, WITHOUT `Object.prototype` behind it.
+ *
+ * The shared API route indexes this map with a URL-derived id —
+ * `agentRegistry[agentId]?.identifyUser`, where `agentId` is parsed out of
+ * `request.url` — so the key is attacker-chosen. Indexing a plain object walks
+ * the prototype chain: `/constructor`, `/toString`, `/valueOf`,
+ * `/hasOwnProperty`, `/__proto__` … all return a truthy INHERITED member, which
+ * is the same hazard `getSkin` was fixed for next door in `registry.ts`, on the
+ * same ids. `Record<string, AgentRegistration>` does not catch it — the
+ * annotation is a claim about the map's own entries, not about what indexing
+ * returns.
+ *
+ * A `getSkin`-style accessor is the sibling's answer because the sibling has
+ * exactly one call site to route through. This map does not: the route indexes
+ * it directly in two places and builds the runtime's agent map by iterating
+ * `agentIds`. Putting the guarantee on the OBJECT covers every index site
+ * including the ones already written, rather than covering only the callers
+ * that remember to use a helper. `Object.keys`/`Object.entries`/`Object.values`
+ * are unaffected — they were never reading the prototype — so `agentIds` below
+ * and the suites over it are unchanged. `agent-registry.test.ts` pins the
+ * behaviour at the index.
+ */
+export const agentRegistry: Record<string, AgentRegistration> = Object.assign(
+  Object.create(null) as Record<string, AgentRegistration>,
+  REGISTRATIONS,
+);
 
 export const agentIds = Object.keys(agentRegistry);

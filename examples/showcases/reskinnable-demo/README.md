@@ -33,10 +33,17 @@ one **skin** per route segment `/[skin]/...`. The registered set lives in
   cart and orders mirrored to `localStorage` per shopper): a filterable shelf, a
   `book/<slug>` page, a cart, and an assistant that recommends from what it
   remembers about you.
+- **`exec`** — "Vantage", Cascade Industries' executive reporting desk.
+  **REST-backed** (`/api/exec/v1/*`): conversational dashboard composition —
+  agent-rendered a2ui metric blocks pinned to live CEO/CFO dashboards, with a
+  teachable `UNEXPLAINED_VARIANCE` board-pack publish gate.
 
 All of them run behind the **same** `Skin` contract on purpose. Every skin gets
-the same inset frame, shared chat panel, tool-activity lines, suggestion pills,
-and full-region canvas from the shell. The contract is substrate-agnostic:
+the same inset frame, shared chat panel, tool-activity lines and suggestion pills
+from the shell. The shared canvas region is there for every skin too, but a skin
+only fills it if it supplies a `CanvasSurface` — `bookstore` and `exec` do not
+(`exec` renders its a2ui blocks inline in the transcript instead; see the `exec`
+entry below). The contract is substrate-agnostic:
 changing a skin's data substrate requires **no change to the contract and no
 change to the shell** — and both substrates are live, so the claim has evidence on
 either side. `grep -l 'useData:' src/skins/*/skin.tsx` names the skins that hold
@@ -87,7 +94,7 @@ this app pins `packageManager: pnpm@10.10.0`).
 `agent/uv.lock` pins the matching Python canaries for the same reason — see the
 note in `agent/pyproject.toml` for what silently breaks without them.
 
-**`pnpm dev` alone is not enough for `banking`.** Six of the seven skins run
+**`pnpm dev` alone is not enough for `banking`.** Seven of the eight skins run
 their agent in-process, so `OPENAI_API_KEY` plus an SSE runtime is all they need.
 Banking's agent is a Python LangChain deep agent in `agent/`, reached over AG-UI
 as an ordinary `HttpAgent` on :8124 (`src/skins/banking/agent.ts` explains why the
@@ -119,7 +126,7 @@ under `/<id>` exactly as before.
 `src/lib/locked-skin.ts` validates the value against `skinIds` from
 `src/shell/skins-config.ts`, so the supported set is exactly the registered set —
 currently `banking`, `airline`, `logistics`, `keel`, `people`, `commerce`,
-`bookstore`, and automatically any skin added later.
+`bookstore`, `exec`, and automatically any skin added later.
 
 Use it for a URL that goes to one prospect, one booth, or one pilot, so the app
 reads as a product rather than as a multi-tenant demo harness. An unrecognised id
@@ -158,9 +165,10 @@ any of them can be walked end to end and any of them is a fair reference.
 `bookstore` hits every beat it claims and skips two deliberately — multimodal
 ingest and teach-a-procedure — which its own beat map
 (`src/skins/bookstore/suggestions.ts`) records rather than hides, so read those two
-blanks as a scope decision. `people` and `commerce` were authored beat-first;
-`logistics`, `airline` and `keel` were raised to the bar afterwards, so read those
-three commit by commit if you need to do the same to an EXISTING skin. The per-beat
+blanks as a scope decision. `people`, `commerce` and `exec` were authored
+beat-first; `logistics`, `airline` and `keel` were raised to the bar afterwards,
+so read those three commit by commit if you need to do the same to an EXISTING
+skin. The per-beat
 coverage matrix, and the one-line commands that derive it instead of trusting it,
 are in [CLAUDE.md](./CLAUDE.md).
 
@@ -183,11 +191,11 @@ The banking skin doubles as a CopilotKit feature tour. Notable beats:
   no saved procedure, watches you clear one, and (in Intelligence mode) recalls
   it on a later thread. See `docs/teach-mode/`.
 
-### `people` and `commerce` — authored beat-first
+### `people`, `commerce` and `exec` — authored beat-first
 
-Both are built against the beat list from the start. Their beat maps are written
-out at the top of their own `src/skins/<id>/suggestions.ts`, one suggestion pill
-per beat in demo order.
+All three are built against the beat list from the start. Their beat maps are
+written out at the top of their own `src/skins/<id>/suggestions.ts`, one
+suggestion pill per beat in demo order.
 
 - **`people`** ("Rowan") — a People Ops command center over `/api/people/v1/*`.
   Its teachable gate is approving an **out-of-band** compensation request (422
@@ -201,6 +209,14 @@ per beat in demo order.
   floor** (422 `BELOW_MARGIN_FLOOR`), unlocked by a margin waiver filed under a
   justifying code. It is also the reference for a four-lever navigation — status,
   exception class, sort and top-N all arrive from the query string.
+- **`exec`** ("Vantage") — Cascade Industries' executive reporting desk over
+  `/api/exec/v1/*`. Its signature interaction is **conversational dashboard
+  composition**: agent-rendered a2ui metric blocks pinned to live CEO/CFO
+  dashboards, rather than a report canvas — it is one of the skins (with
+  `bookstore`) that omits `CanvasSurface`. Its teachable gate is publishing a
+  board pack while a metric's variance is unexplained (422
+  `UNEXPLAINED_VARIANCE`), unlocked by a variance narrative filed under a
+  justifying code.
 
 ### `logistics`, `airline` and `keel`
 
@@ -289,10 +305,11 @@ pnpm test:e2e:ogui       # open generative UI suite
 pnpm test:self-learning  # the memory CI gate
 ```
 
-There is no `typecheck` script, and **`pnpm build` is not a substitute for
-`pnpm typecheck`**: `next build` type-checks only what the app's module
-graph reaches, so it never visits the test files, and Vitest transpiles without
-type-checking at all. `tsconfig.json` includes them; only `tsc --noEmit` looks.
+**`pnpm build` and `pnpm test:unit` are not a substitute for `pnpm typecheck`**:
+`next build` type-checks only what the app's module graph reaches, so it never
+visits the test files, and Vitest transpiles without type-checking at all.
+`tsconfig.json` includes them; only `pnpm typecheck` (`tsc --noEmit`) looks at
+everything, which is why it is listed above as the only full check.
 
 ## Tech
 
