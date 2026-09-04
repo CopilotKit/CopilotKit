@@ -27,9 +27,16 @@ const DEPT_WEIGHT: Record<Department, number> = {
 
 /**
  * All 14 `MetricId`s. Only `opex` and `headcountCost` carry per-department
- * series (§ spec) — everything else is company-wide only. `thresholdPct` for
- * `revenue`, `opex`, and `dsoDays` is fixed by the seeded-breach contract
- * below; the rest are plausible peer values.
+ * series (§ spec) — everything else is company-wide only.
+ *
+ * FOUR `thresholdPct`s are PINNED by the override block at the end of
+ * `seedPoints` and cannot be retuned on their own: `opex`, `burnRate` and
+ * `dsoDays` are the seed's three deliberate breaches (each override sits
+ * above its threshold), and `revenue` is the deliberate NON-breach (its
+ * override sits below). Raising or lowering any of the four silently changes
+ * the seeded breach SET, which the demo's beat order depends on — see the
+ * breach block in `seedPoints` and the breach-set invariant in
+ * `store.test.ts`. The other ten are plausible peer values, free to change.
  */
 export function seedMetricDefs(): MetricDef[] {
   return [

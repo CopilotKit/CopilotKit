@@ -63,7 +63,11 @@ export interface BudgetMemoInput {
    * be POSITIVE — see `NotAnOverrunError`.
    */
   variancePct: number;
-  /** Dollar amount attributed to the shipment-timing driver — the LARGER of the two. */
+  /**
+   * Dollar amount attributed to the shipment-timing driver — the LARGER of
+   * the two, strictly. Together with `oneOffUsd` it must account for the
+   * whole overrun; see `DriverSplitError`.
+   */
   timingUsd: number;
   /** Dollar amount attributed to the one-off warehouse lease true-up. */
   oneOffUsd: number;
@@ -90,6 +94,23 @@ export class NotAnOverrunError extends Error {
 }
 
 /**
+ * Thrown when the two driver amounts do not stand up as an account OF the
+ * overrun the same memo reports — see `buildBudgetMemoPdf`'s driver guard.
+ *
+ * Its own class, not a `NotAnOverrunError`: this document IS about an
+ * overrun, so reporting a broken split under that name would send a future
+ * caller to check the sign of a variance that is already correct.
+ */
+export class DriverSplitError extends Error {
+  readonly code = "DRIVER_SPLIT";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "DriverSplitError";
+  }
+}
+
+/**
  * The memo the agent reads.
  *
  * Its two named drivers — a carrier's shipment-timing shift and a warehouse
@@ -99,7 +120,9 @@ export class NotAnOverrunError extends Error {
  * timing driver is always printed as the larger of the two, so the reader can
  * infer the narrative code (VAR-TIMING) without the memo ever printing one —
  * see the route for why a narrative code, a `filedAt`, or an exception status
- * must never appear here.
+ * must never appear here. "Always" is ENFORCED, not hoped for: the driver
+ * guard below refuses a split that ties, inverts, or fails to add up to the
+ * overrun the same page reports.
  */
 export function buildBudgetMemoPdf(input: BudgetMemoInput): Uint8Array {
   const overrunUsd = input.actualUsd - input.planUsd;
@@ -111,6 +134,42 @@ export function buildBudgetMemoPdf(input: BudgetMemoInput): Uint8Array {
       `budget memo: refusing to narrate variancePct=${input.variancePct} ` +
         `(actual ${input.actualUsd} against plan ${input.planUsd}); this ` +
         "memo's prose only covers an overrun.",
+    );
+  }
+
+  // THE DRIVER INVARIANTS, checked rather than merely documented — the same
+  // belt-and-suspenders the sign guard above is. Two properties of the split
+  // are load-bearing on the page and neither is derivable from the other:
+  //
+  //  · The two drivers ACCOUNT FOR the whole overrun. The memo prints a
+  //    $19,440 overrun and then two amounts under a heading called "Drivers";
+  //    a reader who adds them up and lands somewhere else is reading a memo
+  //    that contradicts itself in the only arithmetic it asks them to do.
+  //  · Timing is STRICTLY the larger of the two. That is the entire cue the
+  //    reader (and the model) infers VAR-TIMING from — see this function's
+  //    header for why the memo must never print a narrative code itself. A
+  //    tie plants no cue, and an inverted split plants the wrong one.
+  //
+  // Checked on the ROUNDED figures because those are the ones the memo
+  // prints (`CURRENCY` renders whole dollars), so this asserts what the
+  // reader actually sees rather than a precision they are never shown. The
+  // route's fixed `DRIVER_SPLIT` satisfies both for every overrun the live
+  // seed produces; this guard is here for the same reason the sign guard is,
+  // which is that `buildBudgetMemoPdf` is exported.
+  const timing = Math.round(input.timingUsd);
+  const oneOff = Math.round(input.oneOffUsd);
+  const overrun = Math.round(overrunUsd);
+  if (timing + oneOff !== overrun) {
+    throw new DriverSplitError(
+      `budget memo: drivers ${timing} + ${oneOff} do not account for the ` +
+        `${overrun} overrun they are printed under.`,
+    );
+  }
+  if (timing <= oneOff) {
+    throw new DriverSplitError(
+      `budget memo: the shipment-timing driver (${timing}) must be strictly ` +
+        `larger than the one-off (${oneOff}) — it is what the reader infers ` +
+        "the narrative code from.",
     );
   }
 

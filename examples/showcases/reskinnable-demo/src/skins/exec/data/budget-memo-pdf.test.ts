@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildBudgetMemoPdf, NotAnOverrunError } from "./budget-memo-pdf";
+import {
+  buildBudgetMemoPdf,
+  DriverSplitError,
+  NotAnOverrunError,
+} from "./budget-memo-pdf";
 import type { BudgetMemoInput } from "./budget-memo-pdf";
 
 const INPUT: BudgetMemoInput = {
@@ -88,10 +92,52 @@ describe("the budget memo document", () => {
     const text = build();
     expect(text).toContain("$12,053");
     expect(text).toContain("$7,387");
-    // The invariant that these sum to the overrun, and that timing is the
-    // larger driver, is now tested for real at the route level (the route
-    // computes the split from the live ledger; this fixture's numbers are
-    // fixed and would pass here regardless of whether the invariant holds).
+    // The fixture's own split satisfies the builder's driver invariants
+    // (12,053 + 7,387 === the 19,440 overrun, timing the larger) — those
+    // invariants are exercised as REFUSALS in the two tests below, since a
+    // fixed pair of numbers here would pass whether or not they were checked.
+  });
+
+  /**
+   * "DRIVERS" IS AN ACCOUNT OF THE OVERRUN, and the memo prints it directly
+   * under the overrun figure — a reader who adds the two amounts up and lands
+   * somewhere else is reading a document that contradicts itself in the only
+   * arithmetic it asks them to do. The header claimed this and nothing
+   * enforced it: every driver amount was printed exactly as handed in, so a
+   * caller computing the split against the wrong period's point (or against
+   * the forecast rather than the plan) produced a memo that looked right on
+   * stage and did not add up.
+   */
+  it("refuses a driver split that does not account for the overrun", () => {
+    expect(() => build({ ...INPUT, oneOffUsd: 7_000 })).toThrow(
+      DriverSplitError,
+    );
+    // Over as well as under — neither direction is an account of the overrun.
+    expect(() => build({ ...INPUT, oneOffUsd: 8_000 })).toThrow(
+      DriverSplitError,
+    );
+    // And it is the OVERRUN it must sum to, not the actual or the plan.
+    expect(() =>
+      build({ ...INPUT, timingUsd: 150_000, oneOffUsd: 85_440 }),
+    ).toThrow(DriverSplitError);
+  });
+
+  /**
+   * The timing driver being the strictly LARGER of the two is the entire cue
+   * the reader (and the model reading the attachment) infers VAR-TIMING from
+   * — the memo never prints a narrative code itself, deliberately. An
+   * inverted split silently plants VAR-ONEOFF instead, and a tie plants
+   * nothing, on a document whose whole job in beat 3d is to carry that cue.
+   */
+  it("refuses an inverted or tied driver split", () => {
+    // Inverted: still sums to the overrun, so only the ordering check fails.
+    expect(() =>
+      build({ ...INPUT, timingUsd: 7_387, oneOffUsd: 12_053 }),
+    ).toThrow(DriverSplitError);
+    // A tie plants no cue at all.
+    expect(() =>
+      build({ ...INPUT, timingUsd: 9_720, oneOffUsd: 9_720 }),
+    ).toThrow(DriverSplitError);
   });
 
   it("prints no narrative code, filedAt, or exception status", () => {

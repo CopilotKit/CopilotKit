@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { isBreach } from "./derive";
 import { storeErrorResponse } from "./store-errors";
 import * as store from "./store";
-import type { BlockSpec, DashboardId } from "./types";
+import type { BlockSpec, DashboardId, MetricPoint } from "./types";
 
 beforeEach(() => store.reset());
 
 /** Strips every block off a dashboard, leaving it legitimately blank. */
 function emptyDashboard(id: DashboardId): void {
-  // Ids first: `removeBlock` rewrites the block list it is iterating over.
+  // The ids are read once, up front, so the loop below is driven by a plain
+  // list of strings rather than by anything `removeBlock` can reach.
   const blockIds = store.snapshot().dashboards[id].blocks.map((b) => b.id);
   for (const blockId of blockIds) store.removeBlock(id, blockId);
   expect(store.snapshot().dashboards[id].blocks).toHaveLength(0);
@@ -36,7 +38,58 @@ describe("seed invariants", () => {
     expect(snap.dashboards.cfo.blocks.length).toBeGreaterThanOrEqual(2);
   });
   it("has 24 monthly periods for every company-wide metric", () => {
-    expect(store.metricSeries({ metricId: "revenue" })).toHaveLength(24);
+    // EVERY one of them, as the name says — this checked `revenue` alone, so
+    // a metric seeded with a short (or missing) series was green here and
+    // only visible as a stunted chart on stage.
+    const companyWide = store
+      .snapshot()
+      .metricDefs.filter((d) => !d.byDepartment);
+    expect(companyWide.length).toBeGreaterThan(1);
+    for (const def of companyWide) {
+      const rows = store.metricSeries({ metricId: def.id });
+      // One row per period at `department: "all"`, and 24 distinct periods.
+      expect(rows, def.id).toHaveLength(24);
+      expect(new Set(rows.map((r) => r.period)).size, def.id).toBe(24);
+    }
+  });
+
+  /**
+   * THE INVARIANT `exceptions()`' `explained` KEY RESTS ON. A `Narrative`
+   * names a `(metricId, period)` and nothing else, so filing one clears every
+   * DEPARTMENT's breach of that metric at that period. That is only honest
+   * while no metric breaches in more than one department at once — which is a
+   * property of the SEED, not of the schema, and therefore has to be asserted
+   * rather than assumed. See the decision comment on `exceptions()` in
+   * `store.ts` for why the key stays narrow instead of the schema widening.
+   *
+   * A reseed that spread one metric's breaches across two departments would
+   * otherwise let a single narrative about Distribution clear an unwritten-up
+   * Manufacturing overrun, and the board pack would publish with it inside.
+   */
+  it("keeps every breaching metric's breaches inside ONE department, so one narrative can honestly clear them", () => {
+    const departmentsByMetric = new Map<string, Set<string>>();
+    for (const e of store.exceptions()) {
+      const seen = departmentsByMetric.get(e.metricId) ?? new Set<string>();
+      seen.add(e.department);
+      departmentsByMetric.set(e.metricId, seen);
+    }
+    expect(departmentsByMetric.size).toBeGreaterThan(0);
+    for (const [metricId, departments] of departmentsByMetric) {
+      expect(
+        [...departments],
+        `${metricId} breaches in more than one department, so one narrative would clear both`,
+      ).toHaveLength(1);
+    }
+  });
+
+  /**
+   * The defs accessor is the cheap read: `snapshot()` recomputes `exceptions()`
+   * over every point in the ledger, which a caller that only wants labels and
+   * thresholds should not have to pay for. Same defs either way.
+   */
+  it("exposes the metric defs without recomputing exceptions", () => {
+    expect(store.metricDefs()).toEqual(store.snapshot().metricDefs);
+    expect(store.metricDefs().length).toBeGreaterThan(0);
   });
   /**
    * `byDepartment` metrics (opex, headcountCost) render at BOTH granularities
@@ -134,6 +187,133 @@ describe("variance and the publish gate", () => {
     expect(store.variancePct(p)).not.toBe((p.actual - p.plan) / p.actual);
     expect("variancePct" in p).toBe(false);
   });
+  /**
+   * A POINT WITH NO PLAN HAS NO VARIANCE FROM PLAN, so it cannot breach one.
+   * `variancePct` divides by plan, and `Math.abs(Infinity) > thresholdPct` is
+   * true for every threshold that exists — so a zero-planned point breached
+   * PERMANENTLY: an exception no narrative could ever retire (a filing flips
+   * `explained`, never the divide), blocking the publish gate while showing
+   * the operator a blank where its variance should be, because
+   * `Exception.variancePct` is typed `number` and `JSON.stringify` writes
+   * `Infinity` as `null`. The `NaN` twin (plan and actual both zero) answered
+   * the opposite unfounded thing — `NaN > x` is false, so a metric with no
+   * plan at all was silently in the clear. Both are now the same explicit
+   * "no variance data" answer.
+   */
+  it("never breaches on a point with no usable plan, in either non-finite direction", () => {
+    const def = store.snapshot().metricDefs.find((d) => d.id === "opex")!;
+    const point = (plan: number, actual: number): MetricPoint => ({
+      metricId: "opex",
+      period: "2024-01",
+      department: "all",
+      plan,
+      actual,
+      forecast: actual,
+    });
+
+    // The non-finite variances themselves, so the premise is on the record
+    // rather than assumed: this is what the divide produces.
+    expect(Number.isFinite(store.variancePct(point(0, 5)))).toBe(false); // Infinity
+    expect(Number.isFinite(store.variancePct(point(0, 0)))).toBe(false); // NaN
+
+    expect(isBreach(def, point(0, 5))).toBe(false); // was: breached forever
+    expect(isBreach(def, point(0, -5))).toBe(false); // -Infinity, same answer
+    expect(isBreach(def, point(0, 0))).toBe(false);
+    expect(isBreach(def, point(Number.POSITIVE_INFINITY, 5))).toBe(false);
+    expect(isBreach(def, point(5, Number.NaN))).toBe(false);
+
+    // ...and a real, finite variance still decides normally on both sides of
+    // the threshold, so this is a guard and not a blanket suppression.
+    expect(isBreach(def, point(100, 100 + def.thresholdPct * 100 + 1))).toBe(
+      true,
+    );
+    expect(isBreach(def, point(100, 100 + def.thresholdPct * 100 - 1))).toBe(
+      false,
+    );
+  });
+
+  /**
+   * A NARRATIVE CLEARS ITS OWN PERIOD AND NO OTHER. `explained` matches on
+   * `(metricId, period)`; dropping the PERIOD half leaves every other test in
+   * this file green, because they all file against the breach's own period —
+   * and it would mean a narrative filed about last quarter's opex overrun
+   * silently cleared this month's, publishing a board pack whose only
+   * explanation is about a period the pack does not report on.
+   */
+  it("clears a breach only with a narrative filed for its OWN period", () => {
+    const breach = store.exceptions().find((e) => !e.explained);
+    expect(
+      breach,
+      "seed no longer carries an unexplained breach",
+    ).toBeDefined();
+
+    store.fileNarrative({
+      metricId: breach!.metricId,
+      // A real earlier period in the seeded 24-month window, not a nonsense
+      // string: this is the stale-narrative case, not a malformed one.
+      period: store.metricSeries({ metricId: breach!.metricId })[0].period,
+      code: "VAR-TIMING",
+      body: "About an entirely different month.",
+      source: "typed",
+    });
+
+    const after = store
+      .exceptions()
+      .find(
+        (e) => e.metricId === breach!.metricId && e.period === breach!.period,
+      );
+    expect(after!.explained).toBe(false);
+    // ...and the gate agrees with the flag, rather than only the flag moving.
+    expect(store.publishPack("ceo", store.COUNTERSIGN_PIN)).toMatchObject({
+      ok: false,
+      code: "UNEXPLAINED_VARIANCE",
+    });
+  });
+
+  /**
+   * `pack.narrativeIds` IS THE RECORD OF WHAT EXPLAINS THIS PACK, and a pack
+   * reports one period. `publishPack` skips narratives filed for any other
+   * period; dropping that half of its filter leaves every other publish test
+   * green (they file only at the latest period) while quietly attaching a
+   * narrative about an older month to a pack that never mentions it —
+   * inflating the pack's explanation count with a document a reader following
+   * the id would find is about something else.
+   */
+  it("records only narratives filed for the period the pack reports on", () => {
+    const latest = store.exceptions()[0].period;
+    const stale = store.metricSeries({ metricId: "opex" })[0].period;
+    expect(stale).not.toBe(latest);
+
+    // A stale filing for a metric the CFO dashboard DOES reference, so only
+    // the period half of the filter can exclude it.
+    const staleNarrative = store.fileNarrative({
+      metricId: "opex",
+      period: stale,
+      code: "VAR-ONEOFF",
+      body: "Filed months ago, about a closed-out month.",
+      source: "typed",
+    });
+    for (const b of store.exceptions()) {
+      store.fileNarrative({
+        metricId: b.metricId,
+        period: b.period,
+        code: "VAR-TIMING",
+        body: "Current-period explanation.",
+        source: "typed",
+      });
+    }
+
+    const r = store.publishPack("cfo", store.COUNTERSIGN_PIN);
+    expect(r).toMatchObject({ ok: true });
+    if (!r.ok) return;
+
+    expect(r.pack.narrativeIds).not.toContain(staleNarrative.id);
+    const byId = new Map(store.snapshot().narratives.map((n) => [n.id, n]));
+    for (const id of r.pack.narrativeIds) {
+      expect(byId.get(id)!.period, `narrative ${id}`).toBe(latest);
+    }
+  });
+
   it("refuses to publish while a breach is unexplained (422 UNEXPLAINED_VARIANCE)", () => {
     const r = store.publishPack("cfo", store.COUNTERSIGN_PIN);
     expect(r).toMatchObject({
@@ -438,13 +618,45 @@ describe("metricSeries window", () => {
     expect(periodsOf(2.7)).toEqual(all.slice(-2));
   });
 
-  it("windows by PERIOD, not by row, across a department filter", () => {
+  it("windows by PERIOD, not by row, when a metric spans several departments", () => {
     const rows = store.metricSeries({ metricId: "opex", months: 2 });
     const periods = [...new Set(rows.map((r) => r.period))];
     expect(periods).toHaveLength(2);
     // opex is byDepartment: 5 rows ("all" + 4 departments) per period, so a
     // row-slice would have truncated mid-period.
     expect(rows).toHaveLength(10);
+  });
+
+  /**
+   * The `department` filter and the `months` window COMPOSE — this is the
+   * combination the header describes and the test above did not actually
+   * make: it named a department filter and passed none, so `department` was
+   * exercised nowhere in this file and a filter dropped (or applied after the
+   * window, narrowing the window's own period set) was green.
+   */
+  it("applies a department filter and the period window together", () => {
+    const all = store.metricSeries({ metricId: "opex", months: 2 });
+    const distribution = store.metricSeries({
+      metricId: "opex",
+      department: "distribution",
+      months: 2,
+    });
+
+    // One row per period once the department is pinned — not the 10 above.
+    expect(distribution).toHaveLength(2);
+    expect(distribution.every((r) => r.department === "distribution")).toBe(
+      true,
+    );
+    // The SAME two periods the unfiltered window keeps: filtering first must
+    // not shrink the window the filtered rows are drawn from.
+    expect(distribution.map((r) => r.period)).toEqual([
+      ...new Set(all.map((r) => r.period)),
+    ]);
+    // And the filter narrows rather than truncating: the full unwindowed
+    // department series is still all 24 periods.
+    expect(
+      store.metricSeries({ metricId: "opex", department: "distribution" }),
+    ).toHaveLength(24);
   });
 });
 
