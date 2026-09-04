@@ -82,6 +82,19 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(snippet).toContain("## Hosting options");
 });
 
+test("the Learning guide stays focused on the reviewed Learning workflow", () => {
+  const guide = read("content/docs/learning.mdx");
+
+  expect(guide).toContain("## Overview");
+  expect(guide).toContain("## How Learning works");
+  expect(guide).toContain("## Configure Learning");
+  expect(guide).toContain("](/intelligence/quickstart)");
+  expect(guide).toContain("https://dashboard.operations.copilotkit.ai/");
+  expect(guide).toContain("What happens automatically?");
+  expect(guide).not.toContain("## Enable long-term Memory");
+  expect(guide).not.toContain("memory: {");
+});
+
 test("the MDX registry and page view wire IntelligenceOverview and its chrome", () => {
   const registry = read("lib/mdx-registry.tsx");
   const pageView = read("components/docs-page-view.tsx");
