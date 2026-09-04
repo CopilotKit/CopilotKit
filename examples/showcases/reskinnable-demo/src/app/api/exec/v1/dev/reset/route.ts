@@ -154,11 +154,12 @@ export const POST = async () => {
       `; re-seeding ${seedTargets.join(", ")}`,
   );
 
-  // `forgetAllMemories` THROWS on the first failed DELETE within a bucket.
-  // Each userId is its own try/catch so one bucket's throw does not skip the
-  // rest — otherwise a single bad delete for the mapped operator would leave
-  // the demo-default bucket (where mid-demo teaching actually lands) never
-  // even attempted.
+  // `forgetAllMemories` records failed DELETEs and keeps sweeping (they land
+  // in `result.failed` / `incompleteReason`); it THROWS only when it cannot
+  // ENUMERATE a bucket at all. Each userId is its own try/catch so one
+  // bucket's enumeration failure does not skip the rest — otherwise a bad
+  // listing for the mapped operator would leave the demo-default bucket
+  // (where mid-demo teaching actually lands) never even attempted.
   for (const userId of userIds) {
     try {
       const result = await forgetAllMemories({ apiUrl, apiKey, userId });

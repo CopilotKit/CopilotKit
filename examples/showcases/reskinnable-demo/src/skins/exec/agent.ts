@@ -152,14 +152,12 @@ function monthsRefusal(
 /**
  * The metric's definition, or `undefined` for an id this ledger does not hold.
  *
- * ⚠️ `store.snapshot()` RECOMPUTES `exceptions()` on every call, which is more
- * work than reading a static definition list needs. `store` exposes no cheaper
- * defs accessor today and is outside this change's blast radius, so the cost
- * is paid — but paid ONCE, here, rather than at each call site, so adding one
- * is a one-line change when it lands.
+ * Reads `store.metricDefs()` — the cheap static-list accessor — NOT
+ * `store.snapshot()`, which recomputes `exceptions()` over every point in the
+ * ledger on each call just to reach this one field.
  */
 function metricDefOf(id: MetricId): MetricDef | undefined {
-  return store.snapshot().metricDefs.find((d) => d.id === id);
+  return store.metricDefs().find((d) => d.id === id);
 }
 
 /**

@@ -448,15 +448,15 @@ takes over the page-content region with a "← Back" affordance:
   renderer whose `ReactSurfaceHost` would otherwise have mounted one — so a
   block's surface state can never collide with the canvas's. `exec` is the only
   skin on this path today; the `block:` spelling is duplicated by hand across
-  THREE modules, because the shell must not import from `src/skins/` and the
-  canvas must not depend on the chat's renderer. `BLOCK_SURFACE_PREFIX` lives in
-  `src/skins/exec/blocks/build-block-ops.ts:22` (the write side, which MINTS the
-  ids), in `src/shell/chat/inline-block-surface.tsx:21` (the chat's read side),
-  and in `src/shell/canvas/canvas-context.tsx:36` (the classifier that keeps a
-  block off the canvas). A drift guard covers the first pair —
-  `src/skins/exec/blocks/build-block-ops.test.ts:46-61` runs minted ops through
-  the shell's own reader, so either of those two drifting fails there. The
-  canvas copy is the one no cross-module test reaches.
+  TWO modules, because the shell must not import from `src/skins/`.
+  `BLOCK_SURFACE_PREFIX` lives in
+  `src/skins/exec/blocks/build-block-ops.ts:22` (the write side, which MINTS
+  the ids) and in `src/shell/canvas/canvas-context.tsx` (the shell's single
+  reader-side decision, `decideA2uiSurface` — the chat's
+  `inline-block-surface.tsx` delegates to it rather than keeping a third
+  copy). Both copies are drift-guarded: `build-block-ops.test.ts` runs
+  freshly minted ops through the shell's classifier, so either side drifting
+  fails there.
 
 Gen-UI components registered via `useComponent` (airline's flight card, banking's
 charts and queues) render in the chat transcript, not on the canvas — that is a
