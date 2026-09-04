@@ -6,6 +6,7 @@ import {
   A2UIRenderer,
   useA2UIActions,
   useA2UIError,
+  useA2UIState,
 } from "@copilotkit/a2ui-renderer";
 import { useSkin } from "@/shell/skin-provider";
 
@@ -56,10 +57,24 @@ export function blockSurfaceIdFrom(content: unknown): string | null {
  * rejects it) and skip re-processing identical op lists. Copied from banking's
  * `SurfaceMessageProcessor` (src/skins/banking/canvas-surface.tsx).
  *
- * The hash latch is written only AFTER a successful `processMessages`: latching
- * first would make ANY failure permanent, because the next snapshot carries the
- * same op list and would be skipped as a duplicate forever. The card would then
- * stay blank with no path back.
+ * HOW A REJECTED OP LIST IS DETECTED. `processMessages` never throws and
+ * returns nothing: the provider catches the processor's error, `console.warn`s
+ * it, records the message in its error state (which `useA2UIError()` exposes
+ * on the NEXT render — there is no synchronous read) and returns void. So the
+ * only success signal is the store's `version` counter, which it bumps ONLY
+ * after the op list applied. This effect therefore records the version it saw
+ * when it called, and latches the hash on a LATER run — the one the version
+ * bump itself schedules — and only if the version actually advanced.
+ *
+ * Latching a REJECTED op list would make the failure permanent: the next
+ * snapshot carries the same list, which would be skipped as a duplicate
+ * forever, leaving the card blank with no path back. Leaving it unlatched
+ * means the next snapshot REPLAYS the list, which is safe: `createSurface` is
+ * stripped once the surface exists (it is the one op the processor rejects on
+ * replay, "Surface … already exists"), and `updateComponents` is replace-style
+ * — it overwrites each component id's properties, or recreates the component
+ * when its type changed — so replaying it, including over the partial state a
+ * mid-list rejection leaves behind, converges on the same surface.
  */
 function InlineBlockMessageProcessor({
   operations,
@@ -69,9 +84,22 @@ function InlineBlockMessageProcessor({
   surfaceId: string;
 }) {
   const { processMessages, getSurface } = useA2UIActions();
+  const { version } = useA2UIState();
   const lastHashRef = useRef("");
+  const pendingRef = useRef<{ hash: string; version: number } | null>(null);
 
   useEffect(() => {
+    // Settle the previous call first: the version advanced ⇒ that op list
+    // applied ⇒ latch it. It did not ⇒ the processor rejected the list, so
+    // leave the hash unlatched and let a later snapshot try again. (The
+    // failure itself is on screen: `BlockSurfaceBody` renders the provider's
+    // error state.)
+    const pending = pendingRef.current;
+    if (pending) {
+      pendingRef.current = null;
+      if (version > pending.version) lastHashRef.current = pending.hash;
+    }
+
     if (!operations.length) return;
     const hash = JSON.stringify(operations);
     if (hash === lastHashRef.current) return;
@@ -81,19 +109,10 @@ function InlineBlockMessageProcessor({
       ? operations.filter((op) => !("createSurface" in op))
       : operations;
     if (!ops.length) return;
-    try {
-      processMessages(ops as Array<Record<string, unknown>>);
-    } catch (err) {
-      // Defense in depth: the provider's `processMessages` catches internally
-      // and reports through `useA2UIError()` (rendered loudly by
-      // `BlockSurfaceBody` below), so this branch fires only if a future
-      // version lets one escape. Either way the latch stays unset, so the next
-      // snapshot retries instead of inheriting a dead surface.
-      console.warn("[inline-block-surface] processMessages threw:", err);
-      return;
-    }
-    lastHashRef.current = hash;
-  }, [operations, processMessages, getSurface, surfaceId]);
+
+    pendingRef.current = { hash, version };
+    processMessages(ops as Array<Record<string, unknown>>);
+  }, [operations, processMessages, getSurface, surfaceId, version]);
 
   return null;
 }
@@ -103,6 +122,16 @@ function InlineBlockMessageProcessor({
  * `useA2UIError()` and the renderer read that store. Renders the surface, and
  * a LOUD error line above it when the provider failed to process the ops: a
  * block that could not be built must say so rather than show an empty box.
+ *
+ * The line names the block from OUR context (the surface id resolved off the
+ * activity content) rather than trusting the provider's message to do it: of
+ * the MessageProcessor's rejection messages only "Surface not found for
+ * message: <id>" and "Surface <id> already exists" name a surface — "Catalog
+ * not found", "Component '<c>' is missing an 'id'", "Cannot create component
+ * <id> without a type" and "Message contains multiple update types" do not.
+ *
+ * The provider is per-card (see `InlineBlockSurface`), so this error slot
+ * belongs to this block alone and no sibling's success can clear it.
  */
 function BlockSurfaceBody({ surfaceId }: { surfaceId: string }) {
   const error = useA2UIError();
