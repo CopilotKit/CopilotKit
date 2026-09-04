@@ -213,7 +213,8 @@ test("managed quickstarts provision a project API key instead of a license key",
   expect(quickstarts.length).toBeGreaterThan(0);
 
   for (const file of quickstarts) {
-    const source = fs.readFileSync(file, "utf8").replace(/\s+/g, " ");
+    const rawSource = fs.readFileSync(file, "utf8");
+    const source = rawSource.replace(/\s+/g, " ");
 
     expect(source).not.toMatch(/license key/i);
     expect(source).not.toMatch(/free developer account/i);
@@ -224,22 +225,23 @@ test("managed quickstarts provision a project API key instead of a license key",
         /npx copilotkit@latest (?:project select|init(?:\s|`))/,
       );
 
-      const projectSelectIndex = source.indexOf(
-        "npx copilotkit@latest project select",
-      );
-      if (projectSelectIndex !== -1) {
-        const appCreationIndexes = [
-          "git clone ",
-          "npx create-next-app@latest ",
-          "npx copilotkit@latest create",
-          "npx copilotkit@latest init",
-        ]
-          .map((command) => source.indexOf(command))
-          .filter((index) => index !== -1);
+      for (const match of rawSource.matchAll(
+        /npx copilotkit@latest project select/g,
+      )) {
+        const precedingSource = rawSource.slice(0, match.index);
+        const branchStart = precedingSource.lastIndexOf(
+          "<TailoredContentOption",
+        );
+        const previousBranchEnd = precedingSource.lastIndexOf(
+          "</TailoredContentOption>",
+        );
+        const currentBranchStart =
+          branchStart > previousBranchEnd ? branchStart : 0;
+        const currentBranchBeforeSelection =
+          precedingSource.slice(currentBranchStart);
 
-        expect(appCreationIndexes.length).toBeGreaterThan(0);
-        expect(projectSelectIndex).toBeGreaterThan(
-          Math.min(...appCreationIndexes),
+        expect(currentBranchBeforeSelection).toMatch(
+          /(?:git clone |npx create-next-app@latest |npx copilotkit@latest (?:create|init))/,
         );
       }
     }
