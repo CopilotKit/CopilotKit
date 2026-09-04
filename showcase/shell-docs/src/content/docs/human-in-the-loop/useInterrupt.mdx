@@ -17,12 +17,13 @@ runtime.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
-LangGraph ships a first-class
-[`interrupt()`](https://docs.langchain.com/oss/python/langgraph/interrupts)
-primitive that lets a running node suspend itself and hand control to
-the client. The run is frozen server-side until the client resolves the
-interrupt with a payload, at which point the node resumes as if
-`interrupt()` had simply returned that payload.
+This framework ships a first-class interrupt primitive that lets running
+work suspend itself and hand control to the client
+([LangGraph](https://docs.langchain.com/oss/python/langgraph/interrupts),
+[AWS Strands](https://strandsagents.com/docs/user-guide/concepts/interrupts/)).
+The run is frozen server-side until the client resolves the interrupt with a
+payload, at which point execution resumes as if the interrupt call had simply
+returned that payload.
 
 CopilotKit's `useInterrupt` is the frontend half of that contract: it
 subscribes to the paused run, renders whatever component you give it,
@@ -46,7 +47,8 @@ answers, agent resumes — different mechanism underneath.
 
 > **Not available on this framework.** `useInterrupt` is only meaningful
 > when the underlying runtime exposes either a native `interrupt(...)`
-> primitive (LangGraph) or a Promise-resolving frontend tool path. For
+> primitive (LangGraph, AWS Strands) or a Promise-resolving frontend tool
+> path. For
 > all other integrations, use
 > [`useHumanInTheLoop`](../human-in-the-loop) instead — it's the
 > standard hook for tool-call-based pause/resume flows and works on
@@ -75,18 +77,20 @@ the user, prefer [`useHumanInTheLoop`](../human-in-the-loop).
 <FrameworkSetup concept="human-in-the-loop-setup" />
 
 The example agent exposes a `schedule_meeting` tool. When the model
-calls it, the tool issues a `langgraph.interrupt(...)`
-with the meeting context. The run freezes here until the client
-resolves; the resolution becomes the return value of `interrupt()`,
-which the tool then turns into a final string for the model:
+calls it, the tool interrupts itself with the meeting context. The run
+freezes here until the client resolves; the resolution becomes the return
+value of the interrupt call, which the tool then turns into a final string
+for the model:
 
-<Snippet region="backend-interrupt-tool" title="backend/agent.py — schedule_meeting interrupt tool" />
+<Snippet region="backend-interrupt-tool" title="backend: schedule_meeting interrupt tool" />
 
 Two things to note:
 
 - The payload (`{"topic": topic, "attendee": attendee}`) is what the
-  frontend receives as `event.value`. Keep it a plain, serializable
-  object. It's the "pause-time context" the UI needs to render.
+  frontend reads off the interrupt. Keep it a plain, serializable object.
+  It's the "pause-time context" the UI needs to render. Where it lands
+  depends on the bridge: LangGraph hands it to `render` as `event.value`,
+  while a standard AG-UI interrupt carries it on the interrupt itself.
 - The return-side contract (`{chosen_label, chosen_time}` or
   `{cancelled: true}`) is entirely yours. The client can send anything
   as the resolve payload; the tool is the one that gives it meaning.

@@ -21,11 +21,18 @@ mounting a chat at all.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
-On LangGraph the underlying primitive is the framework's
-`interrupt()` call, surfaced to the client as an `on_interrupt`
-custom event. The headless variant subscribes to that event directly
-and resumes the run by calling `copilotkit.runAgent({...})` with the
-matching `resume` payload — no chat surface required.
+The underlying primitive is the framework's own interrupt call. How it
+reaches the client depends on the bridge, and there are two headless shapes
+to match:
+
+- A bridge that surfaces the pause as an `on_interrupt` custom event
+  (LangGraph): subscribe to that event and resume the run by calling
+  `copilotkit.runAgent({...})` with the matching `resume` payload.
+- A bridge that finishes the run with a standard AG-UI interrupt outcome
+  (AWS Strands): call `useInterrupt` with `renderInChat: false` and place
+  the element it returns wherever you like; `resolve(...)` resumes the run.
+
+Either way, no chat surface is required.
 
 </WhenFrameworkHas>
 

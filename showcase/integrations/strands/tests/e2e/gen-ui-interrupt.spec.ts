@@ -4,10 +4,11 @@ import { test, expect } from "@playwright/test";
 // Demo source: src/app/demos/gen-ui-interrupt/{page.tsx, time-picker-card.tsx}
 //
 // Uses `useInterrupt({ renderInChat: true })` — the low-level CopilotKit
-// primitive wired to LangGraph's `interrupt()` on the `interrupt_agent`
-// graph (shared with `interrupt-headless`). When the agent invokes the
-// backend `schedule_meeting` tool, the graph interrupts and a
-// `TimePickerCard` renders INLINE in the chat transcript (no portal).
+// primitive wired to Strands' native `tool_context.interrupt(...)` on the
+// dedicated interrupt agent (`src/agents/interrupt_agent.py`, shared with
+// `interrupt-headless`). When the agent invokes the backend
+// `schedule_meeting` tool, the tool pauses and a `TimePickerCard` renders
+// INLINE in the chat transcript (no portal).
 //
 // Card states (mutually exclusive, per-interrupt):
 //   - `time-picker-card`      — initial, 4 slot buttons + "None of these work"

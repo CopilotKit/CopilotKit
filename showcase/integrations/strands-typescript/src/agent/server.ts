@@ -26,6 +26,11 @@ import {
   buildA2uiDynamicAgent,
   buildA2uiRecoveryAgent,
 } from "./agent";
+import { buildInterruptAgent } from "./interrupt-agent.js";
+import {
+  buildReasoningAgent,
+  buildReasoningChainAgent,
+} from "./reasoning-agent.js";
 
 /** Mount an agent at `path` and `path/` so trailing-slash proxies resolve. */
 function mountAgent(
@@ -80,6 +85,9 @@ async function main(): Promise<void> {
     a2uiFixed,
     a2uiDynamic,
     a2uiRecovery,
+    interrupt,
+    reasoning,
+    reasoningChain,
   ] = await Promise.all([
     buildShowcaseAgent(),
     buildVoiceAgent(),
@@ -88,6 +96,9 @@ async function main(): Promise<void> {
     buildA2uiFixedSchemaAgent(),
     buildA2uiDynamicAgent(),
     buildA2uiRecoveryAgent(),
+    buildInterruptAgent(),
+    buildReasoningAgent(),
+    buildReasoningChainAgent(),
   ]);
 
   mountAgent(app, "/voice", voice);
@@ -104,6 +115,15 @@ async function main(): Promise<void> {
   // Error-recovery A2UI: same auto-inject setup; aimock fixtures force the
   // inner render to heal or exhaust so the adapter's recovery loop is visible.
   mountAgent(app, "/a2ui-recovery", a2uiRecovery);
+  // Interrupts: the dedicated agent's `schedule_meeting` pauses natively via
+  // `context.interrupt(...)`. Separate from the shared agent because
+  // hitl-in-chat registers a FRONTEND tool of the same name.
+  mountAgent(app, "/interrupt", interrupt);
+  // Reasoning: the Responses API with reasoning summaries enabled, which the
+  // shared chat-completions agent does not emit. The chain demo gets its own
+  // tool-carrying variant.
+  mountAgent(app, "/reasoning", reasoning);
+  mountAgent(app, "/reasoning-chain", reasoningChain);
   // Mount the shared agent LAST at the root so the sub-path POST routes are
   // matched first by Express's route table.
   mountAgent(app, "/", showcase);

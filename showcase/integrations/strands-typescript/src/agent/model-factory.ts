@@ -37,6 +37,12 @@ export interface CreateModelOptions {
    */
   reasoning?: boolean;
   /**
+   * Override the model id. Takes precedence over `MODEL_ID` so a demo that
+   * needs a specific class of model (a reasoning model, say) is not silently
+   * downgraded by the deployment-wide default.
+   */
+  modelId?: string;
+  /**
    * OpenAI API mode. Defaults to `"chat"` for the showcase so tool-call
    * arguments stream incrementally. Pass `"responses"` to use the Responses
    * API.
@@ -63,11 +69,14 @@ export async function createModel(
     const baseURL = process.env.OPENAI_BASE_URL;
     return new OpenAIModel({
       apiKey,
-      modelId: process.env.MODEL_ID ?? "gpt-4o",
+      modelId: options.modelId ?? process.env.MODEL_ID ?? "gpt-4o",
       // Default to chat completions (incremental tool-arg streaming).
       api: options.openaiApi ?? "chat",
+      // `summary: "detailed"` rather than `"auto"`: with `"auto"` the model
+      // decides, and with tools in play it routinely skips the summary, which
+      // leaves the frontend's reasoning slot unmounted.
       ...(reasoning
-        ? { params: { reasoning: { effort: "medium", summary: "auto" } } }
+        ? { params: { reasoning: { effort: "medium", summary: "detailed" } } }
         : {}),
       clientConfig: {
         ...(baseURL ? { baseURL } : {}),
@@ -96,14 +105,17 @@ export async function createModel(
       await import("@strands-agents/sdk/models/anthropic");
     return new AnthropicModel({
       apiKey,
-      modelId: process.env.MODEL_ID ?? "claude-opus-4-8",
+      modelId: options.modelId ?? process.env.MODEL_ID ?? "claude-opus-4-8",
     });
   }
 
   if (provider === "bedrock") {
     const { BedrockModel } = await import("@strands-agents/sdk");
     return new BedrockModel({
-      modelId: process.env.MODEL_ID ?? "global.anthropic.claude-opus-4-8",
+      modelId:
+        options.modelId ??
+        process.env.MODEL_ID ??
+        "global.anthropic.claude-opus-4-8",
       ...(reasoning
         ? {
             additionalRequestFields: {

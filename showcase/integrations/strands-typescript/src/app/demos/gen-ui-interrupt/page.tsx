@@ -11,6 +11,48 @@ import { TimePickerCard } from "./_components/time-picker-card";
 import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import { useGenUiInterruptSuggestions } from "./suggestions";
 
+// Shape the backend `schedule_meeting` tool pauses with: its `interrupt()`
+// `reason` payload. `slots` is absent on the Strands path (the tool passes only
+// topic and attendee), so the picker falls back to generated slots.
+type SchedulingPayload = {
+  topic?: string;
+  attendee?: string;
+  slots?: TimeSlot[];
+};
+
+// Read the tool's `interrupt()` reason off an AG-UI interrupt.
+//
+// The two bridges expose it on different channels: `ag_ui_strands` (Python)
+// carries the reason object under `metadata.reason`, while the published
+// `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` instead. Both are
+// read so one page serves both, and the legacy event value is read last for
+// adapters that pass the payload through unwrapped.
+function readSchedulingPayload(
+  interrupt: { metadata?: unknown; message?: string } | undefined,
+  eventValue: unknown,
+): SchedulingPayload {
+  const metadata = interrupt?.metadata as
+    | { reason?: SchedulingPayload }
+    | undefined;
+  if (metadata?.reason) return metadata.reason;
+
+  if (interrupt?.message) {
+    try {
+      const decoded = JSON.parse(interrupt.message) as SchedulingPayload;
+      if (decoded && typeof decoded === "object") return decoded;
+    } catch {
+      // A plain-prose message is not a payload; fall through.
+    }
+  }
+
+  const raw = eventValue ?? {};
+  const legacy = (typeof raw === "string" ? JSON.parse(raw) : raw) as
+    | SchedulingPayload
+    | { metadata?: { reason?: SchedulingPayload } };
+  if ("metadata" in legacy) return legacy.metadata?.reason ?? {};
+  return legacy;
+}
+
 export default function GenUiInterruptDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
@@ -26,23 +68,16 @@ export default function GenUiInterruptDemo() {
 function Chat() {
   useGenUiInterruptSuggestions();
 
-  // `useInterrupt` is the low-level primitive for handling LangGraph
-  // `interrupt(...)` events. The backend's `schedule_meeting` tool surfaces
-  // a structured payload — `{ topic, attendee, slots }` — which we render
-  // inline in the chat as a message bubble. Calling `resolve(...)` resumes
-  // the LangGraph run with the user's selection.
+  // Native interrupt path. The backend `schedule_meeting` tool calls Strands'
+  // `tool_context.interrupt(...)`; the @ag-ui/aws-strands bridge finishes the
+  // run with `outcome.type === "interrupt"` and carries the tool's `reason`
+  // under the interrupt's `metadata.reason`. `resolve(...)` resumes the same
+  // Strands run, handing the selection back to that `interrupt()` call.
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
-    render: ({ event, resolve }) => {
-      // The AG-UI adapter JSON-stringifies interrupt values, so parse
-      // when needed to extract the structured payload.
-      const raw = event.value ?? {};
-      const payload = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
-        topic?: string;
-        attendee?: string;
-        slots?: TimeSlot[];
-      };
+    render: ({ event, interrupt, resolve }) => {
+      const payload = readSchedulingPayload(interrupt, event.value);
       const slots =
         payload.slots && payload.slots.length > 0
           ? payload.slots

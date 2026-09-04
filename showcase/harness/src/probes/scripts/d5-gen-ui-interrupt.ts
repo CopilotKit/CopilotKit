@@ -179,6 +179,14 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     input: prompt,
     assertions: buildInterruptAssertion(tag),
     responseTimeoutMs: 60_000,
+    // An interrupt turn ends AT the pause: the meaningful output is the
+    // mounted picker, and whether any assistant prose lands last depends on
+    // the bridge. A bridge that emits the tool call before pausing (the AG-UI
+    // Strands bridges do) leaves the final assistant bubble textless, so the
+    // text-stability conjunct can never converge and the turn would time out
+    // with `reason=text-unstable` before the assertions below ever run. Settle
+    // on the picker mounting instead; run-finished and new-bubble still apply.
+    completeOnMount: { testIds: ["time-picker-card"] },
   }));
 }
 

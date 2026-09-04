@@ -136,6 +136,11 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return INTERRUPT_HEADLESS_PILLS.map(({ tag, prompt }) => ({
     input: prompt,
     completionSignal: "sse",
+    // Same shape as gen-ui-interrupt: the turn ends AT the pause, with the
+    // picker mounted in the app surface and no assistant prose on a bridge
+    // that emits the tool call before pausing. Settle on the popup mounting
+    // instead of text stability; run-finished and new-bubble still apply.
+    completeOnMount: { testIds: ["interrupt-headless-popup"] },
     assertions: buildInterruptHeadlessAssertion(tag),
     // Each pill exercises a full interrupt → resolve → resume cycle —
     // bigger budget than agentic-chat's text-only turns. The 60s ceiling

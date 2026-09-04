@@ -8,7 +8,7 @@
   },
   "fixtures": [
     {
-      "_comment": "reasoning-chain pill 1 (stocks) — leg 1 (seq 0): reasoning + get_stock_price(AAPL).",
+      "_comment": "reasoning-chain pill 1 (stocks) \u2014 leg 1 (seq 0): reasoning + get_stock_price(AAPL).",
       "match": {
         "userMessage": "Compare AAPL and MSFT stocks",
         "sequenceIndex": 0,
@@ -26,7 +26,7 @@
       }
     },
     {
-      "_comment": "reasoning-chain pill 1 (stocks) — leg 2 (seq 1): reasoning + get_stock_price(MSFT).",
+      "_comment": "reasoning-chain pill 1 (stocks) \u2014 leg 2 (seq 1): reasoning + get_stock_price(MSFT).",
       "match": {
         "userMessage": "Compare AAPL and MSFT stocks",
         "sequenceIndex": 1,
@@ -44,17 +44,17 @@
       }
     },
     {
-      "_comment": "reasoning-chain pill 1 (stocks) — leg 3 (seq 2): final narration after both stock results land.",
+      "_comment": "reasoning-chain pill 1 (stocks) \u2014 leg 3 (seq 2): final narration after both stock results land.",
       "match": {
         "userMessage": "Compare AAPL and MSFT stocks",
         "context": "strands-typescript"
       },
       "response": {
-        "content": "AAPL is at $338.37 (-2.96% on the day) while MSFT is at $412.18 (+1.08%). MSFT is outpacing AAPL by roughly 4 points today — strong day for MSFT, rough one for AAPL."
+        "content": "AAPL is at $338.37 (-2.96% on the day) while MSFT is at $412.18 (+1.08%). MSFT is outpacing AAPL by roughly 4 points today \u2014 strong day for MSFT, rough one for AAPL."
       }
     },
     {
-      "_comment": "reasoning-chain pill 2 (dice) — leg 1 (seq 0): reasoning + roll_dice(20).",
+      "_comment": "reasoning-chain pill 2 (dice) \u2014 leg 1 (seq 0): reasoning + roll_dice(20).",
       "match": {
         "userMessage": "compare it to a smaller one",
         "sequenceIndex": 0,
@@ -72,14 +72,14 @@
       }
     },
     {
-      "_comment": "reasoning-chain pill 2 (dice) — leg 2 (seq 1): reasoning + roll_dice(6).",
+      "_comment": "reasoning-chain pill 2 (dice) \u2014 leg 2 (seq 1): reasoning + roll_dice(6).",
       "match": {
         "userMessage": "compare it to a smaller one",
         "sequenceIndex": 1,
         "context": "strands-typescript"
       },
       "response": {
-        "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die — a d6 is a natural choice because its 1-6 range is what most people picture when they think 'die'. Rolling that next.",
+        "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die \u2014 a d6 is a natural choice because its 1-6 range is what most people picture when they think 'die'. Rolling that next.",
         "toolCalls": [
           {
             "id": "call_rc_dice_d6_001",
@@ -90,17 +90,17 @@
       }
     },
     {
-      "_comment": "reasoning-chain pill 2 (dice) — leg 3 (seq 2): final narration.",
+      "_comment": "reasoning-chain pill 2 (dice) \u2014 leg 3 (seq 2): final narration.",
       "match": {
         "userMessage": "compare it to a smaller one",
         "context": "strands-typescript"
       },
       "response": {
-        "content": "The d20 came up 14, and a d6 for contrast landed on 4 — the d20's range is much wider, which is the whole point of the comparison."
+        "content": "The d20 came up 14, and a d6 for contrast landed on 4 \u2014 the d20's range is much wider, which is the whole point of the comparison."
       }
     },
     {
-      "_comment": "reasoning-chain pill 3 (flights + destination weather) — leg 1 (seq 0): reasoning + search_flights(SFO,JFK).",
+      "_comment": "reasoning-chain pill 3 (flights + destination weather) \u2014 leg 1 (seq 0): reasoning + search_flights(SFO,JFK).",
       "match": {
         "userMessage": "show me the weather there",
         "sequenceIndex": 0,
@@ -118,7 +118,7 @@
       }
     },
     {
-      "_comment": "reasoning-chain pill 3 (flights + destination weather) — leg 2 (seq 1): reasoning + get_weather(JFK).",
+      "_comment": "reasoning-chain pill 3 (flights + destination weather) \u2014 leg 2 (seq 1): reasoning + get_weather(JFK).",
       "match": {
         "userMessage": "show me the weather there",
         "sequenceIndex": 1,
@@ -136,21 +136,21 @@
       }
     },
     {
-      "_comment": "reasoning-chain pill 3 (flights + destination weather) — leg 3 (seq 2): final narration.",
+      "_comment": "reasoning-chain pill 3 (flights + destination weather) \u2014 leg 3 (seq 2): final narration.",
       "match": {
         "userMessage": "show me the weather there",
         "context": "strands-typescript"
       },
       "response": {
-        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68°F and sunny — easy travel weather on the receiving end."
+        "content": "Three flights from SFO to JFK \u2014 United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68\u00b0F and sunny \u2014 easy travel weather on the receiving end."
       }
     },
     {
-      "_comment": "Basic 'Find flights from SFO to JFK.' pill (single-tool, turn 1) — kept for the plain tool-rendering flights pill that shares this file's fixture set. turnIndex:0 scopes it to the first turn.",
+      "_comment": "Basic 'Find flights from SFO to JFK.' pill (single-tool, turn 1) \u2014 kept for the plain tool-rendering flights pill that shares this file's fixture set. turnIndex:0 scopes it to the first turn. Gated on hasToolResult rather than turnIndex so the match does not depend on turn order.",
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
-        "turnIndex": 0,
-        "context": "strands-typescript"
+        "context": "strands-typescript",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -163,7 +163,7 @@
       }
     },
     {
-      "_comment": "D5 mcp-apps probe — verbatim probe prompt drives a real create_view MCP tool call so the runtime's MCP Apps middleware fetches the UI resource and mounts the iframe. Non-empty content is load-bearing.",
+      "_comment": "D5 mcp-apps probe \u2014 verbatim probe prompt drives a real create_view MCP tool call so the runtime's MCP Apps middleware fetches the UI resource and mounts the iframe. Non-empty content is load-bearing.",
       "match": {
         "userMessage": "Open Excalidraw and sketch a system diagram",
         "toolName": "create_view",
@@ -171,7 +171,7 @@
       },
       "response": {
         "reasoning": "The user wants a sketch of a client/server/database architecture. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
-        "content": "Sketching a client → server → database diagram in Excalidraw.",
+        "content": "Sketching a client \u2192 server \u2192 database diagram in Excalidraw.",
         "toolCalls": [
           {
             "id": "call_d5_mcp_apps_create_view_001",
