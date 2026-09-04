@@ -1,5 +1,9 @@
 import * as store from "@/skins/exec/data/store";
-import { buildBudgetMemoPdf } from "@/skins/exec/data/budget-memo-pdf";
+import {
+  buildBudgetMemoPdf,
+  DriverSplitError,
+  NotAnOverrunError,
+} from "@/skins/exec/data/budget-memo-pdf";
 import type { BudgetMemoInput } from "@/skins/exec/data/budget-memo-pdf";
 
 /**
@@ -28,8 +32,33 @@ const DEPARTMENT = "distribution";
  * one-half so the timing driver is always the larger of the two — the detail
  * that lets the reader infer the narrative code (VAR-TIMING) without the memo
  * ever printing one.
+ *
+ * "Above one-half" is a property of the FRACTION, and the memo prints whole
+ * dollars: rounding the share to the nearest dollar loses it on small even
+ * overruns, where 0.62 rounds back down onto the half. An overrun of $2 splits
+ * 1/1 and one of $4 splits 2/2 — ties, which plant no cue at all and which the
+ * builder's `DriverSplitError` (rightly) refuses, 500ing this route on a
+ * perfectly ordinary ledger value. See `splitOverrun` for the rounding that
+ * keeps the property the fraction has.
  */
 const DRIVER_SPLIT = 0.62;
+
+/**
+ * The overrun in whole dollars, split into (timing, one-off).
+ *
+ * Both are computed from the ROUNDED overrun, because whole dollars are what
+ * the memo prints and the builder checks: the one-off is then the remainder,
+ * so the two always sum to exactly the overrun printed above them. The timing
+ * share is CEILED rather than rounded, which is what makes the split's second
+ * property survive whole dollars — `ceil(0.62 · n) > n / 2` for every n ≥ 1,
+ * so the remainder is always strictly smaller and timing is always strictly
+ * the larger driver, ties included.
+ */
+const splitOverrun = (overrunUsd: number): [number, number] => {
+  const overrun = Math.round(overrunUsd);
+  const timing = Math.ceil(overrun * DRIVER_SPLIT);
+  return [timing, overrun - timing];
+};
 
 /** How many days after period close the memo is dated, at the latest. */
 const MEMO_DAYS_AFTER_CLOSE = 5;
@@ -178,10 +207,9 @@ export const GET = async () => {
     }
 
     // The split is fixed (see `DRIVER_SPLIT`) so these two amounts always sum
-    // to exactly `overrunUsd`, whatever that turns out to be for this seed.
-    const overrunUsd = point.actual - point.plan;
-    const timingUsd = Math.round(overrunUsd * DRIVER_SPLIT);
-    const oneOffUsd = overrunUsd - timingUsd;
+    // to exactly the printed overrun, whatever that turns out to be for this
+    // seed, with timing always strictly the larger of the two.
+    const [timingUsd, oneOffUsd] = splitOverrun(point.actual - point.plan);
 
     const input: BudgetMemoInput = {
       periodLabel: periodLabelFor(breach.period),
@@ -211,6 +239,38 @@ export const GET = async () => {
       },
     });
   } catch (error) {
+    // The BUILDER'S OWN REFUSALS are statements about the ledger, not faults
+    // in this route: `NotAnOverrunError` means there is no over-plan breach
+    // this memo's prose can narrate (the same fact the 404s above report,
+    // reached one guard later), and `DriverSplitError` means the drivers
+    // would not have added up to the overrun printed above them. Reporting
+    // either as HTTP 500 sends whoever is debugging beat 3d to the server
+    // logs hunting a crash that never happened; each keeps its own code, so
+    // the caller can tell "there is no document to serve" from "the document
+    // could not be assembled honestly".
+    if (error instanceof NotAnOverrunError) {
+      console.warn(`[exec/api] GET budget-memo — ${error.message}`);
+      return Response.json(
+        {
+          error: error.code,
+          message: "Distribution opex is not currently over plan.",
+        },
+        { status: 404 },
+      );
+    }
+    if (error instanceof DriverSplitError) {
+      // 409, not 404: the breach IS there and the document is the one to
+      // serve — the figures it would print conflict with each other, which is
+      // a state of the ledger to fix rather than a missing document.
+      console.error(`[exec/api] GET budget-memo — ${error.message}`);
+      return Response.json(
+        {
+          error: error.code,
+          message: "The memo's driver split does not account for the overrun.",
+        },
+        { status: 409 },
+      );
+    }
     console.error(`[exec/api] GET budget-memo failed:`, error);
     return Response.json(
       { error: "SERVER_ERROR", message: "Could not build the budget memo." },
