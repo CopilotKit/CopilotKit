@@ -90,7 +90,9 @@ const DEPARTMENT_LABEL: Record<Department | "all", string> = {
  * ... at logistics" names what was actually asked for.
  */
 const departmentLabel = (department: string): string =>
-  DEPARTMENT_LABEL[department as Department | "all"] ?? department;
+  Object.hasOwn(DEPARTMENT_LABEL, department)
+    ? DEPARTMENT_LABEL[department as Department | "all"]
+    : department;
 
 const MONTH_LABEL = [
   "Jan",
