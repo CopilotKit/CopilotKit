@@ -16,8 +16,18 @@
  *     without answering it, that tool call sat unresolved and the NEXT message
  *     failed the whole thread with "Tool result is missing for tool call ...".
  *     A procedure with no half-finished state has nothing to leave behind, so
- *     "run all steps immediately, in order, without asking for confirmation"
- *     is written into the memory text itself, not just the prompt.
+ *     "without pausing for confirmation between steps" is written into the
+ *     memory text itself, not just the prompt.
+ *
+ *     But NOT "run all steps immediately", which is how this was first worded:
+ *     that reads as "emit every step in one turn" and contradicts prompt rule 4
+ *     in `../agent.ts` — ONE BLOCK AT A TIME, because two render calls in the
+ *     same turn collide on the surface they are drawn onto and the second
+ *     REPLACES the first. Recall is the very thing beat 5 is showing off, so
+ *     the agent follows the memory and the room watches three blocks become
+ *     one. The seeded text therefore says "in order, one tool call per turn"
+ *     AND "without pausing for confirmation": stepwise and unblocking are two
+ *     separate requirements, and the memory has to state both.
  *
  *  3. NEVER seed beat 6's procedure. The publish-unlock — filing a variance
  *     narrative under a justifying code to clear the 422 `UNEXPLAINED_VARIANCE`
@@ -29,10 +39,21 @@
  *     one another.
  */
 
+/**
+ * Per-request timeout, matching keel/commerce/airline/logistics' seed helpers.
+ * Several buckets are seeded SERIALLY on a presenter reset, so an unbounded
+ * `fetch` means the Reset button spins forever against a wedged backend — the
+ * one moment a presenter has no time to debug anything. An aborted POST is
+ * counted as not-stored, which `dev/reset`'s seed-shortfall check then reports.
+ */
+const DEFAULT_TIMEOUT_MS = 10_000;
+
 export interface SeedMemoriesParams {
   apiUrl: string;
   apiKey: string;
   userId: string;
+  /** Per-request timeout in ms. Defaults to {@link DEFAULT_TIMEOUT_MS}. */
+  timeoutMs?: number;
 }
 
 interface SeedMemory {
@@ -98,9 +119,10 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
       "anything here): (1) render a revenue-vs-plan metric tile for the " +
       "latest closed month, (2) render an opex variance bar, (3) render the " +
       "initiative table, (4) pin all three to the CEO dashboard, using " +
-      "pinBlockToDashboard with each rendered block's id. Run all " +
-      "steps immediately, in order, without asking for confirmation, then " +
-      "confirm what was done in one short sentence.",
+      "pinBlockToDashboard with each rendered block's id. Work through the " +
+      "steps in order, one tool call per turn — never two render calls in the " +
+      "same turn — starting immediately and without pausing for confirmation " +
+      "between steps, then confirm what was done in one short sentence.",
   },
   // DO NOT seed the publish-unlock procedure. That is beat 6, and it must be
   // teachable on stage. See rule 3 in the header.
@@ -117,7 +139,7 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
 export async function seedMemories(
   params: SeedMemoriesParams,
 ): Promise<number> {
-  const { apiUrl, apiKey, userId } = params;
+  const { apiUrl, apiKey, userId, timeoutMs = DEFAULT_TIMEOUT_MS } = params;
   const base = apiUrl.replace(/\/$/, "");
   let stored = 0;
 
@@ -132,6 +154,7 @@ export async function seedMemories(
           Accept: "application/json",
         },
         body: JSON.stringify(memory),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       if (res.ok) stored += 1;
       else console.error(`[exec/seed-memories] ${userId}: HTTP ${res.status}`);
