@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  A2UI_OPERATIONS_KEY,
+  buildBlockOps,
+} from "@/skins/exec/blocks/build-block-ops";
+import {
   CanvasProvider,
   classifyA2uiSurface,
   useCanvas,
@@ -41,6 +45,32 @@ const surfaceWithContent = (content: unknown, id?: string) => ({
   activityType: "a2ui-surface",
   content,
 });
+
+/** Ops whose surfaceId arrives on a LATER op than the first. */
+const trailingOps = (surfaceId: string) => ({
+  a2ui_operations: [{ beginRendering: {} }, { createSurface: { surfaceId } }],
+});
+
+/** One op whose FIRST surface container is empty and whose second carries the id. */
+const splitContainerOps = (surfaceId: string) => ({
+  a2ui_operations: [{ createSurface: {}, updateComponents: { surfaceId } }],
+});
+
+/** An `open-generative-ui` activity carrying arbitrary (possibly junk) content. */
+const oguiWithContent = (content: unknown, id?: string) => ({
+  ...(id ? { id } : {}),
+  role: "activity",
+  activityType: "open-generative-ui",
+  content,
+});
+
+/**
+ * An `open-generative-ui` activity. Content is what `useOguiSurface` hands
+ * `<OguiCanvas/>`, which renders nothing without it — so the fixture carries a
+ * streamed body unless a test is specifically about a body-less one.
+ */
+const oguiSurface = (id?: string) =>
+  oguiWithContent({ html: ["<p>hi</p>"] }, id);
 
 function Probe() {
   const { activeSurfaceKind, activeSurfaceId, clear } = useCanvas();
@@ -105,11 +135,39 @@ describe("useLatestCanvasSurface (via CanvasProvider)", () => {
   });
 
   it("claims an OGUI surface for the canvas", () => {
+    expect(renderWith([oguiSurface("m1")])).toEqual({ kind: "ogui", id: "m1" });
+  });
+
+  it("does NOT claim an OGUI activity with no content to render", () => {
+    // `<OguiCanvas/>` renders null for a body-less activity, so claiming the
+    // region for one buries the page behind a bare "← Back" for nothing.
+    for (const content of [undefined, null, "streaming…", 7]) {
+      expect(renderWith([oguiWithContent(content, "m1")])).toEqual({
+        kind: "none",
+        id: "none",
+      });
+      cleanup();
+    }
+  });
+
+  /**
+   * `<OguiCanvas/>` renders whatever `useOguiSurface` finds LAST in the stream,
+   * so an earlier OGUI cannot stand in for a blank latest one — it would be
+   * claimed here and still render nothing there.
+   */
+  it("does NOT fall back to an EARLIER OGUI when the latest one is blank", () => {
+    expect(
+      renderWith([oguiSurface("m1"), oguiWithContent(undefined, "m2")]),
+    ).toEqual({ kind: "none", id: "none" });
+  });
+
+  it("keeps an earlier report surface when a later OGUI activity has no content", () => {
     expect(
       renderWith([
-        { id: "m1", role: "activity", activityType: "open-generative-ui" },
+        a2uiSurface("keel-ops-report-x1", "m1"),
+        oguiWithContent(undefined, "m2"),
       ]),
-    ).toEqual({ kind: "ogui", id: "m1" });
+    ).toEqual({ kind: "report", id: "m1" });
   });
 
   it("does NOT claim an inline block: surface (it renders in the transcript)", () => {
@@ -131,7 +189,7 @@ describe("useLatestCanvasSurface (via CanvasProvider)", () => {
   it("claims an id-less OGUI surface instead of discarding it", () => {
     const { kind, id } = renderWith([
       a2uiSurface("keel-ops-report-x1", "m1"),
-      { role: "activity", activityType: "open-generative-ui" },
+      oguiSurface(),
     ]);
     expect(kind).toBe("ogui");
     expect(id).not.toBe("none");
@@ -139,23 +197,36 @@ describe("useLatestCanvasSurface (via CanvasProvider)", () => {
 });
 
 describe("classification of malformed a2ui-surface content", () => {
-  it("never claims the canvas for content it cannot parse", () => {
-    for (const content of [
-      undefined,
-      null,
-      "not json at all",
-      42,
-      {},
-      { a2ui_operations: "nope" },
-      { a2ui_operations: [] },
+  // One labelled case per payload, so a failure NAMES the payload that broke
+  // instead of reporting "expected none, got report" from a loop with no way to
+  // tell which entry it was — and so one bad payload no longer hides the rest.
+  const unclaimable: [label: string, content: unknown][] = [
+    ["undefined", undefined],
+    ["null", null],
+    ["a non-JSON string", "not json at all"],
+    ["a number", 42],
+    ["an empty object", {}],
+    ["a non-array operations key", { a2ui_operations: "nope" }],
+    ["an empty operations list", { a2ui_operations: [] }],
+    [
+      "ops with no surfaceId anywhere",
       { a2ui_operations: [null, { createSurface: {} }, { unknownOp: 1 }] },
-    ]) {
-      expect(renderWith([surfaceWithContent(content, "m1")])).toEqual({
-        kind: "none",
-        id: "none",
-      });
-      cleanup();
-    }
+    ],
+    [
+      "a non-string surfaceId",
+      { a2ui_operations: [{ createSurface: { surfaceId: 42 } }] },
+    ],
+    [
+      "a non-object op container",
+      { a2ui_operations: [{ createSurface: "block:kpis" }] },
+    ],
+  ];
+
+  it.each(unclaimable)("never claims the canvas for %s", (_label, content) => {
+    expect(renderWith([surfaceWithContent(content, "m1")])).toEqual({
+      kind: "none",
+      id: "none",
+    });
   });
 
   it("does NOT claim a stringified block: surface", () => {
@@ -174,20 +245,80 @@ describe("classification of malformed a2ui-surface content", () => {
     ).toEqual({ kind: "none", id: "none" });
   });
 
-  it("finds a block: surfaceId that is not in the FIRST op", () => {
+  /**
+   * DISCRIMINATING both ways: the block case alone proves nothing (an
+   * unclassifiable payload is "not claimed" too), so the report case — which
+   * MUST claim — carries the weight, and the block case pins the other side.
+   */
+  it("classifies off a surfaceId that is not in the FIRST op", () => {
+    expect(
+      renderWith([surfaceWithContent(trailingOps("keel-ops-report-x1"), "m1")]),
+    ).toEqual({ kind: "report", id: "m1" });
+    expect(classifyA2uiSurface(trailingOps("block:kpis"))).toBe("inline-block");
+  });
+
+  /**
+   * `createSurface ?? updateComponents ?? updateDataModel` stops at the first
+   * container that merely EXISTS — so an op carrying an empty `createSurface`
+   * beside a real `updateComponents` classified as junk, and a report that had
+   * to take the canvas silently did not.
+   */
+  it("classifies off a LATER container when the first one has no surfaceId", () => {
+    expect(
+      renderWith([
+        surfaceWithContent(splitContainerOps("keel-ops-report-x1"), "m1"),
+      ]),
+    ).toEqual({ kind: "report", id: "m1" });
+    expect(classifyA2uiSurface(splitContainerOps("block:kpis"))).toBe(
+      "inline-block",
+    );
+  });
+
+  /**
+   * ONE HOME. A list carrying a block surface AND a report surface must not
+   * both render inline and claim the region; the canvas bias wins, and the
+   * chat's reader (`blockSurfaceIdFrom`, which shares this decision) must agree
+   * — see `inline-block-surface.test.ts` for the other half of that assertion.
+   */
+  it("gives a mixed block+report op list exactly one home", () => {
     expect(
       renderWith([
         surfaceWithContent(
           {
             a2ui_operations: [
-              { beginRendering: {} },
               { createSurface: { surfaceId: "block:kpis" } },
+              { updateComponents: { surfaceId: "keel-ops-report-x1" } },
             ],
           },
           "m1",
         ),
       ]),
-    ).toEqual({ kind: "none", id: "none" });
+    ).toEqual({ kind: "report", id: "m1" });
+  });
+
+  /**
+   * DRIFT GUARD for the second (and last) copy of `BLOCK_SURFACE_PREFIX`. The
+   * exec skin MINTS block surface ids in `src/skins/exec/blocks/build-block-ops.ts`;
+   * this module re-spells the prefix because the shell must not import from
+   * `src/skins/`. Asserting our constant against itself proves nothing — this
+   * runs REAL minted ops through the shell's classifier, so either copy
+   * drifting (prefix or operations key) fails here instead of silently flipping
+   * an inline tile into a page-blanking report claim.
+   *
+   * (`build-block-ops.test.ts` runs the same ops through the chat's reader; the
+   * two together cover both shell-side readers of the convention.)
+   */
+  it("classifies REAL minted exec block ops as inline, not canvas", () => {
+    const ops = buildBlockOps(
+      { kind: "metricTile", title: "Revenue", metricId: "revenue" } as const,
+      "b1",
+    );
+    const content = { [A2UI_OPERATIONS_KEY]: ops };
+    expect(classifyA2uiSurface(content)).toBe("inline-block");
+    expect(renderWith([surfaceWithContent(content, "m1")])).toEqual({
+      kind: "none",
+      id: "none",
+    });
   });
 
   it("keeps an earlier report surface when a later activity is unparseable", () => {
@@ -246,7 +377,21 @@ describe("agent message envelope drift", () => {
     const view = mount({ items: [] } as unknown as unknown[]);
     expect(view.read()).toEqual({ kind: "none", id: "none" });
     view.rerender();
-    // Loud once, not once per render.
+    // Once per provider, not once per render.
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The latch is PER PROVIDER, not per process: this module is imported once
+   * per server process, so a process-wide latch would let the first SSR render
+   * that ever drifted silence the warning for every request after it — and for
+   * every unrelated test in this file's run.
+   */
+  it("warns again for a SEPARATE provider instance", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mount({ items: [] } as unknown as unknown[]);
+    cleanup();
+    mount({ items: [] } as unknown as unknown[]);
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 });
