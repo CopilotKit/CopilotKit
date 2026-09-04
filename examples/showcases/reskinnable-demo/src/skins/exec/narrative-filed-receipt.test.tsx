@@ -46,7 +46,11 @@ describe("NarrativeFiledReceipt", () => {
       />,
     );
     expect(refresh).not.toHaveBeenCalled();
-    expect(container.textContent).toBe("");
+    // …but it DOES say the call is running. Registering this exact renderer
+    // takes the tool off the shell's wildcard chip (spinner included), so
+    // rendering nothing here leaves a backend round-trip with no indicator at
+    // all — the transcript just sits there.
+    expect(container.textContent).toMatch(/Filing a narrative/);
   });
 
   it("does not refresh again on a re-render of the same call", () => {
@@ -83,6 +87,32 @@ describe("NarrativeFiledReceipt", () => {
     );
     expect(screen.getByText(/isn.t one this ledger files under/)).toBeTruthy();
     expect(screen.queryByText(/Filed the variance narrative/)).toBeNull();
+    // …and nothing was written, so nothing needs re-reading. `refresh` is the
+    // one thing on this page that can raise the "saved, but the view may be
+    // stale" banner, and raising it for a refusal reports a write that never
+    // happened.
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("does not refresh the ledger for a settle that wrote nothing", () => {
+    const cases: Record<string, string> = {
+      "an unrecognised-code refusal": '{"error":"BAD_CODE","message":"…"}',
+      "a relayed runtime error": "Error: the ledger did not answer",
+      "an aborted run": "Error: Human-in-the-loop interaction aborted",
+      "an empty settle": "",
+    };
+    for (const [label, result] of Object.entries(cases)) {
+      const refresh = vi.fn(() => Promise.resolve());
+      const { unmount } = render(
+        <NarrativeFiledReceipt
+          toolCallId="call-5"
+          result={result}
+          refresh={refresh}
+        />,
+      );
+      expect(refresh, label).not.toHaveBeenCalled();
+      unmount();
+    }
   });
 
   it("does not read an error-relayed settle as a filing that happened", () => {

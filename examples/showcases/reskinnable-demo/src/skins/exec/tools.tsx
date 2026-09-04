@@ -136,6 +136,14 @@ type Breach = { metric: string; department: string; period: string };
 
 interface PublishRefusal {
   error: string;
+  /**
+   * The refusal's own human sentence, when the producer sent one. Every coded
+   * refusal in this skin travels as `{ error, message }` — the routes build it
+   * (`@/skins/exec/data/store-errors`, `/api/exec/v1/packs`) and `agent.ts`'s
+   * correctable tool errors do too — and the message is the ONLY half written
+   * for a person. Dropping it is what left the room reading enum codes.
+   */
+  message?: string;
   breaches?: Breach[];
 }
 
@@ -179,7 +187,14 @@ function parseRefusal(result: string): PublishRefusal | null {
   }
   const body = parsed as Record<string, unknown>;
   if (typeof body.error !== "string") return null;
-  if (!Array.isArray(body.breaches)) return { error: body.error };
+  // Guarded exactly like the breach fields: `message` is whatever came back
+  // over the wire, so anything that is not a non-empty string is treated as
+  // absent and `refusalLine` falls back to a phrasing of its own.
+  const message =
+    typeof body.message === "string" && body.message.trim().length > 0
+      ? body.message.trim()
+      : undefined;
+  if (!Array.isArray(body.breaches)) return { error: body.error, message };
   const breaches = body.breaches.map((entry): Breach => {
     const b: Record<string, unknown> =
       entry && typeof entry === "object"
@@ -191,7 +206,52 @@ function parseRefusal(result: string): PublishRefusal | null {
       period: breachField(b.period, "—"),
     };
   });
-  return { error: body.error, breaches };
+  return { error: body.error, message, breaches };
+}
+
+/**
+ * A human sentence for each refusal code this skin can actually receive, for
+ * the case where the producer sent none. A CODE IS NEVER PRINTED TO THE ROOM:
+ * "Publish refused: UNEXPLAINED_VARIANCE." is the demo's climactic beat read
+ * out in the ledger's internal vocabulary, and beat 6's teach loop turns on
+ * the agent reading that code off the tool RESULT, which is untouched by how
+ * this renders.
+ *
+ * A `Map`, never a plain object: the key is a code from the wire and is not a
+ * closed set, so an object lookup would resolve `"constructor"`,
+ * `"toString"`, `"__proto__"`, … truthy off the prototype chain. Same
+ * reasoning and same shape as `@/skins/exec/data/store-errors`'s
+ * `STATUS_BY_CODE`.
+ */
+const REFUSAL_PHRASES = new Map<string, string>([
+  [
+    "UNEXPLAINED_VARIANCE",
+    "metrics on this dashboard breach their threshold with no variance narrative filed against them.",
+  ],
+  ["BAD_COUNTERSIGN", "that countersign PIN wasn't accepted."],
+  ["BAD_REQUEST", "the request wasn't one this ledger could read."],
+  ["BAD_CODE", "that code isn't one this ledger files under."],
+  ["NOT_FOUND", "this ledger holds no such block."],
+  ["ALREADY_PINNED", "that block is already pinned to a dashboard."],
+  [
+    "METRIC_ID_REQUIRED",
+    "that block shows exactly one metric, and none was named.",
+  ],
+]);
+
+/**
+ * What a refusal READS as: the producer's own message first, then this file's
+ * phrasing for the code, and — for a code nobody has worded yet — the code
+ * spelled as words rather than as an enum. The last arm is the one that keeps
+ * this honest as `agent.ts` grows correctable errors (`KIND_PROP_UNSUPPORTED`
+ * and friends) that this file has never heard of.
+ */
+function refusalLine(settle: Extract<ToolSettle, { kind: "refusal" }>): string {
+  if (settle.message) return settle.message;
+  return (
+    REFUSAL_PHRASES.get(settle.error) ??
+    `${settle.error.toLowerCase().replace(/_+/g, " ").trim()}.`
+  );
 }
 
 /**
@@ -241,13 +301,42 @@ const PUBLISH_CANCELLED =
 // it rather than sniffed for with a regex.
 
 /**
- * The literal string CopilotKit settles a NEVER-ANSWERED interrupt with when
- * the run ends under it. It arrives error-prefixed, but it is not a failure of
- * the write — the write never ran — so it classifies as cancelled, and the
- * sentinel itself never reaches the screen: it names the platform's internals
- * in front of the room.
+ * The message CopilotKit rejects a NEVER-ANSWERED interrupt with when the run
+ * ends under it.
+ *
+ * ⚠️ RECONSTRUCTED FROM UPSTREAM, WHICH EXPORTS NEITHER HALF. Both are hand-
+ * copied, so both can drift silently:
+ *
+ *   - this message: `@copilotkit/react-core`'s v2 `use-human-in-the-loop.tsx`,
+ *     which does `reject(new Error("Human-in-the-loop interaction aborted"))`;
+ *   - the `Error: ` prefix: `@copilotkit/core`'s
+ *     `CopilotKitCore.executeToolHandler`, whose last act on a rejected
+ *     handler is ``toolCallResult = `Error: ${errorMessage}` ``.
+ *
+ * `./tool-settle.test.tsx` reads both strings back out of the INSTALLED
+ * packages, so an upstream reword fails a test that names the file to look in
+ * rather than quietly turning every aborted card back into a green receipt.
  */
-const HITL_ABORTED = "Error: Human-in-the-loop interaction aborted";
+export const HITL_ABORT_MESSAGE = "Human-in-the-loop interaction aborted";
+
+/**
+ * The whole settled string, as upstream composes it today. Exported for the
+ * drift test above; the matcher below does NOT require this exact spelling.
+ */
+export const HITL_ABORTED = `Error: ${HITL_ABORT_MESSAGE}`;
+
+/**
+ * Whether a settle is that abort. Matched by CONTAINMENT rather than by
+ * prefix: the message is upstream's and the wrapper around it is upstream's
+ * too, so a settle that merely CARRIES the sentinel ("Error: Tool call
+ * failed: Human-in-the-loop interaction aborted") is the same non-event. It
+ * is not a failure of the write — the write never ran — so it classifies as
+ * cancelled, and the sentinel itself never reaches the screen: it names the
+ * platform's internals in front of the room.
+ */
+function isHitlAbort(text: string): boolean {
+  return text.toLowerCase().includes(HITL_ABORT_MESSAGE.toLowerCase());
+}
 
 /**
  * The tool-specific half of the classification. `cancelled` holds the card's
@@ -261,9 +350,11 @@ type KnownSettles = {
   failed?: readonly string[];
   refusedLabel?: string;
   /**
-   * What this particular tool did NOT do, for the neutral line an abort or an
-   * empty settle reads as ("Nothing was published.", "…nothing was
-   * captured."). Optional: the generic line is honest, just vaguer.
+   * What this particular tool did NOT do, as a standalone clause ("Nothing was
+   * published."). `cancelledLine` prefixes it with the lead that fits the
+   * settle — an abort was never answered, an empty settle was answered with
+   * nothing to report, and the two are different events. Optional: the generic
+   * line is honest, just vaguer.
    */
   nothingDone?: string;
 };
@@ -274,37 +365,46 @@ type KnownSettles = {
  * (it pushes a route) and has no card to cancel, so the shared rules are all
  * it needs.
  *
- * Exported for `./tool-settle.test.tsx`, which renders each tool's settled arm
- * exactly as the registration below does.
+ * Exported for `./tool-settle.test.tsx`, which drives the settled arms of
+ * `confirmPublishCountersign`, `pinBlockToDashboard`, `navigateTo`,
+ * `render_metric_block` and the three teach-chain cards through the same
+ * components the registrations below hand them to.
+ * `file_variance_narrative`'s arm has a suite of its own
+ * (`./narrative-filed-receipt.test.tsx`) because its render also refreshes the
+ * ledger.
  */
 export const EXEC_SETTLES = {
   confirmPublishCountersign: {
     cancelled: [PUBLISH_CANCELLED],
     refusedLabel: "Publish refused",
-    nothingDone:
-      "The countersign card was never answered. Nothing was published.",
+    nothingDone: "Nothing was published.",
   },
   pinBlockToDashboard: {
     failed: [PIN_FAILED_PREFIX],
     nothingDone: "Nothing was pinned.",
   },
   navigateTo: {},
-  // The one BACKEND tool with a render of its own (`NarrativeFiledReceipt`).
+  // The two BACKEND tools with renders of their own (`NarrativeFiledReceipt`
+  // and `MetricBlockSettle`).
   file_variance_narrative: { nothingDone: "Nothing was filed." },
+  render_metric_block: {
+    refusedLabel: "Couldn't compose that block",
+    nothingDone: "No block was rendered.",
+  },
   offerWorkflowRecording: {
-    nothingDone: "The offer was never answered — nothing was captured.",
+    nothingDone: "Nothing was captured.",
   },
   awaitDemonstration: {
-    nothingDone: "The demonstration wasn't completed — nothing was captured.",
+    nothingDone: "Nothing was captured.",
   },
   saveLearnedProcedure: {
-    nothingDone: "This was never confirmed — nothing was written to memory.",
+    nothingDone: "Nothing was written to memory.",
   },
 } satisfies Record<string, KnownSettles>;
 
 export type ToolSettle =
   | { kind: "pending" }
-  | { kind: "refusal"; error: string; breaches?: Breach[] }
+  | { kind: "refusal"; error: string; message?: string; breaches?: Breach[] }
   | { kind: "cancelled"; via: "choice" | "abort" | "empty"; text: string }
   | { kind: "error"; message: string }
   | { kind: "success"; text: string };
@@ -327,9 +427,7 @@ export function classifyToolSettle(
   // closed, so `pending`'s "Waiting on you…" would be a lie too — but nothing
   // was reported, so nothing may be claimed.
   if (text.length === 0) return { kind: "cancelled", via: "empty", text };
-  if (text.startsWith(HITL_ABORTED)) {
-    return { kind: "cancelled", via: "abort", text };
-  }
+  if (isHitlAbort(text)) return { kind: "cancelled", via: "abort", text };
   if (known?.cancelled?.some((sentence) => text === sentence.trim())) {
     return { kind: "cancelled", via: "choice", text };
   }
@@ -347,20 +445,56 @@ export function classifyToolSettle(
 /**
  * The line a cancelled settle reads as. `via: "choice"` prints the card's own
  * sentence — this file wrote it, for the room, and it says more than any
- * generic phrasing could. The other two have no such sentence to print.
+ * generic phrasing could. The other two have no such sentence, so the lead is
+ * written here, and the two are NOT the same event: an `abort` is a card the
+ * run ended under, never answered; an `empty` settle is `respond()` /
+ * `respond(null)` — answered, with nothing reported. Saying "never answered"
+ * over the second describes something that did not happen.
  */
 function cancelledLine(
   settle: Extract<ToolSettle, { kind: "cancelled" }>,
   known?: KnownSettles,
 ): string {
   if (settle.via === "choice") return settle.text;
-  return known?.nothingDone ?? "This wasn't completed — nothing was done.";
+  const nothing = known?.nothingDone ?? "Nothing was done.";
+  return settle.via === "abort"
+    ? `This was never answered — the run ended first. ${nothing}`
+    : `This was answered with nothing to report. ${nothing}`;
+}
+
+/**
+ * The in-flight line an EXACT tool renderer draws before its call settles.
+ *
+ * Registering an exact renderer takes a tool OFF the shell's wildcard
+ * tool-activity chip (`src/shell/chat/tool-activity.tsx`) — spinner included —
+ * so a renderer that returns `null` while the call is running leaves the room
+ * watching nothing at all happen through a backend round-trip. Deliberately
+ * minimal and deliberately not a `Receipt`: the shell owns the rich chip, and
+ * this only has to say that the call is running. It matches the shell chip's
+ * in-flight styling (same shimmer class) so the two do not read as different
+ * kinds of thing.
+ *
+ * The HITL cards pass no `pendingLabel` and keep `null`: their pending arm
+ * falls through to the card itself, and a chip above an open card would be
+ * describing the card the presenter is already looking at.
+ */
+function PendingChip({ label }: { label: string }) {
+  return (
+    <div
+      data-settle-tone="pending"
+      role="status"
+      className="my-1.5 flex items-center gap-1.5 text-[0.8125rem] text-ink-muted"
+    >
+      <span className="tool-activity-shimmer">{label}…</span>
+    </div>
+  );
 }
 
 /**
  * The settled arm EVERY tool render in this file draws, given that tool's
- * `EXEC_SETTLES` entry. Renders nothing while the call is `pending`, so a
- * caller can fall through to its own card.
+ * `EXEC_SETTLES` entry. Renders nothing while the call is `pending` unless a
+ * `pendingLabel` is given, so a HITL caller can fall through to its own card
+ * and a plain tool render can show that it is running (see `PendingChip`).
  *
  * ⚠️ The `success` arm prints the settled text VERBATIM, which is right for
  * the receipt-shaped tools (their result IS the receipt) and wrong for the
@@ -373,14 +507,17 @@ function cancelledLine(
 export function SettleReceipt({
   result,
   known,
+  pendingLabel,
 }: {
   result: unknown;
   known?: KnownSettles;
+  /** Shown while the call is still running. Omit to render nothing. */
+  pendingLabel?: string;
 }) {
   const settle = classifyToolSettle(result, known);
   switch (settle.kind) {
     case "pending":
-      return null;
+      return pendingLabel ? <PendingChip label={pendingLabel} /> : null;
     case "cancelled":
       return <StatusNote>{cancelledLine(settle, known)}</StatusNote>;
     case "error":
@@ -388,7 +525,9 @@ export function SettleReceipt({
     case "refusal":
       return (
         <Receipt tone="negative">
-          {known?.refusedLabel ?? "Refused"}: {settle.error}.
+          {/* The producer's sentence, or this file's phrasing for the code —
+              never the code itself. See `refusalLine`. */}
+          {known?.refusedLabel ?? "Refused"}: {refusalLine(settle)}
           {settle.breaches && settle.breaches.length > 0 ? (
             <ul className="mt-1 list-disc pl-4">
               {settle.breaches.map((b, i) => (
@@ -403,6 +542,16 @@ export function SettleReceipt({
     case "success":
       return <Receipt tone="positive">{settle.text}</Receipt>;
   }
+}
+
+/**
+ * Split `execNavTarget`'s output into its path and query halves. The path half
+ * is what `useSkinHref` may be given; the query is appended afterwards. See
+ * the call site in `navigateTo` for what the naive join produced.
+ */
+function splitTargetQuery(target: string): [path: string, query: string] {
+  const at = target.indexOf("?");
+  return at === -1 ? [target, ""] : [target.slice(0, at), target.slice(at + 1)];
 }
 
 /**
@@ -628,6 +777,22 @@ export function SaveProcedureSettle({ result }: { result: unknown }) {
 }
 
 /**
+ * The four digits the card TELLS the presenter to type, and the only place
+ * this client component may name them.
+ *
+ * ⚠️ DUPLICATED ON PURPOSE. The authority is `./data/store.ts`'s
+ * `COUNTERSIGN_PIN`, which is a SERVER module — importing it here would pull
+ * the whole ledger (seeds, mutators, the publish gate) into the client bundle
+ * to read one string. `./tool-settle.test.tsx` imports both and asserts they
+ * are equal, so the copy cannot drift into telling the room a PIN that no
+ * longer works.
+ */
+export const COUNTERSIGN_PIN_HINT = "7341";
+
+/** The two dashboards the card offers, in the order the radios appear. */
+const DASHBOARD_CHOICES = ["ceo", "cfo"] as const;
+
+/**
  * BEAT 3a — the countersign card `confirmPublishCountersign` opens. The
  * presenter, not the agent, picks WHICH dashboard to publish and types the
  * four-digit countersign PIN here; both stay inside this component until
@@ -664,6 +829,29 @@ function PublishCountersignCard({
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The radio group implements roving tabindex, so moving the selection has to
+  // move FOCUS with it — otherwise the arrow keys leave focus on a button that
+  // is now `tabIndex={-1}` and the next Tab escapes the group entirely.
+  const optionRefs = useRef<Partial<Record<DashboardId, HTMLButtonElement>>>(
+    {},
+  );
+
+  /**
+   * ARIA's radio-group keyboard contract: arrows move the selection (and wrap),
+   * Home/End jump to the ends, and the group holds ONE tab stop. The two
+   * buttons were `role="radio"` with none of it, which announces a radio group
+   * to a screen-reader user and then does not respond like one.
+   */
+  const selectDashboard = (next: DashboardId) => {
+    setDashboardId(next);
+    optionRefs.current[next]?.focus();
+  };
+
+  const moveSelection = (delta: number) => {
+    const index = DASHBOARD_CHOICES.indexOf(dashboardId);
+    const count = DASHBOARD_CHOICES.length;
+    selectDashboard(DASHBOARD_CHOICES[(index + delta + count) % count]);
+  };
 
   const submit = async () => {
     if (!/^\d{4}$/.test(pin)) {
@@ -708,22 +896,48 @@ function PublishCountersignCard({
 
       <div
         role="radiogroup"
-        aria-label="Choose a dashboard"
+        aria-label="Which dashboard to publish"
         className="flex gap-2"
+        onKeyDown={(e) => {
+          if (busy) return;
+          if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+            e.preventDefault();
+            moveSelection(1);
+          } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+            e.preventDefault();
+            moveSelection(-1);
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            selectDashboard(DASHBOARD_CHOICES[0]);
+          } else if (e.key === "End") {
+            e.preventDefault();
+            selectDashboard(DASHBOARD_CHOICES[DASHBOARD_CHOICES.length - 1]);
+          }
+        }}
       >
-        {(["ceo", "cfo"] as const).map((id) => {
+        {DASHBOARD_CHOICES.map((id) => {
           const active = id === dashboardId;
           return (
             <button
               key={id}
+              ref={(node) => {
+                if (node) optionRefs.current[id] = node;
+                else delete optionRefs.current[id];
+              }}
               type="button"
               role="radio"
               aria-checked={active}
+              // Roving tabindex: the group is ONE tab stop and the arrows move
+              // within it.
+              tabIndex={active ? 0 : -1}
               disabled={busy}
               onClick={() => setDashboardId(id)}
               className={
                 active
-                  ? "rounded-md border border-brand/50 bg-brand-soft px-3 py-1.5 text-xs font-medium text-brand-indigo"
+                  ? // `dark:text-brand-violet` is not decoration: `text-brand-indigo`
+                    // on `bg-brand-soft` sits near 2.7:1 in exec's dark theme, and
+                    // every sibling use of this pairing carries the override.
+                    "rounded-md border border-brand/50 bg-brand-soft px-3 py-1.5 text-xs font-medium text-brand-indigo dark:text-brand-violet"
                   : "rounded-md border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted"
               }
             >
@@ -747,7 +961,10 @@ function PublishCountersignCard({
         maxLength={4}
         value={pin}
         disabled={busy}
-        aria-label="Countersign PIN"
+        // NO `aria-label`: the visible `<label htmlFor>` above already names
+        // this field, and an `aria-label` REPLACES it — a screen reader was
+        // hearing "Countersign PIN" while the sighted room read "4-digit
+        // countersign PIN", losing the one detail that says what to type.
         onChange={(e) => {
           setPin(e.target.value.replace(/\D/g, "").slice(0, 4));
           setError(null);
@@ -755,7 +972,7 @@ function PublishCountersignCard({
         className="w-24 rounded-md border border-hairline bg-canvas px-3 py-2 font-mono text-sm tracking-widest"
       />
       <p className="text-xs text-ink-muted">
-        Cascade&rsquo;s countersign PIN is 7341.
+        Cascade&rsquo;s countersign PIN is {COUNTERSIGN_PIN_HINT}.
       </p>
       {error ? <p className="text-xs text-negative">{error}</p> : null}
 
@@ -819,20 +1036,25 @@ export function NarrativeFiledReceipt({
     result,
     EXEC_SETTLES.file_variance_narrative,
   );
-  const settled = settle.kind !== "pending";
+  // ⚠️ THE SETTLE MUST BE A SUCCESSFUL WRITE, not merely settled. A refusal
+  // (beat 6's BAD_CODE), a relayed error, an abort or an empty settle all
+  // wrote NOTHING, so there is nothing to re-read — and `refresh` is what can
+  // raise this page's "saved, but the view may be stale" banner, which over a
+  // write that never happened reports a problem with a write nobody made.
+  const wrote = settle.kind === "success";
   const refreshRef = useRef(refresh);
   useEffect(() => {
     refreshRef.current = refresh;
   }, [refresh]);
 
   useEffect(() => {
-    if (!settled) return;
+    if (!wrote) return;
     // Fire-and-log: a failed re-read must not throw inside a transcript
     // render, and `refresh` already keeps the last good snapshot on screen.
     void refreshRef.current().catch((err) => {
       console.error("[exec] ledger refresh after narrative filing failed", err);
     });
-  }, [toolCallId, settled]);
+  }, [toolCallId, wrote]);
 
   // The backend result is the filed row, a refusal (`{ error: "BAD_CODE" }`),
   // or — like every other settle in this file — an error relay or the empty
@@ -842,7 +1064,7 @@ export function NarrativeFiledReceipt({
   // row cannot read as "Filed."
   switch (settle.kind) {
     case "pending":
-      return null;
+      return <PendingChip label={execToolLabels.file_variance_narrative} />;
     case "cancelled":
     case "error":
       return (
@@ -857,10 +1079,50 @@ export function NarrativeFiledReceipt({
           That code isn&rsquo;t one this ledger files under — nothing was filed.
         </Receipt>
       ) : (
-        <Receipt tone="negative">Nothing was filed: {settle.error}.</Receipt>
+        <Receipt tone="negative">
+          Nothing was filed: {refusalLine(settle)}
+        </Receipt>
       );
     case "success":
       return <Receipt>Filed the variance narrative.</Receipt>;
+  }
+}
+
+/**
+ * The settled arm for `render_metric_block` (`agent.ts`).
+ *
+ * ⚠️ ITS FAILURES ARE RESULTS, NOT THROWS. A parameter-validation failure
+ * HANGS the call (see that tool's own comment), so every correctable mistake
+ * comes back as an ordinary tool result shaped `{ error, message }` —
+ * `METRIC_ID_REQUIRED` today, and a growing `KIND_PROP_UNSUPPORTED` family
+ * naming a (kind, prop) pair. Without a render of its own, the shell's
+ * wildcard chip ticked "Composing a block ✓" over every one of them: a block
+ * reported as composed that does not exist, on stage and on every replay.
+ *
+ * So the arm keys off the SHAPE, not off a list of codes it would have to be
+ * kept in step with — anything error-shaped is a refusal, and it relays the
+ * tool's own message (`refusalLine`).
+ *
+ * A SUCCESS renders nothing: that result is the A2UI operations that draw the
+ * block, the block itself is the receipt, and `SettleReceipt`'s success arm
+ * would print the raw ops JSON into the transcript.
+ *
+ * Exported for `./tool-settle.test.tsx`.
+ */
+export function MetricBlockSettle({ result }: { result: unknown }) {
+  const settle = classifyToolSettle(result, EXEC_SETTLES.render_metric_block);
+  switch (settle.kind) {
+    case "pending":
+      return <PendingChip label={execToolLabels.render_metric_block} />;
+    case "success":
+      return null;
+    default:
+      return (
+        <SettleReceipt
+          result={result}
+          known={EXEC_SETTLES.render_metric_block}
+        />
+      );
   }
 }
 
@@ -910,6 +1172,30 @@ export function ExecTools() {
           refresh={ledgerRef.current.refresh}
         />
       ),
+    },
+    [],
+  );
+
+  // ══ BEATS 2 / 3 — A REFUSED BLOCK MUST READ AS REFUSED ═══════════════════
+  //
+  // `render_metric_block` (`agent.ts`) answers a correctable mistake with a
+  // RESULT rather than a throw — a parameter-validation failure hangs the call
+  // outright — so its refusals arrived as ordinary settles and the shell's
+  // wildcard chip ticked "Composing a block ✓" over a block that was never
+  // rendered. Same mechanism as the narrative renderer above, for the same
+  // reason: the chip cannot tell the two apart, and this can.
+  //
+  // Registering here does NOT take over drawing the block. The block travels
+  // as A2UI operations, which the runtime middleware turns into their own
+  // `a2ui` tool call with its own renderer; this renderer only replaces the
+  // activity line for `render_metric_block` itself.
+  useRenderTool(
+    {
+      name: "render_metric_block",
+      // Reads the tool's `result`, never the agent's arguments — see the
+      // narrative renderer above for why the schema is a passthrough.
+      parameters: z.object({}).passthrough(),
+      render: ({ result }) => <MetricBlockSettle result={result} />,
     },
     [],
   );
@@ -967,7 +1253,15 @@ export function ExecTools() {
           // that happened from one that did not, or it confirms a dashboard
           // card that is not on screen.
           console.error("[exec] pinBlockToDashboard failed:", err);
-          return `${PIN_FAILED_PREFIX}: ${err instanceof Error ? err.message : String(err)}.`;
+          // `useExecLedger().addBlock` throws "add block failed: <message>"
+          // (`throwWithBodyMessage`), so pasting it in whole read "Could not
+          // pin that block: add block failed: NOT_FOUND: …..". Strip the
+          // ledger's own prefix and the trailing stop it already carries — one
+          // prefix, one full stop.
+          const detail = (err instanceof Error ? err.message : String(err))
+            .replace(/^add block failed:\s*/i, "")
+            .replace(/\.+\s*$/, "");
+          return `${PIN_FAILED_PREFIX}: ${detail}.`;
         }
         return `Pinned to the ${title}.`;
       },
@@ -980,6 +1274,7 @@ export function ExecTools() {
         <SettleReceipt
           result={result}
           known={EXEC_SETTLES.pinBlockToDashboard}
+          pendingLabel="Pinning to the dashboard"
         />
       ),
     },
@@ -1010,10 +1305,13 @@ export function ExecTools() {
   //
   // `department`'s `"any"` is DISTINCT from `"all"` — `"all"` is a real
   // narrowing choice (company-wide rows; see `pages/metric-rows.ts`), not a
-  // synonym for "leave it alone". Every advertised `department` value comes
-  // from the Metrics Explorer's own vocabulary (`pages/metric-rows.ts`'s
-  // `DEPARTMENT_VALUES`) plus the `"any"` sentinel, so this tool cannot offer
-  // a value the page has no filter for.
+  // synonym for "leave it alone".
+  //
+  // ⚠️ THE ENUM BELOW IS A HAND-KEPT COPY of the Metrics Explorer's filter
+  // vocabulary, plus the `"any"` sentinel. `pages/metric-rows.ts`'s
+  // `DEPARTMENT_VALUES` is module-private and this list is not derived from
+  // it, so the two can drift into this tool advertising a department the page
+  // has no filter for — if that list changes, change this one.
   useFrontendTool(
     {
       name: "navigateTo",
@@ -1080,7 +1378,14 @@ export function ExecTools() {
           threshold: threshold === false ? undefined : threshold,
           top: top === 0 ? undefined : top,
         });
-        router.push(skinHref(target));
+        // The query is split off before `skinHref` sees it. `execNavTarget`
+        // returns a BARE "?department=…" for the skin index (segment ""), and
+        // `skinHref` joins whatever it is given as a path segment — so the two
+        // composed to "/exec/?department=…", with a stray slash the rest of
+        // the app never emits. `skinHref` builds the path half; the query is
+        // appended after it.
+        const [path, query] = splitTargetQuery(target);
+        router.push(query ? `${skinHref(path)}?${query}` : skinHref(path));
         return `Opened ${segmentLabel(segment)}.`;
       },
       // Replay-safe: the recorded sentence IS the receipt. Nothing here reads
@@ -1089,9 +1394,21 @@ export function ExecTools() {
       // settle the runtime turned into an error string does not read as a
       // page that opened.
       render: ({ result }) => (
-        <SettleReceipt result={result} known={EXEC_SETTLES.navigateTo} />
+        <SettleReceipt
+          result={result}
+          known={EXEC_SETTLES.navigateTo}
+          pendingLabel="Navigating"
+        />
       ),
     },
+    // ⚠️ THESE DEPS CANNOT FIRE A RE-REGISTRATION, and are listed for the
+    // reader rather than for the hook: `useFrontendTool` compares its deps as
+    // `JSON.stringify(deps)`, and both of these stringify to a constant (a
+    // function to `null`, the router object to `{}`). That is safe here only
+    // because both are stable for the life of the provider — `router` is
+    // Next's own singleton and `skinHref` is memoized on a base that never
+    // changes (`@/shell/skin-path`). Anything MUTABLE has to be read through a
+    // ref instead, the way `ledgerRef` is above.
     [router, skinHref],
   );
 
