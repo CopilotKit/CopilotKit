@@ -14,7 +14,8 @@ import { useCanvas } from "./canvas-context";
  *   workspace `OpenGenerativeUIActivityRenderer` (this build ships it — the
  *   published-SDK "no full-canvas OGUI renderer" caveat does NOT apply here).
  * - "report" surfaces defer to the active skin's `CanvasSurface`. A skin with
- *   no a2ui report surface (e.g. airline) simply renders nothing for that kind.
+ *   no a2ui report surface (bookstore and exec) simply renders nothing for
+ *   that kind.
  */
 export function ReportCanvas() {
   const { activeSurfaceKind } = useCanvas();

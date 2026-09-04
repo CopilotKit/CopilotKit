@@ -13,6 +13,8 @@ import { commerceAgent } from "@/skins/commerce/agent";
 import { commerceIdentifyUser } from "@/skins/commerce/intelligence/user-id";
 import { bookstoreAgent } from "@/skins/bookstore/agent";
 import { bookstoreIdentifyUser } from "@/skins/bookstore/intelligence/user-id";
+import { execAgent } from "@/skins/exec/agent";
+import { execIdentifyUser } from "@/skins/exec/intelligence/user-id";
 
 /**
  * Server-safe map of skin id → its server-side registration (agent factory +
@@ -171,6 +173,20 @@ export const agentRegistry: Record<string, AgentRegistration> = {
     createAgent: bookstoreAgent,
     identifyUser: bookstoreIdentifyUser,
   },
+  // Vantage (exec) resolves a per-operator identity for its single on-screen
+  // persona — the chief of staff — via `OPERATOR_IDENTITY` mapping
+  // `cascade-chief-of-staff` 1:1, and its seeded beat-4 reporting preference is
+  // theirs.
+  //
+  // ⚠ Same caveat as Rowan, Bellwether, Keel and Bookstore above: do NOT
+  // present this as per-operator memory isolation on stage. The client's
+  // `properties` frequently do not reach `identifyUser` on a run, so runs
+  // actually resolve to the `vantage-demo-user` default bucket regardless of
+  // the mapped operator —
+  // which is exactly why `SEED_TARGET_USER_IDS` seeds BOTH the default bucket
+  // AND the mapped chief-of-staff id. Read `intelligence/user-id.ts` before
+  // claiming otherwise.
+  exec: { createAgent: execAgent, identifyUser: execIdentifyUser },
 };
 
 export const agentIds = Object.keys(agentRegistry);

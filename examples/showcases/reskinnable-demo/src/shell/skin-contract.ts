@@ -103,8 +103,8 @@ export interface Skin {
    * surface (it typically wraps its data provider + <A2UIProvider catalog>).
    * The shell handles the OGUI surface kind generically, so a skin does NOT
    * supply an OGUI renderer here — this is only its own a2ui report surface.
-   * Omit if the skin has no a2ui report canvas; every shipped skin has one, so
-   * the canvas's "no surface for this kind" branch is currently unexercised.
+   * Omit if the skin has no a2ui report canvas; bookstore and exec omit it, so
+   * the canvas's "no surface for this kind" branch IS exercised.
    */
   CanvasSurface?: ComponentType;
   catalog: A2uiCatalog;
