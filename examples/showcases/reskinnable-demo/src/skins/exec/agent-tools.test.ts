@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   execAgent,
   getMetricsTool,
@@ -15,6 +16,7 @@ import {
   extractSurfaceId,
 } from "@/skins/exec/blocks/build-block-ops";
 import { isBreach, variancePct } from "@/skins/exec/data/derive";
+import type { NarrativeCode } from "@/skins/exec/data/types";
 
 /**
  * WHAT `agent.ts` HAS TO GET RIGHT ON ITS OWN, NOT BY INHERITING FROM
@@ -62,12 +64,29 @@ import { isBreach, variancePct } from "@/skins/exec/data/derive";
 beforeEach(() => store.reset());
 
 /**
- * The four codes beat 6 exists to TEACH. Spelled here once, at module scope,
- * because two different sweeps need them: the agent-facing TEXT sweep (prompt,
- * tool descriptions and every parameter schema) and the per-refusal check that
- * no error body hands one back.
+ * The codes beat 6 exists to TEACH. Spelled here once, at module scope, because
+ * two different sweeps need them: the agent-facing TEXT sweep (prompt, tool
+ * descriptions and every parameter schema) and the per-refusal check that no
+ * error body hands one back.
+ *
+ * DERIVED FROM THE UNION, NOT COPIED FROM IT. `NarrativeCode` in
+ * `./data/types.ts` is the single source, and `as const satisfies
+ * Record<NarrativeCode, true>` binds this list to it in BOTH directions — a
+ * FIFTH code added to the union leaves a key missing here and fails the
+ * typecheck, so it cannot slip past the sweeps below by being a code no test
+ * ever knew to look for. (The union is a TYPE and cannot be enumerated at
+ * runtime; the production copies — `agent.ts`'s and the narratives route's
+ * `isNarrativeCode` — use this same `Record<NarrativeCode, true>` device for
+ * exactly the same reason. A runtime export does not exist ON PURPOSE: the
+ * only module-scope catalogue in the app lives in the human filing form,
+ * `pages/board-packs.tsx`, and is deliberately not exported.)
  */
-const WITHHELD_CODES = ["VAR-TIMING", "VAR-ONEOFF", "VAR-FX", "VAR-PLAN"];
+const WITHHELD_CODES = Object.keys({
+  "VAR-TIMING": true,
+  "VAR-ONEOFF": true,
+  "VAR-FX": true,
+  "VAR-PLAN": true,
+} as const satisfies Record<NarrativeCode, true>);
 
 /** No refusal may hand the model a code it is supposed to be taught. */
 const namesNoCode = (result: unknown) => {
@@ -94,14 +113,46 @@ const schemaStrings = (schema: unknown, depth = 0): string[] => {
   if (!def) return [];
   const out: string[] = [];
   if (typeof def.description === "string") out.push(def.description);
+  // `z.enum([...])` / `z.nativeEnum(...)` — the members ride straight into the
+  // published JSON schema.
   if (Array.isArray(def.values)) out.push(...def.values.map(String));
+  // `z.literal("VAR-TIMING")` — ONE member, on `value` rather than `values`.
+  // Without this arm a single literal published the code and the sweep stayed
+  // green; a mutation proved it.
+  if (
+    "value" in def &&
+    (typeof def.value === "string" || typeof def.value === "number")
+  ) {
+    out.push(String(def.value));
+  }
   const shape = typeof def.shape === "function" ? def.shape() : def.shape;
   if (shape && typeof shape === "object") {
     for (const child of Object.values(shape)) {
       out.push(...schemaStrings(child, depth + 1));
     }
   }
-  for (const key of ["innerType", "type", "schema", "element"]) {
+  // Branch containers: `z.union`/`z.discriminatedUnion` (`options`) and
+  // `z.tuple` (`items`). A union of literals is the other shape that hands the
+  // model the whole catalogue while every enum check passes.
+  for (const key of ["options", "items"]) {
+    const branches = def[key];
+    const list = branches instanceof Map ? [...branches.values()] : branches;
+    if (Array.isArray(list)) {
+      for (const branch of list) out.push(...schemaStrings(branch, depth + 1));
+    }
+  }
+  // Wrapper/child chains: optional, nullable, default, effects, array element,
+  // record key/value, intersection halves, lazy.
+  for (const key of [
+    "innerType",
+    "type",
+    "schema",
+    "element",
+    "keyType",
+    "valueType",
+    "left",
+    "right",
+  ]) {
     if (def[key]) out.push(...schemaStrings(def[key], depth + 1));
   }
   return out;
@@ -720,6 +771,44 @@ describe("exec agent-facing text", () => {
     }
     for (const code of WITHHELD_CODES) {
       expect(strings.join("\n")).not.toContain(code);
+    }
+  });
+
+  /**
+   * THE WALKER'S OWN COVERAGE, pinned on a synthetic schema rather than on the
+   * app's. The sweep above is only as good as the shapes `schemaStrings` can
+   * see, and a shape it silently skips reads EXACTLY like a clean sweep. A
+   * mutation review proved the two that mattered: a `z.literal("VAR-TIMING")`
+   * carries its member on `_def.value` (not `values`) and a
+   * `z.union([z.literal(…), …])` carries its branches on `_def.options` —
+   * either one published the whole catalogue into the tool's JSON schema with
+   * every assertion above still green.
+   *
+   * Synthetic sentinels, not real codes: this suite must not itself become a
+   * file that spells the vocabulary more than once.
+   */
+  it("reads literal and union members, not only enum values and describe() text", () => {
+    const synthetic = z.object({
+      plain: z.literal("SENTINEL-LITERAL"),
+      branch: z.union([
+        z.literal("SENTINEL-UNION-LITERAL"),
+        z.enum(["SENTINEL-UNION-ENUM"]),
+      ]),
+      nested: z
+        .array(z.object({ deep: z.literal("SENTINEL-NESTED") }))
+        .optional(),
+    });
+
+    const found = schemaStrings(synthetic);
+    for (const sentinel of [
+      "SENTINEL-LITERAL",
+      "SENTINEL-UNION-LITERAL",
+      "SENTINEL-UNION-ENUM",
+      "SENTINEL-NESTED",
+    ]) {
+      expect(found, `the schema walker cannot see ${sentinel}`).toContain(
+        sentinel,
+      );
     }
   });
 
