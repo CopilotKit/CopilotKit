@@ -49,10 +49,18 @@ describe("SkinRegistry ↔ agentRegistry", () => {
     }
   });
 
-  it("exports `agentIds` as exactly the registered server keys", () => {
-    // `agentIds` is what the API route iterates to build its agent map; a stale
-    // export would 404 a skin that IS registered.
-    expect(agentIds).toEqual(Object.keys(agentRegistry));
+  it("exports `agentIds` as exactly the skin roster", () => {
+    // `agentIds` is what the API route iterates to build its agent map, so a
+    // stale export 404s a skin that IS registered.
+    //
+    // Checked against the CLIENT registry rather than against
+    // `Object.keys(agentRegistry)`: `agentIds` is currently DEFINED as
+    // `Object.keys(agentRegistry)`, so comparing it back to that expression
+    // restates the definition and passes for every implementation of it. Going
+    // through `SkinRegistry` makes this a claim about the roster instead, which
+    // survives `agentIds` being rewritten as a hand-maintained literal — the
+    // one shape that can actually go stale.
+    expect([...agentIds].sort()).toEqual(Object.keys(SkinRegistry).sort());
   });
 
   it("gives every registration a callable agent factory", () => {
@@ -60,6 +68,28 @@ describe("SkinRegistry ↔ agentRegistry", () => {
       expect(
         typeof registration.createAgent,
         `${id} has no createAgent factory`,
+      ).toBe("function");
+    }
+  });
+
+  it("gives every registration an `identifyUser` resolver", () => {
+    // `identifyUser` is typed OPTIONAL because the runtime has a generic
+    // fallback for skins that scope nothing — but every skin here supplies one
+    // AND uses it for durable memory (that is what `agent-registry.ts`'s own
+    // `IdentifyRunUser` doc says, and what `intelligence/seed-memories.ts` next
+    // to each resolver relies on). Drop one and the skin keeps working in every
+    // visible way while its memories silently move into the shared generic
+    // bucket: seeded beats stop being recalled, and whatever the demo teaches
+    // it lands somewhere `dev/reset` does not sweep. Nothing else fails —
+    // `tsc` is happy, because the field is optional by design.
+    //
+    // So this is the check that keeps the optional-by-type/required-in-practice
+    // gap honest. A ninth skin that genuinely scopes nothing should relax this
+    // deliberately, not discover the omission on stage.
+    for (const [id, registration] of Object.entries(agentRegistry)) {
+      expect(
+        typeof registration.identifyUser,
+        `${id} has no identifyUser resolver`,
       ).toBe("function");
     }
   });
