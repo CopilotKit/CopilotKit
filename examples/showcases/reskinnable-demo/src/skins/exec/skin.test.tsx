@@ -165,15 +165,20 @@ describe("exec skin wiring", () => {
     expect(exec.themeClass).toBe("theme-exec");
   });
 
-  // The fields below rode along unguarded. Every one is OPTIONAL on the `Skin`
-  // contract (legitimately absent for some other skin), so dropping one type
-  // checks, lints and renders — it just silently unbuilds a beat. Keel pins the
-  // same class of field for the same reason
+  // The fields below rode along unguarded. `sandboxFunctions` and `toolLabels`
+  // are OPTIONAL on the `Skin` contract (legitimately absent for some other
+  // skin), so dropping either type checks, lints and renders — it just silently
+  // unbuilds a beat. `catalog` and `designSkill` are REQUIRED, so the compiler
+  // catches a deletion; what it cannot catch is the EMPTY one that satisfies
+  // the type and renders nothing, which is what these cases are actually for.
+  // Keel pins the same class of field for the same reason
   // (`src/skins/keel/skin.test.tsx`'s "the keel skin object").
   it("carries the a2ui catalog its blocks render through", () => {
-    // No catalog means the inline dashboard blocks (beats 3a/5) have no
-    // renderers and the chat shows raw a2ui ops.
-    expect(exec.catalog).toBeDefined();
+    // An EMPTY catalog is the failure the type cannot see: the inline dashboard
+    // blocks (beats 3a/5) then have no renderers and the chat shows raw a2ui
+    // ops. `includeBasicCatalog: false` means every component in here is one
+    // this skin registered (`./catalog/index.ts`).
+    expect(exec.catalog.components.size).toBeGreaterThan(0);
   });
 
   it("exposes sandbox functions, so OGUI stays bound to the real ledger", () => {
