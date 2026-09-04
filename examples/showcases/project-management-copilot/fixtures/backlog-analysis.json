@@ -1,0 +1,24 @@
+{
+  "name": "backlog-analysis",
+  "description": "Agent runs analyze_backlog which emits shared-state progress.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "Analyze backlog" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "analyze_backlog",
+            "arguments": "{\"focus\":\"what's blocking ship?\"}",
+            "id": "call_analyze_backlog"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_analyze_backlog" },
+      "response": {
+        "content": "Three urgent items are blocking ship: ISS-101 (Safari payment bug), ISS-107 (Postgres pool), and ISS-118 (Slack dedupe). ISS-107 is the only one without an assignee progressing — recommend pulling it to Todo now. The timeline panel has the breakdown."
+      }
+    }
+  ]
+}
