@@ -27,6 +27,7 @@
  * multi-homing it.
  */
 
+import { assertValidBlockSpec } from "../blocks/build-block-ops";
 import {
   isBreach,
   latestClosedPeriod,
@@ -168,8 +169,19 @@ export function fileNarrative(n: Omit<Narrative, "id" | "filedAt">): Narrative {
   return narrative;
 }
 
-/** Created in the drafts map — NOT on any dashboard until `addBlockToDashboard`. */
+/**
+ * Created in the drafts map — NOT on any dashboard until `addBlockToDashboard`.
+ *
+ * `assertValidBlockSpec` runs here too, not just in `buildBlockOps`, so a bad
+ * spec can never be STORED — the ledger GET route rebuilds every pinned
+ * block's ops from the stored spec on every read (see
+ * `app/api/exec/v1/ledger/route.ts`), so a spec that slipped in here would
+ * throw there instead, on a read nobody expects to fail. `render_metric_block`
+ * in `agent.ts` already screens this before calling in, so this only fires
+ * for some OTHER caller with a spec that guard didn't see.
+ */
 export function createDraftBlock(spec: BlockSpec): DashboardBlock {
+  assertValidBlockSpec(spec);
   const block: DashboardBlock = {
     id: nextId("block"),
     spec,

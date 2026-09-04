@@ -9,6 +9,7 @@ import {
 import {
   A2UI_OPERATIONS_KEY,
   buildBlockOps,
+  METRIC_BOUND_KINDS,
 } from "@/skins/exec/blocks/build-block-ops";
 import type { NarrativeCode } from "@/skins/exec/data/types";
 
@@ -194,14 +195,6 @@ const renderMetricBlockParams = z.object({
     .describe("A trendLine's trailing window in months (default 12)."),
 });
 
-/**
- * The three block kinds that render EXACTLY ONE metric, and so cannot be built
- * without a `metricId`. The catalog requires it and `buildBlockOps` forwards it
- * unguarded, so a `metricTile` without one reaches the client as a tile bound to
- * nothing: a block that renders empty, on stage, with no error anywhere.
- */
-const METRIC_BOUND_KINDS = new Set(["metricTile", "trendLine", "varianceBar"]);
-
 export const renderMetricBlockTool = defineTool({
   name: "render_metric_block",
   description:
@@ -230,6 +223,12 @@ export const renderMetricBlockTool = defineTool({
     // Returned as a RESULT it is an ordinary tool output: the model reads it
     // and sends the corrected spec. Same shape and same reasoning as
     // `fileVarianceNarrativeTool`'s BAD_CODE branch below.
+    //
+    // This must run BEFORE `store.createDraftBlock` / `buildBlockOps` below:
+    // both now also call `assertValidBlockSpec` and THROW on the same
+    // condition (their fallback for callers other than this tool — see that
+    // function's doc comment), which would surface here as an unhandled
+    // exception instead of the friendly tool result the model can act on.
     if (METRIC_BOUND_KINDS.has(spec.kind) && !spec.metricId) {
       return {
         error: "METRIC_ID_REQUIRED",

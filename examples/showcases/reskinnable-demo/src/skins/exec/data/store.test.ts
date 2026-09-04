@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as store from "./store";
+import type { BlockSpec } from "./types";
 
 beforeEach(() => store.reset());
 
@@ -189,6 +190,24 @@ describe("variance and the publish gate", () => {
 });
 
 describe("dashboard blocks", () => {
+  /**
+   * `render_metric_block`'s `execute` guard (agent.ts) already screens a
+   * missing `metricId` before calling `store.createDraftBlock`, so this
+   * only fires for some OTHER caller — but a bad spec must never be
+   * STORED: it would still be there for the ledger GET route to rebuild
+   * ops from on a later read, on a call that expects to succeed. See
+   * `build-block-ops.ts`'s `assertValidBlockSpec`, which this delegates to.
+   */
+  it("refuses to create a draft block from an invalid spec", () => {
+    const missingMetricId = {
+      kind: "metricTile",
+      title: "Revenue vs plan",
+    } as BlockSpec;
+    expect(() => store.createDraftBlock(missingMetricId)).toThrow(
+      /^METRIC_ID_REQUIRED/,
+    );
+  });
+
   it("adds a draft block to a dashboard idempotently", () => {
     const draft = store.createDraftBlock({
       kind: "metricTile",
