@@ -268,6 +268,14 @@ function isNarrativeCode(code: string): code is NarrativeCode {
 }
 
 /**
+ * Mirrors the REST route's period shape (`src/app/api/exec/v1/narratives/
+ * route.ts`) — this tool calls `store.fileNarrative` DIRECTLY, never through
+ * that route, so it needs its own copy of the same guard rather than
+ * inheriting it.
+ */
+const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/**
  * BEAT 3a / 3d / 6 — file the explanation a breach is waiting on.
  *
  * `source` is not the agent's to choose freely: a narrative typed from what the
@@ -329,12 +337,26 @@ export const fileVarianceNarrativeTool = defineTool({
           `saved procedure that names one, and file it verbatim.`,
       };
     }
+    if (!PERIOD_RE.test(period)) {
+      return {
+        error: "BAD_PERIOD",
+        message: `"${period}" is not a valid period — use "YYYY-MM" (e.g. "2026-08").`,
+      };
+    }
+    const trimmedBody = body.trim();
+    if (trimmedBody.length === 0) {
+      return {
+        error: "EMPTY_BODY",
+        message:
+          "The narrative body is empty — write the actual explanation, not a placeholder.",
+      };
+    }
     return {
       narrative: store.fileNarrative({
         metricId: id,
         period,
         code,
-        body,
+        body: trimmedBody,
         source: ingestedFromAttachment ? "ingested-memo" : "typed",
       }),
     };

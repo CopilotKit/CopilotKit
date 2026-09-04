@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   renderMetricBlockTool,
   publishBoardPackTool,
+  fileVarianceNarrativeTool,
 } from "@/skins/exec/agent";
 import * as store from "@/skins/exec/data/store";
 import {
@@ -109,6 +110,66 @@ describe("render_metric_block", () => {
     expect(store.snapshot().dashboards.ceo.blocks.map((b) => b.id)).toContain(
       blockId,
     );
+  });
+});
+
+/**
+ * `file_variance_narrative` calls `store.fileNarrative` DIRECTLY (see
+ * `agent.ts`'s doc comment above `PERIOD_RE`) — it never goes through the
+ * REST route (`src/app/api/exec/v1/narratives/route.ts`), so that route's
+ * zod validation buys this tool nothing. It needs, and has, its own guards
+ * for the same two silent-demo-killers: a mistyped period that files a
+ * narrative matching no breach, and an empty body that flips `explained` on
+ * nothing. Both refusals must stay CODE-FREE, same as `BAD_CODE` above.
+ */
+describe("file_variance_narrative", () => {
+  const VALID_ARGS = {
+    metricId: "opex" as const,
+    period: "2024-06",
+    code: "VAR-TIMING",
+    body: "Shipment timing shift pushed the spend into this period.",
+  };
+
+  const WITHHELD_CODES = ["VAR-TIMING", "VAR-ONEOFF", "VAR-FX", "VAR-PLAN"];
+
+  it("refuses a malformed period and names no code — the store gains no narrative", async () => {
+    const before = store.snapshot().narratives.length;
+    const result = (await fileVarianceNarrativeTool.execute!({
+      ...VALID_ARGS,
+      period: "2024-6",
+    })) as Record<string, unknown>;
+
+    expect(result.error).toBe("BAD_PERIOD");
+    const text = JSON.stringify(result);
+    for (const code of WITHHELD_CODES) {
+      expect(text).not.toContain(code);
+    }
+    expect(store.snapshot().narratives.length).toBe(before);
+  });
+
+  it("refuses a whitespace-only body and names no code — the store gains no narrative", async () => {
+    const before = store.snapshot().narratives.length;
+    const result = (await fileVarianceNarrativeTool.execute!({
+      ...VALID_ARGS,
+      body: "   ",
+    })) as Record<string, unknown>;
+
+    expect(result.error).toBe("EMPTY_BODY");
+    const text = JSON.stringify(result);
+    for (const code of WITHHELD_CODES) {
+      expect(text).not.toContain(code);
+    }
+    expect(store.snapshot().narratives.length).toBe(before);
+  });
+
+  it("files a valid narrative with the body trimmed", async () => {
+    const result = (await fileVarianceNarrativeTool.execute!({
+      ...VALID_ARGS,
+      body: "  Shipment timing shift.  ",
+    })) as Record<string, unknown>;
+
+    const narrative = result.narrative as { body: string } | undefined;
+    expect(narrative?.body).toBe("Shipment timing shift.");
   });
 });
 
