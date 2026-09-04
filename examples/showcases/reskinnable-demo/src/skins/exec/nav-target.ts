@@ -31,13 +31,22 @@ import {
  * point and empties the table under a confidently tinted control. Both ends
  * now agree without depending on a caller to remember.
  *
- * ONE JOIN THIS MODULE CANNOT MAKE: `navigateTo`'s `segment` enum includes
- * `""` (the CEO dashboard), so a levered nav to the index emits a query-only
- * target, and `useSkinHref`'s `${base}/${suffix}` join then reads
- * `/exec/?department=…` — a bare `?` after the slash. Prefixing the base here
- * to normalize that would double-apply it (see above), so the fix belongs in
- * `src/shell/skin-path.ts`; this module's side of it is pinned by
- * `./nav-target.test.ts`'s "emits a query-only target for the index segment".
+ * ONE JOIN THIS MODULE CANNOT MAKE, and does not have to. `navigateTo`'s
+ * `segment` enum includes `""` (the CEO dashboard), so a levered nav to the
+ * index emits a QUERY-ONLY target — `"?department=…"` with no path half at
+ * all. `useSkinHref` joins whatever it is given as a path segment, so handing
+ * it that string whole would compose `/exec/?department=…`, with a stray
+ * slash the rest of the app never emits. Prefixing the base here to normalize
+ * that would double-apply it (see above), so the join is made ON THE CALLER'S
+ * SIDE instead: `tools.tsx`'s `navigateTo` handler runs the result through
+ * `splitTargetQuery` and gives `skinHref` only the path half, appending the
+ * query after it. The index segment therefore yields `skinHref("")` — `/exec`
+ * unlocked, `/` locked — plus `?department=…`, both clean.
+ *
+ * This module's side of that contract — a query-only string, never a
+ * `/exec`-prefixed one — is pinned by `./nav-target.test.ts`'s "emits a
+ * query-only target for the index segment" and "never returns a value
+ * prefixed with /exec".
  */
 export interface ExecNavTargetArgs {
   segment?: string;
