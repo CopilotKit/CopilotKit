@@ -14,7 +14,7 @@ import { renderChart } from "../render/chart.js";
 const schema = z.object({
   title: z
     .string()
-    .optional()
+    .nullish()
     .describe("Short title shown as the image's filename/caption."),
   chartSpec: z
     .object({
@@ -32,7 +32,7 @@ const schema = z.object({
                 .object({
                   label: z
                     .string()
-                    .optional()
+                    .nullish()
                     .describe("Series name in the legend, e.g. 'Sev1'."),
                   data: z
                     .array(z.number())
@@ -47,7 +47,7 @@ const schema = z.object({
         .describe("Chart.js data — inline the actual numbers."),
       options: z
         .record(z.string(), z.any())
-        .optional()
+        .nullish()
         .describe(
           "Optional Chart.js options. Stacked bar: " +
             "{ scales: { x: { stacked: true }, y: { stacked: true } } }.",

@@ -43,7 +43,7 @@ const DEFERRED_CLAIM_RETRY_MS = 50;
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 const PACKET_EVENT = "packet";
 
-export type ChannelDeliveryAdapter = "slack" | "teams";
+export type ChannelDeliveryAdapter = "slack" | "teams" | "discord";
 
 export type ChannelDeliveryTurnInput =
   | {
@@ -75,6 +75,13 @@ export type ChannelDeliveryTurnInput =
       kind: "file_consent";
       action: "accept" | "decline";
       fileHandle: string;
+    }
+  | {
+      kind: "command";
+      command: string;
+      text: string;
+      rawOptions?: Record<string, unknown>;
+      triggerId?: string;
     };
 
 export interface PreparedChannelDelivery {
@@ -101,7 +108,8 @@ export interface PreparedChannelDelivery {
     | "interaction"
     | "welcome"
     | "reaction"
-    | "file_consent";
+    | "file_consent"
+    | "command";
   turn: {
     eventId: string;
     receivedAt: string;
@@ -122,7 +130,7 @@ type ProviderPayloadInput = ChannelProviderPayload;
 
 export interface ChannelProviderDeliveryDetails {
   readonly category: "validation";
-  readonly provider: "slack" | "teams";
+  readonly provider: ChannelDeliveryAdapter;
   readonly operation: string;
   readonly effectKind: string;
   readonly providerCode: "invalid_arguments" | "invalid_blocks";
@@ -779,7 +787,9 @@ function parseProviderDeliveryDetails(
       "deliveryId",
     ]) ||
     value.category !== "validation" ||
-    (value.provider !== "slack" && value.provider !== "teams") ||
+    (value.provider !== "slack" &&
+      value.provider !== "teams" &&
+      value.provider !== "discord") ||
     typeof value.operation !== "string" ||
     value.operation.length === 0 ||
     value.operation.length > 80 ||
@@ -1169,13 +1179,7 @@ export class ChannelDeliveryTransport {
             await claimedDelivery
               .effect(
                 "expected_response_failure",
-                {
-                  kind:
-                    delivery.adapter === "slack"
-                      ? "slack.message.create"
-                      : "teams.message.create",
-                  text: "Something went wrong",
-                },
+                genericFailureEffect(delivery.adapter),
                 { charge: false },
               )
               .catch(() => undefined);
@@ -1294,7 +1298,7 @@ export function safeChannelErrorMetadata(error: unknown): {
     | "validation"
     | "conflict"
     | "unknown";
-  provider?: "slack" | "teams";
+  provider?: ChannelDeliveryAdapter;
   operation?: string;
   effectKind?: string;
   providerCode?: "invalid_arguments" | "invalid_blocks";
@@ -1440,6 +1444,7 @@ const PREPARED_TURN_KINDS = new Set([
   "interaction",
   "welcome",
   "file_consent",
+  "command",
 ]);
 const PREPARED_SURFACE_KINDS = new Set([
   "direct_message",
@@ -1452,6 +1457,7 @@ const PREPARED_SURFACE_KINDS = new Set([
   "welcome",
   "reaction",
   "file_consent",
+  "command",
 ]);
 
 function assertPreparedDelivery(
@@ -1488,7 +1494,9 @@ function assertPreparedDelivery(
     !isChannelName(prepared.channelName) ||
     !isSafeExternalId(prepared.canonicalThreadId) ||
     !isSafeAppUserId(prepared.appUserId) ||
-    (prepared.adapter !== "slack" && prepared.adapter !== "teams") ||
+    (prepared.adapter !== "slack" &&
+      prepared.adapter !== "teams" &&
+      prepared.adapter !== "discord") ||
     (prepared.capabilities !== undefined &&
       (!Array.isArray(prepared.capabilities) ||
         prepared.capabilities.length > 1 ||
@@ -1577,6 +1585,18 @@ function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
         (input.action === "accept" || input.action === "decline") &&
         typeof input.fileHandle === "string" &&
         /^fileref_[A-Za-z0-9_-]+$/.test(input.fileHandle)
+      );
+    case "command":
+      return (
+        hasExactFields(
+          input,
+          ["kind", "command", "text"],
+          ["rawOptions", "triggerId"],
+        ) &&
+        isBoundedString(input.command, 1, 64) &&
+        isBoundedString(input.text, 0, 40_000) &&
+        (input.rawOptions === undefined || isRecord(input.rawOptions)) &&
+        (input.triggerId === undefined || isSafeExternalId(input.triggerId))
       );
     default:
       return false;
@@ -1783,7 +1803,9 @@ function isValidMessageOperation(value: unknown): boolean {
 function isVisibleProviderEffect(payload: ProviderPayloadInput): boolean {
   const kind = payload.kind;
   return (
-    (kind.startsWith("slack.") || kind.startsWith("teams.")) &&
+    (kind.startsWith("slack.") ||
+      kind.startsWith("teams.") ||
+      kind.startsWith("discord.")) &&
     kind !== "slack.thread.status" &&
     !kind.endsWith(".stream.stop")
   );
@@ -1793,7 +1815,21 @@ function isVisibleProviderEffect(payload: ProviderPayloadInput): boolean {
 function providerForEffect(
   payload: ProviderPayloadInput,
 ): ChannelDeliveryAdapter {
-  return payload.kind.startsWith("teams.") ? "teams" : "slack";
+  if (payload.kind.startsWith("teams.")) return "teams";
+  if (payload.kind.startsWith("discord.")) return "discord";
+  return "slack";
+}
+
+function genericFailureEffect(
+  adapter: ChannelDeliveryAdapter,
+): ChannelProviderPayload {
+  if (adapter === "discord") {
+    return { kind: "discord.message.create", text: "Something went wrong" };
+  }
+  if (adapter === "teams") {
+    return { kind: "teams.message.create", text: "Something went wrong" };
+  }
+  return { kind: "slack.message.create", text: "Something went wrong" };
 }
 
 /** Whether a failed handler owes the participant a generic visible response. */
@@ -1808,7 +1844,8 @@ function shouldSendGenericFailure(
     delivery.surfaceKind === "personal" ||
     delivery.surfaceKind === "mention" ||
     delivery.surfaceKind === "interaction" ||
-    delivery.surfaceKind === "welcome"
+    delivery.surfaceKind === "welcome" ||
+    delivery.surfaceKind === "command"
   ) {
     return true;
   }
@@ -1816,6 +1853,7 @@ function shouldSendGenericFailure(
   return (
     input.kind === "welcome" ||
     input.kind === "interaction" ||
+    input.kind === "command" ||
     (input.kind === "text" && input.operation.mentioned)
   );
 }
@@ -1840,7 +1878,9 @@ function isInvitation(value: unknown): value is {
     isDeliveryId(value.deliveryId) &&
     isSafeExternalId(value.canonicalThreadId) &&
     isChannelName(value.channelName) &&
-    (value.adapter === "slack" || value.adapter === "teams")
+    (value.adapter === "slack" ||
+      value.adapter === "teams" ||
+      value.adapter === "discord")
   );
 }
 
