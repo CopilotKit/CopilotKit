@@ -264,6 +264,56 @@ describe("InlineBlockSurface in the real chat provider chain", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/^block:missing:/);
   });
 
+  /**
+   * THE createSurface STRIP, exercised live. Every snapshot carries the FULL op
+   * list, so a GROWING one (the shape a streaming block actually takes: same
+   * createSurface, more components) is a NEW hash and must be processed — and
+   * replaying its `createSurface` would be rejected with "Surface … already
+   * exists", leaving the card stuck on an error line instead of growing.
+   *
+   * Without the strip this test fails; with it, the second snapshot applies
+   * cleanly. (The suite's other cases never reach the branch: the rejected list
+   * creates no surface, and the unchanged list is skipped as a duplicate.)
+   */
+  it("applies a GROWING snapshot over an existing surface without replaying createSurface", async () => {
+    const grownContent = () => {
+      const content = blockContent();
+      const [create, update] = content.a2ui_operations;
+      return {
+        a2ui_operations: [
+          create,
+          {
+            ...update,
+            updateComponents: {
+              surfaceId: "block:b1",
+              components: [
+                { id: "root", component: "Root", children: ["note", "note2"] },
+                { id: "note", component: "Note", text: "Q3 revenue" },
+                { id: "note2", component: "Note", text: "Q4 outlook" },
+              ],
+            },
+          },
+        ],
+      };
+    };
+
+    const { rerender } = mountInChain(blockContent());
+    await waitFor(() =>
+      expect(screen.getByTestId("test-note").textContent).toBe("Q3 revenue"),
+    );
+    await settle();
+
+    rerender(chain(grownContent()));
+    await settle();
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByTestId("test-note").map((n) => n.textContent),
+      ).toEqual(["Q3 revenue", "Q4 outlook"]),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("does latch after a successful op list, so an unchanged snapshot is not re-processed", async () => {
     const { rerender } = mountInChain(blockContent());
     await waitFor(() =>

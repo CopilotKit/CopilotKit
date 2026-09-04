@@ -8,45 +8,30 @@ import {
   useA2UIError,
   useA2UIState,
 } from "@copilotkit/a2ui-renderer";
+import {
+  decideA2uiSurface,
+  readableOperations,
+} from "@/shell/canvas/canvas-context";
 import { useSkin } from "@/shell/skin-provider";
-
-/**
- * DELIBERATE DUPLICATE: `src/skins/exec/blocks/build-block-ops.ts` exports its
- * own `BLOCK_SURFACE_PREFIX` (the spelling the exec skin's op-builder uses to
- * MINT block surface ids). This is the shell's read-side copy, used only to
- * RECOGNIZE a block surface among activity content. The shell must not import
- * from `src/skins/` — skins are plugins the shell doesn't know about — so the
- * two constants are kept in sync by hand rather than shared.
- */
-const BLOCK_SURFACE_PREFIX = "block:";
 
 /** Minimal shape of an A2UI operation carrying a surfaceId. */
 type A2UIOp = Record<string, unknown>;
 
 /**
- * Defensively read `content["a2ui_operations"]` and walk the ops for the
- * first createSurface/updateComponents/updateDataModel surfaceId. Returns it
- * only if it is a block surface (the exec skin's block dashboard); returns
- * null for anything else (e.g. banking/report surfaces, which the canvas
- * keeps), and null for malformed content.
+ * The block surface this activity should mount inline, or null if it belongs
+ * somewhere else (a report surface, which the canvas keeps) or nowhere at all
+ * (junk, drift, a stringified envelope this card cannot read).
+ *
+ * ONE DECISION, TWO READERS. This delegates to `decideA2uiSurface` — the same
+ * call the canvas asks for its own claim — rather than scanning the ops a
+ * second way. It used to spell the `block:` prefix a third time and take the
+ * FIRST op that carried any surfaceId, so a list holding a block surface AND a
+ * report surface rendered inline here while ALSO claiming the whole content
+ * region; `src/app/[skin]/layout.tsx` dispatches on the assumption the two can
+ * never disagree, and now they cannot.
  */
 export function blockSurfaceIdFrom(content: unknown): string | null {
-  if (!content || typeof content !== "object") return null;
-  const operations = (content as Record<string, unknown>)["a2ui_operations"];
-  if (!Array.isArray(operations)) return null;
-
-  for (const op of operations as A2UIOp[]) {
-    if (!op || typeof op !== "object") continue;
-    const target = (op.createSurface ??
-      op.updateComponents ??
-      op.updateDataModel) as { surfaceId?: string } | undefined;
-    if (target?.surfaceId) {
-      return target.surfaceId.startsWith(BLOCK_SURFACE_PREFIX)
-        ? target.surfaceId
-        : null;
-    }
-  }
-  return null;
+  return decideA2uiSurface(content).blockSurfaceId;
 }
 
 /**
@@ -54,8 +39,13 @@ export function blockSurfaceIdFrom(content: unknown): string | null {
  * `A2UIProvider` that `InlineBlockSurface` mounts around it. The activity
  * content carries the FULL operation list on each snapshot, so we strip a
  * duplicate createSurface once the surface exists (the MessageProcessor
- * rejects it) and skip re-processing identical op lists. Copied from banking's
- * `SurfaceMessageProcessor` (src/skins/banking/canvas-surface.tsx).
+ * rejects it) and skip re-processing an op list that already APPLIED.
+ *
+ * "Already applied", not "already seen": this shares its shape with banking's
+ * `SurfaceMessageProcessor` (src/skins/banking/canvas-surface.tsx), but latches
+ * the op-list hash on the store's VERSION bump rather than at call time — see
+ * below. Do not simplify it back into a latch-on-call: that is the bug this
+ * version-latch exists to avoid.
  *
  * HOW A REJECTED OP LIST IS DETECTED. `processMessages` never throws and
  * returns nothing: the provider catches the processor's error, `console.warn`s
@@ -178,13 +168,9 @@ function BlockSurfaceBody({ surfaceId }: { surfaceId: string }) {
  */
 export function InlineBlockSurface({ content }: { content: unknown }) {
   const catalog = useSkin().catalog;
-  const operations = Array.isArray(
-    (content as Record<string, unknown> | null | undefined)?.[
-      "a2ui_operations"
-    ],
-  )
-    ? ((content as Record<string, unknown>)["a2ui_operations"] as A2UIOp[])
-    : [];
+  // Same reader the classification went through, so the ops this card feeds the
+  // store are the ops that decided it should mount at all.
+  const operations: A2UIOp[] = readableOperations(content) ?? [];
   const surfaceId = blockSurfaceIdFrom(content);
 
   if (!surfaceId) return null;
