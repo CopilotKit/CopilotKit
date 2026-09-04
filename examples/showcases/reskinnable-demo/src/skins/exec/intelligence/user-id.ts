@@ -62,6 +62,25 @@ const OPERATOR_IDENTITY: Map<string, OperatorIdentity> = new Map([
   ["cascade-chief-of-staff", CHIEF_OF_STAFF],
 ]);
 
+/**
+ * Every MAPPED-OPERATOR bucket, for `dev/reset` to SWEEP.
+ *
+ * ⚠ THE NAME IS A CROSS-SKIN CONVENTION, NOT A DESCRIPTION. This is the FORGET
+ * list, not the seed list: `dev/reset` clears `[...SEEDED_USER_IDS,
+ * DEMO_DEFAULT_USER_ID]` and then seeds {@link SEED_TARGET_USER_IDS}, which is
+ * a different set (it includes the demo default, because that is where runs
+ * actually land). The two diverged once people and commerce started seeding
+ * their default bucket, and the name kept the shape every other skin's route
+ * imports — renaming it here alone would only make exec the odd one out. Read
+ * it as "the ids the reset knows about", and see `SEED_TARGET_USER_IDS` for
+ * what is actually written.
+ *
+ * Together with `DEMO_DEFAULT_USER_ID` this must COVER every id
+ * {@link resolveUserId} can return for any input — a reachable bucket outside
+ * the pair is one the reset skips forever, and beat 6 opens already taught.
+ * That is why the role branch below resolves only KNOWN roles; the invariant is
+ * pinned in `user-id.test.ts`.
+ */
 export const SEEDED_USER_IDS: readonly string[] = [
   ...OPERATOR_IDENTITY.values(),
 ].map((o) => o.userId);
@@ -104,38 +123,71 @@ export const SEED_TARGET_USER_IDS: readonly string[] = [
 
 export type IdentityInput = { operatorId?: string; role?: string };
 
-function roleSlug(role?: string): string {
-  if (!role) return DEMO_DEFAULT_USER_ID;
-  const slug = role
+/**
+ * Role slug -> memory scope, for the roles this skin actually forwards
+ * (`../runtime-properties.ts` sends `userRole: "chief-of-staff"`).
+ *
+ * ── WHY AN ALLOW-LIST, AND NOT A MINTED SLUG ────────────────────────────────
+ * This branch used to build a bucket out of whatever the role slugged to:
+ * `"Board Secretary"` became `vantage-board-secretary`, a real scope
+ * Intelligence reads and writes. `userRole` is client-forwarded and therefore
+ * UNTRUSTED, so that made the set of live memory buckets unbounded and
+ * caller-chosen — while `dev/reset`'s sweep list is STATIC
+ * ({@link SEEDED_USER_IDS} + {@link DEMO_DEFAULT_USER_ID}). Any minted bucket
+ * was therefore a bucket no reset has ever cleared, and memory taught into one
+ * survives forever: exactly the "beat 6 starts out already taught" failure the
+ * reset exists to prevent, with nothing on screen saying so.
+ *
+ * An unknown role now falls through to the demo default — a bucket the reset
+ * DOES sweep — so `resolveUserId`'s range is closed and coverage is testable
+ * rather than argued. A second persona is added by adding a row here (and to
+ * {@link OPERATOR_IDENTITY}), which is also what puts it in the sweep list.
+ *
+ * A `Map`, for the same untrusted-key reason as `OPERATOR_IDENTITY` above.
+ */
+const ROLE_IDENTITY: Map<string, OperatorIdentity> = new Map([
+  ["chief-of-staff", CHIEF_OF_STAFF],
+]);
+
+/**
+ * Normalise a role the way the map's keys are written, so casing and spacing
+ * (`"Chief of Staff"`, `"CHIEF-OF-STAFF"`) do not fork one person into two
+ * scopes. Returns `""` for a role with no alphanumerics at all, which no key
+ * matches.
+ */
+function roleSlug(role: string): string {
+  return role
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
-  return slug ? `vantage-${slug}` : DEMO_DEFAULT_USER_ID;
 }
 
-export function resolveUserId({
+/** The identity behind `operatorId` OR `role`, in that precedence, if any. */
+function lookupIdentity({
   operatorId,
   role,
-}: IdentityInput = {}): string {
+}: IdentityInput): OperatorIdentity | undefined {
+  const mapped = operatorId ? OPERATOR_IDENTITY.get(operatorId) : undefined;
+  if (mapped) return mapped;
+  return role ? ROLE_IDENTITY.get(roleSlug(role)) : undefined;
+}
+
+export function resolveUserId(input: IdentityInput = {}): string {
   const pinned = process.env.INTELLIGENCE_USER_ID;
   if (pinned) return pinned;
-  const mapped = operatorId ? OPERATOR_IDENTITY.get(operatorId) : undefined;
-  if (mapped) return mapped.userId;
-  return roleSlug(role);
+  return lookupIdentity(input)?.userId ?? DEMO_DEFAULT_USER_ID;
 }
 
-export function resolveUserName({
-  operatorId,
-  role,
-}: IdentityInput = {}): string {
+export function resolveUserName(input: IdentityInput = {}): string {
   if (process.env.INTELLIGENCE_USER_ID) {
     return (
       process.env.INTELLIGENCE_USER_NAME ?? process.env.INTELLIGENCE_USER_ID
     );
   }
-  const mapped = operatorId ? OPERATOR_IDENTITY.get(operatorId) : undefined;
-  if (mapped) return mapped.userName;
-  return role ? `Vantage ${role}` : "Vantage Demo User";
+  // The name tracks the ID: an unrecognised role lands in the demo-default
+  // BUCKET, so labelling it `Vantage <whatever the client sent>` would put an
+  // arbitrary client string on memories stored under the shared default.
+  return lookupIdentity(input)?.userName ?? "Vantage Demo User";
 }
 
 /**
