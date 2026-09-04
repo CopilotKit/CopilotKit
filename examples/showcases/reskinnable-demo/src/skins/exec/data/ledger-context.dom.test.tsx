@@ -1,7 +1,7 @@
 /**
  * Failure-surfacing regression tests for `ExecLedgerProvider`.
  *
- * WHAT THIS GUARDS: two ways this provider can lie about the ledger's state.
+ * WHAT THIS GUARDS: three ways this provider can lie about the ledger's state.
  *
  * 1. A FAILED first fetch used to still `setLoaded(true)` with the `EMPTY`
  *    snapshot, so children mounted over it — a page with no dashboards reads
@@ -18,15 +18,21 @@
  *    failed with the SAME message re-set identical state — React bails out,
  *    nothing repaints, and the click reads as a dead button.
  *
- * And three ways the mutation wrappers can lie about a route's answer:
+ * And five ways the mutation wrappers can lie about a route's answer:
  *
  * 4. Dropping the server's `message` for a bare status code, which puts
  *    "file narrative failed: 400" on the board-packs form with no reason.
  * 5. `publishPack` rejecting with a `SyntaxError` on a non-JSON error body,
  *    or returning `{ error: undefined }` off a body that had no `error` —
  *    both settle the HITL publish card with nonsense.
- * 6. `resetDemo` skipping its best-effort refresh on a failure that DID
+ * 6. `publishPack` reporting a 2xx whose BODY would not parse as a failure.
+ *    The pack is already written at that point, so a failure-shaped result
+ *    prints "Publish refused" over a published pack and sends the agent
+ *    round to file a duplicate.
+ * 7. `resetDemo` skipping its best-effort refresh on a failure that DID
  *    already reset the store, leaving pre-reset data on screen.
+ * 8. A block id going into the DELETE/PATCH URL unencoded, so an id carrying
+ *    a `/` or a `#` addresses a different route than the one asked for.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -60,6 +66,16 @@ const GOOD_SNAPSHOT: ExecLedgerSnapshot = {
 };
 
 const LEDGER_URL = "/api/exec/v1/ledger";
+
+/**
+ * A block id that is not URL-safe. Ids are strings the store hands out and
+ * `render_metric_block` relays, not a closed vocabulary this client validates,
+ * so one carrying a `/` or a `#` has to survive the round trip: interpolated
+ * raw, `blk/1#2` addresses `.../blocks/blk/1` with the rest thrown away as a
+ * fragment — a DELETE aimed at a route nobody wrote.
+ */
+const AWKWARD_ID = "blk/1#2";
+const AWKWARD_ID_URL = `/api/exec/v1/dashboards/ceo/blocks/${encodeURIComponent(AWKWARD_ID)}`;
 
 /**
  * Stubs `fetch` with a `"<METHOD> <url>"` router. The ledger GET answers
@@ -118,7 +134,14 @@ function describeError(error: unknown) {
  * the server's words, `publishPack` never throws) from the outside.
  */
 function MutationConsumer() {
-  const { addBlock, fileNarrative, publishPack, resetDemo } = useExecLedger();
+  const {
+    addBlock,
+    removeBlock,
+    moveBlock,
+    fileNarrative,
+    publishPack,
+    resetDemo,
+  } = useExecLedger();
   const [settled, setSettled] = useState("");
   const run = (fn: () => Promise<unknown>) => () => {
     void fn().then(
@@ -131,6 +154,15 @@ function MutationConsumer() {
       <p data-testid="settled">{settled}</p>
       <button type="button" onClick={run(() => addBlock("ceo", "b1"))}>
         Add block
+      </button>
+      <button type="button" onClick={run(() => removeBlock("ceo", AWKWARD_ID))}>
+        Remove block
+      </button>
+      <button
+        type="button"
+        onClick={run(() => moveBlock("ceo", AWKWARD_ID, "up"))}
+      >
+        Move block
       </button>
       <button
         type="button"
@@ -301,7 +333,7 @@ describe("ExecLedgerProvider first-load retry pending state", () => {
       fireEvent.click(retry);
       // Synchronous: `refresh` must flip the flag BEFORE its first `await`,
       // or the click has no observable effect at all.
-      expect(retry.getAttribute("aria-busy")).toBe(`true`);
+      expect(retry.getAttribute("aria-busy")).toBe("true");
       await waitFor(() =>
         expect(retry.getAttribute("aria-busy")).toBe("false"),
       );
@@ -336,6 +368,87 @@ describe("ExecLedgerProvider mutation wrappers", () => {
       ),
     );
     // A refused mutation changed nothing, so it must not refetch.
+    expect(ledgerGets(fetchMock)).toBe(1);
+  });
+
+  it("removes a block through a percent-encoded URL and refreshes", async () => {
+    const fetchMock = stubRoutedFetch({
+      [`DELETE ${AWKWARD_ID_URL}`]: () => jsonResponse({ ok: true }),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("Remove block"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toBe("resolved null"),
+    );
+    // The id is one path SEGMENT, always — never a raw string that can grow
+    // the URL extra segments or a fragment.
+    expect(String(fetchMock.mock.calls[1][0])).toBe(AWKWARD_ID_URL);
+    expect(ledgerGets(fetchMock)).toBe(2);
+  });
+
+  it("throws a refused remove with the route's message and does not refetch", async () => {
+    const fetchMock = stubRoutedFetch({
+      [`DELETE ${AWKWARD_ID_URL}`]: () =>
+        new Response(
+          JSON.stringify({
+            error: "NOT_FOUND",
+            message: "The CEO dashboard holds no block blk/1#2.",
+          }),
+          { status: 404, headers: { "content-type": "application/json" } },
+        ),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("Remove block"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toBe(
+        "rejected remove block failed: The CEO dashboard holds no block blk/1#2.",
+      ),
+    );
+    expect(ledgerGets(fetchMock)).toBe(1);
+  });
+
+  it("moves a block through the same encoded URL, carrying the direction", async () => {
+    const fetchMock = stubRoutedFetch({
+      [`PATCH ${AWKWARD_ID_URL}`]: () => jsonResponse({ ok: true }),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("Move block"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toBe("resolved null"),
+    );
+    expect(String(fetchMock.mock.calls[1][0])).toBe(AWKWARD_ID_URL);
+    expect(fetchMock.mock.calls[1][1]?.body).toBe(
+      JSON.stringify({ direction: "up" }),
+    );
+    expect(ledgerGets(fetchMock)).toBe(2);
+  });
+
+  it("throws a refused move with the route's message and does not refetch", async () => {
+    const fetchMock = stubRoutedFetch({
+      [`PATCH ${AWKWARD_ID_URL}`]: () =>
+        new Response(
+          JSON.stringify({
+            error: "NOT_FOUND",
+            message: "The CEO dashboard holds no block blk/1#2.",
+          }),
+          { status: 404, headers: { "content-type": "application/json" } },
+        ),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("Move block"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toBe(
+        "rejected move block failed: The CEO dashboard holds no block blk/1#2.",
+      ),
+    );
     expect(ledgerGets(fetchMock)).toBe(1);
   });
 
@@ -383,6 +496,27 @@ describe("ExecLedgerProvider mutation wrappers", () => {
           status: 201,
           headers: { "content-type": "application/json" },
         }),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("File narrative"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toBe(
+        `resolved ${JSON.stringify(filed)}`,
+      ),
+    );
+    expect(ledgerGets(fetchMock)).toBe(2);
+  });
+
+  it("accepts any OK status for a filing, not the literal 201 alone", async () => {
+    // The route answers 201 today; the sibling block and pack mutations all
+    // gate on `res.ok`, and a wrapper that insists on one exact code turns a
+    // route that starts answering 200 into "file narrative failed: 200" on
+    // beat 6's form — a filing that WORKED, reported as refused.
+    const filed = { id: "n2", metricId: "revenue", period: "2026-08" };
+    const fetchMock = stubRoutedFetch({
+      "POST /api/exec/v1/narratives": () => jsonResponse(filed),
     });
     await renderMutations();
 
@@ -540,9 +674,48 @@ describe("ExecLedgerProvider mutation wrappers", () => {
 
     await waitFor(() =>
       expect(screen.getByTestId("settled").textContent).toBe(
-        `resolved ${JSON.stringify({ status: 200, pack })}`,
+        `resolved ${JSON.stringify({ status: 200, published: true, pack })}`,
       ),
     );
+    expect(ledgerGets(fetchMock)).toBe(2);
+  });
+
+  it("still reports a 2xx whose body will not parse as a PUBLISH", async () => {
+    // The pack is written before the response is composed, so an unreadable
+    // body means the receipt is lost, not the write. Returning a
+    // failure-shaped result here (no `pack`) made the countersign card print
+    // "Publish refused: publish pack succeeded…" over a pack that IS in the
+    // ledger — and the agent, reading a refusal, published a duplicate.
+    const fetchMock = stubRoutedFetch({
+      "POST /api/exec/v1/packs": () =>
+        new Response("<!doctype html><h1>ok</h1>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        }),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("Publish pack"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toMatch(/^resolved /),
+    );
+    const outcome = JSON.parse(
+      screen.getByTestId("settled").textContent!.replace(/^resolved /, ""),
+    ) as {
+      status: number;
+      published?: boolean;
+      pack?: unknown;
+      error?: string;
+      note?: string;
+    };
+    expect(outcome.published).toBe(true);
+    expect(outcome.error).toBeUndefined();
+    // …but the pack itself never arrived, so the caller is told the view it
+    // is about to show may not have caught up.
+    expect(outcome.pack).toBeUndefined();
+    expect(outcome.note).toMatch(/stale/i);
+    // The ledger IS behind — it gained a pack — so this refetches either way.
     expect(ledgerGets(fetchMock)).toBe(2);
   });
 

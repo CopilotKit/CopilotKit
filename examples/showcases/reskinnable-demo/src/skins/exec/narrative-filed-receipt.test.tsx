@@ -72,6 +72,76 @@ describe("NarrativeFiledReceipt", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
+  it("does not re-refresh when only the refresh IDENTITY changes", () => {
+    // `refresh` comes off the ledger context, which hands out a NEW function
+    // every time the snapshot changes — including the refresh this component
+    // just fired. Keying the effect on `refresh` instead of routing it through
+    // `refreshRef` is therefore a re-read loop: refresh → new snapshot → new
+    // `refresh` → refresh. Same call id means one re-read, whatever the
+    // identity does.
+    const first = vi.fn(() => Promise.resolve());
+    const second = vi.fn(() => Promise.resolve());
+    const { rerender } = render(
+      <NarrativeFiledReceipt
+        toolCallId="call-1"
+        result='{"narrative":{}}'
+        refresh={first}
+      />,
+    );
+    rerender(
+      <NarrativeFiledReceipt
+        toolCallId="call-1"
+        result='{"narrative":{}}'
+        refresh={second}
+      />,
+    );
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+
+    // …and the ref DID take the new identity: the next call re-reads through
+    // the current `refresh`, not the stale one it first captured.
+    rerender(
+      <NarrativeFiledReceipt
+        toolCallId="call-2"
+        result='{"narrative":{}}'
+        refresh={second}
+      />,
+    );
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the backend's note when a filing clears no open breach", () => {
+    // `agent.ts` files the narrative and returns a `note` when the (metric,
+    // period) it names has no OPEN exception: the write STANDS but it clears
+    // nothing the publish gate is waiting on. A bare "Filed the variance
+    // narrative." over that reads as the gate contradicting a filing that
+    // just worked, and the operator has no way to see why.
+    const note =
+      "Filed — but revenue has no OPEN exception at 2026-08, so this filing " +
+      "clears nothing the publish gate is waiting on.";
+    const { container } = render(
+      <NarrativeFiledReceipt
+        toolCallId="call-note"
+        result={JSON.stringify({ narrative: { metricId: "revenue" }, note })}
+        refresh={vi.fn(() => Promise.resolve())}
+      />,
+    );
+    expect(container.textContent).toMatch(/Filed the variance narrative/);
+    expect(container.textContent).toMatch(/clears nothing the publish gate/);
+  });
+
+  it("keeps the plain receipt when the backend sent no note", () => {
+    const { container } = render(
+      <NarrativeFiledReceipt
+        toolCallId="call-plain"
+        result='{"narrative":{"metricId":"revenue"}}'
+        refresh={vi.fn(() => Promise.resolve())}
+      />,
+    );
+    expect(container.textContent).toBe("Filed the variance narrative.");
+  });
+
   it("reads a BAD_CODE refusal back as a refusal, not as a filing", () => {
     // The mere PRESENCE of a settled result is never treated as success —
     // `agent.ts`'s guard returns `{ error: "BAD_CODE" }` for a code outside
@@ -151,8 +221,16 @@ describe("NarrativeFiledReceipt", () => {
     ).not.toThrow();
     // The rejection is logged rather than swallowed: a ledger that stopped
     // answering has to be diagnosable, and `refresh` already leaves the last
-    // good snapshot on screen.
-    await vi.waitFor(() => expect(error).toHaveBeenCalled());
+    // good snapshot on screen. Asserted on THIS log line specifically — a bare
+    // `toHaveBeenCalled()` passes off any console.error React or a library
+    // happens to emit, including one that would fire with the refresh removed
+    // entirely.
+    await vi.waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        "[exec] ledger refresh after narrative filing failed",
+        expect.objectContaining({ message: "offline" }),
+      ),
+    );
     error.mockRestore();
   });
 });

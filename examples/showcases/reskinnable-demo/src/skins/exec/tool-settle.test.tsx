@@ -1,8 +1,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { COUNTERSIGN_PIN } from "./data/store";
 import {
   COUNTERSIGN_PIN_HINT,
@@ -12,10 +12,12 @@ import {
   HITL_ABORT_MESSAGE,
   MetricBlockSettle,
   OfferSettle,
+  PublishCountersignCard,
   SaveProcedureSettle,
   SettleReceipt,
   classifyToolSettle,
   publishRefusalPayload,
+  publishSettleFor,
 } from "./tools";
 import type { Exception, MetricDef } from "./data/types";
 
@@ -344,9 +346,12 @@ describe("the countersign card's refusal forwarding", () => {
   it("still answers BAD_COUNTERSIGN with the code and NOTHING else", () => {
     // The PIN gate runs first precisely so a bad countersign learns nothing;
     // this hop must never grow it a body.
+    // `toStrictEqual`, not `toEqual`: "and NOTHING else" is the whole claim,
+    // and `toEqual` treats `{ error, message: undefined }` as equal to
+    // `{ error }` — exactly the growth this guards against.
     expect(
       publishRefusalPayload({ error: "BAD_COUNTERSIGN" }, METRIC_DEFS),
-    ).toEqual({ error: "BAD_COUNTERSIGN" });
+    ).toStrictEqual({ error: "BAD_COUNTERSIGN" });
   });
 
   it("omits a message the store never sent rather than forwarding undefined", () => {
@@ -358,6 +363,175 @@ describe("the countersign card's refusal forwarding", () => {
     // …and the receipt falls back to this file's own phrasing.
     const { container } = render(countersign(JSON.stringify(payload)));
     expect(container.textContent).toMatch(/narrative/i);
+  });
+});
+
+/**
+ * The OTHER half of that hop: what the card decides to do with each shape
+ * `publishPack` can resolve with. `publishSettleFor` is the only place that
+ * decision is made, so a settle that reads as a refusal over a pack that was
+ * actually published is assertable here rather than only on stage.
+ */
+describe("the countersign card's publish decision", () => {
+  const METRIC_DEFS = [
+    { id: "opex", label: "Operating expense" },
+  ] as unknown as MetricDef[];
+
+  it("settles a published pack with a sentence naming the dashboard", () => {
+    expect(
+      publishSettleFor(
+        { status: 200, published: true, pack: { id: "p1" } as never },
+        "CEO Dashboard",
+        METRIC_DEFS,
+      ),
+    ).toStrictEqual({ settle: "CEO Dashboard is published as a board pack." });
+  });
+
+  it("still settles a publish whose body did not parse as PUBLISHED", () => {
+    // The 2xx says the pack is written; only its receipt was lost. Reading
+    // that as a refusal put "Publish refused: publish pack succeeded but
+    // returned an unreadable body" in front of the room over a pack that IS in
+    // the ledger, and the agent — which reads the same settle — republished.
+    const note = "The receipt could not be read, so this view may be stale.";
+    const decided = publishSettleFor(
+      { status: 200, published: true, note },
+      "CEO Dashboard",
+      METRIC_DEFS,
+    );
+    expect(decided).toStrictEqual({
+      settle: `CEO Dashboard is published as a board pack. ${note}`,
+    });
+    // …and it reads as the publish it is, not as a negative receipt.
+    const { container } = render(
+      countersign((decided as { settle: string }).settle),
+    );
+    expect(tone(container)).toBe("positive");
+    expect(container.textContent).not.toMatch(/refused/i);
+    expect(container.textContent).toMatch(/may be stale/);
+  });
+
+  it("keeps a bad PIN on the card instead of settling the interrupt", () => {
+    // EXEC_PROMPT rule 5: a typo is the presenter's to fix and the agent has
+    // nothing to do with it.
+    expect(
+      publishSettleFor(
+        { status: 403, error: "BAD_COUNTERSIGN" },
+        "CEO Dashboard",
+        METRIC_DEFS,
+      ),
+    ).toStrictEqual({
+      problem:
+        "That countersign PIN wasn't accepted. Nothing was published — try again.",
+    });
+  });
+
+  it("settles every other refusal with the forwarded payload", () => {
+    const decided = publishSettleFor(
+      {
+        status: 422,
+        error: "UNEXPLAINED_VARIANCE",
+        breaches: [
+          { metricId: "opex", department: "manufacturing", period: "2024-06" },
+        ] as unknown as Exception[],
+      },
+      "CEO Dashboard",
+      METRIC_DEFS,
+    );
+    expect(decided).toStrictEqual({
+      settle: {
+        error: "UNEXPLAINED_VARIANCE",
+        breaches: [
+          {
+            metric: "Operating expense",
+            department: "manufacturing",
+            period: "2024-06",
+          },
+        ],
+      },
+    });
+  });
+});
+
+describe("the countersign card itself", () => {
+  const card = (
+    onSubmit: (id: string, pin: string) => Promise<string | null>,
+  ) =>
+    render(
+      <PublishCountersignCard
+        dashboardTitle={(id) =>
+          id === "ceo" ? "CEO Dashboard" : "CFO Dashboard"
+        }
+        onSubmit={onSubmit as never}
+        onCancel={() => {}}
+      />,
+    );
+
+  const typePin = (pin: string) =>
+    fireEvent.change(screen.getByLabelText("4-digit countersign PIN"), {
+      target: { value: pin },
+    });
+
+  const publishButton = () =>
+    screen.getByRole("button", { name: /Countersign & publish|Publishing/ });
+
+  it("settles back out of its in-flight state when the publish SUCCEEDS", async () => {
+    // The failure arm re-enabled the card and the success arm did not, so a
+    // publish that worked left four disabled digits under a permanent
+    // "Publishing…" — the last thing the room sees at the climax of the demo.
+    let release: ((value: string | null) => void) | undefined;
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<string | null>((resolve) => {
+          release = resolve;
+        }),
+    );
+    card(onSubmit);
+    typePin("7341");
+    fireEvent.click(publishButton());
+
+    await waitFor(() =>
+      expect(publishButton().textContent).toMatch(/Publishing/),
+    );
+    release!(null);
+
+    await waitFor(() =>
+      expect(publishButton().textContent).toMatch(/Countersign & publish/),
+    );
+    expect((publishButton() as HTMLButtonElement).disabled).toBe(false);
+    // Nothing to say: the settled receipt replaces the card, and an error line
+    // over a publish that worked would contradict it.
+    expect(screen.queryByText(/Nothing was published/)).toBeNull();
+  });
+
+  it("re-enables the card and says why when the publish is refused", async () => {
+    const onSubmit = vi.fn(() => Promise.resolve("That PIN wasn't accepted."));
+    card(onSubmit);
+    typePin("1111");
+    fireEvent.click(publishButton());
+
+    await screen.findByText("That PIN wasn't accepted.");
+    expect((publishButton() as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("moves focus with the selection when a dashboard is picked by mouse", () => {
+    // The group is a roving-tabindex radio group: the unselected option is
+    // `tabIndex={-1}`, so a click that changes the selection without moving
+    // focus leaves focus on a button that is no longer a tab stop and the next
+    // Tab escapes the group entirely.
+    card(() => Promise.resolve(null));
+    const cfo = screen.getByRole("radio", { name: "CFO Dashboard" });
+    fireEvent.click(cfo);
+    expect(cfo.getAttribute("aria-checked")).toBe("true");
+    expect(document.activeElement).toBe(cfo);
+  });
+
+  it("moves focus with the arrow keys too", () => {
+    card(() => Promise.resolve(null));
+    const group = screen.getByRole("radiogroup");
+    fireEvent.keyDown(group, { key: "ArrowRight" });
+    const cfo = screen.getByRole("radio", { name: "CFO Dashboard" });
+    expect(cfo.getAttribute("aria-checked")).toBe("true");
+    expect(document.activeElement).toBe(cfo);
   });
 });
 
@@ -396,7 +570,7 @@ describe("render_metric_block's settled render", () => {
 
   it("renders ANY error-shaped result from that tool as a refusal", () => {
     // The tool's correctable-error vocabulary is still growing
-    // (`KIND_PROP_UNSUPPORTED`-style codes naming a kind and a prop), so the
+    // (`UNSUPPORTED_BLOCK_PROP`-style codes naming a kind and a prop), so the
     // arm keys off the SHAPE and relays the message rather than enumerating
     // codes it would have to be kept in step with.
     const { container } = render(
@@ -487,9 +661,19 @@ describe("the platform abort sentinel this file reconstructs", () => {
   });
 
   it("fails if @copilotkit/core rewords the `Error: ` prefix it wraps a rejection in", () => {
-    const source = readFileSync(join(distOf("core"), "index.mjs"), "utf8");
+    // Scanned across the dist bundles the same way its sibling above is, NOT
+    // read from a hardcoded `index.mjs`: an upstream rename of the entrypoint
+    // threw a bare ENOENT that named a path and not the thing being guarded,
+    // which is the one moment this test has to explain itself.
+    const dir = distOf("core");
+    const bundles = readdirSync(dir).filter((f) => f.endsWith(".mjs"));
+    const found = bundles.some((f) =>
+      readFileSync(join(dir, f), "utf8").includes(
+        "toolCallResult = `Error: ${errorMessage}`",
+      ),
+    );
     expect(
-      source.includes("toolCallResult = `Error: ${errorMessage}`"),
+      found,
       "CopilotKitCore.executeToolHandler no longer prefixes a rejected tool " +
         "handler with `Error: ` — re-read it and update HITL_ABORTED.",
     ).toBe(true);
