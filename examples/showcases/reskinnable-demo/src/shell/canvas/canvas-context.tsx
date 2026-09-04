@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 import { useAgent } from "@copilotkit/react-core/v2";
+import { blockSurfaceIdFrom } from "@/shell/chat/inline-block-surface";
 
 type SurfaceKind = "report" | "ogui";
 
@@ -22,6 +23,7 @@ type MaybeActivityMessage = {
   id?: string;
   role?: string;
   activityType?: string;
+  content?: unknown;
 };
 
 /**
@@ -41,8 +43,16 @@ function useLatestCanvasSurface(): {
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
       if (m?.role !== "activity") continue;
-      if (m.activityType === "a2ui-surface")
+      if (m.activityType === "a2ui-surface") {
+        // Inline `block:` surfaces are NOT canvas events: they render where the
+        // activity sits in the transcript (<InlineBlockSurface/>). Claiming them
+        // here would flip the whole content region into a report frame — blank
+        // for any skin without a CanvasSurface — and bury the page behind a bare
+        // "← Back". Skip them so an earlier real surface (or nothing) wins; the
+        // canvas contract is reports + OGUI only.
+        if (blockSurfaceIdFrom(m.content)) continue;
         return { kind: "report", surfaceId: m.id ?? "a2ui-surface" };
+      }
       if (m.activityType === "open-generative-ui")
         return { kind: "ogui", surfaceId: m.id ?? null };
     }
