@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx --watch src/server.ts",
     "start": "tsx src/server.ts",
-    "test": "tsx --test src/header-forwarding.test.ts",
+    "test": "tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

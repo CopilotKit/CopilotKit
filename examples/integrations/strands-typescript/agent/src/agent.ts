@@ -24,6 +24,12 @@ import OpenAI from "openai";
 import { z } from "zod";
 
 import { forwardingFetch } from "./header-forwarding.js";
+import {
+  buildA2uiOperations,
+  DYNAMIC_A2UI_SYSTEM_PROMPT,
+  parseRenderA2uiArguments,
+  RENDER_A2UI_TOOL,
+} from "./a2ui-contract.js";
 
 const agentDir = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(agentDir, "../../.env") });
@@ -195,33 +201,11 @@ const generateA2ui = tool({
       messages: [
         {
           role: "system",
-          content:
-            "Design an A2UI dashboard. Use a flat component array with root id 'root'. Available components: Card, Column, Row, Text, Metric, PieChart, BarChart, DataTable, StatusBadge, InfoRow, PrimaryButton.",
+          content: DYNAMIC_A2UI_SYSTEM_PROMPT,
         },
         { role: "user", content: user_intent },
       ],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "render_a2ui",
-            description: "Return the dashboard surface definition.",
-            parameters: {
-              type: "object",
-              properties: {
-                surfaceId: { type: "string" },
-                catalogId: { type: "string" },
-                components: {
-                  type: "array",
-                  items: { type: "object", additionalProperties: true },
-                },
-                data: { type: "object", additionalProperties: true },
-              },
-              required: ["surfaceId", "components"],
-            },
-          },
-        },
-      ],
+      tools: [RENDER_A2UI_TOOL],
       tool_choice: { type: "function", function: { name: "render_a2ui" } },
     });
 
@@ -229,18 +213,8 @@ const generateA2ui = tool({
     if (!call || call.type !== "function") {
       throw new Error("The UI model did not return an A2UI surface.");
     }
-    const args = JSON.parse(call.function.arguments) as {
-      surfaceId?: string;
-      catalogId?: string;
-      components?: Array<Record<string, unknown>>;
-      data?: Record<string, unknown>;
-    };
-    const surfaceId = args.surfaceId || "dynamic-dashboard";
-    const operations = [
-      createSurface(surfaceId, args.catalogId || APP_CATALOG_ID),
-      updateComponents(surfaceId, args.components ?? []),
-    ];
-    if (args.data) operations.push(updateDataModel(surfaceId, args.data));
+    const args = parseRenderA2uiArguments(call.function.arguments);
+    const operations = buildA2uiOperations(args);
     return JSON.parse(JSON.stringify({ [A2UI_OPERATIONS_KEY]: operations }));
   },
 });
