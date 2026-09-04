@@ -17,6 +17,12 @@ describe("globals.css mobile docs layout", () => {
     );
   });
 
+  it("spans the compact table of contents across the mobile grid", () => {
+    expect(globalsCss).toContain(
+      "#nd-docs-layout > [data-toc-popover] {\n    grid-column: 1 / -1 !important;\n    width: 100% !important;\n    min-width: 0 !important;",
+    );
+  });
+
   it("does not double-count the announcement banner in sub-xl docs layout offsets", () => {
     const subXlDocsLayoutRules = globalsCss.matchAll(
       /@media \((?:max-width: 767px|min-width: 768px\) and \(max-width: 1279px)\) \{\n  #nd-docs-layout \{(?<body>[\s\S]*?)\n  \}/g,
@@ -83,9 +89,7 @@ describe("globals.css dark accent contrast", () => {
 
     expect(darkTheme).toContain("--primary: oklch(0.64 0.21 277);");
     expect(darkTheme).toContain("--sidebar-primary: oklch(0.64 0.21 277);");
-    expect(darkTheme).toContain(
-      "--accent-fill: oklch(0.585 0.233 277.117);",
-    );
+    expect(darkTheme).toContain("--accent-fill: oklch(0.585 0.233 277.117);");
     expect(globalsCss).toContain(
       "--accent-strong: color-mix(in oklch, var(--accent-fill) 88%, black);",
     );
@@ -196,9 +200,7 @@ describe("globals.css sidebar section labels", () => {
 
   it("fades sidebar content only at overflowing edges", () => {
     expect(globalsCss).toContain("[data-shell-docs-scroll-shadow-top]:not(");
-    expect(globalsCss).toContain(
-      "[data-shell-docs-scroll-shadow-bottom]:not(",
-    );
+    expect(globalsCss).toContain("[data-shell-docs-scroll-shadow-bottom]:not(");
     expect(globalsCss).toContain(
       "[data-shell-docs-scroll-shadow-top][data-shell-docs-scroll-shadow-bottom]",
     );

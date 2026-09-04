@@ -32,10 +32,14 @@
  * --fd-banner-height is set dynamically by Banners (40px / 0px). */
 :root {
   --fd-nav-height: 64px;
-  --shell-docs-layout-width: calc(97rem + 11px);
+  /* Keep the desktop docs shell inside one centered editorial frame. This is
+   * wide enough for comfortable prose, demos, and a TOC without returning the
+   * sidebar to the browser edge like the previous 97rem default did. */
+  --shell-docs-layout-width: min(88rem, 100vw);
+  --fd-layout-width: var(--shell-docs-layout-width);
   --shell-docs-grid-gutter: 0px;
   --shell-docs-grid-top-offset: 0px;
-  --docs-reading-width: 42.5rem;
+  --docs-reading-width: 46rem;
   --docs-breakout-width: 51.25rem;
   --docs-content-gutter: 1rem;
   --radius: 0.875rem;
@@ -964,6 +968,15 @@ figure.shiki > div:first-child[class*="border-b"] {
     grid-column: 1 / -1 !important;
     width: 100% !important;
   }
+
+  /* Fumadocs assigns the compact TOC to its desktop `toc-popover` grid
+   * area. Once the mobile grid collapses to one column, make the sticky
+   * control follow that column instead of leaving it in an implicit rail. */
+  #nd-docs-layout > [data-toc-popover] {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
 }
 
 @media (min-width: 768px) and (max-width: 1279px) {
@@ -983,6 +996,9 @@ figure.shiki > div:first-child[class*="border-b"] {
 
 @media (min-width: 1280px) {
   #nd-docs-layout {
+    width: var(--shell-docs-layout-width) !important;
+    max-width: calc(100% - 2rem) !important;
+    margin-inline: auto !important;
     margin-top: var(--shell-docs-grid-top-offset) !important;
     padding-top: 0 !important;
     /* Override fumadocs's `--fd-docs-row-1: var(--fd-banner-height, 0px)`.
@@ -1132,7 +1148,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 
 @media (min-width: 1280px) {
   #nd-docs-layout:not(:has(#nd-toc)) article#nd-page[data-full="true"] {
-    grid-column: main-start / toc-end;
+    grid-column: main;
   }
 }
 
@@ -1192,11 +1208,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 
 .docs-page-tools {
-  --docs-page-actions-hover: color-mix(
-    in oklch,
-    var(--accent-fill) 68%,
-    black
-  );
+  --docs-page-actions-hover: color-mix(in oklch, var(--accent-fill) 68%, black);
   position: relative;
   isolation: isolate;
   flex: 0 0 auto;
