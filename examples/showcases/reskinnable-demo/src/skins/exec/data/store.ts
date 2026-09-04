@@ -114,7 +114,18 @@ export function reset(): void {
   idCounter = 0;
 }
 
-/** The one snapshot read — see `LedgerSnapshot`'s doc comment in `types.ts`. */
+/**
+ * The WHOLE-LEDGER read, the one `GET /ledger` serves — see `LedgerSnapshot`'s
+ * doc comment in `types.ts`.
+ *
+ * Not the module's only read: `metricSeries` and `exceptions` are narrower
+ * ones, and callers that want a single collection should take those rather
+ * than this. What makes this one worth having is that it returns every
+ * collection TOGETHER, so a page that mounts off it has every readable
+ * describing the same instant instead of stitching several requests into one
+ * screen. `exceptions` is recomputed here, not read — see the module comment
+ * on why they are derived and never stored.
+ */
 export function snapshot(): LedgerSnapshot {
   return {
     metricDefs: state.metricDefs,
@@ -125,6 +136,19 @@ export function snapshot(): LedgerSnapshot {
     packs: state.packs,
     exceptions: exceptions(),
   };
+}
+
+/**
+ * The metric definitions alone — the catalog every other read is joined
+ * against (labels, units, audience, `thresholdPct`).
+ *
+ * Exists so a caller that wants ONLY the defs — `get_metrics` in `agent.ts`
+ * naming the metrics the model may ask for, a `<select>` building its options
+ * — does not have to take `snapshot()` and pay for an `exceptions()` pass over
+ * every point in the ledger to reach one field of it.
+ */
+export function metricDefs(): MetricDef[] {
+  return state.metricDefs;
 }
 
 /**
@@ -154,8 +178,15 @@ function periodWindow(months: number | undefined): number | null {
  * last N DISTINCT sorted periods and filters to them, so a department filter
  * combined with `months` never truncates mid-period for a metric whose rows
  * span several departments. See `periodWindow` for which `months` values
- * narrow at all. Mirrors the fixed getter in
- * `src/skins/exec/sandbox-functions.ts`.
+ * narrow at all.
+ *
+ * `get_metrics` in `src/skins/exec/sandbox-functions.ts` serves the agent off
+ * the same points under this SAME window contract, and the two have to agree:
+ * the model quotes what that getter returns while the operator reads what
+ * this one renders, so a metric windowed one way here and another way there
+ * puts two different numbers on stage for one question. That is a statement
+ * of the contract both owe, not a claim about the other file's current
+ * implementation.
  */
 export function metricSeries(q: {
   metricId: MetricId;
@@ -181,6 +212,25 @@ export function metricSeries(q: {
  * history. `explained` is true iff a narrative has been filed for that exact
  * `(metricId, period)` pair; a narrative filed for a different period never
  * clears a breach.
+ *
+ * `(metricId, period)` IS THE WHOLE KEY — department is deliberately NOT part
+ * of it, and that is a decision with an enforced invariant behind it rather
+ * than an oversight. A `Narrative` names a metric and a period, so one filing
+ * clears every department's breach of that metric at that period. The demo is
+ * only honest because the SEED holds the other half of the bargain: no metric
+ * breaches in more than one department at the latest period, so "the
+ * department's breach" and "the metric's breach" are the same object and no
+ * filing ever clears a breach nobody wrote about. That invariant is asserted
+ * — not assumed — by the seed-guard test in `store.test.ts` ("keeps every
+ * breaching metric's breaches inside ONE department"), so a reseed that
+ * spreads one metric's breaches across departments fails there instead of
+ * quietly publishing a board pack with an unexplained overrun in it.
+ *
+ * The alternative — widening `Narrative` (and every route, tool and form
+ * behind it) to carry a department — was considered and rejected: it buys
+ * nothing the seed guard does not already guarantee, and it would make every
+ * company-wide metric file narratives against a department field whose only
+ * possible value is "all".
  */
 export function exceptions(): Exception[] {
   const latest = latestClosedPeriod(state.points);
