@@ -12,6 +12,7 @@ import {
 
 vi.mock("../v2/context", () => ({
   useCopilotKit: vi.fn(),
+  useDefaultAgentId: vi.fn(() => undefined),
 }));
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
