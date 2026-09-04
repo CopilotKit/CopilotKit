@@ -9,10 +9,15 @@ const AddBlockBody = z.object({
 });
 
 /**
- * Moves a draft block onto a dashboard. Validation happens BEFORE touching
- * the store: `state.dashboards[dashboardId]` is a plain object index, so an
- * unvalidated `dashboardId` would not 404/400 — it would throw reading
- * `.blocks` off `undefined`. Idempotent by construction (see
+ * Moves a draft block onto a dashboard. `dashboardId` is validated BEFORE the
+ * store is touched, and the store now guards the same argument again:
+ * `addBlockToDashboard` goes through `requireDashboard`, which throws
+ * `NOT_FOUND: no dashboard "<id>"` and reaches the client as a coded 404
+ * through `storeErrorResponse`'s table. So an unvalidated id is no longer a
+ * TypeError off `undefined.blocks`, and this zod enum is not what stops a
+ * crash — it is what answers 400 with the ALLOWED VALUES named, which the
+ * store's 404 cannot say, and it keeps the refusal here rather than
+ * discovering it one layer down. Idempotent by construction (see
  * `store.addBlockToDashboard`'s doc comment) — no second guard needed here.
  */
 export const POST = async (
