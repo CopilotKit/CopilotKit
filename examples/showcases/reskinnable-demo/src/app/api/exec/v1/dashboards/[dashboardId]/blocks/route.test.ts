@@ -31,17 +31,40 @@ const patchBlock = (dashboardId: string, blockId: string, body: unknown) =>
     { params: Promise.resolve({ dashboardId, blockId }) },
   );
 
+/** The ids currently pinned to a dashboard, read fresh out of the store. */
+const pinnedIds = (dashboardId: "ceo" | "cfo") =>
+  store.snapshot().dashboards[dashboardId].blocks.map((b) => b.id);
+
 const deleteBlock = (dashboardId: string, blockId: string) =>
   DELETE(new Request("http://localhost/x", { method: "DELETE" }), {
     params: Promise.resolve({ dashboardId, blockId }),
   });
 
 describe("dashboard blocks — add, reorder, remove", () => {
+  /**
+   * The RESPONSE BODIES, not just the statuses and the store.
+   *
+   * The grid re-renders from what these three handlers return (see
+   * `data/ledger-context.tsx`), so a handler that mutated correctly and then
+   * answered with the wrong thing — the pre-mutation list, the other
+   * dashboard's list, `undefined` — leaves a stale or empty dashboard on
+   * screen while every store assertion in this file still passes. Each shape
+   * is deliberate and different: POST answers with the ONE block it pinned
+   * (the agent needs its id back), DELETE and PATCH with the dashboard's whole
+   * block list in its new order (the grid redraws from it).
+   */
   it("round-trips a draft block onto and off of the CEO dashboard", async () => {
     const draft = store.createDraftBlock(DRAFT_SPEC);
 
     const addRes = await addToDashboard("ceo", draft.id);
     expect(addRes.status).toBe(200);
+    // The pinned block itself, echoed back whole — id and spec, so the caller
+    // that only has a draft id can render it without a second read.
+    expect(await addRes.json()).toEqual({
+      id: draft.id,
+      spec: DRAFT_SPEC,
+      addedAt: expect.any(String),
+    });
     let ceoBlocks = store.snapshot().dashboards.ceo.blocks;
     expect(ceoBlocks.map((b) => b.id)).toContain(draft.id);
     const addedIndex = ceoBlocks.findIndex((b) => b.id === draft.id);
@@ -55,11 +78,47 @@ describe("dashboard blocks — add, reorder, remove", () => {
     ceoBlocks = store.snapshot().dashboards.ceo.blocks;
     const movedIndex = ceoBlocks.findIndex((b) => b.id === draft.id);
     expect(movedIndex).toBe(addedIndex - 1);
+    // The POST-MOVE list, in the new order: the grid draws the order it is
+    // handed, so answering with the pre-move list puts the block back where
+    // it was until the next full ledger read.
+    const patched = (await patchRes.json()) as { id: string }[];
+    expect(patched.map((b) => b.id)).toEqual(ceoBlocks.map((b) => b.id));
+    expect(patched[movedIndex].id).toBe(draft.id);
 
     const deleteRes = await deleteBlock("ceo", draft.id);
     expect(deleteRes.status).toBe(200);
     ceoBlocks = store.snapshot().dashboards.ceo.blocks;
     expect(ceoBlocks.map((b) => b.id)).not.toContain(draft.id);
+    // The list WITHOUT the unpinned block — the untouched list here is what a
+    // failed unpin used to look like, and it is indistinguishable from success
+    // to the grid.
+    const remaining = (await deleteRes.json()) as { id: string }[];
+    expect(remaining.map((b) => b.id)).toEqual(ceoBlocks.map((b) => b.id));
+    expect(remaining.map((b) => b.id)).not.toContain(draft.id);
+  });
+
+  /**
+   * DELETE and PATCH answer with the TARGET dashboard's blocks. Serving the
+   * other one's (or both merged) redraws the CFO grid over the CEO's, which is
+   * a store-invisible bug: every assertion about `snapshot()` still passes.
+   */
+  it("answers DELETE and PATCH with the target dashboard's blocks only", async () => {
+    const draft = store.createDraftBlock(DRAFT_SPEC);
+    await addToDashboard("cfo", draft.id);
+
+    const ceoIds = pinnedIds("ceo");
+
+    const patched = (await (
+      await patchBlock("cfo", draft.id, { direction: "up" })
+    ).json()) as { id: string }[];
+    expect(patched.map((b) => b.id)).toEqual(pinnedIds("cfo"));
+    for (const id of ceoIds) expect(patched.map((b) => b.id)).not.toContain(id);
+
+    const deleted = (await (await deleteBlock("cfo", draft.id)).json()) as {
+      id: string;
+    }[];
+    expect(deleted.map((b) => b.id)).toEqual(pinnedIds("cfo"));
+    for (const id of ceoIds) expect(deleted.map((b) => b.id)).not.toContain(id);
   });
 
   it("rejects an unknown dashboardId with 400", async () => {
