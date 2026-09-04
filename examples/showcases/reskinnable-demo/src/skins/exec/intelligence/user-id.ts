@@ -24,21 +24,47 @@
 
 import type { IdentifyRunUser } from "@/shell/agent-registry";
 
-/** Operator id -> memory scope. Exec has exactly one on-screen persona — the
- *  chief of staff Vantage is built for — so this is a single-entry map rather
- *  than a roster, kept in the same shape as the other skins' operator maps so
- *  a second persona could be added later without reshaping this module. */
-const OPERATOR_IDENTITY: Record<string, { userId: string; userName: string }> =
-  {
-    "cascade-chief-of-staff": {
-      userId: "vantage-chief-of-staff",
-      userName: "Cascade Chief of Staff",
-    },
-  };
+interface OperatorIdentity {
+  userId: string;
+  userName: string;
+}
 
-export const SEEDED_USER_IDS: readonly string[] = Object.values(
-  OPERATOR_IDENTITY,
-).map((o) => o.userId);
+/** The one on-screen persona Vantage is built for. Named separately from the
+ *  map below so `SEED_TARGET_USER_IDS` can reference its id without a
+ *  non-null-asserted `Map.get`. */
+const CHIEF_OF_STAFF: OperatorIdentity = {
+  userId: "vantage-chief-of-staff",
+  userName: "Cascade Chief of Staff",
+};
+
+/**
+ * Operator id -> memory scope. Exec has exactly one on-screen persona, so this
+ * is a single-entry map rather than a roster, kept in the same shape as the
+ * other skins' operator maps so a second persona could be added later without
+ * reshaping this module.
+ *
+ * A `Map` (not a plain object) is load-bearing for security, exactly as in
+ * `src/skins/keel/intelligence/user-id.ts` and
+ * `src/skins/commerce/intelligence/user-id.ts`: the key is
+ * `properties.userId`, client-forwarded and therefore untrusted. A plain-object
+ * lookup walks the PROTOTYPE CHAIN, so `"toString"`, `"constructor"`,
+ * `"valueOf"`, `"__proto__"`, … all resolve TRUTHY, pass the `operatorId && …`
+ * guard, and then `.userId` / `.userName` on the inherited member is
+ * `undefined`. That is the worst possible outcome for THIS function: it decides
+ * the durable-memory scope, so Intelligence would read and write memories under
+ * an `undefined` bucket nobody intended — and no `dev/reset` sweep would ever
+ * clear it, which is precisely how beat 6 starts out already taught.
+ * `Map.get` only ever sees own entries, so the bad state is unrepresentable
+ * rather than guarded per call site. `Record<string, …>` could not catch it:
+ * the annotation was a lie about a plain object.
+ */
+const OPERATOR_IDENTITY: Map<string, OperatorIdentity> = new Map([
+  ["cascade-chief-of-staff", CHIEF_OF_STAFF],
+]);
+
+export const SEEDED_USER_IDS: readonly string[] = [
+  ...OPERATOR_IDENTITY.values(),
+].map((o) => o.userId);
 
 /**
  * Where memory lands when no operator is mapped and no role is set. Memory
@@ -73,7 +99,7 @@ export const DEMO_DEFAULT_USER_ID = "vantage-demo-user";
  */
 export const SEED_TARGET_USER_IDS: readonly string[] = [
   DEMO_DEFAULT_USER_ID,
-  OPERATOR_IDENTITY["cascade-chief-of-staff"].userId,
+  CHIEF_OF_STAFF.userId,
 ];
 
 export type IdentityInput = { operatorId?: string; role?: string };
@@ -93,8 +119,8 @@ export function resolveUserId({
 }: IdentityInput = {}): string {
   const pinned = process.env.INTELLIGENCE_USER_ID;
   if (pinned) return pinned;
-  if (operatorId && OPERATOR_IDENTITY[operatorId])
-    return OPERATOR_IDENTITY[operatorId].userId;
+  const mapped = operatorId ? OPERATOR_IDENTITY.get(operatorId) : undefined;
+  if (mapped) return mapped.userId;
   return roleSlug(role);
 }
 
@@ -107,8 +133,8 @@ export function resolveUserName({
       process.env.INTELLIGENCE_USER_NAME ?? process.env.INTELLIGENCE_USER_ID
     );
   }
-  if (operatorId && OPERATOR_IDENTITY[operatorId])
-    return OPERATOR_IDENTITY[operatorId].userName;
+  const mapped = operatorId ? OPERATOR_IDENTITY.get(operatorId) : undefined;
+  if (mapped) return mapped.userName;
   return role ? `Vantage ${role}` : "Vantage Demo User";
 }
 
