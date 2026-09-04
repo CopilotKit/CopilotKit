@@ -45,10 +45,47 @@ export const POST = async () => {
 
   const apiUrl = process.env.INTELLIGENCE_API_URL;
   const apiKey = process.env.CPK_INTELLIGENCE_API_KEY;
-  if (!apiUrl || !apiKey) {
+  if (!apiUrl && !apiKey) {
     // OSS path: there is no durable memory to clear, and beats 2/4/5/6 degrade
     // by design. Report exactly what was reset rather than implying more.
     return Response.json({ ok: true, reset: ["store"] });
+  }
+  if (!apiUrl || !apiKey) {
+    /**
+     * HALF-CONFIGURED — a MISCONFIGURATION, not the OSS path, and the
+     * distinction is the whole point of splitting this branch in two.
+     *
+     * `!apiUrl || !apiKey` used to cover both, so a booth that set the backend
+     * address and forgot the secret (or had the secret expire out of the
+     * deploy) got `ok: true, reset: ["store"]` — a green Reset button, memory
+     * NEVER swept, and nothing on screen saying so. Beat 6 then opens already
+     * taught by the previous run, which is the single most demo-destroying
+     * shape this bug takes: everything still works, it just proves nothing.
+     * Someone who deliberately runs without Intelligence sets NEITHER var; one
+     * var alone is always an accident.
+     *
+     * 500, not 502: nothing upstream was contacted or refused anything — the
+     * fault is entirely this deployment's env. The names of the vars are safe
+     * to echo; their VALUES are not, so the message names only which one is
+     * missing and still goes through `redactSecrets` on the way out.
+     */
+    const missing = apiUrl
+      ? "CPK_INTELLIGENCE_API_KEY"
+      : "INTELLIGENCE_API_URL";
+    const present = apiUrl
+      ? "INTELLIGENCE_API_URL"
+      : "CPK_INTELLIGENCE_API_KEY";
+    const memoryError = redactSecrets(
+      `Intelligence is HALF-configured: ${present} is set but ${missing} is ` +
+        `not, so durable memory was NOT swept or re-seeded. Set both (or ` +
+        `neither, for the OSS path) and reset again — beats 4/5 are not armed ` +
+        `and beat 6 may still be taught from a previous run.`,
+    );
+    console.error(`[exec] presenter reset: ${memoryError}`);
+    return Response.json(
+      { ok: false, reset: ["store"], memoryError },
+      { status: 500 },
+    );
   }
 
   // Declared outside the try/catch below so a mid-loop failure can still
@@ -57,6 +94,11 @@ export const POST = async () => {
   // would send a presenter looking in the wrong place.
   let forgot = 0;
   let seeded = 0;
+  // Rows that were ALREADY absent when the DELETE landed (404/410) — a
+  // concurrent reset or a backend TTL got there first. Success for the purpose
+  // of this reset (the row is gone either way), but reported separately so
+  // `forgot` stays literally true. See intelligence/forget-memories.ts.
+  let alreadyGone = 0;
   // Project-scoped rows the forget helper deliberately left alone — they belong
   // to sibling demos sharing this backend, not to Vantage. Reported rather than
   // hidden: a non-zero count after a Vantage-only session means something saved
@@ -107,6 +149,19 @@ export const POST = async () => {
     try {
       const result = await forgetAllMemories({ apiUrl, apiKey, userId });
       forgot += result.forgot;
+      alreadyGone += result.alreadyGone;
+      if (!result.complete) {
+        // The sweep ran without throwing but could NOT prove the bucket was
+        // emptied — the list endpoint's pagination contract is unknown, so
+        // `forgetAllMemories` verifies rather than assumes (see its header).
+        // An unproven clear must never be reported as a clean reset: rows left
+        // behind are exactly how beat 6 opens already taught while the button
+        // reads "done".
+        failures.push(
+          `forget ${userId}: incomplete sweep after ${result.passes} pass(es): ` +
+            `${result.incompleteReason ?? "unknown reason"}`,
+        );
+      }
       // MAX, not a sum: verified against the running Intelligence stack (see
       // the doc comment on `skippedProjectScoped` in forget-memories.ts and
       // `intelligence/user-id.ts`'s header), the bare list returns every
@@ -171,6 +226,7 @@ export const POST = async () => {
         // verbatim. See src/lib/redact-secrets.ts.
         apiUrl: redactSecrets(apiUrl),
         forgot,
+        alreadyGone,
         seeded,
         expectedSeeds,
         skippedProjectScoped,
@@ -185,6 +241,7 @@ export const POST = async () => {
     reset: ["store", "memory"],
     apiUrl: redactSecrets(apiUrl),
     forgot,
+    alreadyGone,
     seeded,
     expectedSeeds,
     skippedProjectScoped,
