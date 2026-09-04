@@ -24,28 +24,13 @@ The walkthrough begins with Memory, a separate Intelligence capability, then sho
 
 ## How Learning works
 
-Learning follows one review loop:
+Learning starts with a container, which groups Threads from the same kind of work. Intelligence analyzes completed runs in that container and summarizes recurring patterns as Insights.
 
-<Cards>
-  <Card
-    title="1. Observe real work"
-    description="Assign related Threads to a Learning container. Intelligence automatically captures each completed run as evidence."
-  />
-  <Card
-    title="2. Find repeatable patterns"
-    description="Run Learning to turn new evidence into Insights and proposed Skills."
-  />
-  <Card
-    title="3. Review and reuse"
-    description="Check the source Threads, approve useful Skill candidates, and load the published Skills into your agents."
-  />
-</Cards>
+When a pattern can be reused, Learning proposes a Skill. You review the supporting Threads and decide whether to publish it. A published Skill is a versioned set of instructions that you load into your agent; Learning does not change the model itself.
 
-<Callout type="info" title="You stay in control">
-  Evidence capture is automatic. Running the analysis, approving a proposed Skill, and loading it into an agent are deliberate actions. Learning never fine-tunes your model or silently changes agent behavior.
-</Callout>
+## Set up Learning
 
-## Configure Learning
+When you are done, your Runtime will send selected Threads to a Learning container, ready to be analyzed and turned into reviewed Skills.
 
 <Steps>
   <Step>

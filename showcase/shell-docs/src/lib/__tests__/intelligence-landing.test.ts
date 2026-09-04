@@ -87,11 +87,15 @@ test("the Learning guide stays focused on the reviewed Learning workflow", () =>
 
   expect(guide).toContain("## Overview");
   expect(guide).toContain("## How Learning works");
-  expect(guide).toContain("## Configure Learning");
+  expect(guide).toContain("## Set up Learning");
   expect(guide).toContain("### Connect CopilotKit Intelligence");
   expect(guide).toContain("](/intelligence/quickstart)");
   expect(guide).toContain("https://dashboard.operations.copilotkit.ai/");
-  expect(guide).toContain("You stay in control");
+  expect(guide).toContain(
+    "your Runtime will send selected Threads to a Learning container",
+  );
+  expect(guide).not.toContain("<Cards>");
+  expect(guide).not.toContain("You stay in control");
   expect(guide).not.toContain("Before configuring a container:");
   expect(guide).not.toContain("## Choose a useful learning boundary");
   expect(guide).not.toContain("## Enable long-term Memory");
