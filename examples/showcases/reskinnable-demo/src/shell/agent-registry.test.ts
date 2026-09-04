@@ -63,6 +63,56 @@ describe("SkinRegistry ↔ agentRegistry", () => {
     expect([...agentIds].sort()).toEqual(Object.keys(SkinRegistry).sort());
   });
 
+  /**
+   * THE UNTRUSTED-KEY INVARIANT.
+   *
+   * `agentRegistry` is indexed with a URL-derived id: the shared API route does
+   * `agentRegistry[agentId]?.identifyUser` on an `agentId` parsed straight out
+   * of `request.url` (`src/app/api/copilotkit/[[...slug]]/route.ts`). A plain
+   * object walks the PROTOTYPE CHAIN on an index, so `constructor`,
+   * `toString`, `valueOf`, `hasOwnProperty`, `__proto__` … each hand back a
+   * truthy INHERITED member instead of `undefined` — the exact hazard
+   * `getSkin` was fixed for next door (`src/shell/registry.ts`), on the same
+   * ids, one registry over. `Record<string, AgentRegistration>` cannot catch
+   * it: the annotation describes the map's own entries, not what indexing it
+   * returns.
+   *
+   * Today the route survives on `?.` — the inherited members carry no
+   * `identifyUser`, so the optional chain yields `undefined` and the generic
+   * identity answers. That is luck, not a guarantee: any second reader that
+   * drops the `?.`, or reaches for `.createAgent()` the way the agent-map
+   * builder above it does, gets a 500 out of a URL anyone can type.
+   *
+   * Pinned as BEHAVIOUR at the index — this is what every call site does —
+   * rather than by asserting which own-key primitive implements it.
+   */
+  it("does not resolve Object.prototype members as registrations", () => {
+    const inherited = [
+      "constructor",
+      "toString",
+      "valueOf",
+      "hasOwnProperty",
+      "isPrototypeOf",
+      "propertyIsEnumerable",
+      "toLocaleString",
+      "__proto__",
+      "__defineGetter__",
+    ];
+    for (const key of inherited) {
+      expect(agentRegistry[key], `agentRegistry["${key}"]`).toBeUndefined();
+    }
+  });
+
+  it("still resolves, and still enumerates, every registered id", () => {
+    // The own-key guarantee above must not have been bought by breaking the
+    // two things the route does with this map: index it by a known id, and
+    // enumerate it (via `agentIds`) to build the runtime's agent map.
+    for (const id of agentIds) {
+      expect(agentRegistry[id], `agentRegistry["${id}"]`).toBeDefined();
+    }
+    expect(Object.keys(agentRegistry).sort()).toEqual([...agentIds].sort());
+  });
+
   it("gives every registration a callable agent factory", () => {
     for (const [id, registration] of Object.entries(agentRegistry)) {
       expect(

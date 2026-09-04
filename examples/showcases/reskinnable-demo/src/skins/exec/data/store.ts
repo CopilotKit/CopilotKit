@@ -285,6 +285,31 @@ export function createDraftBlock(spec: BlockSpec): DashboardBlock {
 }
 
 /**
+ * The dashboard registered under `dashboardId`, or `undefined` — the ONE place
+ * `state.dashboards` is indexed by a caller-supplied id.
+ *
+ * `Object.hasOwn` rather than a bare `state.dashboards[dashboardId]`, because
+ * a plain-object index walks the PROTOTYPE CHAIN: `"constructor"`,
+ * `"toString"`, `"valueOf"`, `"hasOwnProperty"`, `"__proto__"` … each resolves
+ * to a truthy INHERITED member, sails past any `!dashboard` guard, and then
+ * blows up on `.blocks` a line later. `__proto__` is the nastiest — the lookup
+ * hands back `Object.prototype` itself, an object, so even a
+ * `typeof === "object"` guard downstream would wave it through. Same hazard,
+ * same treatment as `getSkin` in `src/shell/registry.ts`.
+ *
+ * `Record<DashboardId, Dashboard>` cannot catch this: the annotation is a
+ * claim about the map's own entries and about the seed, not about the
+ * argument. The ids arrive as URL path segments
+ * (`/api/exec/v1/dashboards/<id>/blocks`) and as agent tool arguments — plain
+ * strings wearing a cast.
+ */
+function lookupDashboard(dashboardId: DashboardId): Dashboard | undefined {
+  return Object.hasOwn(state.dashboards, dashboardId)
+    ? state.dashboards[dashboardId]
+    : undefined;
+}
+
+/**
  * The dashboard for `dashboardId`, or `NOT_FOUND` — never `undefined`.
  *
  * `state.dashboards` is typed `Record<DashboardId, Dashboard>`, so TypeScript
@@ -298,7 +323,7 @@ export function createDraftBlock(spec: BlockSpec): DashboardBlock {
  * already gets, and it maps to 404 through the one table.
  */
 function requireDashboard(dashboardId: DashboardId): Dashboard {
-  const dashboard: Dashboard | undefined = state.dashboards[dashboardId];
+  const dashboard = lookupDashboard(dashboardId);
   if (!dashboard) {
     throw new Error(`NOT_FOUND: no dashboard "${dashboardId}"`);
   }
@@ -483,7 +508,7 @@ export function publishPack(
     return { ok: false, status: 403, code: "BAD_COUNTERSIGN" };
   }
 
-  const dashboard: Dashboard | undefined = state.dashboards[dashboardId];
+  const dashboard = lookupDashboard(dashboardId);
   if (!dashboard) {
     return {
       ok: false,
