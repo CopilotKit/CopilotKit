@@ -144,7 +144,7 @@ Optional:
 | `onSuggestionSelect?`   | `(suggestion: Suggestion, index: number) => boolean` | Intercepts a suggestion click. Return `true` if the skin fully handled it (the shell does nothing further); return `false`/omit for the default "send the message" path.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `RuntimeProviders?`     | `ComponentType<{ children: ReactNode }>`             | Provider stack mounted **above** `CopilotKitProvider` (unlike `Providers`, which mounts below). The sanctioned place to establish any context `useRuntimeProperties` must read — the identity source must sit above the provider so the provider owns the property bag from its first commit (no child racing `setProperties`). Banking hoists its `AuthContextProvider` here. `airline` is the one skin that sets `useRuntimeProperties` and NOT this — deliberately: it has one account holder and no switcher, so its hook reads no context and returns a frozen module constant (`src/skins/airline/runtime-properties.ts`). Needing `useRuntimeProperties` does not imply needing this.                                                                                                                                                                                                                                         |
 | `useRuntimeProperties?` | `() => Record<string, unknown> \| undefined`         | Contributes this skin's runtime `properties`. The shell calls it inside `RuntimeProviders` (above `CopilotKitProvider`) and threads the result straight into `CopilotKitProvider`'s `properties` prop — this is how a skin scopes its Intelligence runs / durable memory per end-user without the shell reaching into skin internals. Return a stable/memoized object; banking returns `{ userRole, userId }`. Omit if the skin contributes no runtime identity. Every registered skin sets it (`grep -lE '^\s+useRuntimeProperties[,:]' src/skins/*/skin.tsx`).                                                                                                                                                                                                                                                                                                                                                                     |
-| `useData?`              | `() => unknown`                                      | Seed-backed data hook; the shell runs it in `SkinProvider`, components read it via `useSkinData<T>()`. **The in-memory escape hatch — the minority path, with a live worked example.** Derive who takes it, do not trust a list: `grep -l 'useData:' src/skins/*/skin.tsx` names the implementors (`bookstore` today, via `src/skins/bookstore/data/use-data.ts`) and `grep -rn 'omits `useData`\|useData' src/skins/*/skin.tsx` shows the rest recording the omission in a comment. In a skin that omits it `useSkinData<T>()` returns `undefined`, and the skin reads its own ledger through its own context/hook instead — banking `useCreditCards` + `useAuthContext`, logistics `useLogistics()`, people `usePeopleLedger()`, commerce `useCommerceLedger()`, airline `useAirlineLedger()`, keel `useKeelLedger()` + `useKeelDesk()`. For writing one, read the implementor first and templates.md § `data/use-data.ts` second. |
+| `useData?`              | `() => unknown`                                      | Seed-backed data hook; the shell runs it in `SkinProvider`, components read it via `useSkinData<T>()`. **The in-memory escape hatch — the minority path, with a live worked example.** Derive who takes it, do not trust a list: `grep -l 'useData:' src/skins/*/skin.tsx` names the implementors (`bookstore` today, via `src/skins/bookstore/data/use-data.ts`) and `grep -rn 'omits `useData`\|useData' src/skins/*/skin.tsx` shows the rest recording the omission in a comment. In a skin that omits it `useSkinData<T>()` returns `undefined`, and the skin reads its own ledger through its own context/hook instead — banking `useCreditCards` + `useAuthContext`, logistics `useLogistics()`, people `usePeopleLedger()`, commerce `useCommerceLedger()`, airline `useAirlineLedger()`, keel `useKeelLedger()` + `useKeelDesk()`, exec `useExecLedger()`. For writing one, read the implementor first and templates.md § `data/use-data.ts` second. |
 
 Supporting types (also in the contract file):
 
@@ -584,20 +584,40 @@ src/skins/*/skin.tsx`): `useBookstoreData` is a frozen 25-book seed catalog (the
   contrast: switching shopper does not re-scope memory (see the `identifyUser`
   bullet above and the CAVEAT in `.env.example`).
 
+- **`exec`** ("Vantage") — **REST-backed**, Cascade Industries' executive
+  reporting desk. Pages `""` (CEO dashboard), `finance` (CFO dashboard),
+  `metrics` (Metrics explorer), `packs` (Board packs), over `/api/exec/v1/*`
+  (dashboards, ledger, narratives, packs, a generated department budget memo PDF,
+  and a gated `dev/reset`). Like the others it **omits `useData`**: components
+  read its ledger via `useExecLedger()` directly. Sets `Providers`,
+  `sandboxFunctions`, `toolLabels`, `chatHeaderActions` (a paperclip that stages
+  the generated department budget memo PDF), `onSuggestionSelect` (intercepts
+  that pill so the memo rides as an attachment) and a server `identifyUser`.
+  **It omits `RuntimeProviders`** even though it DOES contribute
+  `useRuntimeProperties` — one persona (the chief of staff) and no switcher, so
+  the hook reads no context and returns a frozen module constant, airline's
+  pattern rather than banking's. **It also omits `CanvasSurface`**: its a2ui
+  metric blocks render INLINE in chat via conversational dashboard composition
+  rather than on the shared canvas, making it the second skin without one
+  (`bookstore` is the other). Its teachable gate is publishing a board pack
+  while a metric's variance is unexplained (422 `UNEXPLAINED_VARIANCE`),
+  unlocked by a variance narrative filed under a justifying code. Its beat map
+  is written out at the top of `src/skins/exec/suggestions.ts`.
+
 ### Demo-beat coverage
 
-| Beat                             | banking              | people               | commerce             | airline                | logistics            | keel                   | bookstore                  |
-| -------------------------------- | -------------------- | -------------------- | -------------------- | ---------------------- | -------------------- | ---------------------- | -------------------------- |
-| Gen-UI in transcript             | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅                         |
-| Rich thread survives reload      | ✅ replay-safe tools | ✅ replay-safe tools | ✅ replay-safe tools | ✅ replay-safe tools   | ✅ replay-safe tools | ✅ replay-safe tools   | ✅ replay-safe tools       |
-| Drive the app, secret withheld   | ✅ card PIN          | ✅                   | ✅                   | ✅ card on file        | ✅ planner PIN       | ✅ countersign PIN     | ✅ card, last four only    |
-| "What's on my screen?"           | ✅ route + page      | ✅ route + page      | ✅ route + page      | ✅ route + page        | ✅ route + page      | ✅ route + page        | ✅ route + page            |
-| Navigate via levers + filters    | ✅                   | ✅                   | ✅ four levers       | ✅ four levers         | ✅ four levers       | ✅                     | ✅ four levers             |
-| Multimodal → durable artifact    | ✅ Q2 invoice        | ✅ offer letter      | ✅ price sheet       | ✅ hotel confirmation  | ✅ rate sheet        | ✅ regulatory bulletin | ❌ skipped by direction    |
-| Long-term memory recall          | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅                         |
-| Stored-procedure replay          | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅ seeded op-memory replay |
-| Teach a new procedure            | ✅ over-limit        | ✅ out-of-band       | ✅ below-floor       | ✅ fare not changeable | ✅ over-authority    | ✅ unendorsed revision | ❌ skipped by direction    |
-| Presenter reset (route + button) | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅                         |
+| Beat                             | banking              | people               | commerce             | airline                | logistics            | keel                   | bookstore                  | exec                       |
+| -------------------------------- | -------------------- | -------------------- | -------------------- | ---------------------- | -------------------- | ---------------------- | -------------------------- | --------------------------- |
+| Gen-UI in transcript             | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅                         | ✅ inline a2ui blocks       |
+| Rich thread survives reload      | ✅ replay-safe tools | ✅ replay-safe tools | ✅ replay-safe tools | ✅ replay-safe tools   | ✅ replay-safe tools | ✅ replay-safe tools   | ✅ replay-safe tools       | ✅ replay-safe tools        |
+| Drive the app, secret withheld   | ✅ card PIN          | ✅                   | ✅                   | ✅ card on file        | ✅ planner PIN       | ✅ countersign PIN     | ✅ card, last four only    | ✅ countersign PIN          |
+| "What's on my screen?"           | ✅ route + page      | ✅ route + page      | ✅ route + page      | ✅ route + page        | ✅ route + page      | ✅ route + page        | ✅ route + page            | ✅ route + page             |
+| Navigate via levers + filters    | ✅                   | ✅                   | ✅ four levers       | ✅ four levers         | ✅ four levers       | ✅                     | ✅ four levers             | ✅ four levers              |
+| Multimodal → durable artifact    | ✅ Q2 invoice        | ✅ offer letter      | ✅ price sheet       | ✅ hotel confirmation  | ✅ rate sheet        | ✅ regulatory bulletin | ❌ skipped by direction    | ✅ budget memo              |
+| Long-term memory recall          | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅                         | ✅                          |
+| Stored-procedure replay          | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅ seeded op-memory replay | ✅ month-end board pack     |
+| Teach a new procedure            | ✅ over-limit        | ✅ out-of-band       | ✅ below-floor       | ✅ fare not changeable | ✅ over-authority    | ✅ unendorsed revision | ❌ skipped by direction    | ✅ unexplained variance     |
+| Presenter reset (route + button) | ✅                   | ✅                   | ✅                   | ✅                     | ✅                   | ✅                     | ✅                         | ✅                          |
 
 **Every registered skin hits every row except `bookstore`, which hits every row it
 claims and marks the other two `SKIPPED` in its own beat map** — read its two blanks
@@ -739,8 +759,8 @@ Run tasks through Nx per the repo convention where applicable.
 ## Reference
 
 - `src/shell/skin-contract.ts` — the contract (source of truth).
-- `src/skins/{banking,airline,logistics,keel,people,commerce,bookstore}/skin.tsx`
-  — seven implementations. (`ls src/skins/` re-derives that roster; the drift
+- `src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec}/skin.tsx`
+  — eight implementations. (`ls src/skins/` re-derives that roster; the drift
   guard in `src/shell/skin-roster-docs.test.ts` fails if the list above falls
   behind the registry, which is what makes writing it out safe here.)
   Open them for what each is the CLEANEST example of: `banking` the
@@ -750,7 +770,8 @@ Run tasks through Nx per the repo convention where applicable.
   `airline` runtime identity WITHOUT `RuntimeProviders` plus an entitlement-shaped
   (rather than authority-shaped) beat-6 gate, `keel` parameterized routes and a
   server-settled clock, `bookstore` the only `useData` implementor and a
-  customer-facing storefront on an in-memory substrate.
+  customer-facing storefront on an in-memory substrate, `exec` conversational
+  dashboard composition with agent-rendered a2ui blocks and no `CanvasSurface`.
 - `.claude/skills/reskin/` — the authoring skill: `SKILL.md` (contract + wiring
   traps), `demo-beats.md` (what the demo must prove, and the quality bar),
   `templates.md` (per-file starting points), `failure-modes.md` (how a skin lies —

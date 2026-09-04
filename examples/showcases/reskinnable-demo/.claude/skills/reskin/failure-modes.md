@@ -460,6 +460,21 @@ roster in the documents it names. Its boundary, honestly:
   stale instances outside the set. Read that header before assuming a claim is
   covered.
 
+**Source comments get none of that guard, and are where this class hides
+longest.** "the only skin that ships X", "every skin does Y the same way",
+"all seven skins" — each is one `grep` away from being wrong the moment a
+sibling skin changes or a new one lands, and nothing type-checks, lints or
+tests a comment. Four review findings in one build were exactly this shape,
+each disproved by a single grep run against the tree at review time. **Cite
+the SPECIFIC sibling file(s) you mean instead of quantifying over the skin
+set** — "see the same trap called out in `src/skins/banking/tools.tsx`'s
+comment above `setCardPin`", not "every skin handles this the same way." A
+named file is checkable by opening it; a quantifier is checkable only by
+someone willing to re-derive it, which is exactly the step the comment exists
+to save the reader from. If a comment genuinely needs to make a claim about
+the whole roster, do what this file does everywhere else: state the `grep`/`ls`
+that proves it, not the count.
+
 ---
 
 ## 10. A gate's unlock vocabulary must never reach the agent

@@ -65,7 +65,7 @@ export interface AgentRegistration {
    * `Record<string, AbstractAgent>` and the v2 tree contains no
    * `instanceof BuiltInAgent` branch anywhere.
    *
-   * SIX skins return a `BuiltInAgent`. `banking` returns an `HttpAgent` — its
+   * SEVEN skins return a `BuiltInAgent`. `banking` returns an `HttpAgent` — its
    * agent is a Python deep agent in a separate service (see
    * `src/skins/banking/agent.ts` for why the whole agent moved and not just one
    * tool). Narrowing this back to `BuiltInAgent` would reject that registration

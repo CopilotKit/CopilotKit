@@ -38,7 +38,10 @@ the identical `id`.
 > `RuntimeProviders` (and an entitlement-shaped rather than authority-shaped
 > beat-6 gate), `keel` the fullest parameterized routing, `bookstore` the only
 > `useData` implementor and the worked example of a beat map with two rows marked
-> `SKIPPED` rather than deleted. Those files win on any conflict with this skill.
+> `SKIPPED` rather than deleted, `exec` the BI/executive-analytics domain and the
+> worked example of the `block:`-prefixed inline a2ui convention (an alternative
+> to `CanvasSurface` — see "A `block:`-prefixed a2ui surface…" below). Those
+> files win on any conflict with this skill.
 >
 > **Do not model a new skin on the ABSENCE of a field.** Most optional fields are
 > set by most skins, and every omission in the tree has a stated reason next to it,
@@ -138,6 +141,28 @@ the canvas via the workspace `OpenGenerativeUIActivityRenderer`. A skin does
 a2ui _report_ surface is different: a skin renders its own via the optional
 `CanvasSurface`.)
 
+**A `block:`-prefixed a2ui surface renders INLINE in the chat transcript
+instead of the handoff pill — everything else still gets the pill + canvas
+path unchanged.** The shell's chat activity renderer
+(`A2UISurfaceActivity` in `src/app/[skin]/layout.tsx`, wired module-level into
+the `A2UI_RENDERERS` array so the reference stays stable across renders —
+`CopilotKitProvider` requires that) reads an `a2ui-surface` activity's
+`content.a2ui_operations`, walks it for the first
+`createSurface`/`updateComponents`/`updateDataModel` surface id, and checks
+whether that id starts with `block:`. A match renders
+`InlineBlockSurface` (`src/shell/chat/inline-block-surface.tsx`) right where
+the activity message appears, feeding the same ambient a2ui store the canvas
+uses. Anything else — including a `CanvasSurface` report like banking's
+`render_report` or logistics' `renderBrief` — still falls back to
+`ReportHandoffPill`; this convention adds a second inline path, it does not
+change the existing one. Because the shell must not import from
+`src/skins/`, the `block:` spelling is duplicated by hand: the shell's copy is
+`BLOCK_SURFACE_PREFIX` in `inline-block-surface.tsx`, and a skin that wants
+the inline path mints its own surface ids from its OWN copy of that exact
+string — `src/skins/exec/blocks/build-block-ops.ts`'s `BLOCK_SURFACE_PREFIX`
+is the worked example. Nothing checks the two stay in sync; grep the shell's
+copy before you pick your own spelling.
+
 **A `sandboxFunction`'s `parameters` schema is DOCUMENTATION, not a gate — and its
 returns are undocumented unless the `description` says so.** Two traps, both of
 which produce a generated panel that renders and is wrong:
@@ -209,7 +234,7 @@ against that file; it wins.
 | Field                   | Type                                                 | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ----------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Providers?`            | `ComponentType<{ children: ReactNode }>`             | Skin-specific provider stack mounted **below** `CopilotKitProvider` (escape hatch). Omit → shell substitutes a pass-through.                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `CanvasSurface?`        | `ComponentType`                                      | Renders the skin's own a2ui report surface full-region on the shared canvas. Omit if no a2ui report canvas.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `CanvasSurface?`        | `ComponentType`                                      | Renders the skin's own a2ui report surface full-region on the shared canvas. Omit if no a2ui report canvas — or if every a2ui surface you emit uses the `block:`-prefixed inline convention instead (see "A `block:`-prefixed a2ui surface…" above); `exec` omits `CanvasSurface` for exactly that reason.                                                                                                                                                                                                                                               |
 | `sandboxFunctions?`     | `SandboxFunction[]`                                  | Functions exposed inside OGUI sandboxed iframes for this skin.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `toolLabels?`           | `Record<string, string>`                             | Human labels for this skin's OWN tool-activity chips, keyed by tool name. Unlisted tools fall back to a prettified raw name.                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `chatHeaderActions?`    | `ChatHeaderAction[]`                                 | Buttons this skin contributes to the shared chat header (drawn before the shell's own controls).                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
