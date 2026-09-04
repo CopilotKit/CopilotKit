@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as store from "@/skins/exec/data/store";
+import { storeErrorResponse } from "@/skins/exec/data/store-errors";
 
 const DashboardIdParam = z.enum(["ceo", "cfo"]);
 
@@ -44,12 +45,14 @@ export const POST = async (
     );
   }
 
-  // `addBlockToDashboard` THROWS `NOT_FOUND: no draft block "<id>"` for an id
-  // with no draft behind it — the shape a hallucinated `blockId` from
-  // `pinBlockToDashboard` (`src/skins/exec/tools.tsx`) takes. Unhandled that
-  // is a 500 with a stack trace, which reaches the agent as an opaque
-  // failure it will retry identically; a 404 carrying the message says which
-  // id was not found and that rendering the block first is the fix.
+  // `addBlockToDashboard` signals its two refusals by throwing (see its doc
+  // comment); `storeErrorResponse` is the one table that maps them —
+  // `NOT_FOUND` → 404 for an id with no draft behind it (the shape a
+  // hallucinated `blockId` from `pinBlockToDashboard` takes), `ALREADY_PINNED`
+  // → 409 for a block the OTHER dashboard holds. Unhandled either is a 500
+  // with a stack trace, which reaches the agent as an opaque failure it
+  // retries identically; the coded response carries the message that says
+  // which id, which dashboard, and therefore what to do instead.
   try {
     const block = store.addBlockToDashboard(
       parsedDashboardId.data,
@@ -57,10 +60,8 @@ export const POST = async (
     );
     return Response.json(block, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.startsWith("NOT_FOUND")) {
-      return Response.json({ error: "NOT_FOUND", message }, { status: 404 });
-    }
+    const res = storeErrorResponse(error);
+    if (res) return res;
     throw error;
   }
 };

@@ -86,4 +86,73 @@ describe("dashboard blocks — add, reorder, remove", () => {
     const res = await patchBlock("ceo", seeded.id, { direction: "sideways" });
     expect(res.status).toBe(400);
   });
+
+  /**
+   * A failed unpin must not read as a successful one. These used to answer
+   * 200 with the untouched block list, which is indistinguishable from
+   * "removed it" to both the grid and the agent — and inconsistent with the
+   * POST on the same resource, which already 404s an unknown blockId.
+   */
+  it("404s NOT_FOUND when DELETEing a blockId that is not on the dashboard", async () => {
+    const res = await deleteBlock("ceo", "block-does-not-exist");
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("NOT_FOUND");
+    expect(body.message).toContain("block-does-not-exist");
+  });
+
+  it("404s NOT_FOUND when PATCHing a blockId that is not on the dashboard", async () => {
+    const res = await patchBlock("ceo", "block-does-not-exist", {
+      direction: "up",
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("NOT_FOUND");
+    expect(body.message).toContain("block-does-not-exist");
+  });
+
+  it("404s a DELETE aimed at the dashboard that does NOT hold the block", async () => {
+    const cfoBlock = store.snapshot().dashboards.cfo.blocks[0];
+    const res = await deleteBlock("ceo", cfoBlock.id);
+    expect(res.status).toBe(404);
+    expect(store.snapshot().dashboards.cfo.blocks.map((b) => b.id)).toContain(
+      cfoBlock.id,
+    );
+  });
+
+  /**
+   * Unpin then re-pin, over HTTP, is the sequence the chat's still-visible pin
+   * control performs. It has to succeed — the DELETE returns the block to
+   * drafts rather than destroying it.
+   */
+  it("re-pins a block through POST after it was unpinned through DELETE", async () => {
+    const draft = store.createDraftBlock(DRAFT_SPEC);
+    expect((await addToDashboard("ceo", draft.id)).status).toBe(200);
+    expect((await deleteBlock("ceo", draft.id)).status).toBe(200);
+
+    const repin = await addToDashboard("cfo", draft.id);
+    expect(repin.status).toBe(200);
+    expect(store.snapshot().dashboards.cfo.blocks.map((b) => b.id)).toContain(
+      draft.id,
+    );
+  });
+
+  /**
+   * Single-home is deliberate, but the POST has to say so honestly: 409
+   * ALREADY_PINNED naming the holding dashboard, never 404 "no draft" —
+   * which tells the agent to re-render and duplicate the block.
+   */
+  it("409s ALREADY_PINNED when pinning a block held by the other dashboard", async () => {
+    const draft = store.createDraftBlock(DRAFT_SPEC);
+    await addToDashboard("ceo", draft.id);
+
+    const res = await addToDashboard("cfo", draft.id);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe("ALREADY_PINNED");
+    expect(body.message).toContain("ceo");
+    expect(
+      store.snapshot().dashboards.cfo.blocks.map((b) => b.id),
+    ).not.toContain(draft.id);
+  });
 });

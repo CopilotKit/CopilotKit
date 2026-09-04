@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { RendererProps } from "@copilotkit/a2ui-renderer";
 import type {
+  DashboardId,
   Department,
   LedgerSnapshot,
   MetricDef,
@@ -219,10 +220,35 @@ function renderAddToDashboard(data: BlockData, blockId: string) {
   );
 }
 
+/**
+ * A `BlockData` whose `isPinned` is derived from the same `pinned` set
+ * `addBlock` writes to — the faithful stand-in for the real bridge
+ * (`../providers.tsx`), where `addBlock` awaits the ledger `refresh()` before
+ * it resolves and `isPinned` reads the refreshed snapshot.
+ *
+ * A fake with a frozen `isPinned: () => false` and a no-op `addBlock` cannot
+ * occur in the app, and testing against it is what let the renderer keep a
+ * local sticky "pinned" flag that survived an unpin.
+ */
+function pinnableBlockData(overrides: Partial<BlockData> = {}) {
+  const pinned = new Set<string>();
+  const addBlock = vi.fn(async (_dashboardId: DashboardId, blockId: string) => {
+    pinned.add(blockId);
+  });
+  return {
+    pinned,
+    addBlock,
+    data: makeBlockData({
+      addBlock,
+      isPinned: (blockId: string) => pinned.has(blockId),
+      ...overrides,
+    }),
+  };
+}
+
 describe("exec catalog AddToDashboard renderer", () => {
   it("renders one pin button per dashboard, pins on click, and flips to Pinned state", async () => {
-    const addBlock = vi.fn().mockResolvedValue(undefined);
-    const data = makeBlockData({ addBlock, isPinned: () => false });
+    const { addBlock, data } = pinnableBlockData();
 
     renderAddToDashboard(data, "block-1");
 
@@ -233,5 +259,68 @@ describe("exec catalog AddToDashboard renderer", () => {
 
     expect(addBlock).toHaveBeenCalledWith("ceo", "block-1");
     expect(await screen.findByText("Pinned ✓")).toBeDefined();
+  });
+
+  /**
+   * THE UNPIN ROUND TRIP. The transcript keeps this control mounted after the
+   * operator unpins the block from the dashboard page, and `store.removeBlock`
+   * puts the block back in `drafts` so a re-pin genuinely succeeds. So the
+   * control has to offer the buttons again — a sticky local "pinned" flag left
+   * it reading "Pinned ✓" over a block that was no longer on any dashboard,
+   * with no way back.
+   */
+  it("returns to the pin buttons once the block is unpinned elsewhere", async () => {
+    const { pinned, data } = pinnableBlockData();
+    const { rerender } = render(
+      <BlockDataProvider value={data}>
+        <AddToDashboard
+          props={{ blockId: "block-1" }}
+          // eslint-disable-next-line react/no-children-prop
+          children={() => null as unknown as React.ReactNode}
+        />
+      </BlockDataProvider>,
+    );
+
+    fireEvent.click(screen.getByText("Pin to CEO dashboard"));
+    expect(await screen.findByText("Pinned ✓")).toBeDefined();
+
+    // The dashboard grid's remove button unpins it out of band; the next
+    // ledger snapshot no longer holds it.
+    pinned.delete("block-1");
+    rerender(
+      <BlockDataProvider
+        value={{ ...data, isPinned: (id: string) => pinned.has(id) }}
+      >
+        <AddToDashboard
+          props={{ blockId: "block-1" }}
+          // eslint-disable-next-line react/no-children-prop
+          children={() => null as unknown as React.ReactNode}
+        />
+      </BlockDataProvider>,
+    );
+
+    expect(screen.getByText("Pin to CEO dashboard")).toBeDefined();
+    expect(screen.getByText("Pin to CFO dashboard")).toBeDefined();
+    expect(screen.queryByText("Pinned ✓")).toBeNull();
+  });
+
+  it("shows the server's message loudly when a pin is refused", async () => {
+    const { data } = pinnableBlockData({
+      addBlock: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            'add block failed: ALREADY_PINNED: block "block-1" is already pinned to the "ceo" dashboard — unpin it there first',
+          ),
+        ),
+    });
+
+    renderAddToDashboard(data, "block-1");
+    fireEvent.click(screen.getByText("Pin to CFO dashboard"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("ALREADY_PINNED");
+    // Still offering the buttons: a refused pin must not read as a pin.
+    expect(screen.queryByText("Pinned ✓")).toBeNull();
   });
 });

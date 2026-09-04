@@ -18,6 +18,13 @@
  * chat-rendered block invisible to the dashboard pages until it is pinned —
  * the operator's "Add to dashboard" click or the agent's
  * `pinBlockToDashboard` call.
+ *
+ * `drafts` is UNPINNED, not "not yet pinned": `removeBlock` moves a block
+ * back into it rather than destroying it, so the pin control still on screen
+ * in the chat transcript (and the agent still holding the id) can re-pin it.
+ * Pinning is single-home in both directions — a block is on at most one
+ * dashboard, and `addBlockToDashboard` refuses ALREADY_PINNED rather than
+ * multi-homing it.
  */
 
 import {
@@ -172,10 +179,35 @@ export function createDraftBlock(spec: BlockSpec): DashboardBlock {
   return block;
 }
 
+/** The dashboard currently holding `blockId`, or undefined if none does. */
+function dashboardHolding(blockId: string): Dashboard | undefined {
+  return Object.values(state.dashboards).find((d) =>
+    d.blocks.some((b) => b.id === blockId),
+  );
+}
+
 /**
- * Moves a draft onto a dashboard. Idempotent: if the block is already on the
- * dashboard (the draft has already been consumed by a prior call), the
- * existing instance is returned and the list does not grow.
+ * Moves a block onto a dashboard, from `drafts` or from nowhere else.
+ *
+ * Three outcomes, each distinguishable by the caller — the routes map the
+ * thrown codes onto statuses (`NOT_FOUND` → 404, `ALREADY_PINNED` → 409):
+ *
+ *  - Already on THIS dashboard → the existing instance, list unchanged.
+ *    Idempotent, because a double-click and a retried tool call both land here.
+ *  - Already on the OTHER dashboard → `ALREADY_PINNED`, naming that dashboard.
+ *    A block is single-homed (see `removeBlock`), and this is the one refusal
+ *    that must not be reported as NOT_FOUND: "no draft block" reads to the
+ *    agent as "render it again", and it obliges — producing a duplicate block
+ *    instead of unpinning the one that already exists.
+ *  - Otherwise it must be a draft, else `NOT_FOUND` — the shape a
+ *    hallucinated `blockId` from `pinBlockToDashboard` takes.
+ *
+ * Each thrown message carries its OWN remedy ("render the block first" vs
+ * "unpin it there first") because the relays above it — the POST route, the
+ * ledger context, `pinBlockToDashboard`'s failure arm — forward the message
+ * verbatim rather than appending advice of their own. One remedy per code, in
+ * one place, is what stops ALREADY_PINNED being answered with NOT_FOUND's
+ * advice and the agent re-rendering a block that already exists.
  */
 export function addBlockToDashboard(
   dashboardId: DashboardId,
@@ -184,18 +216,61 @@ export function addBlockToDashboard(
   const dashboard = state.dashboards[dashboardId];
   const existing = dashboard.blocks.find((b) => b.id === blockId);
   if (existing) return existing;
+  const holder = dashboardHolding(blockId);
+  if (holder) {
+    throw new Error(
+      `ALREADY_PINNED: block "${blockId}" is already pinned to the "${holder.id}" dashboard — unpin it there first`,
+    );
+  }
   const draft = state.drafts.get(blockId);
-  if (!draft) throw new Error(`NOT_FOUND: no draft block "${blockId}"`);
+  if (!draft) {
+    throw new Error(
+      `NOT_FOUND: no draft block "${blockId}" — render the block first, then pin the id it returns`,
+    );
+  }
   dashboard.blocks.push(draft);
   state.drafts.delete(blockId);
   return draft;
 }
 
+/**
+ * Unpins a block: back to `drafts`, NOT destroyed.
+ *
+ * That direction is load-bearing, not tidiness. The chat transcript keeps
+ * rendering the block's `AddToDashboard` control after an unpin, and the
+ * agent's `pinBlockToDashboard` keeps holding the same id — both address the
+ * block by id after it leaves the dashboard. Deleting it outright turned
+ * every one of those into a 404 "no draft block", which is the
+ * revive-a-dead-id confusion the module comment's drafts/dashboard
+ * separation exists to prevent. Returning it to `drafts` restores exactly
+ * the pre-pin state, so a re-pin (to either dashboard) simply works.
+ *
+ * Throws `NOT_FOUND` when the block is not on THIS dashboard — including
+ * when it sits on the other one. A silent no-op made a failed unpin
+ * indistinguishable from a successful one at the DELETE route, which
+ * answered 200 with the untouched list either way.
+ */
 export function removeBlock(dashboardId: DashboardId, blockId: string): void {
   const dashboard = state.dashboards[dashboardId];
+  const block = dashboard.blocks.find((b) => b.id === blockId);
+  if (!block) {
+    throw new Error(
+      `NOT_FOUND: no block "${blockId}" on the "${dashboardId}" dashboard`,
+    );
+  }
   dashboard.blocks = dashboard.blocks.filter((b) => b.id !== blockId);
+  state.drafts.set(block.id, block);
 }
 
+/**
+ * Reorders a block within its dashboard by one position.
+ *
+ * `NOT_FOUND` for a block that is not on this dashboard, for the same reason
+ * `removeBlock` throws. A move that would fall off either END is a different
+ * case and stays a silent, successful no-op: the block exists and the order
+ * already is what was asked for, and the grid disables those buttons anyway
+ * (`../components/dashboard-grid.tsx`).
+ */
 export function moveBlock(
   dashboardId: DashboardId,
   blockId: string,
@@ -203,7 +278,11 @@ export function moveBlock(
 ): void {
   const dashboard = state.dashboards[dashboardId];
   const index = dashboard.blocks.findIndex((b) => b.id === blockId);
-  if (index === -1) return;
+  if (index === -1) {
+    throw new Error(
+      `NOT_FOUND: no block "${blockId}" on the "${dashboardId}" dashboard`,
+    );
+  }
   const swapWith = direction === "up" ? index - 1 : index + 1;
   if (swapWith < 0 || swapWith >= dashboard.blocks.length) return;
   const blocks = [...dashboard.blocks];

@@ -209,4 +209,132 @@ describe("dashboard blocks", () => {
     store.removeBlock("ceo", first);
     expect(ids()).not.toContain(first);
   });
+
+  /**
+   * UNPIN RETURNS THE BLOCK TO `drafts`, IT DOES NOT DESTROY IT.
+   *
+   * The chat transcript's pin control (`AddToDashboard` in
+   * `../catalog/renderers.tsx`) and the agent's `pinBlockToDashboard` both
+   * stay on screen / callable after an unpin, and both address the block by
+   * the same id. Destroying the block on remove made every one of those a
+   * guaranteed 404 "no draft block" — the exact revive-a-dead-id confusion
+   * the module comment's drafts/dashboard separation exists to prevent.
+   */
+  it("returns an unpinned block to drafts so it can be re-pinned", () => {
+    const draft = store.createDraftBlock({
+      kind: "metricTile",
+      title: "Revenue vs plan",
+      metricId: "revenue",
+      compare: "plan",
+    });
+    store.addBlockToDashboard("ceo", draft.id);
+    store.removeBlock("ceo", draft.id);
+    expect(
+      store.snapshot().dashboards.ceo.blocks.map((b) => b.id),
+    ).not.toContain(draft.id);
+
+    // The re-pin is what a still-visible chat pin control does. It must work.
+    const repinned = store.addBlockToDashboard("cfo", draft.id);
+    expect(repinned.id).toBe(draft.id);
+    expect(store.snapshot().dashboards.cfo.blocks.map((b) => b.id)).toContain(
+      draft.id,
+    );
+  });
+
+  /**
+   * A seeded block (never a draft) unpins back into drafts too — otherwise
+   * "remove" is destructive for exactly the blocks the demo opens with.
+   */
+  it("returns a SEEDED block to drafts on remove, then re-pins it", () => {
+    const seeded = store.snapshot().dashboards.ceo.blocks[0];
+    store.removeBlock("ceo", seeded.id);
+    const repinned = store.addBlockToDashboard("ceo", seeded.id);
+    expect(repinned.id).toBe(seeded.id);
+    expect(store.snapshot().dashboards.ceo.blocks.map((b) => b.id)).toContain(
+      seeded.id,
+    );
+  });
+
+  /**
+   * Single-home stays: a block lives on at most ONE dashboard. But the refusal
+   * has to say WHY. NOT_FOUND told the agent "no draft — render the block
+   * again", which is a lie that produces a duplicate block; ALREADY_PINNED
+   * names the dashboard it is on, which is actionable (unpin there first).
+   */
+  it("refuses ALREADY_PINNED — not NOT_FOUND — for a block on the other dashboard", () => {
+    const draft = store.createDraftBlock({
+      kind: "metricTile",
+      title: "Revenue vs plan",
+      metricId: "revenue",
+      compare: "plan",
+    });
+    store.addBlockToDashboard("ceo", draft.id);
+    expect(() => store.addBlockToDashboard("cfo", draft.id)).toThrow(
+      /^ALREADY_PINNED/,
+    );
+    // The message names the dashboard that holds it AND carries ITS OWN
+    // remedy: everything above the store (the POST route, the ledger context,
+    // `pinBlockToDashboard`'s failure arm) relays this string verbatim and
+    // appends no advice, so "unpin it there first" has to be in here. Getting
+    // NOT_FOUND's "render the block first" instead is what made the agent
+    // produce a duplicate block.
+    expect(() => store.addBlockToDashboard("cfo", draft.id)).toThrow(/ceo/);
+    expect(() => store.addBlockToDashboard("cfo", draft.id)).toThrow(/unpin/i);
+    // And nothing was multi-homed as a side effect.
+    expect(
+      store.snapshot().dashboards.cfo.blocks.map((b) => b.id),
+    ).not.toContain(draft.id);
+  });
+
+  it("still throws NOT_FOUND for a blockId with no draft and no dashboard home", () => {
+    expect(() => store.addBlockToDashboard("ceo", "block-nope")).toThrow(
+      /^NOT_FOUND/,
+    );
+    // Names the id and its own remedy, for the same relay-verbatim reason.
+    expect(() => store.addBlockToDashboard("ceo", "block-nope")).toThrow(
+      /block-nope/,
+    );
+    expect(() => store.addBlockToDashboard("ceo", "block-nope")).toThrow(
+      /render the block first/i,
+    );
+  });
+
+  /**
+   * A failed unpin/move must be distinguishable from a successful one. Silent
+   * no-ops here made the DELETE/PATCH routes answer 200 for an id that was
+   * never touched.
+   */
+  it("throws NOT_FOUND when removing a block that is not on the dashboard", () => {
+    expect(() => store.removeBlock("ceo", "block-nope")).toThrow(/^NOT_FOUND/);
+  });
+
+  it("throws NOT_FOUND when removing a block pinned to the OTHER dashboard", () => {
+    const cfoBlock = store.snapshot().dashboards.cfo.blocks[0];
+    expect(() => store.removeBlock("ceo", cfoBlock.id)).toThrow(/^NOT_FOUND/);
+    // Untouched on the dashboard that actually holds it.
+    expect(store.snapshot().dashboards.cfo.blocks.map((b) => b.id)).toContain(
+      cfoBlock.id,
+    );
+  });
+
+  it("throws NOT_FOUND when moving a block that is not on the dashboard", () => {
+    expect(() => store.moveBlock("ceo", "block-nope", "up")).toThrow(
+      /^NOT_FOUND/,
+    );
+  });
+
+  /**
+   * A boundary move is NOT a not-found: the block exists and the order is
+   * already what was asked for. It stays a silent, successful no-op — the
+   * grid disables those buttons anyway (`../components/dashboard-grid.tsx`).
+   */
+  it("no-ops without throwing when a move would fall off either end", () => {
+    const ids = () => store.snapshot().dashboards.ceo.blocks.map((b) => b.id);
+    const before = ids();
+    expect(() => store.moveBlock("ceo", before[0], "up")).not.toThrow();
+    expect(() =>
+      store.moveBlock("ceo", before[before.length - 1], "down"),
+    ).not.toThrow();
+    expect(ids()).toEqual(before);
+  });
 });
