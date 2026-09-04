@@ -84,6 +84,25 @@ function buildSeedState(): State {
   };
 }
 
+/**
+ * DEMO LIFETIME, DELIBERATELY.
+ *
+ * Two properties of this module-scope singleton are accepted, not overlooked:
+ *
+ *  - The 24-month window (and therefore "the latest closed period" every
+ *    derivation is anchored to) is fixed when `seedPoints()` runs — at module
+ *    init, and again on `reset()`. A dev server left running across a month
+ *    boundary keeps showing the month it booted in. That is the RIGHT
+ *    trade for a demo: the seeded breaches, the narratives filed against
+ *    `(metricId, period)` pairs and the pack records all hang off that
+ *    period, and re-deriving it mid-session would strand every one of them.
+ *    `reset()` (the presenter's dev-reset route) rolls the window forward.
+ *  - `drafts` is never evicted: an unpinned block is addressable by id from
+ *    the chat transcript for as long as the transcript exists (see
+ *    `removeBlock`), so there is no moment at which dropping one is safe. The
+ *    map is bounded in practice by one demo session's block renders, and
+ *    `reset()` empties it.
+ */
 let state: State = buildSeedState();
 let idCounter = 0;
 const nextId = (prefix: string) =>
@@ -109,10 +128,33 @@ export function snapshot(): LedgerSnapshot {
 }
 
 /**
+ * How many trailing periods a `months` argument actually narrows to, or
+ * `null` for "don't narrow — return the full history".
+ *
+ * ONLY a positive, finite number narrows. `months` arrives here off a
+ * `BlockSpec` (`trendLine`'s window) and off the agent's `get_metrics`
+ * arguments, so 0, a negative and a NaN are all reachable values rather than
+ * hypotheticals, and the plain `if (q.months)` this replaces mishandled two of
+ * the three: 0 is falsy, so it silently meant "all 24 periods" instead of an
+ * empty window, and -3 reached `slice(-(-3))` === `slice(3)` — the OLDEST 21
+ * periods, an INVERTED window answering a chart that asked for the newest
+ * three. Full history is the honest answer for all of them: the caller asked
+ * for no usable narrowing, and returning everything is visibly wrong on
+ * screen where returning the wrong END of the series is not. A fraction floors
+ * rather than rounding up, so `2.7` never reaches back into a third period.
+ */
+function periodWindow(months: number | undefined): number | null {
+  if (months === undefined) return null;
+  if (!Number.isFinite(months) || months <= 0) return null;
+  return Math.floor(months);
+}
+
+/**
  * A metric's points, period-windowed (not row-sliced): `months` keeps the
  * last N DISTINCT sorted periods and filters to them, so a department filter
  * combined with `months` never truncates mid-period for a metric whose rows
- * span several departments. Mirrors the fixed getter in
+ * span several departments. See `periodWindow` for which `months` values
+ * narrow at all. Mirrors the fixed getter in
  * `src/skins/exec/sandbox-functions.ts`.
  */
 export function metricSeries(q: {
@@ -125,9 +167,10 @@ export function metricSeries(q: {
   rows = [...rows].sort((a, b) =>
     a.period < b.period ? -1 : a.period > b.period ? 1 : 0,
   );
-  if (q.months) {
+  const window = periodWindow(q.months);
+  if (window !== null) {
     const periods = [...new Set(rows.map((r) => r.period))].sort();
-    const keep = new Set(periods.slice(-q.months));
+    const keep = new Set(periods.slice(-window));
     rows = rows.filter((r) => keep.has(r.period));
   }
   return rows;
@@ -191,6 +234,27 @@ export function createDraftBlock(spec: BlockSpec): DashboardBlock {
   return block;
 }
 
+/**
+ * The dashboard for `dashboardId`, or `NOT_FOUND` — never `undefined`.
+ *
+ * `state.dashboards` is typed `Record<DashboardId, Dashboard>`, so TypeScript
+ * hands back a non-optional `Dashboard` and every mutator below used to reach
+ * straight through to `.blocks`. The type is a claim about the seed, not about
+ * the argument: the block routes take `dashboardId` from the URL path, and a
+ * request to `/api/exec/v1/dashboards/cfoo/blocks` (or any caller that skips
+ * the zod enum) landed on `undefined.blocks` — a raw TypeError that
+ * `store-errors.ts` cannot map, so a plain typo answered 500 with no body
+ * naming what was wrong. `NOT_FOUND` is the same code an unknown BLOCK id
+ * already gets, and it maps to 404 through the one table.
+ */
+function requireDashboard(dashboardId: DashboardId): Dashboard {
+  const dashboard: Dashboard | undefined = state.dashboards[dashboardId];
+  if (!dashboard) {
+    throw new Error(`NOT_FOUND: no dashboard "${dashboardId}"`);
+  }
+  return dashboard;
+}
+
 /** The dashboard currently holding `blockId`, or undefined if none does. */
 function dashboardHolding(blockId: string): Dashboard | undefined {
   return Object.values(state.dashboards).find((d) =>
@@ -225,7 +289,7 @@ export function addBlockToDashboard(
   dashboardId: DashboardId,
   blockId: string,
 ): DashboardBlock {
-  const dashboard = state.dashboards[dashboardId];
+  const dashboard = requireDashboard(dashboardId);
   const existing = dashboard.blocks.find((b) => b.id === blockId);
   if (existing) return existing;
   const holder = dashboardHolding(blockId);
@@ -263,7 +327,7 @@ export function addBlockToDashboard(
  * answered 200 with the untouched list either way.
  */
 export function removeBlock(dashboardId: DashboardId, blockId: string): void {
-  const dashboard = state.dashboards[dashboardId];
+  const dashboard = requireDashboard(dashboardId);
   const block = dashboard.blocks.find((b) => b.id === blockId);
   if (!block) {
     throw new Error(
@@ -288,7 +352,7 @@ export function moveBlock(
   blockId: string,
   direction: "up" | "down",
 ): void {
-  const dashboard = state.dashboards[dashboardId];
+  const dashboard = requireDashboard(dashboardId);
   const index = dashboard.blocks.findIndex((b) => b.id === blockId);
   if (index === -1) {
     throw new Error(
@@ -302,7 +366,13 @@ export function moveBlock(
   dashboard.blocks = blocks;
 }
 
-/** The metric ids a dashboard's blocks reference, for the publish gate below. */
+/**
+ * The metric ids a dashboard's blocks reference, for the publish gate below.
+ *
+ * A dashboard is METRIC-BEARING when `includesAll` is true or `metricIds` is
+ * non-empty; when NEITHER holds, the gate below has nothing to check and
+ * refuses `EMPTY_DASHBOARD` rather than passing vacuously — see `publishPack`.
+ */
 function referencedMetrics(dashboard: Dashboard): {
   includesAll: boolean;
   metricIds: Set<MetricId>;
@@ -323,8 +393,27 @@ function referencedMetrics(dashboard: Dashboard): {
 
 /**
  * Order: wrong PIN first (never leak variance state to a bad countersign),
- * then unexplained breaches among the metrics THIS dashboard's blocks
- * reference at the latest closed period, else record and return the pack.
+ * then the dashboard must exist, then it must actually BEAR metrics, then
+ * unexplained breaches among the metrics THIS dashboard's blocks reference at
+ * the latest closed period, else record and return the pack.
+ *
+ * REFUSALS ARE RETURNED, NEVER THROWN. Every relay above this — the POST route
+ * (`app/api/exec/v1/packs/route.ts`), `publish_board_pack` in `agent.ts`, the
+ * countersign card in `tools.tsx` — forwards `code` and `status` VERBATIM off
+ * this discriminated union, which is why a new refusal needs no route change
+ * and why none of them reach `store-errors.ts` (that table maps THROWN block
+ * mutations). Each code has to stand on its own in a body the agent reads.
+ *
+ * `EMPTY_DASHBOARD` is its own code because reporting it as anything else
+ * lies. A dashboard with no metric-bound block and no `exceptionList` makes
+ * `referencedMetrics` yield `includesAll: false` and an EMPTY metric set, so
+ * the breach filter below matched nothing and the pack published `ok: true`
+ * with every breach still unexplained on the ledger — the demo's climactic
+ * 422 defeated by clicking Remove on each block in the grid. Answering
+ * `UNEXPLAINED_VARIANCE` instead would be the opposite lie: it would name
+ * breaches the pack does not contain. The message says what the board pack
+ * lacks and nothing about WHICH metrics breached or what narrative codes
+ * exist — that vocabulary stays server-side.
  */
 export function publishPack(
   dashboardId: DashboardId,
@@ -332,6 +421,8 @@ export function publishPack(
 ):
   | { ok: true; pack: BoardPack }
   | { ok: false; status: 403; code: "BAD_COUNTERSIGN" }
+  | { ok: false; status: 404; code: "NOT_FOUND"; message: string }
+  | { ok: false; status: 422; code: "EMPTY_DASHBOARD"; message: string }
   | {
       ok: false;
       status: 422;
@@ -342,8 +433,30 @@ export function publishPack(
     return { ok: false, status: 403, code: "BAD_COUNTERSIGN" };
   }
 
-  const dashboard = state.dashboards[dashboardId];
+  const dashboard: Dashboard | undefined = state.dashboards[dashboardId];
+  if (!dashboard) {
+    return {
+      ok: false,
+      status: 404,
+      code: "NOT_FOUND",
+      message: `No dashboard "${dashboardId}".`,
+    };
+  }
+
   const { includesAll, metricIds } = referencedMetrics(dashboard);
+  if (!includesAll && metricIds.size === 0) {
+    return {
+      ok: false,
+      status: 422,
+      code: "EMPTY_DASHBOARD",
+      message:
+        `The "${dashboardId}" dashboard has no metric-bound block, so a board ` +
+        "pack built from it would report nothing and its variance gate would " +
+        "check nothing. Add at least one metric block (or an exception list) " +
+        "before publishing.",
+    };
+  }
+
   const breaches = exceptions().filter(
     (e) => !e.explained && (includesAll || metricIds.has(e.metricId)),
   );
@@ -355,9 +468,19 @@ export function publishPack(
   const relevantMetricIds = includesAll
     ? new Set(state.metricDefs.map((d) => d.id))
     : metricIds;
-  const narrativeIds = state.narratives
-    .filter((n) => n.period === latest && relevantMetricIds.has(n.metricId))
-    .map((n) => n.id);
+  // ONE narrative id per (metricId, period). Nothing stops two narratives
+  // being filed for the same pair — beats 3a and 3d do exactly that, the
+  // operator typing one and the agent filing another off the ingested memo —
+  // and `narrativeIds` is the record of WHAT EXPLAINS this pack, so counting
+  // one explanation twice inflates every figure read off it. Last filing
+  // wins: `state.narratives` is append-ordered, so the later `set` overwrites
+  // the earlier id, matching what the exception list shows as current.
+  const narrativeIdByPair = new Map<string, string>();
+  for (const n of state.narratives) {
+    if (n.period !== latest || !relevantMetricIds.has(n.metricId)) continue;
+    narrativeIdByPair.set(`${n.metricId}/${n.period}`, n.id);
+  }
+  const narrativeIds = [...narrativeIdByPair.values()];
 
   const pack: BoardPack = {
     id: nextId("pack"),
