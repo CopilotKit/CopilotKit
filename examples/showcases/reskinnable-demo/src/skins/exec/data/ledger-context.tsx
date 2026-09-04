@@ -133,6 +133,25 @@ async function throwWithBodyMessage(
   throw new Error(`${action} failed: ${body?.message ?? res.status}`);
 }
 
+/**
+ * Thrown by `resetDemo` on a non-OK response, carrying the parsed body so the
+ * caller (`handleReset` in `layout.tsx`) can say WHY rather than just THAT it
+ * failed. `POST /api/exec/v1/dev/reset` answers 502 with `seeded`,
+ * `expectedSeeds` and a redacted `memoryError` when the store reset but
+ * memory seeding fell short — a bare `Error` here would throw that detail
+ * away and leave the alert saying only "reset failed: 502".
+ */
+export class ResetDemoError extends Error {
+  /** The parsed response body, or `null` when it was missing or not JSON. */
+  readonly body: Record<string, unknown> | null;
+
+  constructor(message: string, body: Record<string, unknown> | null) {
+    super(message);
+    this.name = "ResetDemoError";
+    this.body = body;
+  }
+}
+
 export function ExecLedgerProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<ExecLedgerSnapshot>(EMPTY);
   const [loaded, setLoaded] = useState(false);
@@ -304,7 +323,22 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
 
   const resetDemo = useCallback(async () => {
     const res = await fetch("/api/exec/v1/dev/reset", { method: "POST" });
-    if (!res.ok) throw new Error(`reset demo failed: ${res.status}`);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as Record<
+        string,
+        unknown
+      > | null;
+      // Every non-OK body except the 403 FORBIDDEN gate carries a `reset`
+      // array, because the route's FIRST act after that gate is
+      // `store.reset()` — so its presence is what tells this apart from a
+      // refusal that touched nothing. `refresh()` never throws (it logs and
+      // keeps the last good snapshot on a failed fetch), so calling it here
+      // is a safe best-effort refresh of state that DID already change —
+      // without it the screen would keep showing pre-reset data while the
+      // store behind it had already been restored.
+      if (Array.isArray(body?.reset)) await refresh();
+      throw new ResetDemoError(`reset demo failed: ${res.status}`, body);
+    }
     await refresh();
   }, [refresh]);
 

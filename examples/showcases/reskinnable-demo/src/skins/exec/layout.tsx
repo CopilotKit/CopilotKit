@@ -21,7 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useExecLedger } from "./data/ledger-context";
+import { ResetDemoError, useExecLedger } from "./data/ledger-context";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_WIDTH_PX = 240;
@@ -87,6 +87,29 @@ export function ExecLayout({ children }: { children: ReactNode }) {
       // a locked single-tenant deploy.
       window.location.assign(skinHref());
     } catch (err) {
+      // A 502 from `dev/reset` means the STORE half already reset (it is the
+      // route's first act) and only durable memory fell short — `resetDemo`
+      // already best-effort refreshed for that case, so this alert must say
+      // so rather than a bare "Reset failed", which reads as though nothing
+      // happened and invites re-pressing a button that already did its job.
+      if (err instanceof ResetDemoError && Array.isArray(err.body?.reset)) {
+        const { seeded, expectedSeeds, memoryError } = err.body as {
+          seeded?: unknown;
+          expectedSeeds?: unknown;
+          memoryError?: unknown;
+        };
+        const progress =
+          typeof seeded === "number" && typeof expectedSeeds === "number"
+            ? ` (${seeded}/${expectedSeeds} memories seeded)`
+            : "";
+        const detail =
+          typeof memoryError === "string" ? `: ${memoryError}` : "";
+        window.alert(
+          `Demo data was reset, but memory seeding failed${progress}${detail}. ` +
+            `Beats 4-6 may not be armed — see the server logs, then reset again.`,
+        );
+        return;
+      }
       window.alert(`Reset failed: ${err instanceof Error ? err.message : err}`);
     }
   };
