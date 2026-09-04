@@ -38,6 +38,8 @@ const MEMO_REF = "FIN-MEMO-2419";
 const AUTHOR_NAME = "Priya Nair";
 const AUTHOR_TITLE = "Distribution Finance Business Partner";
 
+// en-US, matching the locale the route formats the period label and dateline
+// in — the memo is one document and must read in one locale.
 const CURRENCY = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -56,12 +58,35 @@ export interface BudgetMemoInput {
   memoDate: string;
   planUsd: number;
   actualUsd: number;
-  /** Signed fraction of plan, e.g. 0.09 for a 9% overrun. */
+  /**
+   * Fraction of plan the actual overran by, e.g. 0.09 for a 9% overrun. Must
+   * be POSITIVE — see `NotAnOverrunError`.
+   */
   variancePct: number;
   /** Dollar amount attributed to the shipment-timing driver — the LARGER of the two. */
   timingUsd: number;
   /** Dollar amount attributed to the one-off warehouse lease true-up. */
   oneOffUsd: number;
+}
+
+/**
+ * Thrown when the builder is asked to narrate a variance its prose cannot
+ * describe — an under-plan or flat result.
+ *
+ * The route (`app/api/exec/v1/budget-memo/route.ts`) is the PRIMARY gate and
+ * 404s such a breach before ever calling this builder; that check stays where
+ * it is, because a 404 is the only outcome that reads correctly to the caller
+ * fetching a document. This error exists because `buildBudgetMemoPdf` is
+ * exported: a future caller that forgets the check must fail loudly rather
+ * than get a memo reading "an overrun of -$19,440 (9% over plan)".
+ */
+export class NotAnOverrunError extends Error {
+  readonly code = "NOT_AN_OVERRUN";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "NotAnOverrunError";
+  }
 }
 
 /**
@@ -79,6 +104,16 @@ export interface BudgetMemoInput {
 export function buildBudgetMemoPdf(input: BudgetMemoInput): Uint8Array {
   const overrunUsd = input.actualUsd - input.planUsd;
 
+  // Both figures are printed by the summary sentence and both are supplied by
+  // the caller, so neither can be inferred from the other: refuse on either.
+  if (input.variancePct <= 0 || overrunUsd <= 0) {
+    throw new NotAnOverrunError(
+      `budget memo: refusing to narrate variancePct=${input.variancePct} ` +
+        `(actual ${input.actualUsd} against plan ${input.planUsd}); this ` +
+        "memo's prose only covers an overrun.",
+    );
+  }
+
   const lines: Line[] = [
     { text: "CASCADE INDUSTRIES", size: 16, bold: true },
     { text: "Department budget memo — Distribution", size: 10, gap: 2 },
@@ -94,7 +129,9 @@ export function buildBudgetMemoPdf(input: BudgetMemoInput): Uint8Array {
         `Distribution operating expense for ${input.periodLabel} closed at ` +
         `${CURRENCY.format(input.actualUsd)} against a plan of ` +
         `${CURRENCY.format(input.planUsd)}, an overrun of ` +
-        `${CURRENCY.format(overrunUsd)} (${PERCENT.format(Math.abs(input.variancePct))} ` +
+        // No `Math.abs` — the guard above has already established the sign,
+        // so wrapping it here would only be able to HIDE a violation of it.
+        `${CURRENCY.format(overrunUsd)} (${PERCENT.format(input.variancePct)} ` +
         "over plan).",
       size: 10.5,
       gap: 6,
