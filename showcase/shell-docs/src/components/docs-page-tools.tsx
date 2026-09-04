@@ -1,17 +1,17 @@
-// DocsPageTools — the page-tools row that sits under a docs page's title:
-// "Copy agent prompt", "Copy Markdown", and the "Open in <LLM>" popover.
-// Fumadocs's upstream LLM page-actions feature.
+// DocsPageTools — the compact split action that sits beside a docs page title.
+// "Copy prompt" is the default action; its chevron progressively discloses
+// "Copy page" and the existing "Open in <LLM>" destinations.
 //
 // Extracted from `docs-page-view.tsx` so the row sits in a component small
 // enough to unit-test. `DocsPageView` itself loads MDX off disk and builds the
 // whole nav tree, so asserting the row's contents through it would mean
 // standing up most of the docs pipeline.
 //
-// Every page that renders this row gets the onboarding button. `DocsPageView`
-// is only reached by docs surfaces, and the button's offer — set CopilotKit up
-// in this project — holds on all of them. Earlier revisions gated it on the
-// caller naming a framework, which made identical pages behave differently
-// depending on the URL the reader arrived through.
+// Pages get the onboarding button by default. A page with its own focused
+// prompt CTA can hide that one action while keeping the Markdown and LLM
+// tools. Earlier revisions gated it on the caller naming a framework, which
+// made identical pages behave differently depending on the URL the reader
+// arrived through.
 
 import React from "react";
 import {
@@ -41,6 +41,8 @@ export interface DocsPageToolsProps {
    * framework, so the CLI's graph has to ask for neither selection.
    */
   onboardingFrontend?: { id: string; name: string };
+  /** Hide the generic onboarding prompt when the page provides its own CTA. */
+  hideOnboardingPrompt?: boolean;
 }
 
 /**
@@ -66,19 +68,41 @@ export function DocsPageTools({
   githubUrl,
   onboardingFramework,
   onboardingFrontend,
+  hideOnboardingPrompt = false,
 }: DocsPageToolsProps): React.JSX.Element {
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
-    <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
-      <OnboardingPromptButton
-        variant="compact"
-        surface="docs_page_tools_onboarding_prompt"
-        framework={onboardingFramework}
-        frontend={onboardingFrontend}
+    <div
+      className="docs-page-tools flex min-w-0 flex-row items-center"
+      role="group"
+      aria-label="Page actions"
+    >
+      {hideOnboardingPrompt ? (
+        <MarkdownCopyButton
+          markdownUrl={markdownUrl}
+          title="Copy page as Markdown"
+          className="docs-page-actions-primary"
+        >
+          Copy page
+        </MarkdownCopyButton>
+      ) : (
+        <OnboardingPromptButton
+          variant="compact"
+          surface="docs_page_tools_onboarding_prompt"
+          framework={onboardingFramework}
+          frontend={onboardingFrontend}
+          markdownUrl={markdownUrl}
+          className="docs-page-actions-primary"
+        >
+          Copy prompt
+        </OnboardingPromptButton>
+      )}
+      <ViewOptionsPopover
         markdownUrl={markdownUrl}
+        githubUrl={githubUrl}
+        condensed
+        includeCopyPage={!hideOnboardingPrompt}
       />
-      <MarkdownCopyButton markdownUrl={markdownUrl} />
-      <ViewOptionsPopover markdownUrl={markdownUrl} githubUrl={githubUrl} />
     </div>
   );
 }

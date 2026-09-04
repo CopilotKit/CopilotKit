@@ -32,6 +32,7 @@
     "...generative-ui",
     "---Add Agent Powers---",
     "frontend-tools",
+    "webmcp",
     {
       "title": "Shared State",
       "pages": [
@@ -54,6 +55,7 @@
     "vs-code-extension",
     "---Intelligence---",
     "intelligence/overview",
+    "intelligence/quickstart",
     "intelligence/managed-intelligence-platform",
     "intelligence/connect-your-runtime",
     "intelligence/self-hosting",

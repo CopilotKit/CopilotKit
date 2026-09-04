@@ -284,7 +284,7 @@ export function FrameworkSelector({
     >
       {isSidebar ? (
         <>
-          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered space-y-0.5">
+          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered">
             <button
               type="button"
               onClick={() =>
@@ -293,7 +293,7 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "frontend"}
               aria-label={frontendMenuLabel}
-              className="shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="shell-docs-picker-row group flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
@@ -320,7 +320,7 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "backend"}
               aria-label="Choose agent backend"
-              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"

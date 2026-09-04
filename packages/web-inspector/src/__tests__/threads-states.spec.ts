@@ -985,7 +985,7 @@ const lockedCapabilityCases = [
 }>;
 
 test.each(lockedCapabilityCases)(
-  "locked Threads reuse the local demo frame for $name without real routes",
+  "locked Threads render the full-page Rich Threads gate for $name without real routes",
   async (case_) => {
     const harness = await setupSettledState({
       endpoints: case_.endpoints,
@@ -1004,40 +1004,44 @@ test.each(lockedCapabilityCases)(
     });
     try {
       const root = harness.inspector.shadowRoot!;
-      const rows = harness.rows();
-
-      expect(rows.map((row) => row.textContent)).toEqual([
-        expect.stringContaining("Realtime thread sync"),
-        expect.stringContaining("Manage saved conversations"),
-        expect.stringContaining("Inspect durable run history"),
-      ]);
-      expect(harness.threadList().threads.map((thread) => thread.id)).toEqual([
-        "example-realtime-sync",
-        "example-manage-history",
-        "example-inspect-runs",
-      ]);
-      expect(harness.threadList().shadowRoot?.textContent).not.toContain(
-        "Persisted support thread",
-      );
+      expect(root.querySelector("cpk-thread-list")).toBeNull();
+      expect(root.textContent).toContain("Rich Threads");
       expect(root.textContent).toContain(
-        "Enable Intelligence to inspect Threads.",
+        "Production-grade chat threads without the complexity. Self hostable.",
       );
-      expect(
-        root.querySelector(".cpk-threads-overview-video-frame"),
-      ).not.toBeNull();
+      const video = root.querySelector<HTMLIFrameElement>(
+        '[data-inspector-feature-video="threads"]',
+      );
+      expect(video?.src).toBe(
+        "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true",
+      );
+      const outline = root.querySelector(
+        '[data-inspector-feature-outline="threads"]',
+      );
+      expect(outline?.getAttribute("aria-label")).toBe(
+        "Rich Threads capabilities",
+      );
+      expect(outline?.textContent).toContain(
+        "The whole conversation comes back",
+      );
+      expect(outline?.textContent).toContain(
+        "Generated UI stays in the thread",
+      );
+      expect(outline?.textContent).toContain("Return without starting over");
+      expect(outline?.textContent).toContain(
+        "Infrastructure you do not have to rebuild",
+      );
       expect(root.textContent).not.toContain("Learn how Threads work");
       expect(root.textContent).not.toContain(
         "Explore self-hosted Intelligence",
       );
       const action = root.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="locked"]',
+        '[data-inspector-locked-feature-talk="threads"]',
       );
-      expect(action?.textContent?.trim()).toBe("Enable Intelligence");
-      expect(action?.href).toBe("https://cloud.copilotkit.ai/actions/enable");
-      expect(
-        root.querySelector("[data-inspector-threads-footer]"),
-      ).not.toBeNull();
-      expect(root.textContent).toContain("0 / 200 Threads");
+      expect(action?.textContent?.trim()).toBe("Talk to an Engineer");
+      expect(new URL(action!.href).pathname).toBe("/talk-to-an-engineer");
+      expect(root.querySelector("[data-inspector-threads-footer]")).toBeNull();
+      expect(root.textContent).not.toContain("0 / 200 Threads");
       expect(harness.routes()).toEqual(ZERO_ROUTES);
       const lockedEvents = telemetryFor(
         harness.telemetryBodies,
@@ -1059,23 +1063,13 @@ test.each(lockedCapabilityCases)(
         runtime_url_type: "remote",
         telemetry_disabled: false,
       });
-      expect(exampleEvents).toHaveLength(3);
-      expect(
-        exampleEvents.map(({ properties }) => properties.example_kind),
-      ).toEqual(["realtime_sync", "manage_history", "inspect_runs"]);
+      expect(exampleEvents).toEqual([]);
       expect(
         telemetryFor(
           harness.telemetryBodies,
           TELEMETRY_EVENTS.threadsEmptyEnabledViewed,
         ),
       ).toEqual([]);
-
-      await exerciseLocalExamples(harness, ZERO_ROUTES, "Locked");
-
-      await harness.selectRow("Inspect durable run history");
-      expect(root.textContent).toContain(
-        "Enable Intelligence to inspect Threads.",
-      );
       expect(harness.routes()).toEqual(ZERO_ROUTES);
     } finally {
       await harness.teardown();
@@ -1091,8 +1085,6 @@ type LockedActionCase = Readonly<{
   actionUrl?: string;
   heading: string;
   description?: string;
-  bodyLabel?: string;
-  footerLabel?: string;
 }>;
 
 const lockedActionCases: ReadonlyArray<LockedActionCase> = [
@@ -1104,7 +1096,6 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     actionUrl: "https://cloud.copilotkit.ai/actions/manage",
     heading: "Finish setting up Rich Threads",
     description: "Copy this prompt into your coding agent to finish the setup.",
-    footerLabel: "Manage Your Plan",
   },
   {
     name: "none enable action",
@@ -1112,8 +1103,10 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "none",
     actionKind: "enable_intelligence",
     actionUrl: "https://cloud.copilotkit.ai/actions/enable",
-    heading: "Enable Intelligence to inspect Threads.",
-    bodyLabel: "Enable Intelligence",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
+    description:
+      "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
   },
   {
     name: "expired renew action",
@@ -1122,7 +1115,6 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     actionKind: "renew",
     actionUrl: "https://cloud.copilotkit.ai/actions/renew",
     heading: "Renew Intelligence to inspect Threads.",
-    bodyLabel: "Renew",
   },
   {
     name: "expired manage action",
@@ -1131,7 +1123,6 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/manage-expired",
     heading: "Renew Intelligence to inspect Threads.",
-    bodyLabel: "Manage Your Plan",
   },
   {
     name: "unknown action",
@@ -1145,7 +1136,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     name: "missing action",
     metadataState: "none",
     runtimeLicense: "none",
-    heading: "Enable Intelligence to inspect Threads.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "unsafe matched action",
@@ -1153,7 +1145,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "none",
     actionKind: "enable_intelligence",
     actionUrl: "javascript:alert(1)",
-    heading: "Enable Intelligence to inspect Threads.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "known metadata Runtime conflict",
@@ -1166,7 +1159,7 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
 ];
 
 test.each(lockedActionCases)(
-  "locked action matrix keeps only the trusted $name",
+  "locked action matrix keeps the unified CTAs for $name",
   async (case_) => {
     const harness = await setupSettledState({
       endpoints: DISABLED_ENDPOINTS,
@@ -1181,11 +1174,11 @@ test.each(lockedActionCases)(
     });
     try {
       const root = harness.inspector.shadowRoot!;
-      const bodyAction = root.querySelector<HTMLAnchorElement>(
+      const metadataBodyAction = root.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="locked"]',
       );
-      const footerAction = root.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="threads-footer"]',
+      const talkAction = root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-locked-feature-talk="threads"]',
       );
       const promptAction = root.querySelector<HTMLButtonElement>(
         "[data-inspector-threads-setup-prompt]",
@@ -1195,27 +1188,32 @@ test.each(lockedActionCases)(
       if (case_.description) {
         expect(root.textContent).toContain(case_.description);
       }
-      expect(harness.rows()).toHaveLength(3);
+      expect(root.querySelector("cpk-thread-list")).toBeNull();
+      expect(root.textContent).toContain("Rich Threads");
       expect(promptAction?.textContent?.trim()).toBe("Copy setup prompt");
-      expect(bodyAction?.textContent?.trim()).toBe(case_.bodyLabel);
-      expect(footerAction?.textContent?.trim()).toBe(case_.footerLabel);
-      if (case_.bodyLabel) {
-        expect(bodyAction?.href).toBe(case_.actionUrl);
-        expect(bodyAction?.target).toBe("_blank");
-        expect(bodyAction?.rel.split(/\s+/)).toContain("noopener");
-      } else {
-        expect(bodyAction).toBeNull();
-      }
+      expect(metadataBodyAction).toBeNull();
+      expect(talkAction?.textContent?.trim()).toBe("Talk to an Engineer");
+      expect(new URL(talkAction!.href).pathname).toBe("/talk-to-an-engineer");
+      expect(talkAction?.target).toBe("_blank");
+      expect(talkAction?.rel.split(/\s+/)).toContain("noopener");
       expect(promptAction?.type).toBe("button");
+      expect(promptAction?.classList.contains("inspector-account-cta")).toBe(
+        true,
+      );
+      expect(
+        promptAction?.classList.contains("cpk-threads-overview-action-primary"),
+      ).toBe(false);
       expect(promptAction?.getAttribute("aria-label")).toBe(
         "Copy setup prompt for Threads",
       );
-      if (case_.footerLabel) {
-        expect(footerAction?.href).toBe(case_.actionUrl);
-      } else {
-        expect(footerAction).toBeNull();
-      }
-      await exerciseLocalExamples(harness, ZERO_ROUTES, case_.name);
+      expect(
+        root.querySelector('.cpk-locked-feature-icon svg[viewBox="0 0 15 15"]'),
+      ).not.toBeNull();
+      expect(
+        root.querySelector(
+          '[data-inspector-action-placement="threads-footer"]',
+        ),
+      ).toBeNull();
       expect(harness.routes()).toEqual(ZERO_ROUTES);
     } finally {
       await harness.teardown();
@@ -1363,7 +1361,7 @@ const footerCases = footerBodyStates.flatMap((state) =>
 );
 
 test.each(footerCases)(
-  "the $module.name footer stays last in the $state body",
+  "the $state body handles the $module.name footer placement",
   async ({ state, module }) => {
     const metadata = inspectorMetadata(
       "valid",
@@ -1377,6 +1375,11 @@ test.each(footerCases)(
       const footers = root.querySelectorAll<HTMLElement>(
         "footer[data-inspector-threads-footer]",
       );
+      if (state === "locked") {
+        expect(footers).toHaveLength(0);
+        expect(root.textContent).toContain("Finish setting up Rich Threads");
+        return;
+      }
       const footer = footers[0];
       expect(footers).toHaveLength(1);
       expect(footer?.parentElement?.lastElementChild).toBe(footer);
@@ -1397,9 +1400,6 @@ test.each(footerCases)(
         expect(action).toBeNull();
       }
 
-      if (state === "locked") {
-        expect(root.textContent).toContain("Finish setting up Rich Threads");
-      }
       if (state === "loading") {
         expect(root.querySelector('[role="status"]')).not.toBeNull();
       }

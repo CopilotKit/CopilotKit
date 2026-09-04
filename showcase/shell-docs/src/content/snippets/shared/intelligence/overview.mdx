@@ -1,10 +1,14 @@
 import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pane-learning.mdx";
 
+<IntelligenceOverview />
+
 ## What is CopilotKit Intelligence?
 
 CopilotKit Intelligence is CopilotKit's production layer for durable threads, persistence, hosted inspection, and operational visibility. It sits beside your CopilotKit runtime and gives production agentic applications shared infrastructure without changing the frontend SDK, AG-UI protocol, or agent framework you use.
 
 Start here when you are deciding what the platform gives you and where it should run. The rest of the Intelligence docs are deeper dives into the specific feature or hosting path you choose.
+
+Ready to connect an existing app? Follow the [CopilotKit Intelligence quickstart](/intelligence/quickstart) to store and inspect your first thread.
 
 <InspectorPaneLearning />
 
@@ -13,9 +17,17 @@ Start here when you are deciding what the platform gives you and where it should
 | Capability | What it gives you | Deeper dive |
 |---|---|---|
 | Durable threads and persistence | Resumable conversations that survive reloads, devices, and browser sessions. | [Threads](/threads) and [Threads & Persistence Architecture](/intelligence/threads-explained) |
+| Analytics | See what your agents do and where users get value, from the same interaction data. | [Analytics](https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights) |
+| Automatic learning | Agents improve from real usage. No fine-tuning pipeline required. | [Automatic Learning](https://www.copilotkit.ai/copilotkit-intelligence#self-improvement) |
 | Cloud-hosted Intelligence features | Projects, project API keys, conversation history, thread inspection, and plan management. | [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) |
 | Platform-gated UI capabilities | Platform-gated UI surfaces such as Fully Headless Chat UI. | [Fully Headless Chat UI](/intelligence/headless-ui) |
 | Self-hosting | The same platform running inside your own Kubernetes cluster, VPC, or data boundary. | [Self-host CopilotKit Intelligence](/intelligence/self-hosting) |
+
+<IntelligenceFeatureCards />
+
+Follow the Intelligence quickstart to connect your runtime and confirm threads work.
+
+[Open the Intelligence quickstart](/intelligence/quickstart)
 
 ## Hosting options
 

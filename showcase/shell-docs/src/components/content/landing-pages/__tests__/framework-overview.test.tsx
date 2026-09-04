@@ -77,7 +77,7 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain("Copy agent prompt");
     expect(markup).toContain('data-docs-copy-surface="docs_framework_hero"');
     expect(markup).toContain("shell-docs-primary-cta");
-    expect(markup).toContain("bg-[var(--accent)]");
+    expect(markup).toContain("bg-[var(--accent-fill)]");
     expect(markup).toContain("text-[var(--primary-foreground)]");
 
     // ...and Quickstart keeps its place beside it in the bordered treatment.

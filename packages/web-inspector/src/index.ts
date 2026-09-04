@@ -193,17 +193,6 @@ const WHATS_NEW_VIEW_LABEL = "What's new";
 /** Menu key of the What's new leaf — the news signal's destination. */
 const WHATS_NEW_MENU_KEY = "whats-new";
 
-interface RuntimeEntitlementDisplayDiagnostic {
-  status: "ready" | "degraded" | "misconfigured" | "unavailable";
-  error?: {
-    code: string;
-    message: string;
-    retryable: boolean;
-    requestId?: string;
-    traceId?: string;
-  };
-}
-
 type LucideIconName = keyof typeof icons;
 
 type MenuItem = {
@@ -823,6 +812,67 @@ const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
   "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
+const THREADS_LOCKED_VIDEO_URL =
+  "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
+const LEARNING_LOCKED_VIDEO_URL =
+  "https://www.loom.com/embed/2978fbfe42324e509057ac5fd46b7a70?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
+type LockedFeatureOutlineItem = Readonly<{
+  icon: LucideIconName;
+  title: string;
+  description: string;
+}>;
+const THREADS_LOCKED_FEATURE_OUTLINE = [
+  {
+    icon: "MessagesSquare",
+    title: "The whole conversation comes back",
+    description:
+      "Rich Threads restores the complete interaction, not just a transcript. Messages, tool calls, shared state, generated interfaces, and supported files return together when a user reopens the thread.",
+  },
+  {
+    icon: "LayoutGrid",
+    title: "Generated UI stays in the thread",
+    description:
+      "Cards, charts, A2UI surfaces, MCP Apps, and tool renderers remain part of the conversation. The demo above shows a generated spending chart returning after a reload.",
+  },
+  {
+    icon: "RefreshCw",
+    title: "Return without starting over",
+    description:
+      "Users can move across sessions and devices while thread lists stay synchronized across open tabs. Rich Threads replays missed events and reconnects to work already in progress.",
+  },
+  {
+    icon: "Server",
+    title: "Infrastructure you do not have to rebuild",
+    description:
+      "CopilotKit handles durable event storage, replay, synchronization, lifecycle APIs, and thread locks on one portable AG-UI history model. Use CopilotKit Cloud or deploy Intelligence in your own Kubernetes environment.",
+  },
+] as const satisfies ReadonlyArray<LockedFeatureOutlineItem>;
+const LEARNING_LOCKED_FEATURE_OUTLINE = [
+  {
+    icon: "History",
+    title: "Memory across sessions",
+    description:
+      "Keep useful facts, preferences, and decisions after the thread closes. Learning gives future conversations the context they need without asking users to repeat themselves.",
+  },
+  {
+    icon: "Search",
+    title: "Recall by meaning",
+    description:
+      "Surface relevant memories by what they mean, not by an exact phrase. Your agent can bring the right context into a new interaction even when the user asks in a completely different way.",
+  },
+  {
+    icon: "Layers",
+    title: "Built-in structure",
+    description:
+      "Turn raw interactions into organized topical, episodic, and operational knowledge. Learning separates enduring facts from individual experiences and useful instructions automatically.",
+  },
+  {
+    icon: "Eye",
+    title: "Full visibility",
+    description:
+      "Inspect exactly what your agent learned and trace each memory back to the threads that shaped it. Review the stored context instead of treating memory like a black box.",
+  },
+] as const satisfies ReadonlyArray<LockedFeatureOutlineItem>;
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
@@ -10501,6 +10551,11 @@ export class WebInspectorElement extends LitElement {
         height: 100%;
         object-fit: cover;
       }
+      .cpk-threads-overview-video-embed {
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
 
       /* ── Header controls on the branded account strip ──────────── */
       .drag-handle > div[data-inspector-account-strip] button {
@@ -16489,22 +16544,14 @@ export class WebInspectorElement extends LitElement {
         placement: "threads-footer" | "locked";
       }>
     | undefined {
-    const { threadsFooterAction, lockedAction } =
-      this.inspectorMetadataProjection;
+    const { threadsFooterAction } = this.inspectorMetadataProjection;
     if (
       threadsFooterAction &&
       !this.settingsOpen &&
-      this.selectedMenu === "threads"
+      this.selectedMenu === "threads" &&
+      this.areThreadEndpointsAvailable()
     ) {
       return { action: threadsFooterAction, placement: "threads-footer" };
-    }
-    if (
-      lockedAction &&
-      !this.settingsOpen &&
-      this.selectedMenu === "threads" &&
-      !this.areThreadEndpointsAvailable()
-    ) {
-      return { action: lockedAction, placement: "locked" };
     }
     return undefined;
   }
@@ -16744,14 +16791,12 @@ export class WebInspectorElement extends LitElement {
   }
 
   private shouldRenderExampleThreads(
-    locked: boolean,
     displayThreads: ɵThread[],
     threadsErrorMessage: string | null,
     threadsLoading: boolean,
   ): boolean {
     return (
-      locked ||
-      (!threadsErrorMessage && !threadsLoading && displayThreads.length === 0)
+      !threadsErrorMessage && !threadsLoading && displayThreads.length === 0
     );
   }
 
@@ -17496,67 +17541,135 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  private renderThreadsExampleOverview(locked: boolean) {
-    const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
-    const { lockedAction } = this.inspectorMetadataProjection;
+  private renderThreadsExampleOverview() {
     const onboardingAction = this.getThreadsEmptyOnboardingAction();
     return html`
       <div class="cpk-threads-overview">
         <div class="cpk-threads-overview-content">
           <h2 class="cpk-threads-overview-title">
-            ${
-              lockedCopy?.heading ??
-              "Threads are persistent, inspectable conversations"
-            }
+            Threads are persistent, inspectable conversations
           </h2>
           ${this.renderThreadsExampleOverviewVideo()}
           <p class="cpk-threads-overview-copy">
-            ${
-              lockedCopy?.description ??
-              "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
-            }
+            Take a tour with the example threads in the sidebar. Then, start
+            chatting in your app to create the first real thread.
           </p>
-          ${
-            locked
-              ? this.renderRuntimeEntitlementDiagnostic(
-                  this.getRuntimeEntitlementDiagnostic(),
-                )
-              : nothing
-          }
           <div class="cpk-threads-overview-actions">
-            ${
-              locked
-                ? html`
-                  ${this.renderFeatureSetupPrompt(
-                    "threads",
-                    "cpk-threads-overview-action cpk-threads-overview-action-primary",
-                  )}
-                  ${
-                    lockedAction
-                      ? this.renderInspectorAction(lockedAction, "locked")
-                      : nothing
-                  }
-                `
-                : html`
-                  <a
-                    href=${this.getThreadsDocsUrl()}
-                    target="_blank"
-                    rel="noopener"
-                    class="cpk-threads-overview-action cpk-threads-overview-action-primary"
-                  >
-                    Learn how Threads work
-                  </a>
-                  <a
-                    href=${onboardingAction.href}
-                    target="_blank"
-                    rel="noopener"
-                    class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
-                  >
-                    ${onboardingAction.label}
-                  </a>
-                `
-            }
+            <a
+              href=${this.getThreadsDocsUrl()}
+              target="_blank"
+              rel="noopener"
+              class="cpk-threads-overview-action cpk-threads-overview-action-primary"
+            >
+              Learn how Threads work
+            </a>
+            <a
+              href=${onboardingAction.href}
+              target="_blank"
+              rel="noopener"
+              class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
+            >
+              ${onboardingAction.label}
+            </a>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderLockedFeatureOverview({
+    serviceId,
+    featureName,
+    heading,
+    description,
+    videoUrl,
+    videoTitle,
+    outlineItems,
+  }: {
+    serviceId: HomeFeaturePromptId;
+    featureName: string;
+    heading: string;
+    description: string;
+    videoUrl: string;
+    videoTitle: string;
+    outlineItems: ReadonlyArray<LockedFeatureOutlineItem>;
+  }) {
+    return html`
+      <div
+        class="cpk-locked-feature"
+        data-inspector-locked-feature=${serviceId}
+      >
+        <div class="cpk-locked-feature-layout">
+          <div class="cpk-locked-feature-hero">
+            <div class="cpk-locked-feature-copy">
+              <div class="cpk-locked-feature-name">
+                <span class="cpk-locked-feature-icon" aria-hidden="true">
+                  ${
+                    serviceId === "threads"
+                      ? unsafeHTML(this.customTabIcons.threads)
+                      : this.renderIcon("Brain")
+                  }
+                </span>
+                ${featureName}
+              </div>
+              <h2 class="cpk-locked-feature-title">${heading}</h2>
+              <p class="cpk-locked-feature-description">${description}</p>
+              <div class="cpk-threads-overview-actions">
+                ${this.renderFeatureSetupPrompt(
+                  serviceId,
+                  "inspector-account-cta cpk-locked-feature-setup-cta",
+                )}
+                <a
+                  data-inspector-locked-feature-talk=${serviceId}
+                  href=${this.getTalkToEngineerUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Talk to an Engineer (opens in a new tab)"
+                  class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
+                  @click=${this.handleThreadsTalkToEngineerClick}
+                >
+                  Talk to an Engineer
+                </a>
+              </div>
+            </div>
+            <div class="cpk-locked-feature-media">
+              <div class="cpk-threads-overview-video-frame cpk-locked-feature-video">
+                <iframe
+                  class="cpk-threads-overview-video-embed"
+                  data-inspector-feature-video=${serviceId}
+                  src=${videoUrl}
+                  title=${videoTitle}
+                  loading="lazy"
+                  allow="fullscreen; picture-in-picture"
+                  allowfullscreen
+                ></iframe>
+              </div>
+            </div>
+          </div>
+          <section
+            class="cpk-locked-feature-outline"
+            data-inspector-feature-outline=${serviceId}
+            aria-label="${featureName} capabilities"
+          >
+            <div class="cpk-locked-feature-outline-list">
+              ${outlineItems.map(
+                (item) => html`
+                  <section class="cpk-locked-feature-outline-item">
+                    <h3>
+                      <span
+                        class="cpk-locked-feature-outline-icon"
+                        aria-hidden="true"
+                      >
+                        ${this.renderIcon(item.icon)}
+                      </span>
+                      ${item.title}
+                    </h3>
+                    <p>${item.description}</p>
+                  </section>
+                `,
+              )}
+            </div>
+          </section>
         </div>
       </div>
     `;
@@ -17634,58 +17747,6 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  private renderThreadsLockedBackgroundMockup() {
-    const threadRows = [
-      { width: 74, accent: true },
-      { width: 92 },
-      { width: 68 },
-      { width: 84 },
-      { width: 58 },
-      { width: 76 },
-    ];
-
-    return html`
-      <div aria-hidden="true" class="cpk-locked-preview">
-        <div class="cpk-locked-preview-sidebar">
-          ${threadRows.map(
-            (row) => html`
-              <div
-                class="cpk-locked-preview-row"
-                data-accent=${row.accent ? "true" : "false"}
-              >
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-title"
-                  style="--preview-width: ${row.width}%;"
-                ></div>
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-line"
-                ></div>
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-line"
-                ></div>
-              </div>
-            `,
-          )}
-        </div>
-        <div class="cpk-locked-preview-main">
-          <div class="cpk-locked-preview-bar cpk-locked-preview-heading"></div>
-          <div class="cpk-locked-preview-bar cpk-locked-preview-copy"></div>
-          <div class="cpk-locked-preview-bar cpk-locked-preview-copy"></div>
-          <div class="cpk-locked-preview-cards">
-            <div class="cpk-locked-preview-card"></div>
-            <div class="cpk-locked-preview-card"></div>
-          </div>
-          <div
-            class="cpk-locked-preview-bar cpk-locked-preview-footer-line"
-          ></div>
-          <div
-            class="cpk-locked-preview-bar cpk-locked-preview-footer-line"
-          ></div>
-        </div>
-      </div>
-    `;
-  }
-
   private getThreadsLockedCopy(): {
     heading: string;
     description: string;
@@ -17699,9 +17760,10 @@ export class WebInspectorElement extends LitElement {
         };
       case "none":
         return {
-          heading: "Enable Intelligence to inspect Threads.",
+          heading:
+            "Production-grade chat threads without the complexity. Self hostable.",
           description:
-            "Persist conversations and inspect saved thread history from the Inspector.",
+            "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
         };
       case "expired":
         return {
@@ -17716,104 +17778,6 @@ export class WebInspectorElement extends LitElement {
             "This runtime does not expose Threads for the Inspector.",
         };
     }
-  }
-
-  /**
-   * Prefer the Runtime's structured entitlement diagnostic and derive a
-   * compatibility diagnostic only when an older Core exposes legacy status.
-   */
-  private getRuntimeEntitlementDiagnostic(): RuntimeEntitlementDisplayDiagnostic | null {
-    const runtimeEntitlements = this.core?.runtimeEntitlements;
-    if (runtimeEntitlements) {
-      return runtimeEntitlements.status === "ready"
-        ? { status: runtimeEntitlements.status }
-        : {
-            status: runtimeEntitlements.status,
-            error: runtimeEntitlements.error,
-          };
-    }
-
-    switch (this.core?.licenseStatus) {
-      case "valid":
-        return { status: "ready" };
-      case "expired":
-        return {
-          status: "degraded",
-          error: {
-            code: "legacy_license_expired",
-            message: "Legacy Runtime license has expired.",
-            retryable: false,
-          },
-        };
-      case "expiring":
-        return {
-          status: "degraded",
-          error: {
-            code: "legacy_license_expiring",
-            message: "Legacy Runtime license is expiring.",
-            retryable: false,
-          },
-        };
-      case "invalid":
-        return {
-          status: "misconfigured",
-          error: {
-            code: "legacy_license_invalid",
-            message: "Legacy Runtime license is invalid.",
-            retryable: false,
-          },
-        };
-      case "none":
-      case "unknown":
-        return { status: "unavailable" };
-      default:
-        return null;
-    }
-  }
-
-  /** Render exact Runtime entitlement correlation details without gating UI. */
-  private renderRuntimeEntitlementDiagnostic(
-    diagnostic: RuntimeEntitlementDisplayDiagnostic | null,
-  ) {
-    if (!diagnostic) {
-      return nothing;
-    }
-
-    return html`
-      <div
-        role="status"
-        data-runtime-entitlement-status=${diagnostic.status}
-        style="
-          margin: -8px auto 18px;
-          max-width: 380px;
-          font-size: 11px;
-          line-height: 1.5;
-          color: #57575b;
-        "
-      >
-        <div style="font-weight: 600;">
-          Runtime entitlement: ${diagnostic.status}
-        </div>
-        ${
-          diagnostic.error
-            ? html`
-              <div>${diagnostic.error.message}</div>
-              <div>Code: ${diagnostic.error.code}</div>
-              ${
-                diagnostic.error.requestId
-                  ? html`<div>Request ID: ${diagnostic.error.requestId}</div>`
-                  : nothing
-              }
-              ${
-                diagnostic.error.traceId
-                  ? html`<div>Trace ID: ${diagnostic.error.traceId}</div>`
-                  : nothing
-              }
-            `
-            : nothing
-        }
-      </div>
-    `;
   }
 
   /**
@@ -17873,51 +17837,19 @@ export class WebInspectorElement extends LitElement {
     // as Home and the launcher so an unavailable feature always lands on its
     // setup path instead of an enabled-looking empty state.
     if (!learningEnabled) {
-      return html`
-        <div class="cpk-memory-locked">
-          ${this.renderThreadsLockedBackgroundMockup()}
-          <div aria-hidden="true" class="cpk-memory-locked-scrim"></div>
-          <div class="cpk-memory-locked-content">
-            <div aria-hidden="true" class="cpk-memory-locked-icon-wrap">
-              <div class="cpk-memory-locked-icon">
-                ${this.renderIcon("Lock")}
-              </div>
-            </div>
-            <h2 class="cpk-memory-locked-title">Learning</h2>
-            <p class="cpk-memory-locked-copy">
-              ${
-                this._memoryStoreUnsupported
-                  ? "Learning is unavailable in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports long-term memory."
-                  : "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment."
-              }
-            </p>
-            <div class="cpk-memory-locked-actions">
-              ${this.renderFeatureSetupPrompt(
-                "memory",
-                "cpk-memory-locked-action",
-              )}
-              <a
-                href=${this.getTalkToEngineerUrl()}
-                target="_blank"
-                rel="noopener"
-                class="cpk-memory-locked-action"
-                @click=${this.handleThreadsTalkToEngineerClick}
-              >
-                Talk to an Engineer
-              </a>
-              <a
-                href=${this.getIntelligenceSignupUrl()}
-                target="_blank"
-                rel="noopener"
-                class="cpk-memory-locked-action cpk-memory-locked-action-secondary"
-                @click=${this.handleThreadsIntelligenceSignupClick}
-              >
-                Sign up for Intelligence
-              </a>
-            </div>
-          </div>
-        </div>
-      `;
+      return this.renderLockedFeatureOverview({
+        serviceId: "memory",
+        featureName: "Learning",
+        heading: this._memoryStoreUnsupported
+          ? "Upgrade to enable Learning"
+          : "Turn every interaction into reusable context.",
+        description: this._memoryStoreUnsupported
+          ? "Learning requires a newer version of @copilotkit/core and @copilotkit/react. Copy the setup prompt to upgrade and add long-term memory."
+          : "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
+        videoUrl: LEARNING_LOCKED_VIDEO_URL,
+        videoTitle: "CopilotKit Learning overview",
+        outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
+      });
     }
 
     // 2. Full-screen error — only for a snapshot-LOAD failure (no memories
@@ -18189,22 +18121,32 @@ export class WebInspectorElement extends LitElement {
 
   private renderThreadsView() {
     const locked = !this.areThreadEndpointsAvailable();
+    if (locked) {
+      this.trackThreadsViewStateOnce("locked");
+      const lockedCopy = this.getThreadsLockedCopy();
+      return this.renderLockedFeatureOverview({
+        serviceId: "threads",
+        featureName: "Rich Threads",
+        heading: lockedCopy.heading,
+        description: lockedCopy.description,
+        videoUrl: THREADS_LOCKED_VIDEO_URL,
+        videoTitle: "Rich Threads overview",
+        outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
+      });
+    }
+
     const { displayThreads, threadsErrorMessage, threadsLoading } =
       this.getActiveThreadsState();
     const loadingWithoutRows =
-      !locked &&
-      threadsLoading &&
-      !threadsErrorMessage &&
-      displayThreads.length === 0;
+      threadsLoading && !threadsErrorMessage && displayThreads.length === 0;
 
     const showingExamples = this.shouldRenderExampleThreads(
-      locked,
       displayThreads,
       threadsErrorMessage,
       threadsLoading,
     );
     const visibleThreads =
-      !locked && (threadsErrorMessage || loadingWithoutRows)
+      threadsErrorMessage || loadingWithoutRows
         ? []
         : showingExamples
           ? THREADS_EXAMPLE_THREADS
@@ -18221,9 +18163,7 @@ export class WebInspectorElement extends LitElement {
       selectedThread !== null &&
       selectedThread.id === this.selectedLocalExampleThreadId;
 
-    if (locked) {
-      this.trackThreadsViewStateOnce("locked");
-    } else if (
+    if (
       !threadsErrorMessage &&
       (!threadsLoading || displayThreads.length > 0)
     ) {
@@ -18272,7 +18212,7 @@ export class WebInspectorElement extends LitElement {
             style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;"
           >
             ${
-              !locked && threadsErrorMessage
+              threadsErrorMessage
                 ? html`
                   <div
                     role="alert"
@@ -18375,7 +18315,7 @@ export class WebInspectorElement extends LitElement {
                           : nothing
                       }`
                     : showingExamples
-                      ? this.renderThreadsExampleOverview(locked)
+                      ? this.renderThreadsExampleOverview()
                       : html`
                         <div
                           style="

@@ -1,6 +1,7 @@
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import { FrontendTool, FrontendToolHandlerContext } from "@copilotkit/core";
+import type { WebMCPToolConfig } from "@copilotkit/core";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { CopilotKit } from "./copilotkit";
 
@@ -103,6 +104,12 @@ export interface FrontendToolConfig<
   ) => Promise<unknown>;
   followUp?: boolean;
   agentId?: string;
+  /**
+   * Also expose this tool to browser agents through the WebMCP API
+   * (`document.modelContext`). `true` uses default annotations;
+   * `{ annotations }` provides WebMCP annotations.
+   */
+  webmcp?: boolean | WebMCPToolConfig;
 }
 
 /**

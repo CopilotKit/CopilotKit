@@ -515,7 +515,7 @@ test("loaded data fades in and resolved guarded playback enters playing", async 
   }
 });
 
-test("locked reduced motion defers then loads the same asset without autoplay", async () => {
+test("locked Threads use the Rich Threads Loom embed without starting the native demo lifecycle", async () => {
   const harness = await setupFixture({
     mode: "locked",
     reducedMotion: true,
@@ -524,23 +524,23 @@ test("locked reduced motion defers then loads the same asset without autoplay", 
   });
   try {
     const root = harness.inspector.shadowRoot!;
-    const video = requireVideo(root);
-    const routesBeforeGate = harness.routes();
+    const video = root.querySelector<HTMLIFrameElement>(
+      '[data-inspector-feature-video="threads"]',
+    );
 
-    expect(video.hasAttribute("src")).toBe(false);
-    expect(requireDemoControl(root).textContent?.trim()).toBe("Play demo");
-    expectAllExamples(root);
-
-    await harness.fireGate();
-
-    const control = requireDemoControl(root);
-    expect(video.getAttribute("src")).toBe(VIDEO_URL);
-    expect(video.autoplay).toBe(false);
-    expect(video.hasAttribute("autoplay")).toBe(false);
+    expect(video?.src).toBe(
+      "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true",
+    );
+    expect(video?.title).toBe("Rich Threads overview");
+    expect(root.querySelector(".cpk-threads-overview-video")).toBeNull();
+    expect(
+      root.querySelector(".cpk-threads-overview-video-control"),
+    ).toBeNull();
+    expect(exampleRows(root)).toHaveLength(0);
+    expect(root.querySelector("cpk-thread-list")).toBeNull();
+    expect(root.textContent).toContain("Rich Threads");
     expect(harness.play).not.toHaveBeenCalled();
-    expect(control.textContent?.trim()).toBe("Play demo");
-    expect(control.getAttribute("aria-pressed")).toBe("true");
-    expect(harness.routes()).toEqual(routesBeforeGate);
+    expect(harness.routes()).toEqual(ZERO_ROUTES);
   } finally {
     await harness.teardown();
   }

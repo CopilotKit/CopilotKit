@@ -15,6 +15,29 @@ function componentNames(node: unknown, out: string[] = []): string[] {
   return out;
 }
 
+/** Find the first `DocsContentHeader` element in the tree and return its props. */
+function findContentHeaderProps(node: unknown):
+  | {
+      ancestorBreadcrumbs?: unknown[];
+      hideHeading?: boolean;
+      children?: React.ReactNode;
+    }
+  | undefined {
+  if (!React.isValidElement(node)) return undefined;
+  const type = node.type as { name?: string } | string;
+  if (typeof type !== "string" && type.name === "DocsContentHeader") {
+    return node.props as ReturnType<typeof findContentHeaderProps>;
+  }
+  let found: ReturnType<typeof findContentHeaderProps>;
+  React.Children.forEach(
+    (node.props as { children?: React.ReactNode }).children,
+    (child) => {
+      if (!found) found = findContentHeaderProps(child);
+    },
+  );
+  return found;
+}
+
 /** Find the first element in the tree whose className contains `marker`. */
 function findByClassName(node: unknown, marker: string): string | undefined {
   if (!React.isValidElement(node)) return undefined;
@@ -57,13 +80,15 @@ describe("DocsPageView landing mode", () => {
     expect(componentNames(tree)).not.toContain("DocsPageTools");
   });
 
-  // The breadcrumb trail and the divider under the page chrome belong to
-  // ordinary docs pages. On a framework landing page they stack a second,
-  // quieter framework name plus a full-width rule directly above the hero's
-  // own icon + framework-name lockup. Both pairs of assertions run against
-  // the same component so the "ordinary page" case proves the guard is a
-  // landing-page switch and not a deletion.
-  it("renders the breadcrumb trail and the divider on an ordinary docs page", async () => {
+  // The breadcrumb trail and the page heading belong to ordinary docs pages.
+  // On a framework landing page the trail stacks a second, quieter framework
+  // name directly above the hero's own icon + framework-name lockup, and the
+  // heading repeats what the hero already says. Both are expressed through
+  // the shared `DocsContentHeader`: empty ancestors render no trail, and
+  // `hideHeading` drops the H1. Both pairs of assertions run against the same
+  // component so the "ordinary page" case proves the guard is a landing-page
+  // switch and not a deletion.
+  it("renders the breadcrumb trail and the heading on an ordinary docs page", async () => {
     const tree = await DocsPageView({
       slugPath: "quickstart",
       slugHrefPrefix: "/mastra",
@@ -71,12 +96,13 @@ describe("DocsPageView landing mode", () => {
       navTree: [],
     });
 
-    const names = componentNames(tree);
-    expect(names).toContain("nav");
-    expect(names).toContain("hr");
+    const header = findContentHeaderProps(tree);
+    expect(header).toBeDefined();
+    expect(header?.ancestorBreadcrumbs?.length).toBeGreaterThan(0);
+    expect(header?.hideHeading).toBe(false);
   });
 
-  it("renders no breadcrumb trail and no divider when landingPage is set", async () => {
+  it("renders no breadcrumb trail and no heading when landingPage is set", async () => {
     const tree = await DocsPageView({
       slugPath: "",
       contentSlugPath: "integrations/mastra/index",
@@ -86,9 +112,13 @@ describe("DocsPageView landing mode", () => {
       navTree: [],
     });
 
-    const names = componentNames(tree);
-    expect(names).not.toContain("nav");
-    expect(names).not.toContain("hr");
+    const header = findContentHeaderProps(tree);
+    expect(header).toBeDefined();
+    expect(header?.ancestorBreadcrumbs).toEqual([]);
+    expect(header?.hideHeading).toBe(true);
+    // Every part suppressed, so the header itself renders nothing and the
+    // hero keeps the offset the container's `pt-0` gives it.
+    expect(header?.children).toBe(false);
   });
 
   // The content container's top padding is part of the same suppressed-chrome
