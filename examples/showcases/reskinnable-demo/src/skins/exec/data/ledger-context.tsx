@@ -63,8 +63,13 @@ export interface FileNarrativeInput {
  */
 export type PublishPackResult =
   | { status: 200; pack: BoardPack }
-  // `pack?: never` keeps the union narrowable on `status === 200` alone, so a
-  // consumer never needs an `in` check to reach `pack`.
+  // `pack?: never` does NOT let `status === 200` alone narrow this union —
+  // `status`'s other arm is the general `number`, which overlaps `200`, so TS
+  // can narrow the success arm IN on `status === 200` but can never exclude
+  // it FROM the arm below. The real discriminator is `"pack" in outcome` (or
+  // any check for `pack` being present) — see `tools.tsx`'s `onSubmit`.
+  // `pack?: never` only makes THAT check type-safe, by giving the failure arm
+  // an (absent) `pack` property for the `in` check to test against.
   | { status: number; pack?: never; error: string; breaches?: Exception[] };
 
 interface ExecLedgerContextValue {
@@ -131,6 +136,16 @@ async function throwWithBodyMessage(
 export function ExecLedgerProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<ExecLedgerSnapshot>(EMPTY);
   const [loaded, setLoaded] = useState(false);
+  // Set the FIRST time (and only the first time) the ledger has never
+  // successfully loaded — this is what gates children from ever mounting
+  // over the `EMPTY` snapshot. `useExecLedger`'s own doc comment forbids a
+  // silently-empty ledger from rendering as "no dashboards"; this is that
+  // rule enforced at the provider that would otherwise do exactly that.
+  const [firstLoadError, setFirstLoadError] = useState<string | null>(null);
+  // Set when a POST-first-load refresh fails (always from a mutation's
+  // `await refresh()`, since that mutation already wrote server-side). The
+  // last good snapshot stays on screen; this is what says it might be stale.
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   // Note the `await` comes FIRST: nothing here sets state synchronously, which
   // is what keeps the mount effect below off React's cascading-render path
@@ -140,14 +155,26 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
       const res = await fetch("/api/exec/v1/ledger", { cache: "no-store" });
       if (!res.ok) throw new Error(`ledger fetch failed: ${res.status}`);
       setSnapshot((await res.json()) as ExecLedgerSnapshot);
+      setLoaded(true);
+      setFirstLoadError(null);
+      setRefreshError(null);
     } catch (error) {
-      // Surfacing this as a thrown error would blank the whole app mid-demo
-      // for what is almost always a dev-server restart. Log it, keep the
-      // last good snapshot on screen, and let the next mutation's refresh
-      // recover.
       console.error("[exec] ledger refresh failed", error);
+      const message = error instanceof Error ? error.message : String(error);
+      // Two very different situations share this catch. If the ledger has
+      // NEVER loaded, there is no "last good snapshot" to fall back to — this
+      // IS the outage, and it belongs on the loud first-load panel (also the
+      // path the panel's own retry button re-enters). Otherwise, a mutation
+      // already succeeded server-side; the honest message is that the write
+      // happened but the view may not reflect it yet, surfaced as a
+      // dismissible banner while the last good snapshot stays on screen.
+      if (!loaded) {
+        setFirstLoadError(message);
+      } else {
+        setRefreshError(`saved, but the view may be stale: ${message}`);
+      }
     }
-  }, []);
+  }, [loaded]);
 
   // The FIRST load is inlined as a promise chain rather than a call to
   // `refresh`, mirroring people's provider: invoking any setState-calling
@@ -169,10 +196,16 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
       })
       .catch((error) => {
         console.error("[exec] initial ledger fetch failed", error);
-        // Still mark loaded: children must mount even on a failed first
-        // fetch, or a dev-server hiccup leaves the whole skin rendering
-        // nothing with no indication of why.
-        if (!cancelled) setLoaded(true);
+        // NOT `setLoaded(true)`: that used to wave the EMPTY snapshot through
+        // to children, which renders as a plausible empty demo — the exact
+        // state `useExecLedger`'s doc comment forbids, with only a console
+        // line to say otherwise. Record the failure instead so the render
+        // below can show a loud panel in place of children.
+        if (!cancelled) {
+          setFirstLoadError(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       });
     return () => {
       cancelled = true;
@@ -298,6 +331,33 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  // A failed first load NEVER falls through to children over the `EMPTY`
+  // snapshot — every page under this provider reads dashboards/metrics/packs
+  // off `snapshot`, and that placeholder would render as "no data"
+  // indistinguishable from a real empty demo state. Say so instead, loudly,
+  // in place of the whole tree, with a way back in.
+  if (firstLoadError) {
+    return (
+      <div
+        data-testid="ledger-first-load-error"
+        role="alert"
+        className="flex min-h-[50vh] flex-col items-center justify-center gap-3 rounded-2xl border border-negative bg-negative-soft p-8 text-center"
+      >
+        <p className="text-sm font-semibold text-negative">
+          Could not load the exec ledger
+        </p>
+        <p className="max-w-md text-xs text-ink">{firstLoadError}</p>
+        <button
+          type="button"
+          className="rounded-full border border-hairline bg-surface px-4 py-1.5 text-xs font-medium text-ink transition hover:bg-surface-muted"
+          onClick={() => void refresh()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   // Render nothing until the first load resolves — every page under this
   // provider reads dashboards/metrics/packs off `snapshot` and a placeholder
   // EMPTY snapshot would render as "no data" indistinguishably from a real
@@ -306,6 +366,23 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
 
   return (
     <ExecLedgerContext.Provider value={value}>
+      {refreshError && (
+        <div
+          data-testid="ledger-refresh-error"
+          role="alert"
+          className="flex items-center justify-between gap-3 border-b border-negative bg-negative-soft px-4 py-2 text-xs text-negative"
+        >
+          <span>{refreshError}</span>
+          <button
+            type="button"
+            aria-label="Dismiss stale-view warning"
+            className="rounded-full border border-hairline bg-surface px-2 py-0.5 text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+            onClick={() => setRefreshError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {children}
     </ExecLedgerContext.Provider>
   );
