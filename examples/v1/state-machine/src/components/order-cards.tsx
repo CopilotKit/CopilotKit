@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Order } from "@/lib/types";
+import type { Order } from "@/lib/types";
 import Image from "next/image";
 
 interface OrderCardsProps {

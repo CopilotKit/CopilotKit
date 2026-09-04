@@ -6,10 +6,7 @@
  * `color: white` and `color: rgb(69, 69, 69)` directly to the .dark element
  * itself, cascading into every child — including host app content.
  *
- * After the fix (#3850), selectors are scoped:
- *   `.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton`
- *   `.dark .poweredBy`
- * so only CopilotKit elements receive the dark mode overrides.
+ * The v2 UI scopes its dark-mode utilities to CopilotKit elements.
  */
 import { test, expect } from "@playwright/test";
 
@@ -21,7 +18,7 @@ test.describe("dark mode CSS scoping (#2920)", () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await page.locator(".copilotKitWindow.open").waitFor({ timeout: 10_000 });
+    await expect(page.getByTestId("copilot-popup")).toBeVisible();
   });
 
   test("enabling .dark class does not leak CopilotKit styles to host elements", async ({
@@ -50,24 +47,16 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     expect(colorAfter).not.toBe("rgb(69, 69, 69)");
   });
 
-  test("CopilotKit poweredBy gets correct dark mode color", async ({
+  test("CopilotKit input gets the v2 dark mode background", async ({
     page,
   }) => {
-    // Toggle dark mode
     await page.evaluate(() => document.documentElement.classList.add("dark"));
     await page.waitForTimeout(100);
 
-    const poweredBy = page.locator(".poweredBy");
-
-    // With the fix, .dark .poweredBy { color: rgb(69, 69, 69) !important }
-    // should apply to the poweredBy element specifically.
-    const count = await poweredBy.count();
-    test.skip(count === 0, "No .poweredBy element found — skipping");
-
-    const color = await poweredBy
-      .first()
-      .evaluate((el) => window.getComputedStyle(el).color);
-    expect(color).toBe("rgb(69, 69, 69)");
+    await expect(page.getByTestId("copilot-chat-input")).toHaveCSS(
+      "background-color",
+      "rgb(48, 48, 48)",
+    );
   });
 
   test("screenshot: dark mode side-by-side comparison", async ({ page }) => {

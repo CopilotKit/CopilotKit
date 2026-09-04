@@ -1,0 +1,40 @@
+import { z } from "zod";
+import { isIncidentDateAllowed } from "./incident-date";
+
+export const incidentReportFormSchema = z.object({
+  name: z.string().trim().min(2, {
+    message: "Name must be at least 2 characters.",
+  }),
+  email: z.string().email({
+    message: "Please enter a valid email address.",
+  }),
+  incidentType: z
+    .string({
+      required_error: "Please select an incident type.",
+    })
+    .min(1, {
+      message: "Please select an incident type.",
+    }),
+  date: z
+    .date({
+      required_error: "Please select the date when the incident occurred.",
+    })
+    .refine(isIncidentDateAllowed, {
+      message: "Incident date must be from January 1, 1900 through today.",
+    }),
+  description: z.string().trim().min(10, {
+    message: "Description must be at least 10 characters.",
+  }),
+  impactLevel: z
+    .string({
+      required_error: "Please select an impact level.",
+    })
+    .min(1, {
+      message: "Please select an impact level.",
+    }),
+  suggestedActions: z.string().trim().min(10, {
+    message: "Suggested actions must be at least 10 characters.",
+  }),
+});
+
+export type IncidentReportFormValues = z.infer<typeof incidentReportFormSchema>;

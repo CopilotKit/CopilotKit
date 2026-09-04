@@ -1,78 +1,137 @@
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
 import { Button } from "../ui/button";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { submitResponse } from "./response-submission";
+
+export type PlaceSelectionsByTrip = Map<string, Set<string>>;
+
+type TripPlaceIds = {
+  tripId: string;
+  placeIds: string[];
+};
 
 export type ActionButtonsProps = {
-  status: RenderFunctionStatus;
-  handler: any;
+  status: ToolCallStatus;
+  respond?: (result: unknown) => Promise<void>;
   approve: React.ReactNode;
   reject: React.ReactNode;
-  selectedPlaceIds?: Set<string>;
+  selectedPlaceIdsByTrip?: PlaceSelectionsByTrip;
   type?: "edit" | "add";
-  placeIds?: string[][];
-  setSelectedPlaceIds?: (placeIds: Set<string>) => void;
+  tripPlaceIds?: TripPlaceIds[];
+  setSelectedPlaceIdsByTrip?: (selections: PlaceSelectionsByTrip) => void;
 };
 
 export const ActionButtons = ({
   status,
-  handler,
+  respond,
   approve,
   reject,
-  selectedPlaceIds,
+  selectedPlaceIdsByTrip,
   type = "add",
-  placeIds,
-  setSelectedPlaceIds,
+  tripPlaceIds,
+  setSelectedPlaceIdsByTrip,
 }: ActionButtonsProps) => {
-  useEffect(() => {
-    console.log(placeIds, "placeIdsplaceIdsplaceIds");
-  }, [placeIds]);
+  const pendingResponse = useRef(false);
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [failedResponse, setFailedResponse] = useState<{
+    value: unknown;
+  } | null>(null);
 
   useEffect(() => {
-    console.log(selectedPlaceIds, "btn");
-  }, [selectedPlaceIds]);
+    console.log(tripPlaceIds, "placeIdsplaceIdsplaceIds");
+  }, [tripPlaceIds]);
+
+  useEffect(() => {
+    console.log(selectedPlaceIdsByTrip, "btn");
+  }, [selectedPlaceIdsByTrip]);
+
+  const sendResponse = async (result: unknown) => {
+    if (!respond) return;
+
+    setError(null);
+    setFailedResponse(null);
+    await submitResponse({
+      pending: pendingResponse,
+      respond,
+      result,
+      onPendingChange: setIsPending,
+      onError: (message, failedResult) => {
+        setError(message);
+        setFailedResponse({ value: failedResult });
+      },
+    });
+  };
 
   return (
-    <div className="flex gap-4 justify-between">
-      <Button
-        className="w-full"
-        variant="outline"
-        disabled={status === "complete" || status === "inProgress"}
-        onClick={() => handler?.("CANCEL")}
-      >
-        {reject}
-      </Button>
-      <Button
-        className="w-full"
-        disabled={status === "complete" || status === "inProgress"}
-        onClick={() => {
-          if (selectedPlaceIds && selectedPlaceIds.size > 0) {
-            if (type == "edit") {
-              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
-              handler?.(
-                JSON.stringify(Array.from(selectedPlaceIds) + "|||editMode"),
+    <div className="space-y-2">
+      <div className="flex gap-4 justify-between">
+        <Button
+          className="w-full"
+          variant="outline"
+          disabled={status !== ToolCallStatus.Executing || isPending}
+          onClick={async () => sendResponse("CANCEL")}
+        >
+          {reject}
+        </Button>
+        <Button
+          className="w-full"
+          disabled={status !== ToolCallStatus.Executing || isPending}
+          onClick={async () => {
+            if (selectedPlaceIdsByTrip) {
+              const selections = (tripPlaceIds || []).map(({ tripId }) => {
+                const selectedPlaceIds = selectedPlaceIdsByTrip.get(tripId);
+                if (!selectedPlaceIdsByTrip.has(tripId)) {
+                  return { tripId };
+                }
+                return {
+                  tripId,
+                  placeIds: Array.from(selectedPlaceIds || []),
+                };
+              });
+              if (selections.some((selection) => !("placeIds" in selection))) {
+                setSelectedPlaceIdsByTrip?.(
+                  new Map(
+                    (tripPlaceIds || []).map(({ tripId, placeIds }) => [
+                      tripId,
+                      selectedPlaceIdsByTrip.has(tripId)
+                        ? new Set(selectedPlaceIdsByTrip.get(tripId))
+                        : new Set(placeIds),
+                    ]),
+                  ),
+                );
+              }
+              await sendResponse(
+                JSON.stringify({
+                  operation: type === "edit" ? "replace" : "select",
+                  selections,
+                }),
               );
             } else {
-              console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
-              handler?.(
-                JSON.stringify(Array.from(selectedPlaceIds) + "|||addMode"),
-              );
+              await sendResponse("SEND");
             }
-          } else if (selectedPlaceIds && selectedPlaceIds.size == 0) {
-            setSelectedPlaceIds?.(new Set(placeIds?.[0] || []));
-            if (type == "edit") {
-              // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(placeIds?.[0] + "|||editMode"));
-            } else {
-              // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(placeIds?.[0] + "|||addMode"));
-            }
-          } else {
-            handler?.("SEND");
-          }
-        }}
-      >
-        {approve}
-      </Button>
+          }}
+        >
+          {approve}
+        </Button>
+      </div>
+      {error && failedResponse && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-2 text-sm text-red-700 dark:text-red-300"
+        >
+          <span>{error}</span>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            disabled={isPending}
+            onClick={async () => sendResponse(failedResponse.value)}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

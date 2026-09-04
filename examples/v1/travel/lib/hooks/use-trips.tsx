@@ -1,13 +1,25 @@
 import { SearchProgress } from "@/components/SearchProgress";
 import {
-  useCoAgent,
-  useCoAgentStateRender,
-  useCopilotAction,
-} from "@copilotkit/react-core";
-import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import { createContext, useContext, ReactNode, useMemo } from "react";
+  useAgent,
+  useConfigureSuggestions,
+  useHumanInTheLoop,
+  useRenderTool,
+  ToolCallStatus,
+} from "@copilotkit/react-core/v2";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
+import type { ReactNode } from "react";
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";
-import { Trip, Place, AgentState, defaultTrips } from "@/lib/types";
+import {
+  isAgentStateInitialized,
+  normalizeAgentState,
+  tripsSchema,
+} from "@/lib/agent-state";
+import type { Place, Trip } from "@/lib/types";
+import { z } from "zod";
+
+const deleteTripsSchema = z.object({
+  trip_ids: z.array(z.string()).describe("The IDs of the trips to delete"),
+});
 
 type TripsContextType = {
   trips: Trip[];
@@ -24,80 +36,160 @@ type TripsContextType = {
 
 const TripsContext = createContext<TripsContextType | undefined>(undefined);
 
+type DeleteTripsSnapshotProps = {
+  args: Partial<{ trip_ids: string[] }>;
+  status: ToolCallStatus;
+  respond?: (result: unknown) => Promise<void>;
+  toolCallId: string;
+  trips: Trip[];
+  snapshots: Map<string, Trip[]>;
+};
+
+/** Copies the matched trips so later agent-state changes cannot alter a card. */
+function copyMatchedTrips(
+  trips: Trip[],
+  tripIds: string[] | undefined,
+): Trip[] {
+  const requestedTripIds = new Set(tripIds);
+
+  return trips
+    .filter((trip) => requestedTripIds.has(trip.id))
+    .map((trip) => ({
+      ...trip,
+      places: trip.places.map((place) => ({ ...place })),
+    }));
+}
+
+/** Renders one delete call from its first complete, executable trip snapshot. */
+function DeleteTripsSnapshot({
+  args,
+  status,
+  respond,
+  toolCallId,
+  trips,
+  snapshots,
+}: DeleteTripsSnapshotProps) {
+  const matchedTrips = useMemo(
+    () => copyMatchedTrips(trips, args.trip_ids),
+    [args.trip_ids, trips],
+  );
+  const snapshot = snapshots.get(toolCallId);
+
+  useEffect(() => {
+    if (
+      status !== ToolCallStatus.Executing ||
+      snapshot ||
+      matchedTrips.length === 0
+    ) {
+      return;
+    }
+
+    snapshots.set(toolCallId, matchedTrips);
+  }, [matchedTrips, snapshot, snapshots, status, toolCallId]);
+
+  return (
+    <DeleteTrips
+      args={args}
+      status={status}
+      respond={respond}
+      trips={snapshot ?? matchedTrips}
+    />
+  );
+}
+
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
-  const { state, setState } = useCoAgent<AgentState>({
-    name: "travel",
-    initialState: {
-      trips: defaultTrips,
-      selected_trip_id: defaultTrips[0].id || "1",
-    },
-  });
+  const { agent, isReady } = useAgent({ agentId: "travel" });
+  const state = normalizeAgentState(agent.state);
+  // One immutable entry is retained per rendered delete call. Chat history
+  // bounds the map, and unmounting this provider releases the whole history.
+  const deleteTripsSnapshots = useRef(new Map<string, Trip[]>());
 
-  useCoAgentStateRender<AgentState>({
-    name: "travel",
-    render: ({ state }) => {
-      if (state.search_progress && state.search_progress.length > 0) {
-        return <SearchProgress progress={state.search_progress} />;
-      }
-      return null;
-    },
-  });
+  useEffect(() => {
+    if (!isReady) return;
 
-  useCopilotChatSuggestions(
+    if (isAgentStateInitialized(agent.state)) return;
+
+    agent.setState(normalizeAgentState(agent.state));
+  }, [agent, agent.state, isReady]);
+
+  useRenderTool(
     {
+      name: "search_for_places",
+      agentId: "travel",
+      parameters: z.object({
+        queries: z.array(z.string()).describe("The place searches to run"),
+      }),
+      render: ({ status }) =>
+        status === "executing" &&
+        state.search_progress &&
+        state.search_progress.length > 0 ? (
+          <SearchProgress progress={state.search_progress} />
+        ) : (
+          <></>
+        ),
+    },
+    [state.search_progress],
+  );
+
+  useConfigureSuggestions(
+    {
+      consumerAgentId: "travel",
+      providerAgentId: "travel",
       instructions: `Offer the user actionable suggestions on their last message, current trips and selected trip.\n ${state.selected_trip_id} \n ${JSON.stringify(state.trips)}`,
       minSuggestions: 1,
       maxSuggestions: 2,
+      available: "before-first-message",
+    },
+    [state.trips, state.selected_trip_id],
+  );
+
+  useHumanInTheLoop({
+    name: "add_trips",
+    agentId: "travel",
+    description: "Add some trips",
+    parameters: tripsSchema,
+    render: ({ args, status, respond }) => (
+      <AddTrips args={args} status={status} respond={respond} />
+    ),
+  });
+
+  useHumanInTheLoop(
+    {
+      name: "update_trips",
+      agentId: "travel",
+      description: "Update some trips",
+      parameters: tripsSchema,
+      render: ({ args, status, respond }) => (
+        <EditTrips
+          args={args}
+          status={status}
+          respond={respond}
+          trips={state.trips}
+        />
+      ),
     },
     [state.trips],
   );
 
-  useCopilotAction({
-    name: "add_trips",
-    description: "Add some trips",
-    parameters: [
-      {
-        name: "trips",
-        type: "object[]",
-        description: "The trips to add",
-        required: true,
-      },
-    ],
-    renderAndWait: AddTrips,
-  });
-
-  useCopilotAction({
-    name: "update_trips",
-    description: "Update some trips",
-    parameters: [
-      {
-        name: "trips",
-        type: "object[]",
-        description: "The trips to update",
-        required: true,
-      },
-    ],
-    renderAndWait: (props) =>
-      EditTrips({
-        ...props,
-        trips: state.trips,
-        selectedTripId: state.selected_trip_id as string,
-      }),
-  });
-
-  useCopilotAction({
-    name: "delete_trips",
-    description: "Delete some trips",
-    parameters: [
-      {
-        name: "trip_ids",
-        type: "string[]",
-        description: "The ids of the trips to delete",
-        required: true,
-      },
-    ],
-    renderAndWait: (props) => DeleteTrips({ ...props, trips: state.trips }),
-  });
+  useHumanInTheLoop(
+    {
+      name: "delete_trips",
+      agentId: "travel",
+      description: "Delete some trips",
+      parameters: deleteTripsSchema,
+      render: ({ args, status, respond, toolCallId }) => (
+        <DeleteTripsSnapshot
+          args={args}
+          status={status}
+          respond={respond}
+          toolCallId={toolCallId}
+          trips={state.trips}
+          snapshots={deleteTripsSnapshots.current}
+        />
+      ),
+    },
+    [state.trips],
+  );
 
   const selectedTrip = useMemo(() => {
     if (!state.selected_trip_id || !state.trips) return null;
@@ -108,22 +200,40 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
    * Helper functions for trips
    */
   const addTrip = (trip: Trip) => {
-    setState({ ...state, trips: [...state.trips, trip] });
+    const currentState = normalizeAgentState(agent.state);
+    agent.setState({
+      ...currentState,
+      trips: [...currentState.trips, trip],
+    });
   };
 
   const updateTrip = (id: string, updatedTrip: Trip) => {
-    setState({
-      ...state,
-      trips: state.trips.map((trip) => (trip.id === id ? updatedTrip : trip)),
+    const currentState = normalizeAgentState(agent.state);
+    agent.setState({
+      ...currentState,
+      trips: currentState.trips.map((trip) =>
+        trip.id === id ? updatedTrip : trip,
+      ),
     });
   };
 
   const deleteTrip = (id: string) => {
-    setState({ ...state, trips: state.trips.filter((trip) => trip.id !== id) });
+    const currentState = normalizeAgentState(agent.state);
+    agent.setState({
+      ...currentState,
+      trips: currentState.trips.filter((trip) => trip.id !== id),
+      selected_trip_id:
+        currentState.selected_trip_id === id
+          ? null
+          : currentState.selected_trip_id,
+    });
   };
 
   const setSelectedTripId = (trip_id: string | null) => {
-    setState({ ...state, selected_trip_id: trip_id });
+    agent.setState({
+      ...normalizeAgentState(agent.state),
+      selected_trip_id: trip_id,
+    });
   };
 
   /*
@@ -134,9 +244,10 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     placeId: string,
     updatedPlace: Place,
   ) => {
-    setState({
-      ...state,
-      trips: state.trips.map((trip) =>
+    const currentState = normalizeAgentState(agent.state);
+    agent.setState({
+      ...currentState,
+      trips: currentState.trips.map((trip) =>
         trip.id === tripId
           ? {
               ...trip,
@@ -150,9 +261,10 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addPlace = (tripId: string, place: Place) => {
-    setState({
-      ...state,
-      trips: state.trips.map((trip) =>
+    const currentState = normalizeAgentState(agent.state);
+    agent.setState({
+      ...currentState,
+      trips: currentState.trips.map((trip) =>
         trip.id === tripId
           ? { ...trip, places: [...trip.places, place] }
           : trip,
@@ -161,9 +273,10 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deletePlace = (tripId: string, placeId: string) => {
-    setState({
-      ...state,
-      trips: state.trips.map((trip) =>
+    const currentState = normalizeAgentState(agent.state);
+    agent.setState({
+      ...currentState,
+      trips: currentState.trips.map((trip) =>
         trip.id === tripId
           ? {
               ...trip,

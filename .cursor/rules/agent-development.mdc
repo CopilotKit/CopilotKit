@@ -19,7 +19,7 @@ Python agents are typically in folders named `agent-py/` or `agent/` and use the
 #### Python Agent Examples
 - **[coagents-starter/agent-py/](mdc:examples/coagents-starter/agent-py/)** - Basic Python agent setup
 - **[coagents-ai-researcher/agent/](mdc:examples/coagents-ai-researcher/agent/)** - Research agent with web scraping
-- **[coagents-travel/agent/](mdc:examples/coagents-travel/agent/)** - Travel planning agent
+- **[travel/agent/](mdc:examples/v1/travel/agent/)** - Travel planning agent
 - **[langgraph-tutorial-quickstart/agent-py/](mdc:examples/langgraph-tutorial-quickstart/agent-py/)** - LangGraph integration
 
 ### JavaScript Agents
@@ -99,5 +99,4 @@ Using LangGraph for agent state management:
 4. Test with the corresponding UI example
 5. Use shared utilities from [examples/shared/](mdc:examples/shared/)
 6. Follow the established patterns in existing examples
-
 

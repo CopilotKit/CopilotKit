@@ -1,8 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
+import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -37,36 +36,20 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
-
-// Define the form schema with Zod
-const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-  incidentType: z.string({
-    required_error: "Please select an incident type.",
-  }),
-  date: z.date({
-    required_error: "Please select the date when the incident occurred.",
-  }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-  impactLevel: z.string({
-    required_error: "Please select an impact level.",
-  }),
-  suggestedActions: z.string().min(10, {
-    message: "Suggested actions must be at least 10 characters.",
-  }),
-});
+import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
+import {
+  isIncidentDateAllowed,
+  parseIncidentDate,
+  serializeIncidentDate,
+} from "@/lib/incident-date";
+import { incidentReportFormSchema } from "@/lib/incident-report-form";
+import type { IncidentReportFormValues } from "@/lib/incident-report-form";
+import { fillIncidentReportFormParameters } from "@/lib/incident-report-tool";
+import { applyIncidentReportFormValues } from "@/lib/apply-incident-report-form-values";
 
 export function IncidentReportForm() {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<IncidentReportFormValues>({
+    resolver: zodResolver(incidentReportFormSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -76,8 +59,9 @@ export function IncidentReportForm() {
       impactLevel: "",
     },
   });
+  const formValues = useWatch({ control: form.control });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  function onSubmit(values: IncidentReportFormValues) {
     console.log(values);
     alert("Incident report submitted successfully!");
     form.reset({
@@ -91,86 +75,40 @@ export function IncidentReportForm() {
     });
   }
 
-  useCopilotReadable(
-    {
-      description:
-        "The security incident report form fields and their current values",
-      value: form,
+  useAgentContext({
+    description:
+      "The security incident report form fields and their current values",
+    value: {
+      name: formValues.name ?? "",
+      email: formValues.email ?? "",
+      incidentType: formValues.incidentType ?? "",
+      date: formValues.date ? serializeIncidentDate(formValues.date) : "",
+      description: formValues.description ?? "",
+      impactLevel: formValues.impactLevel ?? "",
+      suggestedActions: formValues.suggestedActions ?? "",
     },
-    [form],
-  );
+  });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "fillIncidentReportForm",
     description: "Fill out the incident report form",
-    parameters: [
-      {
-        name: "fullName",
-        type: "string",
-        required: true,
-        description: "The full name of the person reporting the incident",
-      },
-      {
-        name: "email",
-        type: "string",
-        required: true,
-        description: "The email address of the person reporting the incident",
-      },
-      {
-        name: "description",
-        type: "string",
-        required: true,
-        description: "The description of the incident",
-      },
-      {
-        name: "date",
-        type: "string",
-        required: true,
-        description: "The date of the incident",
-      },
-      {
-        name: "impactLevel",
-        type: "string",
-        required: true,
-        description: "The impact level of the incident",
-      },
-      {
-        name: "incidentType",
-        type: "string",
-        required: true,
-        description:
-          "The type of incident, must be one of the following: phishing, malware, data_breach, unauthorized_access, ddos, other",
-      },
-      {
-        name: "incidentLevel",
-        type: "string",
-        required: true,
-        description:
-          "The severity of the incident, must be one of the following: low, medium, high, critical",
-      },
-      {
-        name: "incidentDescription",
-        type: "string",
-        required: true,
-        description:
-          "The description of the incident, be as detailed as possible. At least 30 words.",
-      },
-      {
-        name: "suggestedActions",
-        type: "string",
-        required: true,
-        description:
-          "The suggested actions to take based on the incident, be as detailed as possible in a bulleted list.",
-      },
-    ],
+    parameters: fillIncidentReportFormParameters,
     handler: async (action) => {
-      form.setValue("name", action.fullName);
-      form.setValue("email", action.email);
-      form.setValue("description", action.incidentDescription);
-      form.setValue("date", new Date(action.date));
-      form.setValue("impactLevel", action.incidentLevel);
-      form.setValue("incidentType", action.incidentType);
-      form.setValue("suggestedActions", action.suggestedActions);
+      const incidentDate = parseIncidentDate(action.date);
+      if (!incidentDate || !isIncidentDateAllowed(incidentDate)) {
+        return "The incident date must be a valid date from January 1, 1900 through today in YYYY-MM-DD format.";
+      }
+
+      applyIncidentReportFormValues(form.setValue, {
+        name: action.fullName,
+        email: action.email,
+        description: action.incidentDescription,
+        date: incidentDate,
+        impactLevel: action.incidentLevel,
+        incidentType: action.incidentType,
+        suggestedActions: action.suggestedActions,
+      });
+      return "Updated the incident report form.";
     },
   });
 
@@ -255,6 +193,7 @@ export function IncidentReportForm() {
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
+                            type="button"
                             variant={"outline"}
                             className={cn(
                               "w-full pl-3 text-left font-normal",
@@ -275,9 +214,7 @@ export function IncidentReportForm() {
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}
-                          disabled={(date) =>
-                            date > new Date() || date < new Date("1900-01-01")
-                          }
+                          disabled={(date) => !isIncidentDateAllowed(date)}
                           initialFocus
                         />
                       </PopoverContent>

@@ -29,18 +29,45 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
     if tool_message.content != "SEND":
         args = ai_message.tool_calls[0].get("args", {})
         trips = args.get("trips", [])
-        lst = json.loads(tool_message.content)
-        editMode = tool_message.content.split("|||")[1]
-        lst = lst.split("|||")[0]
-        lst = lst.split(",")
-        filtered_lst = [item for item in trips[0]["places"] if item["id"] in lst]
-        if editMode.strip().lower() == 'editmode"':
-            existing_places = next(
-                x for x in state["trips"] if x["id"] == args["trips"][0]["id"]
-            )["places"]
-            args["trips"][0]["places"] = existing_places + filtered_lst
+        response = json.loads(tool_message.content)
+        if isinstance(response, dict):
+            if response["operation"] not in {"replace", "select"}:
+                raise ValueError(
+                    f"Unsupported place operation: {response['operation']}"
+                )
+            if "selections" in response:
+                trips_by_id = {trip["id"]: trip for trip in trips}
+                selected_place_ids_by_trip = {
+                    selection["tripId"]: (
+                        selection["placeIds"]
+                        if "placeIds" in selection
+                        else [
+                            place["id"]
+                            for place in trips_by_id[selection["tripId"]]["places"]
+                        ]
+                    )
+                    for selection in response["selections"]
+                }
+                trips_to_filter = trips
+            else:
+                selected_place_ids_by_trip = {trips[0]["id"]: response["placeIds"]}
+                trips_to_filter = trips[:1]
         else:
-            args["trips"][0]["places"] = filtered_lst
+            selected_place_ids_by_trip = {
+                trips[0]["id"]: response.split("|||")[0].split(",")
+            }
+            trips_to_filter = trips[:1]
+
+        for trip in trips_to_filter:
+            selected_place_ids = selected_place_ids_by_trip[trip["id"]]
+            filtered_places: list[Place] = []
+            seen_place_ids = set()
+            for place in trip["places"]:
+                place_id = place["id"]
+                if place_id in selected_place_ids and place_id not in seen_place_ids:
+                    filtered_places.append(place)
+                    seen_place_ids.add(place_id)
+            trip["places"] = filtered_places
 
     if not isinstance(ai_message, AIMessage) or not ai_message.tool_calls:
         return state
@@ -74,6 +101,9 @@ def add_trips(trips: List[Trip]):
 
 def handle_add_trips(state: AgentState, args: dict) -> AIMessage:
     trips = args.get("trips", [])
+
+    if not trips:
+        return AIMessage(content="No trips were added.")
 
     state["trips"].extend(trips)
     state["selected_trip_id"] = trips[0]["id"]

@@ -1,7 +1,8 @@
 import { MapContainer, TileLayer, Marker, Tooltip } from "react-leaflet";
 import { useTrips } from "@/lib/hooks/use-trips";
-import { useEffect, useState, useRef } from "react";
-import { Map, divIcon } from "leaflet";
+import { useState } from "react";
+import type { Map } from "leaflet";
+import { divIcon } from "leaflet";
 import { cn } from "@/lib/utils";
 import { TripCard } from "@/components/TripCard";
 import { PlaceCard } from "@/components/PlaceCard";
@@ -35,7 +36,7 @@ export function MapCanvas({ className }: MapCanvasProps) {
         {selectedTrip &&
           selectedTrip.places.map((place, i) => (
             <Marker
-              key={i}
+              key={place.id}
               position={[place.latitude, place.longitude]}
               icon={divIcon({
                 className: "bg-transparent",

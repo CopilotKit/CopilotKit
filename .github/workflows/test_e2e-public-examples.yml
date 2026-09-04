@@ -1,16 +1,62 @@
-name: test / e2e / legacy-v1
+name: test / e2e / public examples
 
 on:
   push:
     branches: [main]
     paths:
       - "examples/**"
-      - ".github/workflows/test_e2e-legacy-v1.yml"
+      - "scripts/__tests__/examples-readme-catalog.test.mjs"
+      - "scripts/deprecations/v1-dist-notices.mjs"
+      - "scripts/project.json"
+      - ".github/workflows/test_e2e-public-examples.yml"
+      - ".browserslistrc"
+      - ".npmrc"
+      - ".pnpmfile.cjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "nx.json"
+      - "patches/**"
+      - "packages/a2ui-renderer/**"
+      - "packages/channels*/**"
+      - "packages/core/**"
+      - "packages/react-core/**"
+      - "packages/runtime/**"
+      - "packages/runtime-client-gql/**"
+      - "packages/sdk-js/**"
+      - "packages/shared/**"
+      - "packages/tsconfig/**"
+      - "packages/typescript-config/**"
+      - "packages/web-components/**"
+      - "packages/web-inspector/**"
   pull_request:
     branches: [main]
     paths:
       - "examples/**"
-      - ".github/workflows/test_e2e-legacy-v1.yml"
+      - "scripts/__tests__/examples-readme-catalog.test.mjs"
+      - "scripts/deprecations/v1-dist-notices.mjs"
+      - "scripts/project.json"
+      - ".github/workflows/test_e2e-public-examples.yml"
+      - ".browserslistrc"
+      - ".npmrc"
+      - ".pnpmfile.cjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "nx.json"
+      - "patches/**"
+      - "packages/a2ui-renderer/**"
+      - "packages/channels*/**"
+      - "packages/core/**"
+      - "packages/react-core/**"
+      - "packages/runtime/**"
+      - "packages/runtime-client-gql/**"
+      - "packages/sdk-js/**"
+      - "packages/shared/**"
+      - "packages/tsconfig/**"
+      - "packages/typescript-config/**"
+      - "packages/web-components/**"
+      - "packages/web-inspector/**"
   workflow_dispatch:
     inputs:
       branch:
@@ -33,6 +79,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  catalog:
+    name: catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          run_install: false
+
+      - name: Install root dev dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter=.
+
+      - name: Verify examples catalog
+        run: pnpm nx run repo-scripts:validate-examples-catalog
+
   examples:
     name: ${{ matrix.example }}
     runs-on: depot-ubuntu-24.04-4
@@ -44,12 +117,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example:
-          - form-filling
-          - travel
-          - research-canvas
-          - chat-with-your-data
-          - state-machine
+        include:
+          - example: form-filling
+            directory: examples/v1/form-filling
+          - example: travel
+            directory: examples/v1/travel
+          - example: research-canvas
+            directory: examples/v1/research-canvas
+          - example: chat-with-your-data
+            directory: examples/v1/chat-with-your-data
+          - example: state-machine
+            directory: examples/v1/state-machine
 
     steps:
       - name: Checkout
@@ -108,6 +186,27 @@ jobs:
       - name: Build CopilotKit
         id: build-cpk
         run: pnpm build
+
+      - name: Run example unit tests
+        working-directory: ${{ matrix.directory }}
+        run: pnpm test
+
+      - name: Run Research Canvas TypeScript agent tests
+        if: matrix.example == 'research-canvas'
+        run: pnpm nx test @copilotkit-examples/research-canvas-agent --excludeTaskDependencies
+
+      - name: Set up uv for Travel tests
+        if: matrix.example == 'travel'
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: examples/v1/travel/agent/uv.lock
+
+      - name: Run Travel agent tests
+        if: matrix.example == 'travel'
+        working-directory: examples/v1/travel/agent
+        run: uv run --locked --with pytest==9.1.1 python -m pytest tests
 
       - name: Install e2e dependencies
         working-directory: examples/e2e

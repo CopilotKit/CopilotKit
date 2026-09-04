@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "examples/v1/*"
+  - "examples/v1/research-canvas/agents/typescript"
   - "examples/v2/*"
   - "examples/v2/*/apps/*"
   - "examples/v2/react/*"

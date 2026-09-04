@@ -1,6 +1,8 @@
 # Travel Planner
 
-Plan your next trip with an AI-powered travel planner. This demo showcases a travel application where an AI assistant helps you create, manage, and explore trips with real-time map visualization and Google Maps integration.
+Plan your next trip with an AI-powered travel planner. This demo showcases a travel application where an AI assistant helps you create, manage, and explore trips with real-time map visualization and Places API (New) search.
+
+This example uses CopilotKit v2. If you are updating a v1 app, follow the [v2 migration guide](https://docs.copilotkit.ai/migrate/v2).
 
 [Click here for a running example](https://copilotkit.ai/examples/travel-planner)
 
@@ -10,7 +12,7 @@ Plan your next trip with an AI-powered travel planner. This demo showcases a tra
     <img src="https://img.shields.io/badge/Built%20with-CopilotKit-6963ff" alt="Built with CopilotKit"/>
   </a>
   <a href="https://nextjs.org" target="_blank">
-    <img src="https://img.shields.io/badge/Built%20with-Next.js%2014-black" alt="Built with Next.js"/>
+    <img src="https://img.shields.io/badge/Built%20with-Next.js%2016-black" alt="Built with Next.js"/>
   </a>
   <a href="https://www.langchain.com/langgraph" target="_blank">
     <img src="https://img.shields.io/badge/Powered%20by-LangGraph-blue" alt="Powered by LangGraph"/>
@@ -26,12 +28,14 @@ Plan your next trip with an AI-powered travel planner. This demo showcases a tra
   <img src="https://img.youtube.com/vi/9v3kXiOY3vg/hqdefault.jpg" alt="Travel Planner Tutorial" width="600"/>
 </a>
 
+This recording shows the original CopilotKit v1 implementation. Follow the [current CopilotKit v2 travel tutorial](https://docs.copilotkit.ai/langgraph/tutorials/ai-travel-app) for current code and APIs. If you are migrating from v1, use the [v2 migration guide](https://docs.copilotkit.ai/migrate/v2).
+
 ## Overview
 
 This application demonstrates the power of CopilotKit working with an Agent Framework (LangGraph in this case), where the agent shares state with your React frontend, enabling seamless AI-human collaboration. Key features include:
 
 - **Interactive Map** - Visualize your trips and places on a Leaflet-powered map
-- **Google Maps Search** - The AI agent can search for real places using Google Maps API
+- **Places API (New) Search** - The AI agent can search for real places using Places API (New)
 - **Human-in-the-Loop** - Review and approve AI-suggested changes before they're applied
 - **Shared State** - The AI agent and UI share the same state, keeping everything in sync
 - **Smart Suggestions** - Context-aware chat suggestions based on your current trips
@@ -40,9 +44,10 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
 
 ### Prerequisites
 
-- Node.js 18+
-- Python 3.11+ with [uv](https://docs.astral.sh/uv/) package manager
-- npm, yarn, or pnpm
+- Node.js 20.9.0+
+- Python 3.12+ with [uv](https://docs.astral.sh/uv/) package manager
+- pnpm 10+
+- A Google Maps Platform project with Places API (New) enabled
 
 ### Installation
 
@@ -59,55 +64,37 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    pnpm install
    ```
 
-   <details>
-     <summary><b>Using other package managers</b></summary>
-
-   ```bash
-   # Using yarn
-   yarn install
-
-   # Using npm
-   npm install
-   ```
-
-   </details>
-
 3. Install agent dependencies:
 
    ```bash
    pnpm install:agent
    ```
 
-4. Create a `.env` file in the project root:
+4. Create `agent/.env` for the local-agent secrets:
 
    ```
    OPENAI_API_KEY=your_openai_api_key
    GOOGLE_MAPS_API_KEY=your_google_maps_api_key
    ```
 
-   Alternatively, use [Copilot Cloud](https://dashboard.operations.copilotkit.ai) by setting:
+   Optionally, use [Copilot Cloud](https://dashboard.operations.copilotkit.ai) instead of the local agent. Create `.env.local` in the example root:
 
    ```
    NEXT_PUBLIC_CPK_PUBLIC_API_KEY=your_copilotkit_api_key
    ```
 
-5. Start the development server (runs both frontend and agent):
+5. Start the development server.
+
+   When using the local agent, start both the frontend and agent:
 
    ```bash
    pnpm dev
    ```
 
-   <details>
-     <summary><b>Using other package managers</b></summary>
+   When using Copilot Cloud, start only the frontend:
 
    ```bash
-   # Using yarn
-   yarn dev
-
-   # Using npm
-   npm run dev
+   pnpm dev:ui
    ```
-
-   </details>
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.

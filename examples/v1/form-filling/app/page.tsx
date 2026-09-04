@@ -1,13 +1,12 @@
 "use client";
 
-import { CopilotPopup } from "@copilotkit/react-ui";
+import { CopilotPopup, useAgentContext } from "@copilotkit/react-core/v2";
 import { IncidentReportForm } from "@/components/IncidentReportForm";
-import { prompt } from "@/lib/prompt";
-import { useCopilotReadable } from "@copilotkit/react-core";
 import { retrieveUserInfo } from "@/lib/user-info";
+import type { CSSProperties } from "react";
 
 export default function Home() {
-  useCopilotReadable({
+  useAgentContext({
     description: "The current user information",
     value: retrieveUserInfo(),
   });
@@ -15,13 +14,18 @@ export default function Home() {
   return (
     <div className="min-h-screen p-8 pb-20 sm:p-12 font-[family-name:var(--font-geist-sans)]">
       <CopilotPopup
-        instructions={prompt}
         defaultOpen
+        style={
+          {
+            "--primary": "#000000",
+            "--primary-foreground": "#ffffff",
+            "--ring": "#000000",
+          } as CSSProperties
+        }
         labels={{
-          title: "✨ Incident Report Assistant",
-          initial: [
+          modalHeaderTitle: "✨ Incident Report Assistant",
+          welcomeMessageText:
             "I'm an AI assistant built for guiding you through filing incident reports. How can I help?",
-          ],
         }}
       />
       <div className="max-w-5xl mx-auto">

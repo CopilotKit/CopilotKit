@@ -7,13 +7,13 @@
     "dev:ui": "next dev",
     "dev:agent": "cd agent && uv run main.py",
     "build": "next build",
+    "test": "vitest run",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "oxlint .",
     "install:agent": "cd agent && uv sync"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-checkbox": "^1.1.1",
@@ -33,25 +33,28 @@
     "groq-sdk": "^0.5.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.414.0",
-    "next": "14.2.35",
-    "openai": "^4.85.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-leaflet": "^4.2.1",
+    "next": "^16.0.10",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-leaflet": "^5.0.0",
     "shiki": "^3.20.0",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "vaul": "^1.1.1"
+    "vaul": "^1.1.1",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
     "@types/leaflet": "^1.9.14",
     "@types/node": "^22.0.0",
     "@types/react": "19.0.1",
     "@types/react-dom": "19.0.2",
     "concurrently": "^8.2.2",
+    "oxlint": "^1.51.0",
     "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5",
+    "vitest": "^4.1.3"
   },
   "nx": {
     "targets": {
