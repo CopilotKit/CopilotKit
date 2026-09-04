@@ -527,4 +527,79 @@ describe("useInterrupt", () => {
       });
     });
   });
+  // OSS-1131: a gate must survive a stream that never finalizes, a remount and
+  // a reconnect. Committing only at `onRunFinalized` meant the connect path —
+  // where finalize fires at socket teardown, not once per run — surfaced
+  // nothing.
+  describe("recovery after a lost event or a reconnect", () => {
+    const INTERRUPT: Interrupt = { id: "int-1", reason: "approval" };
+
+    it("shows a standard gate from RUN_FINISHED on a stream that never finalizes", async () => {
+      const wrapper = mountHarness({ renderInChat: false });
+
+      handlers.onRunFinishedEvent?.({
+        outcome: "interrupt",
+        interrupts: [INTERRUPT],
+      });
+      await nextTick();
+
+      expect(wrapper.get("[data-testid=interrupt-state]").text()).not.toBe(
+        "idle",
+      );
+    });
+
+    it("shows a legacy gate from RUN_FINISHED on a stream that never finalizes", async () => {
+      const wrapper = mountHarness({ renderInChat: false });
+
+      handlers.onCustomEvent?.({
+        event: { name: "on_interrupt", value: "approve?" },
+      });
+      handlers.onRunFinishedEvent?.({ outcome: "success" });
+      await nextTick();
+
+      expect(wrapper.get("[data-testid=interrupt-state]").text()).toContain(
+        "approve?",
+      );
+    });
+
+    it("seeds a standard gate from agent.pendingInterrupts on mount", async () => {
+      (mockAgent as { pendingInterrupts: Interrupt[] }).pendingInterrupts = [
+        INTERRUPT,
+      ];
+
+      const wrapper = mountHarness({ renderInChat: false });
+      await nextTick();
+
+      expect(wrapper.get("[data-testid=interrupt-state]").text()).not.toBe(
+        "idle",
+      );
+    });
+
+    it("recovers a legacy gate on remount", async () => {
+      const first = mountHarness({ renderInChat: false });
+      emitInterrupt("approve?");
+      await nextTick();
+      first.unmount();
+
+      const second = mountHarness({ renderInChat: false });
+      await nextTick();
+
+      expect(second.get("[data-testid=interrupt-state]").text()).toContain(
+        "approve?",
+      );
+    });
+
+    it("forgets a legacy gate once a new run starts", async () => {
+      const first = mountHarness({ renderInChat: false });
+      emitInterrupt("approve?");
+      await nextTick();
+      handlers.onRunStartedEvent?.();
+      first.unmount();
+
+      const second = mountHarness({ renderInChat: false });
+      await nextTick();
+
+      expect(second.get("[data-testid=interrupt-state]").text()).toBe("idle");
+    });
+  });
 });

@@ -342,4 +342,61 @@ describe("InterruptController", () => {
     expect(controller.hasInterrupt()).toBe(false);
     expect(controller.error()).toEqual(new Error("run failed"));
   });
+  // OSS-1131: committing only at `onRunFinalized` meant the connect path —
+  // where finalize fires at socket teardown, not once per replayed run —
+  // surfaced nothing, and a legacy gate had no durable record to recover from.
+  describe("recovery after a lost event or a reconnect", () => {
+    it("shows a standard gate from RUN_FINISHED on a stream that never finalizes", () => {
+      const { agent, controller } = setup();
+
+      agent.subscriber?.onRunFinishedEvent?.({
+        outcome: "interrupt",
+        interrupts: [makeInterrupt("replayed")],
+        input: { runId: "run-id" },
+      } as never);
+
+      expect(controller.interrupt()?.id).toBe("replayed");
+    });
+
+    it("shows a legacy gate from RUN_FINISHED on a stream that never finalizes", () => {
+      const { agent, controller } = setup();
+
+      agent.subscriber?.onCustomEvent?.({
+        event: { name: "on_interrupt", value: "approve?" },
+      } as never);
+      agent.subscriber?.onRunFinishedEvent?.({
+        outcome: "success",
+        input: { runId: "run-id" },
+      } as never);
+
+      expect(controller.event()).toEqual({
+        name: "on_interrupt",
+        value: "approve?",
+      });
+    });
+
+    it("restores an unresolved legacy interrupt when reconnecting", () => {
+      const { agent } = setup();
+      finalizeLegacy(agent, "approve?");
+
+      const next = new InterruptController(vi.fn());
+      next.connect(agent as unknown as AbstractAgent);
+
+      expect(next.event()).toEqual({
+        name: "on_interrupt",
+        value: "approve?",
+      });
+    });
+
+    it("forgets a legacy interrupt once a new run starts", () => {
+      const { agent } = setup();
+      finalizeLegacy(agent, "approve?");
+      agent.subscriber?.onRunStartedEvent?.({} as never);
+
+      const next = new InterruptController(vi.fn());
+      next.connect(agent as unknown as AbstractAgent);
+
+      expect(next.hasInterrupt()).toBe(false);
+    });
+  });
 });
