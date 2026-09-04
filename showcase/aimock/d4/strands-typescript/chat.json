@@ -862,7 +862,7 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die",
+        "userMessage": "Roll a 20-sided die for me",
         "hasToolResult": false,
         "context": "strands-typescript"
       },
@@ -873,7 +873,8 @@
             "arguments": "{\"sides\":20}"
           }
         ]
-      }
+      },
+      "_comment": "Key narrowed to the reference integration's wording: the bare \"Roll a 20-sided die\" is a substring of the D6 dice pills and, since D4 fixtures load first, it served them instead."
     },
     {
       "_comment": "agentic-chat e2e: typed-message test sends 'Say hello in one word.'",
@@ -936,9 +937,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion \u2014 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "_comment": "Key narrowed to the reference integration's wording: bare \"Say hi\" is a substring of longer D6 prompts.",
       "match": {
-        "userMessage": "Say hi",
+        "userMessage": "Say hi!",
         "context": "strands-typescript"
       },
       "response": {

@@ -86,8 +86,7 @@
       "_comment": "tool-rendering pill: Weather in SF \u2014 2nd leg: narration after get_weather (sequenceIndex:0 exhausted).",
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "context": "strands-typescript",
-        "hasToolResult": false
+        "context": "strands-typescript"
       },
       "response": {
         "content": "San Francisco is currently 68\u00b0F and sunny with light winds."
@@ -246,8 +245,7 @@
       "_comment": "tool-rendering pill: Weather in Tokyo \u2014 2nd leg: narration after get_weather (sequenceIndex:0 exhausted).",
       "match": {
         "userMessage": "weather in Tokyo",
-        "context": "strands-typescript",
-        "hasToolResult": false
+        "context": "strands-typescript"
       },
       "response": {
         "content": "Tokyo is 22\u00b0C and partly cloudy."

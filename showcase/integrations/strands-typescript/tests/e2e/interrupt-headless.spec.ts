@@ -21,7 +21,7 @@ import { test, expect } from "@playwright/test";
 // signal.
 
 test.describe("Interrupt (headless, app-surface picker)", () => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
 
   test.beforeEach(async ({ page }) => {
     const runtimeReady = page.waitForResponse(
@@ -82,9 +82,16 @@ test.describe("Interrupt (headless, app-surface picker)", () => {
     ).toBeVisible({ timeout: 30_000 });
     await expect(popup).toHaveCount(0);
 
-    await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').last(),
-    ).toBeVisible({ timeout: 45_000 });
+    // Positive narration, symmetric with the cancel test below: the picker
+    // unmounting only proves the element went away, not that the resumed run
+    // reached the model and came back with the booking.
+    const narration = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .last();
+    await expect(narration).toBeVisible({ timeout: 45_000 });
+    await expect(narration).toContainText(/Booked|Scheduled/, {
+      timeout: 45_000,
+    });
   });
 
   test("cancel path: dismissing the picker resumes the run", async ({

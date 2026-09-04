@@ -24,15 +24,14 @@ import { z } from "zod";
 import { StrandsAgent } from "@ag-ui/aws-strands";
 import { createModel } from "./model-factory";
 
-export const REASONING_MODEL =
-  process.env.OPENAI_REASONING_MODEL ?? "gpt-5.4";
+export const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5.4";
 
 /** Responses-API model that streams reasoning summaries on every turn. */
 function reasoningModel() {
   return createModel({
     openaiApi: "responses",
     reasoning: true,
-    modelId: REASONING_MODEL,
+    openaiModelId: REASONING_MODEL,
   });
 }
 

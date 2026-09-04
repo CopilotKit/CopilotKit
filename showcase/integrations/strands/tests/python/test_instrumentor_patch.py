@@ -193,6 +193,15 @@ def test_agent_server_module_installs_patch():
     fake_openai_mod.OpenAIModel = _FakeOpenAIModel  # type: ignore[attr-defined]
     fake_models = types.ModuleType("strands.models")
 
+    # The reasoning demos build their model from the Responses API surface and
+    # the interrupt tool takes a ToolContext; both are imported while
+    # agent_server executes, so they need stubs alongside the chat model.
+    fake_responses_mod = types.ModuleType("strands.models.openai_responses")
+    fake_responses_mod.OpenAIResponsesModel = _FakeOpenAIModel  # type: ignore[attr-defined]
+    fake_types_mod = types.ModuleType("strands.types")
+    fake_tool_types_mod = types.ModuleType("strands.types.tools")
+    fake_tool_types_mod.ToolContext = _AcceptsAnything  # type: ignore[attr-defined]
+
     # uvicorn is imported at module level but only invoked from ``main()``.
     if "uvicorn" not in sys.modules:
         fake_uvicorn = types.ModuleType("uvicorn")
@@ -221,6 +230,9 @@ def test_agent_server_module_installs_patch():
         "strands.hooks",
         "strands.models",
         "strands.models.openai",
+        "strands.models.openai_responses",
+        "strands.types",
+        "strands.types.tools",
         "ag_ui_strands",
     ):
         sys.modules.pop(_stale, None)
@@ -230,6 +242,9 @@ def test_agent_server_module_installs_patch():
         "strands.hooks": fake_hooks,
         "strands.models": fake_models,
         "strands.models.openai": fake_openai_mod,
+        "strands.models.openai_responses": fake_responses_mod,
+        "strands.types": fake_types_mod,
+        "strands.types.tools": fake_tool_types_mod,
         "ag_ui_strands": fake_ag_ui_strands,
     }
 

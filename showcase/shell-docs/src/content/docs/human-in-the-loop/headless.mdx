@@ -29,8 +29,10 @@ to match:
   (LangGraph): subscribe to that event and resume the run by calling
   `copilotkit.runAgent({...})` with the matching `resume` payload.
 - A bridge that finishes the run with a standard AG-UI interrupt outcome
-  (AWS Strands): call `useInterrupt` with `renderInChat: false` and place
-  the element it returns wherever you like; `resolve(...)` resumes the run.
+  (AWS Strands): the run's final `RUN_FINISHED` carries
+  `outcome: { type: "interrupt", interrupts: [...] }`. Call `useInterrupt` with
+  `renderInChat: false` and place the element it returns wherever you like;
+  `resolve(...)` resumes the run.
 
 Either way, no chat surface is required.
 

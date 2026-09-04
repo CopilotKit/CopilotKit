@@ -10,10 +10,11 @@
  * the same `threadId` returns the user's choice to that same `interrupt()`
  * call, so the tool body continues where it left off.
  *
- * The resume payload arrives wrapped: a resolved answer as `{ response: ... }`,
- * a client-side cancel as `{ cancelled: true }`. The bridge wraps it so one
- * tool body reads the same on both bridges, and because an answer the SDK reads
- * as absent would re-raise the same interrupt forever.
+ * How the resume payload arrives depends on the bridge, so the tool normalises
+ * both shapes (see `readResume`): the pinned `@ag-ui/aws-strands` 0.2.3 passes
+ * the client's payload through and cancels with `{ status: "cancelled" }`,
+ * while the Python bridge wraps a resolved answer as `{ response: ... }` and
+ * cancels with `{ cancelled: true }`.
  *
  * This is a dedicated agent rather than a tool on the shared showcase agent
  * because `hitl-in-chat` registers a FRONTEND tool of the same name; one
@@ -37,15 +38,48 @@ interface MeetingChoice {
   cancelled?: boolean;
 }
 
-/** The envelope the bridge hands a resumed tool. */
+/**
+ * What the bridge hands a resumed tool. Two shapes are in circulation:
+ *
+ * - `@ag-ui/aws-strands` 0.2.3 (the pinned release) passes the client's payload
+ *   through untouched, and signals a cancel as `{ status: "cancelled" }`.
+ * - `ag_ui_strands` (Python) wraps it as `{ response: payload }`, and signals a
+ *   cancel as `{ cancelled: true }`.
+ *
+ * Reading only one of them silently mis-reports the other: a resolved pick
+ * arrives with no recognised answer and the tool tells the model the user never
+ * picked a time.
+ */
 interface ResumeEnvelope {
   /** `null` when the client answered with no payload at all. */
   response?: MeetingChoice | null;
   cancelled?: boolean;
+  status?: string;
+}
+
+/** Normalise both envelope shapes to `{ choice, cancelled }`. */
+export function readResume(
+  answer: ResumeEnvelope | MeetingChoice | null | undefined,
+): {
+  choice: MeetingChoice;
+  cancelled: boolean;
+} {
+  const envelope: ResumeEnvelope =
+    answer && typeof answer === "object" ? answer : {};
+  const inner =
+    "response" in envelope
+      ? envelope.response
+      : (answer as MeetingChoice | null | undefined);
+  const choice: MeetingChoice = inner && typeof inner === "object" ? inner : {};
+  const cancelled =
+    envelope.cancelled === true ||
+    envelope.status === "cancelled" ||
+    choice.cancelled === true;
+  return { choice, cancelled };
 }
 
 // @region[backend-interrupt-tool]
-const scheduleMeeting = tool({
+export const scheduleMeeting = tool({
   name: "schedule_meeting",
   description:
     "Ask the user to pick a meeting time, then confirm what was scheduled.",
@@ -68,18 +102,15 @@ const scheduleMeeting = tool({
       reason: attendee === undefined ? { topic } : { topic, attendee },
     });
 
-    // Two cancel shapes reach here: the bridge's sentinel for a cancelled
-    // resume entry, and the picker's own Cancel button, which resolves with a
-    // `cancelled` flag inside the payload. The value inside the envelope is
-    // whatever the client sent, so it is checked rather than assumed.
-    const inner = answer?.response;
-    const payload: MeetingChoice =
-      inner && typeof inner === "object" ? inner : {};
-    if (answer?.cancelled || payload.cancelled) {
+    // Three cancel shapes reach here: each bridge's own sentinel for a
+    // cancelled resume entry, and the picker's Cancel button, which resolves
+    // with a `cancelled` flag inside the payload.
+    const { choice, cancelled } = readResume(answer);
+    if (cancelled) {
       return `User cancelled. Meeting NOT scheduled: ${topic}`;
     }
 
-    const label = payload.chosen_label ?? payload.chosen_time;
+    const label = choice.chosen_label ?? choice.chosen_time;
     return label
       ? `Meeting scheduled for ${label}: ${topic}`
       : `User did not pick a time. Meeting NOT scheduled: ${topic}`;

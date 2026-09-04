@@ -12,7 +12,7 @@ the showcase's default chat-completions model would never light the slot up.
 
 `summary: "detailed"` rather than `"auto"` is deliberate: with `"auto"` the
 model decides, and it frequently skips the summary entirely, which leaves the
-reasoning slot unmounted.
+reasoning slot unmounted. Override the model with `OPENAI_REASONING_MODEL`.
 
 Mirrors `langgraph-python/src/agents/reasoning_agent.py`.
 """
@@ -29,15 +29,26 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
+DEFAULT_REASONING_MODEL = "gpt-5.4"
+
+
+def reasoning_model_id() -> str:
+    """Resolve the reasoning model at call time.
+
+    Read here rather than at module scope: the agent server imports this module
+    before it calls `load_dotenv()`, so a module-level read would always miss an
+    `OPENAI_REASONING_MODEL` set in `.env`.
+    """
+    return os.environ.get("OPENAI_REASONING_MODEL", DEFAULT_REASONING_MODEL)
 
 
 def build_reasoning_model():
     """Construct the Responses-API model that streams reasoning summaries.
 
-    Imported inside the factory: `OpenAIResponsesModel` requires openai>=2, and
-    an import at module scope would take the whole agent server down on an
-    older install rather than failing only the reasoning demos.
+    `OpenAIResponsesModel` is imported here rather than at module scope so the
+    dependency shows up where it is used; it needs openai>=2, which the pinned
+    requirements provide. The agent server builds these agents at import time,
+    so an older install still fails the whole server, not just these demos.
     """
     from strands.models.openai_responses import OpenAIResponsesModel
 
@@ -46,7 +57,7 @@ def build_reasoning_model():
         raise RuntimeError("OPENAI_API_KEY must be set for the strands showcase agent")
     return OpenAIResponsesModel(
         client_args={"api_key": api_key},
-        model_id=REASONING_MODEL,
+        model_id=reasoning_model_id(),
         params={"reasoning": {"effort": "medium", "summary": "detailed"}},
     )
 

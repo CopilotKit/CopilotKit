@@ -40,11 +40,20 @@ than by the shared agent, because `hitl-in-chat` registers a FRONTEND tool
 called `schedule_meeting`; one tool name cannot be both client-executed and
 backend-pausing.
 
-Interrupt payload channel, one live bridge difference: `ag_ui_strands` (Python)
-carries the tool's `interrupt()` reason under the AG-UI interrupt's
-`metadata.reason`, while the published `@ag-ui/aws-strands` 0.2.3 JSON-encodes
-it into `message` instead. The demo pages read both channels. `metadata.reason`
-is already in the TypeScript bridge's source and ships with its next release.
+Two live bridge differences, both handled in this package rather than papered
+over:
+
+- **Interrupt payload channel.** `ag_ui_strands` (Python) carries the tool's
+  `interrupt()` reason under the AG-UI interrupt's `metadata.reason`, while the
+  published `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` and puts
+  only `strandsName` in metadata. The demo pages read both channels.
+  `metadata.reason` is already in the TypeScript bridge's source and ships with
+  its next release.
+- **Resume envelope.** Python hands the tool `{"response": payload}` for a
+  resolved answer and `{"cancelled": True}` for a cancel; the published
+  TypeScript 0.2.3 hands the payload through untouched and cancels with
+  `{ status: "cancelled" }`. Each language's tool normalises both shapes, so a
+  picked slot is never reported back to the model as "no time picked".
 
 ## Reasoning: shipped
 
@@ -126,7 +135,9 @@ All other LangGraph-Python demos are ported below.
 Existing (pre-blitz):
 
 - `agentic-chat`, `hitl` (ergonomic HITL), `tool-rendering`, `gen-ui-tool-based`,
-  `gen-ui-agent`, `shared-state-read-write`, `shared-state-streaming`, `subagents`.
+  `gen-ui-agent`, `shared-state-read-write`, `subagents`. The
+  `shared-state-streaming` page and agent name exist too, but the cell is
+  declared unsupported: see the skipped-demos section above for why.
 
 Added in this blitz:
 

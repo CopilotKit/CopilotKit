@@ -27,30 +27,52 @@ type SchedulingPayload = {
 // `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` instead. Both are
 // read so one page serves both, and the legacy event value is read last for
 // adapters that pass the payload through unwrapped.
+/**
+ * JSON.parse that never throws and never returns a primitive. Both readers run
+ * inside a React render callback, where a throw takes the whole pane down.
+ */
+function parseObject(raw: string | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function readSchedulingPayload(
-  interrupt: { metadata?: unknown; message?: string } | undefined,
+  interrupt: { metadata?: unknown; message?: string } | null | undefined,
   eventValue: unknown,
 ): SchedulingPayload {
   const metadata = interrupt?.metadata as
     | { reason?: SchedulingPayload }
     | undefined;
-  if (metadata?.reason) return metadata.reason;
-
-  if (interrupt?.message) {
-    try {
-      const decoded = JSON.parse(interrupt.message) as SchedulingPayload;
-      if (decoded && typeof decoded === "object") return decoded;
-    } catch {
-      // A plain-prose message is not a payload; fall through.
-    }
+  if (metadata?.reason && typeof metadata.reason === "object") {
+    return metadata.reason;
   }
 
-  const raw = eventValue ?? {};
-  const legacy = (typeof raw === "string" ? JSON.parse(raw) : raw) as
-    | SchedulingPayload
-    | { metadata?: { reason?: SchedulingPayload } };
-  if ("metadata" in legacy) return legacy.metadata?.reason ?? {};
-  return legacy;
+  // The published TypeScript bridge JSON-encodes the reason into `message`
+  // instead of carrying it on metadata.
+  const decoded = parseObject(interrupt?.message);
+  if (decoded) {
+    const nested = (decoded as { reason?: SchedulingPayload }).reason;
+    return nested && typeof nested === "object"
+      ? nested
+      : (decoded as SchedulingPayload);
+  }
+
+  // Legacy channel: some adapters pass the payload through as the event value,
+  // JSON-encoded or not.
+  const legacy =
+    typeof eventValue === "string" ? parseObject(eventValue) : eventValue;
+  if (!legacy || typeof legacy !== "object") return {};
+  const wrapped = (legacy as { metadata?: { reason?: SchedulingPayload } })
+    .metadata?.reason;
+  if (wrapped && typeof wrapped === "object") return wrapped;
+  return legacy as SchedulingPayload;
 }
 
 export default function GenUiInterruptDemo() {
@@ -88,13 +110,20 @@ function Chat() {
           attendee={payload.attendee}
           slots={slots}
           onSubmit={(result) => {
-            // Defer resolve so React commits the picked/cancelled state
-            // before useInterrupt clears the interrupt element. A single
-            // requestAnimationFrame is not reliable — rAF fires before
-            // React's commit in some scheduling scenarios. Using a short
-            // setTimeout ensures the commit lands first and the user sees
-            // the "Booked"/"Cancelled" badge before the card unmounts.
-            setTimeout(() => resolve(result), 500);
+            // Defer resolve so React commits the picked/cancelled badge before
+            // useInterrupt clears the interrupt element (a single rAF is not
+            // reliable: it can fire before React's commit). The rejection is
+            // re-surfaced rather than dropped, because the card has already
+            // shown a green "Booked" badge by then and a silently failed
+            // resume would leave the user reading a success that never
+            // happened.
+            window.setTimeout(() => {
+              void resolve(result).catch((error: unknown) => {
+                queueMicrotask(() => {
+                  throw error;
+                });
+              });
+            }, 500);
           }}
         />
       );

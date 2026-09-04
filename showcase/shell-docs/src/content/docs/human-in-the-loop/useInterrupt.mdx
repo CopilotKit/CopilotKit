@@ -90,7 +90,9 @@ Two things to note:
   frontend reads off the interrupt. Keep it a plain, serializable object.
   It's the "pause-time context" the UI needs to render. Where it lands
   depends on the bridge: LangGraph hands it to `render` as `event.value`,
-  while a standard AG-UI interrupt carries it on the interrupt itself.
+  while a standard AG-UI interrupt carries it on the interrupt itself, either
+  under `metadata` or JSON-encoded into `message`. Read the channels your
+  bridge uses rather than assuming one.
 - The return-side contract (`{chosen_label, chosen_time}` or
   `{cancelled: true}`) is entirely yours. The client can send anything
   as the resolve payload; the tool is the one that gives it meaning.

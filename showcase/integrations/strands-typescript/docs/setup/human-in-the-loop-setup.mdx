@@ -15,10 +15,12 @@
       title="src/agent/interrupt-agent.ts"
     />
 
-    The resume payload arrives wrapped: an answer as `{ response: ... }`, a
-    client-side cancel as `{ cancelled: true }`. The adapter wraps it because
-    an answer the SDK reads as absent would re-raise the same interrupt
-    forever.
+    How the answer reaches the tool depends on the adapter version. The pinned
+    `@ag-ui/aws-strands` 0.2.3 hands the client's payload through untouched and
+    signals a cancel as `{ status: "cancelled" }`; the Python adapter wraps an
+    answer as `{ response: ... }` and cancels with `{ cancelled: true }`. Read
+    both shapes, or a picked slot comes back to the model as though the user
+    never picked one.
 
   </Step>
   <Step>

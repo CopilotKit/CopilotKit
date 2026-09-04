@@ -2,11 +2,12 @@
  * Strands TypeScript showcase agent server.
  *
  * An Express app exposing AG-UI SSE endpoints, mirroring the Python sibling's
- * `agent_server.py`: a single shared showcase agent at `/`, plus tool-free
- * specialized agents on dedicated sub-paths (`/voice`, `/byoc-hashbrown`,
- * `/byoc-json-render`). The Next.js CopilotKit runtime proxies here via the
- * AG-UI protocol (HttpAgent), so per-demo differentiation lives on the
- * frontend.
+ * `agent_server.py`: a single shared showcase agent at `/`, plus specialized
+ * agents on dedicated sub-paths (`/voice`, the two BYOC renderers, the three
+ * A2UI variants, `/interrupt`, `/reasoning` and `/reasoning-chain`). Some of
+ * those carry their own tools; the rest are tool-free. The Next.js CopilotKit
+ * runtime proxies here via the AG-UI protocol (HttpAgent), so per-demo
+ * differentiation lives on the frontend or on the sub-path it points at.
  *
  * Run with `node --import tsx server.ts` (tsx is a one-shot ESM loader, not a
  * watcher) — see package.json.
@@ -30,6 +31,7 @@ import { buildInterruptAgent } from "./interrupt-agent.js";
 import {
   buildReasoningAgent,
   buildReasoningChainAgent,
+  REASONING_MODEL,
 } from "./reasoning-agent.js";
 
 /** Mount an agent at `path` and `path/` so trailing-slash proxies resolve. */
@@ -37,6 +39,9 @@ function mountAgent(
   app: express.Express,
   path: string,
   agent: StrandsAgent,
+  // Reported to CVDIAG so a diagnostic row names the model the mount actually
+  // uses. The reasoning mounts run a different model from the shared agent.
+  modelId: string = process.env.MODEL_ID ?? "gpt-4o",
 ): void {
   // Mount the CVDIAG / header-forwarding middleware on the SAME path FIRST so
   // Express runs it BEFORE the aws-strands POST handler. It seeds the
@@ -52,7 +57,7 @@ function mountAgent(
     slug: "strands-typescript",
     agentName: "strands_agent",
     provider: "openai",
-    modelId: process.env.MODEL_ID ?? "gpt-4o",
+    modelId,
   });
   app.post(path, mw);
   addStrandsExpressEndpoint(app, agent, { path });
@@ -122,8 +127,8 @@ async function main(): Promise<void> {
   // Reasoning: the Responses API with reasoning summaries enabled, which the
   // shared chat-completions agent does not emit. The chain demo gets its own
   // tool-carrying variant.
-  mountAgent(app, "/reasoning", reasoning);
-  mountAgent(app, "/reasoning-chain", reasoningChain);
+  mountAgent(app, "/reasoning", reasoning, REASONING_MODEL);
+  mountAgent(app, "/reasoning-chain", reasoningChain, REASONING_MODEL);
   // Mount the shared agent LAST at the root so the sub-path POST routes are
   // matched first by Express's route table.
   mountAgent(app, "/", showcase);

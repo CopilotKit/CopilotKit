@@ -1,25 +1,23 @@
 /**
  * D5 — interrupt-headless script.
  *
- * Drives `/demos/interrupt-headless`. Same backend `interrupt(...)`
- * pattern as gen-ui-interrupt — the agent's `schedule_meeting` tool
- * calls LangGraph's `interrupt({"topic","attendee","slots":[...]})`.
- * The DIFFERENCE: instead of `useInterrupt` rendering a TimePickerCard
- * inline inside the chat bubble, this demo uses
- * `useHeadlessInterrupt` (custom-event subscribe + manual
- * `runAgent({forwardedProps:{command:{resume,interruptEvent}}})`).
- * The popup mounts in a separate "app surface" pane (left), not in the
- * chat (right).
+ * Drives `/demos/interrupt-headless`. Same backend pause as
+ * gen-ui-interrupt: the agent's `schedule_meeting` tool interrupts the run and
+ * hands the client its pause-time context. The DIFFERENCE is where the picker
+ * goes. Instead of rendering inline in the chat bubble, this demo places the
+ * interrupt element in a separate "app surface" pane (left), not in the chat
+ * (right), either through `useInterrupt({ renderInChat: false })`, or, on the
+ * bridges that surface a pause as a legacy custom event, through a hand-rolled
+ * subscribe-and-resume hook.
  *
  * Two-turn flow per chip:
- *   1. Send the chip prompt → backend `interrupt()` fires → frontend
- *      `useHeadlessInterrupt` consumes the `on_interrupt` custom event
- *      → `[data-testid="interrupt-headless-popup"]` mounts in the
- *      app surface (NOT in the chat).
- *   2. Click the first slot button → `resolve({chosen_time, chosen_label})`
- *      fires → `runAgent({forwardedProps:{command:{resume,...}}})` →
- *      agent resumes, popup unmounts back to `interrupt-headless-empty`,
- *      assistant confirmation lands in chat.
+ *   1. Send the chip prompt, the backend pauses, and
+ *      `[data-testid="interrupt-headless-popup"]` mounts in the app surface
+ *      (NOT in the chat).
+ *   2. Click the first slot button, which resolves with
+ *      `{chosen_time, chosen_label}`; the run resumes, the popup unmounts back
+ *      to `interrupt-headless-empty`, and the assistant confirmation lands in
+ *      chat.
  *
  * The "popup unmounts back to empty" + "assistant confirmation" pair is
  * the genuine downstream signal — it proves resolve() fired AND

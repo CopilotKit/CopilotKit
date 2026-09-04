@@ -1,9 +1,10 @@
 /**
  * D5 — gen-ui-interrupt script.
  *
- * Drives `/demos/gen-ui-interrupt`. The agent's `schedule_meeting`
- * tool either calls LangGraph's `interrupt(...)` or is registered as
- * a frontend human-in-the-loop tool. The frontend renders the
+ * Drives `/demos/gen-ui-interrupt`. The agent's `schedule_meeting` tool pauses
+ * the run: through LangGraph's `interrupt(...)`, through the framework's own
+ * interrupt primitive (AWS Strands), or through a frontend human-in-the-loop
+ * tool on frameworks with no server-side pause. The frontend renders the
  * `<TimePickerCard>` inline, and choosing a slot resumes the run.
  *
  * Genuine assertion: send the pill prompt; assert

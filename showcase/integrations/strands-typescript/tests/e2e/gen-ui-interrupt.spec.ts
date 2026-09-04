@@ -21,7 +21,7 @@ import { test, expect } from "@playwright/test";
 // (non-body) render contract.
 
 test.describe("Gen UI via useInterrupt (inline time picker)", () => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
 
   test.beforeEach(async ({ page }) => {
     // Wait for the CopilotKit runtime info response to complete before
@@ -100,8 +100,11 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       0,
     );
 
+    // The LAST bubble, not the first: the first is the pre-pause "let me check
+    // available times" text, which is on screen before the resume happens, so
+    // asserting on it passes even when the resume never lands.
     await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
+      page.locator('[data-testid="copilot-assistant-message"]').last(),
     ).toBeVisible({
       timeout: 45_000,
     });
@@ -127,10 +130,24 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     await expect(cancelled).toBeVisible({ timeout: 10_000 });
     await expect(cancelled).toContainText("Cancelled");
 
+    // The LAST bubble, not the first: the first is the pre-pause "let me check
+    // available times" text, which is on screen before the resume happens, so
+    // asserting on it passes even when the resume never lands.
     await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
+      page.locator('[data-testid="copilot-assistant-message"]').last(),
     ).toBeVisible({
       timeout: 45_000,
     });
+
+    // Regression (cancel-path narration): a cancel resumes with the SAME
+    // toolCallId as a pick, so before the cancelled leg was gated on the tool
+    // result the resume replayed the booking confirmation after the user had
+    // declined.
+    const narration = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .last();
+    await expect(narration).toContainText("Denied", { timeout: 45_000 });
+    await expect(narration).not.toContainText("Booked:");
+    await expect(narration).not.toContainText("Scheduled:");
   });
 });

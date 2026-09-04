@@ -34,30 +34,52 @@ type InterruptPayload = {
 // `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` instead. Both are
 // read so one page serves both, and the legacy event value is read last for
 // adapters that pass the payload through unwrapped.
+/**
+ * JSON.parse that never throws and never returns a primitive. Both readers run
+ * inside a React render callback, where a throw takes the whole pane down.
+ */
+function parseObject(raw: string | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function readInterruptPayload(
-  interrupt: { metadata?: unknown; message?: string } | undefined,
+  interrupt: { metadata?: unknown; message?: string } | null | undefined,
   eventValue: unknown,
 ): InterruptPayload {
   const metadata = interrupt?.metadata as
     | { reason?: InterruptPayload }
     | undefined;
-  if (metadata?.reason) return metadata.reason;
-
-  if (interrupt?.message) {
-    try {
-      const decoded = JSON.parse(interrupt.message) as InterruptPayload;
-      if (decoded && typeof decoded === "object") return decoded;
-    } catch {
-      // A plain-prose message is not a payload; fall through.
-    }
+  if (metadata?.reason && typeof metadata.reason === "object") {
+    return metadata.reason;
   }
 
-  const raw = eventValue ?? {};
-  const legacy = (typeof raw === "string" ? JSON.parse(raw) : raw) as
-    | InterruptPayload
-    | { metadata?: { reason?: InterruptPayload } };
-  if ("metadata" in legacy) return legacy.metadata?.reason ?? {};
-  return legacy;
+  // The published TypeScript bridge JSON-encodes the reason into `message`
+  // instead of carrying it on metadata.
+  const decoded = parseObject(interrupt?.message);
+  if (decoded) {
+    const nested = (decoded as { reason?: InterruptPayload }).reason;
+    return nested && typeof nested === "object"
+      ? nested
+      : (decoded as InterruptPayload);
+  }
+
+  // Legacy channel: some adapters pass the payload through as the event value,
+  // JSON-encoded or not.
+  const legacy =
+    typeof eventValue === "string" ? parseObject(eventValue) : eventValue;
+  if (!legacy || typeof legacy !== "object") return {};
+  const wrapped = (legacy as { metadata?: { reason?: InterruptPayload } })
+    .metadata?.reason;
+  if (wrapped && typeof wrapped === "object") return wrapped;
+  return legacy as InterruptPayload;
 }
 
 export default function InterruptHeadlessDemo() {

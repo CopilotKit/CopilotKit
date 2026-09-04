@@ -3,7 +3,7 @@
     "description": "D6 fixtures for strands / gen-ui-headless-complete",
     "sourceFile": "headless-complete.json",
     "copiedFrom": "langgraph-python",
-    "_note": "The 4 gen-UI pills (weather/stock/highlight/revenue) run as 4 sequential turns in ONE headless chat thread. Strands mints UUID tool_call_ids, so the langgraph-python toolCallId-keyed narration follow-ups never match here and the tool legs loop (turn 3+ went text-unstable). Each pill is sequenced with a per-userMessage sequenceIndex counter: seq0 -> tool call, bare userMessage -> narration. Invariant to UUID rewrite and to the thread-global hasToolResult flag."
+    "_note": "Each prompt has two legs: an ungated leg that emits the tool call, and a narration leg gated on that call's toolCallId. No turn-position matcher, so a pill works wherever it lands in the session."
   },
   "fixtures": [
     {
