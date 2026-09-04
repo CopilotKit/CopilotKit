@@ -82,7 +82,7 @@ export interface AgentRegistration {
   identifyUser?: IdentifyRunUser;
 }
 
-export const agentRegistry: Record<string, AgentRegistration> = {
+const REGISTRATIONS: Record<string, AgentRegistration> = {
   // Banking scopes Intelligence per member/role (durable memory demo), so it
   // contributes its own resolver — the route no longer knows banking's scheme.
   banking: { createAgent: bankingAgent, identifyUser: bankingIdentifyUser },
@@ -188,5 +188,33 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   // claiming otherwise.
   exec: { createAgent: execAgent, identifyUser: execIdentifyUser },
 };
+
+/**
+ * The registry, WITHOUT `Object.prototype` behind it.
+ *
+ * The shared API route indexes this map with a URL-derived id —
+ * `agentRegistry[agentId]?.identifyUser`, where `agentId` is parsed out of
+ * `request.url` — so the key is attacker-chosen. Indexing a plain object walks
+ * the prototype chain: `/constructor`, `/toString`, `/valueOf`,
+ * `/hasOwnProperty`, `/__proto__` … all return a truthy INHERITED member, which
+ * is the same hazard `getSkin` was fixed for next door in `registry.ts`, on the
+ * same ids. `Record<string, AgentRegistration>` does not catch it — the
+ * annotation is a claim about the map's own entries, not about what indexing
+ * returns.
+ *
+ * A `getSkin`-style accessor is the sibling's answer because the sibling has
+ * exactly one call site to route through. This map does not: the route indexes
+ * it directly in two places and builds the runtime's agent map by iterating
+ * `agentIds`. Putting the guarantee on the OBJECT covers every index site
+ * including the ones already written, rather than covering only the callers
+ * that remember to use a helper. `Object.keys`/`Object.entries`/`Object.values`
+ * are unaffected — they were never reading the prototype — so `agentIds` below
+ * and the suites over it are unchanged. `agent-registry.test.ts` pins the
+ * behaviour at the index.
+ */
+export const agentRegistry: Record<string, AgentRegistration> = Object.assign(
+  Object.create(null) as Record<string, AgentRegistration>,
+  REGISTRATIONS,
+);
 
 export const agentIds = Object.keys(agentRegistry);

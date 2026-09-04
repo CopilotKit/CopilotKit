@@ -15,6 +15,33 @@ function emptyDashboard(id: DashboardId): void {
   expect(store.snapshot().dashboards[id].blocks).toHaveLength(0);
 }
 
+/**
+ * Every member a plain `{}` inherits from `Object.prototype`.
+ *
+ * `DashboardId` is a two-member union, but the value reaching the store is a
+ * URL path segment (`/api/exec/v1/dashboards/<id>/blocks`) or an agent-supplied
+ * argument — a `string` wearing a cast. A plain-object index walks the
+ * PROTOTYPE CHAIN, so each of these resolves to a truthy INHERITED member
+ * rather than to `undefined`, and a `!dashboard` guard waves it straight
+ * through to `undefined.blocks`. `__proto__` is the worst of them: the lookup
+ * yields `Object.prototype` itself, an object, so even a `typeof === "object"`
+ * guard would agree it is a dashboard.
+ *
+ * Same hazard, same list as `src/shell/registry.test.ts` — see
+ * `src/shell/registry.ts` for the house treatment.
+ */
+const INHERITED_KEYS: readonly string[] = [
+  "constructor",
+  "toString",
+  "valueOf",
+  "hasOwnProperty",
+  "isPrototypeOf",
+  "propertyIsEnumerable",
+  "toLocaleString",
+  "__proto__",
+  "__defineGetter__",
+];
+
 /** Pins one freshly-built block onto `id` and returns its block id. */
 function pinOnly(id: DashboardId, spec: BlockSpec): string {
   emptyDashboard(id);
@@ -462,6 +489,30 @@ describe("variance and the publish gate", () => {
   });
 
   /**
+   * The same refusal for a dashboardId that NAMES an `Object.prototype` member.
+   *
+   * This one is not a variant of the test above, it is the contract: every
+   * relay above `publishPack` — the POST packs route, `publish_board_pack` in
+   * `agent.ts`, the countersign card — forwards the returned `code`/`status`
+   * verbatim and NONE of them wraps the call, so a throw here is an unhandled
+   * rejection where a 404 body belongs. Asserted per key, and for the RETURN
+   * as well as the absence of a throw, because a lookup that finds an inherited
+   * member fails differently from one that finds nothing.
+   */
+  it("refuses — never throws — for a dashboardId naming an Object.prototype member", () => {
+    for (const key of INHERITED_KEYS) {
+      const call = () =>
+        store.publishPack(key as DashboardId, store.COUNTERSIGN_PIN);
+      expect(call, `publishPack("${key}") must not throw`).not.toThrow();
+      expect(call(), `publishPack("${key}")`).toMatchObject({
+        ok: false,
+        status: 404,
+        code: "NOT_FOUND",
+      });
+    }
+  });
+
+  /**
    * Two narratives for the SAME (metricId, period) — the operator types one
    * and the agent files another from the ingested memo, which beats 3a/3d do
    * back to back — must not both land in the pack: `narrativeIds` is the
@@ -677,6 +728,28 @@ describe("dashboard blocks", () => {
       expect(call).toThrow(/^NOT_FOUND/);
       expect(call).toThrow(/nope/);
       expect(call).not.toThrow(TypeError);
+    }
+  });
+
+  /**
+   * …and the same for an id that names an `Object.prototype` member, which the
+   * test above cannot cover: `"nope"` misses the index and lands on
+   * `undefined`, while `"constructor"` HITS the prototype chain and lands on a
+   * truthy non-dashboard, so only this case reaches `undefined.blocks` past a
+   * `!dashboard` guard. `store-errors.ts` maps nothing for the resulting
+   * TypeError, so the block routes answered 500 with no body.
+   */
+  it("throws NOT_FOUND for a dashboardId naming an Object.prototype member", () => {
+    for (const key of INHERITED_KEYS) {
+      const id = key as DashboardId;
+      for (const call of [
+        () => store.addBlockToDashboard(id, "seed-ceo-revenue"),
+        () => store.removeBlock(id, "seed-ceo-revenue"),
+        () => store.moveBlock(id, "seed-ceo-revenue", "up"),
+      ]) {
+        expect(call, `dashboardId "${key}"`).toThrow(/^NOT_FOUND/);
+        expect(call, `dashboardId "${key}"`).not.toThrow(TypeError);
+      }
     }
   });
 
