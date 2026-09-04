@@ -194,6 +194,7 @@ Import these symbols from `@copilotkit/angular`.
 - `ScrollPosition`
 - `ScrollState`
 - `SendButtonContext`
+- `SendMessageContent`
 - `SlotConfig`
 - `SlotContext`
 - `SlotRegistryEntry`
