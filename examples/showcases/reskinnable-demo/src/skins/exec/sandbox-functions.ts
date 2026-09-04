@@ -70,24 +70,114 @@ const toSafeException = (e: Exception): SafeException => ({
   explained: e.explained,
 });
 
+/**
+ * THE VOCABULARY, CHECKED BY THE COMPILER. Zod schemas cannot import a TS type
+ * at runtime, so the enums below have to restate the `MetricId` and
+ * `Department` unions — but restating them BY EYE is how a metric added to
+ * `./data/types.ts` quietly stops being reachable from the sandbox. The
+ * `satisfies` clauses fail both ways (a missing key, and a key the union does
+ * not have), exactly as `src/app/api/exec/v1/narratives/route.ts` does for the
+ * same reason.
+ *
+ * They double as the fail-loud allowlist below: `Object.hasOwn` against these
+ * is what tells an unknown id apart from a metric with no rows yet.
+ */
+const METRIC_IDS = {
+  revenue: true,
+  growthQoQ: true,
+  growthYoY: true,
+  operatingMargin: true,
+  ebitda: true,
+  cash: true,
+  runwayMonths: true,
+  nps: true,
+  burnRate: true,
+  arAgingDays: true,
+  dsoDays: true,
+  opex: true,
+  headcountCost: true,
+  forecastAccuracy: true,
+} as const satisfies Record<MetricId, true>;
+
+const DEPARTMENTS = {
+  manufacturing: true,
+  distribution: true,
+  "field-services": true,
+  corporate: true,
+} as const satisfies Record<Department, true>;
+
+/**
+ * `"all"` is a value of `MetricPoint.department`, not a department, so it is
+ * added HERE rather than to the union above — the schema admits it and its
+ * `.describe()` tells the model to pass it for the company-wide series.
+ */
+const DEPARTMENT_FILTERS = { ...DEPARTMENTS, all: true } as const;
+
+/**
+ * How many trailing periods a `months` argument narrows to, or `null` for
+ * "don't narrow — return the full history".
+ *
+ * REIMPLEMENTS `periodWindow` FROM `./data/store.ts`, which is that module's
+ * private helper and the contract this getter has to match: only a positive,
+ * finite number narrows. A plain `if (months)` — what this used to be —
+ * mishandles two of the three reachable bad values: 0 is falsy, so it silently
+ * meant "the full history" instead of an empty window, and -3 reached
+ * `slice(-(-3))` === `slice(3)`, the OLDEST periods, an INVERTED window
+ * answering a request for the newest three. Full history is the honest answer
+ * for all of them — the caller asked for no usable narrowing, and returning
+ * everything is visibly wrong on screen where returning the wrong END of the
+ * series is not. A fraction floors, so `2.7` never reaches into a third period.
+ *
+ * `months` reaches this getter from LLM-authored JS inside the sandbox iframe,
+ * which is the least constrained caller in the app: the zod schema on the tool
+ * guards the CALL, not this handler.
+ */
+function periodWindow(months: number | undefined): number | null {
+  if (months === undefined) return null;
+  if (!Number.isFinite(months) || months <= 0) return null;
+  return Math.floor(months);
+}
+
 function metricSeries(
   metricId: MetricId,
-  // `"all"` is a value of `MetricPoint.department`, not a department — the
-  // parameter schema below admits it (and its `.describe()` tells the model to
-  // pass it for the company-wide series), so the annotation has to as well.
-  // Typed as `Department` alone, the one filter that matters for a
-  // company-wide request was outside the type it was checked against.
+  // `"all"` is admitted for the reason `DEPARTMENT_FILTERS` records. Typed as
+  // `Department` alone, the one filter that matters for a company-wide request
+  // was outside the type it was checked against.
   department?: Department | "all",
   months?: number,
 ): SafeMetricPoint[] {
+  // FAIL LOUD ON A VOCABULARY MISS. An id nothing knows filters to zero rows,
+  // which is byte-identical to "this metric has no data yet" — so a model that
+  // invents `revenue_total` gets a legitimate-looking empty series and draws an
+  // empty chart nobody can account for. The empty result stands (there is
+  // nothing to return), but the console names what was asked for.
+  if (!Object.hasOwn(METRIC_IDS, metricId)) {
+    console.error(
+      `[exec/sandbox] getMetricSeries: unknown metricId ${JSON.stringify(metricId)} — ` +
+        `returning an empty series. Known ids: ${Object.keys(METRIC_IDS).join(", ")}`,
+    );
+    return [];
+  }
+  if (
+    department !== undefined &&
+    !Object.hasOwn(DEPARTMENT_FILTERS, department)
+  ) {
+    console.error(
+      `[exec/sandbox] getMetricSeries: unknown department ${JSON.stringify(department)} — ` +
+        `returning an empty series. Known departments: ${Object.keys(DEPARTMENT_FILTERS).join(", ")}`,
+    );
+    return [];
+  }
+
   let rows = snapshot.points.filter((p) => p.metricId === metricId);
   if (department) rows = rows.filter((p) => p.department === department);
   rows = [...rows].sort((a, b) =>
     a.period < b.period ? -1 : a.period > b.period ? 1 : 0,
   );
-  if (months) {
+  const window = periodWindow(months);
+  if (window !== null) {
     const keep = new Set(
-      [...new Set(rows.map((r) => r.period))].sort().slice(-months),
+      [...new Set(rows.map((r) => r.period))].sort().slice(-window),
     );
     rows = rows.filter((r) => keep.has(r.period));
   }
@@ -109,30 +199,17 @@ export const sandboxFunctions: SandboxFunction[] = [
       'per-department data only have an "all" series). Optional `months` limits ' +
       "the result to the most recent N months.",
     parameters: z.object({
-      metricId: z.enum([
-        "revenue",
-        "growthQoQ",
-        "growthYoY",
-        "operatingMargin",
-        "ebitda",
-        "cash",
-        "runwayMonths",
-        "nps",
-        "burnRate",
-        "arAgingDays",
-        "dsoDays",
-        "opex",
-        "headcountCost",
-        "forecastAccuracy",
-      ]),
+      // Derived from the compiler-checked records above, so the schema cannot
+      // drift from `MetricId`/`Department` the way a second hand-written copy
+      // of each union did.
+      metricId: z.enum(Object.keys(METRIC_IDS) as [MetricId, ...MetricId[]]),
       department: z
-        .enum([
-          "manufacturing",
-          "distribution",
-          "field-services",
-          "corporate",
-          "all",
-        ])
+        .enum(
+          Object.keys(DEPARTMENT_FILTERS) as [
+            Department | "all",
+            ...Array<Department | "all">,
+          ],
+        )
         .optional()
         .describe(
           'Omitting `department` returns every series for the metric; pass "all" for the company-wide series.',

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sandboxFunctions, setSandboxSnapshot } from "./sandbox-functions";
 import type {
   Exception,
@@ -47,25 +47,14 @@ const SAFE_EXCEPTION_KEYS = [
   "explained",
 ];
 
+/**
+ * DELIBERATELY OUT OF PERIOD ORDER. The getter sorts by period before it
+ * windows, and against a pre-sorted fixture that sort is untested: deleting it
+ * left every assertion here green while `months` started keeping whichever
+ * periods happened to come last in the snapshot. The rows below are shuffled so
+ * the ordering assertions measure the getter, not the fixture.
+ */
 const points: LedgerMetricPoint[] = [
-  {
-    metricId: "revenue",
-    period: "2025-11",
-    department: "all",
-    plan: 100,
-    actual: 95,
-    forecast: 98,
-    internalNote: LEAKED_NOTE,
-  },
-  {
-    metricId: "revenue",
-    period: "2025-12",
-    department: "all",
-    plan: 100,
-    actual: 105,
-    forecast: 102,
-    internalNote: LEAKED_NOTE,
-  },
   {
     metricId: "revenue",
     period: "2026-01",
@@ -85,12 +74,30 @@ const points: LedgerMetricPoint[] = [
     internalNote: LEAKED_NOTE,
   },
   {
+    metricId: "revenue",
+    period: "2025-11",
+    department: "all",
+    plan: 100,
+    actual: 95,
+    forecast: 98,
+    internalNote: LEAKED_NOTE,
+  },
+  {
     metricId: "opex",
     period: "2026-01",
     department: "corporate",
     plan: 20,
     actual: 18,
     forecast: 19,
+    internalNote: LEAKED_NOTE,
+  },
+  {
+    metricId: "revenue",
+    period: "2025-12",
+    department: "all",
+    plan: 100,
+    actual: 105,
+    forecast: 102,
     internalNote: LEAKED_NOTE,
   },
 ];
@@ -119,6 +126,9 @@ const fixture: LedgerSnapshot = {
 };
 
 beforeEach(() => setSandboxSnapshot(fixture));
+// The unknown-id cases stub `console.error`; without this the stub leaks into
+// every later case and a real fail-loud log would go unseen.
+afterEach(() => vi.restoreAllMocks());
 
 describe("getMetricSeries", () => {
   it("projects points to plan/actual/forecast rows for the requested metric", async () => {
@@ -136,6 +146,15 @@ describe("getMetricSeries", () => {
     });
   });
 
+  it("returns the rows in period order, whatever order the snapshot holds", async () => {
+    // The snapshot fixture is shuffled; the sandbox's chart code reads this
+    // array positionally, so an unsorted series draws a scrambled trend line.
+    const out = (await fn("getMetricSeries").handler({
+      metricId: "revenue",
+    })) as Array<{ period: string }>;
+    expect(out.map((p) => p.period)).toEqual(["2025-11", "2025-12", "2026-01"]);
+  });
+
   it("drops every field outside the DTO allowlist", async () => {
     const out = (await fn("getMetricSeries").handler({
       metricId: "revenue",
@@ -149,8 +168,10 @@ describe("getMetricSeries", () => {
     expect(JSON.stringify(out)).not.toContain(LEAKED_NOTE);
 
     // And the projection is a COPY: handing the sandbox the live domain row
-    // would let iframe JS mutate the app's snapshot through it.
-    expect(out[0]).not.toBe(points[0]);
+    // would let iframe JS mutate the app's snapshot through it. Asserted
+    // against EVERY source row, not `points[0]`, because the fixture is
+    // deliberately unsorted and `out[0]` is no longer the first row in it.
+    expect(points as unknown[]).not.toContain(out[0]);
   });
 
   it("narrows rows when filtered by department", async () => {
@@ -250,6 +271,89 @@ describe("getMetricSeries", () => {
     expect(new Set(out.map((p) => p.department))).toEqual(
       new Set(["manufacturing", "corporate"]),
     );
+  });
+
+  /**
+   * THE `months` CONTRACT: only a positive, finite number narrows.
+   *
+   * `store.ts`'s `periodWindow` already fixed this for the app's own getter and
+   * documents the semantics; this getter kept the plain `if (months)` and so
+   * mishandled two of the three reachable bad values. `months` reaches here off
+   * LLM-authored JS inside the sandbox iframe, which is the least constrained
+   * caller in the app — the zod schema guards the tool CALL, not this handler.
+   *
+   * The window is the last N DISTINCT periods, so `1.5` must floor to one
+   * period rather than reaching back into a second.
+   */
+  it.each([
+    ["0 (falsy, so `if (months)` skipped the window entirely)", 0],
+    [
+      "-3 (`slice(-(-3))` returned the OLDEST periods — an INVERTED window)",
+      -3,
+    ],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+  ])("returns the full history for months = %s", async (_label, months) => {
+    const out = (await fn("getMetricSeries").handler({
+      metricId: "revenue",
+      months,
+    })) as Array<{ period: string }>;
+    expect(out.map((p) => p.period)).toEqual(["2025-11", "2025-12", "2026-01"]);
+  });
+
+  it("floors a fractional months rather than reaching back a period", async () => {
+    const out = (await fn("getMetricSeries").handler({
+      metricId: "revenue",
+      months: 1.5,
+    })) as Array<{ period: string }>;
+    expect(out.map((p) => p.period)).toEqual(["2026-01"]);
+  });
+
+  /**
+   * FAIL LOUD ON AN ID NOTHING KNOWS. An unknown `metricId` or `department`
+   * filters to zero rows, which is byte-identical to "this metric has no data
+   * yet" — so a model that hallucinates `"revenue_total"` gets a legitimate
+   * empty series back and renders an empty chart nobody can explain. The empty
+   * result stays (there is nothing to return), but the console names the id.
+   */
+  it("logs the unknown id when metricId is not one this skin defines", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const out = (await fn("getMetricSeries").handler({
+      metricId: "revenue_total",
+    })) as unknown[];
+    expect(out).toEqual([]);
+    expect(String(consoleError.mock.calls[0]?.join(" "))).toContain(
+      "revenue_total",
+    );
+  });
+
+  it("logs the unknown id when department is not one this skin defines", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const out = (await fn("getMetricSeries").handler({
+      metricId: "opex",
+      department: "logistics",
+    })) as unknown[];
+    expect(out).toEqual([]);
+    expect(String(consoleError.mock.calls[0]?.join(" "))).toContain(
+      "logistics",
+    );
+  });
+
+  it("stays quiet for a known metric that simply has no rows yet", async () => {
+    // The counterpart the guard above needs: "no data" must NOT be reported as
+    // an unknown id, or the console cries wolf on every un-backfilled metric.
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const out = (await fn("getMetricSeries").handler({
+      metricId: "nps",
+    })) as unknown[];
+    expect(out).toEqual([]);
+    expect(consoleError).not.toHaveBeenCalled();
   });
 });
 
