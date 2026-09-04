@@ -473,6 +473,62 @@ describe("ExecLedgerProvider mutation wrappers", () => {
     expect(ledgerGets(fetchMock)).toBe(1);
   });
 
+  it("carries the refusal's human message through to the caller", async () => {
+    // `/api/exec/v1/packs` answers a refusal as `{ error, message?, breaches? }`
+    // — `EMPTY_DASHBOARD` is the arm whose `message` is its WHOLE explanation
+    // (`tools.tsx`'s `REFUSAL_PHRASES` has no wording of its own for that
+    // code), so parsing only `error` and `breaches` off the body left the
+    // publish card spelling the enum as words to the room.
+    const message =
+      'The "cfo" dashboard has no metric-bound block, so a board pack built ' +
+      "from it would report nothing.";
+    stubRoutedFetch({
+      "POST /api/exec/v1/packs": () =>
+        new Response(JSON.stringify({ error: "EMPTY_DASHBOARD", message }), {
+          status: 422,
+          headers: { "content-type": "application/json" },
+        }),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("Publish pack"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toMatch(/^resolved /),
+    );
+    const outcome = JSON.parse(
+      screen.getByTestId("settled").textContent!.replace(/^resolved /, ""),
+    ) as { status: number; error: string; message?: string };
+    expect(outcome.status).toBe(422);
+    expect(outcome.error).toBe("EMPTY_DASHBOARD");
+    expect(outcome.message).toBe(message);
+  });
+
+  it("leaves a message off a refusal that carried none", async () => {
+    // `BAD_COUNTERSIGN` answers `{ error }` and nothing else — the PIN gate
+    // runs first so a bad countersign learns nothing, and a `message: undefined`
+    // (or a non-string one) must not become part of the result either.
+    stubRoutedFetch({
+      "POST /api/exec/v1/packs": () =>
+        new Response(JSON.stringify({ error: "BAD_COUNTERSIGN" }), {
+          status: 403,
+          headers: { "content-type": "application/json" },
+        }),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("Publish pack"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toMatch(
+        /"error":"BAD_COUNTERSIGN"/,
+      ),
+    );
+    const settled = screen.getByTestId("settled").textContent!;
+    expect(settled).not.toMatch(/"message"/);
+    expect(settled).not.toMatch(/"breaches"/);
+  });
+
   it("returns the published pack and refreshes on 200", async () => {
     const pack = { id: "p1", dashboardId: "ceo" };
     const fetchMock = stubRoutedFetch({

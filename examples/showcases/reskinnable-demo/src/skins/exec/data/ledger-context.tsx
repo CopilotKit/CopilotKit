@@ -71,7 +71,23 @@ export type PublishPackResult =
   // any check for `pack` being present) — see `tools.tsx`'s `onSubmit`.
   // `pack?: never` only makes THAT check type-safe, by giving the failure arm
   // an (absent) `pack` property for the `in` check to test against.
-  | { status: number; pack?: never; error: string; breaches?: Exception[] };
+  | {
+      status: number;
+      pack?: never;
+      error: string;
+      /**
+       * The refusal's own human sentence, when the route sent one. Beside
+       * `error` rather than in place of it: the CODE is what the agent reads
+       * (beat 6's teach loop turns on the literal `UNEXPLAINED_VARIANCE`),
+       * the MESSAGE is what the room reads. `EMPTY_DASHBOARD` is why this is
+       * not optional-in-practice — `tools.tsx`'s `REFUSAL_PHRASES` has no
+       * wording of its own for that code, so the store's sentence is its
+       * whole explanation. `BAD_COUNTERSIGN` still arrives with neither this
+       * nor `breaches`.
+       */
+      message?: string;
+      breaches?: Exception[];
+    };
 
 interface ExecLedgerContextValue {
   snapshot: ExecLedgerSnapshot;
@@ -368,6 +384,7 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
         // the HITL publish card (`tools.tsx`'s `onSubmit`) has no arm for.
         const body = (await res.json().catch(() => null)) as {
           error?: unknown;
+          message?: unknown;
           breaches?: unknown;
         } | null;
         return {
@@ -382,6 +399,15 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
             typeof body?.error === "string"
               ? body.error
               : `publish pack failed: ${res.status}`,
+          // Guarded the same way `error` is, and for the same reason: the
+          // body is parsed, never validated. A non-string (or blank)
+          // `message` is treated as ABSENT so the publish card falls back to
+          // its own phrasing rather than printing "undefined" at the climax
+          // of the demo. The key is omitted entirely when there is none —
+          // `BAD_COUNTERSIGN`'s `{ error }` must stay `{ error }`.
+          ...(typeof body?.message === "string" && body.message.trim().length
+            ? { message: body.message.trim() }
+            : {}),
           ...(Array.isArray(body?.breaches)
             ? { breaches: body.breaches as Exception[] }
             : {}),
