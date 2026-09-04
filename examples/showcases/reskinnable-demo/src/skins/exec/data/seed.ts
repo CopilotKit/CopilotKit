@@ -98,10 +98,14 @@ export function seedMetricDefs(): MetricDef[] {
       byDepartment: false,
     },
     {
+      // Exec-grade, not CFO-desk-only: burn is the runway conversation, and
+      // beat 6 turns on the CEO's own surfaces carrying this breach. All three
+      // seeded breaches used to be tagged `cfo`, which left every CEO-scoped
+      // exception view empty on a ledger with three live breaches.
       id: "burnRate",
       label: "Burn Rate",
       unit: "usd",
-      audience: "cfo",
+      audience: "both",
       thresholdPct: 0.06,
       byDepartment: false,
     },
@@ -114,14 +118,22 @@ export function seedMetricDefs(): MetricDef[] {
       byDepartment: false,
     },
     {
+      // Also exec-grade: collections are a board-pack figure (the CEO's
+      // "Collections playbook refresh" initiative tracks exactly this), and
+      // the seeded `dsoDays` breach is beat 6's unaided replay — the CEO has
+      // to be able to SEE it.
       id: "dsoDays",
       label: "DSO",
       unit: "days",
-      audience: "cfo",
+      audience: "both",
       thresholdPct: 0.08,
       byDepartment: false,
     },
     {
+      // Stays CFO-grade: a departmental cost line, and beat 3a's memo is the
+      // CFO's to file. It is the one seeded breach a CEO-SCOPED exception list
+      // leaves out — the CEO dashboard's own fixed strip is company-wide and
+      // still shows it (`../pages/ceo-dashboard.tsx`).
       id: "opex",
       label: "Opex",
       unit: "usd",

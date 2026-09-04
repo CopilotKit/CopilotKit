@@ -49,6 +49,15 @@ export const definitions = {
       "— all quantitative content comes from MetricTile/TrendLine/VarianceBar.",
     props: z.object({ text: stringOrPath }),
   },
+  /**
+   * UNREACHABLE TODAY, deliberately kept. Every component in this app is
+   * emitted by `buildBlockOps` (`../blocks/build-block-ops.ts`), which builds
+   * `Stack` + `Heading` + one kind component (+ `AddToDashboard`) — nothing
+   * emits a `Text`. It stays as the catalog's neutral-caption primitive (and
+   * as the sibling `Heading` uses it, the label-only contract is stated in
+   * one place for both), but no seed, tool or agent path can reach it, so a
+   * change here changes nothing on screen until a block kind renders prose.
+   */
   Text: {
     description:
       "A short NEUTRAL caption or section label (e.g. 'Board pack', " +
@@ -102,6 +111,18 @@ export const definitions = {
       "data binds live on the client, do NOT pass numbers or rows.",
     props: z.object({}),
   },
+  /**
+   * `audience` is NOT reachable from a pinned block today, by design.
+   * `BlockSpec` (`../data/types.ts`) carries no audience field, so
+   * `buildKindComponent` emits `ExceptionList` with no props and every
+   * on-dashboard list runs at the default, "both" — an exceptionList block is
+   * the ALL-metrics surface, which is also how `store.ts`'s publish gate reads
+   * it (`referencedMetrics` → `includesAll`). The prop is honoured by the
+   * renderer and the seeded audiences are meaningful (`../data/seed.ts`), so
+   * it is live the moment a spec carries an audience; until then the CEO
+   * page's fixed strip does its own company-wide narrowing in the page
+   * (`../pages/ceo-dashboard.tsx`), and the two agree row for row.
+   */
   ExceptionList: {
     description:
       "A live list of the latest period's metric variance exceptions, each " +
