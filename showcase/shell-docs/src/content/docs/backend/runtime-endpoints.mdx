@@ -56,7 +56,20 @@ required — passing it is the forward-compatible choice either way.
 </Callout>
 
 Both ship from the same package entry point, so moving between them is an import
-change, not a migration.
+change, not a migration. One prop does get renamed: `<CopilotKit>` names the
+agent with `agent`, and `<CopilotKitProvider>` names it with `agentId`.
+
+```tsx
+// v1 wrapper
+<CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+
+// v2 provider
+<CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
+```
+
+You can also name the agent per chat with `<CopilotChat agentId="my_agent">`, or
+for a subtree with `<CopilotChatConfigurationProvider agentId="my_agent">`. A
+provider-level `agentId` is the default that those two override.
 
 </FrontendOnly>
 

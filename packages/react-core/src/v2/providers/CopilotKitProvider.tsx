@@ -58,6 +58,7 @@ import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
 import type { SandboxFunction } from "../types/sandbox-function";
+import { CopilotChatConfigurationProvider } from "./CopilotChatConfigurationProvider";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -131,6 +132,15 @@ export interface CopilotKitProviderProps {
    */
   licenseToken?: string;
   properties?: Record<string, unknown>;
+  /**
+   * The id of the agent every `<CopilotChat>` under this provider talks to,
+   * unless a chat names its own with the `agentId` prop.
+   *
+   * This is the v2 replacement for the v1 `<CopilotKit agent="...">` prop. Set
+   * it here and you never need the v1 compatibility provider just to name an
+   * agent. Defaults to `"default"`.
+   */
+  agentId?: string;
   useSingleEndpoint?: boolean;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   selfManagedAgents?: Record<string, AbstractAgent>;
@@ -292,6 +302,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   humanInTheLoop,
   openGenerativeUI,
   enableInspector,
+  agentId,
   useSingleEndpoint,
   onError,
   a2ui,
@@ -979,7 +990,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             />
           )}
           <CopilotKitInspectorContextProvider value={inspectorContextValue}>
-            {children}
+            {/*
+              A provider-level `agentId` needs somewhere for descendant chats to
+              read it from, and `CopilotChatConfigurationProvider` is that
+              place: `<CopilotChat>` resolves its agent as
+              `agentId ?? inheritedConfig.agentId ?? DEFAULT_AGENT_ID`. Render
+              the configuration provider ONLY when an `agentId` was supplied, so
+              an application that does not use the prop keeps exactly the tree
+              it had before.
+            */}
+            {agentId === undefined ? (
+              children
+            ) : (
+              <CopilotChatConfigurationProvider agentId={agentId}>
+                {children}
+              </CopilotChatConfigurationProvider>
+            )}
             {shouldRenderInspector ? (
               <CopilotKitInspector
                 core={copilotkit}

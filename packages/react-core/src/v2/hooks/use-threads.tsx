@@ -361,6 +361,26 @@ export function useThreads({
     };
   }, [store]);
 
+  // Single-route transport carries only the run envelope: the thread routes are
+  // not reachable through it, so every thread feature stays empty with no
+  // error. Name the cause, because the symptom reads as a broken feature rather
+  // than as the wrong transport. `runtimeTransport` also resolves to "single"
+  // on its own under the "auto" default, so this is not only about an explicit
+  // `useSingleEndpoint` prop.
+  const singleRouteTransport = copilotkit.runtimeTransport === "single";
+  useEffect(() => {
+    if (!enabled || !singleRouteTransport) return;
+    if (process.env.NODE_ENV === "production") return;
+    console.warn(
+      '[CopilotKit] useThreads: the runtime transport is "single", which ' +
+        "carries no thread routes, so the thread list stays empty. Mount " +
+        "<CopilotKitProvider> against a multi-route runtime and leave " +
+        "`useSingleEndpoint` unset (the default negotiates the transport). " +
+        "`useSingleEndpoint={true}`, or a runtime that only serves the " +
+        "single-route envelope, pins this transport.",
+    );
+  }, [enabled, singleRouteTransport]);
+
   // Defer setting the context until the runtime reports Connected. Before
   // `/info` resolves we don't know `intelligence.wsUrl`, so dispatching the
   // context early would issue a list fetch with `wsUrl: undefined`, then a

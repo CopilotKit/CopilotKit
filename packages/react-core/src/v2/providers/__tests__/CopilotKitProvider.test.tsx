@@ -9,6 +9,10 @@ import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { HttpAgent } from "@ag-ui/client";
 import { defineWebInspector } from "@copilotkit/web-inspector";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
+import {
+  CopilotChatConfigurationProvider,
+  useCopilotChatConfiguration,
+} from "../CopilotChatConfigurationProvider";
 import { stubWindowLocation } from "../../../v1-deprecated/test-helpers/stub-window-location";
 
 // Mock console methods
@@ -902,6 +906,67 @@ describe("CopilotKitProvider", () => {
       );
 
       expect(capturedCopilotkit!.runtimeTransport).toBe("auto");
+    });
+  });
+
+  // OSS-1133: naming the agent used to require the v1 `<CopilotKit agent>`
+  // wrapper, because the v2 provider carried no agent prop at all.
+  describe("agentId", () => {
+    it("publishes the agentId as the chat configuration default", () => {
+      const { result } = renderHook(() => useCopilotChatConfiguration(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider agentId="my_agent">{children}</CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current?.agentId).toBe("my_agent");
+    });
+
+    it("lets a nested chat configuration override it", () => {
+      const { result } = renderHook(() => useCopilotChatConfiguration(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider agentId="provider_agent">
+            <CopilotChatConfigurationProvider agentId="chat_agent">
+              {children}
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current?.agentId).toBe("chat_agent");
+    });
+
+    it("publishes no chat configuration when agentId is omitted", () => {
+      const { result } = renderHook(() => useCopilotChatConfiguration(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider>{children}</CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current).toBeNull();
+    });
+
+    it("follows a changed agentId", () => {
+      let captured: string | undefined;
+
+      function Collector() {
+        captured = useCopilotChatConfiguration()?.agentId;
+        return null;
+      }
+
+      const { rerender } = render(
+        <CopilotKitProvider agentId="first_agent">
+          <Collector />
+        </CopilotKitProvider>,
+      );
+      expect(captured).toBe("first_agent");
+
+      rerender(
+        <CopilotKitProvider agentId="second_agent">
+          <Collector />
+        </CopilotKitProvider>,
+      );
+      expect(captured).toBe("second_agent");
     });
   });
 

@@ -3,10 +3,24 @@ title: "CopilotKit"
 description: "The CopilotKit provider component, wrapping your application."
 ---
 
-<Callout type="info">
-  This provider is shared across v1 and v2 APIs. In v2 docs, import it from
-  `@copilotkit/react-core/v2`.
+<Callout type="info" title="This is the v1 provider, re-exported for back-compat">
+  `<CopilotKit>` is the v1 provider. It is re-exported from
+  `@copilotkit/react-core/v2` so that a v1 application keeps working after the
+  import path changes, and it renders `<CopilotKitProvider>` internally. **The
+  v2 provider is `<CopilotKitProvider>`** — reach for that one in new v2 code.
 </Callout>
+
+The two are not aliases. They name the agent differently, and they treat an
+omitted `useSingleEndpoint` differently:
+
+|                             | v1 `<CopilotKit>`             | v2 `<CopilotKitProvider>`           |
+| --------------------------- | ----------------------------- | ----------------------------------- |
+| Name the agent              | `agent="my_agent"`            | `agentId="my_agent"`                |
+| Omitted `useSingleEndpoint` | `single` in released versions | `auto`, detected from `GET /info`   |
+
+You can also name the agent per chat with `<CopilotChat agentId="my_agent">`, or
+for a subtree with `<CopilotChatConfigurationProvider agentId="my_agent">`. See
+[Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
 
