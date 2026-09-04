@@ -223,6 +223,25 @@ test("managed quickstarts provision a project API key instead of a license key",
       expect(source).toMatch(
         /npx copilotkit@latest (?:project select|init(?:\s|`))/,
       );
+
+      const projectSelectIndex = source.indexOf(
+        "npx copilotkit@latest project select",
+      );
+      if (projectSelectIndex !== -1) {
+        const appCreationIndexes = [
+          "git clone ",
+          "npx create-next-app@latest ",
+          "npx copilotkit@latest create",
+          "npx copilotkit@latest init",
+        ]
+          .map((command) => source.indexOf(command))
+          .filter((index) => index !== -1);
+
+        expect(appCreationIndexes.length).toBeGreaterThan(0);
+        expect(projectSelectIndex).toBeGreaterThan(
+          Math.min(...appCreationIndexes),
+        );
+      }
     }
   }
 });

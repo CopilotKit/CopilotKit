@@ -46,13 +46,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_ag2_quickstart_step1">Sign in to managed Intelligence</SignupLink>. When you are in the app directory created or cloned below, connect it to a project:
-
-        ```bash title="Terminal"
-        npx copilotkit@latest project select
-        ```
-
-        The command creates or selects a project and writes its server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. Managed setup does not issue `COPILOTKIT_LICENSE_TOKEN`.
+        <SignupLink surface="docs_ag2_quickstart_step1">Sign in to managed Intelligence</SignupLink>. Managed setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you clone it below.
     </Step>
 
     <Step>
@@ -61,7 +55,10 @@ Before you begin, you'll need the following:
         ```bash
         git clone https://github.com/ag2ai/ag2-samples.git
         cd ag2-samples
+        npx copilotkit@latest project select
         ```
+
+        `project select` creates or selects an Intelligence project and writes its server-side API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
     </Step>
     <Step>
         ### Set Up the AG2 Backend

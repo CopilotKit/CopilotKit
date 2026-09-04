@@ -48,13 +48,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_mastra_quickstart_step1">Sign in to managed Intelligence</SignupLink>. When you are in the app directory created or cloned below, connect it to a project:
-
-        ```bash title="Terminal"
-        npx copilotkit@latest project select
-        ```
-
-        The command creates or selects a project and writes its server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. Managed setup does not issue `COPILOTKIT_LICENSE_TOKEN`.
+        <SignupLink surface="docs_mastra_quickstart_step1">Sign in to managed Intelligence</SignupLink>. Managed setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -292,11 +286,17 @@ Before you begin, you'll need the following:
                 export const POST = handler;
                 ```
 
-                This route needs two values from *this* app's environment — the project
-                API key from step 1, and the address of the agent server you started earlier.
-                It reads them here, not in the Mastra project:
+                From this frontend app directory, connect the runtime to an Intelligence project:
 
-                ```plaintext title=".env.local"
+                ```bash title="Terminal"
+                npx copilotkit@latest project select
+                ```
+
+                The command writes the server-side project API key to `.env`. Add the address of
+                the agent server to the same file; the frontend runtime reads both values here,
+                not in the Mastra project:
+
+                ```plaintext title=".env"
                 CPK_INTELLIGENCE_API_KEY=cpk-...
                 MASTRA_BASE_URL=http://127.0.0.1:4111
                 ```
