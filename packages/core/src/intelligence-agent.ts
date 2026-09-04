@@ -462,14 +462,10 @@ export class IntelligenceAgent extends AbstractAgent {
             "Content-Type": "application/json",
             ...this.headers,
           },
+          // Post the whole RunAgentInput rather than naming each field, so a
+          // protocol field such as `resume` cannot be dropped here again.
           body: JSON.stringify({
-            threadId: input.threadId,
-            runId: input.runId,
-            messages: input.messages,
-            tools: input.tools,
-            context: input.context,
-            state: input.state,
-            forwardedProps: input.forwardedProps,
+            ...input,
             ...(mode === "connect"
               ? {
                   lastSeenEventId:
