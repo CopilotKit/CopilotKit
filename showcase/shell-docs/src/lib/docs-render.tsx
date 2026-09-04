@@ -1160,7 +1160,11 @@ export function normalizeSidebarNav(
   );
   const intelligenceAutomaticLearning = intelligencePage(
     "learning",
-    "Automatic learning",
+    "Automatic Learning",
+  );
+  const intelligenceMemory = intelligencePage(
+    "intelligence/memories",
+    "User Memories",
   );
 
   const existingBackend = sidebarSectionChildren(input, "Backend");
@@ -1235,15 +1239,16 @@ export function normalizeSidebarNav(
         "sidebar#human-in-the-loop",
         humanInTheLoop,
       ),
-    ]),
-    ...sidebarSection("Agent capabilities", [
       webMcp?.type === "page"
         ? { ...webMcp, title: "WebMCP", icon: undefined }
         : null,
-      learning?.type === "page"
-        ? { ...learning, title: "Learning", icon: undefined }
-        : null,
+    ]),
+    ...sidebarSection("Agent capabilities", [
       ...frameworkGroups,
+      learning?.type === "page"
+        ? { ...learning, title: "Automatic Learning", icon: undefined }
+        : null,
+      intelligenceMemory,
       subagents?.type === "page"
         ? { ...subagents, title: "Sub-agents", icon: undefined }
         : null,
@@ -1259,13 +1264,11 @@ export function normalizeSidebarNav(
           intelligenceRuntime,
         ].filter((node): node is NavNode => node !== null),
       ),
-      sidebarTopicGroup(
-        "Features",
-        "sidebar#intelligence-features",
-        [intelligenceThreads, intelligenceAutomaticLearning].filter(
-          (node): node is NavNode => node !== null,
-        ),
-      ),
+      intelligenceThreads?.type === "page"
+        ? { ...intelligenceThreads, title: "Rich Threads" }
+        : null,
+      intelligenceAutomaticLearning,
+      intelligenceMemory,
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
@@ -2462,6 +2465,55 @@ function navNodeContainsSlug(node: NavNode, slugPath: string): boolean {
   }
 
   return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath);
+}
+
+function navGroupTrailForSlug(
+  node: NavNode,
+  slugPath: string,
+): string[] | null {
+  if (node.type === "section") return null;
+  if (node.type === "page") {
+    return normalizeNavSlug(node.slug) === normalizeNavSlug(slugPath)
+      ? []
+      : null;
+  }
+
+  for (const child of node.children) {
+    const childTrail = navGroupTrailForSlug(child, slugPath);
+    if (childTrail !== null) {
+      return node.title ? [node.title, ...childTrail] : childTrail;
+    }
+  }
+
+  return null;
+}
+
+/** Return the visible sidebar hierarchy above a guide page. */
+export function navAncestorBreadcrumbsForSlug(
+  navTree: NavNode[],
+  slugPath: string,
+): Breadcrumb[] | null {
+  let currentSection: string | null = null;
+
+  for (const node of navTree) {
+    if (node.type === "section") {
+      currentSection = node.title;
+      continue;
+    }
+
+    const groupTrail = navGroupTrailForSlug(node, slugPath);
+    if (groupTrail === null) continue;
+
+    const labels = currentSection
+      ? [currentSection, ...groupTrail]
+      : groupTrail;
+    return labels.map((label) => ({
+      label: label === "Rich threads" ? "Rich Threads" : label,
+      href: null,
+    }));
+  }
+
+  return null;
 }
 
 /** Return the sidebar section that contains a guide page. */

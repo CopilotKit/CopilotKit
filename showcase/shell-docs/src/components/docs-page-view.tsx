@@ -54,6 +54,7 @@ import {
   convertTablesInJSX,
   inlineSnippets,
   loadDoc,
+  navAncestorBreadcrumbsForSlug,
   navSectionTitleForSlug,
   visibleGuideBreadcrumbs,
   CONTENT_DIR,
@@ -240,10 +241,9 @@ export async function DocsPageView({
     slugHrefPrefix,
   });
   const sectionTitle = navSectionTitleForSlug(tree, slugPath);
-  const ancestorBreadcrumbs = visibleGuideBreadcrumbs(
-    breadcrumbs,
-    sectionTitle,
-  );
+  const ancestorBreadcrumbs =
+    navAncestorBreadcrumbsForSlug(tree, slugPath) ??
+    visibleGuideBreadcrumbs(breadcrumbs, sectionTitle);
 
   // Bridge shell-docs's NavNode tree + headings into Fumadocs's shapes
   // so DocsLayout (sidebar) and DocsPage (right-rail TOC) can render them.
