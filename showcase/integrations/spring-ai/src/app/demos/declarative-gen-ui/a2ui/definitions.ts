@@ -92,6 +92,18 @@ export const myDefinitions = {
       ),
     }),
   },
+
+  DataTable: {
+    description:
+      "A data table with column headers and rows. Ideal for rankings and per-person/per-item breakdowns (rep performance vs quota, deal lists). Each row's keys MUST appear in `columns[].key`; unknown row keys render as blank cells and indicate model/schema drift.",
+    props: z.object({
+      columns: z.array(z.object({ key: z.string(), label: z.string() })),
+      // Cells may be strings or numbers — the renderer stringifies at
+      // render time, but accepting both lets the LLM emit raw numerics
+      // (e.g. attainment 124) instead of being forced to stringify.
+      rows: z.array(z.record(z.union([z.string(), z.number()]))),
+    }),
+  },
 } satisfies CatalogDefinitions;
 // @endregion[definitions-zod]
 
