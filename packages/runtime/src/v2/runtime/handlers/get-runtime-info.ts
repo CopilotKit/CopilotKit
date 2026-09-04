@@ -71,6 +71,7 @@ interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
   threadEndpointsEnabled?: boolean;
+  singleRouteResourceOperationsEnabled?: boolean;
 }
 
 /**
@@ -116,6 +117,7 @@ export async function handleGetRuntimeInfo({
   runtime,
   request,
   threadEndpointsEnabled = true,
+  singleRouteResourceOperationsEnabled = false,
 }: HandleGetRuntimeInfoParameters) {
   try {
     const runtimeEntitlementsPromise = resolveRuntimeEntitlements(runtime);
@@ -167,6 +169,14 @@ export async function handleGetRuntimeInfo({
         runtime,
         threadEndpointsEnabled && webEnabled,
       ),
+      ...(singleRouteResourceOperationsEnabled
+        ? {
+            singleRoute: {
+              resourceOperations: true,
+              threadEndpoints: resolveThreadEndpointInfo(runtime, webEnabled),
+            },
+          }
+        : {}),
       // Advertised unconditionally. Multi-route runtimes expose the dedicated
       // POST /agent/:agentId/suggest path; single-route clients fall back to a
       // client-side run (they don't construct the single-route envelope for
