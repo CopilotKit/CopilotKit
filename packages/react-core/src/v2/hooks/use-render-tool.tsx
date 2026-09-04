@@ -38,7 +38,7 @@ export type RenderToolProps<S extends StandardSchemaV1> =
 type RenderToolConfig<S extends StandardSchemaV1> = {
   name: string;
   parameters?: S;
-  render: (props: RenderToolProps<S>) => React.ReactElement;
+  render: (props: RenderToolProps<S>) => React.ReactElement | null;
   agentId?: string;
 };
 
@@ -69,7 +69,7 @@ type RenderToolConfig<S extends StandardSchemaV1> = {
 export function useRenderTool(
   config: {
     name: "*";
-    render: (props: any) => React.ReactElement;
+    render: (props: any) => React.ReactElement | null;
     agentId?: string;
   },
   deps?: ReadonlyArray<unknown>,
@@ -106,7 +106,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
   config: {
     name: string;
     parameters: S;
-    render: (props: RenderToolProps<S>) => React.ReactElement;
+    render: (props: RenderToolProps<S>) => React.ReactElement | null;
     agentId?: string;
   },
   deps?: ReadonlyArray<unknown>,
