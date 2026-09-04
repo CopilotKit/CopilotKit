@@ -1,4 +1,14 @@
-// Build sandbox proxy HTML with optional extra CSP domains from resource metadata
+/**
+ * Build the sandbox-proxy HTML document loaded into the outer iframe.
+ *
+ * The proxy relays postMessage between the host and the inner sandboxed widget
+ * and announces `ui/notifications/sandbox-proxy-ready` once ready. `extraCspDomains`
+ * (from the resource's `_meta.ui.csp`) are appended to the `script-src`/`frame-src`
+ * CSP directives so a widget can load its own approved origins.
+ *
+ * @param extraCspDomains Optional additional origins allowed by the sandbox CSP.
+ * @returns The complete sandbox-proxy HTML document as a string.
+ */
 export function buildSandboxHTML(extraCspDomains?: string[]): string {
   const baseScriptSrc =
     "'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*";

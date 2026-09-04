@@ -41,6 +41,11 @@ export class MCPAppsRequestQueue {
     });
   }
 
+  /**
+   * Drain a thread's queue one request at a time, waiting for the agent to go
+   * idle before each. Re-entrant-safe (a single processor per thread) and drops
+   * the thread's map entries once fully drained to keep the shared queue bounded.
+   */
   private async processQueue(
     threadId: string,
     agent: AbstractAgent,
@@ -89,6 +94,10 @@ export class MCPAppsRequestQueue {
     }
   }
 
+  /**
+   * Resolve once the agent is not running. Subscribes to run-finalized/failed and
+   * also polls as a fallback for reconnect scenarios where events do not fire.
+   */
   private waitForAgentIdle(agent: AbstractAgent): Promise<void> {
     return new Promise((resolve) => {
       if (!agent.isRunning) {

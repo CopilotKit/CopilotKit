@@ -64,7 +64,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           # Use the root `build` script (present on both this branch and the base
           # branch) so compressed-size-action can build both sides for comparison.
-          # The `pattern` below restricts measurement to the 10 in-scope packages.
+          # The `pattern` below restricts measurement to the 11 in-scope packages.
           build-script: build
           pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer,react-native,mcp-apps-renderer}/dist/**/*.{mjs,js,cjs}"
 

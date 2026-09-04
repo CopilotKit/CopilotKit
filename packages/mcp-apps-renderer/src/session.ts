@@ -119,6 +119,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   let pendingToolInput: Record<string, unknown> | undefined;
   let pendingToolResult: CallToolResult | undefined;
 
+  /** Flush any buffered tool input/result to the widget once it is initialized. */
   const flushPending = () => {
     if (!ready || !bridge) return;
     if (pendingToolInput !== undefined) {
@@ -131,6 +132,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     }
   };
 
+  /** Fetch the widget resource (`resources/read`) through the agent proxy queue. */
   const fetchResource = async (): Promise<FetchedResource> => {
     const agent = getAgent();
     if (!agent) {
@@ -159,6 +161,10 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     return resource;
   };
 
+  /**
+   * Fetch the resource, configure + load the sandbox iframe, construct the
+   * AppBridge, wire the app->host handlers, and connect the transport.
+   */
   const setup = async () => {
     try {
       const resource = await fetchResource();
