@@ -1,7 +1,12 @@
 import type { Interrupt } from "@ag-ui/client";
 import { describe, expect, it } from "vitest";
 
-import { ɵInterruptState } from "../interrupt-state";
+import {
+  ɵclearLegacyInterrupt,
+  ɵInterruptState,
+  ɵreadLegacyInterrupt,
+  ɵrecordLegacyInterrupt,
+} from "../interrupt-state";
 
 function interrupt(
   id: string,
@@ -69,5 +74,44 @@ describe("ɵInterruptState", () => {
       payload: "approved",
       interruptValue: { requestId: "request-1" },
     });
+  });
+});
+
+describe("legacy interrupt record", () => {
+  it("returns null for an agent that holds no legacy interrupt", () => {
+    expect(ɵreadLegacyInterrupt({})).toBeNull();
+  });
+
+  it("reads back what was recorded for one agent", () => {
+    const agent = {};
+    ɵrecordLegacyInterrupt(agent, {
+      event: { name: "on_interrupt", value: "approve?" },
+      runId: "run-1",
+    });
+
+    expect(ɵreadLegacyInterrupt(agent)).toEqual({
+      event: { name: "on_interrupt", value: "approve?" },
+      runId: "run-1",
+    });
+  });
+
+  it("keeps one agent's record out of another agent's", () => {
+    const first = {};
+    const second = {};
+    ɵrecordLegacyInterrupt(first, {
+      event: { name: "on_interrupt", value: "first" },
+    });
+
+    expect(ɵreadLegacyInterrupt(second)).toBeNull();
+  });
+
+  it("forgets a record on clear", () => {
+    const agent = {};
+    ɵrecordLegacyInterrupt(agent, {
+      event: { name: "on_interrupt", value: "approve?" },
+    });
+    ɵclearLegacyInterrupt(agent);
+
+    expect(ɵreadLegacyInterrupt(agent)).toBeNull();
   });
 });

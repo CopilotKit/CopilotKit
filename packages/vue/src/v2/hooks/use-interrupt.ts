@@ -2,6 +2,11 @@ import { computed, onScopeDispose, shallowRef, watch } from "vue";
 import type { ComputedRef, Ref } from "vue";
 import { buildResumeArray, isInterruptExpired } from "@ag-ui/client";
 import type { Interrupt, RunAgentResult } from "@ag-ui/client";
+import {
+  ɵclearLegacyInterrupt,
+  ɵreadLegacyInterrupt,
+  ɵrecordLegacyInterrupt,
+} from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useAgent } from "./use-agent";
 import type {
@@ -149,6 +154,34 @@ export function useInterrupt<TValue = unknown, TResult = never>(
       let localLegacy: InterruptEvent<TValue> | null = null;
       let localStandard: Interrupt[] | null = null;
 
+      // Publish whatever this run collected. Standard wins if both somehow
+      // appear for one run.
+      const commit = () => {
+        if (localStandard && localStandard.length > 0) {
+          pending.value = { kind: "standard", interrupts: localStandard };
+        } else if (localLegacy) {
+          // Record the legacy interrupt on the agent too. Standard interrupts
+          // get this for free from `agent.pendingInterrupts`; without it the
+          // legacy path cannot recover a gate whose event was already
+          // delivered.
+          ɵrecordLegacyInterrupt(resolvedAgent, { event: localLegacy });
+          pending.value = { kind: "legacy", event: localLegacy };
+        }
+        localLegacy = null;
+        localStandard = null;
+      };
+
+      const forget = () => {
+        localLegacy = null;
+        localStandard = null;
+        ɵclearLegacyInterrupt(resolvedAgent);
+        // Reset accumulated responses for the new run.
+        for (const k of Object.keys(responses)) {
+          delete responses[k];
+        }
+        pending.value = null;
+      };
+
       const subscription = resolvedAgent.subscribe({
         onCustomEvent: ({ event }) => {
           if (event.name === INTERRUPT_EVENT_NAME) {
@@ -162,35 +195,31 @@ export function useInterrupt<TValue = unknown, TResult = never>(
           if (params.outcome === "interrupt") {
             localStandard = params.interrupts;
           }
+          // Commit here rather than only at `onRunFinalized`. On the connect
+          // path `onRunFinalized` fires when the long-lived socket stream tears
+          // down, not once per replayed run, so a reconnect that replays an
+          // interrupt would otherwise surface nothing.
+          commit();
         },
-        onRunStartedEvent: () => {
-          localLegacy = null;
-          localStandard = null;
-          // Reset accumulated responses for the new run.
-          for (const k of Object.keys(responses)) {
-            delete responses[k];
-          }
-          pending.value = null;
-        },
-        onRunFinalized: () => {
-          // Standard wins if both somehow appear for one run.
-          if (localStandard && localStandard.length > 0) {
-            pending.value = { kind: "standard", interrupts: localStandard };
-          } else if (localLegacy) {
-            pending.value = { kind: "legacy", event: localLegacy };
-          }
-          localLegacy = null;
-          localStandard = null;
-        },
-        onRunFailed: () => {
-          localLegacy = null;
-          localStandard = null;
-          for (const k of Object.keys(responses)) {
-            delete responses[k];
-          }
-          pending.value = null;
-        },
+        onRunStartedEvent: forget,
+        // Fallback for a stream that ends without a RUN_FINISHED event. When
+        // RUN_FINISHED did arrive, `commit` already ran and left nothing to do.
+        onRunFinalized: commit,
+        onRunFailed: forget,
       });
+
+      // Seed from what the client already knows this thread is waiting on, so
+      // a mount or a reconnect surfaces a gate whose event arrived before this
+      // subscription existed.
+      const recordedLegacy = ɵreadLegacyInterrupt<TValue>(resolvedAgent);
+      if (resolvedAgent.pendingInterrupts.length > 0) {
+        pending.value = {
+          kind: "standard",
+          interrupts: [...resolvedAgent.pendingInterrupts],
+        };
+      } else if (recordedLegacy) {
+        pending.value = { kind: "legacy", event: recordedLegacy.event };
+      }
 
       onCleanup(() => subscription.unsubscribe());
     },
@@ -283,6 +312,9 @@ export function useInterrupt<TValue = unknown, TResult = never>(
       console.warn(
         "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
       );
+      // A dismissal ends the gate, so drop the recovery record with it.
+      const dismissedAgent = agent.value;
+      if (dismissedAgent) ɵclearLegacyInterrupt(dismissedAgent);
       pending.value = null;
       return;
     }

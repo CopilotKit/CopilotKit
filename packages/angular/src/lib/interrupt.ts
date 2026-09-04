@@ -9,7 +9,10 @@ import type {
   RunAgentResult,
 } from "@ag-ui/client";
 import {
+  ɵclearLegacyInterrupt,
   ɵInterruptState,
+  ɵreadLegacyInterrupt,
+  ɵrecordLegacyInterrupt,
   type ɵInterruptDecision,
   type ɵPendingInterrupt,
 } from "@copilotkit/core";
@@ -168,6 +171,23 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     let legacy: InterruptEvent<TValue> | null = null;
     let standard: Interrupt[] | null = null;
+
+    // Publish whatever this run collected. Standard wins if both somehow
+    // appear for one run.
+    const commit = () => {
+      if (standard && standard.length > 0) {
+        this.#setPending({ kind: "standard", interrupts: standard });
+      } else if (legacy) {
+        // Record the legacy interrupt on the agent too. Standard interrupts
+        // get this for free from `agent.pendingInterrupts`; without it the
+        // legacy path cannot recover a gate whose event was already delivered.
+        ɵrecordLegacyInterrupt(agent, { event: legacy });
+        this.#setPending({ kind: "legacy", event: legacy });
+      }
+      legacy = null;
+      standard = null;
+    };
+
     const subscription = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
@@ -184,39 +204,48 @@ export class InterruptController<TValue = unknown, TResult = never> {
           }
           standard = params.interrupts;
         }
+        // Commit here rather than only at `onRunFinalized`. On the connect
+        // path `onRunFinalized` fires when the long-lived socket stream tears
+        // down, not once per replayed run, so a reconnect that replays an
+        // interrupt would otherwise surface nothing.
+        commit();
       },
       onRunStartedEvent: () => {
         legacy = null;
         standard = null;
         this.#threadId = agent.threadId;
+        ɵclearLegacyInterrupt(agent);
         this.#clear();
       },
-      onRunFinalized: () => {
-        if (standard && standard.length > 0) {
-          this.#setPending({ kind: "standard", interrupts: standard });
-        } else if (legacy) {
-          this.#setPending({ kind: "legacy", event: legacy });
-        }
-        legacy = null;
-        standard = null;
-      },
+      // Fallback for a stream that ends without a RUN_FINISHED event. When
+      // RUN_FINISHED did arrive, `commit` already ran and left nothing to do.
+      onRunFinalized: commit,
       onRunFailed: ({ error }) => {
         legacy = null;
         standard = null;
+        ɵclearLegacyInterrupt(agent);
         this.#clear(error);
       },
       onRunErrorEvent: ({ event }) => {
         legacy = null;
         standard = null;
+        ɵclearLegacyInterrupt(agent);
         this.#clear(new Error(event.message));
       },
     });
     this.#unsubscribe = () => subscription.unsubscribe();
+
+    // Seed from what the client already knows this thread is waiting on, so a
+    // fresh controller or a reconnect surfaces a gate whose event arrived
+    // before this subscription existed.
+    const recordedLegacy = ɵreadLegacyInterrupt<TValue>(agent);
     if (agent.pendingInterrupts.length > 0) {
       this.#setPending({
         kind: "standard",
         interrupts: [...agent.pendingInterrupts],
       });
+    } else if (recordedLegacy) {
+      this.#setPending({ kind: "legacy", event: recordedLegacy.event });
     }
   }
 
@@ -281,6 +310,8 @@ export class InterruptController<TValue = unknown, TResult = never> {
       console.warn(
         "[CopilotKit] injectInterrupt: legacy on_interrupt events cannot be cancelled; dismissing.",
       );
+      // A dismissal ends the gate, so drop the recovery record with it.
+      ɵclearLegacyInterrupt(agent);
       this.#clear();
       return;
     }

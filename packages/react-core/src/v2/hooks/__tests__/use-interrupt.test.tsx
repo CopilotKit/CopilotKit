@@ -1261,4 +1261,164 @@ describe("useInterrupt", () => {
       });
     });
   });
+  // OSS-1131: a gate must survive a stream that never finalizes, a remount and
+  // a reconnect. Committing only at `onRunFinalized` meant the connect path —
+  // where finalize fires at socket teardown, not once per run — surfaced
+  // nothing, and effect cleanup then discarded the gate for good.
+  describe("recovery after a lost event or a reconnect", () => {
+    const INTERRUPT: Interrupt = { id: "int-1", reason: "approval" };
+
+    function RecoveryHarness() {
+      const element = useInterrupt({
+        renderInChat: false,
+        render: ({ event, interrupt }) => (
+          <div data-testid="gate">{String(interrupt?.id ?? event.value)}</div>
+        ),
+      });
+      return <div data-testid="gate-container">{element}</div>;
+    }
+
+    it("shows a standard gate from RUN_FINISHED on a stream that never finalizes", () => {
+      render(<RecoveryHarness />);
+
+      act(() => {
+        handlers.onRunFinishedEvent?.({
+          outcome: "interrupt",
+          interrupts: [INTERRUPT],
+          input: { runId: "replayed-run" },
+        });
+      });
+
+      expect(screen.getByTestId("gate").textContent).toBe("int-1");
+    });
+
+    it("shows a legacy gate from RUN_FINISHED on a stream that never finalizes", () => {
+      render(<RecoveryHarness />);
+
+      act(() => {
+        handlers.onCustomEvent?.({
+          event: { name: "on_interrupt", value: "approve?" },
+        });
+        handlers.onRunFinishedEvent?.({
+          outcome: "success",
+          input: { runId: "replayed-run" },
+        });
+      });
+
+      expect(screen.getByTestId("gate").textContent).toBe("approve?");
+    });
+
+    it("seeds a standard gate from agent.pendingInterrupts on mount", () => {
+      (mockAgent as { pendingInterrupts: Interrupt[] }).pendingInterrupts = [
+        INTERRUPT,
+      ];
+
+      render(<RecoveryHarness />);
+
+      expect(screen.getByTestId("gate").textContent).toBe("int-1");
+    });
+
+    it("recovers a legacy gate on remount", () => {
+      const first = render(<RecoveryHarness />);
+      act(() => {
+        handlers.onCustomEvent?.({
+          event: { name: "on_interrupt", value: "approve?" },
+        });
+        finalizeRun();
+      });
+      expect(screen.getByTestId("gate").textContent).toBe("approve?");
+
+      first.unmount();
+      render(<RecoveryHarness />);
+
+      expect(screen.getByTestId("gate").textContent).toBe("approve?");
+    });
+
+    it("resumes a recovered legacy gate with the run that raised it", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const calls: Array<(payload?: unknown) => Promise<unknown>> = [];
+      function ResumeHarness() {
+        useInterrupt({
+          render: ({ resolve }) => {
+            calls.push(resolve);
+            return <></>;
+          },
+        });
+        return null;
+      }
+
+      const first = render(<ResumeHarness />);
+      act(() => {
+        handlers.onCustomEvent?.({
+          event: { name: "on_interrupt", value: "approve?" },
+        });
+        finalizeRun("gated-run");
+      });
+      first.unmount();
+      calls.length = 0;
+
+      render(<ResumeHarness />);
+      await act(async () => {
+        await calls.at(-1)!({ approved: true });
+      });
+
+      expect(runAgentMock).toHaveBeenCalledWith({
+        agent: mockAgent,
+        runId: "gated-run",
+        forwardedProps: {
+          command: {
+            resume: { approved: true },
+            interruptEvent: "approve?",
+          },
+        },
+      });
+    });
+
+    it("forgets a legacy gate once a new run starts", () => {
+      const first = render(<RecoveryHarness />);
+      act(() => {
+        handlers.onCustomEvent?.({
+          event: { name: "on_interrupt", value: "approve?" },
+        });
+        finalizeRun();
+      });
+      act(() => handlers.onRunStartedEvent?.());
+      first.unmount();
+
+      render(<RecoveryHarness />);
+
+      expect(screen.queryByTestId("gate")).toBeNull();
+    });
+
+    it("forgets a legacy gate once it is dismissed", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const cancels: Array<() => Promise<unknown>> = [];
+      function DismissHarness() {
+        useInterrupt({
+          render: ({ cancel }) => {
+            cancels.push(cancel);
+            return <></>;
+          },
+        });
+        return null;
+      }
+
+      const first = render(<DismissHarness />);
+      act(() => {
+        handlers.onCustomEvent?.({
+          event: { name: "on_interrupt", value: "approve?" },
+        });
+        finalizeRun();
+      });
+      act(() => {
+        void cancels.at(-1)!();
+      });
+      first.unmount();
+
+      render(<RecoveryHarness />);
+
+      expect(screen.queryByTestId("gate")).toBeNull();
+      warn.mockRestore();
+    });
+  });
 });
