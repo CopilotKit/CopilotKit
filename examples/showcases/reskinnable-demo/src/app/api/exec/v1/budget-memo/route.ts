@@ -33,7 +33,6 @@ const DRIVER_SPLIT = 0.62;
 
 /** How many days after period close the memo is dated. */
 const MEMO_DAYS_AFTER_CLOSE = 5;
-const DAY_MS = 86_400_000;
 
 const LONG_DATE = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -59,8 +58,19 @@ const memoDateFor = (period: string): string => {
   const anchor = firstOfPeriod(period);
   // Last day of `period`'s month: day 0 of the FOLLOWING month.
   const close = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+  // Calendar-day arithmetic, NOT `close.getTime() + N * 86_400_000`: adding
+  // milliseconds to a local-midnight `Date` silently loses (or gains) a day
+  // whenever the window between close and dateline crosses a DST transition
+  // (e.g. a "2026-10" close on 31 October plus 5 days crosses America/
+  // New_York's fall-back on 1 November, printing 4 November instead of 5).
+  // Overflowing `getDate()` past the month's length is exactly what `Date`'s
+  // constructor is defined to roll forward correctly.
   return LONG_DATE.format(
-    new Date(close.getTime() + MEMO_DAYS_AFTER_CLOSE * DAY_MS),
+    new Date(
+      close.getFullYear(),
+      close.getMonth(),
+      close.getDate() + MEMO_DAYS_AFTER_CLOSE,
+    ),
   );
 };
 
@@ -101,6 +111,36 @@ export const GET = async () => {
       console.warn(
         `[exec/api] GET budget-memo — no live breach for metricId="${METRIC_ID}" ` +
           `department="${DEPARTMENT}"`,
+      );
+      return Response.json(
+        {
+          error: "NOT_FOUND",
+          message: "Distribution opex is not currently over plan.",
+        },
+        { status: 404 },
+      );
+    }
+
+    // GUARD: the memo's prose is written for an OVERRUN ("closed at X against
+    // a plan of Y, an overrun of Z... over plan") and has no sentence for the
+    // opposite case. `isBreach` (see `./derive`) trips on the MAGNITUDE of
+    // the variance, so an under-plan breach — actual comfortably below plan,
+    // by more than the threshold — is a value `exceptions()` can legitimately
+    // return. Printing it through this memo would read "an overrun of
+    // -$19,440 (9% over plan)": the sign silently stripped by `Math.abs` and
+    // the larger driver (shipment timing, per `DRIVER_SPLIT`) now describing
+    // the SMALLER share of an under-spend, inverting the VAR-TIMING cue the
+    // memo exists to plant. Rather than print that, 404 exactly as if there
+    // were no breach at all — true today only because the seed's one opex/
+    // distribution breach is over-plan; if a future seed ever makes this
+    // metric breach under-plan, this route must stop serving until the memo
+    // itself is rewritten with prose for that case.
+    if (breach.variancePct <= 0) {
+      console.warn(
+        `[exec/api] GET budget-memo — refusing to narrate an under-plan ` +
+          `breach for metricId="${METRIC_ID}" department="${DEPARTMENT}" ` +
+          `period="${breach.period}" (variancePct=${breach.variancePct}); ` +
+          "this memo's prose only covers an overrun.",
       );
       return Response.json(
         {
