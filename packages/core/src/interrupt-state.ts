@@ -50,6 +50,61 @@ function toolResultContent(response: ResumeResponse): string {
 }
 
 /**
+ * @internal A legacy interrupt a thread is still waiting on, plus the run that
+ * raised it. Application authors must not depend on this contract.
+ */
+export interface ɵLegacyInterruptRecord<TValue = unknown> {
+  event: ɵInterruptEvent<TValue>;
+  runId?: string;
+}
+
+/**
+ * Legacy `on_interrupt` interrupts a thread is still waiting on, keyed by the
+ * agent that received them.
+ *
+ * `AbstractAgent.pendingInterrupts` records standard AG-UI interrupts, so a
+ * framework adapter can recover a standard gate after a remount or a
+ * reconnect. Legacy custom-event interrupts have no such record upstream,
+ * which left the path every CLI starter takes with no way to recover a gate
+ * whose event was already delivered. This map is that record.
+ */
+const legacyInterrupts = new WeakMap<object, ɵLegacyInterruptRecord>();
+
+/**
+ * @internal Record the legacy interrupt an agent is waiting on. Application
+ * authors must not depend on this API.
+ */
+export function ɵrecordLegacyInterrupt<TValue>(
+  agent: object,
+  record: ɵLegacyInterruptRecord<TValue>,
+): void {
+  legacyInterrupts.set(agent, record as ɵLegacyInterruptRecord);
+}
+
+/**
+ * @internal Read the legacy interrupt an agent is waiting on, if any.
+ * Application authors must not depend on this API.
+ */
+export function ɵreadLegacyInterrupt<TValue = unknown>(
+  agent: object,
+): ɵLegacyInterruptRecord<TValue> | null {
+  return (
+    (legacyInterrupts.get(agent) as
+      | ɵLegacyInterruptRecord<TValue>
+      | undefined) ?? null
+  );
+}
+
+/**
+ * @internal Forget the legacy interrupt an agent was waiting on. Call this
+ * when a new run starts, and when the interrupt is addressed or dismissed.
+ * Application authors must not depend on this API.
+ */
+export function ɵclearLegacyInterrupt(agent: object): void {
+  legacyInterrupts.delete(agent);
+}
+
+/**
  * @internal Framework-neutral interrupt response state shared by framework
  * adapters. Application authors must not depend on this API.
  */
