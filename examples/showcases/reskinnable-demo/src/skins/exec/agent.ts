@@ -180,20 +180,68 @@ const renderMetricBlockParams = z.object({
   department: department
     .optional()
     .describe(
-      "Scopes the block to one department. Only meaningful for the " +
-        "per-department metrics ('opex', 'headcountCost').",
+      "Scopes the block to one department — metricTile and trendLine ONLY. " +
+        "Only meaningful for the per-department metrics ('opex', " +
+        "'headcountCost'). A varianceBar always draws every department, so " +
+        "passing this with one is refused rather than ignored.",
     ),
   compare: z
     .enum(["plan", "forecast"])
     .optional()
-    .describe("What a metricTile's delta is measured against."),
+    .describe(
+      "What a metricTile's delta is measured against — metricTile ONLY.",
+    ),
   months: z
     .number()
     .int()
     .positive()
     .optional()
-    .describe("A trendLine's trailing window in months (default 12)."),
+    .describe(
+      "A trendLine's trailing window in months (default 12) — trendLine ONLY.",
+    ),
 });
+
+/**
+ * The props each block kind actually RENDERS, keyed by kind.
+ *
+ * ⚠️ THE PHANTOM-LEVER GUARD. `renderMetricBlockParams` offers every prop to
+ * every kind — zod cannot express "compare, but only for a metricTile" without
+ * a discriminated union the model would have to get right in one shot — but
+ * `buildKindComponent` (`./blocks/build-block-ops.ts`) forwards ONLY the props
+ * that kind's catalog definition declares. Anything else was accepted, dropped
+ * on the floor, and then PERSISTED into the stored spec by
+ * `store.createDraftBlock`, so the ledger route rebuilt the same phantom on
+ * every read. The visible cost: a varianceBar asked for Distribution draws all
+ * four departments while the agent says, truthfully as far as it knows, that
+ * it scoped the block.
+ *
+ * Kept here rather than in `build-block-ops.ts` because it is the TOOL
+ * BOUNDARY's job: this table decides what the model is told, and the ops
+ * builder stays the deterministic expander it is. Mirrors that module's
+ * `METRIC_BOUND_KINDS` in spirit — one list, read by the guard that fires
+ * first.
+ */
+const SUPPORTED_BLOCK_PROPS: Record<
+  z.infer<typeof renderMetricBlockParams>["kind"],
+  readonly ("metricId" | "department" | "compare" | "months")[]
+> = {
+  metricTile: ["metricId", "department", "compare"],
+  trendLine: ["metricId", "department", "months"],
+  varianceBar: ["metricId"],
+  initiativeTable: [],
+  exceptionList: [],
+};
+
+/** One sentence naming what a kind DOES take, so the refusal is correctable. */
+function describeSupportedProps(
+  kind: keyof typeof SUPPORTED_BLOCK_PROPS,
+): string {
+  const supported = SUPPORTED_BLOCK_PROPS[kind];
+  if (supported.length === 0) {
+    return `A "${kind}" binds its own rows and takes no metric or scope props at all.`;
+  }
+  return `A "${kind}" takes ${supported.join(", ")} — nothing else.`;
+}
 
 export const renderMetricBlockTool = defineTool({
   name: "render_metric_block",
@@ -239,6 +287,28 @@ export const renderMetricBlockTool = defineTool({
           `its own rows (initiativeTable, exceptionList).`,
       };
     }
+
+    // ── THE SAME ERROR-RESULT PATTERN, FOR THE PROPS THAT USED TO VANISH ──
+    // See `SUPPORTED_BLOCK_PROPS` above. Refused rather than stripped: a
+    // strip is the same silence with extra steps — the block still comes back
+    // green, and the model has no way to learn that what is on screen is not
+    // what it asked for. Named as a RESULT, one retry corrects it.
+    const supported = new Set<string>(SUPPORTED_BLOCK_PROPS[spec.kind]);
+    const unsupported = (
+      ["metricId", "department", "compare", "months"] as const
+    ).filter((prop) => spec[prop] !== undefined && !supported.has(prop));
+    if (unsupported.length > 0) {
+      const named = unsupported.map((p) => `"${p}"`).join(" or ");
+      return {
+        error: "UNSUPPORTED_BLOCK_PROP",
+        message:
+          `A "${spec.kind}" block does not render ${named}, so nothing was ` +
+          `rendered rather than a block quietly ignoring it. ` +
+          `${describeSupportedProps(spec.kind)} Call render_metric_block ` +
+          `again without ${named}, or pick the kind that does honour it.`,
+      };
+    }
+
     const block = store.createDraftBlock(spec);
     return {
       [A2UI_OPERATIONS_KEY]: buildBlockOps(spec, block.id),
@@ -340,13 +410,21 @@ export const fileVarianceNarrativeTool = defineTool({
     body,
     ingestedFromAttachment,
   }) => {
-    if (!isNarrativeCode(code)) {
+    // TRIMMED BEFORE IT IS JUDGED. Rule 6 tells the model to use the code
+    // VERBATIM and forbids retrying with a different one — so a code lifted
+    // off the filing form or out of an attached memo, arriving with the stray
+    // space or newline it was copied with, must not be refused as BAD_CODE.
+    // That refusal is a DEAD END on stage: the model did exactly what the
+    // prompt asked and has nothing it is allowed to try next. `body` was
+    // already trimmed below for the same reason; `code` never was.
+    const trimmedCode = code.trim();
+    if (!isNarrativeCode(trimmedCode)) {
       // Names no valid code: an agent handed the catalogue in a refusal has
       // been handed the catalogue. It says what to do instead, which is ask.
       return {
         error: "BAD_CODE",
         message:
-          `"${code}" is not a code this ledger files under. You cannot ` +
+          `"${trimmedCode}" is not a code this ledger files under. You cannot ` +
           `derive one — ask the operator which code applies, or follow a ` +
           `saved procedure that names one, and file it verbatim.`,
       };
@@ -365,14 +443,58 @@ export const fileVarianceNarrativeTool = defineTool({
           "The narrative body is empty — write the actual explanation, not a placeholder.",
       };
     }
+    // ── THE (metricId, period) HAS TO NAME A ROW THIS LEDGER HOLDS ──────────
+    //
+    // A shape-valid period the store has no point for used to file cleanly:
+    // the tool said "filed", `store.fileNarrative` appended a narrative
+    // matching nothing, and `exceptions()` — which pairs a narrative to a
+    // breach by EXACT (metricId, period) — went on reporting the breach
+    // unexplained. The agent's only readable signal was success, so rule 7
+    // sent it round the same publish loop with nothing to change. The periods
+    // move with the calendar (the seed builds the 24 months ending at the
+    // latest CLOSED one), which is exactly why a period cannot be reasoned
+    // out and has to be READ.
+    const pointsAtPeriod = store
+      .metricSeries({ metricId: id })
+      .filter((p) => p.period === period);
+    if (pointsAtPeriod.length === 0) {
+      return {
+        error: "NO_LEDGER_POINT",
+        message:
+          `This ledger holds no ${id} row for ${period}, so nothing was ` +
+          `filed. Call get_metrics for ${id} to see the periods it actually ` +
+          `covers, or list_exceptions for the ones waiting on an ` +
+          `explanation, then file against one of those.`,
+      };
+    }
+
+    // Read BEFORE the write — filing is what flips `explained`, so asking
+    // afterwards always answers "explained".
+    const clearsAnOpenBreach = store
+      .exceptions()
+      .some((e) => e.metricId === id && e.period === period && !e.explained);
+
+    const narrative = store.fileNarrative({
+      metricId: id,
+      period,
+      code: trimmedCode,
+      body: trimmedBody,
+      source: ingestedFromAttachment ? "ingested-memo" : "typed",
+    });
+
+    // The row is real, so the filing STANDS (the store write is unchanged) —
+    // but a narrative against a period nothing is breaching clears no publish
+    // gate, and a plain success here reads as the gate contradicting a filing
+    // that just worked. Said in the result so the model can self-correct
+    // rather than re-publishing and hoping.
+    if (clearsAnOpenBreach) return { narrative };
     return {
-      narrative: store.fileNarrative({
-        metricId: id,
-        period,
-        code,
-        body: trimmedBody,
-        source: ingestedFromAttachment ? "ingested-memo" : "typed",
-      }),
+      narrative,
+      note:
+        `Filed — but ${id} has no OPEN exception at ${period} (either it does ` +
+        `not breach its threshold there, or it is already explained), so this ` +
+        `filing clears nothing the publish gate is waiting on. Call ` +
+        `list_exceptions to see which breaches are still unexplained.`,
     };
   },
 });
@@ -558,7 +680,13 @@ top-N. Those are the sentinels that mean "do not touch this control", and they
 are the only way to mean it. Set only the levers the request actually implies,
 and never fill one merely because the schema has a slot for it — a filter the
 operator did not ask for narrows the board for no reason and claims a choice
-they never made. Afterwards, say what the board is now showing.
+they never made. ONE EXCEPTION, BECAUSE TOP-N IS ALSO THE SORT: the explorer
+orders rows by the size of the variance ONLY while top-N holds a real positive
+number, and the 0 sentinel leaves them in ledger order. So when the ask is for
+the WORST, the BIGGEST or the top variances, top-N is a lever the request DOES
+imply — pass a real limit, 10 unless the operator named a count, or the board
+comes up unsorted with the biggest one nowhere near the top. Afterwards, say
+what the board is now showing.
 
 11. COMPOSITION PREFERENCES ARE REMEMBERED, AND SAYING SO IS THE POINT. Before
 you compose ANY block or summarize how this desk reads its numbers, call
@@ -618,6 +746,12 @@ rendered onto a dashboard (rules 3 and 12), navigateTo to move the desk and set
 the explorer's levers (rule 10), confirmPublishCountersign to take a dashboard to
 the countersign gate (rules 5 and 7), and the teach chain
 offerWorkflowRecording / awaitDemonstration / saveLearnedProcedure (rule 7).
+
+Memory tools available to you: recall_memory to read this desk's standing
+preferences and its saved procedures (rules 7, 11 and 12), and save_memory to
+persist a durable one (rules 7 and 13). They are the tools those rules mean by
+"recall" and "save" — nothing else on this desk remembers anything between
+threads.
 
 Keep prose tight and executive: short sentences, the movement before the level,
 no filler. Render the block instead of describing its data, then add at most one
