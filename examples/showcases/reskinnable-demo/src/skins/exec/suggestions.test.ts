@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { execSuggestions, MEMO_NARRATIVE_MESSAGE } from "./suggestions";
 import { execAgent } from "./agent";
 import * as store from "./data/store";
+import type { NarrativeCode } from "./data/types";
 
 /**
  * Guards the beat 3d multimodal-memo beat.
@@ -47,7 +48,21 @@ describe("exec memo-narrative suggestion", () => {
  * becoming a message.
  */
 describe("exec suggestion pills", () => {
-  const WITHHELD_CODES = ["VAR-TIMING", "VAR-ONEOFF", "VAR-FX", "VAR-PLAN"];
+  /**
+   * DERIVED FROM THE UNION, NOT COPIED FROM IT — same device, same reason, as
+   * `agent-tools.test.ts`'s list. `NarrativeCode` is a TYPE and cannot be
+   * enumerated at runtime (the only module-scope catalogue lives in the human
+   * filing form, `pages/board-packs.tsx`, and is deliberately unexported), so
+   * `as const satisfies Record<NarrativeCode, true>` is what binds this list to
+   * it: a FIFTH code added to the union fails the typecheck here rather than
+   * quietly slipping through a sweep that never knew to look for it.
+   */
+  const WITHHELD_CODES = Object.keys({
+    "VAR-TIMING": true,
+    "VAR-ONEOFF": true,
+    "VAR-FX": true,
+    "VAR-PLAN": true,
+  } as const satisfies Record<NarrativeCode, true>);
 
   it("names no narrative code in any pill", () => {
     for (const pill of execSuggestions) {
