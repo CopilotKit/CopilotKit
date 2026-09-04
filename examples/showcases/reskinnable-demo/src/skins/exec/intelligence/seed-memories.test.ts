@@ -1,20 +1,36 @@
 /**
  * HERMETIC BY CONSTRUCTION: every case stubs `global.fetch`, and the teardown
- * un-stubs it. No case reads an `INTELLIGENCE_*` env var — `seedMemories` takes
- * its backend address as a parameter — so a developer with a real Intelligence
- * stack configured cannot make this suite POST seed memories into it.
+ * un-stubs it. `seedMemories` takes its backend address as a PARAMETER, so a
+ * developer with a real Intelligence stack configured cannot make this suite
+ * POST seed memories into it.
+ *
+ * The `INTELLIGENCE_*` / `CPK_*` vars are stubbed to fixtures anyway, because
+ * the failure log runs the backend's response body through `redactSecrets`,
+ * which derives its needle set from the AMBIENT environment. Left unstubbed, a
+ * developer with a real key exported would be redacting against a different
+ * needle set than CI — a suite that passes or fails depending on whose shell it
+ * runs in. The teardown un-stubs them so nothing leaks into the next file.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SEED_MEMORIES, seedMemories } from "./seed-memories";
+
+const BACKEND = "http://intelligence.invalid:7450";
+const API_KEY = "cpk_test";
+
+beforeEach(() => {
+  vi.stubEnv("INTELLIGENCE_API_URL", BACKEND);
+  vi.stubEnv("CPK_INTELLIGENCE_API_KEY", API_KEY);
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
 const API = {
-  apiUrl: "http://intelligence.invalid:7450",
-  apiKey: "cpk_test",
+  apiUrl: BACKEND,
+  apiKey: API_KEY,
   userId: "vantage-demo-user",
 };
 
@@ -62,7 +78,14 @@ describe("seedMemories", () => {
     }
   });
 
-  it("aborts a hung POST within the timeout and counts it as not stored", async () => {
+  /**
+   * A `Date.now() < 2000` bound asserted nothing reachable: if the signal were
+   * dropped, this promise would NEVER settle and the case would die as a vitest
+   * timeout long before reaching the assertion. What actually needs pinning is
+   * that the CALLER's `timeoutMs` is the one that fired, and that the log names
+   * the abort — otherwise a hung seed is a silent zero in `dev/reset`'s count.
+   */
+  it("aborts a hung POST on the caller's timeout, counts it as not stored, and says so", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -74,29 +97,76 @@ describe("seedMemories", () => {
           }),
       ),
     );
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const started = Date.now();
     const stored = await seedMemories({ ...API, timeoutMs: 30 });
 
     expect(stored).toBe(0);
-    // Bounded: without a signal this promise never settles and the reset spins.
-    expect(Date.now() - started).toBeLessThan(2_000);
-    expect(console.error).toHaveBeenCalled();
+    // One line per seed that did not land, each naming the bucket and the
+    // reason — a real `AbortSignal.timeout`, not a signal that never fires.
+    expect(logged).toHaveBeenCalledTimes(SEED_MEMORIES.length);
+    const line = String(logged.mock.calls[0]?.[0] ?? "");
+    expect(line).toContain("vantage-demo-user");
+    expect(line).toContain("TimeoutError");
+  });
+
+  /**
+   * THE DEFECT: a rejected seed logged the STATUS and threw the response body
+   * away. `422 MEMORY_VALIDATION_ERROR: scope must be one of …` and a bare
+   * `HTTP 422` are the same line to whoever is reading the server log, and only
+   * one of them says which field to fix — so beats 4/5 stay unarmed while the
+   * only clue sits in a body nobody kept.
+   */
+  it("logs the backend's rejection body, not just the status", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            `MEMORY_VALIDATION_ERROR: kind must be one of topical|episodic ` +
+              `(key ${API_KEY} at ${BACKEND})`,
+            { status: 422 },
+          ),
+        ),
+      ),
+    );
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(seedMemories(API)).resolves.toBe(0);
+
+    const line = String(logged.mock.calls[0]?.[0] ?? "");
+    expect(line).toContain("422");
+    expect(line).toContain("MEMORY_VALIDATION_ERROR");
+    expect(line).toContain("kind must be one of");
+    // The body is UNTRUSTED upstream text and can quote our own credentials
+    // back at us, so it goes through `redactSecrets` on the way to the log.
+    expect(line).not.toContain(API_KEY);
+    expect(line).not.toContain(BACKEND);
   });
 
   it("counts a rejected seed as not stored and never throws", async () => {
+    // A fresh Response per call: one instance shared across calls has a body
+    // that can only be read once, so the second read of `nope` would throw.
+    let call = 0;
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(new Response("", { status: 201 }))
-        .mockResolvedValue(new Response("nope", { status: 500 })),
+      vi.fn(() => {
+        call += 1;
+        return Promise.resolve(
+          call === 1
+            ? new Response("", { status: 201 })
+            : new Response("nope", { status: 500 }),
+        );
+      }),
     );
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     // Never throws — `dev/reset` compares the count instead of catching.
-    await expect(seedMemories(API)).resolves.toBe(1);
+    // Derived, not `1`: the roster is a literal that can grow, and only the
+    // FIRST POST is stubbed to succeed.
+    await expect(seedMemories(API)).resolves.toBe(
+      Math.min(SEED_MEMORIES.length, 1),
+    );
   });
 });
 
@@ -132,11 +202,39 @@ describe("SEED_MEMORIES content", () => {
     expect(procedure!.content).toMatch(/without (asking|pausing)/i);
   });
 
-  it("never seeds beat 6's publish-unlock procedure", () => {
-    // Seed it and the teach arc disappears. See rule 3 in the file header.
+  /**
+   * THE GUARD'S OWN DEFECT: it grepped for two magic strings
+   * (`UNEXPLAINED_VARIANCE`, a `VAR-…` code) and nothing else, so beat 6's
+   * procedure written in PROSE — "if publishing is refused, file a narrative
+   * against the offending line under a justifying code, then publish again" —
+   * sailed straight through it, the agent started out already knowing the
+   * answer, and the teach arc disappeared. Seeding it is the one thing this
+   * file must never do (rule 3 in the header), so the guard is anchored to the
+   * SHAPE of a seeded procedure, not to two spellings of it.
+   */
+  it("never seeds beat 6's publish-unlock procedure, in symbols or in prose", () => {
+    // Symbols first — the exact identifiers the ledger uses.
     for (const memory of SEED_MEMORIES) {
       expect(memory.content).not.toMatch(/UNEXPLAINED_VARIANCE/);
       expect(memory.content).not.toMatch(/VAR-[A-Z]+/);
+    }
+
+    // Structure: a seeded PROCEDURE is a stepwise list. There must be exactly
+    // one, and it must be the board-pack one — a prose beat-6 recipe would show
+    // up here as a second stepwise memory (or as steps grafted onto this one).
+    const stepwise = SEED_MEMORIES.filter((m) => /\(1\)/.test(m.content));
+    expect(stepwise).toEqual([procedure]);
+
+    // Semantics: the publish-unlock subject may appear ONLY as the beat-5
+    // memory's disclaimer telling the agent not to confuse the two, never as
+    // something to do.
+    const PUBLISH_UNLOCK =
+      /variance narrative|publish[- ]unlock|publish refusal|justif\w* code/i;
+    for (const memory of SEED_MEMORIES) {
+      if (!PUBLISH_UNLOCK.test(memory.content)) continue;
+      expect(memory.content).toMatch(/not the publish-unlock procedure/i);
+      expect(memory.content).toMatch(/do not confuse/i);
+      expect(memory.content).toMatch(/do not offer to record/i);
     }
   });
 });
