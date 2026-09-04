@@ -130,9 +130,9 @@ describe("the resolved no-restricted-syntax selectors", () => {
         "statusKeyedTerminalRender",
       ],
     ],
-    // The other two skins shipping a withheld gate vocabulary. Both carry beat 2
-    // AND beat 6, so both agent-facing files resolve to the full five, exactly as
-    // logistics does.
+    // Airline and keel ship the same withheld gate vocabulary shape as logistics.
+    // Both carry beat 2 AND beat 6, so both agent-facing files of each resolve to
+    // the full five, exactly as logistics does.
     [
       "src/skins/airline/tools.tsx",
       [
@@ -165,6 +165,28 @@ describe("the resolved no-restricted-syntax selectors", () => {
     ],
     [
       "src/skins/keel/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    // exec (Vantage) also ships a withheld gate vocabulary (narrative codes),
+    // so both agent-facing files resolve to the full five as well.
+    [
+      "src/skins/exec/tools.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/exec/agent.ts",
       [
         "literalSkinPrefix",
         "templateLeadingPrefix",

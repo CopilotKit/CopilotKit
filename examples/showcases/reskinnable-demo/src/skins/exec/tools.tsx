@@ -39,10 +39,11 @@ import { execNav } from "./nav";
  * match through the shell's `includes` lookup despite their
  * `mcp__intelligence__` prefix — so the transcript reads as phrases rather
  * than function names. Mirrors
- * every other skin's `TOOL_LABELS` (e.g. `src/skins/commerce/skin.tsx`), but
+ * the sibling skins' `TOOL_LABELS` (e.g. `src/skins/commerce/skin.tsx`), but
  * lives here rather than in `skin.tsx` because this file is where the rest of
- * the beat map is assembled; `skin.tsx` passes this straight through as
- * `toolLabels`.
+ * the beat map is assembled; `skin.tsx` spreads this into its `toolLabels`,
+ * adding the five FRONTEND tool labels registered below plus the platform's
+ * `generateSandboxedUi`.
  */
 export const execToolLabels: Record<string, string> = {
   get_metrics: "Reading metrics",

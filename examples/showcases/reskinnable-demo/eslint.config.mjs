@@ -46,6 +46,7 @@ export const LINTED_SKIN_IDS = [
   "people",
   "commerce",
   "bookstore",
+  "exec",
 ];
 
 const SKIN_IDS = LINTED_SKIN_IDS.join("|");
@@ -336,12 +337,14 @@ const eslintConfig = [
   // by name, per file, through `ESLint#calculateConfigForFile`. Add every file
   // whose selector set you change to its table.
   {
-    // Three skins ship a withheld gate vocabulary: logistics (escalation codes),
-    // airline (fare-waiver categories) and keel (publication-variance codes).
-    // Each contributes exactly its two AGENT-FACING files. The human filing FORMS
-    // — logistics' escalation-form, airline's fare-exception-form, keel's
-    // variance-form — legitimately import the labels and are deliberately NOT
-    // listed: a withheld catalogue with no form is an unlearnable gate.
+    // Four skins ship a withheld gate vocabulary: logistics (escalation codes),
+    // airline (fare-waiver categories), keel (publication-variance codes) and
+    // exec (narrative codes). Each contributes exactly its two AGENT-FACING
+    // files. The human filing FORMS — logistics' escalation-form, airline's
+    // fare-exception-form, keel's variance-form, exec's board-packs form —
+    // legitimately carry the labels — the first three import them, exec declares
+    // them locally and does not export them — and are deliberately NOT listed: a
+    // withheld catalogue with no form is an unlearnable gate.
     files: [
       "src/skins/logistics/tools.tsx",
       "src/skins/logistics/agent.ts",
@@ -349,6 +352,8 @@ const eslintConfig = [
       "src/skins/airline/agent.ts",
       "src/skins/keel/tools.tsx",
       "src/skins/keel/agent.ts",
+      "src/skins/exec/tools.tsx",
+      "src/skins/exec/agent.ts",
     ],
     rules: {
       "no-restricted-syntax": [
