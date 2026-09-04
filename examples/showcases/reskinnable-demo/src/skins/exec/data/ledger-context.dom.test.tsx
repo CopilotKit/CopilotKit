@@ -530,6 +530,44 @@ describe("ExecLedgerProvider mutation wrappers", () => {
     expect(ledgerGets(fetchMock)).toBe(2);
   });
 
+  it("still reports a 2xx filing whose body will not parse as FILED", async () => {
+    // Beat 6's climax. The narrative is written before the response is
+    // composed (`app/api/exec/v1/narratives/route.ts` answers 201 with the
+    // stored row), so an unreadable body means the RECEIPT was lost, not the
+    // filing — exactly the case `publishPack` already treats as a publish.
+    // A bare `res.json()` here REJECTED, which skipped `refresh()` and put
+    // "SyntaxError: Unexpected token" on the filing form over a narrative
+    // that is in the ledger.
+    const fetchMock = stubRoutedFetch({
+      "POST /api/exec/v1/narratives": () =>
+        new Response("<!doctype html><h1>created</h1>", {
+          status: 201,
+          headers: { "content-type": "text/html" },
+        }),
+    });
+    await renderMutations();
+
+    fireEvent.click(screen.getByText("File narrative"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settled").textContent).toMatch(/^resolved /),
+    );
+    const filed = JSON.parse(
+      screen.getByTestId("settled").textContent!.replace(/^resolved /, ""),
+    ) as { metricId: string; period: string; code: string; body: string };
+    // The fields the form and the teach chain read come back off what was
+    // SENT — `logStep(..., filed.code)` is what `getDemonstratedCode()`
+    // reads back on beat 6, so this arm has to carry the real code.
+    expect(filed).toMatchObject({
+      metricId: "revenue",
+      period: "2026-08",
+      code: "VAR-TIMING",
+      body: "timing",
+    });
+    // And the ledger IS behind — it gained a narrative — so it refetches.
+    expect(ledgerGets(fetchMock)).toBe(2);
+  });
+
   it("resolves publishPack with an honest result when the error body is not JSON", async () => {
     // A 500 from the framework (or a proxy) is an HTML page, not JSON. An
     // unguarded `res.json()` rejects with a SyntaxError, which the HITL

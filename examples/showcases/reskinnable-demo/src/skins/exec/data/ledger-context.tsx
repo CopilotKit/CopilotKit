@@ -33,7 +33,18 @@ import type {
 
 /** One dashboard's blocks, enriched with the A2UI ops the GET route derives. */
 export interface ExecLedgerDashboard extends Omit<Dashboard, "blocks"> {
-  blocks: (DashboardBlock & { ops: A2UIOp[] })[];
+  blocks: (DashboardBlock & {
+    ops: A2UIOp[];
+    /**
+     * Why this block came back with NO ops — set only when the route could
+     * not build them from the stored spec (see `app/api/exec/v1/ledger/
+     * route.ts`). The block is still served so the grid draws its card and
+     * the operator can unpin it; nothing renders this string yet, so it is
+     * the response's own record that the empty `ops` is a failure rather
+     * than an empty block.
+     */
+    opsError?: string;
+  })[];
 }
 
 /**
@@ -391,9 +402,42 @@ export function ExecLedgerProvider({ children }: { children: ReactNode }) {
       // that later answers 200 into "file narrative failed: 200" over a
       // filing that worked.
       if (!res.ok) await throwWithBodyMessage("file narrative", res);
-      const filed = (await res.json()) as Narrative;
+      // `.catch(() => null)`, not a bare `res.json()` — the same treatment
+      // `publishPack` gives its own 2xx body just below, for the same reason.
+      // The narrative is APPENDED before the route composes its response, so
+      // a 201 whose body will not parse (an HTML page from a proxy, a
+      // truncated stream) is a LOST RECEIPT, not a failed filing. Unguarded,
+      // this rejected with a `SyntaxError`: `refresh()` never ran, and beat
+      // 6's form printed a parser error over a narrative that IS in the
+      // ledger — the demo's climax, reported as a failure.
+      const filed = (await res.json().catch(() => null)) as Narrative | null;
+      // The narrative IS filed whether or not its body parsed, so the
+      // snapshot's `narratives` (and the `explained` flag the publish gate
+      // reads off it) is behind either way.
       await refresh();
-      return filed;
+      if (filed) return filed;
+      // THE RECEIPT, RECONSTRUCTED FROM WHAT WAS SENT. The store echoes the
+      // posted fields back verbatim, so every field the caller actually
+      // reads is knowable without the body: `pages/board-packs.tsx` uses
+      // `code`, `metricId` and `period` only — and `logStep(…, filed.code)`
+      // is what `getDemonstratedCode()` reads back on beat 6, so this arm
+      // must carry the REAL code rather than a placeholder.
+      return {
+        ...input,
+        // Mirrors the route's own zod `.trim()`, so a code or body pasted
+        // with stray whitespace reads back as what the store filed.
+        code: input.code.trim() as Narrative["code"],
+        body: input.body.trim(),
+        // The route's schema default for an omitted `source`.
+        source: input.source ?? "typed",
+        // MINTED SERVER-SIDE, and lost with the receipt: `store.fileNarrative`
+        // assigns both. Left empty rather than invented — no consumer reads
+        // them off this value (the filed-narratives list renders from the
+        // refreshed snapshot, which carries the real ones), and a fabricated
+        // id is one a later lookup would silently fail to find.
+        id: "",
+        filedAt: "",
+      };
     },
     [refresh],
   );
