@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { filterMetricRows, parseTopLever } from "./metric-rows";
+import {
+  filterMetricRows,
+  normalizePeriodLever,
+  parseTopLever,
+} from "./metric-rows";
+import { nextLeverSearchParams } from "./metrics-explorer";
 import type {
   Dashboard,
   LedgerSnapshot,
@@ -179,5 +184,107 @@ describe("filterMetricRows", () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].period).toBe("2024-07");
+  });
+
+  /**
+   * `?period=` (or `?period=%20`) must narrow NOTHING, the same rule
+   * `department`/`top` already honour for a value they cannot use — not
+   * "narrow to rows whose period is the empty string", which is every row at
+   * once, silently. This failed before `normalizePeriodLever` (`./metric-rows`)
+   * existed: `searchParams.get("period")` returned `""`, which is `!== null`,
+   * so the `period !== null && point.period !== period` guard excluded every
+   * point in the snapshot.
+   */
+  it("an empty period narrows nothing, the same as an absent one", () => {
+    const snapshot = buildSnapshot();
+    const rows = filterMetricRows(new URLSearchParams("period="), snapshot);
+    expect(rows).toHaveLength(snapshot.points.length);
+  });
+
+  it("a whitespace-only period narrows nothing", () => {
+    const snapshot = buildSnapshot();
+    const rows = filterMetricRows(
+      new URLSearchParams("period=%20%20"),
+      snapshot,
+    );
+    expect(rows).toHaveLength(snapshot.points.length);
+  });
+});
+
+describe("normalizePeriodLever", () => {
+  it("passes a real period straight through", () => {
+    expect(normalizePeriodLever("2024-06")).toBe("2024-06");
+  });
+  it("treats an empty or whitespace-only value as absent", () => {
+    expect(normalizePeriodLever("")).toBeNull();
+    expect(normalizePeriodLever("   ")).toBeNull();
+  });
+  it("treats null and undefined as absent", () => {
+    expect(normalizePeriodLever(null)).toBeNull();
+    expect(normalizePeriodLever(undefined)).toBeNull();
+  });
+});
+
+describe("nextLeverSearchParams", () => {
+  const CURRENT = {
+    period: null as string | null,
+    department: null as "manufacturing" | "all" | null,
+    threshold: false,
+    top: null as number | null,
+  };
+
+  it("preserves a param outside the four levers untouched", () => {
+    const base = new URLSearchParams("foo=bar&department=manufacturing");
+    const next = nextLeverSearchParams(
+      base,
+      { ...CURRENT, department: "manufacturing" },
+      { threshold: true },
+    );
+    expect(next.get("foo")).toBe("bar");
+    expect(next.get("threshold")).toBe("1");
+    expect(next.get("department")).toBe("manufacturing");
+  });
+
+  it("restates the VALIDATED department, dropping an unrecognised raw value, on a push that doesn't touch department", () => {
+    // The raw query string carries an unrecognised department (as if the page
+    // were reached with `?department=bogus`); `current.department` is what
+    // the page itself already validated to `null` for that same value.
+    const base = new URLSearchParams("department=bogus");
+    const next = nextLeverSearchParams(
+      base,
+      { ...CURRENT, department: null },
+      { threshold: true },
+    );
+    expect(next.get("department")).toBeNull();
+    expect(next.get("threshold")).toBe("1");
+  });
+
+  it("still allows an explicit department override to set a new value", () => {
+    const base = new URLSearchParams("department=bogus");
+    const next = nextLeverSearchParams(
+      base,
+      { ...CURRENT, department: null },
+      { department: "manufacturing" },
+    );
+    expect(next.get("department")).toBe("manufacturing");
+  });
+
+  it("clears a lever when the override is explicitly null", () => {
+    const base = new URLSearchParams("period=2024-06&top=10");
+    const next = nextLeverSearchParams(
+      base,
+      { ...CURRENT, period: "2024-06", top: 10 },
+      { period: null },
+    );
+    expect(next.get("period")).toBeNull();
+    // `top` was not touched by this override, so it restates its current
+    // (parsed) value rather than vanishing alongside `period`.
+    expect(next.get("top")).toBe("10");
+  });
+
+  it("leaves an untouched lever exactly as it currently is when no key names it", () => {
+    const base = new URLSearchParams("top=25");
+    const next = nextLeverSearchParams(base, { ...CURRENT, top: 25 }, {});
+    expect(next.get("top")).toBe("25");
   });
 });
