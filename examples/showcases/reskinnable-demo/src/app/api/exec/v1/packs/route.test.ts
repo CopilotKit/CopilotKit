@@ -12,6 +12,14 @@ const post = (body: unknown) =>
     }),
   );
 
+/** Strips every block off `id`, so its publish gate has nothing to check. */
+const emptyDashboard = (id: "ceo" | "cfo") => {
+  // Ids first: `removeBlock` rewrites the block list it is iterating over.
+  const blockIds = store.snapshot().dashboards[id].blocks.map((b) => b.id);
+  for (const blockId of blockIds) store.removeBlock(id, blockId);
+  expect(store.snapshot().dashboards[id].blocks).toHaveLength(0);
+};
+
 /**
  * Mirrors `store.test.ts`'s publish arm: a breach clears only when a narrative
  * exists for its exact `(metricId, period)` pair, so the success case has to
@@ -134,6 +142,37 @@ describe("POST /api/exec/v1/packs", () => {
     }
     // The withheld secret itself never travels back either.
     expect(text).not.toContain(store.COUNTERSIGN_PIN);
+  });
+
+  /**
+   * `EMPTY_DASHBOARD` is a code this skin's receipt has NO phrasing for
+   * (`REFUSAL_PHRASES` in `tools.tsx` words the other six), so its whole
+   * explanation — what the pack lacks and what to add — lives in the store's
+   * `message`. The route spread `code` and `breaches` only, and
+   * `EMPTY_DASHBOARD` carries no `breaches`, so the body reaching the card was
+   * `{ error }` alone and the room read the enum spelled as words. Asserting
+   * on the store's own text, not a substring this test invents, pins the relay
+   * rather than a re-wording.
+   */
+  it("forwards the store's message on the 422 EMPTY_DASHBOARD refusal", async () => {
+    emptyDashboard("cfo");
+    const oracle = store.publishPack("cfo", store.COUNTERSIGN_PIN);
+    if (oracle.ok || oracle.code !== "EMPTY_DASHBOARD") {
+      throw new Error(
+        "fixture assumption broken: an empty cfo dashboard no longer refuses EMPTY_DASHBOARD",
+      );
+    }
+
+    const res = await post({
+      dashboardId: "cfo",
+      countersignPin: store.COUNTERSIGN_PIN,
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body).toEqual({
+      error: "EMPTY_DASHBOARD",
+      message: oracle.message,
+    });
   });
 
   it("rejects a malformed payload with 400 before reaching the store", async () => {

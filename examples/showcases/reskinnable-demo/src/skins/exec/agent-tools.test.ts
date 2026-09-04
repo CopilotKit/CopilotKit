@@ -628,4 +628,36 @@ describe("publish_board_pack", () => {
       breaches?.some((b) => b.metricId === "opex" && b.explained === false),
     ).toBe(true);
   });
+
+  /**
+   * VERBATIM CUTS BOTH WAYS. `UNEXPLAINED_VARIANCE` carries `breaches`;
+   * `EMPTY_DASHBOARD` carries a `message` and nothing else, and it is the one
+   * refusal with no phrasing of its own anywhere downstream (`tools.tsx`'s
+   * `REFUSAL_PHRASES` words the other six), so a result that keeps only
+   * `error` leaves the agent — and the receipt it settles into — with the enum
+   * spelled as words and no statement of WHAT the pack lacks. Asserted against
+   * the store's own text so this pins the relay, not a re-wording.
+   */
+  it("relays the EMPTY_DASHBOARD refusal's message, not the bare code", async () => {
+    // Ids first: `removeBlock` rewrites the block list it is iterating over.
+    const blockIds = store.snapshot().dashboards.cfo.blocks.map((b) => b.id);
+    for (const blockId of blockIds) store.removeBlock("cfo", blockId);
+
+    const gate = store.publishPack("cfo", store.COUNTERSIGN_PIN);
+    if (gate.ok || gate.code !== "EMPTY_DASHBOARD") {
+      throw new Error(
+        "fixture assumption broken: a blockless cfo dashboard no longer refuses EMPTY_DASHBOARD",
+      );
+    }
+
+    const result = (await publishBoardPackTool.execute!({
+      dashboardId: "cfo",
+      countersignPin: store.COUNTERSIGN_PIN,
+    })) as Record<string, unknown>;
+
+    expect(result).toEqual({
+      error: "EMPTY_DASHBOARD",
+      message: gate.message,
+    });
+  });
 });
