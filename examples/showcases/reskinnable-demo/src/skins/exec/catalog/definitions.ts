@@ -1,35 +1,65 @@
 import { z } from "zod";
+import type { Department, MetricId } from "../data/types";
 
 export const CATALOG_ID = "https://cpk-a2ui.local/catalogs/exec/v1";
 
 const childrenRef = z.array(z.string());
 const stringOrPath = z.union([z.string(), z.object({ path: z.string() })]);
 
-// Zod schemas can't import TS types at runtime, so these mirror the literal
-// unions declared in ../data/types.ts by hand — keep them in sync.
-const metricId = z.enum([
-  "revenue",
-  "growthQoQ",
-  "growthYoY",
-  "operatingMargin",
-  "ebitda",
-  "cash",
-  "runwayMonths",
-  "nps",
-  "burnRate",
-  "arAgingDays",
-  "dsoDays",
-  "opex",
-  "headcountCost",
-  "forecastAccuracy",
-]);
-const department = z.enum([
-  "manufacturing",
-  "distribution",
-  "field-services",
-  "corporate",
-  "all",
-]);
+/**
+ * THE VOCABULARY, CHECKED BY THE COMPILER. Zod schemas can't import a TS type
+ * at runtime, so this catalog has to restate the `MetricId` and `Department`
+ * unions from ../data/types.ts — but restating them BY EYE is how a metric
+ * added to that file quietly stops being bindable by any block the agent can
+ * emit. `as const satisfies Record<MetricId, true>` fails BOTH ways (a key the
+ * union has and this object doesn't, and a key the union doesn't have), so the
+ * drift is a typecheck error rather than a component prop that silently
+ * refuses a real metric.
+ *
+ * Same guard, same reason, as `../sandbox-functions.ts` and
+ * `src/app/api/exec/v1/narratives/route.ts`. `data/vocabulary-parity.test.ts`
+ * pins all four restatements against each other at runtime, because
+ * `satisfies` only checks each copy against the union — never the copies
+ * against the seed that has to hold rows for them.
+ */
+const METRIC_IDS = {
+  revenue: true,
+  growthQoQ: true,
+  growthYoY: true,
+  operatingMargin: true,
+  ebitda: true,
+  cash: true,
+  runwayMonths: true,
+  nps: true,
+  burnRate: true,
+  arAgingDays: true,
+  dsoDays: true,
+  opex: true,
+  headcountCost: true,
+  forecastAccuracy: true,
+} as const satisfies Record<MetricId, true>;
+
+const DEPARTMENTS = {
+  manufacturing: true,
+  distribution: true,
+  "field-services": true,
+  corporate: true,
+} as const satisfies Record<Department, true>;
+
+/**
+ * `"all"` is a value of `MetricPoint.department`, not a department, so it is
+ * added HERE rather than to the guarded record above — exactly as
+ * `../sandbox-functions.ts` does it.
+ */
+const DEPARTMENT_FILTERS = { ...DEPARTMENTS, all: true } as const;
+
+const metricId = z.enum(Object.keys(METRIC_IDS) as [MetricId, ...MetricId[]]);
+const department = z.enum(
+  Object.keys(DEPARTMENT_FILTERS) as [
+    Department | "all",
+    ...Array<Department | "all">,
+  ],
+);
 const compare = z.enum(["plan", "forecast"]);
 const audience = z.enum(["ceo", "cfo", "both"]);
 
