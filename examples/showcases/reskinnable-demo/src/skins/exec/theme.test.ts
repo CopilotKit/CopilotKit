@@ -313,8 +313,17 @@ const TEXT_PAIRS: readonly Pair[] = [
       "every error line on a card — the dashboard grid's render/A2UI errors, the breaching metric row, the CEO exception variance",
     sites: [
       {
+        // The ground and the text live on different elements: the BlockCard
+        // container carries `bg-surface` and the role="alert" error lines
+        // inside it carry `text-negative`, so a single-string class scan
+        // cannot see the pair. Match the alert line; the container ground is
+        // asserted by the companion `bg-surface` site below.
         file: `${EXEC}/components/dashboard-grid.tsx`,
-        pattern: /\bbg-surface\b[^"]*\btext-negative\b/,
+        pattern: /role="alert" className="[^"]*\btext-negative\b/,
+      },
+      {
+        file: `${EXEC}/components/dashboard-grid.tsx`,
+        pattern: /\bbg-surface shadow-soft\b/,
       },
     ],
   },
