@@ -76,7 +76,16 @@ export class MCPAppsRequestQueue {
         queue.shift();
       }
     } finally {
-      this.processing.set(threadId, false);
+      // Drop the drained thread entries from both maps. `mcpAppsRequestQueue` is
+      // shared for the page lifetime, so retaining an entry per thread id would
+      // grow unbounded as threads come and go.
+      const queue = this.queues.get(threadId);
+      if (!queue || queue.length === 0) {
+        this.queues.delete(threadId);
+        this.processing.delete(threadId);
+      } else {
+        this.processing.set(threadId, false);
+      }
     }
   }
 

@@ -66,7 +66,7 @@ jobs:
           # branch) so compressed-size-action can build both sides for comparison.
           # The `pattern` below restricts measurement to the 10 in-scope packages.
           build-script: build
-          pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer,react-native}/dist/**/*.{mjs,js,cjs}"
+          pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer,react-native,mcp-apps-renderer}/dist/**/*.{mjs,js,cjs}"
 
   # Measures what an app importing { CopilotChat } from
   # @copilotkit/react-core/v2 bundles, by driving esbuild over a synthetic entry

@@ -2679,9 +2679,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: '>=1.26.0'
         version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      lit:
-        specifier: ^3.3.2
-        version: 3.3.2
     devDependencies:
       '@ag-ui/client':
         specifier: 0.0.59
@@ -2691,7 +2688,7 @@ importers:
         version: 26.1.0
       tsdown:
         specifier: ^0.20.3
-        version: 0.20.3(@arethetypeswrong/core@0.18.2)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.9.2)
+        version: 0.20.3(@arethetypeswrong/core@0.18.2)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.9.2)
       typescript:
         specifier: 5.9.2
         version: 5.9.2

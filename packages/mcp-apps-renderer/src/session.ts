@@ -1,5 +1,6 @@
 import {
   AppBridge,
+  LATEST_PROTOCOL_VERSION,
   PostMessageTransport,
 } from "@modelcontextprotocol/ext-apps/app-bridge";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -12,6 +13,16 @@ import { ɵrunMcpFollowUp } from "./follow-up";
 import type { ɵMcpFollowUpHost } from "./follow-up";
 import { MCP_OPEN_LINK_BLOCKED_SCHEMES } from "./constants";
 import type { MCPAppsActivityContent } from "./content-schema";
+
+/**
+ * The MCP Apps protocol version this host negotiates. Sourced directly from the
+ * ext-apps bridge (single source of truth, no hand-maintained literal). It lives
+ * here (a bridge-side module) rather than in the bridge-free `./constants` /
+ * `./activity` entry so the lightweight activity-registration surface stays free
+ * of the ext-apps bundle; consumers that need the version import it from the
+ * package root, which already loads the bridge.
+ */
+export const MCP_APPS_PROTOCOL_VERSION = LATEST_PROTOCOL_VERSION;
 
 /**
  * Permissive `ui/message` schema. ext-apps restricts the request to

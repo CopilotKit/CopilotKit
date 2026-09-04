@@ -6,7 +6,6 @@ const externalPkgs = [
   "@ag-ui/client",
   "@copilotkit/shared",
   "zod",
-  "lit",
 ];
 
 const isExternal = (id: string) =>
@@ -20,17 +19,6 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
-    unbundle: true,
-    external: isExternal,
-    exports: false,
-  },
-  {
-    entry: ["src/web-components/index.ts", "src/web-components/define.ts"],
-    format: ["esm", "cjs"],
-    dts: true,
-    sourcemap: true,
-    target: "es2022",
-    outDir: "dist/web-components",
     unbundle: true,
     external: isExternal,
     exports: false,

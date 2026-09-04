@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/ext-apps";
 import { buildSandboxHTML } from "../sandbox";
 import {
-  MCP_APPS_PROTOCOL_VERSION,
   MCP_OPEN_LINK_BLOCKED_SCHEMES,
   MCPAppsActivityType,
 } from "../constants";
+// MCP_APPS_PROTOCOL_VERSION lives on the bridge side (session) so the bridge-free
+// `./constants` / `./activity` entry never pulls the ext-apps bundle.
+import { MCP_APPS_PROTOCOL_VERSION } from "../session";
 import { MCPAppsActivityContentSchema } from "../content-schema";
 
 describe("buildSandboxHTML", () => {
@@ -28,7 +31,14 @@ describe("constants", () => {
     expect(MCPAppsActivityType).toBe("mcp-apps");
   });
 
-  it("advertises the ext-apps protocol version (2026-01-26)", () => {
+  it("sources the protocol version from ext-apps (no hand-maintained literal)", () => {
+    // MCP_APPS_PROTOCOL_VERSION is a re-export of the bridge's own
+    // LATEST_PROTOCOL_VERSION, so it can never drift from the spec version.
+    expect(MCP_APPS_PROTOCOL_VERSION).toBe(LATEST_PROTOCOL_VERSION);
+  });
+
+  it("negotiates the expected current protocol version (2026-01-26 canary)", () => {
+    // Canary: if ext-apps bumps the version, this fails so we review the change.
     expect(MCP_APPS_PROTOCOL_VERSION).toBe("2026-01-26");
   });
 

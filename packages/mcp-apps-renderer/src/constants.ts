@@ -1,15 +1,7 @@
-import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/ext-apps";
-
 /**
  * Activity type for MCP Apps events - must match the middleware's MCPAppsActivityType.
  */
 export const MCPAppsActivityType = "mcp-apps";
-
-/**
- * Single source of truth for the MCP Apps protocol version negotiated by the host
- * (the ext-apps latest). Frontends must not hardcode their own version.
- */
-export const MCP_APPS_PROTOCOL_VERSION = LATEST_PROTOCOL_VERSION;
 
 /**
  * URL schemes a widget may NOT open via ui/open-link. The ext-apps schema

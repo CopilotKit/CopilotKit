@@ -74,9 +74,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     agentRef.current = agent;
 
     // Effect 1: create the sandbox iframe and bind the MCP session. Re-binds
-    // only when the widget identity (resourceUri/serverHash) or the agent/host
-    // changes - NOT when tool input/result stream in (those are pushed by the
-    // effects below without recreating the iframe).
+    // only when the widget identity (resourceUri/serverHash/serverId) or the
+    // agent/host changes - NOT when tool input/result stream in (those are
+    // pushed by the effects below without recreating the iframe).
     useEffect(() => {
       const container = containerRef.current;
       if (!container) {
@@ -178,7 +178,13 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         iframeRef.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [agent, copilotkit, content.resourceUri, content.serverHash]);
+    }, [
+      agent,
+      copilotkit,
+      content.resourceUri,
+      content.serverHash,
+      content.serverId,
+    ]);
 
     // Effect 2: size the iframe when the widget reports a new content size.
     useEffect(() => {

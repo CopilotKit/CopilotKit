@@ -16,7 +16,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "url": "git+https://github.com/CopilotKit/CopilotKit.git",
     "directory": "packages/mcp-apps-renderer"
   },
   "files": [
@@ -47,26 +47,6 @@
         "default": "./dist/activity.cjs"
       }
     },
-    "./web-components": {
-      "import": {
-        "types": "./dist/web-components/index.d.mts",
-        "default": "./dist/web-components/index.mjs"
-      },
-      "require": {
-        "types": "./dist/web-components/index.d.cts",
-        "default": "./dist/web-components/index.cjs"
-      }
-    },
-    "./web-components/define": {
-      "import": {
-        "types": "./dist/web-components/define.d.mts",
-        "default": "./dist/web-components/define.mjs"
-      },
-      "require": {
-        "types": "./dist/web-components/define.d.cts",
-        "default": "./dist/web-components/define.cjs"
-      }
-    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -74,6 +54,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -83,8 +64,7 @@
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "lit": "^3.3.2"
+    "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "peerDependencies": {
     "@ag-ui/client": "0.0.59",
