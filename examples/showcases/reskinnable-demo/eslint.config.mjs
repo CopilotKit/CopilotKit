@@ -206,6 +206,78 @@ const statusKeyedTerminalRender = {
 };
 
 /**
+ * PLAIN-OBJECT REGISTRY LOOKUP ON AN UNTRUSTED KEY.
+ *
+ * Three separate 500-class defects in this app were the same two lines:
+ *
+ *     const PAGES = { "": Index, cards: Cards };      // an object LITERAL
+ *     const Page = PAGES[segment] ?? null;            // segment is from the URL
+ *
+ * An object literal inherits `Object.prototype`, so `PAGES["constructor"]`,
+ * `["toString"]`, `["valueOf"]`, `["hasOwnProperty"]`, `["__proto__"]` all
+ * return a truthy INHERITED member. The `?? null` (or `|| fallback`, or
+ * `if (!hit)`) therefore never fires, the caller's own `if (!Page) notFound()`
+ * is skipped, and React — or Next, or a tool `execute` — is handed a value that
+ * is not what the type said. `/<skin>/constructor` answered 500 where it owed
+ * 404. TypeScript cannot see it: a `Record<string, T>` index signature is a
+ * claim about the object's OWN entries, not about what indexing returns.
+ *
+ * WHAT THE SELECTOR MATCHES, AND WHY THAT SHAPE. A computed lookup whose result
+ * is IMMEDIATELY guarded by truthiness — `??`, `||`, `!x`, or an `if`/ternary
+ * test — on an object named in Caps (`SkinRegistry`, `PAGES`, `METRIC_IDS`):
+ * module-scope registries by convention, never a local or an array index.
+ *
+ * The GUARD is the discriminator, and it is what keeps this rule quiet on the
+ * couple of dozen legitimate lookups in the exec skin
+ * (`DEPARTMENT_LABEL[row.department]`, `INITIATIVE_STATUS_STYLE[i.status]`,
+ * `BLOCK_KIND_PROPS[kind]`). Those are indexed by a value the TYPE already
+ * closed, so nobody guards them. Code that reaches for a truthiness guard is
+ * code whose author knew the key might not be there — which is exactly the case
+ * where the prototype chain answers.
+ *
+ * THE FIX is `Object.hasOwn(REGISTRY, key)` before the read (see
+ * `src/shell/registry.ts`) or a `Map`, which has no prototype keys at all (see
+ * every skin's `resolvePage`, pinned behaviourally by
+ * `src/shell/resolve-page-prototype.test.ts`).
+ *
+ * RESIDUAL LIMITATION, stated plainly — do not read a green lint as proof. The
+ * guard has to be IN the same expression. A lookup returned bare and guarded by
+ * its CALLER — `getSkin` was exactly this: `return SkinRegistry[id]`, with the
+ * layout doing `if (!skin) notFound()` a file away — is NOT matched, because the
+ * AST shows only an unguarded return. That shape is covered instead by
+ * `resolve-page-prototype.test.ts`, which asserts the BEHAVIOUR for every
+ * prototype key and so keeps holding for skins that do not exist yet. The two
+ * guards are complementary; neither subsumes the other.
+ *
+ * SCOPE. The `files` globs below are the exec skin and the shell ONLY. Every
+ * sibling skin still carries this shape, and fixing them is a separate change —
+ * a wider glob would turn the whole tree red, and a phase that cannot end green
+ * is a phase nobody can bisect. Widen it per skin, as the beat-2 and beat-6
+ * globs are widened.
+ */
+const untrustedKeyLookup = {
+  selector: [
+    // `REGISTRY[key] ?? fallback` and `REGISTRY[key] || fallback`
+    'LogicalExpression[operator="??"] > MemberExpression.left[computed=true][object.name=/^[A-Z]/]',
+    'LogicalExpression[operator="||"] > MemberExpression.left[computed=true][object.name=/^[A-Z]/]',
+    // `!REGISTRY[key]`
+    'UnaryExpression[operator="!"] > MemberExpression.argument[computed=true][object.name=/^[A-Z]/]',
+    // `if (REGISTRY[key])` and `REGISTRY[key] ? a : b`
+    "IfStatement > MemberExpression.test[computed=true][object.name=/^[A-Z]/]",
+    "ConditionalExpression > MemberExpression.test[computed=true][object.name=/^[A-Z]/]",
+  ].join(", "),
+  message:
+    "Plain-object index access guarded only by truthiness. An object literal " +
+    "inherits Object.prototype, so a key like constructor, toString or " +
+    "__proto__ returns a truthy INHERITED member and this guard never fires — " +
+    "which is how /<skin>/constructor answered 500 instead of 404. Use " +
+    "Object.hasOwn(REGISTRY, key) before the read (see src/shell/registry.ts) " +
+    "or a Map, which has no prototype keys at all. A Record<string, T> " +
+    "annotation does NOT prevent this: it describes the object's own entries, " +
+    "not what indexing returns.",
+};
+
+/**
  * The selectors above, KEYED BY NAME — the seam `src/shell/skins-config.test.ts`
  * uses to assert the RESOLVED selector list of a real file.
  *
@@ -227,6 +299,7 @@ export const NAMED_SELECTORS = {
   interpolationThenSlash,
   withheldGateVocabulary,
   statusKeyedTerminalRender,
+  untrustedKeyLookup,
 };
 
 // Skin tests render bare (no LockedSkinProvider), so they legitimately ASSERT on
@@ -365,6 +438,74 @@ const eslintConfig = [
         withheldGateVocabulary,
         statusKeyedTerminalRender,
       ],
+    },
+  },
+  // UNTRUSTED-KEY REGISTRY LOOKUP — see untrustedKeyLookup. Scoped to the exec
+  // skin and the shell, the two areas this PR covers; every sibling skin still
+  // carries the shape and is deliberately untouched.
+  //
+  // ⚠️ THESE TWO BLOCKS MUST RESTATE EVERY SELECTOR THEIR FILES ALREADY HAD —
+  // flat-config `rules` are REPLACED, not merged, and they are the LAST blocks
+  // matching exec sources. They are split because `withheldGateVocabulary`
+  // applies to the two AGENT-FACING files only: a single exec-wide block
+  // carrying it would fire on `pages/board-packs.tsx`, whose NARRATIVE_CODES /
+  // NARRATIVE_CODE_LABELS are the sanctioned human-facing catalogue.
+  //
+  // Note this also extends `statusKeyedTerminalRender` from exec's `.tsx` files
+  // to its `.ts` files. That is a widening, verified clean: no exec `.ts` module
+  // renders a tool, so none of them mentions `ToolCallStatus.Complete`.
+  {
+    files: ["src/skins/exec/**/*.ts", "src/skins/exec/**/*.tsx"],
+    ignores: [
+      ...SKIN_TEST_FILES,
+      "src/skins/exec/tools.tsx",
+      "src/skins/exec/agent.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        literalSkinPrefix,
+        templateLeadingPrefix,
+        interpolationThenSlash,
+        statusKeyedTerminalRender,
+        untrustedKeyLookup,
+      ],
+    },
+  },
+  {
+    files: ["src/skins/exec/tools.tsx", "src/skins/exec/agent.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        literalSkinPrefix,
+        templateLeadingPrefix,
+        interpolationThenSlash,
+        withheldGateVocabulary,
+        statusKeyedTerminalRender,
+        untrustedKeyLookup,
+      ],
+    },
+  },
+  // The shell is where the registry lookups live (`registry.ts`'s `getSkin`,
+  // `agent-registry.ts`, `skins-config.ts`), and it is matched by NONE of the
+  // `src/skins/**` blocks above — so this block ADDS the selector rather than
+  // restating anything.
+  //
+  // `documents/**` is exempt: `pdf.ts`'s `ASCII_FOLD[ch] ?? "?"` is indexed by a
+  // character the surrounding regex class already closed, so no prototype key
+  // can reach it. It is the one shape-match in the shell that is not a defect,
+  // and reworking it is not this change's business. Tests are exempt for the
+  // same reason `SKIN_TEST_FILES` exempts skin tests: a test legitimately
+  // ASSERTS on the unguarded shape (`skin-roster-docs.test.ts` does).
+  {
+    files: ["src/shell/**/*.ts", "src/shell/**/*.tsx"],
+    ignores: [
+      "src/shell/**/*.test.ts",
+      "src/shell/**/*.test.tsx",
+      "src/shell/documents/**",
+    ],
+    rules: {
+      "no-restricted-syntax": ["error", untrustedKeyLookup],
     },
   },
 ];
