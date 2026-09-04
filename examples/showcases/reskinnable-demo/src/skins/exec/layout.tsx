@@ -86,20 +86,48 @@ export function ExecLayout({ children }: { children: ReactNode }) {
     value: restHead,
   });
 
+  /**
+   * IN-FLIGHT GUARD for the Reset control.
+   *
+   * `POST /api/exec/v1/dev/reset` is a long, NON-IDEMPOTENT round trip: it
+   * wipes durable memory across every bucket and then re-seeds beats 4/5. The
+   * button gave no sign it was working, so a presenter who saw nothing happen
+   * pressed it again — and the second request's sweep deleted the rows the
+   * first request had just seeded. Whether beats 4/5 end up armed then depends
+   * on which fetch lands last, and nothing on screen says which way it went.
+   *
+   * Per-request timeouts (`intelligence/forget-memories.ts`,
+   * `intelligence/seed-memories.ts`) bound each hop but cannot help here — the
+   * requests are healthy, there are just two of them. There is no OVERALL
+   * deadline on the round trip either; if one is ever wanted it belongs on the
+   * route, which is the only place that knows how many buckets it is about to
+   * walk. This state is the narrower fix for the double-press specifically.
+   */
+  const [resetting, setResetting] = useState(false);
   const handleReset = async () => {
+    // Belt and braces with the `disabled` attribute below: a keyboard repeat
+    // or a programmatic click must not get a second request in either.
+    if (resetting) return;
     if (
       !window.confirm("Reset demo state? This restores the seeded scenario.")
     ) {
       return;
     }
+    setResetting(true);
     try {
       await resetDemo();
       // Hard navigate to the skin root for a pristine client slate (fresh
       // store, cleared canvas, new thread on next message) AND the clean
       // starting URL the demo should always open on — which is `/` itself on
       // a locked single-tenant deploy.
+      // Deliberately NOT re-enabled: this navigation is already under way, and
+      // a control that comes back to life for the half-second before the page
+      // unloads is an invitation to press it one more time.
       window.location.assign(skinHref());
     } catch (err) {
+      // Every arm below returns without navigating, so the control has to come
+      // back — otherwise a failed reset leaves the presenter no way to retry.
+      setResetting(false);
       // ALWAYS logged. The alert below is modal and gone the moment it is
       // dismissed, so without this a refused or half-finished reset leaves no
       // trace at all to correlate against the server logs it points at.
@@ -209,14 +237,30 @@ export function ExecLayout({ children }: { children: ReactNode }) {
                     <button
                       type="button"
                       onClick={() => void handleReset()}
+                      disabled={resetting}
+                      aria-busy={resetting}
                       aria-label="Reset demo state"
-                      className="flex h-9 w-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-md text-ink-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+                        resetting
+                          ? "cursor-not-allowed opacity-50"
+                          : "hover:bg-brand-soft hover:text-brand",
+                      )}
                     >
-                      <RotateCcw className="h-4 w-4" />
+                      {/* Spinning while the round trip is out: the absence of
+                          any feedback at all is what got the button pressed
+                          twice in the first place. */}
+                      <RotateCcw
+                        className={cn(
+                          "h-4 w-4",
+                          resetting &&
+                            "animate-spin [animation-direction:reverse]",
+                        )}
+                      />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p>Reset demo state</p>
+                    <p>{resetting ? "Resetting…" : "Reset demo state"}</p>
                   </TooltipContent>
                 </Tooltip>
               )}

@@ -349,6 +349,75 @@ describe("exec layout — the presenter reset's failure surface", () => {
     expect(consoleError).toHaveBeenCalled();
   });
 
+  /**
+   * THE DEFECT: the button stayed live for the whole round trip. `dev/reset`
+   * wipes durable memory and then re-seeds it, and a presenter watching a
+   * spinner that never appeared pressed it again — so a SECOND sweep started
+   * while the first was still seeding, deleting the rows the first had just
+   * written. The outcome depends on which fetch lands last: beats 4/5 armed, or
+   * silently not. There is no per-request timeout that helps here (each request
+   * is already bounded); the fix is that the control cannot be fired twice.
+   */
+  it("cannot be fired again while a reset is still in flight", async () => {
+    armReset();
+    let release: (() => void) | undefined;
+    chrome.resetDemo.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    renderLayout({ resetEnabled: true });
+    const button = screen.getByLabelText(
+      "Reset demo state",
+    ) as HTMLButtonElement;
+
+    await act(async () => {
+      button.click();
+    });
+
+    expect(chrome.resetDemo).toHaveBeenCalledTimes(1);
+    // Visibly, not just internally: an operator who cannot see that it is
+    // working is exactly the operator who presses it again.
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+
+    await act(async () => {
+      button.click();
+    });
+    expect(chrome.resetDemo).toHaveBeenCalledTimes(1);
+
+    // On success the layout hard-navigates, so the control STAYS disabled —
+    // re-enabling it would offer a reset for a page that is already leaving.
+    await act(async () => {
+      release?.();
+      await Promise.resolve();
+    });
+    expect(button.disabled).toBe(true);
+  });
+
+  it("re-arms the button after a FAILED reset, so it can be retried", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    armReset();
+    chrome.resetDemo.mockRejectedValueOnce(new Error("network down"));
+    renderLayout({ resetEnabled: true });
+    const button = screen.getByLabelText(
+      "Reset demo state",
+    ) as HTMLButtonElement;
+
+    await act(async () => {
+      button.click();
+    });
+
+    // The failure arm does not navigate, so leaving it disabled would strand
+    // the presenter with a dead Reset button and no way back.
+    expect(button.disabled).toBe(false);
+    await act(async () => {
+      button.click();
+    });
+    expect(chrome.resetDemo).toHaveBeenCalledTimes(2);
+  });
+
   it("still logs, and reports plainly, for an unrecognised failure", async () => {
     const consoleError = vi
       .spyOn(console, "error")
