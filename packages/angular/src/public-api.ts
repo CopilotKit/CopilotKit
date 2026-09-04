@@ -76,6 +76,7 @@ export * from "./lib/components/chat/copilot-threads-drawer";
 export * from "./lib/components/modal/copilot-popup";
 export * from "./lib/components/modal/copilot-sidebar";
 export * from "./lib/components/tools/default-tool-renderer";
+export * from "./lib/components/activity/copilot-activity";
 export * from "./lib/components/a2ui/a2ui-activity-renderer";
 export * from "./lib/components/a2ui/a2ui-progress";
 export * from "./lib/components/a2ui/a2ui-recovery";

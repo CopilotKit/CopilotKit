@@ -1,0 +1,67 @@
+---
+title: "CopilotActivity"
+description: "Angular component that renders a single activity message through the activity renderer registered for its activity type."
+---
+
+## Overview
+
+`CopilotActivity` renders one activity message. It looks up the renderer registered for the message's `activityType` — via `provideCopilotKit({ renderActivityMessages })` or [`registerRenderActivityMessage`](/reference/angular/functions/registerRenderActivityMessage) — validates the message content against the renderer's schema, and mounts the renderer component with the `activityType`, `content`, `message`, and `agent` inputs.
+
+It is the activity counterpart of `RenderToolCalls` and the Angular equivalent of React's `useRenderActivityMessage()`. [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView) uses it for every message with `role: "activity"`, so the built-in chat and your own templates share one implementation.
+
+Use it directly when you build a custom chat shell without `CopilotChatMessageView`, or when you host activities outside of a chat entirely — a dashboard, a side panel, an output area.
+
+The component is standalone. Reactive inputs are Angular [signals](https://angular.dev/guide/signals).
+
+## Usage
+
+```ts title="src/app/activity-panel.component.ts"
+import { Component, computed, input } from "@angular/core";
+import { CopilotActivity } from "@copilotkit/angular";
+import type { ActivityMessage, Message } from "@ag-ui/core";
+
+@Component({
+  selector: "app-activity-panel",
+  standalone: true,
+  imports: [CopilotActivity],
+  template: `
+    @for (activity of activities(); track activity.id) {
+      <copilot-activity [message]="activity" [agentId]="agentId()" />
+    }
+  `,
+})
+export class ActivityPanelComponent {
+  messages = input.required<Message[]>();
+  agentId = input<string>();
+
+  activities = computed(() =>
+    this.messages().filter(
+      (message): message is ActivityMessage => message.role === "activity",
+    ),
+  );
+}
+```
+
+## Renderer resolution
+
+For a given `activityType`, the first matching renderer wins in this order:
+
+1. a renderer for that type registered with the same `agentId`
+2. a renderer for that type without an `agentId` (global)
+3. the `"*"` wildcard renderer
+
+Within a tier, registration order decides: renderers passed to `provideCopilotKit` or registered at runtime come before the built-in ones (A2UI, Open Generative UI, MCP Apps), so an application renderer can override a built-in for the same activity type.
+
+If no renderer matches, nothing is rendered. If the renderer's content schema rejects the message content, nothing is rendered and a warning is logged.
+
+## Inputs
+
+| Input     | Type                  | Default     | Description                                                                                                 |
+| --------- | --------------------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `message` | `ActivityMessage`     | — (required) | The activity message to render.                                                                             |
+| `agentId` | `string \| undefined` | `undefined` | Agent scope for renderer resolution. Also used to look up the `AbstractAgent` handed to the renderer's `agent` input. |
+
+## See also
+
+- [`registerRenderActivityMessage`](/reference/angular/functions/registerRenderActivityMessage) — register a renderer for the lifetime of the current injector.
+- [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView) — the message list that uses this component for activity messages.

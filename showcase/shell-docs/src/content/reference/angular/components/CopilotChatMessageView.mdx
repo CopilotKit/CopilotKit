@@ -5,7 +5,7 @@ description: "Angular standalone component that renders a list of chat messages,
 
 ## Overview
 
-`CopilotChatMessageView` renders an array of messages and routes each one to the correct renderer based on its `role`: assistant messages go to [`CopilotChatAssistantMessage`](/reference/angular/components/CopilotChatAssistantMessage), user messages to [`CopilotChatUserMessage`](/reference/angular/components/CopilotChatUserMessage), reasoning messages to the reasoning renderer, and activity messages to any registered activity renderer. It optionally renders a typing cursor at the end of the list while the agent is streaming.
+`CopilotChatMessageView` renders an array of messages and routes each one to the correct renderer based on its `role`: assistant messages go to [`CopilotChatAssistantMessage`](/reference/angular/components/CopilotChatAssistantMessage), user messages to [`CopilotChatUserMessage`](/reference/angular/components/CopilotChatUserMessage), reasoning messages to the reasoning renderer, and activity messages to [`CopilotActivity`](/reference/angular/components/CopilotActivity), which resolves the registered activity renderer. It optionally renders a typing cursor at the end of the list while the agent is streaming.
 
 This is the message-list layer used by [`CopilotChatView`](/reference/angular/components/CopilotChatView). Use it directly when you manage your own `messages` array and want the list without the surrounding scroll container and input.
 
