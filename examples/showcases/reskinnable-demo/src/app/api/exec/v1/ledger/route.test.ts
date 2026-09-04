@@ -1,10 +1,12 @@
-import { beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { buildBlockOps } from "@/skins/exec/blocks/build-block-ops";
 import * as store from "@/skins/exec/data/store";
 import type { BlockSpec } from "@/skins/exec/data/types";
 import { GET } from "./route";
 
 beforeEach(() => store.reset());
+// The bad-block test spies on `console.error`; nothing else here mocks.
+afterEach(() => vi.restoreAllMocks());
 
 it("GET ledger returns dashboards with pinned ops per block", async () => {
   const body = await (await GET()).json();
@@ -159,4 +161,73 @@ it("excludes drafts from the ledger response until they are pinned", async () =>
   const after = await (await GET()).text();
   expect(after).toContain(draft.id);
   expect(after).toContain(spec.title);
+});
+
+/**
+ * ONE BAD BLOCK MUST NOT BLANK THE APP.
+ *
+ * Ops are rebuilt from the STORED spec on every read of this route, and
+ * `buildBlockOps` throws (via `assertValidBlockSpec`) for a spec it cannot
+ * render. Unguarded, that throw escaped the handler: the whole snapshot
+ * answered 500, and because the provider's first-load error gate sits above
+ * the chat and the frontend tools (`skins/exec/data/ledger-context.tsx`),
+ * the operator lost the chat AND the very grid they would have used to unpin
+ * the offending block. One unrenderable block has to cost exactly that block.
+ *
+ * The spec is mutated in place through `snapshot()`'s live reference because
+ * that is the only way it happens for real: `createDraftBlock` and
+ * `buildBlockOps` both assert, so nothing VALIDATED can produce this — it
+ * takes a seed (seeds construct blocks directly), a hand-edited store, or a
+ * spec that was fine when it was pinned and stopped being renderable when the
+ * catalog moved under it.
+ */
+it("keeps serving the snapshot when ONE stored block's ops cannot be built", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+
+  const draft = store.createDraftBlock({
+    kind: "metricTile",
+    title: "Doomed Tile",
+    metricId: "nps",
+    department: "all",
+  });
+  store.addBlockToDashboard("ceo", draft.id);
+  const goodBlockIds = store
+    .snapshot()
+    .dashboards.ceo.blocks.map((b) => b.id)
+    .filter((id) => id !== draft.id);
+  expect(goodBlockIds.length).toBeGreaterThan(0);
+
+  // Past every validator, exactly as a bad seed would be.
+  const stored = store
+    .snapshot()
+    .dashboards.ceo.blocks.find((b) => b.id === draft.id)!;
+  stored.spec.kind = "notARenderableKind" as BlockSpec["kind"];
+
+  const res = await GET();
+  expect(res.status).toBe(200);
+
+  const body = await res.json();
+  const ceoBlocks = body.dashboards.ceo.blocks as {
+    id: string;
+    ops: unknown[];
+    opsError?: string;
+  }[];
+
+  // Every OTHER block still has its ops — including on the other dashboard.
+  for (const id of goodBlockIds) {
+    const block = ceoBlocks.find((b) => b.id === id);
+    expect(block?.ops.length).toBeGreaterThan(0);
+    expect(block?.opsError).toBeUndefined();
+  }
+  for (const b of body.dashboards.cfo.blocks as { ops: unknown[] }[]) {
+    expect(b.ops.length).toBeGreaterThan(0);
+  }
+
+  // The bad block is still THERE, so the grid renders its card and the
+  // operator can unpin it — it just carries no ops and says why.
+  const doomed = ceoBlocks.find((b) => b.id === draft.id);
+  expect(doomed).toBeDefined();
+  expect(doomed!.ops).toEqual([]);
+  expect(doomed!.opsError).toContain("UNKNOWN_BLOCK_KIND");
+  expect(console.error).toHaveBeenCalled();
 });
