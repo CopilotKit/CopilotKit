@@ -8,13 +8,7 @@ doc_type: how-to
 
 ## Overview
 
-Learning turns completed agent runs into reusable instructions. It studies the messages, tool calls, and application interactions already stored in [Rich Threads](/threads), finds patterns in how work gets done, and proposes those patterns as Skills.
-
-The result is a controlled improvement loop: your application supplies real evidence, Learning explains what it found, and a person decides which changes are safe to publish. Learning does not fine-tune your model or silently change agent behavior.
-
-<Callout type="info" title="Learning is powered by CopilotKit Intelligence">
-  Before you begin, [connect your Runtime to CopilotKit Intelligence](/intelligence/quickstart) and confirm that new conversations appear as [Rich Threads](/threads).
-</Callout>
+Learning turns patterns from real agent runs into reusable Skills. It looks at completed conversations and application interactions in [Rich Threads](/threads), produces evidence-backed Insights, and proposes instructions you can review before publishing.
 
 <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
   <iframe
@@ -26,75 +20,46 @@ The result is a controlled improvement loop: your application supplies real evid
   />
 </div>
 
-The walkthrough begins with Memory, which is a separate Intelligence capability, and then shows Learning capturing an expense-review workflow. After that workflow becomes a published Skill, an agent can reuse it in a new thread and elsewhere in the application.
+The walkthrough begins with Memory, a separate Intelligence capability, then shows an expense-review workflow becoming a reusable Skill.
 
 ## How Learning works
 
+Learning follows one review loop:
+
 <Cards>
   <Card
-    title="1. Group related work"
-    description="Create a Learning container for one stable domain, such as expense review, support quality, or customer onboarding."
+    title="1. Observe real work"
+    description="Assign related Threads to a Learning container. Intelligence automatically captures each completed run as evidence."
   />
   <Card
-    title="2. Capture completed runs"
-    description="Assign new Threads to that container. Intelligence captures their terminal runs from the AG-UI events it already stores."
+    title="2. Find repeatable patterns"
+    description="Run Learning to turn new evidence into Insights and proposed Skills."
   />
   <Card
-    title="3. Generate Insights"
-    description="Start a Learning run. It analyzes the container's new evidence and produces Insights plus any supported Skill candidates."
-  />
-  <Card
-    title="4. Review and publish"
-    description="Inspect the cited evidence and proposed SKILL.md. Approve a candidate to publish a new Skill revision, or reject it without changing the registry."
+    title="3. Review and reuse"
+    description="Check the source Threads, approve useful Skill candidates, and load the published Skills into your agents."
   />
 </Cards>
 
-### Learning containers define the boundary
-
-A Learning container answers one question: **which runs should improve the same behavior?** Threads in an `expense-review` container can teach the same review workflow without mixing in unrelated support or onboarding conversations.
-
-The Runtime assigns each Thread before its first agent run. That assignment is permanent: a Thread cannot move between containers, and earlier runs are not backfilled when an existing Thread is assigned.
-
-### Completed runs become evidence
-
-When an assigned run finishes or errors, Intelligence derives a canonical snapshot from its persisted AG-UI events. This keeps messages, tool calls, and application interactions traceable to the source Thread without asking your Runtime to upload a second transcript.
-
-### A Learning run creates proposals
-
-When you select **Run Learning**, Learning freezes the new evidence available at that moment and analyzes it together with the container's current Insights and published Skills. It can produce:
-
-- **Insights** that describe a pattern, its expected impact, and the Threads that support it.
-- **Skill candidates** that propose adding, updating, or removing reusable instructions.
-
-A successful run can produce Insights without producing a Skill candidate. That means Learning found useful evidence but not a procedure that was strong or reusable enough to publish.
-
-### Review controls what agents can reuse
-
-Skill candidates remain pending until someone reviews them. Approving a candidate publishes an immutable Skill revision; rejecting it leaves the published registry unchanged. Candidates are reviewed independently, so one rejected proposal does not block another.
-
-<Callout type="info" title="What happens automatically?">
-  Evidence capture happens automatically for assigned Threads. Starting the analysis and publishing proposed Skills are deliberate actions: you select **Run Learning**, then approve or reject each Skill candidate.
+<Callout type="info" title="You stay in control">
+  Evidence capture is automatic. Running the analysis, approving a proposed Skill, and loading it into an agent are deliberate actions. Learning never fine-tunes your model or silently changes agent behavior.
 </Callout>
 
 ## Configure Learning
 
-Before configuring a container:
-
-1. Complete the [CopilotKit Intelligence quickstart](/intelligence/quickstart).
-2. Send a message and confirm that the conversation appears in [Rich Threads](/threads).
-3. Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and confirm that Learning is available for your organization.
-
 <Steps>
+  <Step>
+    ### Connect CopilotKit Intelligence
+
+    Complete the [Intelligence quickstart](/intelligence/quickstart), then send a message and confirm that it appears in [Rich Threads](/threads). Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and confirm that Learning is available.
+  </Step>
+
   <Step>
     ### Create a Learning container
 
-    In your Intelligence project, open **Learning** and choose **Create Learning container**. Give it:
+    In your Intelligence project, open **Learning** and choose **Create Learning container**. Give the container a stable ID, a descriptive name, and optional guidance about what good work looks like.
 
-    - a stable ID, such as `expense-review`;
-    - a descriptive name; and
-    - optional prompt context describing the outcome, policy, or constraints Learning should look for.
-
-    Stable IDs contain 1–64 lowercase letters, numbers, or single hyphens. Treat the ID as application configuration rather than a display label.
+    Keep each container focused on one kind of work, such as expense review, support quality, or customer onboarding. Stable IDs contain 1–64 lowercase letters, numbers, or single hyphens; for example, `expense-review`.
   </Step>
 
   <Step>
@@ -121,32 +86,23 @@ Before configuring a container:
     });
     ```
 
-    Return `null` or `undefined` when a run should not participate in Learning. The callback also receives the application user, surface (`web` or `channel`), and AG-UI run input, so one Runtime can route different workflows to different containers.
+    Return `null` or `undefined` when a run should not participate. You can use the callback's user, surface, agent, and run input to route different workflows to different containers.
 
     <Callout type="warn" title="Keep a Thread's assignment stable">
-      The callback must return the same container ID for every run in one Thread. Changing the result later causes a container conflict instead of moving the Thread or mixing two learning domains.
+      Assign a Thread before its first agent run and return the same container ID for every later run. Existing evidence is not backfilled, and a Thread cannot move between containers.
     </Callout>
   </Step>
 
   <Step>
-    ### Complete representative runs
+    ### Collect examples
 
-    Use the application normally and finish the workflows that Learning should study. Corrections, tool calls, and application interactions are valuable when they demonstrate the desired outcome.
-
-    Keep the evidence focused. A container full of related work produces clearer Insights than one that mixes unrelated tasks.
+    Use the application normally and complete several related workflows. Corrections, tool calls, and application interactions all help Learning understand what a good result looks like.
   </Step>
 
   <Step>
-    ### Run Learning and review the result
+    ### Run Learning and review
 
-    Open the container's **Runs** tab and select **Run Learning**. Only one run can be active for a container at a time, although different containers can run concurrently.
-
-    After it succeeds:
-
-    1. Open **Insights** and follow the evidence back to the source Threads.
-    2. Open **Candidates** and inspect the proposed `SKILL.md` and supporting Insights.
-    3. Approve or reject each candidate.
-    4. Open **Skills** to see the published revision history.
+    Open the container's **Runs** tab and select **Run Learning**. Review the resulting Insights and their source Threads, then approve or reject each proposed Skill. Approved revisions appear under **Skills**.
   </Step>
 </Steps>
 
@@ -159,17 +115,7 @@ copilotkit project select
 copilotkit skills download expense-review --output ./learned-skills
 ```
 
-The output contains one directory and `SKILL.md` for each published Skill. The command verifies the bundle and refuses to overwrite an existing output directory.
-
-Downloading is the handoff from Intelligence to your agent environment. Configure that environment to load `./learned-skills` before expecting the new behavior in a run.
-
-## Choose a useful learning boundary
-
-- Create a container around one enduring workflow or quality bar, not one user or temporary Thread.
-- Write prompt context as evaluation guidance rather than a long agent prompt.
-- Let representative runs accumulate before starting Learning. Sparse or unrelated evidence produces weaker Insights.
-- Review the cited Threads and proposed `SKILL.md` before approval.
-- Keep published Skills small enough to reuse across agents and surfaces.
+The output contains a directory and `SKILL.md` for each published Skill. Configure your agent environment to load `./learned-skills` before expecting the new behavior in a run.
 
 ## Troubleshooting
 
