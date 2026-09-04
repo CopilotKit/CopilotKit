@@ -570,10 +570,23 @@ export class RunHandler {
     }
 
     this._runDepth++;
+    const messagesBeforeRun = new Set(
+      this.getAgentMessages(agent).map((message) => message.id),
+    );
+    let originatingThreadId = this.getAgentThreadId(agent);
+    let observedStreamMessages: Message[] | undefined;
 
     try {
       let logicalRunId = runId;
       const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      const onMessagesChanged = agentSubscriber.onMessagesChanged;
+      agentSubscriber.onMessagesChanged = async (params) => {
+        observedStreamMessages = this.mergeObservedMessages(
+          observedStreamMessages,
+          params.messages,
+        );
+        return onMessagesChanged?.(params);
+      };
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       const onRunInitialized = agentSubscriber.onRunInitialized;
@@ -583,6 +596,7 @@ export class RunHandler {
       };
       agentSubscriber.onRunStartedEvent = async (params) => {
         started = true;
+        originatingThreadId = params.event.threadId ?? originatingThreadId;
         // A continuation keeps reporting under the run it continues; only an
         // ordinary run adopts the id the transport assigned it.
         if (!continuationHandoff) {
@@ -618,11 +632,19 @@ export class RunHandler {
         agentRunInput,
         agentSubscriber,
       );
+      const reconciledRunAgentResult =
+        this.reconcileStreamedRunMessagesDroppedBySnapshot({
+          agent,
+          messagesBeforeRun,
+          observedStreamMessages,
+          originatingThreadId,
+          runAgentResult,
+        });
       if (!started) {
         continuationHandoff?.cancel();
       }
       return await this.processAgentResult({
-        runAgentResult,
+        runAgentResult: reconciledRunAgentResult,
         agent,
         runId: logicalRunId,
       });
@@ -785,6 +807,177 @@ export class RunHandler {
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
+  }
+
+  private mergeObservedMessages(
+    previous: readonly Message[] | undefined,
+    next: readonly Message[],
+  ): Message[] {
+    if (!previous) {
+      return [...next];
+    }
+
+    const latestById = new Map<string, Message>();
+    for (const message of previous) latestById.set(message.id, message);
+    for (const message of next) latestById.set(message.id, message);
+
+    const merged: Message[] = [];
+    const seen = new Set<string>();
+    for (const source of [previous, next]) {
+      for (const message of source) {
+        if (seen.has(message.id)) continue;
+        const latest = latestById.get(message.id);
+        if (!latest) continue;
+        merged.push(latest);
+        seen.add(message.id);
+      }
+    }
+    return merged;
+  }
+
+  private getAgentMessages(agent: AbstractAgent): Message[] {
+    return Array.isArray(agent.messages) ? agent.messages : [];
+  }
+
+  private getAgentThreadId(agent: AbstractAgent): string | undefined {
+    return typeof agent.threadId === "string" ? agent.threadId : undefined;
+  }
+
+  private reconcileStreamedRunMessagesDroppedBySnapshot({
+    agent,
+    messagesBeforeRun,
+    observedStreamMessages,
+    originatingThreadId,
+    runAgentResult,
+  }: {
+    agent: AbstractAgent;
+    messagesBeforeRun: ReadonlySet<string>;
+    observedStreamMessages: readonly Message[] | undefined;
+    originatingThreadId: string | undefined;
+    runAgentResult: RunAgentResult;
+  }): RunAgentResult {
+    if (!observedStreamMessages?.length) {
+      return runAgentResult;
+    }
+
+    if (
+      originatingThreadId === undefined ||
+      this.getAgentThreadId(agent) !== originatingThreadId
+    ) {
+      return runAgentResult;
+    }
+
+    const finalMessages = this.getAgentMessages(agent);
+    const finalMessageIds = new Set(finalMessages.map((message) => message.id));
+    const finalToolResultIds = this.getToolResultIds(finalMessages);
+    const missingRunMessages = observedStreamMessages.filter(
+      (message) =>
+        !messagesBeforeRun.has(message.id) &&
+        !finalMessageIds.has(message.id) &&
+        this.shouldRestoreOmittedFrontendToolMessage({
+          agent,
+          finalToolResultIds,
+          message,
+        }),
+    );
+
+    if (missingRunMessages.length === 0) {
+      return runAgentResult;
+    }
+
+    const finalMessagesById = new Map(
+      finalMessages.map((message) => [message.id, message]),
+    );
+    const missingMessagesById = new Map(
+      missingRunMessages.map((message) => [message.id, message]),
+    );
+    const reconciledMessages: Message[] = [];
+    const seen = new Set<string>();
+
+    for (const observed of observedStreamMessages) {
+      const message =
+        finalMessagesById.get(observed.id) ??
+        missingMessagesById.get(observed.id);
+      if (!message || seen.has(message.id)) continue;
+      reconciledMessages.push(message);
+      seen.add(message.id);
+    }
+
+    for (const message of finalMessages) {
+      if (seen.has(message.id)) continue;
+      reconciledMessages.push(message);
+      seen.add(message.id);
+    }
+
+    agent.setMessages(reconciledMessages);
+    const returnedNewMessagesById = new Map(
+      runAgentResult.newMessages.map((message) => [message.id, message]),
+    );
+    const reconciledNewMessages: Message[] = [];
+    const reconciledNewMessageIds = new Set<string>();
+
+    for (const observed of observedStreamMessages) {
+      const message =
+        missingMessagesById.get(observed.id) ??
+        returnedNewMessagesById.get(observed.id);
+      if (
+        !message ||
+        messagesBeforeRun.has(message.id) ||
+        reconciledNewMessageIds.has(message.id)
+      ) {
+        continue;
+      }
+      reconciledNewMessages.push(message);
+      reconciledNewMessageIds.add(message.id);
+    }
+
+    for (const message of runAgentResult.newMessages) {
+      if (reconciledNewMessageIds.has(message.id)) continue;
+      reconciledNewMessages.push(message);
+      reconciledNewMessageIds.add(message.id);
+    }
+
+    return {
+      ...runAgentResult,
+      newMessages: reconciledNewMessages,
+    };
+  }
+
+  private getToolResultIds(messages: readonly Message[]): Set<string> {
+    const toolResultIds = new Set<string>();
+    for (const message of messages) {
+      if (message.role === "tool" && typeof message.toolCallId === "string") {
+        toolResultIds.add(message.toolCallId);
+      }
+    }
+    return toolResultIds;
+  }
+
+  private shouldRestoreOmittedFrontendToolMessage({
+    agent,
+    finalToolResultIds,
+    message,
+  }: {
+    agent: AbstractAgent;
+    finalToolResultIds: ReadonlySet<string>;
+    message: Message;
+  }): boolean {
+    if (message.role !== "assistant" || !message.toolCalls?.length) {
+      return false;
+    }
+
+    // @ag-ui/client can stream messages via onMessagesChanged before a later
+    // snapshot replaces agent.messages. Only restore omitted frontend tool
+    // calls that still need client-side execution; intentionally pruned
+    // backend/plain-text messages must stay pruned.
+    return message.toolCalls.some((toolCall) => {
+      const tool = this.getTool({
+        toolName: toolCall.function.name,
+        agentId: agent.agentId,
+      });
+
+      return Boolean(tool?.handler) && !finalToolResultIds.has(toolCall.id);
+    });
   }
 
   private isFrontendPlaceholderResult(message: Message): boolean {
