@@ -1,7 +1,7 @@
 "use client";
 import "./theme.css"; // side-effect import registers the .theme-exec block
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -42,9 +42,17 @@ export function ExecLayout({ children }: { children: ReactNode }) {
   const { copilotkit } = useCopilotKit();
   const configuration = useCopilotChatConfiguration();
   const setModalOpen = configuration?.setModalOpen;
+  // The chrome's own error line. `askCopilot` posts a USER turn into the thread
+  // before it runs, so a rejected run leaves that turn sitting there with
+  // nothing ever coming back — indistinguishable, on stage, from a model that
+  // is merely slow. A console line does not reach the operator; this does.
+  // Mirrors the ledger provider's dismissible stale-view banner
+  // (`data-testid="ledger-refresh-error"` in `./data/ledger-context.tsx`).
+  const [chromeError, setChromeError] = useState<string | null>(null);
   const askCopilot = useCallback(
     async (message: string) => {
       setModalOpen?.(true);
+      setChromeError(null);
       agent.addMessage({
         id: crypto.randomUUID(),
         role: "user",
@@ -54,6 +62,11 @@ export function ExecLayout({ children }: { children: ReactNode }) {
         await copilotkit.runAgent({ agent });
       } catch (error) {
         console.error("askCopilot: runAgent failed", error);
+        setChromeError(
+          `The copilot could not answer that: ${
+            error instanceof Error ? error.message : String(error)
+          }. Your message is still in the thread — try again.`,
+        );
       }
     },
     [agent, copilotkit, setModalOpen],
@@ -87,6 +100,33 @@ export function ExecLayout({ children }: { children: ReactNode }) {
       // a locked single-tenant deploy.
       window.location.assign(skinHref());
     } catch (err) {
+      // ALWAYS logged. The alert below is modal and gone the moment it is
+      // dismissed, so without this a refused or half-finished reset leaves no
+      // trace at all to correlate against the server logs it points at.
+      console.error("[exec] reset demo failed", err);
+      // The 403 gate: `POST /api/exec/v1/dev/reset` answers
+      // `{ error: "FORBIDDEN" }` when presenter reset is not enabled, BEFORE
+      // it touches the store — so nothing was reset and "Reset failed" sends
+      // the presenter hunting a bug instead of a flag. Matched tolerantly (the
+      // body's `error` OR the status carried in the message) so a change to
+      // either half of `resetDemo`'s contract degrades to the generic arm
+      // rather than mis-reporting this one.
+      const body = err instanceof ResetDemoError ? err.body : null;
+      const forbidden =
+        // A `reset` array means the store DID reset (the route's first act
+        // after the gate), so it can never be the refusal — checked first so
+        // the partial-reset arm below always wins that overlap.
+        !Array.isArray(body?.reset) &&
+        (String(body?.error ?? "").toUpperCase() === "FORBIDDEN" ||
+          (err instanceof ResetDemoError && /\b403\b/.test(err.message)));
+      if (forbidden) {
+        window.alert(
+          "Demo reset is not enabled on this deployment, so nothing was " +
+            "changed. The server refused the request (403 FORBIDDEN) — set " +
+            "the presenter-reset flag and restart to enable it.",
+        );
+        return;
+      }
       // A 502 from `dev/reset` means the STORE half already reset (it is the
       // route's first act) and only durable memory fell short — `resetDemo`
       // already best-effort refreshed for that case, so this alert must say
@@ -214,7 +254,26 @@ export function ExecLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto px-5 py-6">{children}</main>
+      <main className="flex-1 overflow-y-auto px-5 py-6">
+        {chromeError && (
+          <div
+            data-testid="exec-chrome-error"
+            role="alert"
+            className="mb-4 flex items-center justify-between gap-3 rounded-md border border-negative bg-negative-soft px-3 py-2 text-xs text-negative"
+          >
+            <span>{chromeError}</span>
+            <button
+              type="button"
+              aria-label="Dismiss error"
+              className="shrink-0 rounded-full border border-hairline bg-surface px-2 py-0.5 text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+              onClick={() => setChromeError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }
