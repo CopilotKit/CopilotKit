@@ -36,9 +36,9 @@ these two demos run on the real mechanism rather than a frontend-tool stand-in:
   chat.
 
 Both are served by a dedicated agent mounted at `AGENT_URL/interrupt/` rather
-than by the shared agent, because `hitl-in-chat` registers a FRONTEND tool
-called `schedule_meeting`; one tool name cannot be both client-executed and
-backend-pausing.
+than by the shared agent, because the shared agent already owns a
+`schedule_meeting` that answers straight away. One tool name cannot both answer
+immediately for the other demos and pause for these two.
 
 Two live bridge differences, both handled in this package rather than papered
 over:

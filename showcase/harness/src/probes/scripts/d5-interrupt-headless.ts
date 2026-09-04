@@ -84,10 +84,10 @@ export function buildInterruptHeadlessAssertion(
     // Step 3: wait for either:
     //   a. `interrupt-headless-empty` to mount (popup unmounted →
     //      resolve()/runAgent()/resume completed cleanly); OR
-    //   b. an assistant continuation message landing in chat that
-    //      mentions "scheduled" / "confirmed" (agent narrated the
-    //      booking).
-    // Either signal proves the resolve→resume round-trip worked.
+    //   b. an assistant continuation IN THE TRANSCRIPT naming the booking.
+    // The text search is scoped to the transcript and to phrases the demo's
+    // own static copy does not contain, so neither signal can be satisfied by
+    // the page merely rendering.
     const deadline = Date.now() + 30_000;
     let lastSnap = "";
     while (Date.now() < deadline) {
@@ -95,6 +95,9 @@ export function buildInterruptHeadlessAssertion(
         const win = globalThis as unknown as {
           document: {
             querySelector(sel: string): unknown;
+            querySelectorAll(
+              sel: string,
+            ): ArrayLike<{ textContent: string | null }>;
             body: { textContent: string | null };
           };
         };
@@ -104,11 +107,32 @@ export function buildInterruptHeadlessAssertion(
         const popupGone = !win.document.querySelector(
           '[data-testid="interrupt-headless-popup"]',
         );
-        const text = (win.document.body.textContent ?? "").toLowerCase();
+        // Scoped to assistant bubbles, never the whole page: this demo's own
+        // static copy contains "Nothing scheduled yet" and "the confirmed
+        // booking", so a body-wide search would be satisfied before the agent
+        // narrated anything.
+        const selectors = [
+          '[data-testid="copilot-assistant-message"]',
+          '[role="article"]:not([data-message-role="user"])',
+          '[data-message-role="assistant"]',
+        ];
+        let bubbles: ArrayLike<{ textContent: string | null }> = { length: 0 };
+        for (const selector of selectors) {
+          const found = win.document.querySelectorAll(selector);
+          if (found.length > 0) {
+            bubbles = found;
+            break;
+          }
+        }
+        let text = "";
+        for (let i = 0; i < bubbles.length; i += 1) {
+          text += " " + (bubbles[i]?.textContent ?? "");
+        }
+        text = text.toLowerCase();
         const scheduledNarration =
-          text.includes("scheduled") ||
-          text.includes("confirmed") ||
-          text.includes("booked");
+          text.includes("meeting scheduled") ||
+          text.includes("booked") ||
+          text.includes("confirmed for");
         const sample = (win.document.body.textContent ?? "")
           .slice(-200)
           .replace(/\s+/g, " ")

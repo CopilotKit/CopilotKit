@@ -100,8 +100,12 @@ Two things to note:
 ## The frontend: `useInterrupt` render prop
 
 On the client you register a `useInterrupt` hook per agent. When the
-paused run arrives, its payload is handed to `render` as `event.value`,
-and `resolve(...)` is how you resume the run:
+paused run arrives, `render` receives both the raw `event` and the
+`interrupt` itself, and `resolve(...)` is how you resume the run. Where the
+payload sits depends on how the framework pauses: a legacy custom-event
+interrupt carries it on `event.value`, while a standard AG-UI interrupt
+carries it on the `interrupt` (its `metadata`, or a JSON-encoded `message`,
+depending on the bridge). Read the channel your framework uses:
 
 <Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
 
@@ -139,8 +143,9 @@ the Promise-returning handler takes over:
 
 - **`agentId`** — must match a runtime-registered agent. If omitted, the
   hook assumes `"default"`. A mismatch means the interrupt never fires.
-- **`render`** — receives `{ event, resolve }`. `event.value` is the
-  payload you passed to `interrupt(...)` on the server.
+- **`render`** — receives `{ event, interrupt, resolve }`. The payload you
+  passed to `interrupt(...)` on the server arrives on `event.value` for a
+  legacy custom-event interrupt and on the `interrupt` for a standard one.
 - **`renderInChat`** — when `true` (as above), the picker appears inline
   in the chat transcript, between the paused assistant turn and the
   still-pending continuation.

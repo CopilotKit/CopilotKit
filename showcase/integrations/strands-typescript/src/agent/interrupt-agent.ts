@@ -17,8 +17,9 @@
  * cancels with `{ cancelled: true }`.
  *
  * This is a dedicated agent rather than a tool on the shared showcase agent
- * because `hitl-in-chat` registers a FRONTEND tool of the same name; one
- * backend `schedule_meeting` cannot be both client-executed and pausing.
+ * because the shared agent already owns a `schedule_meeting` that answers
+ * straight away. One tool name cannot both answer immediately for the other
+ * demos and pause for these two, so the pausing version gets its own mount.
  *
  * Pause and resume happen in the same process here, so no `SessionManager` is
  * needed. Durable resume across a restart requires one.
@@ -36,6 +37,7 @@ interface MeetingChoice {
   chosen_time?: string;
   chosen_label?: string;
   cancelled?: boolean;
+  status?: string;
 }
 
 /**
@@ -71,10 +73,12 @@ export function readResume(
       ? envelope.response
       : (answer as MeetingChoice | null | undefined);
   const choice: MeetingChoice = inner && typeof inner === "object" ? inner : {};
-  const cancelled =
-    envelope.cancelled === true ||
+  const cancelled = Boolean(
+    envelope.cancelled ||
     envelope.status === "cancelled" ||
-    choice.cancelled === true;
+    choice.cancelled ||
+    choice.status === "cancelled",
+  );
   return { choice, cancelled };
 }
 
@@ -110,7 +114,7 @@ export const scheduleMeeting = tool({
       return `User cancelled. Meeting NOT scheduled: ${topic}`;
     }
 
-    const label = choice.chosen_label ?? choice.chosen_time;
+    const label = choice.chosen_label || choice.chosen_time;
     return label
       ? `Meeting scheduled for ${label}: ${topic}`
       : `User did not pick a time. Meeting NOT scheduled: ${topic}`;

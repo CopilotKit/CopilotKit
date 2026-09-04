@@ -23,6 +23,8 @@ export interface TimePickerCardProps {
   onSubmit: (
     result: { chosen_time: string; chosen_label: string } | { cancelled: true },
   ) => void;
+  /** Set when the resume failed, so the card stops claiming a booking. */
+  resumeFailed?: boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ export function TimePickerCard({
   attendee,
   slots,
   onSubmit,
+  resumeFailed = false,
 }: TimePickerCardProps) {
   const [picked, setPicked] = useState<TimeSlot | null>(null);
   const [cancelled, setCancelled] = useState(false);
@@ -47,6 +50,19 @@ export function TimePickerCard({
         <CardContent className="flex items-center gap-2 p-4 pt-4">
           <Badge variant="destructive">Cancelled</Badge>
           <span className="text-sm text-neutral-600">No time picked.</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (picked && resumeFailed) {
+    return (
+      <Card className="max-w-md" data-testid="time-picker-failed">
+        <CardContent className="flex items-center gap-2 p-4 pt-4">
+          <Badge variant="destructive">Not booked</Badge>
+          <span className="text-sm text-neutral-600">
+            The pick could not be sent back to the agent.
+          </span>
         </CardContent>
       </Card>
     );

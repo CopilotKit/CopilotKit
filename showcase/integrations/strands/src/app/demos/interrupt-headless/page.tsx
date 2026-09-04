@@ -99,10 +99,15 @@ function Layout() {
       const payload = readInterruptPayload(interrupt, event.value);
       const resumeAfterPaint = (response: unknown) => {
         setResolving(true);
-        requestAnimationFrame(() => {
-          // The frame boundary must stay fire-and-forget so React can paint the
-          // resolving marker before resume unmounts the interrupt. Re-surface a
-          // rejected resume globally instead of letting that failure disappear.
+        // A frame boundary lets React paint before resume unmounts the
+        // interrupt, but `requestAnimationFrame` never fires in a background
+        // tab, so a timer runs whichever comes first and the resume cannot be
+        // stranded. Fire-and-forget by design: a rejected resume is re-surfaced
+        // globally instead of disappearing.
+        let fired = false;
+        const resumeOnce = () => {
+          if (fired) return;
+          fired = true;
           void resolve(response).then(
             () => setResolving(false),
             (error) => {
@@ -112,7 +117,9 @@ function Layout() {
               });
             },
           );
-        });
+        };
+        requestAnimationFrame(resumeOnce);
+        window.setTimeout(resumeOnce, 100);
       };
       return (
         <TimeSlotPopup
@@ -240,10 +247,13 @@ type TimeSlotPopupProps = {
 };
 
 function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
-  // Prefer the slots from the interrupt payload — the backend
-  // (`interrupt_agent.py:_candidate_slots`) generates them relative to "now"
-  // so the picker always shows future times. Fall back to a fresh
-  // local-time generator only if the backend didn't supply any.
+  // One answer per interrupt: the buttons latch on the first click so a second
+  // one cannot race the resume that is already in flight.
+  const [answered, setAnswered] = useState(false);
+  // The interrupt payload carries the topic and attendee, not the slots: both
+  // backends pause with a reason only, so the times below are generated here,
+  // relative to "now", so the picker always shows future slots. The payload
+  // branch stays for a backend that does send its own candidates.
   const slots =
     payload.slots && payload.slots.length > 0
       ? payload.slots
@@ -279,8 +289,12 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
             key={slot.iso}
             type="button"
             data-testid={`interrupt-headless-slot-${slot.iso}`}
-            onClick={() => onPick(slot)}
-            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A]"
+            disabled={answered}
+            onClick={() => {
+              setAnswered(true);
+              onPick(slot);
+            }}
+            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {slot.label}
           </button>
@@ -290,8 +304,12 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
       <button
         type="button"
         data-testid="interrupt-headless-cancel"
-        onClick={onCancel}
-        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC]"
+        disabled={answered}
+        onClick={() => {
+          setAnswered(true);
+          onCancel();
+        }}
+        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC] disabled:cursor-not-allowed disabled:opacity-60"
       >
         Cancel
       </button>

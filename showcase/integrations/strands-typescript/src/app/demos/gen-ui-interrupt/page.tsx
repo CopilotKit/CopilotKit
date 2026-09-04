@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 // @region[frontend-useinterrupt-render]
 import {
   CopilotKit,
@@ -89,12 +90,14 @@ export default function GenUiInterruptDemo() {
 
 function Chat() {
   useGenUiInterruptSuggestions();
+  const [resumeFailed, setResumeFailed] = useState(false);
 
   // Native interrupt path. The backend `schedule_meeting` tool calls Strands'
-  // `tool_context.interrupt(...)`; the @ag-ui/aws-strands bridge finishes the
-  // run with `outcome.type === "interrupt"` and carries the tool's `reason`
-  // under the interrupt's `metadata.reason`. `resolve(...)` resumes the same
-  // Strands run, handing the selection back to that `interrupt()` call.
+  // `context.interrupt(...)`; the @ag-ui/aws-strands bridge finishes the run
+  // with `outcome.type === "interrupt"`. Where the tool's `reason` travels
+  // depends on the bridge version, so the reader below accepts both channels.
+  // `resolve(...)` resumes the same Strands run, handing the selection back to
+  // that `interrupt()` call.
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
@@ -109,6 +112,7 @@ function Chat() {
           topic={payload.topic ?? "a call"}
           attendee={payload.attendee}
           slots={slots}
+          resumeFailed={resumeFailed}
           onSubmit={(result) => {
             // Defer resolve so React commits the picked/cancelled badge before
             // useInterrupt clears the interrupt element (a single rAF is not
@@ -119,6 +123,7 @@ function Chat() {
             // happened.
             window.setTimeout(() => {
               void resolve(result).catch((error: unknown) => {
+                setResumeFailed(true);
                 queueMicrotask(() => {
                   throw error;
                 });

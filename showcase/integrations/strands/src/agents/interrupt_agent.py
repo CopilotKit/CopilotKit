@@ -13,9 +13,9 @@ Strands' resume gate is truthiness-based, and a bare falsy answer would re-raise
 the same interrupt forever.
 
 This is a dedicated agent rather than a tool on the shared showcase agent
-because `hitl-in-chat` registers a FRONTEND tool of the same name; one backend
-`schedule_meeting` cannot be both a client-executed tool and a pausing backend
-tool.
+because the shared agent already owns a `schedule_meeting` that answers straight
+away. One tool name cannot both answer immediately for the other demos and pause
+for these two, so the pausing version gets its own mount.
 
 Pause and resume happen in the same process here, so no `SessionManager` is
 needed. Durable resume across a restart requires one.
@@ -77,6 +77,7 @@ def schedule_meeting(topic: str, tool_context: ToolContext, attendee: str = "") 
         envelope.get("cancelled")
         or envelope.get("status") == "cancelled"
         or payload.get("cancelled")
+        or payload.get("status") == "cancelled"
     )
     if cancelled:
         return f"User cancelled. Meeting NOT scheduled: {topic}"

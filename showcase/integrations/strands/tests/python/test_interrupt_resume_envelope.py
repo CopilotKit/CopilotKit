@@ -55,12 +55,31 @@ def test_a_picked_slot_is_reported_as_scheduled(answer):
         {"cancelled": True},
         {"status": "cancelled"},
         {"response": {"cancelled": True}},
+        {"response": {"status": "cancelled"}},
     ],
-    ids=["python-sentinel", "typescript-sentinel", "picker-flag"],
+    ids=[
+        "python-sentinel",
+        "typescript-sentinel",
+        "picker-flag",
+        "wrapped-typescript-sentinel",
+    ],
 )
 def test_every_cancel_shape_is_reported_as_not_scheduled(answer):
     result, _ = _run(answer)
     assert result.startswith("User cancelled.")
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        {"response": {"chosen_label": "", "chosen_time": "2026-09-05T10:00:00Z"}},
+        {"chosen_label": "", "chosen_time": "2026-09-05T10:00:00Z"},
+    ],
+    ids=["wrapped", "raw"],
+)
+def test_an_empty_label_falls_back_to_the_chosen_time(answer):
+    result, _ = _run(answer)
+    assert "Meeting scheduled for 2026-09-05T10:00:00Z" in result
 
 
 @pytest.mark.parametrize("answer", [None, "nope", 7, {"response": None}])

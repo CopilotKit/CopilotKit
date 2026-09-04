@@ -41,6 +41,21 @@ describe("readResume", () => {
     expect(readResume({ response: { cancelled: true } }).cancelled).toBe(true);
   });
 
+  it("reads a cancel sentinel that arrives inside the wrapper", () => {
+    expect(readResume({ response: { status: "cancelled" } }).cancelled).toBe(
+      true,
+    );
+  });
+
+  it("falls back to the chosen time when the label is empty", () => {
+    const { choice } = readResume({
+      response: { chosen_label: "", chosen_time: "2026-09-05T10:00:00Z" },
+    });
+    expect(choice.chosen_label || choice.chosen_time).toBe(
+      "2026-09-05T10:00:00Z",
+    );
+  });
+
   it("survives an answer that is not an object at all", () => {
     expect(readResume(null).cancelled).toBe(false);
     expect(readResume(undefined).choice).toEqual({});

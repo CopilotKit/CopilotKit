@@ -100,14 +100,13 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       0,
     );
 
-    // The LAST bubble, not the first: the first is the pre-pause "let me check
-    // available times" text, which is on screen before the resume happens, so
-    // asserting on it passes even when the resume never lands.
+    // Assert the post-resume narration, not just that some bubble is visible:
+    // the pre-pause "let me check available times" text is on screen before the
+    // resume happens, so a visibility check passes even when the resume never
+    // lands. This wording only exists in the resumed leg's response.
     await expect(
       page.locator('[data-testid="copilot-assistant-message"]').last(),
-    ).toBeVisible({
-      timeout: 45_000,
-    });
+    ).toContainText(/booked:|scheduled:/i, { timeout: 45_000 });
   });
 
   test("cancel path: None-of-these-work transitions to cancelled state", async ({

@@ -66,7 +66,11 @@ test.describe("Interrupt (headless, app-surface picker)", () => {
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     // Contract: the picker mounts in the app-surface pane, NOT inside the chat.
-    const popup = page.locator('[data-testid="interrupt-headless-popup"]');
+    // Scoped to that pane so the assertion actually holds the contract: an
+    // unscoped locator would pass just as well if the popup rendered in chat.
+    const popup = page
+      .locator('[data-testid="interrupt-headless-app-surface"]')
+      .locator('[data-testid="interrupt-headless-popup"]');
     await expect(popup).toBeVisible({ timeout: 60_000 });
 
     const slot = page
