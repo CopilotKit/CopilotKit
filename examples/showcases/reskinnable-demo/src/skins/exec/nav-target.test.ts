@@ -140,13 +140,12 @@ describe("execNavTarget", () => {
   /**
    * THE INDEX SEGMENT'S SHAPE, PINNED. `navigateTo`'s `segment` enum includes
    * `""` (the CEO dashboard), so a levered nav to the index emits a
-   * query-only target. `useSkinHref` (`src/shell/skin-path.ts`) then joins it
-   * as `${base}/${suffix}`, which reads `/exec/?department=distribution` —
-   * a bare `?` right after the slash. That join is NOT this module's to make:
-   * it cannot see the base, and prefixing one here would double-apply it (see
-   * this file's header). This pins what this side emits so the fix in
-   * `skin-path.ts` — attach a query-only suffix without the separator — has
-   * something to hold onto.
+   * query-only target. The join is NOT this module's to make: it cannot see
+   * the base, and prefixing one here would double-apply it (see this file's
+   * header). `navigateTo` in `tools.tsx` splits the query off BEFORE calling
+   * `skinHref`, so the composed URL reads `/exec?department=distribution`
+   * with no bare `?` after a slash. This pins what this side emits so that
+   * split has a stable shape to hold onto.
    */
   it("emits a query-only target for the index segment", () => {
     expect(execNavTarget({ department: "distribution" })).toBe(
