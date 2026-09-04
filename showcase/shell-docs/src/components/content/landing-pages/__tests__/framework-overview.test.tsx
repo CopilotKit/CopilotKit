@@ -15,6 +15,7 @@ import {
   cliFrameworkForDocsSlug,
   FrameworkOverview,
 } from "../framework-overview";
+import { MdxFrameworkOverview } from "../mdx-framework-overview";
 import type { FrameworkOverviewData } from "@/data/frameworks/types";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
@@ -209,4 +210,25 @@ describe("FrameworkOverview", () => {
       );
     },
   );
+});
+
+describe("MdxFrameworkOverview", () => {
+  // Authored landing pages pass their mark as an expression attribute
+  // (`frameworkIcon={<MastraIcon />}`), and `next-mdx-remote` strips every
+  // expression attribute before compiling the MDX — so the adapter has to
+  // resolve the mark from the registry instead, or the hero renders a bare
+  // framework name where the data-driven landing pages render a logo.
+  it("resolves the framework mark from the registry when no icon node arrives", () => {
+    const markup = renderToStaticMarkup(
+      <MdxFrameworkOverview
+        frameworkName="Mastra"
+        header="Bring your Mastra agents to your users"
+        guideLink="/mastra/quickstart"
+        currentFramework="mastra"
+      />,
+    );
+
+    const lockup = markup.slice(markup.indexOf("flex items-center gap-3 mb-5"));
+    expect(lockup.slice(0, 400)).toContain("<svg");
+  });
 });
