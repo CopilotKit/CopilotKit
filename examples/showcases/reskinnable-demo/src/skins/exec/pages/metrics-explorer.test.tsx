@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import {
   DEPARTMENT_VALUES,
   filterMetricRows,
+  normalizeDepartmentLever,
+  normalizeMetricLever,
   normalizePeriodLever,
   parseTopLever,
 } from "./metric-rows";
 import {
+  MetricsExplorerPage,
+  READABLE_ROW_LIMIT,
   explorerReadableRows,
+  explorerReadableValue,
   formatMetricValue,
   nextLeverSearchParams,
   periodSelectOptions,
@@ -22,6 +28,37 @@ import type {
 // `formatMetricValue`'s fail-loud arm is asserted with a `console.error` spy;
 // restore it so a later suite's real error still reaches the console.
 afterEach(() => vi.restoreAllMocks());
+
+/**
+ * The page's own DOM harness, mirroring commerce's `orders.test.tsx` (~line
+ * 27): the levers are read off `useSearchParams`, so drive that
+ * deterministically, record what the readable is handed rather than dropping
+ * it, and capture the router calls so a push can be told from a replace.
+ */
+const query = { value: "" };
+const routerCalls: { method: "push" | "replace"; href: string }[] = [];
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: (href: string) => routerCalls.push({ method: "push", href }),
+    replace: (href: string) => routerCalls.push({ method: "replace", href }),
+  }),
+  useSearchParams: () => new URLSearchParams(query.value),
+}));
+
+const readable = { value: "" };
+vi.mock("@copilotkit/react-core/v2", () => ({
+  useAgentContext: ({ value }: { value: string }) => {
+    readable.value = value;
+  },
+}));
+
+// The page reads its snapshot off the ledger context; serve the same synthetic
+// snapshot the pure-function suites below use, read lazily at render.
+const ledgerSnapshot: { value: LedgerSnapshot | null } = { value: null };
+vi.mock("../data/ledger-context", () => ({
+  useExecLedger: () => ({ snapshot: ledgerSnapshot.value }),
+}));
 
 /**
  * A synthetic snapshot, not the app's live seed. The plan's test case turns
@@ -504,6 +541,26 @@ describe("formatMetricValue", () => {
     expect(formatMetricValue(undefined, 3)).toBe("3");
     expect(spy).toHaveBeenCalledTimes(2);
   });
+
+  /**
+   * ONCE PER UNIT, NOT ONCE PER CELL. This ran inside the table's row map, so
+   * a single unwired unit shouted twice per row (plan and actual) on EVERY
+   * render — the seed's unlevered table is 528 rows, i.e. a thousand identical
+   * lines per paint, which buries the very message it exists to deliver along
+   * with every other log the demo is producing. The gap is stated once and
+   * then remembered.
+   *
+   * Each test in this describe uses a unit name of its own, because the set of
+   * already-reported units is module-level and lives for the process.
+   */
+  it("shouts once per unknown unit, however many values carry it", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(formatMetricValue("parsecs" as never, 1)).toBe("1");
+    expect(formatMetricValue("parsecs" as never, 2)).toBe("2");
+    expect(formatMetricValue("parsecs" as never, 3)).toBe("3");
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0][0])).toContain("parsecs");
+  });
 });
 
 /**
@@ -545,10 +602,312 @@ describe("explorerReadableRows", () => {
   });
 });
 
+/**
+ * THE TRIM, THE OTHER LEVER. `normalizePeriodLever`'s own header calls a
+ * trim that never reached the return value a past defect — and its sibling
+ * here had no trim at all, so `?department=%20distribution` (a copied link, a
+ * hand-typed URL, an agent that padded its argument) failed the membership
+ * test, resolved to `null`, and narrowed NOTHING while the operator was
+ * looking at a department in the address bar. Unusable-narrows-nothing is the
+ * right rule for a department that does not exist; a padded one exists.
+ */
+describe("normalizeDepartmentLever", () => {
+  it("passes a known department straight through", () => {
+    expect(normalizeDepartmentLever("distribution")).toBe("distribution");
+    expect(normalizeDepartmentLever("all")).toBe("all");
+  });
+
+  it("returns the TRIMMED department, not the padded raw", () => {
+    expect(normalizeDepartmentLever(" distribution")).toBe("distribution");
+    expect(normalizeDepartmentLever("corporate ")).toBe("corporate");
+    expect(normalizeDepartmentLever("\tfield-services\n")).toBe(
+      "field-services",
+    );
+  });
+
+  it("treats an unrecognised value, the 'any' sentinel and a blank as absent", () => {
+    expect(normalizeDepartmentLever("not-a-department")).toBeNull();
+    expect(normalizeDepartmentLever("any")).toBeNull();
+    expect(normalizeDepartmentLever("  ")).toBeNull();
+    expect(normalizeDepartmentLever(null)).toBeNull();
+    expect(normalizeDepartmentLever(undefined)).toBeNull();
+  });
+});
+
+/**
+ * THE `metric` LEVER — the one the CEO dashboard's exception cards drill in
+ * with. Each card names a metric AND a department ("Opex · Distribution"), but
+ * the drill-in carried only the department, so clicking it landed the reader on
+ * every metric that department has, with no trace of the row they clicked. The
+ * lever follows this module's one rule: a metric this snapshot has no def for
+ * narrows NOTHING rather than emptying the table.
+ */
+describe("normalizeMetricLever", () => {
+  const KNOWN = new Set(["opex", "revenue"]);
+
+  it("passes a known metric straight through, trimmed", () => {
+    expect(normalizeMetricLever("opex", KNOWN)).toBe("opex");
+    expect(normalizeMetricLever("  revenue  ", KNOWN)).toBe("revenue");
+  });
+
+  it("treats an unknown metric, the 'any' sentinel and a blank as absent", () => {
+    expect(normalizeMetricLever("not-a-metric", KNOWN)).toBeNull();
+    expect(normalizeMetricLever("any", KNOWN)).toBeNull();
+    expect(normalizeMetricLever("ANY", KNOWN)).toBeNull();
+    expect(normalizeMetricLever("", KNOWN)).toBeNull();
+    expect(normalizeMetricLever(null, KNOWN)).toBeNull();
+    expect(normalizeMetricLever(undefined, KNOWN)).toBeNull();
+  });
+});
+
+describe("filterMetricRows — the metric lever", () => {
+  it("narrows to the named metric only", () => {
+    const snapshot = buildSnapshot();
+    const rows = filterMetricRows(new URLSearchParams("metric=opex"), snapshot);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].metricId).toBe("opex");
+  });
+
+  it("composes with the department lever", () => {
+    const snapshot = buildSnapshot();
+    const rows = filterMetricRows(
+      new URLSearchParams("metric=revenue&department=manufacturing"),
+      snapshot,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].department).toBe("manufacturing");
+  });
+
+  it("narrows nothing when the metric is unknown to this snapshot", () => {
+    const snapshot = buildSnapshot();
+    expect(
+      filterMetricRows(new URLSearchParams("metric=not-a-metric"), snapshot),
+    ).toHaveLength(snapshot.points.length);
+  });
+
+  it("honours a PADDED metric as that metric rather than as nothing", () => {
+    const snapshot = buildSnapshot();
+    const rows = filterMetricRows(
+      new URLSearchParams("metric=%20opex"),
+      snapshot,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].metricId).toBe("opex");
+  });
+});
+
+/**
+ * FAIL LOUD ON A DEF-LESS POINT. A point whose metric has no def is genuinely
+ * unrenderable — no label, no threshold to breach against — so dropping it is
+ * right. Dropping it in SILENCE is not: the table then shows a row count
+ * nothing on the ledger explains, and the seed carries 500-odd points, so a
+ * def deleted in a refactor takes 24 rows off the screen with no trace
+ * anywhere. The drop is announced once per metric id.
+ */
+describe("filterMetricRows — a def-less point is dropped LOUDLY", () => {
+  it("shouts the metric id it dropped", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const snapshot = buildSnapshot();
+    snapshot.points.push(point("orphanRows" as MetricId, "corporate", 100, 90));
+
+    const rows = filterMetricRows(new URLSearchParams(), snapshot);
+
+    expect(rows.some((r) => r.metricId === ("orphanRows" as MetricId))).toBe(
+      false,
+    );
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0][0])).toContain("orphanRows");
+  });
+
+  it("shouts ONCE per metric id, not once per point", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const snapshot = buildSnapshot();
+    for (const period of ["2024-04", "2024-05", "2024-06"]) {
+      snapshot.points.push(
+        point("orphanOnce" as MetricId, "corporate", 100, 90, period),
+      );
+    }
+
+    filterMetricRows(new URLSearchParams(), snapshot);
+    filterMetricRows(new URLSearchParams(), snapshot);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * THE READABLE IS BOUNDED, AND SAYS SO.
+ *
+ * The unlevered Metrics Explorer renders every point the ledger carries — the
+ * real seed is 528 of them — and the readable published all of them, JSON, on
+ * EVERY turn: ~100KB of context for a page whose interesting content is the
+ * lever state and the top of the table. Commerce's `orders.tsx` publishes its
+ * `visible` rows unbounded because its whole book is ~28 orders; that is the
+ * precedent, and it does not survive a 528-row table.
+ *
+ * The cap is honest rather than silent: `showingCount` still reports what is
+ * on screen, and `rowsTruncated` says the `rows` array is a prefix of it. A
+ * readable that quietly published 25 rows while the screen showed 528 would be
+ * the same lie as one that published a filtered count for an unfiltered view.
+ */
+describe("explorerReadableValue", () => {
+  const NO_LEVERS = {
+    period: null,
+    department: null,
+    metric: null,
+    breachesOnly: false,
+    top: null,
+  };
+
+  /** `n` synthetic rows — more than the cap, to exercise the truncation. */
+  function manyRows(n: number): ReturnType<typeof filterMetricRows> {
+    const snapshot = buildSnapshot();
+    snapshot.points = Array.from({ length: n }, (_, i) =>
+      point("opex", "corporate", 100, 100 + i, `20${10 + (i % 80)}-06`),
+    );
+    return filterMetricRows(new URLSearchParams(), snapshot);
+  }
+
+  it("bounds the published rows for an unlevered page while reporting the real on-screen count", () => {
+    const rows = manyRows(READABLE_ROW_LIMIT + 40);
+    const value = explorerReadableValue(NO_LEVERS, rows, rows);
+
+    expect(rows.length).toBeGreaterThan(READABLE_ROW_LIMIT);
+    expect(value.rows.length).toBe(READABLE_ROW_LIMIT);
+    expect(value.showingCount).toBe(rows.length);
+    expect(value.matchingCount).toBe(rows.length);
+    expect(value.rowsTruncated).toBe(true);
+  });
+
+  it("publishes the whole set, untruncated, once the levers bring it under the cap", () => {
+    const rows = manyRows(4);
+    const value = explorerReadableValue(NO_LEVERS, rows, rows);
+
+    expect(value.rows.length).toBe(4);
+    expect(value.rowsTruncated).toBe(false);
+  });
+
+  it("publishes the rows in the order the table shows them", () => {
+    const rows = manyRows(READABLE_ROW_LIMIT + 5);
+    const value = explorerReadableValue(NO_LEVERS, rows, rows);
+
+    expect(value.rows.map((r) => r.period)).toEqual(
+      rows.slice(0, READABLE_ROW_LIMIT).map((r) => r.period),
+    );
+  });
+
+  it("names exactly the levers that are set", () => {
+    const rows = manyRows(2);
+    expect(explorerReadableValue(NO_LEVERS, rows, rows).activeLevers).toEqual(
+      [],
+    );
+    expect(
+      explorerReadableValue(
+        {
+          period: "2024-06",
+          department: "all",
+          metric: "opex" as MetricId,
+          breachesOnly: true,
+          top: 5,
+        },
+        rows,
+        rows,
+      ).activeLevers,
+    ).toEqual(["period", "department", "metric", "threshold", "top"]);
+  });
+});
+
+/**
+ * THE PAGE ITSELF — the three things only a mounted render can show: which
+ * history entry a lever push writes, whether the toggle announces its own
+ * state, and whether the `top` select claims a provenance it cannot know.
+ */
+describe("MetricsExplorerPage", () => {
+  function renderAt(search: string) {
+    cleanup();
+    routerCalls.length = 0;
+    query.value = search;
+    ledgerSnapshot.value = buildSnapshot();
+    render(<MetricsExplorerPage />);
+  }
+
+  afterEach(() => cleanup());
+
+  /**
+   * A LEVER PUSH REPLACES, IT DOES NOT STACK. Every control on this page
+   * writes the same four-plus-one levers back into the query string of the
+   * page already on screen. With `router.push` each click left a history
+   * entry, so a presenter who set three levers had to press Back three times
+   * to leave the Metrics Explorer — and the agent's own `navigateTo` sequences
+   * buried the previous page under a pile of near-identical URLs.
+   */
+  it("replaces the history entry on a lever write rather than pushing a new one", () => {
+    renderAt("");
+    fireEvent.click(screen.getByRole("button", { name: "Breaches only" }));
+
+    expect(routerCalls).toHaveLength(1);
+    expect(routerCalls[0].method).toBe("replace");
+    expect(routerCalls[0].href).toContain("threshold=1");
+  });
+
+  /**
+   * THE TOGGLE SAYS WHETHER IT IS ON. "Breaches only" is a `<button>` that
+   * tints when active, which is invisible to a screen reader and to any test
+   * that is not sampling class names. `aria-pressed` is the toggle's actual
+   * state, in the accessibility tree.
+   */
+  it("announces the breaches-only toggle's state with aria-pressed", () => {
+    renderAt("");
+    expect(
+      screen
+        .getByRole("button", { name: "Breaches only" })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+
+    renderAt("threshold=1");
+    expect(
+      screen
+        .getByRole("button", { name: "Breaches only" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  /**
+   * NO PROVENANCE THIS PAGE CANNOT KNOW. An off-vocabulary `top` was labelled
+   * "7 (from chat)", but the query string carries no author: `?top=7` typed
+   * into the address bar, arriving on a shared link, or set by the agent are
+   * the same URL. The option says what it is worth, and nothing about where it
+   * came from.
+   */
+  it("labels an off-vocabulary top without claiming the agent set it", () => {
+    renderAt("top=7");
+    const option = screen.getByRole("option", {
+      name: /7/,
+    }) as HTMLOptionElement;
+    expect(option.value).toBe("7");
+    expect(document.body.textContent).not.toContain("from chat");
+  });
+
+  /**
+   * THE `metric` LEVER IS ON SCREEN. A lever that narrows the table without a
+   * control showing it is a filtered view the reader cannot account for — the
+   * exact failure the department `<select>`'s own comment describes.
+   */
+  it("shows the active metric lever in its own control", () => {
+    renderAt("metric=opex");
+    const select = screen.getByRole("combobox", {
+      name: "Metric",
+    }) as HTMLSelectElement;
+    expect(select.value).toBe("opex");
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(1);
+  });
+});
+
 describe("nextLeverSearchParams", () => {
   const CURRENT = {
     period: null as string | null,
     department: null as "manufacturing" | "all" | null,
+    metric: null as MetricId | null,
     threshold: false,
     top: null as number | null,
   };
@@ -654,5 +1013,22 @@ describe("nextLeverSearchParams", () => {
       threshold: true,
     });
     expect(next.get("threshold")).toBe("1");
+  });
+
+  it("restates the VALIDATED metric on a push that doesn't touch it, and clears it on an explicit null", () => {
+    const base = new URLSearchParams("metric=not-a-metric");
+    const kept = nextLeverSearchParams(
+      base,
+      { ...CURRENT, metric: "opex" as MetricId },
+      { threshold: true },
+    );
+    expect(kept.get("metric")).toBe("opex");
+
+    const cleared = nextLeverSearchParams(
+      base,
+      { ...CURRENT, metric: "opex" as MetricId },
+      { metric: null },
+    );
+    expect(cleared.get("metric")).toBeNull();
   });
 });

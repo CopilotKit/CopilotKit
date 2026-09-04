@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import * as store from "../data/store";
-import { ExceptionFeedStrip, visibleExceptions } from "./ceo-dashboard";
+import {
+  ExceptionFeedStrip,
+  ceoReadableExceptions,
+  visibleExceptions,
+} from "./ceo-dashboard";
 import type { VisibleException } from "./ceo-dashboard";
 
 /**
@@ -94,7 +98,7 @@ describe("ExceptionFeedStrip", () => {
    * resolves it too. A card that linked to a bare `metrics` would land the CEO
    * on an unfiltered 14-metric table with no trace of the row they clicked.
    */
-  it("drills into the Metrics Explorer with the card's own department, period and threshold filter", () => {
+  it("drills into the Metrics Explorer with the card's own metric, department, period and threshold filter", () => {
     render(
       <ExceptionFeedStrip
         exceptions={[OVER_PLAN_BREACH, UNDER_PLAN_BREACH]}
@@ -104,10 +108,67 @@ describe("ExceptionFeedStrip", () => {
 
     const [opex, dso] = screen.getAllByRole("link");
     expect(opex.getAttribute("href")).toBe(
-      "/base/metrics?department=distribution&period=2024-06&threshold=1",
+      "/base/metrics?department=distribution&period=2024-06&threshold=1&metric=opex",
     );
     expect(dso.getAttribute("href")).toBe(
-      "/base/metrics?department=all&period=2024-06&threshold=1",
+      "/base/metrics?department=all&period=2024-06&threshold=1&metric=dsoDays",
+    );
+  });
+});
+
+/**
+ * THE READABLE SAYS WHAT THE CARD SAYS.
+ *
+ * The strip renders `formatVariance(variancePct)` — "+12.0%" — while the
+ * readable published the bare `0.12` fraction, so an assistant asked to read
+ * the exception feed out loud said "zero point one two". That is the rule
+ * keel's `deriveRegisterKpiTiles` states and the sibling Metrics Explorer
+ * readable already follows (`explorerReadableRows`, `./metrics-explorer.tsx`):
+ * the raw number stays for comparison, with the ON-SCREEN string beside it,
+ * through the same formatter the card uses.
+ *
+ * And a metric planned at zero divides by zero (`variancePct`, `../data/derive`),
+ * giving `Infinity` or `NaN` — neither of which JSON can hold. `JSON.stringify`
+ * turns both into `null`, so the readable told the agent the variance was
+ * unknown while the card on screen plainly read "— n/a". The raw field is
+ * nulled DELIBERATELY here and the display string carries the answer.
+ */
+describe("ceoReadableExceptions", () => {
+  it("emits the on-screen variance string beside the raw fraction", () => {
+    const [row] = ceoReadableExceptions([OVER_PLAN_BREACH]);
+    expect(row.variancePct).toBe(0.12);
+    expect(row.varianceDisplay).toBe("+12.0%");
+  });
+
+  it("emits the same 'n/a' the card shows for a non-finite variance", () => {
+    const [infinite] = ceoReadableExceptions([
+      { ...OVER_PLAN_BREACH, variancePct: Infinity },
+    ]);
+    expect(infinite.variancePct).toBeNull();
+    expect(infinite.varianceDisplay).toBe("— n/a");
+
+    const [notANumber] = ceoReadableExceptions([
+      { ...OVER_PLAN_BREACH, variancePct: NaN },
+    ]);
+    expect(notANumber.variancePct).toBeNull();
+    expect(notANumber.varianceDisplay).toBe("— n/a");
+  });
+
+  it("survives a JSON round trip with the display string intact", () => {
+    const round = JSON.parse(
+      JSON.stringify(
+        ceoReadableExceptions([{ ...OVER_PLAN_BREACH, variancePct: NaN }]),
+      ),
+    ) as { variancePct: number | null; varianceDisplay: string }[];
+    expect(round[0].varianceDisplay).toBe("— n/a");
+  });
+
+  it("names the department the way the card does", () => {
+    expect(ceoReadableExceptions([OVER_PLAN_BREACH])[0].department).toBe(
+      "Distribution",
+    );
+    expect(ceoReadableExceptions([UNDER_PLAN_BREACH])[0].department).toBe(
+      "Company-wide",
     );
   });
 });
@@ -165,6 +226,7 @@ describe("visibleExceptions", () => {
    * threshold it can be said to have breached.
    */
   it("drops an exception whose metric has no def on the ledger", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const snapshot = store.snapshot();
     const rows = visibleExceptions({
       exceptions: snapshot.exceptions,
@@ -173,5 +235,29 @@ describe("visibleExceptions", () => {
 
     expect(rows.some((row) => row.metricId === "opex")).toBe(false);
     expect(rows.length).toBe(snapshot.exceptions.length - 1);
+    spy.mockRestore();
+  });
+
+  /**
+   * AND IT SAYS SO. The drop is correct — without a def there is no label to
+   * print and no threshold the row can be said to have breached — but a SILENT
+   * drop takes a breach off the CEO's exception feed with no trace anywhere,
+   * on the one screen whose job is to show every breach. The metric id is
+   * named, once, so the gap is findable.
+   */
+  it("shouts the metric id of the exception it dropped", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const snapshot = store.snapshot();
+
+    visibleExceptions({
+      exceptions: [
+        { ...snapshot.exceptions[0], metricId: "orphanException" as never },
+      ],
+      metricDefs: snapshot.metricDefs,
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0][0])).toContain("orphanException");
+    spy.mockRestore();
   });
 });

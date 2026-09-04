@@ -37,7 +37,13 @@ export function CfoDashboardPage() {
       "in order, and whether this dashboard's board pack has been " +
       "published yet.",
     value: JSON.stringify({
-      page: "cfo",
+      // "finance", not "cfo": the nav rail's segment for this page (`../nav`)
+      // and the value `navigateTo`'s own `segment` enum takes (`../tools.tsx`,
+      // ~line 1365). The readable's `page` is the model's handle on where it
+      // is, and it is the string it must hand back to navigate here — naming
+      // it with a word the navigation vocabulary does not contain makes the
+      // round trip fail on a page that looks correctly described.
+      page: "finance",
       pinnedBlocks: dashboard.blocks.map((block) => ({
         id: block.id,
         title: block.spec.title,
