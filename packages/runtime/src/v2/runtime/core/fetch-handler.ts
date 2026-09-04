@@ -386,13 +386,11 @@ export function createCopilotRuntimeHandler(
         request = resolved.request;
         handlerPath = resolved.path;
         const { methodCall } = resolved;
-        // Match multi-route's secure memory gate: hidden routes must return a
-        // uniform 404 before route-aware hooks can observe them.
-        if (
-          route.method.startsWith("memories/") &&
-          runtime.exposeMemoryRoutes !== true
-        ) {
-          throw jsonResponse({ error: "Not found" }, 404);
+        if (methodCall.method === "resource/request") {
+          const methodError = validateHttpMethod(request.method, route);
+          if (methodError) {
+            throw methodError;
+          }
         }
         // 5. onBeforeHandler hook
         request = await runOnBeforeHandler(hooks, {
@@ -800,13 +798,6 @@ async function resolveSingleRoute(
         !memoryRoutesExposed
       ) {
         throw jsonResponse({ error: "Not found" }, 404);
-      }
-      const methodError = validateHttpMethod(
-        resourceRequest.method,
-        resourceRoute,
-      );
-      if (methodError) {
-        throw methodError;
       }
       return {
         route: resourceRoute,

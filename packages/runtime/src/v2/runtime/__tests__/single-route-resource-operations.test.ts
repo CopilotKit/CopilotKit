@@ -2,7 +2,11 @@ import { expect, test, vi } from "vitest";
 
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import type { HandlerHookContext, RouteInfo } from "../core/hooks";
+import type {
+  HandlerHookContext,
+  ResponseHookContext,
+  RouteInfo,
+} from "../core/hooks";
 import { CopilotRuntime } from "../core/runtime";
 
 /** Builds an Intelligence runtime whose thread-list dependency is observable. */
@@ -332,12 +336,14 @@ test("single-route resource requests reject unsafe paths and non-resource routes
 });
 
 test("single-route resource requests preserve REST method errors", async () => {
+  const onResponse = vi.fn(({ response }: ResponseHookContext) => response);
   const runtime = new CopilotRuntime({ agents: {} });
   const handler = createCopilotRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
     activateChannels: false,
+    hooks: { onResponse },
   });
 
   const response = await handler(
@@ -350,6 +356,12 @@ test("single-route resource requests preserve REST method errors", async () => {
 
   expect(response.status).toBe(405);
   expect(response.headers.get("allow")).toBe("GET");
+  expect(onResponse).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: "/api/copilotkit/threads/thread-1/messages",
+      route: { method: "threads/messages", threadId: "thread-1" },
+    }),
+  );
 });
 
 test("single-route resource errors report the matched resource path", async () => {
