@@ -4,7 +4,7 @@ import {
   CopilotChatView,
   CopilotKitProvider,
 } from "@copilotkit/react-core/v2";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 const meta = {
   title: "UI/CopilotChatView",
@@ -123,6 +123,33 @@ export const WithSuggestions: Story = {
   ),
 };
 
+export const VariableHeightVirtualizedMessages: Story = {
+  parameters: {
+    layout: "fullscreen",
+    docs: {
+      description: {
+        story:
+          "A virtualized conversation with strongly varying message heights. Scroll upward through the long code blocks to check for position jumps.",
+      },
+    },
+  },
+  decorators: Default.decorators,
+  render: () => (
+    <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
+      <CopilotChatConfigurationProvider threadId="storybook-variable-heights">
+        <div style={{ height: "100%" }}>
+          <CopilotChatView
+            messages={variableHeightMessages}
+            onSubmitMessage={(value) => {
+              alert(`Message submitted: ${value}`);
+            }}
+          />
+        </div>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
+  ),
+};
+
 const suggestionSamples: Suggestion[] = [
   {
     title: "Summarize conversation",
@@ -198,6 +225,25 @@ In this example:
     role: "assistant" as const,
   },
 ];
+
+const variableHeightMessages = Array.from({ length: 80 }, (_, index) => {
+  const isUser = index % 2 === 0;
+  const includesLongCode = index % 10 === 1;
+  const role = isUser ? ("user" as const) : ("assistant" as const);
+  const code = Array.from(
+    { length: 30 },
+    (__, line) => `const result${line} = await runStep(${line});`,
+  ).join("\n");
+
+  return {
+    id: `variable-height-${index}`,
+    role,
+    timestamp: new Date(),
+    content: includesLongCode
+      ? `Here is the complete implementation for turn ${index}:\n\n\`\`\`ts\n${code}\n\`\`\`\n\nThe important part is that every step remains observable.`
+      : `${isUser ? "Question" : "Short answer"} ${index}`,
+  };
+});
 
 // Enough back-and-forth to force scrolling so the feather region above the
 // input is clearly visible in pin-to-send mode.

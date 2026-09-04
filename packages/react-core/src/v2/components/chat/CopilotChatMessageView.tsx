@@ -423,6 +423,27 @@ export type CopilotChatMessageViewProps = Omit<
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
 
+/**
+ * Keep the visible content anchored when an item above the viewport is
+ * remeasured, but never correct the scroll position for an item that is still
+ * visible or below it. This is especially important while scrolling upward:
+ * an item entering from the top is only partly above the viewport, and applying
+ * its entire height delta would yank it away from the pointer.
+ *
+ * TanStack Virtual's default boundary includes its accumulated measurement
+ * adjustments. With messages whose measured heights differ significantly from
+ * the estimate, that boundary can move into the viewport during one observer
+ * batch and trigger additional scroll corrections for later items.
+ *
+ * @internal Exported for unit testing only — not part of the public API.
+ */
+export function shouldAdjustScrollForMeasuredItem(
+  item: { start: number; end: number },
+  scrollOffset: number | null,
+): boolean {
+  return scrollOffset !== null && item.end <= scrollOffset;
+}
+
 export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
@@ -601,6 +622,15 @@ export function CopilotChatMessageView({
     // the first virtual render shows ~6 items rather than 0.
     initialRect: { width: 0, height: 600 },
   });
+
+  // This hook option is not exposed by @tanstack/react-virtual's public option
+  // type yet, but the returned Virtualizer exposes the callback as a public
+  // property specifically for overriding its scroll-correction policy.
+  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = (
+    item,
+    _delta,
+    instance,
+  ) => shouldAdjustScrollForMeasuredItem(item, instance.scrollOffset);
 
   // Scroll to the bottom when virtual mode first activates or the thread changes
   // (detected by the first message ID changing). For streaming new messages,
