@@ -444,9 +444,13 @@ Three mechanics worth copying verbatim:
   - **The `[attach:<cause>]` prefix on the `console.error` line is load-bearing,
     not decoration.** `attachByHand` and `sendMessageWithAttachment` return bare
     booleans, so the tagged log line is the ONLY place a send-path cause is
-    observable; the test helper parses it with
-    `/^\[attach:([a-z-]+)]\s+([\s\S]*)$/`, and seventeen cases across ten blocks
-    depend on it. Tidying the tag out of the message silently blinds all of them.
+    observable. Exactly one helper parses it —
+    `reportedFailure()` in `src/shell/attach/stage-attachment.test.ts:441`, with
+    `/^\[attach:([a-z-]+)]\s+([\s\S]*)$/` — and every tagged-failure assertion in
+    that file goes through it, directly or via the `observedReport()` wrapper
+    beneath it. The `describe("the failure contract")` block at the end of the
+    file then counts what those assertions recorded, so it fails too. Tidying the
+    tag out of the message silently blinds all of them at once.
   - **Both entry points take an optional `Beat3dTimings`** (`acceptMs`, `readyMs`,
     `sendableMs`, `consumedMs`, `pollMs`), so a test can force a budget to expire
     deterministically instead of sleeping a production budget. Your skin's own
@@ -852,10 +856,12 @@ instead, because a set rots and a command does not.
 
 > **Generating a PDF? Do NOT write the bytes — call `@/shell/documents`.**
 > `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct
-> xref, and your file supplies CONTENT only. Both shipped builders
-> (`commerce/data/price-sheet-pdf.ts`, `people/data/offer-letter-pdf.ts`,
-> `logistics/data/rate-sheet-pdf.ts`) are nothing but content, and they are
-> the shape to copy.
+> xref, and your file supplies CONTENT only. Every shipped builder is nothing but
+> content, and they are the shape to copy — derive the set rather than trusting a
+> list here: `ls src/skins/*/data/*-pdf.ts` returns all of them (airline's hotel
+> confirmation, commerce's price sheet, exec's budget memo, keel's bulletin,
+> logistics' rate sheet and people's offer letter today).
+> `people/data/offer-letter-pdf.ts` is the smallest one to read first.
 >
 > The three traps below are FIXED IN THE PRIMITIVE, so you inherit all three. They
 > are still written down, because each produces a VALID PDF that is wrong on screen

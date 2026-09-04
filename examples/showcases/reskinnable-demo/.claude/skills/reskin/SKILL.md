@@ -151,9 +151,24 @@ the `A2UI_RENDERERS` array so the reference stays stable across renders —
 `CopilotKitProvider` requires that) reads an `a2ui-surface` activity's
 `content.a2ui_operations`, walks it for the first
 `createSurface`/`updateComponents`/`updateDataModel` surface id, and checks
-whether that id starts with `block:`. A match renders
-`InlineBlockSurface` (`src/shell/chat/inline-block-surface.tsx`) right where
-the activity message appears. **That card mounts its OWN `<A2UIProvider>` per
+whether that id starts with `block:` (`blockSurfaceIdFrom`,
+`src/shell/chat/inline-block-surface.tsx`). A match renders
+`InlineBlockSurface` right where the activity message appears.
+
+The canvas asks the same question a different way, and the difference matters if
+you mint ids. `classifyA2uiSurface`'s `claimOf`
+(`src/shell/canvas/canvas-context.tsx:61-78`) scans EVERY op rather than
+stopping at the first one carrying a surfaceId, because a surfaceId can arrive
+on any of `createSurface`/`updateComponents`/`updateDataModel` and a snapshot's
+leading op is routinely something else. It returns "canvas" the moment it sees a
+non-`block:` id, "inline-block" if it saw only `block:` ids, and
+"unclassifiable" otherwise — biased against the canvas on purpose, since
+claiming the canvas for content no `CanvasSurface` can read blanks the page. So
+a mixed op list (one `block:` surface plus one report surface) reads as a canvas
+claim there while the chat's first-id walk may still render it inline. Keep one
+surface per activity and the two agree, which is what exec does.
+
+**That card mounts its OWN `<A2UIProvider>` per
 rendered activity, and must:** there is no ambient a2ui store on this path.
 `CopilotKitProvider`'s `a2ui.catalog` prop mounts no provider — the only thing
 that would is the built-in `a2ui-surface` renderer's `ReactSurfaceHost`, and the
@@ -166,13 +181,18 @@ The catalog comes from `useSkin().catalog` — the same object the layout hands
 from `src/skins/`. Anything else — including a `CanvasSurface` report like banking's
 `render_report` or logistics' `renderBrief` — still falls back to
 `ReportHandoffPill`; this convention adds a second inline path, it does not
-change the existing one. Because the shell must not import from
-`src/skins/`, the `block:` spelling is duplicated by hand: the shell's copy is
-`BLOCK_SURFACE_PREFIX` in `inline-block-surface.tsx`, and a skin that wants
-the inline path mints its own surface ids from its OWN copy of that exact
-string — `src/skins/exec/blocks/build-block-ops.ts`'s `BLOCK_SURFACE_PREFIX`
-is the worked example. Nothing checks the two stay in sync; grep the shell's
-copy before you pick your own spelling.
+change the existing one. Because the shell must not import from `src/skins/` —
+and the canvas must not depend on the chat's renderer — the `block:` spelling is
+duplicated by hand in THREE places, all spelled `BLOCK_SURFACE_PREFIX`:
+`src/skins/exec/blocks/build-block-ops.ts:22` (the write side, the worked
+example a skin copies to mint its own ids),
+`src/shell/chat/inline-block-surface.tsx:21` (the chat's read side) and
+`src/shell/canvas/canvas-context.tsx:36` (the classifier above).
+Two of the three ARE checked: the drift
+guard in `src/skins/exec/blocks/build-block-ops.test.ts:46-61` runs freshly
+minted ops through the shell's own reader, so the write side and the chat side
+cannot drift apart silently. The canvas copy is the unguarded one. Grep all
+three before you pick your own spelling.
 
 **A `sandboxFunction`'s `parameters` schema is DOCUMENTATION, not a gate — and its
 returns are undocumented unless the `description` says so.** Two traps, both of
@@ -398,7 +418,7 @@ process.env.NODE_ENV !== "production"` (mirror
 
 ## Registering tools: deps, render signatures, replay safety, readables
 
-Five rules that the `tools.tsx` template bakes in; miss any and the failure is
+Six rules that the `tools.tsx` template bakes in; miss any and the failure is
 silent.
 
 - **Every `useComponent` / `useFrontendTool` / `useHumanInTheLoop` /
@@ -710,11 +730,13 @@ never type-checks a test file, and Vitest transpiles without type-checking at al
 
 ---
 
-## Registration (four shared-file touches)
+## Registration (six appends across four shared files)
 
-Five appends. The first two are keyed by the identical `id`; the third teaches the
-lint guard that your id exists; the last two are the hand-copied config in
-`src/shell/skins-config.ts` that server components read. All five are REQUIRED.
+Steps 1–5 are REQUIRED; step 6 changes the `/` redirect and is optional. They
+land in four files, because 4, 5 and 6 are all in `src/shell/skins-config.ts`:
+`registry.ts`, `agent-registry.ts`, `eslint.config.mjs`, `skins-config.ts`. The
+first two are keyed by the identical `id`; the third teaches the lint guard that
+your id exists; the rest are the hand-copied config that server components read.
 
 **1. Client skin** — `src/shell/registry.ts`:
 
