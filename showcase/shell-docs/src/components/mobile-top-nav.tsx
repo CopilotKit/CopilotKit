@@ -59,7 +59,7 @@ export function MobileTopNav() {
             Docs
           </span>
         </Link>
-        <PrimaryDocsTabs className="shell-docs-mobile-tabs" />
+        <PrimaryDocsTabs exploreMenu className="shell-docs-mobile-tabs" />
         <div className="shell-docs-mobile-actions">
           <DocsPublicAuthControl
             fallback={

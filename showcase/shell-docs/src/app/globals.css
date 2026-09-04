@@ -35,6 +35,9 @@
   --shell-docs-layout-width: calc(97rem + 11px);
   --shell-docs-grid-gutter: 0px;
   --shell-docs-grid-top-offset: 0px;
+  --docs-reading-width: 42.5rem;
+  --docs-breakout-width: 51.25rem;
+  --docs-content-gutter: 1rem;
   --radius: 0.875rem;
   --shell-docs-radius: var(--radius);
   --shell-docs-radius-control: var(--radius);
@@ -45,7 +48,7 @@
   --shadow-modal:
     0 24px 70px rgba(1, 5, 7, 0.22), 0 0 0 1px rgba(109, 69, 249, 0.05);
   --overlay-backdrop: rgba(1, 5, 7, 0.25);
-  --accent-strong: color-mix(in oklch, var(--accent) 88%, black);
+  --accent-strong: color-mix(in oklch, var(--accent-fill) 88%, black);
   --nav-control-border: color-mix(in srgb, var(--accent) 24%, var(--border));
   --nav-control-border-hover: color-mix(
     in srgb,
@@ -71,6 +74,7 @@
       0px,
       calc((100% - var(--shell-docs-layout-width)) / 2)
     );
+    --docs-content-gutter: 2.5rem;
   }
 }
 
@@ -181,17 +185,36 @@
 
 .shell-docs-mobile-sidebar-tabs {
   display: flex;
-  width: 100%;
+  position: absolute;
+  top: 1rem;
+  right: 3.5rem;
+  left: 1rem;
+  width: auto;
   min-width: 0;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.125rem;
   overflow-x: auto;
-  padding-bottom: 0.75rem;
+  padding-bottom: 0;
   scrollbar-width: none;
 }
 
 .shell-docs-mobile-sidebar-tabs .shell-docs-primary-tab {
-  flex: 1 0 max-content;
+  height: 1.75rem;
+  flex: 1 1 0;
+  min-width: max-content;
+  gap: 0.1875rem;
+  padding: 0 0.25rem;
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+.shell-docs-mobile-sidebar-tabs .shell-docs-primary-tab svg {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+#nd-sidebar-mobile > div:first-child {
+  position: relative;
 }
 
 @media (min-width: 768px) {
@@ -314,6 +337,95 @@
   color: var(--accent);
 }
 
+.shell-docs-mega-menu {
+  padding: 1.25rem 1.5rem;
+}
+
+.shell-docs-mega-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1.25rem 1.5rem;
+}
+
+.shell-docs-mega-menu-heading {
+  margin: 0 0 0.75rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shell-docs-mega-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell-docs-mega-menu-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--shell-docs-radius-control);
+  color: var(--text);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.shell-docs-mega-menu-link:hover,
+.shell-docs-mega-menu-link:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured {
+  align-items: center;
+  background: var(--accent-fill);
+  color: #fff;
+  border: 1px solid transparent;
+}
+
+.shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured
+  .shell-docs-mega-menu-icon {
+  margin-top: 0;
+  color: #fff;
+}
+
+.shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured:hover,
+.shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured:focus-visible {
+  background: var(--accent-strong);
+  color: #fff;
+}
+
+.shell-docs-mega-menu-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+@media (max-width: 1279px) {
+  .shell-docs-mega-menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: min(70vh, 32rem);
+    overflow: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-docs-mega-menu-link {
+    transition: none;
+  }
+}
+
 .shell-docs-warning-surface {
   border-color: var(--warning-border);
   border-left-color: var(--warning);
@@ -353,27 +465,31 @@
 }
 
 .shell-docs-cta-stripe {
-  background: var(--accent);
+  background: var(--accent-fill);
 }
 
 .shell-docs-course-banner {
   background: linear-gradient(
     90deg,
-    color-mix(in oklch, var(--accent) 78%, black) 0%,
-    var(--accent) 52%,
-    color-mix(in oklch, var(--accent) 90%, white) 100%
+    color-mix(in oklch, var(--accent-fill) 78%, black) 0%,
+    var(--accent-fill) 52%,
+    color-mix(in oklch, var(--accent-fill) 90%, white) 100%
   ) !important;
-  border-color: color-mix(in oklch, var(--accent) 70%, white) !important;
+  border-color: color-mix(in oklch, var(--accent-fill) 70%, white) !important;
 }
 
 .dark .shell-docs-course-banner {
   background: linear-gradient(
     90deg,
-    color-mix(in oklch, var(--accent) 72%, black) 0%,
-    color-mix(in oklch, var(--accent) 86%, black) 52%,
-    var(--accent) 100%
+    color-mix(in oklch, var(--accent-fill) 72%, black) 0%,
+    color-mix(in oklch, var(--accent-fill) 86%, black) 52%,
+    var(--accent-fill) 100%
   ) !important;
-  border-color: color-mix(in oklch, var(--accent) 62%, transparent) !important;
+  border-color: color-mix(
+    in oklch,
+    var(--accent-fill) 62%,
+    transparent
+  ) !important;
 }
 
 #shell-docs-course-banner > button {
@@ -569,23 +685,26 @@
   color: var(--accent) !important;
 }
 
-/* First separator at the top of the sidebar — Fumadocs v16 emits the
- * separator `<p>` with `first:mt-0`, which is correct for shell-docs
- * because the picker wrapper owns the top-to-first-section gap. Keep this at
- * zero so the picker-to-"Getting Started" space does not double up with
- * the scroll viewport's padding. Selector matches the section-header
- * `<p>` shape (`inline-flex items-center gap-2 ...`) since v16 dropped
- * the older `sidebar-item-offset` class fragment. */
-.shell-docs-sidebar p.inline-flex.gap-2:first-of-type {
-  margin-top: 0 !important;
+/* Static top-level section labels follow the compact purple hierarchy in the
+ * sidebar map. Topic rows below them keep Fumadocs' normal black link/folder
+ * treatment and indentation. */
+.shell-docs-sidebar p.inline-flex.gap-2 {
+  margin-top: 1.25rem !important;
+  margin-bottom: 0.375rem !important;
+  padding: 0 0.5rem !important;
+  color: var(--accent) !important;
+  font-family: inherit !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
 }
 
-/* Section-header icons — accent purple. The lucide icons use
- * `stroke="currentColor"` so setting `color` recolors the stroke. */
-.shell-docs-sidebar p.inline-flex.gap-2 svg {
+/* Fumadocs renders the same page tree inside a separate mobile drawer.
+ * Keep the section hierarchy branded there without forcing the compact
+ * desktop label sizing onto the touch layout. */
+#nd-sidebar-mobile p.inline-flex.gap-2 {
   color: var(--accent) !important;
-  width: 16px !important;
-  height: 16px !important;
 }
 /* Two separators stacked back-to-back (e.g. a top-level section
  * "Build Generative UI" + sub-section "Controlled") would otherwise
@@ -902,7 +1021,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   min-width: 0 !important;
   max-width: 100% !important;
   padding-top: 0 !important;
-  padding-left: 0.75rem !important;
+  padding-inline: 0.75rem !important;
   margin-top: 0 !important;
 }
 #nd-page > article > *:first-child {
@@ -936,6 +1055,17 @@ figure.shiki > div:first-child[class*="border-b"] {
   padding-right: 16px !important;
 }
 
+/* Product-guide pages use one stable reading measure regardless of whether
+ * the right-rail TOC is present. The outer lane owns responsive gutters; the
+ * prose measure below owns line length. Keeping those roles separate avoids
+ * consuming the nominal max-width with hidden nested padding. */
+.docs-article-content {
+  max-width: calc(
+    var(--docs-reading-width) + 2 * var(--docs-content-gutter)
+  ) !important;
+  padding-inline: var(--docs-content-gutter) !important;
+}
+
 /* Tablet/sidebar-visible layouts can put the content column directly
  * against the sidebar edge. Add a small extra left inset there without
  * spending precious horizontal space on phone-sized screens. */
@@ -951,8 +1081,13 @@ figure.shiki > div:first-child[class*="border-b"] {
  * right). */
 @media (min-width: 1280px) {
   .docs-inner-content {
-    padding-left: 49px !important;
-    padding-right: 49px !important;
+    padding-left: var(--docs-content-gutter) !important;
+    padding-right: var(--docs-content-gutter) !important;
+  }
+
+  #nd-docs-layout {
+    --fd-sidebar-width: 248px !important;
+    --fd-toc-width: 232px !important;
   }
 }
 
@@ -969,6 +1104,224 @@ figure.shiki > div:first-child[class*="border-b"] {
 }
 #nd-docs-layout:not(:has(#nd-toc)) .docs-inner-content {
   max-width: min(1100px, 100%);
+}
+
+#nd-docs-layout:not(:has(#nd-toc)) .docs-article-content {
+  max-width: calc(
+    var(--docs-reading-width) + 2 * var(--docs-content-gutter)
+  ) !important;
+}
+
+/* Landing pages can opt into the full content lanes with `full: true` in MDX
+ * frontmatter. The prose inside still keeps its reading measure; this lifts
+ * the page wrapper cap so media and purpose-built landing sections can use
+ * the space beside the sidebar, including the otherwise-empty TOC lane. */
+#nd-docs-layout article#nd-page[data-full="true"] .docs-inner-content,
+#nd-docs-layout:not(:has(#nd-toc))
+  article#nd-page[data-full="true"]
+  .docs-inner-content,
+#nd-docs-layout article#nd-page[data-full="true"] .docs-article-content {
+  max-width: 100% !important;
+}
+
+#nd-docs-layout article#nd-page[data-full="true"] .docs-page-header {
+  width: 100%;
+  max-width: var(--docs-reading-width);
+  margin-inline: auto;
+}
+
+@media (min-width: 1280px) {
+  #nd-docs-layout:not(:has(#nd-toc)) article#nd-page[data-full="true"] {
+    grid-column: main-start / toc-end;
+  }
+}
+
+/* Content-page header — one compact reading cluster rather than four stacked
+ * bands. The title remains the dominant element; utility actions stay neutral
+ * and share its row when the real copy fits, then wrap naturally as a group. */
+.docs-page-header {
+  margin-bottom: 2.75rem;
+}
+
+.docs-page-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+}
+
+.docs-page-breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.docs-page-breadcrumb a:hover {
+  color: var(--accent);
+}
+
+.docs-page-breadcrumb a:focus-visible {
+  border-radius: 0.25rem;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.docs-page-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+}
+
+.docs-page-title {
+  min-width: 0;
+  flex: 1 1 18rem;
+  color: var(--text);
+  font-size: clamp(2rem, 3vw, 2.25rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.docs-page-tools {
+  --docs-page-actions-hover: color-mix(
+    in oklch,
+    var(--accent-fill) 68%,
+    black
+  );
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 0;
+  margin: 0;
+  border-radius: var(--shell-docs-radius-control);
+}
+
+/* One low-contrast light pass gives the primary page action a little energy
+ * without turning a reading surface into a looping attention trap. The long
+ * hold between passes keeps it quieter than an indeterminate loading state. */
+.docs-page-tools::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 32%,
+    color-mix(in srgb, white 22%, transparent) 48%,
+    transparent 64%
+  );
+  background-position: 130% 0;
+  background-size: 260% 100%;
+  pointer-events: none;
+  animation: docs-page-actions-shimmer 4.5s ease-in-out infinite;
+}
+
+.docs-page-tools > * {
+  flex: none;
+  white-space: nowrap;
+}
+
+.docs-page-actions-primary {
+  border-radius: var(--shell-docs-radius-control) 0 0
+    var(--shell-docs-radius-control) !important;
+}
+
+.docs-page-actions-primary,
+.docs-page-actions-trigger {
+  cursor: pointer;
+  border-color: var(--accent-fill) !important;
+  background-color: var(--accent-fill) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.docs-page-actions-primary svg,
+.docs-page-actions-trigger svg {
+  color: currentColor !important;
+}
+
+.docs-page-actions-trigger {
+  align-self: stretch;
+  min-width: 2rem;
+  margin-left: -1px;
+  padding-inline: 0.5rem !important;
+  border-radius: 0 var(--shell-docs-radius-control)
+    var(--shell-docs-radius-control) 0 !important;
+}
+
+.docs-page-actions-primary:focus-visible,
+.docs-page-actions-trigger:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
+.docs-page-actions-primary:hover,
+.docs-page-actions-trigger:hover,
+.docs-page-actions-trigger[data-state="open"] {
+  border-color: var(--accent-fill) !important;
+  background-color: var(--docs-page-actions-hover) !important;
+}
+
+@keyframes docs-page-actions-shimmer {
+  0%,
+  68% {
+    background-position: 130% 0;
+  }
+  88%,
+  100% {
+    background-position: -80% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-page-tools::after {
+    background: none;
+    animation: none;
+  }
+}
+
+.docs-page-description {
+  max-width: var(--docs-reading-width);
+  margin-top: 0.75rem;
+  color: var(--text-muted);
+  font-size: 1.125rem;
+  line-height: 1.5556;
+  text-wrap: pretty;
+}
+
+@media (max-width: 767px) {
+  .docs-page-header {
+    margin-bottom: 2.25rem;
+  }
+
+  .docs-page-heading-row {
+    align-items: flex-start;
+  }
+
+  .docs-page-title {
+    flex-basis: 100%;
+  }
+
+  .docs-page-tools {
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.125rem;
+    scrollbar-width: none;
+  }
+
+  .docs-page-tools::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Tablet/mobile: the docs grid keeps 5 columns (sidebar / sidebar / main /
@@ -1008,6 +1361,61 @@ figure.shiki > div:first-child[class*="border-b"] {
   padding: 0 0 1rem 0 !important;
   -webkit-mask-image: none !important;
   mask-image: none !important;
+}
+
+/* Scroll-edge affordances. Fade the navigation content into its own
+ * background instead of placing a tinted surface over the sidebar. */
+.shell-docs-sidebar
+  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-top]:not(
+    [data-shell-docs-scroll-shadow-bottom]
+  )
+  > [data-radix-scroll-area-viewport] {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 100%) 0.625rem
+  ) !important;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 100%) 0.625rem
+  ) !important;
+}
+
+.shell-docs-sidebar
+  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-bottom]:not(
+    [data-shell-docs-scroll-shadow-top]
+  )
+  > [data-radix-scroll-area-viewport] {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 100%) calc(100% - 0.625rem),
+    transparent
+  ) !important;
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 100%) calc(100% - 0.625rem),
+    transparent
+  ) !important;
+}
+
+.shell-docs-sidebar
+  [data-shell-docs-scroll-frame][data-shell-docs-scroll-shadow-top][data-shell-docs-scroll-shadow-bottom]
+  > [data-radix-scroll-area-viewport] {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 100%) 0.625rem,
+    rgb(0 0 0 / 100%) calc(100% - 0.625rem),
+    transparent
+  ) !important;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 100%) 0.625rem,
+    rgb(0 0 0 / 100%) calc(100% - 0.625rem),
+    transparent
+  ) !important;
 }
 
 /* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)
@@ -1106,6 +1514,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   --text-muted: var(--muted-foreground);
   --text-faint: oklch(0.708 0 0);
   --accent: var(--primary);
+  --accent-fill: var(--accent);
   --accent-light: color-mix(in oklch, var(--accent) 14%, white);
   --accent-dim: color-mix(in oklch, var(--accent) 8%, transparent);
   --blue: #1a5fb4;
@@ -1134,9 +1543,8 @@ figure.shiki > div:first-child[class*="border-b"] {
     "Liberation Mono", "Courier New", monospace;
 }
 
-/* Dark token set — same neutral scale, with purple lifted slightly brighter
- * than the sample's dark primary so text and outline CTAs keep enough
- * contrast on the docs header. */
+/* Dark token set: lift purple text and icons for AA contrast while keeping
+ * filled purple controls on the established, darker brand value. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -1144,7 +1552,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.585 0.233 277.117);
+  --primary: oklch(0.64 0.21 277);
   --primary-foreground: oklch(0.962 0.018 272.314);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
@@ -1158,7 +1566,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   --ring: oklch(0.556 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.585 0.233 277.117);
+  --sidebar-primary: oklch(0.64 0.21 277);
   --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
@@ -1176,6 +1584,7 @@ figure.shiki > div:first-child[class*="border-b"] {
   --text-muted: var(--muted-foreground);
   --text-faint: oklch(0.556 0 0);
   --accent: var(--primary);
+  --accent-fill: oklch(0.585 0.233 277.117);
   --accent-light: color-mix(in oklch, var(--accent) 24%, transparent);
   --accent-dim: color-mix(in oklch, var(--accent) 14%, transparent);
   --warning: oklch(0.76 0.15 76);
@@ -1260,8 +1669,10 @@ samp {
  * The reference uses fumadocs' default prose scale: body ~15px, h2 ~1.5rem
  * with tighter tracking, and tonally-darker headings than body. */
 .reference-content {
-  font-size: 0.9375rem; /* 15px */
-  line-height: 1.65;
+  max-width: var(--docs-reading-width);
+  margin-inline: auto;
+  font-size: 1rem;
+  line-height: 1.75;
   color: var(--text-secondary);
 }
 
@@ -1269,8 +1680,8 @@ samp {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--text);
-  margin-top: 2.5rem;
-  margin-bottom: 0.75rem;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
   padding-bottom: 0;
   letter-spacing: normal;
 }
@@ -1279,8 +1690,8 @@ samp {
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--text);
-  margin-top: 2rem;
-  margin-bottom: 0.5rem;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
   letter-spacing: -0.01em;
 }
 
@@ -1293,10 +1704,10 @@ samp {
 }
 
 .reference-content p {
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 1rem;
+  line-height: 1.75;
+  margin-bottom: 1.25rem;
 }
 
 /* prose-no-margin (used by fumadocs Callout and Table) lives in @layer utilities,
@@ -1311,15 +1722,15 @@ samp {
 
 .reference-content ul,
 .reference-content ol {
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color: var(--text-secondary);
   padding-left: 1.5rem;
-  margin-bottom: 1rem;
-  line-height: 1.65;
+  margin-bottom: 1.25rem;
+  line-height: 1.75;
 }
 
 .reference-content li {
-  margin-bottom: 0.375rem;
+  margin-bottom: 0.5rem;
 }
 
 .reference-content ul {
@@ -1412,6 +1823,26 @@ samp {
   border: none;
   border-top: 1px solid var(--border);
   margin: 1.5rem 0;
+}
+
+/* Direct diagrams benefit from a wider canvas than prose. Standard tables and
+ * code blocks stay on the reading measure so their section heading and content
+ * share one clear axis; both already own their dense-content overflow. */
+@media (min-width: 1280px) {
+  .docs-article-content .reference-content > img {
+    width: min(var(--docs-breakout-width), calc(100% + 5rem));
+    max-width: min(var(--docs-breakout-width), calc(100% + 5rem));
+    margin-right: 0;
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+@media (min-width: 1440px) {
+  .docs-article-content .reference-content > img {
+    width: min(var(--docs-breakout-width), calc(100% + 8.75rem));
+    max-width: min(var(--docs-breakout-width), calc(100% + 8.75rem));
+  }
 }
 
 /* Reference prop rows are authored as individual <PropertyReference> MDX

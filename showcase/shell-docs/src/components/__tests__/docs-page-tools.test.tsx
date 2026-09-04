@@ -1,15 +1,13 @@
 // @vitest-environment jsdom
 
-// Guards the gate on the page-tools "Copy agent prompt" button.
+// Guards the compact page-tools split action.
 //
-// The rule is that the button appears exactly when the caller names an agent
-// framework, and `DocsPageTools` is where that rule lives: no
-// `onboardingFramework`, no button. It is tested here rather than through
+// The prompt action is available even when a route has no registry-backed
+// framework name; the copied context simply omits that optional sentence.
+// It is tested here rather than through
 // `DocsPageView` because that component reads MDX off disk, walks the content
 // tree to build the sidebar, and compiles the body through `next-mdx-remote` —
-// none of which the rule depends on. `DocsPageView` does nothing with the prop
-// but forward it, so this is the seam where a regression would actually show
-// up.
+// none of which the action contract depends on.
 
 import React from "react";
 import {
@@ -55,7 +53,7 @@ function renderRow(onboardingFramework?: { slug: string; name: string }): void {
   );
 }
 
-it("still renders the onboarding button when no framework is passed", () => {
+it("renders one split CTA with copy prompt as its root action", async () => {
   // The surfaces that omit the prop are `a2a` and `agent-spec`: documented
   // like frameworks, but absent from the registry, so there is no display
   // name to put in the prompt. They are docs pages all the same, and the
@@ -64,20 +62,24 @@ it("still renders the onboarding button when no framework is passed", () => {
   // regardless of what the prompt says.
   renderRow();
 
+  expect(screen.getByRole("button", { name: /copy prompt/i })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /copy page/i })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^open$/i })).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: /more page actions/i }));
+
   expect(
-    screen.getByRole("button", { name: /copy agent prompt/i }),
+    await screen.findByRole("button", { name: /copy page/i }),
   ).toBeTruthy();
-  // The rest of the row is untouched.
-  expect(screen.getByRole("button", { name: /copy markdown/i })).toBeTruthy();
-  expect(screen.getByRole("button", { name: /^open$/i })).toBeTruthy();
+  expect(screen.getByRole("separator")).toBeTruthy();
+  expect(screen.getByRole("link", { name: /open in github/i })).toBeTruthy();
+  expect(screen.queryByRole("link", { name: /view as markdown/i })).toBeNull();
 });
 
 it("renders the onboarding button when a framework is passed", () => {
   renderRow({ slug: "mastra", name: "Mastra" });
 
-  expect(
-    screen.getByRole("button", { name: /copy agent prompt/i }),
-  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: /copy prompt/i })).toBeTruthy();
 });
 
 it("gives the onboarding button the same .mdx URL as the markdown button", async () => {
@@ -87,7 +89,7 @@ it("gives the onboarding button the same .mdx URL as the markdown button", async
   Object.assign(navigator, { clipboard: { writeText } });
 
   renderRow({ slug: "mastra", name: "Mastra" });
-  fireEvent.click(screen.getByRole("button", { name: /copy agent prompt/i }));
+  fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
