@@ -30,7 +30,12 @@ import type { Line } from "@/shell/documents";
  */
 const MEMO_REF = "FIN-MEMO-2419";
 
-const AUTHOR_NAME = "Priya Anand";
+// Matches the "Distribution center automation" initiative's owner in
+// `seed.ts` — that initiative's note ties itself to this same opex overrun
+// ("Integrator delay pushed go-live past quarter close; opex overrun tracks
+// to this."), so a memo author with a near-identical but different name
+// would read, on stage, as an error rather than a coincidence.
+const AUTHOR_NAME = "Priya Nair";
 const AUTHOR_TITLE = "Distribution Finance Business Partner";
 
 const CURRENCY = new Intl.NumberFormat("en-US", {
