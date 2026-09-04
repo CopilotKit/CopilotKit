@@ -194,7 +194,7 @@ function App() {
 - **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it. Archived threads render italic/muted inline in the "All" view.
 - **Filter**: an Active/All filter lives behind a **funnel** icon popover under the "Recent Conversations" heading; a small indicator dot appears on the funnel when a non-default filter is applied. Toggling the filter refetches server-side.
 - **Mobile**: below 768px the drawer is an off-canvas modal. Closed, it shows the same floating cluster (a launcher to open it + a "New Conversation" button); open, it slides in and is dismissed by tapping the backdrop or pressing Escape. The launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
-- **License**: threads require CopilotKit Intelligence; without a license key the drawer shows a locked view in place of the list.
+- **Intelligence access**: threads require CopilotKit Intelligence. If the runtime reports that Threads are unavailable, the drawer shows a locked view in place of the list. Managed projects use `CPK_INTELLIGENCE_API_KEY` on the server; licensed self-hosted deployments use `COPILOTKIT_LICENSE_TOKEN` on the server.
 
 ## Related
 

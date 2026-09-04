@@ -25,9 +25,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_microsoft_agent_framework_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_microsoft_agent_framework_quickstart_step1">Start managed onboarding</SignupLink> and create or select a project. The CLI's `create` flow—or `project select` in an existing app—writes the server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. Managed setup does not issue `COPILOTKIT_LICENSE_TOKEN`.
     </Step>
 
     <Step>
@@ -215,7 +215,7 @@ Before you begin, you'll need the following:
                         uv add agent-framework-ag-ui python-dotenv uvicorn agent-framework-openai
                         ```
                         Create a minimal FastAPI server that exposes a Microsoft Agent Framework agent over AG-UI:
-                        Replace main.py file with the following 
+                        Replace main.py file with the following
 
                         ```python title="main.py"
                         from __future__ import annotations
