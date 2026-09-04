@@ -168,6 +168,29 @@ test("maps active Runtime entitlements to the compatible valid license status", 
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });
 
+test("keeps an inactive AWS Marketplace entitlement authoritative over a legacy license", async () => {
+  const marketplaceEntitlements = {
+    status: "ready",
+    entitlement: {
+      source: "awsMarketplaceDeploymentLicense",
+      active: false,
+      features: {},
+      limits: {},
+    },
+  } as const;
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(marketplaceEntitlements);
+  const { data, response } = await requestRuntimeInfoWithLookup(
+    getRuntimeEntitlements,
+    { licenseToken: INVALID_LEGACY_LICENSE_TOKEN },
+  );
+
+  expect(response.status).toBe(200);
+  expect(data.runtimeEntitlements).toEqual(marketplaceEntitlements);
+  expect(data.licenseStatus).toBe("none");
+});
+
 test.each([
   {
     label: "degraded",

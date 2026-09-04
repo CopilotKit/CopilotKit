@@ -51,7 +51,10 @@ interface RuntimeEntitlement {
   /** Whether the resolved entitlement currently grants product access. */
   active: boolean;
   /** Deployment authority that produced this entitlement. */
-  source: "managedOrgSubscription" | "selfHostedDeploymentLicense";
+  source:
+    | "managedOrgSubscription"
+    | "selfHostedDeploymentLicense"
+    | "awsMarketplaceDeploymentLicense";
   /** Boolean feature grants keyed by stable feature id. */
   features: Record<string, boolean>;
   /** Numeric limits keyed by stable feature id. */

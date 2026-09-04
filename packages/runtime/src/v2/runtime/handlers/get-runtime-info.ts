@@ -42,7 +42,11 @@ function resolveCompatibilityLicenseStatus(
   runtimeEntitlements: RuntimeEntitlementResponse | undefined,
 ): RuntimeLicenseStatus {
   if (runtimeEntitlements?.status === "ready") {
-    if (runtimeEntitlements.entitlement.source === "managedOrgSubscription") {
+    if (
+      runtimeEntitlements.entitlement.source === "managedOrgSubscription" ||
+      runtimeEntitlements.entitlement.source ===
+        "awsMarketplaceDeploymentLicense"
+    ) {
       return runtimeEntitlements.entitlement.active ? "valid" : "none";
     }
 
