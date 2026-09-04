@@ -222,12 +222,13 @@ function UnresolvedText({ label, path }: { label: string; path: string }) {
  *
  * `tone` picks WHAT the colour means. The default, "sign", is the reading for
  * a figure that could be good or bad news: green above, red below. "alert" is
- * for a figure already known to be BAD whichever way it went — every row of an
- * `ExceptionList` is a breach by construction — where colouring by sign paints
- * an over-plan overrun the same green as an on-plan metric. The CEO
- * dashboard's fixed exception strip (`../pages/ceo-dashboard.tsx`) and the
- * Metrics Explorer's `row.breaching` already follow that rule; this is the
- * same rule, in the block catalog. The sign itself still shows either way.
+ * for a figure already known to be BAD whichever way it went — a point past
+ * its metric's threshold, and every row of an `ExceptionList` by construction
+ * — where colouring by sign paints an over-plan overrun the same green as an
+ * on-plan metric. The CEO dashboard's fixed exception strip
+ * (`../pages/ceo-dashboard.tsx`) and the Metrics Explorer's `row.breaching`
+ * already follow that rule; `toneFor` below is the same rule, in the block
+ * catalog. The sign itself still shows either way.
  *
  * A non-finite delta (variance against a zero plan/forecast) is reported as
  * unavailable rather than rendered as `Infinity%` or `NaN%`.
@@ -261,6 +262,20 @@ function Delta({
       {Math.abs(value * 100).toFixed(1)}%
     </span>
   );
+}
+
+/**
+ * The `Delta` tone for a point: "alert" once it is past its metric's
+ * threshold, "sign" while it is inside it.
+ *
+ * Every data-bound renderer that shows a delta beside a figure derived from
+ * the SAME point routes through here, so a tile cannot print a green delta
+ * next to its own "Breach" chip, and one department's overrun cannot read
+ * green on a variance bar while the identical exception reads red on the
+ * dashboard strip above it.
+ */
+function toneFor(def: MetricDef, point: MetricPoint): "sign" | "alert" {
+  return isBreach(def, point) ? "alert" : "sign";
 }
 
 /**
@@ -402,7 +417,13 @@ const MetricTile = ({
       label={`${def.label} · ${DEPARTMENT_LABEL[department]} · ${formatPeriod(point.period)}`}
     >
       <div className="flex items-baseline gap-2">
-        <Delta value={delta} />
+        {/*
+          Toned off `isBreach` — the same test the "Breach" chip below is
+          drawn from — and NOT off `compare`: the tile reports one point, so
+          its delta and its chip have to agree whichever baseline the agent
+          asked to compare against.
+        */}
+        <Delta value={delta} tone={toneFor(def, point)} />
         <span className="text-2xl font-semibold tabular-nums text-ink">
           {formatValue(def.unit, point.actual)}
         </span>
@@ -500,7 +521,7 @@ const TrendLine = ({
       <div className="mt-2 flex items-baseline justify-between gap-2 text-xs tabular-nums text-ink-muted">
         <span>{formatPeriod(trend[0].period)}</span>
         <span className="flex items-baseline gap-2">
-          <Delta value={variancePct(latest)} />
+          <Delta value={variancePct(latest)} tone={toneFor(def, latest)} />
           <span className="text-ink">
             {formatValue(def.unit, latest.actual)}
           </span>
@@ -541,7 +562,20 @@ const VarianceBar = ({ props }: RendererProps<{ metricId: MetricId }>) => {
       row.point !== undefined,
   );
 
-  if (!def || reported.length === 0) {
+  // TWO DIFFERENT FAILURES, TWO DIFFERENT SENTENCES. A missing def is not a
+  // metric that filed no departments: the rows may be sitting right there in
+  // the snapshot, and what is absent is the definition to label and threshold
+  // them against. Reporting the first as the second sends the reader hunting
+  // for data that is not the problem.
+  if (!def) {
+    return (
+      <MissingTile
+        title="Variance unavailable"
+        reason={`No metric definition for "${props.metricId}" on the ledger.`}
+      />
+    );
+  }
+  if (reported.length === 0) {
     return (
       <MissingTile
         title="Variance unavailable"
@@ -553,8 +587,27 @@ const VarianceBar = ({ props }: RendererProps<{ metricId: MetricId }>) => {
   const max = Math.max(
     ...reported.map((row) => Math.max(row.point.actual, row.point.plan)),
   );
-  const width = (value: number) =>
-    `${Math.max(2, Math.min(100, max > 0 ? (value / max) * 100 : 0))}%`;
+  /**
+   * A value's share of the shared scale, in percent, clamped to the track and
+   * rounded — a third of the scale is "33.33", not seventeen digits of float.
+   */
+  const share = (value: number) =>
+    Number(
+      Math.max(0, Math.min(100, max > 0 ? (value / max) * 100 : 0)).toFixed(2),
+    );
+  // The bar keeps a 2% MINIMUM so a small-but-real actual still draws
+  // something. That floor is a WIDTH, never a position — see `planMarkerStyle`.
+  const barWidth = (value: number) => `${Math.max(2, share(value))}%`;
+  /**
+   * The plan marker's true share of the scale as a POSITION, pulled back by
+   * its own width in proportion to how far along it sits. At `left: 100%` the
+   * full `translateX(-100%)` keeps the 1px rule inside the `overflow-hidden`
+   * track instead of clipping it away.
+   */
+  const planMarkerStyle = (value: number): React.CSSProperties => {
+    const left = `${share(value)}%`;
+    return { left, transform: `translateX(-${left})` };
+  };
 
   return (
     <Tile label={`${def.label} · actual vs plan · ${formatPeriod(period)}`}>
@@ -581,7 +634,10 @@ const VarianceBar = ({ props }: RendererProps<{ metricId: MetricId }>) => {
                     {DEPARTMENT_LABEL[department]}
                   </span>
                   <span className="flex flex-none items-baseline gap-2">
-                    <Delta value={variancePct(point)} />
+                    <Delta
+                      value={variancePct(point)}
+                      tone={toneFor(def, point)}
+                    />
                     <span className="tabular-nums text-ink">
                       {formatValue(def.unit, point.actual)}
                     </span>
@@ -590,13 +646,28 @@ const VarianceBar = ({ props }: RendererProps<{ metricId: MetricId }>) => {
                 <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-muted">
                   <div
                     className="h-full rounded-full bg-brand"
-                    style={{ width: width(point.actual) }}
+                    style={{ width: barWidth(point.actual) }}
                   />
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-0 w-px bg-ink-muted"
-                    style={{ left: width(point.plan) }}
-                  />
+                  {/*
+                    THE PLAN MARKER IS A POSITION, NOT A WIDTH. Borrowing the
+                    bar's 2% minimum to place it parked the rule at a share of
+                    the scale the ledger never held, and sent the LARGEST
+                    plan's marker to `left: 100%` — flush against the outside
+                    edge of this `overflow-hidden` track, i.e. invisible for
+                    exactly the department that sets the scale.
+
+                    A zero (or negative) plan gets NO marker: there is no plan
+                    line to draw against, and a rule at the left edge would
+                    read as a plan of zero the ledger never filed.
+                  */}
+                  {point.plan > 0 && (
+                    <span
+                      aria-hidden
+                      data-testid="variance-plan-marker"
+                      className="absolute inset-y-0 w-px bg-ink-muted"
+                      style={planMarkerStyle(point.plan)}
+                    />
+                  )}
                 </div>
               </>
             )}

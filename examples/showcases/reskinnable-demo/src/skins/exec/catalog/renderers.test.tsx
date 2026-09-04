@@ -99,6 +99,64 @@ function renderMetricTile(
   );
 }
 
+/**
+ * The one `<span>` whose whole text is `text` — the `Delta` glyph. Colour is
+ * carried on that span's own class list, so a test that reads `container`
+ * className soup cannot tell a green delta from a red one beside it.
+ */
+function deltaWithText(container: HTMLElement, text: string) {
+  return Array.from(container.querySelectorAll("span")).find(
+    (el) => el.textContent === text,
+  );
+}
+
+const Stack = renderers.Stack as (
+  props: RendererProps<{
+    children: string[];
+    gap?: "sm" | "md" | "lg" | "xl";
+  }>,
+) => React.ReactElement;
+
+/**
+ * `Stack` is the layout primitive every generated block is wrapped in
+ * (`../blocks/build-block-ops.ts` emits `Stack` + `Heading` + one kind
+ * component), so a Stack that drops or reorders a child id silently drops a
+ * whole block's contents.
+ */
+describe("exec catalog Stack renderer", () => {
+  it("renders one slot per child id, in the order given", () => {
+    const { container } = render(
+      <Stack
+        props={{ children: ["block-a", "block-b"], gap: "lg" }}
+        // `children` is the RendererProps render-callback, not React children.
+        // eslint-disable-next-line react/no-children-prop
+        children={(id: string) => <p data-testid="slot">{id}</p>}
+      />,
+    );
+
+    expect(
+      Array.from(container.querySelectorAll('[data-testid="slot"]')).map(
+        (el) => el.textContent,
+      ),
+    ).toEqual(["block-a", "block-b"]);
+    expect(container.firstElementChild?.className ?? "").toContain("gap-6");
+  });
+
+  it("renders an empty container — not a child — when there are no child ids", () => {
+    const { container } = render(
+      <Stack
+        props={{ children: [] }}
+        // eslint-disable-next-line react/no-children-prop
+        children={() => <p>never rendered</p>}
+      />,
+    );
+
+    expect(container.textContent).toBe("");
+    // The default gap still applies, so an empty stack keeps the block's shape.
+    expect(container.firstElementChild?.className ?? "").toContain("gap-4");
+  });
+});
+
 describe("exec catalog MetricTile renderer", () => {
   it("shows the derived variance with sign and direction when actual is above plan", () => {
     // Two periods for revenue at department "all": the EARLIER period is a
@@ -141,6 +199,54 @@ describe("exec catalog MetricTile renderer", () => {
     expect(text).toMatch(/▲/);
     expect(text).toMatch(/\+20(\.0+)?%/);
     expect(text).not.toMatch(/▼/);
+  });
+
+  /**
+   * COLOUR BY BREACH, NOT BY SIGN — the same rule `ExceptionList` and the CEO
+   * dashboard's fixed strip (`../pages/ceo-dashboard.tsx`) already follow.
+   *
+   * This tile prints its own "Breach" chip, so a green delta beside that chip
+   * is the block contradicting itself in one line: the seeded CFO dashboard
+   * showed burn rate at +10% in text-positive green next to a Breach badge.
+   * A breach is bad news whichever direction it went — the sign glyph still
+   * says which way, but the colour has to say "this breached".
+   */
+  it("colours a seeded breaching metric's delta by breach, not by sign", () => {
+    store.reset();
+    const { container } = renderMetricTile(
+      makeBlockData({ snapshot: store.snapshot() }),
+      { metricId: "burnRate" },
+    );
+
+    // The seed forces burn rate to +10% against a 6% threshold at the latest
+    // closed period (`../data/seed.ts`) — over plan, and a breach.
+    expect(container.textContent ?? "").toContain("Breach");
+    const delta = deltaWithText(container, "▲ +10.0%");
+    expect(
+      delta,
+      "the seeded +10% burn-rate overrun should be on the tile",
+    ).toBeDefined();
+    expect(delta?.className ?? "").toContain("text-negative");
+    expect(delta?.className ?? "").not.toContain("text-positive");
+  });
+
+  it("keeps the sign reading on a metric that varies WITHOUT breaching", () => {
+    const data = makeBlockData({
+      snapshot: makeSnapshot({
+        metricDefs: [makeMetricDef({ id: "revenue", thresholdPct: 0.05 })],
+        points: [
+          makeMetricPoint({ metricId: "revenue", plan: 100, actual: 103 }),
+        ],
+      }),
+    });
+
+    const { container } = renderMetricTile(data, { metricId: "revenue" });
+
+    // +3% against a 5% threshold: genuinely good news, and no chip on the tile.
+    expect(container.textContent ?? "").not.toContain("Breach");
+    const delta = deltaWithText(container, "▲ +3.0%");
+    expect(delta?.className ?? "").toContain("text-positive");
+    expect(delta?.className ?? "").not.toContain("text-negative");
   });
 
   /**
@@ -420,6 +526,59 @@ describe("exec catalog TrendLine renderer", () => {
     expect(container.querySelector("polyline")).toBeNull();
   });
 
+  /**
+   * COLOUR BY BREACH, NOT BY SIGN — the footer's single delta is the same
+   * claim `MetricTile` and `VarianceBar` make, on the same points.
+   */
+  it("colours the footer delta by breach, not by sign", () => {
+    const data = makeBlockData({ snapshot: monthlySnapshot(4) });
+
+    const { container } = renderTrendLine(data, { metricId: "burnRate" });
+
+    // Latest point is +30% against a 5% threshold: a breach, not a beat.
+    const delta = deltaWithText(container, "▲ +30.0%");
+    expect(
+      delta,
+      "the footer should report the window's latest variance",
+    ).toBeDefined();
+    expect(delta?.className ?? "").toContain("text-negative");
+    expect(delta?.className ?? "").not.toContain("text-positive");
+  });
+
+  it("keeps the sign reading when the latest period is within threshold", () => {
+    const data = makeBlockData({
+      snapshot: makeSnapshot({
+        metricDefs: [
+          makeMetricDef({
+            id: "burnRate",
+            label: "Burn Rate",
+            thresholdPct: 0.05,
+          }),
+        ],
+        points: [
+          makeMetricPoint({
+            metricId: "burnRate",
+            period: "2026-01",
+            plan: 100,
+            actual: 100,
+          }),
+          makeMetricPoint({
+            metricId: "burnRate",
+            period: "2026-02",
+            plan: 100,
+            actual: 102,
+          }),
+        ],
+      }),
+    });
+
+    const { container } = renderTrendLine(data, { metricId: "burnRate" });
+
+    const delta = deltaWithText(container, "▲ +2.0%");
+    expect(delta?.className ?? "").toContain("text-positive");
+    expect(delta?.className ?? "").not.toContain("text-negative");
+  });
+
   it("reports a metric with no series through the block-error surface", () => {
     const data = makeBlockData({ snapshot: monthlySnapshot(6) });
 
@@ -565,6 +724,40 @@ function twoPeriodOpexSnapshot(): LedgerSnapshot {
   });
 }
 
+/** One latest-period opex row per department, with the plan/actual given. */
+function opexSnapshotWith(
+  perDepartment: Record<Department, { plan: number; actual: number }>,
+): LedgerSnapshot {
+  return makeSnapshot({
+    metricDefs: [
+      makeMetricDef({ id: "opex", label: "Opex", byDepartment: true }),
+    ],
+    points: DEPARTMENTS.map((department) =>
+      makeMetricPoint({
+        metricId: "opex",
+        period: "2026-02",
+        department,
+        plan: perDepartment[department].plan,
+        actual: perDepartment[department].actual,
+        forecast: perDepartment[department].plan,
+      }),
+    ),
+  });
+}
+
+/** The row whose label names `department`, and its plan marker (if any). */
+function rowFor(container: HTMLElement, department: string) {
+  return Array.from(
+    container.querySelectorAll('[data-testid="variance-bar-row"]'),
+  ).find((row) => row.textContent?.includes(department));
+}
+
+function planMarkerIn(container: HTMLElement, department: string) {
+  return rowFor(container, department)?.querySelector<HTMLElement>(
+    '[data-testid="variance-plan-marker"]',
+  );
+}
+
 describe("exec catalog VarianceBar renderer", () => {
   it("renders exactly one bar per department", () => {
     const data = makeBlockData({ snapshot: twoPeriodOpexSnapshot() });
@@ -655,6 +848,151 @@ describe("exec catalog VarianceBar renderer", () => {
     // Least of all January's stale $1K / +900.0%.
     expect(text).not.toContain("900.0%");
     expect(text).not.toContain("$1K");
+  });
+
+  /**
+   * COLOUR BY BREACH, NOT BY SIGN — the third surface of the same defect
+   * `ExceptionList` and the CEO strip were already fixed for. A department
+   * running 20% over plan on a 5%-threshold cost line is not good news, and
+   * painting it green here disagrees with every other surface that shows the
+   * same overrun.
+   */
+  it("colours a breaching department's delta by breach, not by sign", () => {
+    const data = makeBlockData({ snapshot: twoPeriodOpexSnapshot() });
+
+    const { container } = renderVarianceBar(data, "opex");
+
+    const breaching = deltaWithText(container, "▲ +20.0%");
+    expect(
+      breaching,
+      "distribution's +20% row should be on the chart",
+    ).toBeDefined();
+    expect(breaching?.className ?? "").toContain("text-negative");
+    expect(breaching?.className ?? "").not.toContain("text-positive");
+
+    // Manufacturing's +5.0% sits exactly ON opex's 5% threshold, so it is not
+    // a breach (`isBreach` compares with `>`) and keeps the sign reading —
+    // without this the "fix" could be a blanket alert tone on every row.
+    const clean = deltaWithText(container, "▲ +5.0%");
+    expect(clean?.className ?? "").toContain("text-positive");
+    expect(clean?.className ?? "").not.toContain("text-negative");
+  });
+
+  it("colours the seeded distribution opex overrun as a breach", () => {
+    store.reset();
+
+    const { container } = renderVarianceBar(
+      makeBlockData({ snapshot: store.snapshot() }),
+      "opex",
+    );
+
+    // The seed forces distribution to +9% against opex's 5% threshold.
+    const delta = deltaWithText(container, "▲ +9.0%");
+    expect(
+      delta,
+      "the seeded +9% distribution overrun should be on the chart",
+    ).toBeDefined();
+    expect(delta?.className ?? "").toContain("text-negative");
+    expect(delta?.className ?? "").not.toContain("text-positive");
+  });
+
+  /**
+   * THE PLAN MARKER IS A POSITION, NOT A WIDTH.
+   *
+   * The bar has a 2% minimum width so a tiny-but-real actual still draws
+   * something. Reusing that clamp to place the plan marker puts the rule at a
+   * number the ledger never held — and at the top of the scale it places the
+   * 1px rule at `left: 100%`, i.e. flush against the outside edge of an
+   * `overflow-hidden` track, so the department with the LARGEST plan is
+   * exactly the one whose plan marker disappears.
+   */
+  it("places the plan marker at the plan's true share of the scale, not the bar's minimum width", () => {
+    const data = makeBlockData({
+      snapshot: opexSnapshotWith({
+        // Distribution's plan is the largest figure on the chart, so it sets
+        // the shared scale and its own marker sits at the very end of it.
+        manufacturing: { plan: 1, actual: 1 },
+        distribution: { plan: 200, actual: 50 },
+        "field-services": { plan: 100, actual: 100 },
+        corporate: { plan: 50, actual: 50 },
+      }),
+    });
+
+    const { container } = renderVarianceBar(data, "opex");
+
+    // 1 of a 200 scale is 0.5% — NOT the bar's 2% floor.
+    expect(planMarkerIn(container, "Manufacturing")?.style.left).toBe("0.5%");
+    expect(planMarkerIn(container, "Corporate")?.style.left).toBe("25%");
+
+    // At the end of the track the marker is offset by its own width, so it
+    // stays inside the clipped track instead of being cut off entirely.
+    const widest = planMarkerIn(container, "Distribution");
+    expect(widest?.style.left).toBe("100%");
+    expect(widest?.style.transform).toBe("translateX(-100%)");
+  });
+
+  it("draws no plan marker for a department that planned nothing", () => {
+    const data = makeBlockData({
+      snapshot: opexSnapshotWith({
+        manufacturing: { plan: 0, actual: 40 },
+        distribution: { plan: 100, actual: 90 },
+        "field-services": { plan: 100, actual: 100 },
+        corporate: { plan: 100, actual: 100 },
+      }),
+    });
+
+    const { container } = renderVarianceBar(data, "opex");
+
+    expect(
+      planMarkerIn(container, "Manufacturing"),
+      "a zero plan has no position on the scale — a marker at the bar's minimum width invents one",
+    ).toBeFalsy();
+    // Every department that DID plan still gets its marker.
+    expect(
+      container.querySelectorAll('[data-testid="variance-plan-marker"]').length,
+    ).toBe(3);
+  });
+
+  /**
+   * SAY WHICH HALF OF THE LEDGER IS MISSING. "no def on the ledger" and "no
+   * department filed this period" are different failures with different
+   * fixes, and reporting a missing DEF as "no per-department series" sends the
+   * reader looking for rows that are sitting right there in the snapshot.
+   */
+  it("reports a missing metric def as missing, not as a metric with no per-department series", () => {
+    const snapshot = twoPeriodOpexSnapshot();
+    const data = makeBlockData({ snapshot: { ...snapshot, metricDefs: [] } });
+
+    const { container } = renderVarianceBar(data, "opex");
+
+    const error = container.querySelector('[data-testid="block-error"]');
+    expect(error).not.toBeNull();
+    expect(error?.getAttribute("role")).toBe("alert");
+    expect(error?.textContent ?? "").toContain("opex");
+    expect(error?.textContent ?? "").toMatch(/definition/i);
+    expect(error?.textContent ?? "").not.toMatch(/per-department series/i);
+  });
+
+  it("reports a metric with no per-department series as exactly that", () => {
+    const data = makeBlockData({
+      snapshot: makeSnapshot({
+        metricDefs: [makeMetricDef({ id: "burnRate", label: "Burn Rate" })],
+        // A real def, and not one department row to draw a bar from.
+        points: [
+          makeMetricPoint({
+            metricId: "burnRate",
+            period: "2026-02",
+            department: "all",
+          }),
+        ],
+      }),
+    });
+
+    const { container } = renderVarianceBar(data, "burnRate");
+
+    const error = container.querySelector('[data-testid="block-error"]');
+    expect(error?.getAttribute("role")).toBe("alert");
+    expect(error?.textContent ?? "").toMatch(/per-department series/i);
   });
 });
 
@@ -783,6 +1121,33 @@ describe("exec catalog ExceptionList renderer", () => {
   });
 
   /**
+   * THE PER-ROW EXPLAINED TAG. It is what makes this list different from an
+   * "awaiting explanation" list (see the empty-state test below): a row that
+   * has a filed narrative against it still belongs here, tagged. `explained`
+   * is also a SUBSTRING of `unexplained`, so a whole-list `toContain` check
+   * passes on either value — the tag has to be read per row.
+   */
+  it("tags each row explained or unexplained, per row", () => {
+    const { container } = renderExceptionList(
+      makeBlockData({ snapshot: audienceSnapshot() }),
+      {},
+    );
+
+    const tagOf = (label: string) => {
+      const row = Array.from(container.querySelectorAll("li")).find((li) =>
+        li.textContent?.includes(label),
+      );
+      const spans = Array.from(row?.querySelectorAll("span") ?? []);
+      return spans[spans.length - 1]?.textContent;
+    };
+
+    // `cash` is the one exception on the fixture with `explained: true`.
+    expect(tagOf("Cash")).toBe("explained");
+    expect(tagOf("Revenue")).toBe("unexplained");
+    expect(tagOf("DSO days")).toBe("unexplained");
+  });
+
+  /**
    * COLOUR BY BREACH, NOT BY SIGN — the same rule the CEO dashboard's fixed
    * strip already follows (`../pages/ceo-dashboard.tsx`).
    *
@@ -817,9 +1182,7 @@ describe("exec catalog ExceptionList renderer", () => {
       { audience: "ceo" },
     );
 
-    const delta = Array.from(container.querySelectorAll("span")).find(
-      (el) => el.textContent === text,
-    );
+    const delta = deltaWithText(container, text);
     expect(delta, `expected a "${text}" delta on the row`).toBeDefined();
     expect(delta?.className ?? "").toContain("text-negative");
     expect(delta?.className ?? "").not.toContain("text-positive");
