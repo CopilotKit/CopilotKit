@@ -31,16 +31,22 @@ const DEPARTMENT = "distribution";
  */
 const DRIVER_SPLIT = 0.62;
 
-/** How many days after period close the memo is dated. */
+/** How many days after period close the memo is dated, at the latest. */
 const MEMO_DAYS_AFTER_CLOSE = 5;
 
-const LONG_DATE = new Intl.DateTimeFormat("en-GB", {
+// en-US for BOTH datelines here and the currency/percentage figures the memo
+// itself formats (see `data/budget-memo-pdf.ts`). One document cannot read in
+// two locales: a memo that prints "$235,440" in US dollars for a US CFO, and
+// spells "recognized" and "Distribution Center", but dates itself
+// "5 September 2026" is a document assembled by two different authors — which
+// is precisely what it must not look like on stage.
+const LONG_DATE = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   month: "long",
   year: "numeric",
 });
 
-const MONTH_YEAR = new Intl.DateTimeFormat("en-GB", {
+const MONTH_YEAR = new Intl.DateTimeFormat("en-US", {
   month: "long",
   year: "numeric",
 });
@@ -54,6 +60,22 @@ const firstOfPeriod = (period: string): Date => {
 const periodLabelFor = (period: string): string =>
   MONTH_YEAR.format(firstOfPeriod(period));
 
+/**
+ * The memo's dateline: period close + 5 days, CLAMPED so it can never be in
+ * the future.
+ *
+ * The seed materializes its periods relative to `now`, so on the 1st-4th of
+ * any month the latest closed period's close + 5 has not happened yet: on
+ * 2 September the memo would date itself 5 September. A finance memo dated
+ * three days from now is not a subtle modelling error — it is a visible
+ * absurdity on the one document the whole beat asks the room to read, and it
+ * would appear on four days of every month with nothing else changing.
+ *
+ * Clamping to today (rather than shifting to an earlier period, or refusing
+ * to serve) keeps the memo reporting on the same live breach the dashboard
+ * shows, and stays honest: a memo issued today about a period that closed two
+ * days ago is exactly the document a finance business partner would file.
+ */
 const memoDateFor = (period: string): string => {
   const anchor = firstOfPeriod(period);
   // Last day of `period`'s month: day 0 of the FOLLOWING month.
@@ -65,13 +87,17 @@ const memoDateFor = (period: string): string => {
   // New_York's fall-back on 1 November, printing 4 November instead of 5).
   // Overflowing `getDate()` past the month's length is exactly what `Date`'s
   // constructor is defined to roll forward correctly.
-  return LONG_DATE.format(
-    new Date(
-      close.getFullYear(),
-      close.getMonth(),
-      close.getDate() + MEMO_DAYS_AFTER_CLOSE,
-    ),
+  const dateline = new Date(
+    close.getFullYear(),
+    close.getMonth(),
+    close.getDate() + MEMO_DAYS_AFTER_CLOSE,
   );
+  // Both sides are LOCAL MIDNIGHTS of a calendar day, so comparing them is a
+  // calendar-day comparison — no time-of-day and no DST offset can tip it,
+  // the way comparing `dateline` against a raw `new Date()` would.
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return LONG_DATE.format(dateline > today ? today : dateline);
 };
 
 /**

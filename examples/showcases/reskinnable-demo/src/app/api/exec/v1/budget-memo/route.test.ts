@@ -6,6 +6,12 @@ import { seedInitiatives } from "@/skins/exec/data/seed";
 
 beforeEach(() => store.reset());
 
+/**
+ * Captured at module load, BEFORE any test has touched `process.env.TZ` — the
+ * residue probe at the bottom of this file compares against it.
+ */
+const TZ_AT_LOAD = process.env.TZ;
+
 const call = () => GET();
 
 /**
@@ -16,6 +22,18 @@ const call = () => GET();
  */
 const textOf = async (res: Response) =>
   Buffer.from(await res.arrayBuffer()).toString("latin1");
+
+/**
+ * The memo's PROSE, recovered from the content stream: the drawn strings only,
+ * with the writer's `\(`/`\)` escapes undone and its word-boundary line wraps
+ * re-joined. A sentence the writer split across two `Tj` operators is one
+ * string again here, so an assertion can quote the sentence as a reader sees
+ * it instead of guessing where the wrap fell.
+ */
+const proseOf = (pdf: string) =>
+  [...pdf.matchAll(/\((.*)\) Tj/g)]
+    .map((m) => m[1].replace(/\\([()\\])/g, "$1"))
+    .join(" ");
 
 const liveBreach = () =>
   store
@@ -32,6 +50,38 @@ const CURRENCY = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 0,
 });
+
+const PERCENT = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
+
+/** A point shaped like the live seed's Distribution opex overrun. */
+const overrunPoint = (period: string) => ({
+  metricId: "opex" as const,
+  period,
+  department: "distribution" as const,
+  plan: 216_000,
+  actual: 235_440,
+  forecast: 216_000,
+});
+
+/** Points the route's two lookups at `point`, bypassing the live seed. */
+const stubLedger = (
+  target: typeof store,
+  point: ReturnType<typeof overrunPoint>,
+) => {
+  vi.spyOn(target, "exceptions").mockReturnValue([
+    {
+      metricId: "opex",
+      period: point.period,
+      department: "distribution",
+      variancePct: target.variancePct(point),
+      explained: false,
+    },
+  ]);
+  vi.spyOn(target, "metricSeries").mockReturnValue([point]);
+};
 
 describe("GET /budget-memo serves the document beat 3d ingests", () => {
   it("returns a PDF that is never cached, under the name the composer chip prints", async () => {
@@ -50,6 +100,25 @@ describe("GET /budget-memo serves the document beat 3d ingests", () => {
     expect(text).toContain(toAscii(CURRENCY.format(point.actual)));
     expect(text).toContain(toAscii(CURRENCY.format(point.plan)));
     expect(text).toContain(toAscii(CURRENCY.format(point.actual - point.plan)));
+    // The variance the summary sentence quotes is the LIVE breach's, not a
+    // figure the memo recomputes for itself.
+    expect(proseOf(text)).toContain(
+      toAscii(`(${PERCENT.format(liveBreach().variancePct)} over plan)`),
+    );
+  });
+
+  /**
+   * A finance memo cannot be dated after the day it is read. The dateline is
+   * period close + 5 days, so on the 1st-4th of any month that lands in the
+   * FUTURE — this asserts the live document against the live clock, whatever
+   * day the suite happens to run.
+   */
+  it("never datelines the live memo in the future", async () => {
+    const dateline = proseOf(await textOf(await call())).match(
+      /Date ([A-Z][a-z]+ \d{1,2}, \d{4})/,
+    );
+    expect(dateline).not.toBeNull();
+    expect(new Date(dateline![1]).getTime()).toBeLessThanOrEqual(Date.now());
   });
 
   it("splits the live overrun into two drivers that sum back to it exactly", async () => {
@@ -100,11 +169,113 @@ describe("what the memo must NOT say", () => {
   });
 });
 
+describe("the route 404s rather than serving a memo it cannot fill in", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("404s when there is no live Distribution opex breach at all", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(store, "exceptions").mockReturnValue([]);
+
+    const res = await call();
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: "NOT_FOUND" });
+    expect(warn).toHaveBeenCalled();
+  });
+
+  /**
+   * The breach and the point are resolved by two separate store calls, so a
+   * reseed that skews their period windows apart leaves a breach whose period
+   * has no point. Printing the memo anyway would quote another period's
+   * figures under this period's heading; the route must 404 instead.
+   */
+  it("404s when the breach's period has no point in the series", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(store, "exceptions").mockReturnValue([
+      {
+        metricId: "opex",
+        period: "2026-10",
+        department: "distribution",
+        variancePct: 0.09,
+        explained: false,
+      },
+    ]);
+    // The series holds a DIFFERENT period — `find` by the breach's period
+    // comes back undefined.
+    vi.spyOn(store, "metricSeries").mockReturnValue([overrunPoint("2026-09")]);
+
+    const res = await call();
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: "NOT_FOUND" });
+    expect(warn).toHaveBeenCalled();
+  });
+
+  /**
+   * The whole body is wrapped in a `try` precisely so the attach chain fails
+   * LOUDLY with a diagnosable log rather than sending "read the attached
+   * memo" with no file attached.
+   */
+  it("500s and logs when the ledger lookup throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(store, "exceptions").mockImplementation(() => {
+      throw new Error("ledger unavailable");
+    });
+
+    const res = await call();
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ error: "SERVER_ERROR" });
+    expect(error).toHaveBeenCalled();
+  });
+});
+
+describe("the memo is never datelined in the future", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * Close + 5 days is a dateline that has not happened yet on the 1st-4th of
+   * every month: a memo read on 2 September cannot be dated 5 September. The
+   * route must clamp the dateline to today.
+   */
+  it("clamps the dateline to today when close + 5 has not arrived yet", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 8, 2, 9, 30));
+    stubLedger(store, overrunPoint("2026-08"));
+
+    const text = await textOf(await call());
+
+    expect(text).toContain("September 2, 2026");
+    expect(text).not.toContain("September 5, 2026");
+  });
+
+  it("still dates the memo close + 5 once that day has passed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 8, 20, 9, 30));
+    stubLedger(store, overrunPoint("2026-08"));
+
+    expect(await textOf(await call())).toContain("September 5, 2026");
+  });
+});
+
 describe("the memo date survives a DST fallback between close and issue", () => {
   const ORIGINAL_TZ = process.env.TZ;
 
   afterEach(() => {
-    process.env.TZ = ORIGINAL_TZ;
+    // `process.env.TZ = undefined` writes the literal STRING "undefined",
+    // which Node reads as an invalid zone and silently resolves to UTC — for
+    // every test that runs after this one, in this file and anything sharing
+    // the environment. An unset variable has to be deleted, not assigned.
+    // `process.env.TZ = undefined` writes the literal STRING "undefined",
+    // which Node reads as an unrecognized zone and silently resolves to UTC —
+    // for every test that runs after this one. An unset variable has to be
+    // deleted, not assigned.
+    if (ORIGINAL_TZ === undefined) delete process.env.TZ;
+    else process.env.TZ = ORIGINAL_TZ;
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -125,32 +296,34 @@ describe("the memo date survives a DST fallback between close and issue", () => 
    */
   it("dates the memo 5 November, not 4 November, for a period closing 31 October", async () => {
     process.env.TZ = "America/New_York";
+    // Past the dateline, so the clamp to today (see above) is not what is
+    // under test here — only the calendar-day arithmetic is.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 20, 9, 30));
     vi.resetModules();
 
     const freshStore = await import("@/skins/exec/data/store");
-    const point = {
-      metricId: "opex" as const,
-      period: "2026-10",
-      department: "distribution" as const,
-      plan: 216_000,
-      actual: 235_440,
-      forecast: 216_000,
-    };
-    vi.spyOn(freshStore, "exceptions").mockReturnValue([
-      {
-        metricId: "opex",
-        period: "2026-10",
-        department: "distribution",
-        variancePct: freshStore.variancePct(point),
-        explained: false,
-      },
-    ]);
-    vi.spyOn(freshStore, "metricSeries").mockReturnValue([point]);
+    stubLedger(freshStore, overrunPoint("2026-10"));
     const { GET: freshGet } = await import("./route");
 
     const text = await textOf(await freshGet());
-    expect(text).toContain("5 November 2026");
-    expect(text).not.toContain("4 November 2026");
+    expect(text).toContain("November 5, 2026");
+    expect(text).not.toContain("November 4, 2026");
+  });
+});
+
+describe("the TZ probe above leaves no residue behind it", () => {
+  /**
+   * A teardown that assigns `process.env.TZ = ORIGINAL_TZ` when TZ was never
+   * set writes the STRING "undefined" into the environment. Node resolves
+   * that unrecognized zone to UTC, so every test declared after the probe —
+   * here and in any file sharing this environment — silently runs in a
+   * different timezone than the one it was written for. This asserts the
+   * teardown restored the environment EXACTLY, including the unset case.
+   */
+  it("leaves process.env.TZ exactly as the file found it", () => {
+    expect(process.env.TZ).toBe(TZ_AT_LOAD);
+    expect(process.env.TZ).not.toBe("undefined");
   });
 });
 

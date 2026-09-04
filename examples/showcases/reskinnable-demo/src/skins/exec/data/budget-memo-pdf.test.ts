@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { buildBudgetMemoPdf } from "./budget-memo-pdf";
+import { buildBudgetMemoPdf, NotAnOverrunError } from "./budget-memo-pdf";
 import type { BudgetMemoInput } from "./budget-memo-pdf";
 
 const INPUT: BudgetMemoInput = {
   periodLabel: "August 2026",
-  memoDate: "5 September 2026",
+  // Preformatted by the route, in the memo's one locale (en-US).
+  memoDate: "September 5, 2026",
   planUsd: 216_000,
   actualUsd: 235_440,
   variancePct: 0.09,
@@ -14,6 +15,17 @@ const INPUT: BudgetMemoInput = {
 
 const build = (input: BudgetMemoInput = INPUT) =>
   Buffer.from(buildBudgetMemoPdf(input)).toString("latin1");
+
+/**
+ * The memo's PROSE, recovered from the content stream: the drawn strings only,
+ * with the writer's `\(`/`\)` escapes undone and its word-boundary line wraps
+ * re-joined, so an assertion can quote a sentence as a reader sees it rather
+ * than guessing where the wrap fell.
+ */
+const prose = (input: BudgetMemoInput = INPUT) =>
+  [...build(input).matchAll(/\((.*)\) Tj/g)]
+    .map((m) => m[1].replace(/\\([()\\])/g, "$1"))
+    .join(" ");
 
 describe("the budget memo document", () => {
   it("is a PDF", () => {
@@ -34,18 +46,42 @@ describe("the budget memo document", () => {
    * printed as the raw fraction (`0.09`), or signed on a miss, with every
    * other test still green.
    */
-  it("prints the variance as a magnitude percentage of plan", () => {
-    expect(build()).toContain("9%");
+  it("prints the variance as a percentage of plan, inside the summary sentence", () => {
+    // Anchored to the words around it: a bare "9%" substring would still
+    // match "-9%", so a sign regression could not fail this test.
+    expect(prose()).toContain("(9% over plan)");
     // The printed figure TRACKS the input rather than being a fixed string.
-    expect(build({ ...INPUT, variancePct: 0.125 })).toContain("12.5%");
+    expect(prose({ ...INPUT, variancePct: 0.125 })).toContain(
+      "(12.5% over plan)",
+    );
     // Never the raw fraction — the memo is a document, not a payload.
     expect(build()).not.toContain("0.09");
+  });
 
-    // MAGNITUDE: the sentence reads "… over plan", so the sign lives in the
-    // words. An underrun prints the same magnitude, never "-9%".
-    const underrun = build({ ...INPUT, variancePct: -0.09 });
-    expect(underrun).toContain("9%");
-    expect(underrun).not.toContain("-9%");
+  /**
+   * The summary sentence is written for an OVERRUN and has no wording for the
+   * opposite case, so a non-positive variance is not something this builder
+   * can render honestly — `Math.abs` would have printed "an overrun of
+   * -$19,440 (9% over plan)", stripping the sign out of a finance document.
+   *
+   * The route (`app/api/exec/v1/budget-memo/route.ts`) is the PRIMARY gate:
+   * it 404s on an under-plan breach before ever reaching the builder. This is
+   * the second line — `buildBudgetMemoPdf` is exported, so it must refuse on
+   * its own rather than trusting every future caller to check first.
+   */
+  it("refuses to render a variance its prose cannot describe", () => {
+    expect(() => build({ ...INPUT, variancePct: -0.09 })).toThrow(
+      NotAnOverrunError,
+    );
+    expect(() => build({ ...INPUT, variancePct: 0 })).toThrow(
+      NotAnOverrunError,
+    );
+    // The dollar overrun is a second, independent input: a positive
+    // `variancePct` paired with an actual at or below plan is just as
+    // unprintable.
+    expect(() => build({ ...INPUT, actualUsd: INPUT.planUsd - 1 })).toThrow(
+      NotAnOverrunError,
+    );
   });
 
   it("prints both driver amounts", () => {
