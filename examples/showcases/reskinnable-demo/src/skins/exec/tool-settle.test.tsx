@@ -13,9 +13,13 @@ import {
   MetricBlockSettle,
   OfferSettle,
   PublishCountersignCard,
+  ReadSettle,
   SaveProcedureSettle,
   SettleReceipt,
   classifyToolSettle,
+  navLeverRefusal,
+  navigateToParams,
+  pinFailedLine,
   publishRefusalPayload,
   publishSettleFor,
 } from "./tools";
@@ -822,5 +826,246 @@ describe("saveLearnedProcedure's settled render", () => {
     expect(container.textContent).not.toMatch(/Saved/);
     expect(container.textContent).not.toMatch(/already answered/);
     expect(tone(container)).toBe("neutral");
+  });
+});
+
+/**
+ * ── THE HANG, ON THE FRONTEND SIDE ──────────────────────────────────────
+ *
+ * The same defect `agent.ts` documents for `months`: a VALUE constraint on a
+ * parameter schema (`.regex`, `.int()`, `.min(0)`) is rejected by the AI SDK
+ * at the parameter boundary, which emits a `tool-error` stream part —
+ * `@copilotkit/runtime` has no arm for it, so no TOOL_CALL_RESULT is ever
+ * emitted and the chip spins "Navigating…" forever for a mistake one retry
+ * would have fixed. The schema may constrain SHAPE only; every value check
+ * belongs inside the handler, answered as a correctable RESULT.
+ */
+describe("navigateTo's parameter schema", () => {
+  const LEVERS = {
+    segment: "metrics",
+    department: "any",
+    threshold: false,
+    top: 0,
+  };
+
+  it("accepts an off-format period rather than rejecting it at the boundary", () => {
+    expect(
+      navigateToParams.safeParse({ ...LEVERS, period: "June 2024" }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a fractional or negative top for the same reason", () => {
+    expect(
+      navigateToParams.safeParse({ ...LEVERS, period: "any", top: 2.5 })
+        .success,
+    ).toBe(true);
+    expect(
+      navigateToParams.safeParse({ ...LEVERS, period: "any", top: -3 }).success,
+    ).toBe(true);
+  });
+
+  it("still rejects a SHAPE the tool cannot act on", () => {
+    // Shape constraints are safe and stay: a type or an enum is what a JSON
+    // schema can express and what the model cannot get subtly wrong.
+    expect(
+      navigateToParams.safeParse({ ...LEVERS, period: 6, top: 0 }).success,
+    ).toBe(false);
+    expect(
+      navigateToParams.safeParse({
+        ...LEVERS,
+        segment: "nowhere",
+        period: "any",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("navigateTo's lever guard", () => {
+  const nav = (result: unknown) => (
+    <SettleReceipt result={result} known={EXEC_SETTLES.navigateTo} />
+  );
+
+  it("lets the two sentinels and a well-formed period through", () => {
+    expect(navLeverRefusal({ period: "any", top: 0 })).toBeUndefined();
+    expect(navLeverRefusal({ period: "2024-06", top: 5 })).toBeUndefined();
+  });
+
+  it("refuses an off-format period as a correctable result", () => {
+    expect(
+      navLeverRefusal({ period: "June 2024", top: 0 })?.error,
+    ).toBeTruthy();
+    expect(navLeverRefusal({ period: "2024-13", top: 0 })?.error).toBeTruthy();
+  });
+
+  it("refuses a top that is not a whole number of rows", () => {
+    expect(navLeverRefusal({ period: "any", top: 2.5 })?.error).toBeTruthy();
+    expect(navLeverRefusal({ period: "any", top: -1 })?.error).toBeTruthy();
+  });
+
+  it("settles the chip instead of hanging it, and names no code to the room", () => {
+    const refusal = navLeverRefusal({ period: "June 2024", top: 0 });
+    const { container } = render(nav(JSON.stringify(refusal)));
+    expect(classifyToolSettle(JSON.stringify(refusal)).kind).toBe("refusal");
+    expect(tone(container)).toBe("negative");
+    expect(container.textContent).not.toMatch(/[A-Z]{2,}_[A-Z]{2,}/);
+  });
+});
+
+/**
+ * ── A FAILED READ IS NOT A READ ─────────────────────────────────────────
+ *
+ * `get_metrics` and `list_exceptions` answer a correctable mistake with an
+ * error RESULT (a throw hangs the call), and the shell's wildcard chip keys
+ * "done" off status alone — so a failed read ticked "Reading metrics ✓" and
+ * the agent went on to state figures it never got.
+ */
+describe("the backend reads' settled render", () => {
+  const READ_FAILURE = JSON.stringify({
+    error: "MONTHS_INVALID",
+    message:
+      "months is a trailing window in months, so it must be a whole number " +
+      "of months greater than zero — 0 is not, and nothing was returned.",
+  });
+
+  it("reads an error-shaped get_metrics result as a refusal, not a completed read", () => {
+    const { container } = render(
+      <ReadSettle tool="get_metrics" result={READ_FAILURE} />,
+    );
+    expect(tone(container)).toBe("negative");
+    expect(container.textContent).not.toMatch(/MONTHS_INVALID/);
+    expect(container.textContent).not.toMatch(/Reading metrics/);
+  });
+
+  it("reads an error-shaped list_exceptions result as a refusal too", () => {
+    const { container } = render(
+      <ReadSettle
+        tool="list_exceptions"
+        result={JSON.stringify({
+          error: "TOOL_FAILED",
+          message: "list_exceptions could not complete.",
+        })}
+      />,
+    );
+    expect(tone(container)).toBe("negative");
+    expect(container.textContent).not.toMatch(/TOOL_FAILED/);
+  });
+
+  it("never prints the read's own payload as a receipt", () => {
+    const { container } = render(
+      <ReadSettle
+        tool="get_metrics"
+        result={JSON.stringify({
+          metricId: "opex",
+          rows: [{ period: "2024-06", actual: 1234567 }],
+        })}
+      />,
+    );
+    expect(container.textContent).not.toMatch(/1234567|rows/);
+    expect(container.textContent).toMatch(/Reading metrics/);
+  });
+
+  it("shows an in-flight line while the read is still running", () => {
+    const { container } = render(
+      <ReadSettle tool="list_exceptions" result={undefined} />,
+    );
+    expect(container.textContent).toMatch(/Scanning exceptions/);
+  });
+
+  it("is actually registered as an exact renderer for both reads", () => {
+    // The component above is only reachable if `ExecTools` registers it —
+    // without the registration the wildcard chip keeps drawing the ✓.
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "tools.tsx"),
+      "utf8",
+    );
+    for (const name of ["get_metrics", "list_exceptions"]) {
+      expect(source).toMatch(
+        new RegExp(`useRenderTool\\(\\s*\\{\\s*name:\\s*"${name}"`),
+      );
+    }
+  });
+});
+
+/**
+ * ── NO BARE CODE, AND NOTHING ADDRESSED TO THE MODEL, REACHES THE ROOM ──
+ */
+describe("what a failed pin reads as", () => {
+  const THROWN = new Error(
+    'add block failed: ALREADY_PINNED: block "blk_1" is already pinned to ' +
+      'the "cfo" dashboard — unpin it there first.',
+  );
+
+  it("keeps the ledger's remedy but not the ledger's enum", () => {
+    const line = pinFailedLine(THROWN);
+    expect(line).not.toMatch(/ALREADY_PINNED/);
+    expect(line).not.toMatch(/add block failed/);
+    expect(line).toMatch(/already pinned/);
+    expect(line).toMatch(/unpin it there first\.$/);
+  });
+
+  it("still classifies as a failure once the code is gone", () => {
+    const { container } = render(
+      <SettleReceipt
+        result={pinFailedLine(THROWN)}
+        known={EXEC_SETTLES.pinBlockToDashboard}
+      />,
+    );
+    expect(tone(container)).toBe("negative");
+    expect(container.textContent).not.toMatch(/ALREADY_PINNED/);
+  });
+});
+
+describe("a refusal message written FOR THE MODEL", () => {
+  it("is not read out to the room", () => {
+    // `agent.ts` words its refusals as instructions to the agent — "Call
+    // get_metrics again…", "do not retry the same call". Those are the
+    // model's half of the exchange; the receipt has to say what happened.
+    const { container } = render(
+      <MetricBlockSettle
+        result={JSON.stringify({
+          error: "METRIC_ID_REQUIRED",
+          message:
+            'A "metricTile" block renders exactly one metric, so metricId ' +
+            "is required and nothing was rendered. Call render_metric_block " +
+            "again with the metric this block is about.",
+        })}
+      />,
+    );
+    expect(container.textContent).not.toMatch(/Call render_metric_block/);
+    expect(container.textContent).not.toMatch(/METRIC_ID_REQUIRED/);
+    expect(container.textContent).toMatch(/exactly one metric/);
+  });
+
+  it("keeps a message that was already operator-facing", () => {
+    // The store's own refusals are written for the room and say more than any
+    // per-code phrasing could — they must not be flattened away.
+    const { container } = render(
+      <SettleReceipt
+        result={JSON.stringify({
+          error: "EMPTY_DASHBOARD",
+          message:
+            'The "cfo" dashboard has no metric-bound block, so a board pack ' +
+            "built from it would report nothing.",
+        })}
+        known={EXEC_SETTLES.confirmPublishCountersign}
+      />,
+    );
+    expect(container.textContent).toMatch(/no metric-bound block/);
+  });
+
+  it("drops a producer sentence that tells the model what to do next", () => {
+    const { container } = render(
+      <SettleReceipt
+        result={JSON.stringify({
+          error: "TOOL_FAILED",
+          message:
+            "This is not a mistake in what you asked for — do not retry the " +
+            "same call; say what you were trying to do and move on.",
+        })}
+        known={EXEC_SETTLES.confirmPublishCountersign}
+      />,
+    );
+    expect(container.textContent).not.toMatch(/do not retry/i);
+    expect(container.textContent).not.toMatch(/TOOL_FAILED/);
   });
 });
