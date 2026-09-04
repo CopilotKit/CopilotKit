@@ -181,18 +181,16 @@ The catalog comes from `useSkin().catalog` — the same object the layout hands
 from `src/skins/`. Anything else — including a `CanvasSurface` report like banking's
 `render_report` or logistics' `renderBrief` — still falls back to
 `ReportHandoffPill`; this convention adds a second inline path, it does not
-change the existing one. Because the shell must not import from `src/skins/` —
-and the canvas must not depend on the chat's renderer — the `block:` spelling is
-duplicated by hand in THREE places, all spelled `BLOCK_SURFACE_PREFIX`:
-`src/skins/exec/blocks/build-block-ops.ts:22` (the write side, the worked
-example a skin copies to mint its own ids),
-`src/shell/chat/inline-block-surface.tsx:21` (the chat's read side) and
-`src/shell/canvas/canvas-context.tsx:36` (the classifier above).
-Two of the three ARE checked: the drift
-guard in `src/skins/exec/blocks/build-block-ops.test.ts:46-61` runs freshly
-minted ops through the shell's own reader, so the write side and the chat side
-cannot drift apart silently. The canvas copy is the unguarded one. Grep all
-three before you pick your own spelling.
+change the existing one. Because the shell must not import from `src/skins/`,
+the `block:` spelling is duplicated by hand in TWO places, both spelled
+`BLOCK_SURFACE_PREFIX`: `src/skins/exec/blocks/build-block-ops.ts:22` (the
+write side, the worked example a skin copies to mint its own ids) and
+`src/shell/canvas/canvas-context.tsx` (the shell's single reader-side
+decision, `decideA2uiSurface`; the chat's `inline-block-surface.tsx`
+delegates to it rather than keeping a copy). Both ARE checked: the drift
+guard in `src/skins/exec/blocks/build-block-ops.test.ts` runs freshly minted
+ops through the shell's classifier, so either side drifting fails there.
+Grep for `BLOCK_SURFACE_PREFIX` before you pick your own spelling.
 
 **A `sandboxFunction`'s `parameters` schema is DOCUMENTATION, not a gate — and its
 returns are undocumented unless the `description` says so.** Two traps, both of

@@ -1327,16 +1327,15 @@ catalog whose `catalogId` matches the one your `createSurface` op names; exec's
 `useComponent` renderers, so a catalog is not the same thing as transcript
 gen-UI.
 
-**Match the prefix in all THREE places.** The shell keeps its own copies of that
-exact string, because it must not import from `src/skins/` and its canvas must
-not depend on its chat renderer: `src/skins/exec/blocks/build-block-ops.ts:22`
-(the write side you copy), `src/shell/chat/inline-block-surface.tsx:21` (the
-chat's read side) and `src/shell/canvas/canvas-context.tsx:36` (the classifier
-that keeps a block off the canvas). The first two ARE checked against each
-other — the drift guard in
-`src/skins/exec/blocks/build-block-ops.test.ts:46-61` runs minted ops through
-the shell's own reader. The canvas copy is the one nothing checks, so grep for
-`BLOCK_SURFACE_PREFIX` and read all three before you settle on a spelling.
+**Match the prefix in BOTH places.** The shell keeps its own copy of that
+exact string, because it must not import from `src/skins/`:
+`src/skins/exec/blocks/build-block-ops.ts:22` (the write side you copy) and
+`src/shell/canvas/canvas-context.tsx` (the shell's single reader-side
+decision, `decideA2uiSurface` — the chat's `inline-block-surface.tsx`
+delegates to it rather than keeping a third copy). Both ARE checked against
+each other — the drift guard in `src/skins/exec/blocks/build-block-ops.test.ts`
+runs minted ops through the shell's classifier. Grep for
+`BLOCK_SURFACE_PREFIX` and read both before you settle on a spelling.
 
 **De-duplicate every array selection at the top of your op-builder.** zod arrays
 do not deduplicate, and the spec comes from the MODEL: `kpis:["valueAtRisk",
