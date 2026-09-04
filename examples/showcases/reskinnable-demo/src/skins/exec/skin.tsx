@@ -16,7 +16,9 @@ import { sandboxFunctions } from "./sandbox-functions";
 import { attachMemoByHand, sendMemoWithAttachment } from "./attach-memo";
 
 // Human-readable activity-chip labels for this skin's own tools. `execToolLabels`
-// (tools.tsx) covers the report/metric/memory beats; the six FRONTEND tool
+// (tools.tsx) covers the AGENT-side beats — metrics, blocks, narratives, the
+// board pack and memory. (Not "report": exec ships no a2ui report tool at all,
+// which is why it supplies no `CanvasSurface` either — see below.) The six FRONTEND tool
 // labels below — beat 6's teach chain (offer/await/save), beat 3a's
 // countersign card (refused the first time, requested again at the end of
 // the arc), beat 3c's `navigateTo`, and the beat 3a/5 pin support
@@ -60,9 +62,14 @@ const exec: Skin = {
   useRuntimeProperties: useExecRuntimeProperties,
   // No `CanvasSurface`: exec ships no a2ui report tool because its blocks
   // render INLINE in chat, making it the second skin without one (bookstore
-  // is the other — `src/skins/bookstore/skin.tsx`). The shared canvas
-  // (`src/shell/canvas/report-canvas.tsx`) handles this by rendering nothing
-  // for a surface kind it has no renderer for — a blank region, not a crash.
+  // is the other — `src/skins/bookstore/skin.tsx`). That omission does NOT
+  // mean the shared canvas's "no renderer for this kind" branch handles exec:
+  // that `return null` is DEFENSIVE and never runs here, because exec's a2ui
+  // surfaces are all `block:`-prefixed and `useLatestCanvasSurface` skips them
+  // before the region can be claimed, so `activeSurfaceKind` is never "report"
+  // for this skin. See `src/shell/canvas/report-canvas.tsx` and
+  // `src/shell/skin-contract.ts`, which both say to keep the branch and not to
+  // cite it as covered.
   catalog,
   suggestions: execSuggestions,
   designSkill: VANTAGE_DESIGN_SKILL,
