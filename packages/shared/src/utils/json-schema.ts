@@ -247,8 +247,11 @@ function convertAttribute(attribute: Parameter): JSONSchema {
         ?.filter((attr) => attr.required !== false)
         .map((attr) => attr.name);
 
-      // If no attributes were provided but schema exists, extract properties & required from it
-      if (!properties && parsedSchema) {
+      const hasProperties =
+        properties !== undefined && Object.keys(properties).length > 0;
+
+      // If no attributes were provided (or attributes: []), extract from schema
+      if (!hasProperties && parsedSchema) {
         if (parsedSchema.type === "array" && parsedSchema.items?.properties) {
           properties = parsedSchema.items.properties;
           required = parsedSchema.items.required;
