@@ -66,12 +66,21 @@ function buildSnapshot(): LedgerSnapshot {
       // Distribution — six breaching rows, |variance| deliberately distinct
       // so descending order is unambiguous: dso .50, revenue .30, arAging
       // .20, headcountCost .10, opex .09, burnRate .06.
+      //
+      // INSERTION ORDER IS DELIBERATELY NOT THE SORTED ORDER. Listed
+      // descending, the top-N test passes whether or not `filterMetricRows`
+      // sorts at all — `slice(0, 5)` over an already-descending array returns
+      // the expected five in the expected order, so deleting the `.sort()`
+      // keeps the suite green. Shuffled, the sort is the only thing that can
+      // produce the expected order, and it is also what decides WHICH five
+      // survive the slice (insertion order would keep burnRate .06 and drop
+      // arAgingDays .20).
+      point("opex", "distribution", 100, 109), // |0.09|
       point("dsoDays", "distribution", 100, 50), // |-0.50|
+      point("headcountCost", "distribution", 100, 90), // |-0.10|
+      point("burnRate", "distribution", 100, 106), // |0.06|
       point("revenue", "distribution", 100, 130), // |0.30|
       point("arAgingDays", "distribution", 100, 120), // |0.20|
-      point("headcountCost", "distribution", 100, 90), // |-0.10|
-      point("opex", "distribution", 100, 109), // |0.09|
-      point("burnRate", "distribution", 100, 106), // |0.06|
       // Distribution — two NON-breaching rows, to prove `threshold=1` excludes them.
       point("cash", "distribution", 100, 101), // |0.01|
       point("ebitda", "distribution", 100, 100), // |0|
@@ -130,9 +139,19 @@ describe("filterMetricRows", () => {
       "headcountCost",
       "opex",
     ]);
-    // Descending by |variance|, not merely "some order".
+
+    // The ORDERING QUANTITY itself, not just the ids: every |variance| in the
+    // fixture is distinct, so this pins one exact descending sequence. A
+    // stable-but-unsorted result cannot produce it.
+    const magnitudes = rows.map((r) =>
+      Number(Math.abs(r.variancePct).toFixed(4)),
+    );
+    expect(magnitudes).toEqual([0.5, 0.3, 0.2, 0.1, 0.09]);
+    // Distinct, so "descending" below is STRICT — a tie would let an
+    // unsorted order slip past a >= comparison.
+    expect(new Set(magnitudes).size).toBe(magnitudes.length);
     for (let i = 1; i < rows.length; i++) {
-      expect(Math.abs(rows[i - 1].variancePct)).toBeGreaterThanOrEqual(
+      expect(Math.abs(rows[i - 1].variancePct)).toBeGreaterThan(
         Math.abs(rows[i].variancePct),
       );
     }

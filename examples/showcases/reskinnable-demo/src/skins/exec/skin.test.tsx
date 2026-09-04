@@ -8,6 +8,10 @@ import { describe, expect, it, vi } from "vitest";
 // through this mock) so it stays the real constant regardless — a drifted
 // pill still fails. Mirrors `src/skins/airline/skin.test.tsx`.
 const sent = vi.fn(() => Promise.resolve(true));
+// The header action's own dependency, spied for the same reason as `sent`: a
+// pill or button that claims a click without running anything is the failure
+// mode both of these exist to catch.
+const attachedByHand = vi.fn(() => Promise.resolve(true));
 vi.mock("@/skins/exec/attach-memo", async (importOriginal) => {
   // `importOriginal` keeps any other real exports intact. Only the two
   // functions that touch the DOM are replaced. Spread through a plain record
@@ -16,7 +20,7 @@ vi.mock("@/skins/exec/attach-memo", async (importOriginal) => {
   return {
     ...actual,
     sendMemoWithAttachment: () => sent(),
-    attachMemoByHand: () => Promise.resolve(true),
+    attachMemoByHand: () => attachedByHand(),
   };
 });
 
@@ -96,7 +100,17 @@ describe("exec skin wiring", () => {
 describe("exec beat 3d — the attachment path", () => {
   it("stages the department budget memo from the chat header", () => {
     expect(exec.chatHeaderActions).toHaveLength(1);
-    expect(exec.chatHeaderActions?.[0]?.label).toMatch(/budget memo/i);
+    const action = exec.chatHeaderActions?.[0];
+    expect(action?.label).toMatch(/budget memo/i);
+
+    // THE CLICK, ACTUALLY INVOKED. The label and the count were the whole
+    // test, so an `onClick` wired to nothing — or to the wrong function —
+    // passed it. This is the presenter's manual fallback for beat 3d: if it
+    // does not reach `attachMemoByHand`, the button is decoration and the
+    // fallback does not exist.
+    expect(typeof action?.onClick).toBe("function");
+    action?.onClick();
+    expect(attachedByHand).toHaveBeenCalledTimes(1);
   });
 
   it("intercepts ONLY the pill whose message carries the attachment", () => {

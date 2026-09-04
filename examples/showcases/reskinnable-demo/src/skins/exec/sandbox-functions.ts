@@ -72,7 +72,12 @@ const toSafeException = (e: Exception): SafeException => ({
 
 function metricSeries(
   metricId: MetricId,
-  department?: Department,
+  // `"all"` is a value of `MetricPoint.department`, not a department — the
+  // parameter schema below admits it (and its `.describe()` tells the model to
+  // pass it for the company-wide series), so the annotation has to as well.
+  // Typed as `Department` alone, the one filter that matters for a
+  // company-wide request was outside the type it was checked against.
+  department?: Department | "all",
   months?: number,
 ): SafeMetricPoint[] {
   let rows = snapshot.points.filter((p) => p.metricId === metricId);
@@ -140,7 +145,7 @@ export const sandboxFunctions: SandboxFunction[] = [
       months,
     }: {
       metricId: MetricId;
-      department?: Department;
+      department?: Department | "all";
       months?: number;
     }) => metricSeries(metricId, department, months),
   },

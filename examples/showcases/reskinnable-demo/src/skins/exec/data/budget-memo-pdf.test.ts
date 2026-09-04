@@ -28,6 +28,26 @@ describe("the budget memo document", () => {
     expect(text).toContain("$19,440");
   });
 
+  /**
+   * The percentage was the one input the memo printed and nothing asserted:
+   * `variancePct` could have been dropped from the summary sentence, or
+   * printed as the raw fraction (`0.09`), or signed on a miss, with every
+   * other test still green.
+   */
+  it("prints the variance as a magnitude percentage of plan", () => {
+    expect(build()).toContain("9%");
+    // The printed figure TRACKS the input rather than being a fixed string.
+    expect(build({ ...INPUT, variancePct: 0.125 })).toContain("12.5%");
+    // Never the raw fraction — the memo is a document, not a payload.
+    expect(build()).not.toContain("0.09");
+
+    // MAGNITUDE: the sentence reads "… over plan", so the sign lives in the
+    // words. An underrun prints the same magnitude, never "-9%".
+    const underrun = build({ ...INPUT, variancePct: -0.09 });
+    expect(underrun).toContain("9%");
+    expect(underrun).not.toContain("-9%");
+  });
+
   it("prints both driver amounts", () => {
     const text = build();
     expect(text).toContain("$12,053");
