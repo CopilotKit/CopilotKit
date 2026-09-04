@@ -10,6 +10,7 @@ import { execNavTarget } from "../nav-target";
 import type {
   Department,
   Initiative,
+  LedgerSnapshot,
   MetricDef,
   MetricId,
 } from "../data/types";
@@ -66,6 +67,49 @@ export interface VisibleException {
   period: string;
   variancePct: number;
   explained: boolean;
+}
+
+/**
+ * The rows the fixed exception strip renders — and, by the same call, the rows
+ * the page readable reports as on screen.
+ *
+ * NOT narrowed by audience. This strip is the COMPANY's exception feed, which
+ * is exactly why the CFO page deliberately has no copy of it (see
+ * `./cfo-dashboard.tsx`: the feed "describes the COMPANY, not the CFO's own
+ * pinned metrics"). Two further things force the wider reading:
+ *
+ *  · The CEO dashboard also carries a seeded `exceptionList` BLOCK, and block
+ *    specs carry no audience (`../blocks/build-block-ops.ts`), so that block
+ *    lists every breach at the latest period. A narrowed strip put two
+ *    different exception counts on one page — with the seeded audiences it was
+ *    literally zero above and three below, and the readable then told the
+ *    agent `exceptions: []` about a screen showing three.
+ *  · `store.ts`'s publish gate already treats that block as covering every
+ *    metric (`referencedMetrics` → `includesAll`), which is what makes the CEO
+ *    pack refuse on `dsoDays`. A strip that hid what the gate refuses on would
+ *    leave the operator reading a clean feed under a blocked publish.
+ *
+ * An exception whose metric has no def is dropped — the same rule the
+ * `ExceptionList` renderer applies — because without a def there is no label
+ * to print and no threshold it can be said to have breached.
+ */
+export function visibleExceptions(
+  snapshot: Pick<LedgerSnapshot, "exceptions" | "metricDefs">,
+): VisibleException[] {
+  return snapshot.exceptions
+    .map((exception) => {
+      const def = findMetricDef(snapshot.metricDefs, exception.metricId);
+      if (!def) return null;
+      return {
+        metricId: exception.metricId,
+        label: def.label,
+        department: exception.department,
+        period: exception.period,
+        variancePct: exception.variancePct,
+        explained: exception.explained,
+      };
+    })
+    .filter((row): row is VisibleException => row !== null);
 }
 
 export function ExceptionFeedStrip({
@@ -183,35 +227,16 @@ export function CeoDashboardPage() {
 
   const dashboard = snapshot.dashboards.ceo;
 
-  // The CEO's fixed exception strip narrows to metrics tagged for the CEO
-  // audience (or "both"), the same narrowing the `ExceptionList` A2UI
-  // renderer applies for an agent-pinned CEO-scoped block — so the always-on
-  // strip never shows a CFO-only metric the CEO dashboard's own pinned
-  // blocks would filter out.
-  const visibleExceptions: VisibleException[] = snapshot.exceptions
-    .map((exception) => {
-      const def = findMetricDef(snapshot.metricDefs, exception.metricId);
-      if (!def || (def.audience !== "ceo" && def.audience !== "both")) {
-        return null;
-      }
-      return {
-        metricId: exception.metricId,
-        label: def.label,
-        department: exception.department,
-        period: exception.period,
-        variancePct: exception.variancePct,
-        explained: exception.explained,
-      };
-    })
-    .filter((row): row is VisibleException => row !== null);
+  // One list, built once: the strip below RENDERS it and the readable REPORTS
+  // it, so the agent can never describe a feed the screen isn't showing.
+  const exceptions = visibleExceptions(snapshot);
 
   // ── WHAT IS VISIBLY ON SCREEN ─────────────────────────────────────────────
   // Not the whole ledger — the pinned block titles in the order the grid
-  // renders them, the exception rows actually shown in the feed strip above
-  // (already narrowed to the CEO audience), and every initiative's status, in
-  // the order the RYG strip shows them. That distinction is the beat: the
-  // agent describing what the CEO can literally see right now, not a static
-  // page description.
+  // renders them, the exception rows actually shown in the feed strip above,
+  // and every initiative's status, in the order the RYG strip shows them.
+  // That distinction is the beat: the agent describing what the CEO can
+  // literally see right now, not a static page description.
   useAgentContext({
     description:
       "The CEO dashboard the user is currently viewing: the pinned block " +
@@ -221,7 +246,7 @@ export function CeoDashboardPage() {
     value: JSON.stringify({
       page: "ceo-dashboard",
       pinnedBlocks: dashboard.blocks.map((block) => block.spec.title),
-      exceptions: visibleExceptions.map((exception) => ({
+      exceptions: exceptions.map((exception) => ({
         metric: exception.label,
         department: DEPARTMENT_LABEL[exception.department],
         period: exception.period,
@@ -239,7 +264,7 @@ export function CeoDashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <ExceptionFeedStrip exceptions={visibleExceptions} skinHref={skinHref} />
+      <ExceptionFeedStrip exceptions={exceptions} skinHref={skinHref} />
       <InitiativeRygStrip initiatives={snapshot.initiatives} />
       <DashboardGrid dashboardId="ceo" />
     </div>
