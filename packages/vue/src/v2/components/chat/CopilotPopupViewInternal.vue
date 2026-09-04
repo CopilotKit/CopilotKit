@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   computed,
-  getCurrentInstance,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -85,10 +84,6 @@ const emit = defineEmits<{
 
 const attrs = useAttrs();
 const config = useCopilotChatConfiguration();
-const instance = getCurrentInstance();
-const vnodeProps = computed(
-  () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
-);
 
 const containerRef = ref<HTMLElement | null>(null);
 const isRendered = ref(config.value?.isModalOpen ?? false);
@@ -99,7 +94,6 @@ let focusTimer: ReturnType<typeof setTimeout> | undefined;
 const isPopupOpen = computed(() => config.value?.isModalOpen ?? false);
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const headerTitle = computed(() => labels.value.modalHeaderTitle);
-const hasStopAction = computed(() => hasListener("onStop"));
 const popupAnimationClass = computed(() =>
   isPopupOpen.value && !isAnimatingOut.value
     ? "cpk:pointer-events-auto cpk:translate-y-0 cpk:opacity-100 cpk:md:scale-100"
@@ -137,14 +131,6 @@ function dimensionToCss(
     return value;
   }
   return `${fallback}px`;
-}
-
-function hasListener(listenerName: string) {
-  const listener = vnodeProps.value[listenerName];
-  if (Array.isArray(listener)) {
-    return listener.length > 0;
-  }
-  return !!listener;
 }
 
 function closePopup() {
@@ -201,19 +187,19 @@ const chatViewEventProps = computed(() => {
     onSelectSuggestion: handleSelectSuggestion,
   };
 
-  if (hasStopAction.value) {
+  if (props.onStop) {
     listeners.onStop = handleStop;
   }
-  if (hasListener("onAddFile")) {
+  if (props.onAddFile) {
     listeners.onAddFile = handleAddFile;
   }
-  if (hasListener("onStartTranscribe")) {
+  if (props.onStartTranscribe) {
     listeners.onStartTranscribe = handleStartTranscribe;
   }
-  if (hasListener("onCancelTranscribe")) {
+  if (props.onCancelTranscribe) {
     listeners.onCancelTranscribe = handleCancelTranscribe;
   }
-  if (hasListener("onFinishTranscribe")) {
+  if (props.onFinishTranscribe) {
     listeners.onFinishTranscribe = handleFinishTranscribe;
   }
 
