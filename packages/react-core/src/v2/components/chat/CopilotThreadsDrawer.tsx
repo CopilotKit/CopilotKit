@@ -207,10 +207,10 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  *   thread-list launcher appears, and binds the element `open` state to the
  *   configuration's `drawerOpen`.
  *
- * License gating is two-pronged: the locked view shows when no license is configured
- * (the runtime reported no license status) OR the `threads` feature is
- * explicitly unlicensed. While unlicensed, the thread fetch is skipped entirely
- * so an unlicensed drawer issues no network requests.
+ * Intelligence gating is two-pronged: the locked view shows when the runtime
+ * reports no active entitlement OR the `threads` feature is unavailable. While
+ * unavailable, the thread fetch is skipped entirely so the drawer issues no
+ * network requests.
  *
  * Thread switching needs no host wiring: when `onThreadSelect`/`onNewThread`
  * are omitted, the wrapper drives the surrounding chat configuration directly
@@ -222,7 +222,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  * @example
  * ```tsx
  * // Callback-free: the drawer drives the chat configuration itself.
- * <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
+ * <CopilotKitProvider runtimeUrl="/api/copilotkit">
  *   <CopilotChat />
  *   <CopilotThreadsDrawer />
  * </CopilotKitProvider>

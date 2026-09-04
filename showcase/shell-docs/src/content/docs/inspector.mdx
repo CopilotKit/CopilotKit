@@ -216,12 +216,16 @@ Set `enableInspector` to `false` to hide it during development:
 
 ```tsx
 <CopilotKit
-  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+  runtimeUrl="/api/copilotkit"
   enableInspector={false}
 >
   {children}
 </CopilotKit>
 ```
+
+For managed Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
+The runtime reports Inspector access to the browser; do not expose the project
+API key in a `NEXT_PUBLIC_` environment variable.
 
 An explicit `true` keeps it enabled in development but cannot override the
 production or server-rendering guard.

@@ -44,9 +44,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_ag2_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_ag2_quickstart_step1">Sign in to managed Intelligence</SignupLink>. Managed setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you clone it below.
     </Step>
 
     <Step>
@@ -55,7 +55,10 @@ Before you begin, you'll need the following:
         ```bash
         git clone https://github.com/ag2ai/ag2-samples.git
         cd ag2-samples
+        npx copilotkit@latest project select
         ```
+
+        `project select` creates or selects an Intelligence project and writes its server-side API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
     </Step>
     <Step>
         ### Set Up the AG2 Backend
@@ -81,7 +84,7 @@ Before you begin, you'll need the following:
     </Step>
     <Step>
         ### Set Up the CopilotKit UI
-        
+
         The last step is to use CopilotKit's UI components to render the chat interaction with your agent.
 
         In a new terminal:

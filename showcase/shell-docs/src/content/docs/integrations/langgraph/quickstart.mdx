@@ -25,9 +25,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
+        ### Set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_langgraph_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_langgraph_quickstart_step1">Sign in to managed Intelligence</SignupLink>. Managed setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -424,10 +424,15 @@ Before you begin, you'll need the following:
               </Tab>
             </Tabs>
 
-              The runtime reads the project API key from step 1. Add it to the app that serves
-              this route:
+              From this frontend app directory, connect the runtime to an Intelligence project:
 
-              ```plaintext title=".env.local"
+              ```bash title="Terminal"
+              npx copilotkit@latest project select
+              ```
+
+              The command writes the server-side project API key to `.env`. The runtime reads it here:
+
+              ```plaintext title=".env"
               CPK_INTELLIGENCE_API_KEY=cpk-...
               ```
 

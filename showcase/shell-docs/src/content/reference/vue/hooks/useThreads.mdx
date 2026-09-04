@@ -6,8 +6,8 @@ description: "Vue 3 composable for listing, managing, and syncing conversation t
 <OpsPlatformCTA
   variant="card"
   title="useThreads needs a CopilotKit Intelligence project"
-  body="Sign up for a free account to get a public license key and start syncing threads."
-  ctaLabel="Create a free account"
+  body="Connect your runtime to a managed project to start syncing threads."
+  ctaLabel="Start managed onboarding"
   surface="docs_reference_vue_use_threads"
 />
 
@@ -183,7 +183,7 @@ const { threads, hasMoreThreads, fetchMoreThreads } = useThreads({
 
 <Cards>
   <Card title="CopilotKitProvider" href="/reference/vue/components/CopilotKitProvider">
-    Configure the runtime URL and license key that power thread syncing.
+    Configure the runtime URL that powers thread syncing. For managed Intelligence, keep `CPK_INTELLIGENCE_API_KEY` on the runtime server.
   </Card>
   <Card title="useAgent" href="/reference/vue/hooks/useAgent">
     Access and run the agent whose threads you are listing.
