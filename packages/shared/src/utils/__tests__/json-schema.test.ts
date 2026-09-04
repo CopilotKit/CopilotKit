@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
+import type { JSONSchema } from "../json-schema";
 import {
   convertJsonSchemaToZodSchema,
   actionParametersToJsonSchema,
   jsonSchemaToActionParameters,
-  JSONSchema,
 } from "../json-schema";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { Parameter } from "../../types";
+import type { Parameter } from "../../types";
 
 describe("convertJsonSchemaToZodSchema", () => {
   it("should convert a simple JSON schema to a Zod schema", () => {
@@ -808,5 +808,122 @@ describe("jsonSchemaToActionParameters", () => {
     const roundTripParameters = jsonSchemaToActionParameters(jsonSchema);
 
     expect(roundTripParameters).toEqual(originalParameters);
+  });
+});
+describe("actionParametersToJsonSchema with schema property", () => {
+  it("should extract properties from a Zod schema on an object[] parameter", () => {
+    const EmailRecordIdSchema = z.object({
+      recordId: z.string().describe("ID of the record"),
+    });
+
+    const parameters: Parameter[] = [
+      {
+        name: "createdWithRecords",
+        type: "object[]",
+        description: "An array of records",
+        schema: EmailRecordIdSchema,
+        required: true,
+      } as any,
+    ];
+
+    const jsonSchema = actionParametersToJsonSchema(parameters);
+
+    expect(jsonSchema).toEqual({
+      type: "object",
+      properties: {
+        createdWithRecords: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              recordId: {
+                type: "string",
+                description: "ID of the record",
+              },
+            },
+            required: ["recordId"],
+          },
+          description: "An array of records",
+        },
+      },
+      required: ["createdWithRecords"],
+    });
+  });
+
+  it("should extract properties from a raw JSON schema on an object parameter", () => {
+    const parameters: Parameter[] = [
+      {
+        name: "config",
+        type: "object",
+        description: "Configuration object",
+        schema: {
+          type: "object",
+          properties: {
+            apiKey: { type: "string" },
+            timeout: { type: "number" },
+          },
+          required: ["apiKey"],
+        },
+        required: true,
+      } as any,
+    ];
+
+    const jsonSchema = actionParametersToJsonSchema(parameters);
+
+    expect(jsonSchema).toEqual({
+      type: "object",
+      properties: {
+        config: {
+          type: "object",
+          description: "Configuration object",
+          properties: {
+            apiKey: { type: "string" },
+            timeout: { type: "number" },
+          },
+          required: ["apiKey"],
+        },
+      },
+      required: ["config"],
+    });
+  });
+
+  it("should extract properties from schema when attributes is an empty array", () => {
+    const EmailRecordIdSchema = z.object({
+      recordId: z.string().describe("ID of the record"),
+    });
+
+    const parameters: Parameter[] = [
+      {
+        name: "createdWithRecords",
+        type: "object[]",
+        description: "An array of records",
+        attributes: [],
+        schema: EmailRecordIdSchema,
+        required: true,
+      } as any,
+    ];
+
+    const jsonSchema = actionParametersToJsonSchema(parameters);
+
+    expect(jsonSchema).toEqual({
+      type: "object",
+      properties: {
+        createdWithRecords: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              recordId: {
+                type: "string",
+                description: "ID of the record",
+              },
+            },
+            required: ["recordId"],
+          },
+          description: "An array of records",
+        },
+      },
+      required: ["createdWithRecords"],
+    });
   });
 });
