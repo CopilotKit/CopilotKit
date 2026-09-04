@@ -9,7 +9,7 @@ import React from "react";
 import type { Metadata } from "next";
 import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
 import { DocsLandingNext } from "@/components/docs-landing-next";
-import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
+import { OnboardingPromptButton } from "@/components/onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
 import { HeroStartActions } from "@/components/hero-start-commands";
 import { LandingSampleTabs } from "@/components/landing-sample-tabs";
@@ -144,7 +144,10 @@ function DocsOverview() {
             <div className="mt-7">
               <HeroStartActions
                 prompt={
-                  <HeroOnboardingPromptButton surface="docs_landing_hero" />
+                  <OnboardingPromptButton
+                    variant="hero"
+                    surface="docs_landing_hero"
+                  />
                 }
                 quickstart={
                   <HeroQuickstartDropdown options={quickstartOptions} />

@@ -21,7 +21,7 @@ import { DocsContentHeader } from "@/components/docs-content-header";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
-import { DocsPageTools } from "@/components/docs-page-tools";
+import { DocsPageTools, docsMarkdownUrl } from "@/components/docs-page-tools";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
@@ -123,6 +123,14 @@ export interface DocsPageViewProps {
   /** When set, hide the main MDX body (used by pivot-only pages). */
   hideBody?: boolean;
   /**
+   * The MDX for this page is itself a landing page — it brings its own
+   * headline and call to action. Suppresses the docs title, the description
+   * and the page-tools row, so the page has one beginning instead of two.
+   * Set only by the framework-root branches in
+   * `app/[framework]/[[...slug]]/page.tsx`.
+   */
+  landingPage?: boolean;
+  /**
    * Optional client component that wraps the MDX body — used by the
    * `/docs/<feature>` router pages to conditionally hide code when no
    * framework is selected. Must accept `children` and render them
@@ -173,6 +181,7 @@ export async function DocsPageView({
   sidebarBannerSlot,
   sidebarClassName,
   hideBody = false,
+  landingPage = false,
   ContentWrapper,
 }: DocsPageViewProps) {
   const doc = loadDoc(contentSlugPath ?? slugPath);
@@ -270,16 +279,44 @@ export async function DocsPageView({
         tableOfContentPopover={{ enabled: fumadocsToc.length > 0 }}
       >
         <MaybeEarlyAccessGate gate={doc.fm.earlyAccess}>
-          <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
+          {/* Content container. A landing page's own hero supplies the
+            space the breadcrumb trail and title would otherwise occupy, so
+            the top padding is zeroed there — matching the `pt-0` recipe the
+            data-driven framework-root path (`FrameworkRootShell` in
+            `app/[framework]/[[...slug]]/page.tsx`) already uses for the same
+            suppressed chrome. */}
+          <div
+            className={`docs-inner-content docs-article-content mx-auto px-4 pb-6 md:px-6 ${
+              landingPage ? "pt-0" : "pt-2 md:pt-3 xl:pt-4"
+            }`}
+          >
+            {/* Shared page header: breadcrumb trail, title, description and
+              the page-actions slot.
+
+              A landing page suppresses all three. The framework root has
+              nothing to navigate up to, its MDX brings its own headline, and
+              its hero already carries the prompt CTA — so the trail would
+              render a lone framework name stacked above the hero's own
+              framework-name lockup, and the page-tools row would offer the
+              same copy twice. With every part suppressed the header renders
+              nothing at all, which is what keeps the hero at the same offset
+              as the data-driven path.
+
+              The page-actions row is fumadocs's upstream LLM page-actions
+              feature. The markdown URL resolves through the `/:path*.mdx`
+              rewrite to the route handler at `app/llms-mdx/[[...slug]]/
+              route.ts`, which serves the raw MDX via the same `loadDoc()`
+              the page uses. The GitHub URL is computed from `doc.filePath`
+              (absolute fs path) by slicing from the `/showcase/` segment. */}
             <DocsContentHeader
               ancestorBreadcrumbs={
-                doc.fm.hideBreadcrumb ? [] : ancestorBreadcrumbs
+                landingPage || doc.fm.hideBreadcrumb ? [] : ancestorBreadcrumbs
               }
               title={doc.fm.title}
               description={doc.fm.description}
-              hideHeading={doc.fm.hideHeader}
+              hideHeading={landingPage || doc.fm.hideHeader}
             >
-              {!doc.fm.hidePageActions && (
+              {!landingPage && !doc.fm.hidePageActions && (
                 <DocsPageTools
                   slugPath={slugPath}
                   slugHrefPrefix={slugHrefPrefix}
@@ -323,11 +360,21 @@ export async function DocsPageView({
                           <ChannelsStartPrompt
                             {...props}
                             frontend={props.frontend ?? docsFrontend}
+                            backend={props.backend ?? onboardingFramework?.slug}
                           />
                         ),
                         RichThreadsSetupPrompt,
-                        IntelligenceOnboardingPrompt:
-                          IntelligenceOnboardingPromptMdx,
+                        // The banner is hand-placed in MDX and cannot know
+                        // which framework's page it landed on, so the map
+                        // supplies it.
+                        IntelligenceOnboardingPrompt: (
+                          props: IntelligenceOnboardingPromptProps,
+                        ) => (
+                          <IntelligenceOnboardingPromptMdx
+                            {...props}
+                            framework={onboardingFramework}
+                          />
+                        ),
                         OpsPlatformCTA: (props: OpsPlatformCTAProps) => (
                           <OpsPlatformCTA
                             {...props}
@@ -463,6 +510,11 @@ export async function DocsPageView({
                               frameworkOverride ?? props.currentFramework
                             }
                             hrefPrefix={slugHrefPrefix}
+                            markdownUrl={docsMarkdownUrl(
+                              slugHrefPrefix,
+                              slugPath,
+                            )}
+                            onboardingFrontend={onboardingFrontend}
                           />
                         ),
                         // Same closure pattern: thread the URL framework

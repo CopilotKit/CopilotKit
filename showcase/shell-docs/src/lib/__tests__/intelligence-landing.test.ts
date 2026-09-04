@@ -87,6 +87,11 @@ test("the MDX registry and page view wire IntelligenceOverview and its chrome", 
   );
   expect(registry).toContain("IntelligenceOverview,");
   expect(registry).toContain("IntelligenceFeatureCards,");
-  expect(pageView).toContain("hideHeading={doc.fm.hideHeader}");
-  expect(pageView).toContain("!doc.fm.hidePageActions");
+  // The frontmatter flags stay wired. Each is now OR-ed with the route-level
+  // `landingPage` prop, which suppresses the same chrome for a framework root
+  // whose MDX brings its own hero — asserted together so neither half of the
+  // switch can be dropped without this failing.
+  expect(pageView).toContain("landingPage || doc.fm.hideBreadcrumb");
+  expect(pageView).toContain("hideHeading={landingPage || doc.fm.hideHeader}");
+  expect(pageView).toContain("!landingPage && !doc.fm.hidePageActions");
 });

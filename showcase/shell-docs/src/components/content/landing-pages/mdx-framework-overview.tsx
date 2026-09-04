@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { FrameworkOverview } from "./framework-overview";
+import { frameworkOverviews } from "@/data/frameworks";
 import type {
   FrameworkOverviewData,
   LiveDemo,
@@ -22,7 +23,9 @@ import type {
  *
  * The icon is passed through as a JSX node via `iconOverride`, so MDX
  * files keep using `frameworkIcon={<MastraIcon className="..." />}`
- * without needing to know about the iconKey registry.
+ * without needing to know about the iconKey registry. That attribute is
+ * currently filtered out before compilation (see the `iconKey` fallback
+ * below), so in practice the registry key is what renders today.
  *
  * `currentFramework` is the URL framework slug (e.g. `langgraph-fastapi`)
  * supplied by the page render site via a per-render override of this
@@ -70,6 +73,16 @@ export interface MdxFrameworkOverviewProps {
    */
   currentFramework?: string;
   hrefPrefix?: string;
+  /**
+   * The `.mdx` URL of the page this hero sits on, so the copied prompt can
+   * name it exactly as the page-tools button does elsewhere; absent on the
+   * docs home, where the prompt stays canonical.
+   */
+  markdownUrl?: string;
+  /**
+   * The frontend the URL selects, used for the prompt's frontend sentence.
+   */
+  onboardingFrontend?: { id: string; name: string };
 }
 
 export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
@@ -78,6 +91,14 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
   // no-op. Mirrors `FrameworkOverview`'s own `fromSlug` derivation.
   const guideLinkSlug = (props.guideLink ?? "").split("/")[1] ?? "";
   const currentFramework = props.currentFramework ?? guideLinkSlug;
+  // Registry icon for the URL framework, used when no icon node arrives.
+  // `next-mdx-remote` compiles MDX with its expression-attribute filter on,
+  // which drops every `prop={…}` before the JSX reaches this adapter — so
+  // an authored `frameworkIcon={<MastraIcon />}` never survives and the hero
+  // lockup would render as a bare framework name. Falling back to the same
+  // `iconKey` the data-driven landing pages use keeps the two paths visually
+  // identical. An icon node still wins whenever one is actually passed.
+  const iconKey = frameworkOverviews[currentFramework]?.iconKey ?? "";
   const synthData: FrameworkOverviewData = {
     // slug is only used by FrameworkOverview's link-rewriting logic to
     // strip a "from-slug" prefix off internal links. We pass an empty
@@ -87,8 +108,7 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
     // duplicate of the prefix.
     slug: "",
     frameworkName: props.frameworkName,
-    // iconKey is ignored because we always pass `iconOverride` below.
-    iconKey: "",
+    iconKey,
     header: props.header,
     subheader: props.subheader ?? "",
     bannerVideo: props.bannerVideo,
@@ -107,6 +127,8 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
       currentFramework={currentFramework}
       hrefPrefix={props.hrefPrefix}
       iconOverride={props.frameworkIcon}
+      markdownUrl={props.markdownUrl}
+      onboardingFrontend={props.onboardingFrontend}
     />
   );
 }

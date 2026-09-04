@@ -18,8 +18,16 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("next/navigation", () => ({
+// `usePathname` comes from `fumadocs-core/framework`, not `next/navigation`:
+// the shared <OnboardingPromptButton> renders inside the Fumadocs docs shell.
+vi.mock("fumadocs-core/framework", () => ({
   usePathname: () => "/intelligence/overview",
+}));
+
+// The hero names this page in the copied prompt, so the client base URL is
+// read. Stubbed so the runtime-config module stays out of the test.
+vi.mock("@/lib/runtime-config.client", () => ({
+  getRuntimeConfig: () => ({ baseUrl: "https://docs.copilotkit.ai" }),
 }));
 
 vi.mock("posthog-js/react", () => ({
@@ -39,7 +47,7 @@ describe("IntelligenceOverview", () => {
       screen.queryByText(/CopilotKit Intelligence adds persistent threads/i),
     ).toBeNull();
     expect(
-      screen.getByRole("button", { name: /copy onboarding prompt/i }),
+      screen.getByRole("button", { name: /copy agent prompt/i }),
     ).toBeTruthy();
 
     const connect = screen.getByRole("link", { name: /connect an app/i });
@@ -94,7 +102,7 @@ describe("IntelligenceOverview", () => {
     expect(video.loop).toBe(true);
 
     const prompt = screen.getByRole("button", {
-      name: /copy onboarding prompt/i,
+      name: /copy agent prompt/i,
     });
     expect(
       video.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING,

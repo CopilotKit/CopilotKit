@@ -62,6 +62,7 @@ import type { ChannelFrontend } from "@/lib/channel-guide-routes";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
 import { onboardingFrontendFor } from "@/lib/docs-onboarding-frontend";
+import { docsMarkdownUrl } from "@/components/docs-page-tools";
 import {
   CONTENT_DIR,
   buildFrameworkNav,
@@ -1173,6 +1174,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        landingPage
         onboardingFramework={onboardingFrameworkFor(framework)}
         // `slugHrefPrefix` is this page's own URL prefix — `/angular/mastra`
         // when a frontend route delegated here, `/<framework>` otherwise.
@@ -1221,6 +1223,8 @@ async function FrameworkRootPage({
                   {...props}
                   currentFramework={framework ?? props.currentFramework}
                   hrefPrefix={slugHrefPrefix}
+                  markdownUrl={docsMarkdownUrl(slugHrefPrefix, "")}
+                  onboardingFrontend={onboardingFrontendFor(slugHrefPrefix)}
                 />
               ),
               // Mirror the binding in DocsPageView so any
@@ -1293,6 +1297,8 @@ async function FrameworkRootPage({
           hrefPrefix={slugHrefPrefix}
           frontendOverride={frontendOverride}
           afterFeatures={afterFeatures}
+          markdownUrl={docsMarkdownUrl(slugHrefPrefix, "")}
+          onboardingFrontend={onboardingFrontendFor(slugHrefPrefix)}
         />
       </FrameworkRootShell>
     );
@@ -1311,6 +1317,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        landingPage
         onboardingFramework={onboardingFrameworkFor(framework)}
         // `slugHrefPrefix` is this page's own URL prefix — `/angular/mastra`
         // when a frontend route delegated here, `/<framework>` otherwise.

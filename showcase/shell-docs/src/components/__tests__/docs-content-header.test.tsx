@@ -40,6 +40,23 @@ it("does not render empty breadcrumb chrome", () => {
   expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
 });
 
+// A landing page suppresses every part at once. An empty <header> would keep
+// its bottom margin and push the MDX hero down by a band of blank space that
+// belongs to chrome the page deliberately dropped, so nothing is rendered.
+it("renders nothing when there is no trail, no heading and no actions", () => {
+  const { container } = render(
+    <DocsContentHeader
+      ancestorBreadcrumbs={[]}
+      title="Mastra"
+      description="Hidden description"
+      hideHeading
+    />,
+  );
+
+  expect(container.querySelector("header")).toBeNull();
+  expect(container.textContent).toBe("");
+});
+
 it("keeps breadcrumbs and actions when an MDX hero owns the heading", () => {
   render(
     <DocsContentHeader

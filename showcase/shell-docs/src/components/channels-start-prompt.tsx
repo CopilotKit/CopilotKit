@@ -24,12 +24,17 @@ import {
   CHANNELS_BUILD_PROMPT,
 } from "@/lib/channels-activation-contracts";
 import type { ChannelsActivationChannelId } from "@/lib/channels-activation-contracts";
+// The client-side mirror of `ROOT_FRAMEWORK`. Importing the registry itself
+// from a client component would pull registry.json into the bundle.
+import { DEFAULT_FRAMEWORK } from "./framework-provider";
 
 type CopyState = "idle" | "copied" | "error";
 
 export interface ChannelsStartPromptProps {
   /** Injected from the page's docs frontend by the MDX component map. */
   frontend?: string;
+  /** Injected from the page's docs framework by the MDX component map. */
+  backend?: string;
 }
 
 const CHANNEL_LABELS: Record<ChannelsActivationChannelId, string> = {
@@ -37,7 +42,10 @@ const CHANNEL_LABELS: Record<ChannelsActivationChannelId, string> = {
   teams: "Microsoft Teams",
 };
 
-export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
+export function ChannelsStartPrompt({
+  frontend,
+  backend,
+}: ChannelsStartPromptProps) {
   const posthog = usePostHog();
   const pathname = usePathname();
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
@@ -70,7 +78,7 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
 
   const analyticsProperties = {
     channel,
-    backend: "built-in-agent",
+    backend: backend ?? DEFAULT_FRAMEWORK,
     from_path: pathname,
     surface: CHANNELS_ACTIVATION_SURFACES.docsChannelsOverview,
   };

@@ -33,7 +33,18 @@ export function DocsContentHeader({
   description,
   hideHeading = false,
   children,
-}: DocsContentHeaderProps): React.JSX.Element {
+}: DocsContentHeaderProps): React.JSX.Element | null {
+  const hasActions = Boolean(children);
+
+  // A caller can suppress every part at once — a landing page whose MDX owns
+  // the whole opening has no trail to show, no heading to render and no
+  // actions to offer. Render nothing rather than an empty `<header>`, whose
+  // bottom margin would still push the page body down by a band of blank
+  // space that belongs to chrome nobody asked for.
+  if (ancestorBreadcrumbs.length === 0 && hideHeading && !hasActions) {
+    return null;
+  }
+
   return (
     <header className="docs-page-header">
       {ancestorBreadcrumbs.length > 0 && (
@@ -55,7 +66,7 @@ export function DocsContentHeader({
         </nav>
       )}
 
-      {(!hideHeading || children) && (
+      {(!hideHeading || hasActions) && (
         <div className="docs-page-heading-row">
           {!hideHeading && (
             <DocsTitle className="docs-page-title">{title}</DocsTitle>

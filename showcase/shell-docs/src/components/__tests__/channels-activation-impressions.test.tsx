@@ -9,13 +9,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChannelsActivationStrip } from "../channels-activation-strip";
 import { ChannelsStartPrompt } from "../channels-start-prompt";
 import {
   CHANNELS_ACTIVATION_EVENTS,
   CHANNELS_ACTIVATION_SURFACES,
 } from "@/lib/channels-activation-contracts";
-import type { ChannelsActivationBackendOption } from "@/lib/channels-activation-contracts";
 
 const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
 vi.mock("posthog-js/react", () => ({ usePostHog: () => analytics }));
@@ -61,15 +59,6 @@ function intersect(target: Element, isIntersecting: boolean) {
   );
 }
 
-const backends: ChannelsActivationBackendOption[] = [
-  {
-    slug: "built-in-agent",
-    label: "CopilotKit's built-in agent",
-    logo: null,
-    guideHrefs: { slack: "/slack/connect", teams: "/teams/connect" },
-  },
-];
-
 beforeEach(() => {
   analytics.capture.mockReset();
   intersectionCallback = null;
@@ -87,32 +76,6 @@ afterEach(() => {
 // copilotkit.ai/channels, which sends its own event name with the same
 // property) separable inside one funnel.
 describe("Channels activation impressions", () => {
-  it("reports the landing strip the first time it is seen", () => {
-    render(
-      <ChannelsActivationStrip
-        backends={backends}
-        docsBaseUrl="https://docs.copilotkit.ai"
-      />,
-    );
-    const strip = screen.getByRole("region", {
-      name: /Channels SDK brings your agents/i,
-    });
-
-    expect(analytics.capture).not.toHaveBeenCalled();
-
-    intersect(strip, true);
-
-    expect(analytics.capture).toHaveBeenCalledWith(
-      CHANNELS_ACTIVATION_EVENTS.viewed,
-      {
-        channel: "slack",
-        backend: "built-in-agent",
-        from_path: "/channels",
-        surface: CHANNELS_ACTIVATION_SURFACES.docsLandingStrip,
-      },
-    );
-  });
-
   it("reports the overview panel with its own surface", () => {
     render(<ChannelsStartPrompt frontend="teams" />);
     const panel = screen.getByTestId("channels-start-prompt");
@@ -180,6 +143,27 @@ describe("Channels activation impressions", () => {
         ([event]) => event === CHANNELS_ACTIVATION_EVENTS.promptCopied,
       ),
     ).toEqual([]);
+  });
+
+  // The panel renders on 36 backend-scoped `/slack/<framework>` and
+  // `/teams/<framework>` pages. It used to report a fixed `built-in-agent`
+  // literal on every one of them, so the funnel could not tell which backend a
+  // reader was actually looking at when they copied the prompt.
+  it("reports the backend the URL selects, not a fixed literal", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+
+    render(<ChannelsStartPrompt frontend="slack" backend="mastra" />);
+    fireEvent.click(screen.getByRole("button", { name: /copy prompt/i }));
+
+    await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+    const call = analytics.capture.mock.calls.find(
+      ([event]) => event === CHANNELS_ACTIVATION_EVENTS.promptCopied,
+    );
+    expect((call?.[1] as Record<string, unknown>).backend).toBe("mastra");
   });
 
   it("stays silent while a surface is below the fold", () => {

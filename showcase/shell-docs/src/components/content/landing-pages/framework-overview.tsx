@@ -9,7 +9,7 @@ import { usePostHog } from "posthog-js/react";
 
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
-import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
+import { OnboardingPromptButton } from "@/components/onboarding-prompt-button";
 import {
   HeroStartActions,
   QuickstartLinkButton,
@@ -54,6 +54,16 @@ export interface FrameworkOverviewProps {
    * iconKey. When supplied, `data.iconKey` is ignored.
    */
   iconOverride?: ReactNode;
+  /**
+   * The `.mdx` URL of the page this hero sits on, so the copied prompt can
+   * name it exactly as the page-tools button does elsewhere; absent on the
+   * docs home, where the prompt stays canonical.
+   */
+  markdownUrl?: string;
+  /**
+   * The frontend the URL selects, used for the prompt's frontend sentence.
+   */
+  onboardingFrontend?: { id: string; name: string };
 }
 
 /**
@@ -137,6 +147,8 @@ export function FrameworkOverview({
   frontendOverride,
   afterFeatures,
   iconOverride,
+  markdownUrl,
+  onboardingFrontend,
 }: FrameworkOverviewProps) {
   const {
     frameworkName,
@@ -303,12 +315,12 @@ export function FrameworkOverview({
             {isGenericInit ? (
               <HeroStartActions
                 prompt={
-                  <HeroOnboardingPromptButton
+                  <OnboardingPromptButton
+                    variant="hero"
                     surface="docs_framework_hero"
-                    framework={{
-                      slug: currentFramework,
-                      name: frameworkName,
-                    }}
+                    framework={{ slug: currentFramework, name: frameworkName }}
+                    frontend={onboardingFrontend}
+                    markdownUrl={markdownUrl}
                   />
                 }
                 quickstart={
@@ -323,12 +335,12 @@ export function FrameworkOverview({
               />
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <HeroOnboardingPromptButton
+                <OnboardingPromptButton
+                  variant="hero"
                   surface="docs_framework_hero"
-                  framework={{
-                    slug: currentFramework,
-                    name: frameworkName,
-                  }}
+                  framework={{ slug: currentFramework, name: frameworkName }}
+                  frontend={onboardingFrontend}
+                  markdownUrl={markdownUrl}
                 />
                 <QuickstartLinkButton
                   href={link(rawGuideLink)}

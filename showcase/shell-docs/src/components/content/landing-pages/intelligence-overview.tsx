@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
+import { OnboardingPromptButton } from "@/components/onboarding-prompt-button";
 import {
   HeroStartActions,
   QuickstartLinkButton,
@@ -20,6 +20,14 @@ export const INTELLIGENCE_SIZZLE_VIDEO_URL =
   "https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3";
 
 const CONNECT_HREF = "/intelligence/quickstart";
+
+/**
+ * This landing page's own URL. The page sets `hidePageActions` in its
+ * frontmatter, so no page-tools row computes the `.mdx` URL for it — the hero
+ * names the page itself, off the same constant the analytics `fromPath` uses,
+ * so the two cannot drift apart.
+ */
+const OVERVIEW_PATH = "/intelligence/overview";
 
 const FEATURES = [
   {
@@ -106,12 +114,16 @@ export function IntelligenceOverview() {
         <div className="mt-5">
           <HeroStartActions
             prompt={
-              <HeroOnboardingPromptButton surface="docs_intelligence_hero" />
+              <OnboardingPromptButton
+                variant="hero"
+                surface="docs_intelligence_hero"
+                markdownUrl={`${OVERVIEW_PATH}.mdx`}
+              />
             }
             quickstart={
               <QuickstartLinkButton
                 href={CONNECT_HREF}
-                fromPath="/intelligence/overview"
+                fromPath={OVERVIEW_PATH}
                 variant="secondary"
                 label="Connect an app"
               />
