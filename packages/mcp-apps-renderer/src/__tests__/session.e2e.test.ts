@@ -255,3 +255,104 @@ describe("bindMcpApp", () => {
     await tick(10);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ui/initialize is handled entirely by the ext-apps AppBridge that bindMcpApp
+// constructs. These tests pin the negotiation contract at the package level (the
+// compile-time tie to the spec the extraction argues for), because the host
+// setup lives here now:
+// - the bridge validates params against the spec schema, so a widget that omits
+//   the required fields (e.g. appCapabilities) fails initialize with -32603;
+// - the host advertises only the latest MCP Apps protocol version, so a widget
+//   declaring a different version string gets the host version back;
+// - the host context seeded at AppBridge construction is advertised at
+//   initialize (deterministic, not a post-connect race).
+// ---------------------------------------------------------------------------
+describe("bindMcpApp ui/initialize negotiation", () => {
+  const LATEST_PROTOCOL_VERSION = "2026-01-26";
+
+  it("negotiates and returns the host context for a well-formed initialize", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const { captured } = await bindAndConnect(iframe, agent);
+
+    const reqId = "init-ok";
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      id: reqId,
+      method: "ui/initialize",
+      params: {
+        appInfo: { name: "test-widget", version: "1.0.0" },
+        appCapabilities: {},
+        protocolVersion: LATEST_PROTOCOL_VERSION,
+      },
+    });
+    await tick(30);
+
+    const response = captured.find(
+      (m) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+    );
+    expect(response).toBeDefined();
+    expect(response).not.toHaveProperty("error");
+    // Protocol version is negotiated to the host's latest.
+    expect(response.result.protocolVersion).toBe(LATEST_PROTOCOL_VERSION);
+    // Host context seeded at construction is advertised at initialize.
+    expect(response.result.hostContext).toMatchObject({
+      theme: "light",
+      platform: "web",
+    });
+  });
+
+  it("rejects an initialize that omits required fields with -32603", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const { captured } = await bindAndConnect(iframe, agent);
+
+    // Empty params: no appInfo / appCapabilities / protocolVersion. The bridge
+    // validates against the spec schema and rejects before any host handler.
+    const reqId = "init-bad";
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      id: reqId,
+      method: "ui/initialize",
+      params: {},
+    });
+    await tick(30);
+
+    const errorResponse = captured.find(
+      (m) => m && m.jsonrpc === "2.0" && m.id === reqId && m.error,
+    );
+    expect(errorResponse).toBeDefined();
+    expect(errorResponse.error.code).toBe(-32603);
+    expect(typeof errorResponse.error.message).toBe("string");
+    expect(errorResponse.error.message.length).toBeGreaterThan(0);
+  });
+
+  it("returns the host protocol version, not the widget's, when they differ", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const { captured } = await bindAndConnect(iframe, agent);
+
+    // "2025-06-18" is a base-MCP-protocol version (and what the old hand-rolled
+    // Vue/Angular hosts hardcode). The bridge supports only its own MCP Apps
+    // version and returns that, rather than echoing the widget's.
+    const reqId = "init-version";
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      id: reqId,
+      method: "ui/initialize",
+      params: {
+        appInfo: { name: "legacy-widget", version: "1.0.0" },
+        appCapabilities: {},
+        protocolVersion: "2025-06-18",
+      },
+    });
+    await tick(30);
+
+    const response = captured.find(
+      (m) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+    );
+    expect(response).toBeDefined();
+    expect(response.result.protocolVersion).toBe(LATEST_PROTOCOL_VERSION);
+  });
+});
