@@ -1,15 +1,10 @@
-import {
-  DestroyRef,
-  computed,
-  effect,
-  inject,
-  type Signal,
-} from "@angular/core";
+import { DestroyRef, computed, inject, type Signal } from "@angular/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 import { injectAgentStore } from "./agent";
 import { COPILOT_CHAT_CONFIGURATION } from "./chat-configuration";
 import { CopilotKit } from "./copilotkit";
+import { explicitEffect } from "./explicit-effect";
 import { InterruptController } from "./interrupt";
 import type { InjectInterruptOptions } from "./interrupt";
 
@@ -59,15 +54,22 @@ export function injectInterrupt<TValue = unknown, TResult = never>(
     (agent, runOptions) => copilotKit.core.runAgent({ agent, ...runOptions }),
     options,
   );
-  const connection = effect(() => {
-    const agent = store().agent;
-    controller.connect(agent);
-    controller.setThreadId(
-      configuredAgentId === undefined
-        ? (chatConfiguration?.threadId() ?? agent.threadId)
-        : agent.threadId,
-    );
-  });
+  // `configuredAgentId` is fixed for the lifetime of this call, so gating the
+  // configuration read on it keeps the tracked set exactly as it was: the
+  // ambient thread id is a dependency only when no explicit agent was given.
+  const connection = explicitEffect(
+    () => ({
+      agent: store().agent,
+      ambientThreadId:
+        configuredAgentId === undefined
+          ? chatConfiguration?.threadId()
+          : undefined,
+    }),
+    ({ agent, ambientThreadId }) => {
+      controller.connect(agent);
+      controller.setThreadId(ambientThreadId ?? agent.threadId);
+    },
+  );
 
   destroyRef.onDestroy(() => {
     connection.destroy();

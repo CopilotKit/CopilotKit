@@ -6,7 +6,6 @@ import {
   NgZone,
   PLATFORM_ID,
   computed,
-  effect,
   inject,
   input,
   signal,
@@ -17,6 +16,7 @@ import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
 import type { ActivityRenderer } from "../../activity-renderer";
 import { CopilotKit } from "../../copilotkit";
 import { injectCopilotKitConfig } from "../../config";
+import { explicitEffect } from "../../explicit-effect";
 import {
   bridgeA2UIAction,
   connectA2UISurface,
@@ -125,28 +125,32 @@ export class CopilotA2UIActivityRenderer implements ActivityRenderer<unknown> {
       config: this.config,
       onReady: this.markSurfaceReady,
     });
-    effect(() => {
-      const content = this.content();
-      if (getA2UIOperations(content).length === 0) {
-        this.loaderContent.set(content);
-      }
-    });
-    effect((onCleanup) => {
-      const hasOperations = this.hasOperations();
-      if (!hasOperations) {
+    explicitEffect(
+      () => this.content(),
+      (content) => {
+        if (getA2UIOperations(content).length === 0) {
+          this.loaderContent.set(content);
+        }
+      },
+    );
+    explicitEffect(
+      () => this.hasOperations(),
+      (hasOperations, onCleanup) => {
+        if (!hasOperations) {
+          this.surfaceReady.set(false);
+          return;
+        }
         this.surfaceReady.set(false);
-        return;
-      }
-      this.surfaceReady.set(false);
-      if (!isPlatformBrowser(this.platformId)) return;
-      const timeout = this.zone.runOutsideAngular(() =>
-        globalThis.setTimeout(
-          () => this.zone.run(() => this.surfaceReady.set(true)),
-          8000,
-        ),
-      );
-      onCleanup(() => globalThis.clearTimeout(timeout));
-    });
+        if (!isPlatformBrowser(this.platformId)) return;
+        const timeout = this.zone.runOutsideAngular(() =>
+          globalThis.setTimeout(
+            () => this.zone.run(() => this.surfaceReady.set(true)),
+            8000,
+          ),
+        );
+        onCleanup(() => globalThis.clearTimeout(timeout));
+      },
+    );
   }
 
   protected async handleAction(event: Event): Promise<void> {
