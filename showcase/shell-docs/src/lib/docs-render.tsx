@@ -804,7 +804,8 @@ function splitSidebarSections(navTree: NavNode[]): SidebarBuckets {
       continue;
     }
 
-    const title = SIDEBAR_SECTION_TITLES[node.title.toLowerCase()] ?? node.title;
+    const title =
+      SIDEBAR_SECTION_TITLES[node.title.toLowerCase()] ?? node.title;
     const existing = sectionsByTitle.get(title);
     if (existing) {
       current = existing;
@@ -941,6 +942,7 @@ function isSharedFrameworkNode(node: NavNode): boolean {
   return (
     slug === "frontend-tools" ||
     slug === "webmcp" ||
+    slug === "learning" ||
     slug === "inspector" ||
     slug === "vs-code-extension" ||
     slug === "telemetry" ||
@@ -1090,8 +1092,7 @@ export function normalizeSidebarNav(
     findGroup(interactivitySources, "Human in the loop") ??
     findNavNode(
       interactivitySources,
-      (node) =>
-        node.type === "group" && node.slug === "human-in-the-loop",
+      (node) => node.type === "group" && node.slug === "human-in-the-loop",
     );
 
   const existingAgentCapabilities = sidebarSectionChildren(
@@ -1101,9 +1102,7 @@ export function normalizeSidebarNav(
   const existingFrameworkGroups = existingAgentCapabilities.filter(
     (node) =>
       node.type === "group" &&
-      !["automatic learning", "sub-agents"].includes(
-        node.title.toLowerCase(),
-      ),
+      !["automatic learning", "sub-agents"].includes(node.title.toLowerCase()),
   );
   const frameworkGroups =
     existingFrameworkGroups.length > 0
@@ -1128,12 +1127,11 @@ export function normalizeSidebarNav(
           );
   const subagents = findPage("multi-agent/subagents");
   const webMcp = findPage("webmcp");
+  const learning = findPage("learning");
 
   const intelligencePage = (slug: string, title: string): NavNode | null => {
     const page = findPage(slug);
-    return page?.type === "page"
-      ? { ...page, title, icon: undefined }
-      : null;
+    return page?.type === "page" ? { ...page, title, icon: undefined } : null;
   };
   const intelligenceOverview = intelligencePage(
     "intelligence/overview",
@@ -1160,12 +1158,10 @@ export function normalizeSidebarNav(
     "intelligence/self-hosting",
     "Self-hosted",
   );
-  const intelligenceAutomaticLearning: NavNode = {
-    type: "page",
-    title: "Automatic learning",
-    slug: "intelligence/automatic-learning",
-    href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
-  };
+  const intelligenceAutomaticLearning = intelligencePage(
+    "learning",
+    "Automatic learning",
+  );
 
   const existingBackend = sidebarSectionChildren(input, "Backend");
   const inputDeployment = sidebarSectionChildren(input, "Deployment");
@@ -1208,9 +1204,7 @@ export function normalizeSidebarNav(
     sidebarTopicGroup(
       "Troubleshooting",
       "sidebar#troubleshooting-source",
-      flattenUntitledGroups(
-        sidebarSectionChildren(input, "Troubleshooting"),
-      ),
+      flattenUntitledGroups(sidebarSectionChildren(input, "Troubleshooting")),
     );
   const telemetry =
     findNavNode(
@@ -1245,6 +1239,9 @@ export function normalizeSidebarNav(
     ...sidebarSection("Agent capabilities", [
       webMcp?.type === "page"
         ? { ...webMcp, title: "WebMCP", icon: undefined }
+        : null,
+      learning?.type === "page"
+        ? { ...learning, title: "Learning", icon: undefined }
         : null,
       ...frameworkGroups,
       subagents?.type === "page"
