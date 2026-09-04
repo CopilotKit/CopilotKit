@@ -86,6 +86,56 @@ it("serves the whole snapshot, not just dashboards", async () => {
 });
 
 /**
+ * The ledger is a live read of a mutating store: every filing, pin, unpin and
+ * publish changes it, and the CEO/CFO pages re-fetch after each one. A cached
+ * copy — Next's route-handler cache, a CDN in front of a booth deploy, or a
+ * browser heuristic on a header-less 200 — serves the PRE-mutation snapshot,
+ * which on stage reads as "the pin didn't work". The client already asks with
+ * `cache: "no-store"` (see `data/ledger-context.tsx`), but that governs only
+ * the browser's own cache; the response has to say so too, exactly as this
+ * skin's budget-memo route already does.
+ */
+it("serves the ledger no-store, so no layer can hand back a pre-mutation snapshot", async () => {
+  const res = await GET();
+  expect(res.headers.get("cache-control")).toBe("no-store");
+});
+
+/**
+ * The narrative CODE stays in this response, deliberately — do not "harden"
+ * it out. Beat 6's filed-narratives list (`pages/board-packs.tsx`'s
+ * `FiledNarrativesList`) renders `NARRATIVE_CODE_LABELS[n.code]` off this very
+ * snapshot, and the filing form on the same page ships all four codes to the
+ * browser in its `<select>` anyway, so stripping the field here buys no
+ * secrecy and blanks a label a human reads.
+ *
+ * The withheld-vocabulary boundary is AGENT CHANNELS, not the browser: the
+ * page's readable lists narratives by metric and period only, `agent.ts`'s
+ * tools never echo a code, and the narratives route's BAD_CODE refusal names
+ * none. This pins where the line actually is so a future pass moves it
+ * knowingly rather than by grep.
+ */
+it("keeps the narrative code in the snapshot the board-packs list renders from", async () => {
+  const [breach] = store.exceptions().filter((e) => !e.explained);
+  const filed = store.fileNarrative({
+    metricId: breach.metricId,
+    period: breach.period,
+    code: "VAR-TIMING",
+    body: "Shipment timing shift pushed the spend into this period.",
+    source: "typed",
+  });
+
+  const body = await (await GET()).json();
+  expect(body.narratives).toHaveLength(1);
+  expect(body.narratives[0]).toMatchObject({
+    id: filed.id,
+    metricId: breach.metricId,
+    period: breach.period,
+    code: "VAR-TIMING",
+    source: "typed",
+  });
+});
+
+/**
  * A draft block is UNPINNED — invisible to the dashboard pages until someone
  * pins it. That separation is asserted in the store's own tests; this asserts
  * it survives the HTTP boundary, where a leak would render the block on the

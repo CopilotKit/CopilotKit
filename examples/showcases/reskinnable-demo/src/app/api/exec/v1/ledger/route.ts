@@ -14,22 +14,33 @@ import { buildBlockOps } from "@/skins/exec/blocks/build-block-ops";
  * because ops are a rendering of `spec`, derived fresh on every read; `pinned:
  * true` is correct for every block returned by this route since nothing not
  * on a dashboard reaches `snapshot().dashboards`.
+ *
+ * `no-store`, like this skin's budget-memo route: every mutation on stage —
+ * filing a narrative, pinning a block, publishing a pack — is followed by a
+ * re-read of this route, and a cached copy answers with the snapshot from
+ * BEFORE the mutation. The client asks with `cache: "no-store"` already (see
+ * `skins/exec/data/ledger-context.tsx`), but that governs the browser's cache
+ * only; nothing tells Next's route-handler cache, a CDN in front of a booth
+ * deploy, or a browser heuristic on a header-less 200 not to keep it.
  */
 export const GET = async () => {
   const snapshot = store.snapshot();
-  return Response.json({
-    ...snapshot,
-    dashboards: Object.fromEntries(
-      Object.entries(snapshot.dashboards).map(([dashboardId, dashboard]) => [
-        dashboardId,
-        {
-          ...dashboard,
-          blocks: dashboard.blocks.map((block) => ({
-            ...block,
-            ops: buildBlockOps(block.spec, block.id, { pinned: true }),
-          })),
-        },
-      ]),
-    ),
-  });
+  return Response.json(
+    {
+      ...snapshot,
+      dashboards: Object.fromEntries(
+        Object.entries(snapshot.dashboards).map(([dashboardId, dashboard]) => [
+          dashboardId,
+          {
+            ...dashboard,
+            blocks: dashboard.blocks.map((block) => ({
+              ...block,
+              ops: buildBlockOps(block.spec, block.id, { pinned: true }),
+            })),
+          },
+        ]),
+      ),
+    },
+    { headers: { "cache-control": "no-store" } },
+  );
 };
