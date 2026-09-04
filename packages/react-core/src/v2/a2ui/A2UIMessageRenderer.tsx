@@ -102,6 +102,66 @@ const A2UISurfaceContentSchema = z
   })
   .passthrough();
 
+const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
+
+/**
+ * How long to wait for a surface to report its first paint before giving up on
+ * the loader cross-over. Reaching it also means `onReady` never fired, which is
+ * the signal the warning below reports.
+ */
+const PAINT_FALLBACK_MS = 8000;
+
+/**
+ * Names the operation kinds a surface received, for a warning that has to say
+ * what did arrive as well as what did not.
+ *
+ * @param operations - The operations grouped under one surface.
+ * @returns A comma-separated list of operation keys, or "none".
+ */
+function describeOperationKinds(operations: any[]): string {
+  const kinds = new Set<string>();
+  for (const operation of operations) {
+    if (!operation || typeof operation !== "object") continue;
+    for (const key of Object.keys(operation)) {
+      if (key !== "version") kinds.add(key);
+    }
+  }
+  return kinds.size === 0 ? "none" : Array.from(kinds).join(", ");
+}
+
+/**
+ * Reports surfaces that received operations and never painted.
+ *
+ * Reaching {@link PAINT_FALLBACK_MS} with no `onReady` means the operations were
+ * accepted, were not malformed enough to raise the provider's error state, and
+ * still put nothing on screen. Left alone that is invisible: the loader drops,
+ * the turn finishes, and the only trace is an empty placeholder above the reply.
+ *
+ * `surfaceHasRenderableContent` already knows which half is missing, so the
+ * warning says which rather than making the reader re-derive it.
+ *
+ * @param grouped - Operations grouped by surface id.
+ */
+function warnAboutUnpaintedSurfaces(grouped: Map<string, any[]>): void {
+  for (const [surfaceId, operations] of grouped) {
+    if (surfaceHasRenderableContent(operations)) continue;
+
+    const componentOps = operations.filter((o) => o?.updateComponents);
+    const cause =
+      componentOps.length === 0
+        ? "no updateComponents operation arrived, so the surface was never given anything to draw"
+        : 'its components address their values by "path" and no updateDataModel carried a non-empty value, so every bound component drew empty';
+
+    console.warn(
+      `[CopilotKit] A2UI surface "${surfaceId}" received operations and never ` +
+        `painted after ${String(PAINT_FALLBACK_MS)}ms: ${cause}. ` +
+        `Operations received: ${describeOperationKinds(operations)}. ` +
+        `The payload was accepted, so check what the agent sent rather than the ` +
+        `client wiring. This warning is development-only.`,
+    );
+  }
+}
+
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
 ): ReactActivityMessageRenderer<any> {
@@ -152,6 +212,12 @@ export function createA2UIMessageRenderer(
       }, [operations]);
 
       const hasOps = groupedOperations.size > 0;
+
+      // Read by the paint-fallback timer below, whose effect deliberately does
+      // not depend on the grouping (see there). Assigned during render, like
+      // `lastLoaderContentRef` further down.
+      const groupedOperationsRef = useRef(groupedOperations);
+      groupedOperationsRef.current = groupedOperations;
 
       // Renders the pre-paint lifecycle state for a given content snapshot.
       const renderLifecycle = (c: any) => {
@@ -211,7 +277,15 @@ export function createA2UIMessageRenderer(
           readyRef.current = false;
           return;
         }
-        const t = setTimeout(() => setSurfaceReady(true), 8000); // fallback only
+        const t = setTimeout(() => {
+          setSurfaceReady(true); // fallback only
+          // Reaching the fallback means `onReady` never fired. The timer is not
+          // cleared when a surface does paint, so `readyRef` is what separates a
+          // late tick after a healthy paint from a surface that never painted.
+          if (IS_DEVELOPMENT && !readyRef.current) {
+            warnAboutUnpaintedSurfaces(groupedOperationsRef.current);
+          }
+        }, PAINT_FALLBACK_MS);
         return () => clearTimeout(t);
       }, [hasOps]);
 
@@ -428,11 +502,36 @@ function SurfaceMessageProcessor({
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(ops);
+
     // Signal the cross-over to swap ONLY once the surface can actually paint a
     // card. A data-bound list renders nothing until its data model arrives, so
     // for those we wait for the first non-empty updateDataModel; static surfaces
     // are renderable from components alone. Latency-independent. (OSS-162)
     if (onReady && surfaceHasRenderableContent(operations)) onReady();
+
+    // `processMessages` is synchronous, so a surface missing right after it was
+    // never created. A2UIRenderer renders its `fallback` for an unknown surface
+    // id, and that defaults to null — nothing on screen and nothing logged. The
+    // usual cause is operations addressed to one surface id while the surface
+    // was created under another.
+    //
+    // Deferred a task, and re-checked, so a snapshot that arrives mid-stream
+    // without its createSurface yet is not reported as a failure. The cleanup
+    // cancels a pending check whenever new operations land, which debounces this
+    // to the last snapshot of a stream.
+    if (!IS_DEVELOPMENT || getSurface(surfaceId)) return;
+    const missingSurfaceCheck = setTimeout(() => {
+      if (getSurface(surfaceId)) return;
+      console.warn(
+        `[CopilotKit] A2UI processed ${String(ops.length)} operation(s) addressed ` +
+          `to surface "${surfaceId}" and no surface by that id exists, so this ` +
+          `card rendered nothing. Operations received: ` +
+          `${describeOperationKinds(ops)}. A createSurface for "${surfaceId}" has ` +
+          `to arrive before, or with, the operations that target it. ` +
+          `This warning is development-only.`,
+      );
+    }, 0);
+    return () => clearTimeout(missingSurfaceCheck);
   }, [processMessages, getSurface, surfaceId, operations, onReady]);
 
   return null;
@@ -461,21 +560,38 @@ function surfaceHasRenderableContent(operations: any[]): boolean {
   });
 }
 
+/**
+ * Resolves the surface an operation addresses.
+ *
+ * The nested v0.9 `surfaceId` wins, because that is the id `MessageProcessor`
+ * creates the surface under. Grouping by a top-level `surfaceId` instead files
+ * the operations against a surface that never exists, which paints nothing —
+ * the silence the missing-surface report above now names. A top-level
+ * `surfaceId` is not the v0.9 shape, so it is honoured only when no nested id is
+ * present. `getSurfaceId` in `@copilotkit/a2ui-renderer`'s web-components path
+ * resolves it in the same order; the two disagreeing is what OSS-1048 recorded.
+ *
+ * @param operation - One A2UI operation, of any shape.
+ * @returns The surface id, or null when the operation names none.
+ */
 function getOperationSurfaceId(operation: any): string | null {
   if (!operation || typeof operation !== "object") {
     return null;
+  }
+
+  // v0.9 message keys
+  const nested =
+    operation?.createSurface?.surfaceId ??
+    operation?.updateComponents?.surfaceId ??
+    operation?.updateDataModel?.surfaceId ??
+    operation?.deleteSurface?.surfaceId;
+  if (typeof nested === "string") {
+    return nested;
   }
 
   if (typeof operation.surfaceId === "string") {
     return operation.surfaceId;
   }
 
-  // v0.9 message keys
-  return (
-    operation?.createSurface?.surfaceId ??
-    operation?.updateComponents?.surfaceId ??
-    operation?.updateDataModel?.surfaceId ??
-    operation?.deleteSurface?.surfaceId ??
-    null
-  );
+  return null;
 }
