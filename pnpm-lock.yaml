@@ -2668,6 +2668,37 @@ importers:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
+  packages/mcp-apps-renderer:
+    dependencies:
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@modelcontextprotocol/ext-apps':
+        specifier: ^1.7.5
+        version: 1.7.5(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
+      '@modelcontextprotocol/sdk':
+        specifier: '>=1.26.0'
+        version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
+    devDependencies:
+      '@ag-ui/client':
+        specifier: 0.0.59
+        version: 0.0.59
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
+      tsdown:
+        specifier: ^0.20.3
+        version: 0.20.3(@arethetypeswrong/core@0.18.2)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.9.2)
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@25.6.0)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@26.1.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+
   packages/react-core:
     dependencies:
       '@ag-ui/client':
@@ -2682,6 +2713,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
+      '@copilotkit/mcp-apps-renderer':
+        specifier: workspace:*
+        version: link:../mcp-apps-renderer
       '@copilotkit/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql
@@ -2697,9 +2731,6 @@ importers:
       '@jetbrains/websandbox':
         specifier: ^1.1.3
         version: 1.1.3
-      '@modelcontextprotocol/ext-apps':
-        specifier: ^1.7.5
-        version: 1.7.5(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
       '@radix-ui/react-dropdown-menu':
         specifier: ^2.1.15
         version: 2.1.16(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -2755,9 +2786,6 @@ importers:
         specifier: ^3.24.5
         version: 3.25.1(zod@3.25.76)
     devDependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: '>=1.26.0'
-        version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       '@tailwindcss/cli':
         specifier: ^4.1.11
         version: 4.1.18
