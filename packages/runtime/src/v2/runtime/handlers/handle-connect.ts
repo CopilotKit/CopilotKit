@@ -4,6 +4,7 @@ import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agent-utils";
 import {
+  applyForwardedRequestHeaders,
   parseConnectRequest,
   cloneAgentForRequest,
 } from "./shared/agent-utils";
@@ -43,6 +44,8 @@ export async function handleConnectAgent({
       return agent;
     }
 
+    applyForwardedRequestHeaders({ runtime, request, agent });
+
     const connectRequest = await parseConnectRequest(request);
     if (connectRequest instanceof Response) {
       return connectRequest;
@@ -62,10 +65,10 @@ export async function handleConnectAgent({
       request,
       agentId,
       threadId: connectRequest.input.threadId,
-      // Pass the per-request clone so its server-configured `agent.headers` are
-      // folded into the merged header set threaded into `runner.connect`. That
-      // merge is forward-looking plumbing — no shipped runner consumes
-      // connect-path headers yet; see the note in `sse/connect.ts`.
+      headersApplied: true,
+      // Pass the per-request clone whose headers were merged by
+      // applyForwardedRequestHeaders, the single owner of request-header
+      // forwarding shared with configureAgentForRequest.
       agent,
     });
   } catch (error) {
