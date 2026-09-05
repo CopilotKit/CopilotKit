@@ -69,6 +69,20 @@ const builtInAgent = new BuiltInAgent({
 
 The HTTP transport also accepts optional `options` for advanced configuration of the underlying `StreamableHTTPClientTransport`.
 
+### Example: web search with Parallel
+
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp) provides `web_search` for public web search and `web_fetch` for extracting page content. Its free, rate-limited endpoint requires no Parallel account or API key.
+
+Add this entry to your existing `BuiltInAgent` configuration's `mcpServers` array, keeping any other servers you use:
+
+```typescript
+{ type: "http", url: "https://search.parallel.ai/mcp" }
+```
+
+Once configured, the agent can call these tools automatically when relevant. Tool calls send queries, requested URLs, and any supplied objectives, context, or metadata to Parallel. Your agent's existing model credentials are still required. Remove the entry to disconnect Parallel.
+
+To try it, ask your agent to find CopilotKit's official documentation, then fetch a page from the results. The connection uses Streamable HTTP, so keep `type: "http"` and omit authentication headers for this anonymous endpoint.
+
 ## Multiple servers
 
 Connect multiple MCP servers — tools from all servers are available to the agent:
