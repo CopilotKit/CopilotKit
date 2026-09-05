@@ -1,12 +1,14 @@
 import inspect
 import json
 import logging
+from collections.abc import AsyncGenerator
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Optional, Union
+from typing import Any
 
 from ag_ui.core import (
     CustomEvent,
     EventType,
+    MessagesSnapshotEvent,
     StateSnapshotEvent,
     TextMessageContentEvent,
     TextMessageEndEvent,
@@ -52,12 +54,12 @@ class PredictStateTool:
         self.tool_argument = tool_argument
 
 
-State = Dict[str, Any]
-SchemaKeys = Dict[str, List[str]]
-TextMessageEvents = Union[
-    TextMessageStartEvent, TextMessageContentEvent, TextMessageEndEvent
-]
-ToolCallEvents = Union[ToolCallStartEvent, ToolCallArgsEvent, ToolCallEndEvent]
+State = dict[str, Any]
+SchemaKeys = dict[str, list[str]]
+TextMessageEvents = (
+    TextMessageStartEvent | TextMessageContentEvent | TextMessageEndEvent
+)
+ToolCallEvents = ToolCallStartEvent | ToolCallArgsEvent | ToolCallEndEvent
 
 
 class LangGraphAGUIAgent(LangGraphAgent):
@@ -66,8 +68,8 @@ class LangGraphAGUIAgent(LangGraphAgent):
         *,
         name: str,
         graph: CompiledStateGraph,
-        description: Optional[str] = None,
-        config: Union[Optional[RunnableConfig], dict] = None,
+        description: str | None = None,
+        config: RunnableConfig | None | dict = None,
         **kwargs: Any,
     ):
         """Wrap a LangGraph graph as a CopilotKit-flavored AG-UI agent.
@@ -180,15 +182,189 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 else getattr(raw_event, "metadata", {})
             ) or {}
 
-            if "copilotkit:emit-tool-calls" in metadata:
-                if metadata["copilotkit:emit-tool-calls"] is False and is_tool_event:
-                    return None  # Don't dispatch this event
+            if metadata.get("copilotkit:emit-tool-calls") is False and is_tool_event:
+                self._remember_hidden_id(
+                    "copilotkit_hidden_tool_call_ids",
+                    getattr(event, "tool_call_id", None),
+                )
+                return None  # Don't dispatch this event
 
-            if "copilotkit:emit-messages" in metadata:
-                if metadata["copilotkit:emit-messages"] is False and is_message_event:
-                    return None  # Don't dispatch this event
+            if metadata.get("copilotkit:emit-messages") is False and is_message_event:
+                self._remember_hidden_id(
+                    "copilotkit_hidden_message_ids",
+                    getattr(event, "message_id", None),
+                )
+                return None  # Don't dispatch this event
 
         return super()._dispatch_event(event)
+
+    def _remember_hidden_id(self, bucket: str, entity_id: str | None) -> None:
+        """Record the id of a message/tool call suppressed from streaming.
+
+        `get_state_and_messages_snapshots` reads these sets back to keep the
+        MESSAGES_SNAPSHOT it emits consistent with what streaming already
+        withheld under the same `copilotkit:emit-messages` /
+        `copilotkit:emit-tool-calls` metadata (see CopilotKit/CopilotKit#3861).
+        """
+        active_run = getattr(self, "active_run", None)
+        if active_run is None or not entity_id:
+            return
+        active_run.setdefault(bucket, set()).add(entity_id)
+
+    async def get_state_and_messages_snapshots(
+        self, config: RunnableConfig
+    ) -> AsyncGenerator[Any, None]:
+        """Filter suppressed messages/tool calls out of the MESSAGES_SNAPSHOT.
+
+        The base implementation reads messages straight from the LangGraph
+        checkpoint, so a message produced while `copilotkit:emit-messages` or
+        `copilotkit:emit-tool-calls` was False (e.g. a subagent invoked from a
+        tool with a customized config) still reaches the frontend here even
+        though `_dispatch_event` already withheld it from the live stream.
+        Reconcile the snapshot with the same ids `_dispatch_event` recorded.
+        """
+        await self._load_persisted_hidden_visibility(config)
+        await self._persist_hidden_visibility(config)
+        async for event in super().get_state_and_messages_snapshots(config):
+            if event is not None and event.type == EventType.MESSAGES_SNAPSHOT:
+                event = self._filter_hidden_messages(event)
+            yield event
+
+    def _filter_hidden_messages(
+        self, event: MessagesSnapshotEvent
+    ) -> MessagesSnapshotEvent:
+        active_run = getattr(self, "active_run", None) or {}
+        hidden_message_ids = active_run.get("copilotkit_hidden_message_ids") or set()
+        hidden_tool_call_ids = (
+            active_run.get("copilotkit_hidden_tool_call_ids") or set()
+        )
+        if not hidden_message_ids and not hidden_tool_call_ids:
+            return event
+
+        filtered_messages = []
+        for message in event.messages:
+            tool_call_id = getattr(message, "tool_call_id", None)
+            if tool_call_id is not None:
+                # Tool result of a hidden tool call: drop, would otherwise be
+                # an orphaned ToolMessage on the frontend.
+                if (
+                    message.id in hidden_message_ids
+                    or tool_call_id in hidden_tool_call_ids
+                ):
+                    continue
+                filtered_messages.append(message)
+                continue
+
+            update: dict[str, Any] = {}
+            if message.id in hidden_message_ids:
+                update["content"] = None
+            tool_calls = getattr(message, "tool_calls", None)
+            if tool_calls:
+                kept_tool_calls = [
+                    tool_call
+                    for tool_call in tool_calls
+                    if tool_call.id not in hidden_tool_call_ids
+                ]
+                if len(kept_tool_calls) != len(tool_calls):
+                    update["tool_calls"] = kept_tool_calls or None
+
+            if not update:
+                # Nothing about this message was hidden — leave it untouched,
+                # including whatever content/tool_calls it naturally has.
+                filtered_messages.append(message)
+                continue
+
+            remaining_content = update.get("content", message.content)
+            remaining_tool_calls = update.get("tool_calls", tool_calls)
+            if not remaining_content and not remaining_tool_calls:
+                # The whole turn was hidden: no text and no surviving tool
+                # calls, so skip it rather than emit an empty bubble.
+                continue
+
+            filtered_messages.append(message.model_copy(update=update))
+
+        return event.model_copy(update={"messages": filtered_messages})
+
+    async def _persist_hidden_visibility(self, config: RunnableConfig) -> None:
+        """Persist suppressed message and tool-call IDs in checkpoint messages."""
+        active_run = getattr(self, "active_run", None) or {}
+        hidden_message_ids = active_run.get("copilotkit_hidden_message_ids") or set()
+        hidden_tool_call_ids = (
+            active_run.get("copilotkit_hidden_tool_call_ids") or set()
+        )
+        if not hidden_message_ids and not hidden_tool_call_ids:
+            return
+
+        state = await self.graph.aget_state(config)
+        messages = (state.values or {}).get("messages", [])
+        updates = []
+        for message in messages:
+            additional_kwargs = dict(getattr(message, "additional_kwargs", {}) or {})
+            markers = dict(additional_kwargs.get("copilotkit_visibility", {}) or {})
+            changed = False
+
+            if (
+                getattr(message, "id", None) in hidden_message_ids
+                and markers.get("hidden_message") is not True
+            ):
+                markers["hidden_message"] = True
+                changed = True
+
+            tool_call_id = getattr(message, "tool_call_id", None)
+            if (
+                tool_call_id in hidden_tool_call_ids
+                and markers.get("hidden_tool_call") is not True
+            ):
+                markers["hidden_tool_call"] = True
+                changed = True
+
+            tool_calls = getattr(message, "tool_calls", None) or []
+            hidden_calls = {
+                tool_call.get("id")
+                for tool_call in tool_calls
+                if tool_call.get("id") in hidden_tool_call_ids
+            }
+            if hidden_calls:
+                persisted_calls = set(markers.get("hidden_tool_call_ids", []))
+                if not hidden_calls.issubset(persisted_calls):
+                    markers["hidden_tool_call_ids"] = sorted(
+                        persisted_calls | hidden_calls
+                    )
+                    changed = True
+
+            if changed:
+                additional_kwargs["copilotkit_visibility"] = markers
+                updates.append(
+                    message.model_copy(update={"additional_kwargs": additional_kwargs})
+                )
+
+        if updates:
+            await self.graph.aupdate_state(config, {"messages": updates})
+
+    async def _load_persisted_hidden_visibility(self, config: RunnableConfig) -> None:
+        """Load visibility markers from checkpoint messages into the active run."""
+        active_run = getattr(self, "active_run", None)
+        if active_run is None:
+            return
+
+        state = await self.graph.aget_state(config)
+        hidden_message_ids = active_run.setdefault(
+            "copilotkit_hidden_message_ids", set()
+        )
+        hidden_tool_call_ids = active_run.setdefault(
+            "copilotkit_hidden_tool_call_ids", set()
+        )
+        for message in (state.values or {}).get("messages", []):
+            markers = (getattr(message, "additional_kwargs", {}) or {}).get(
+                "copilotkit_visibility", {}
+            ) or {}
+            if markers.get("hidden_message"):
+                hidden_message_ids.add(message.id)
+            if markers.get("hidden_tool_call"):
+                tool_call_id = getattr(message, "tool_call_id", None)
+                if tool_call_id:
+                    hidden_tool_call_ids.add(tool_call_id)
+            hidden_tool_call_ids.update(markers.get("hidden_tool_call_ids", []))
 
     async def run(self, input):
         """Override run to filter out None events from _dispatch_event filtering."""
@@ -206,6 +382,8 @@ class LangGraphAGUIAgent(LangGraphAgent):
         self, event: Any, state: State
     ) -> AsyncGenerator[str, None]:
         """Override to add custom event processing for PredictState events"""
+
+        self._record_hidden_output_ids(event)
 
         # First, check if this is a raw event that should generate a PredictState event
         if event.get("event") == LangGraphEventTypes.OnChatModelStream.value:
@@ -251,7 +429,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
             # The parent adapter records streamed IDs even when lifecycle emission is suppressed.
             if tool_call_id in streamed_tool_call_ids:
                 continue
-            transformed_events: List[Any] = []
+            transformed_events: list[Any] = []
             if self._materialize_tool_call_events(
                 call,
                 event,
@@ -264,15 +442,63 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 if transformed_event is not None:
                     yield transformed_event
 
+    def _record_hidden_output_ids(self, event: Any) -> None:
+        """Record IDs from source outputs hidden by delegated run metadata."""
+        metadata = event.get("metadata") or {}
+        hide_messages = metadata.get("copilotkit:emit-messages") is False
+        hide_tool_calls = metadata.get("copilotkit:emit-tool-calls") is False
+        namespace = metadata.get("langgraph_checkpoint_ns")
+        active_run = getattr(self, "active_run", None)
+        if active_run is None:
+            return
+
+        hidden_namespaces = active_run.setdefault(
+            "copilotkit_hidden_output_namespaces", {}
+        )
+        if namespace and (hide_messages or hide_tool_calls):
+            hidden_namespaces[namespace] = {
+                "messages": hide_messages,
+                "tool_calls": hide_tool_calls,
+            }
+        if not hide_messages and not hide_tool_calls and namespace:
+            visibility = hidden_namespaces.get(namespace)
+            if visibility:
+                hide_messages = visibility["messages"]
+                hide_tool_calls = visibility["tool_calls"]
+        if not hide_messages and not hide_tool_calls:
+            return
+
+        output = (event.get("data") or {}).get("output")
+        outputs = output.get("messages", []) if isinstance(output, dict) else [output]
+        if not isinstance(outputs, list):
+            outputs = [outputs]
+
+        for message in outputs:
+            if message is None:
+                continue
+            if hide_messages:
+                self._remember_hidden_id(
+                    "copilotkit_hidden_message_ids", getattr(message, "id", None)
+                )
+            if hide_tool_calls:
+                self._remember_hidden_id(
+                    "copilotkit_hidden_tool_call_ids",
+                    getattr(message, "tool_call_id", None),
+                )
+                for tool_call in getattr(message, "tool_calls", None) or []:
+                    self._remember_hidden_id(
+                        "copilotkit_hidden_tool_call_ids", tool_call.get("id")
+                    )
+
     def _materialize_tool_call_events(
         self,
         value: Any,
         event: Any,
         *,
-        parent_message_id: Optional[str],
+        parent_message_id: str | None,
         dispatch: bool = True,
         dispatch_via_adapter: bool = False,
-        dispatched_events: Optional[List[Any]] = None,
+        dispatched_events: list[Any] | None = None,
     ) -> bool:
         if not isinstance(value, dict):
             if dispatch:
@@ -379,10 +605,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
                     if dispatched_events is not None:
                         dispatched_events.append(end_event)
                 except Exception:
-                    logger.error(
+                    logger.exception(
                         "Failed to emit compensating TOOL_CALL_END for %s",
                         tool_call_id,
-                        exc_info=True,
                     )
             raise
         return True
@@ -408,10 +633,10 @@ class LangGraphAGUIAgent(LangGraphAgent):
         input: Any,
         subgraphs: bool = False,
         version: str = "v2",
-        config: Union[Optional[RunnableConfig], dict] = None,
-        context: Optional[Dict[str, Any]] = None,
-        fork: Optional[Any] = None,
-    ) -> Dict[str, Any]:
+        config: RunnableConfig | None | dict = None,
+        context: dict[str, Any] | None = None,
+        fork: Any | None = None,
+    ) -> dict[str, Any]:
         """Thread CopilotKit payload through LangGraph runtime context for subgraphs."""
         supports_context = (
             "context" in inspect.signature(self.graph.astream_events).parameters
@@ -446,7 +671,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
         return stream_kwargs
 
     def langgraph_default_merge_state(
-        self, state: State, messages: List[BaseMessage], input: Any
+        self, state: State, messages: list[BaseMessage], input: Any
     ) -> State:
         """Override to add CopilotKit actions to the state"""
         merged_state = super().langgraph_default_merge_state(state, messages, input)
