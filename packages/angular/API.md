@@ -196,6 +196,7 @@ Import these symbols from `@copilotkit/angular`.
 - `SendButtonContext`
 - `SlotConfig`
 - `SlotContext`
+- `SlotOutputs`
 - `SlotRegistryEntry`
 - `SlotValue`
 - `StaticSuggestionsConfig`
