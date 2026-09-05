@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { convertInputToTanStackAI } from "../converters/tanstack";
 import { createDefaultInput } from "./agent-test-helpers";
+import { buildA2uiOperationsFromRenderArgs } from "../a2ui-render-tool";
 
 describe("convertInputToTanStackAI", () => {
   // -------------------------------------------------------------------------
@@ -168,6 +169,59 @@ describe("convertInputToTanStackAI", () => {
     it("returns an empty tools array when input has no tools", () => {
       const { tools } = convertInputToTanStackAI(createDefaultInput());
       expect(tools).toEqual([]);
+    });
+
+    it("converts render_a2ui into a server tool that returns a2ui_operations", async () => {
+      const input = createDefaultInput({
+        tools: [
+          {
+            name: "render_a2ui",
+            description: "Render a dynamic A2UI surface",
+            parameters: {
+              type: "object" as const,
+              properties: {
+                surfaceId: { type: "string" },
+                components: { type: "array", items: { type: "object" } },
+              },
+              required: ["surfaceId", "components"],
+            },
+          },
+        ],
+        context: [
+          {
+            description: "A2UI Component Schema — available components",
+            value: JSON.stringify({
+              catalogId: "filing-tracker-catalog",
+              components: {},
+            }),
+          },
+        ],
+      });
+
+      const { tools } = convertInputToTanStackAI(input);
+      expect(tools).toHaveLength(1);
+      expect(tools[0]).toMatchObject({
+        name: "render_a2ui",
+        description: "Render a dynamic A2UI surface",
+      });
+      expect(tools[0]).not.toHaveProperty("__toolSide");
+      expect("execute" in tools[0]).toBe(true);
+
+      const envelope = await (
+        tools[0] as { execute: (args: Record<string, unknown>) => unknown }
+      ).execute({
+        surfaceId: "filings",
+        components: [{ id: "root", component: "Text", text: "hi" }],
+      });
+      expect(envelope).toEqual(
+        buildA2uiOperationsFromRenderArgs(
+          {
+            surfaceId: "filings",
+            components: [{ id: "root", component: "Text", text: "hi" }],
+          },
+          "filing-tracker-catalog",
+        ),
+      );
     });
 
     it("closes open objects (additionalProperties → false) for OpenAI compatibility", () => {
