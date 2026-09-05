@@ -4,10 +4,11 @@ import { test, expect } from "@playwright/test";
 // Demo source: src/app/demos/gen-ui-interrupt/{page.tsx, time-picker-card.tsx}
 //
 // Uses `useInterrupt({ renderInChat: true })` — the low-level CopilotKit
-// primitive wired to LangGraph's `interrupt()` on the `interrupt_agent`
-// graph (shared with `interrupt-headless`). When the agent invokes the
-// backend `schedule_meeting` tool, the graph interrupts and a
-// `TimePickerCard` renders INLINE in the chat transcript (no portal).
+// primitive wired to Strands' native `context.interrupt(...)` on the
+// dedicated interrupt agent (`src/agent/interrupt-agent.ts`, shared with
+// `interrupt-headless`). When the agent invokes the backend
+// `schedule_meeting` tool, the tool pauses and a `TimePickerCard` renders
+// INLINE in the chat transcript (no portal).
 //
 // Card states (mutually exclusive, per-interrupt):
 //   - `time-picker-card`      — initial, 4 slot buttons + "None of these work"
@@ -20,7 +21,7 @@ import { test, expect } from "@playwright/test";
 // (non-body) render contract.
 
 test.describe("Gen UI via useInterrupt (inline time picker)", () => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
 
   test.beforeEach(async ({ page }) => {
     // Wait for the CopilotKit runtime info response to complete before
@@ -99,11 +100,13 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       0,
     );
 
+    // Assert the post-resume narration, not just that some bubble is visible:
+    // the pre-pause "let me check available times" text is on screen before the
+    // resume happens, so a visibility check passes even when the resume never
+    // lands. This wording only exists in the resumed leg's response.
     await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
-    ).toBeVisible({
-      timeout: 45_000,
-    });
+      page.locator('[data-testid="copilot-assistant-message"]').last(),
+    ).toContainText(/booked:|scheduled:/i, { timeout: 45_000 });
   });
 
   test("cancel path: None-of-these-work transitions to cancelled state", async ({
@@ -126,10 +129,24 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     await expect(cancelled).toBeVisible({ timeout: 10_000 });
     await expect(cancelled).toContainText("Cancelled");
 
+    // The LAST bubble, not the first: the first is the pre-pause "let me check
+    // available times" text, which is on screen before the resume happens, so
+    // asserting on it passes even when the resume never lands.
     await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
+      page.locator('[data-testid="copilot-assistant-message"]').last(),
     ).toBeVisible({
       timeout: 45_000,
     });
+
+    // Regression (cancel-path narration): a cancel resumes with the SAME
+    // toolCallId as a pick, so before the cancelled leg was gated on the tool
+    // result the resume replayed the booking confirmation after the user had
+    // declined.
+    const narration = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .last();
+    await expect(narration).toContainText("Denied", { timeout: 45_000 });
+    await expect(narration).not.toContainText("Booked:");
+    await expect(narration).not.toContainText("Scheduled:");
   });
 });

@@ -1,0 +1,82 @@
+name: test / unit / showcase-integrations
+
+# Unit tests that live INSIDE a showcase integration's own source tree.
+#
+# The integrations under `showcase/integrations/*` are deliberately outside the
+# pnpm workspace, so `nx run-many -t test` never discovers them and
+# `test_unit-showcase.yml` (which runs the harness suite) does not cover them
+# either. The Python half of the same tree is already gated, by the
+# `python-unit-tests` job in `showcase_validate.yml`; its TypeScript half was
+# not gated anywhere, so a `*.test.ts` next to an integration's agent code
+# could fail silently for as long as nobody ran it by hand.
+#
+# This workflow closes that gap: it runs the repo's own vitest against every
+# `*.test.ts` under `showcase/integrations`, from the repo root, so the tests
+# need no dependency of their own inside each integration's package.
+
+on:
+  pull_request:
+    paths:
+      - "showcase/integrations/strands-typescript/src/agent/**"
+      - "showcase/integrations/strands-typescript/src/cvdiag/**"
+      - ".github/workflows/test_unit-showcase-integrations.yml"
+  push:
+    branches: [main]
+    paths:
+      - "showcase/integrations/strands-typescript/src/agent/**"
+      - "showcase/integrations/strands-typescript/src/cvdiag/**"
+      - ".github/workflows/test_unit-showcase-integrations.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  showcase-integrations-unit:
+    name: "showcase integrations unit"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # packageManager field, matching the other showcase workflows.
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install the agent package's own dependencies
+        # The integration is deliberately outside the pnpm workspace: its agent
+        # process resolves openai and @strands-agents from its OWN
+        # node_modules, installed here exactly as the Dockerfile does. Without
+        # this the tests fail on a clean checkout with "Cannot find package
+        # '@strands-agents/sdk'" while passing on any machine that happens to
+        # have the directory already.
+        working-directory: showcase/integrations/strands-typescript/src/agent
+        run: npm ci --legacy-peer-deps
+
+      - name: Run agent unit tests
+        # The config is the one that already lives beside the tests, so this
+        # runs exactly what a developer runs with `npm test` in that directory.
+        # `--passWithNoTests` is deliberately NOT set, so an include list that
+        # stops matching fails the job instead of reporting an empty success.
+        working-directory: showcase/integrations/strands-typescript/src/agent
+        run: pnpm exec vitest run --config vitest.config.ts

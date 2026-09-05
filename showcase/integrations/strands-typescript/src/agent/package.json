@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --import tsx --watch server.ts",
-    "start": "node --import tsx server.ts"
+    "start": "node --import tsx server.ts",
+    "test": "pnpm exec vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@ag-ui/a2ui-toolkit": "0.0.4",
@@ -15,10 +16,10 @@
     "@ag-ui/encoder": "0.0.57",
     "@modelcontextprotocol/sdk": "1.29.0",
     "@opentelemetry/api": "1.9.1",
-    "@strands-agents/sdk": "1.6.0",
+    "@strands-agents/sdk": "1.16.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "openai": "^6.7.0",
+    "openai": "6.45.0",
     "tsx": "^4.19.3",
     "zod": "^4.4.3"
   },

@@ -8,31 +8,68 @@ The overall architectural difference between the two packages:
 - **LangGraph-Python** ships one `src/agents/<demo>.py` module per demo, each
   bound to its own LangGraph graph via `langgraph.json`.
 - **AWS Strands** ships a single shared Strands agent (`src/agents/agent.py`)
-  registered under many agent names in the AG-UI runtime. All demos in the
-  Strands package reuse the same backend; per-demo differentiation happens
-  almost entirely on the frontend via `useFrontendTool`, `useRenderTool`,
-  `useHumanInTheLoop`, `useAgentContext`, and A2UI catalogs.
+  registered under many agent names in the AG-UI runtime, plus a handful of
+  dedicated agents mounted on sub-paths (A2UI, voice, interrupts, reasoning)
+  where a demo needs its own tools or model configuration. Most demos reuse the
+  shared backend; per-demo differentiation then happens on the frontend via
+  `useFrontendTool`, `useRenderTool`, `useHumanInTheLoop`, `useAgentContext`,
+  and A2UI catalogs.
 
 This keeps the Strands code base dramatically smaller without sacrificing
 user-visible functionality — the demo URLs, pages, and interactive flows are
 all present.
 
+## Interrupts: native, both demos shipped
+
+Strands has a first-class interrupt primitive
+([docs](https://strandsagents.com/docs/user-guide/concepts/interrupts/)) and both
+AG-UI Strands bridges implement the AG-UI interrupt protocol on top of it, so
+these two demos run on the real mechanism rather than a frontend-tool stand-in:
+
+- **gen-ui-interrupt**: `src/agents/interrupt_agent.py` owns a
+  `schedule_meeting` tool that calls `tool_context.interrupt(...)`. The bridge
+  finishes the run with `RUN_FINISHED` carrying `outcome.type == "interrupt"`,
+  the frontend's `useInterrupt` renders the time picker inline, and `resolve()`
+  resumes the same run so the tool body continues from the pause.
+- **interrupt-headless**: same backend agent, with `useInterrupt`
+  (`renderInChat: false`) placing the picker in the app surface instead of the
+  chat.
+
+Both are served by a dedicated agent mounted at `AGENT_URL/interrupt/` rather
+than by the shared agent, because the shared agent already owns a
+`schedule_meeting` that answers straight away. One tool name cannot both answer
+immediately for the other demos and pause for these two.
+
+Two live bridge differences, both handled in this package rather than papered
+over:
+
+- **Interrupt payload channel.** `ag_ui_strands` (Python) carries the tool's
+  `interrupt()` reason under the AG-UI interrupt's `metadata.reason`, while the
+  published `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` and puts
+  only `strandsName` in metadata. The demo pages read both channels.
+  `metadata.reason` is already in the TypeScript bridge's source and ships with
+  its next release.
+- **Resume envelope.** Python hands the tool `{"response": payload}` for a
+  resolved answer and `{"cancelled": True}` for a cancel; the published
+  TypeScript 0.2.3 hands the payload through untouched and cancels with
+  `{ status: "cancelled" }`. Each language's tool normalises both shapes, so a
+  picked slot is never reported back to the model as "no time picked".
+
+## Reasoning: shipped
+
+`reasoning-default`, `reasoning-custom` and `tool-rendering-reasoning-chain` run
+against dedicated agents on the OpenAI Responses API with reasoning summaries
+enabled (`src/agents/reasoning_agent.py`,
+`src/agents/reasoning_chain_agent.py`). The shared showcase agent stays on chat
+completions so tool-call arguments keep streaming incrementally, and chat
+completions emits no reasoning items at all, hence the separate agents.
+
 ## Skipped demos
 
-These demos depend on LangGraph-specific primitives that AWS Strands does not
-expose at this time:
-
-- **gen-ui-interrupt** — Built on `useLangGraphInterrupt`, which hooks directly
-  into the LangGraph interrupt lifecycle. Strands does not provide an
-  equivalent first-class interrupt primitive. The ergonomic replacement is
-  `hitl-in-chat` (implemented), which uses `useHumanInTheLoop` on top of a
-  regular frontend tool — Strands supports that natively. Surfaced as a stub
-  page (`src/app/demos/gen-ui-interrupt/`) and as
-  `not_supported_features.gen-ui-interrupt` in the manifest.
-- **interrupt-headless** — Same rationale as `gen-ui-interrupt`. Requires
-  `useLangGraphInterrupt`'s resolve/respond primitive. Not portable.
-  Surfaced as a stub page (`src/app/demos/interrupt-headless/`) and as
-  `not_supported_features.interrupt-headless` in the manifest.
+- **shared-state-streaming**: both bridges emit state SNAPSHOTS; neither maps a
+  Strands stream event onto AG-UI's `STATE_DELTA`, so there is no per-token
+  state stream for the UI to apply. Deliberately not built. `shared-state-read`
+  and `shared-state-read-write` cover the snapshot path.
 
 ## MCP Apps — now ported (wave-2 follow-up)
 
@@ -98,7 +135,9 @@ All other LangGraph-Python demos are ported below.
 Existing (pre-blitz):
 
 - `agentic-chat`, `hitl` (ergonomic HITL), `tool-rendering`, `gen-ui-tool-based`,
-  `gen-ui-agent`, `shared-state-read-write`, `shared-state-streaming`, `subagents`.
+  `gen-ui-agent`, `shared-state-read-write`, `subagents`. The
+  `shared-state-streaming` page and agent name exist too, but the cell is
+  declared unsupported: see the skipped-demos section above for why.
 
 Added in this blitz:
 

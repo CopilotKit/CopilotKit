@@ -21,11 +21,20 @@ mounting a chat at all.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
-On LangGraph the underlying primitive is the framework's
-`interrupt()` call, surfaced to the client as an `on_interrupt`
-custom event. The headless variant subscribes to that event directly
-and resumes the run by calling `copilotkit.runAgent({...})` with the
-matching `resume` payload — no chat surface required.
+The underlying primitive is the framework's own interrupt call. How it
+reaches the client depends on the bridge, and there are two headless shapes
+to match:
+
+- A bridge that surfaces the pause as an `on_interrupt` custom event
+  (LangGraph): subscribe to that event and resume the run by calling
+  `copilotkit.runAgent({...})` with the matching `resume` payload.
+- A bridge that finishes the run with a standard AG-UI interrupt outcome
+  (AWS Strands): the run's final `RUN_FINISHED` carries
+  `outcome: { type: "interrupt", interrupts: [...] }`. Call `useInterrupt` with
+  `renderInChat: false` and place the element it returns wherever you like;
+  `resolve(...)` resumes the run.
+
+Either way, no chat surface is required.
 
 </WhenFrameworkHas>
 
@@ -111,19 +120,22 @@ Under the hood, `useInterrupt` composes two public APIs:
 1. **`agent.subscribe({ onCustomEvent, onRunStartedEvent, onRunFinishedEvent, onRunFinalized, onRunFailed })`**
    — every `AbstractAgent` exposes an AG-UI event subscription.
    Standard interrupts arrive on `onRunFinishedEvent` with
-   `{ outcome: "interrupt", interrupts: [...] }`; legacy LangGraph
+   `{ outcome: { type: "interrupt", interrupts: [...] } }`; legacy LangGraph
    interrupts arrive as a custom event named `on_interrupt`.
 2. **`copilotkit.runAgent({ agent, resume })`** (standard) or
    **`copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })`** (legacy)
    — the same call `useInterrupt`'s `resolve()` / `cancel()` makes to resume a paused run.
 
-For cases where you need full control over the subscription (e.g. testing
-fixtures, custom accumulation logic), you can still wire up the raw primitives
-yourself:
+What that region shows depends on the framework. Where the framework pauses
+with a legacy custom event, it is a hand-rolled hook over the raw
+subscription; where it pauses with a standard AG-UI interrupt, the same
+`useInterrupt` call with `renderInChat: false` is all that is needed, and the
+snippet shows that instead. Either way, the raw primitives remain available
+when you want full control (testing fixtures, custom accumulation logic):
 
 <Snippet region="headless-useinterrupt-primitives" title="frontend/src/app/page.tsx — useHeadlessInterrupt" />
 
-A few things this hook is careful about:
+A few things the hand-rolled variant is careful about:
 
 - It stages the incoming event in a local ref and only commits
   it to React state on `onRunFinalized`, mirroring `useInterrupt`,

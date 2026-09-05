@@ -1,0 +1,45 @@
+<Steps>
+  <Step>
+    ### Pause a tool with Strands' native interrupt
+
+    AWS Strands ships a first-class
+    [interrupt primitive](https://strandsagents.com/docs/user-guide/concepts/interrupts/).
+    A tool's callback receives a context whose `interrupt({ name, reason })`
+    call halts the agent loop and hands `reason` to the client as the interrupt
+    payload. The AG-UI adapter finishes the run with `RUN_FINISHED` carrying
+    `outcome.type === "interrupt"`.
+
+    <DemoCode
+      file="src/agent/interrupt-agent.ts"
+      region="backend-interrupt-tool"
+      title="src/agent/interrupt-agent.ts"
+    />
+
+    How the answer reaches the tool depends on the adapter version. The pinned
+    `@ag-ui/aws-strands` 0.2.3 hands the client's payload through untouched and
+    signals a cancel as `{ status: "cancelled" }`; the Python adapter wraps an
+    answer as `{ response: ... }` and cancels with `{ cancelled: true }`. Read
+    both shapes, or a picked slot comes back to the model as though the user
+    never picked one.
+
+  </Step>
+  <Step>
+    ### Keep the pausing tool off a client-executed name
+
+    `useHumanInTheLoop` registers its tool on the FRONTEND, so a name used
+    there cannot also be a pausing backend tool. This showcase mounts a
+    dedicated interrupt agent and points the interrupt demos' agent names at
+    it, leaving `schedule_meeting` on the shared agent free for the
+    frontend-tool flow.
+
+  </Step>
+  <Step>
+    ### Resume in the same process, or across a restart
+
+    Pause and resume on the same running process need no extra wiring. For a
+    resume that survives a restart, give the agent a Strands `SessionManager`
+    through `StrandsAgentConfig.sessionManagerProvider`; the adapter persists
+    its interrupt checkpoint into that session.
+
+  </Step>
+</Steps>
