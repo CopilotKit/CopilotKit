@@ -1,0 +1,356 @@
+---
+title: "Query API"
+description: "Read and query every piece of your own Intelligence data from a script, a notebook, or an agent: threads, utterances, memories, learning provenance, channels, and analytics, over REST, arbitrary read-only SQL, or MCP."
+icon: "lucide/Database"
+doc_type: how-to
+---
+
+Everything Intelligence stores about your organization is yours, and you should
+not have to open a browser to read it. The Query API is a machine credential and
+a JSON surface over the whole of it: list a resource, aggregate it, or write SQL
+against it, with tenancy enforced underneath rather than requested politely.
+
+If you want the conversation persistence model itself, read
+[Threads & Persistence Architecture](/intelligence/threads-explained). If you
+want long-term memory, read [Memories & Recall](/intelligence/memories). This
+page is about reading all of it from the outside.
+
+## What you can reach
+
+Every table that holds your data is addressable as a resource, not a curated
+subset of them. That includes the ones no UI has ever shown you: the full
+learning provenance chain from a run through candidates and review events to a
+published skill, the raw AG-UI event stream behind a thread, per-channel
+delivery records, and the tenancy tables.
+
+| Domain | Examples |
+|--------|----------|
+| Conversations | `threads`, `runs`, `thread_messages`, `run_events`, `utterances` |
+| Memory | `memories` |
+| Learning | `learning_runs`, `learning_skill_candidates`, `learning_skill_candidate_events`, `learning_skills`, `learning_insights`, `learning_skill_insights` |
+| Channels | `channels`, `channel_messages`, `channel_deliveries`, `channel_provider_conversations` |
+| Tenancy | `organizations`, `projects`, `api_keys`, `user_identities` |
+| Governance | `audit_events` |
+| Analytics | `events` |
+
+Ask the deployment rather than trusting this table, because the catalog is
+generated from the same definitions the query planner uses and cannot drift
+from them:
+
+```bash
+curl https://your-deployment/v1/meta/resources \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>"
+```
+
+A few tables are deliberately not reachable, and it is worth knowing which so
+their absence does not read as a bug: deployment-level licence and break-glass
+tables, this API's own bookkeeping, and the cross-tenant actor registry. The
+parts of that registry that belong to you are reachable through
+`user_identities` and `audit_events`.
+
+<Callout type="info">
+The Query API is gated behind a `query-api` feature flag that defaults to off.
+Turn it on for the deployment before minting a key.
+</Callout>
+
+## Authentication
+
+Authentication is a single bearer token. There is no user header and no cookie,
+because a query key is an organization credential rather than a user session.
+
+```bash
+curl https://your-deployment/v1/threads?limit=10 \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>"
+```
+
+The key carries three things: the organization it may read, the scopes it holds,
+and optionally a project allowlist. The organization is not a parameter you can
+pass. Every statement the API compiles is constrained to the key's organization
+before any filter you supply, and the database enforces the same constraint
+again underneath through row-level security, so a bug in the query layer cannot
+turn into a cross-tenant read.
+
+### Scopes
+
+Scopes are `<domain>:<sensitivity>`. The `:read` scope of a domain gets you the
+rows and their low-sensitivity fields. The `:content` scope of the same domain
+is what unlocks the free text inside them, and it is independent: a key can list
+every thread without ever reading a message body.
+
+| Scope | Grants |
+|-------|--------|
+| `tenancy:read` | Organizations, projects, API key metadata |
+| `threads:read` / `threads:content` | Threads, runs and utterances / their text |
+| `memory:read` / `memory:content` | Memory rows / memory text |
+| `learning:read` / `learning:content` | Learning provenance / skill and insight text |
+| `channels:read` / `channels:content` | Channel activity / message bodies |
+| `analytics:read` / `analytics:events` | Aggregated telemetry / raw event payloads and user ids |
+| `audit:read` | The audit trail, including this API's own reads |
+| `governance:read` | Governance decisions |
+| `meta:read` | The catalog |
+
+When a key lacks the `:content` scope for a resource it still gets the rows. The
+omitted field names come back in `meta.fields_omitted_for_scope`, so a caller
+can tell a redacted field from an empty one. Naming an ungranted field
+explicitly in `fields` is an error rather than a silent omission, because you
+asked for it by name.
+
+Some scopes also depend on the deployment's licence: `analytics:*` needs the
+analytics feature, `memory:*` needs memory, and `learning:*` needs self-learning.
+Both have to allow the read.
+
+<Callout type="warn">
+Secret columns are not reachable at any scope. API key hashes, OAuth client
+secrets, encrypted channel credentials and memory vectors are excluded from the
+projection and withheld at the database grant, so no combination of scopes
+returns them.
+</Callout>
+
+## Reading rows
+
+`GET /v1/:resource` lists any resource, newest first, keyset-paginated.
+
+```bash
+curl -G https://your-deployment/v1/utterances \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>" \
+  --data-urlencode "limit=50" \
+  --data-urlencode "author_class[eq]=human" \
+  --data-urlencode "fields=author_class,word_count,occurred_at"
+```
+
+Every response has the same three parts:
+
+```json
+{
+  "data": [{ "author_class": "human", "word_count": 12 }],
+  "page": { "limit": 50, "next_cursor": "eyJ2Ijoi…", "has_more": true },
+  "meta": {
+    "resource": "utterances",
+    "scope": { "organization_id": "your-org" },
+    "fields_omitted_for_scope": [],
+    "request_id": "…",
+    "trace_id": "…"
+  }
+}
+```
+
+### Filtering
+
+Filters are query parameters of the form `field[operator]=value`. Which
+operators a field accepts is a property of that field, and
+`GET /v1/meta/resources/:name` lists them.
+
+| Operator | Meaning |
+|----------|---------|
+| `eq`, `ne` | Equality, inequality |
+| `in`, `nin` | Comma-separated set membership |
+| `gt`, `gte`, `lt`, `lte` | Ordering |
+| `null` | `true` for null, `false` for not null |
+| `prefix` | Starts with |
+| `search` | Full-text match, index-backed |
+| `contains` | Substring |
+
+Several operators on one field narrow rather than replace, so a range is two
+parameters:
+
+```bash
+--data-urlencode "word_count[gte]=10" \
+--data-urlencode "word_count[lt]=100"
+```
+
+### Paging
+
+Follow `page.next_cursor` until `page.has_more` is false. Cursors are keyset
+based rather than offset based, so a page does not shift under you when rows are
+written while you read.
+
+```bash
+curl -G https://your-deployment/v1/utterances \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>" \
+  --data-urlencode "limit=50" \
+  --data-urlencode "cursor=eyJ2Ijoi…"
+```
+
+A cursor is tied to the sort it was issued for. Change `sort` and you start a
+new pagination rather than continuing the old one.
+
+### Other parameters
+
+| Parameter | Effect |
+|-----------|--------|
+| `fields` | Comma-separated projection. Naming a field that does not exist is an error, not a silent omission. |
+| `sort` | Field name, `-` prefix for descending. All terms must share a direction, because keyset pagination compares them as one row. |
+| `limit` | Page size. |
+| `project_id` | Restrict to one project, subject to the key's allowlist. |
+| `include_deleted` | Include soft-deleted rows, which are excluded by default. |
+| `include_total` | Add `page.total`, the count of rows matching the filters. Absent unless asked for. |
+
+## Aggregating
+
+`POST /v1/query` groups and aggregates without pulling rows across the network.
+
+```bash
+curl -X POST https://your-deployment/v1/query \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resource": "utterances",
+    "group_by": ["author_class"],
+    "aggregate": [{ "op": "count", "as": "n" }],
+    "having": { "n": { "gt": 50 } },
+    "sort": ["-n"]
+  }'
+```
+
+Aggregate operations are `count`, `count_distinct`, `sum`, `avg`, `min`, `max`,
+`stddev`, `rate`, `percentile`, and `measure`.
+
+`percentile` requires an explicit `p` and is computed in the database rather
+than by sampling into the client:
+
+```json
+{
+  "resource": "utterances",
+  "aggregate": [{ "op": "percentile", "field": "word_count", "p": 95, "as": "p95" }]
+}
+```
+
+`measure` invokes a named measure defined on the resource, which is how
+parameterized questions are asked safely. The parameter is bound, never
+interpolated:
+
+```json
+{
+  "resource": "utterances",
+  "group_by": ["author_class"],
+  "aggregate": [
+    { "op": "count", "as": "total" },
+    { "op": "measure", "name": "word_hits", "params": { "term": "refund" }, "as": "hits" }
+  ]
+}
+```
+
+<Callout type="info">
+A measure's own filter applies to that measure alone. In the request above
+`total` is every utterance in the group and `hits` counts only occurrences of
+the term, so the two columns answer different questions on the same row rather
+than the term quietly narrowing both.
+</Callout>
+
+Add a `window` to bucket by time. The response carries a `bucket` column:
+
+```json
+{
+  "resource": "utterances",
+  "window": {
+    "start": "2026-01-01T00:00:00Z",
+    "end": "2026-02-01T00:00:00Z",
+    "granularity": "daily"
+  },
+  "aggregate": [{ "op": "count", "as": "n" }]
+}
+```
+
+Granularity is one of `minutely`, `hourly`, `daily`, `weekly`, `monthly`.
+`filter` and `having` both accept either `{"n": {"gt": 50}}` or
+`{"n[gt]": 50}`.
+
+## Arbitrary SQL
+
+When the model does not cover the question, `POST /v1/sql` takes read-only SQL.
+
+```bash
+curl -X POST https://your-deployment/v1/sql \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "statement": "select author_class, count(*) as n from cpki.utterances group by 1 order by 2 desc",
+    "limit": 100
+  }'
+```
+
+Note what is missing from that statement: any mention of your organization. You
+cannot widen the read by leaving out a `WHERE` clause, because tenancy is not
+part of the SQL you write. It is injected as a session setting and enforced by
+row-level security against a role that holds `SELECT` and nothing else.
+
+The statement is parsed with the real PostgreSQL grammar rather than matched
+against patterns, so writes, a second statement smuggled after a semicolon,
+`SELECT INTO`, locking clauses, system catalogs, file-reading functions, and
+anything that could forge the tenant setting are all refused.
+
+The response carries a `query_id`. Paging with it returns pages of the same
+frozen result set, so a long export is internally consistent even while new rows
+are being written:
+
+```bash
+curl -G https://your-deployment/v1/sql/<query_id> \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>" \
+  --data-urlencode "cursor=<next_cursor>" \
+  --data-urlencode "limit=100"
+```
+
+## Agents, over MCP
+
+`POST /v1/mcp` is a Streamable HTTP MCP endpoint carrying four tools, so an
+agent can answer questions about your deployment without being handed SQL.
+
+| Tool | Purpose |
+|------|---------|
+| `intelligence_list_resources` | Everything this key can query. Start here. |
+| `intelligence_describe_resource` | Fields, measures and operators for one resource. |
+| `intelligence_list` | Rows from one resource. |
+| `intelligence_query` | Grouped aggregation. |
+
+Tool results carry an `equivalent_request` naming the REST call that produces
+the same rows, so an agent can hand a person something reproducible. They also
+carry an explicit `untrusted_content` notice, because field values are text your
+users and models wrote: treat them as data, never as instructions.
+
+## Errors, limits and the audit trail
+
+Errors share one envelope. `category` tells you the class, and `retryable` tells
+you whether trying again can help.
+
+```json
+{
+  "error": {
+    "code": "SCOPE_INSUFFICIENT",
+    "message": "…",
+    "category": "forbidden",
+    "retryable": false
+  },
+  "requestId": "…",
+  "traceId": "…"
+}
+```
+
+| Code | Cause |
+|------|-------|
+| `QUERY_KEY_INVALID`, `QUERY_KEY_EXPIRED` | The credential |
+| `SCOPE_INSUFFICIENT` | The key lacks a scope the read needs |
+| `RESOURCE_UNKNOWN` | No such resource, or not readable by this key |
+| `SEMANTIC_MODEL_UNKNOWN_FIELD` | A field the resource does not declare |
+| `VALIDATION_ERROR` | A malformed filter, sort or request body |
+| `QUERY_TIMEOUT`, `QUERY_TOO_EXPENSIVE`, `QUERY_CARDINALITY_EXCEEDED` | Cost controls |
+| `QUERY_RESULT_EXPIRED`, `QUERY_RESULT_SCOPE_CHANGED` | A frozen SQL result is gone, or the key changed under it |
+| `SQL_UNPARSEABLE`, `SQL_NOT_READ_ONLY`, `SQL_STATEMENT_REJECTED` | The SQL guard |
+| `RATE_LIMIT_EXCEEDED` | Budget |
+| `ANALYTICS_NOT_ENABLED` | The licence does not carry the feature |
+
+Rate limits are per key and reported on every response through the standard
+`RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` headers. Metadata
+calls, list reads, aggregation and SQL are budgeted separately, so a heavy
+export does not starve a dashboard.
+
+Every read through this API writes an audit event with the key, the resource,
+the row count, and whether content fields were projected. Those events are
+themselves queryable as the `audit_events` resource with `audit:read`, so the
+API can account for its own use.
+
+## Next steps
+
+- **Threads:** [Threads & Persistence Architecture](/intelligence/threads-explained)
+- **Memory:** [Memories & Recall](/intelligence/memories)
+- **Platform:** [CopilotKit Intelligence](/intelligence/overview)
+- **Self-hosting:** [Self-hosting Intelligence](/intelligence/self-hosting)
