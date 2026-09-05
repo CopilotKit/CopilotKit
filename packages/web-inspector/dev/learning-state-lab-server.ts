@@ -64,7 +64,9 @@ export async function handleLearningStateLabRequest(
   if (method !== "inspector-learning" && method !== "inspector/learning") {
     return json({ error: "Not found" }, 404);
   }
-  if (stateValue === "unsupported") return json({ error: "Not found" }, 404);
+  if (stateValue === "setup-pending") {
+    return json({ error: "Not found" }, 404);
+  }
   if (stateValue === "data-error") {
     return json(
       { error: "Inspector Learning is temporarily unavailable" },

@@ -1633,7 +1633,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
     {
       leaf: "threads",
       group: "workbench",
-      marker: "Threads are unavailable.",
+      marker:
+        "Production-grade chat threads without the complexity. Self hostable.",
     },
     { leaf: "memories", group: "workbench", marker: "Learning" },
     { leaf: "home", group: "home", marker: "System Health" },
@@ -1660,15 +1661,7 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
         "Web Inspector shadow root was not rendered",
       );
       expectCurrentNavigation(root, expected.group, expected.leaf);
-      const learningView = root.querySelector<HTMLElement>("cpk-learning-view");
-      if (expected.leaf === "memories" && learningView) {
-        await (learningView as HTMLElement & { updateComplete: Promise<void> })
-          .updateComplete;
-      }
-      const renderedText =
-        expected.leaf === "memories"
-          ? learningView?.shadowRoot?.textContent
-          : root.querySelector("#cpk-main-scroll")?.textContent;
+      const renderedText = root.querySelector("#cpk-main-scroll")?.textContent;
       expect(renderedText).toContain(expected.marker);
       expect(storedSelectedMenu()).toBe(expected.leaf);
     } finally {
@@ -1750,10 +1743,9 @@ test("Workbench remembers Learning, and Settings does not persist a settings lea
       '"settings"',
     );
     await context.toggleSettings();
-    const learningView = root.querySelector<HTMLElement>("cpk-learning-view");
-    await (learningView as HTMLElement & { updateComplete: Promise<void> })
-      .updateComplete;
-    expect(learningView?.shadowRoot?.textContent).toContain("Learning");
+    expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
+      "Learning",
+    );
   } finally {
     context.teardown();
   }

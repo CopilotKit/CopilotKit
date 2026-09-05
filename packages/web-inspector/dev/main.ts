@@ -77,6 +77,8 @@ const query = new URLSearchParams(window.location.search);
 const replayingNotification = query.get("replay-notification") === "1";
 const parsedScenario = parseScenarioKey(query.get("scenario"));
 const scenario = getThreadsStateScenario(parsedScenario.scenarioKey);
+const SCENARIO_RESET_SESSION_PREFIX = "cpk:inspector:workbench-reset:";
+const scenarioResetSessionKey = `${SCENARIO_RESET_SESSION_PREFIX}${scenario.key}`;
 const customNotificationText = query.get(NOTIFICATION_TEXT_QUERY_KEY)?.trim();
 const notificationConfig: NotificationConfig =
   query.get(NOTIFICATION_SOURCE_QUERY_KEY) === "custom" &&
@@ -514,6 +516,7 @@ async function teardownAndReset(): Promise<void> {
 
 async function navigateToScenario(key: ScenarioKey): Promise<void> {
   actionStatus.textContent = "Closing the current fixture…";
+  window.sessionStorage.removeItem(`${SCENARIO_RESET_SESSION_PREFIX}${key}`);
   await teardownAndReset();
   const directLink = applyNotificationQuery(
     new URL(canonicalScenarioUrl(window.location.origin, key)),
@@ -613,8 +616,12 @@ async function boot(): Promise<void> {
     );
   }
 
-  if (query.get("reset") === "1") {
+  if (
+    query.get("reset") === "1" &&
+    window.sessionStorage.getItem(scenarioResetSessionKey) !== "1"
+  ) {
     clearThreadsStateLabStorage(window.localStorage, document);
+    window.sessionStorage.setItem(scenarioResetSessionKey, "1");
     await resetServerLedger();
     actionStatus.textContent = "Inspector state and fixture ledger reset.";
   }
@@ -622,7 +629,6 @@ async function boot(): Promise<void> {
   if (scenario.learningState) {
     prepareLearningStateClient({
       state: scenario.learningState,
-      embeddedWorkbench: true,
     });
   }
 

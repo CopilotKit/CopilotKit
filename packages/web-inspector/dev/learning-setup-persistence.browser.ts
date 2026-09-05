@@ -23,8 +23,15 @@ for (const transport of ["rest", "single"] as const) {
     const setup = page.getByRole("region", { name: "Set up Learning" });
     await expect(setup.getByText("1 of 3 steps")).toBeVisible();
     await expect(
-      setup.getByRole("heading", { name: "Waiting for the first Thread" }),
+      setup.getByRole("heading", { name: "Waiting for Learning setup" }),
     ).toBeVisible();
+    await expect(
+      setup.getByRole("heading", { name: "Copy the setup prompt" }),
+    ).toBeVisible();
+    await expect(setup.locator(".step").first()).toHaveClass(/complete/);
+    await expect(
+      page.locator('[data-inspector-locked-feature="memory"]'),
+    ).toHaveCount(0);
 
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("data-ready", "true", {
@@ -32,7 +39,14 @@ for (const transport of ["rest", "single"] as const) {
     });
     await expect(setup.getByText("1 of 3 steps")).toBeVisible();
     await expect(
-      setup.getByRole("heading", { name: "Waiting for the first Thread" }),
+      setup.getByRole("heading", { name: "Waiting for Learning setup" }),
     ).toBeVisible();
+    await expect(
+      setup.getByRole("heading", { name: "Copy the setup prompt" }),
+    ).toBeVisible();
+    await expect(setup.locator(".step").first()).toHaveClass(/complete/);
+    await expect(
+      page.locator('[data-inspector-locked-feature="memory"]'),
+    ).toHaveCount(0);
   });
 }

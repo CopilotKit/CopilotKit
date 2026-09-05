@@ -48,10 +48,10 @@ describe("integrated Inspector Learning state lab runtime", () => {
     });
   });
 
-  it("keeps unsupported and data-error states distinct", async () => {
-    const unsupportedBase = `http://127.0.0.1:5177${LEARNING_LAB_BASE_PATH}/unsupported`;
+  it("keeps post-copy setup waiting and data-error states distinct", async () => {
+    const setupPendingBase = `http://127.0.0.1:5177${LEARNING_LAB_BASE_PATH}/setup-pending`;
     const info = await handleLearningStateLabRequest(
-      new Request(`${unsupportedBase}/info`),
+      new Request(`${setupPendingBase}/info`),
     );
     expect(await info?.json()).not.toHaveProperty("inspectorLearning");
 

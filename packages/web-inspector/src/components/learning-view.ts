@@ -5,7 +5,6 @@ import type {
 } from "@copilotkit/shared";
 
 export type LearningViewState =
-  | "unsupported"
   | "loading"
   | "error"
   | "selection_required"
@@ -24,7 +23,11 @@ export function deriveLearningViewState(input: {
   readonly snapshot: InspectorLearningSnapshotV1 | null;
   readonly setupActive: boolean;
 }): LearningViewState {
-  if (!input.supported) return "unsupported";
+  // A Runtime that has not opted into Learning is still a valid product
+  // onboarding state. The parent Inspector renders the Learning preview for
+  // `landing`; after the setup prompt is copied, keep the user in the setup
+  // flow while the Runtime is updated and reconnects.
+  if (!input.supported) return input.setupActive ? "setup" : "landing";
   if (!input.snapshot && input.loading) return "loading";
   if (!input.snapshot && input.error) return "error";
   const snapshot = input.snapshot;
@@ -77,18 +80,97 @@ export class CpkLearningView extends LitElement {
     :host {
       --learning-ink: #202127;
       --learning-muted: #64656f;
+      --learning-muted-strong: #858690;
       --learning-line: #dcdce4;
+      --learning-line-secondary: #cfcfd7;
+      --learning-line-accent: #dcd9ff;
       --learning-soft: #f7f7fa;
+      --learning-canvas: #fff;
+      --learning-surface: #fff;
+      --learning-surface-subtle: #fbfbfd;
+      --learning-surface-muted: #f8f8fb;
+      --learning-surface-hover: #fafaff;
       --learning-purple: #7567ff;
       --learning-purple-dark: #5549e8;
       --learning-soft-purple: #f0edff;
+      --learning-purple-border: #cfc8ff;
       --learning-green: #168b69;
+      --learning-soft-green: #f7fbf9;
+      --learning-green-border: #b9dfd1;
+      --learning-soft-danger: #fff4f4;
+      --learning-soft-danger-alt: #fff8f8;
+      --learning-danger: #7e2929;
+      --learning-danger-muted: #8c4a4a;
+      --learning-danger-border: #efc7c7;
+      --learning-danger-step-border: #d96a6a;
+      --learning-track: #e9edf5;
+      --learning-step-number: #edf0f5;
+      --learning-step-number-ink: #555661;
+      --learning-primary: #202127;
+      --learning-primary-ink: #fff;
+      --learning-secondary: #fff;
+      --learning-secondary-ink: #31323a;
+      --learning-disabled: #e5e5ea;
+      --learning-disabled-ink: #9a9ba3;
+      --learning-on-accent: #fff;
+      --learning-outcome: #888993;
+      --learning-outcome-dash: #cfd0d8;
+      --learning-outcome-arrow: #b0b1b9;
+      --learning-code: #34353d;
+      --learning-dialog-line: #d9d9e1;
+      --learning-skeleton-edge: #eeeef2;
+      --learning-skeleton-center: #f8f8fa;
       display: block;
       height: 100%;
       overflow: auto;
       color: var(--learning-ink);
-      background: #fff;
+      background: var(--learning-canvas);
       font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+    :host([data-color-scheme="dark"]) {
+      color-scheme: dark;
+      --learning-ink: #f3f4f8;
+      --learning-muted: #b0b3be;
+      --learning-muted-strong: #b8bbc5;
+      --learning-line: #3a3e4b;
+      --learning-line-secondary: #4c5161;
+      --learning-line-accent: #625f95;
+      --learning-soft: #20232d;
+      --learning-canvas: #15171e;
+      --learning-surface: #1a1d25;
+      --learning-surface-subtle: #1d2029;
+      --learning-surface-muted: #20232d;
+      --learning-surface-hover: #252837;
+      --learning-purple: #a296ff;
+      --learning-purple-dark: #c4baff;
+      --learning-soft-purple: #2a2940;
+      --learning-purple-border: #625f95;
+      --learning-green: #4dc69d;
+      --learning-soft-green: #172923;
+      --learning-green-border: #28604d;
+      --learning-soft-danger: #321f25;
+      --learning-soft-danger-alt: #2d2026;
+      --learning-danger: #ffabab;
+      --learning-danger-muted: #f2b5ba;
+      --learning-danger-border: #7a424e;
+      --learning-danger-step-border: #a95464;
+      --learning-track: #303440;
+      --learning-step-number: #303440;
+      --learning-step-number-ink: #d8dae4;
+      --learning-primary: #f3f4f8;
+      --learning-primary-ink: #16181f;
+      --learning-secondary: #20232d;
+      --learning-secondary-ink: #edf0f6;
+      --learning-disabled: #363a46;
+      --learning-disabled-ink: #a4a8b5;
+      --learning-on-accent: #171920;
+      --learning-outcome: #b0b3be;
+      --learning-outcome-dash: #545969;
+      --learning-outcome-arrow: #858a99;
+      --learning-code: #e2e4ec;
+      --learning-dialog-line: #484c5a;
+      --learning-skeleton-edge: #2a2d38;
+      --learning-skeleton-center: #333744;
     }
     * {
       box-sizing: border-box;
@@ -131,7 +213,7 @@ export class CpkLearningView extends LitElement {
       line-height: 1.5;
     }
     .refreshing {
-      color: #858690;
+      color: var(--learning-muted-strong);
       font-size: 11px;
     }
     .setup-card,
@@ -139,11 +221,11 @@ export class CpkLearningView extends LitElement {
     .content-card {
       border: 1px solid var(--learning-line);
       border-radius: 10px;
-      background: #fff;
+      background: var(--learning-surface);
     }
     .setup-card {
       padding: 24px;
-      background: #fbfbfd;
+      background: var(--learning-surface-subtle);
     }
     .setup-top {
       display: flex;
@@ -168,7 +250,7 @@ export class CpkLearningView extends LitElement {
       height: 8px;
       margin: 20px 0 18px;
       overflow: hidden;
-      background: #e9edf5;
+      background: var(--learning-track);
       border-radius: 999px;
     }
     .progress-fill {
@@ -187,7 +269,7 @@ export class CpkLearningView extends LitElement {
     .step {
       min-height: 142px;
       padding: 15px;
-      background: #fff;
+      background: var(--learning-surface);
       border: 1px solid var(--learning-line);
       border-radius: 8px;
     }
@@ -196,12 +278,12 @@ export class CpkLearningView extends LitElement {
       border-color: var(--learning-purple);
     }
     .step.error {
-      background: #fff4f4;
-      border-color: #d96a6a;
+      background: var(--learning-soft-danger);
+      border-color: var(--learning-danger-step-border);
     }
     .step.complete {
-      background: #f7fbf9;
-      border-color: #b9dfd1;
+      background: var(--learning-soft-green);
+      border-color: var(--learning-green-border);
     }
     .step-header {
       display: flex;
@@ -214,22 +296,22 @@ export class CpkLearningView extends LitElement {
       place-items: center;
       width: 26px;
       height: 26px;
-      color: #555661;
-      background: #edf0f5;
+      color: var(--learning-step-number-ink);
+      background: var(--learning-step-number);
       border-radius: 50%;
       font-size: 12px;
       font-weight: 800;
     }
     .step.current .step-number {
-      color: #fff;
+      color: var(--learning-on-accent);
       background: var(--learning-purple);
     }
     .step.complete .step-number {
-      color: #fff;
+      color: var(--learning-on-accent);
       background: var(--learning-green);
     }
     .step-state {
-      color: #a33a3a;
+      color: var(--learning-danger);
       font-size: 9px;
       font-weight: 850;
       letter-spacing: 0.06em;
@@ -250,7 +332,7 @@ export class CpkLearningView extends LitElement {
     }
     .collection-panel {
       padding: 15px;
-      background: #fff;
+      background: var(--learning-surface);
       border: 1px solid var(--learning-line);
       border-radius: 8px;
     }
@@ -264,14 +346,14 @@ export class CpkLearningView extends LitElement {
     .error-alert {
       margin-bottom: 10px;
       padding: 11px 12px;
-      color: #7e2929;
-      background: #fff4f4;
-      border: 1px solid #efc7c7;
+      color: var(--learning-danger);
+      background: var(--learning-soft-danger);
+      border: 1px solid var(--learning-danger-border);
       border-radius: 6px;
     }
     .error-alert p {
       margin: 0;
-      color: #8c4a4a;
+      color: var(--learning-danger-muted);
       font-size: 11px;
       line-height: 1.45;
     }
@@ -279,7 +361,7 @@ export class CpkLearningView extends LitElement {
       display: inline-block;
       margin-top: 7px;
       padding: 0;
-      color: #7e2929;
+      color: var(--learning-danger);
       background: none;
       border: 0;
       font-size: 11px;
@@ -313,7 +395,7 @@ export class CpkLearningView extends LitElement {
     }
     .technical-details {
       margin-top: 10px;
-      color: #62636d;
+      color: var(--learning-muted);
       font-size: 10px;
     }
     .technical-details summary {
@@ -330,7 +412,7 @@ export class CpkLearningView extends LitElement {
       border-radius: 5px;
     }
     .technical-details dt {
-      color: #8a8b94;
+      color: var(--learning-muted-strong);
     }
     .technical-details dd {
       margin: 0;
@@ -351,20 +433,20 @@ export class CpkLearningView extends LitElement {
       cursor: pointer;
     }
     .primary {
-      color: #fff;
-      background: #202127;
-      border: 1px solid #202127;
+      color: var(--learning-primary-ink);
+      background: var(--learning-primary);
+      border: 1px solid var(--learning-primary);
     }
     .secondary {
-      color: #31323a;
-      background: #fff;
-      border: 1px solid #cfcfd7;
+      color: var(--learning-secondary-ink);
+      background: var(--learning-secondary);
+      border: 1px solid var(--learning-line-secondary);
     }
     .primary:disabled,
     .primary[aria-disabled="true"] {
-      color: #9a9ba3;
-      background: #e5e5ea;
-      border-color: #e5e5ea;
+      color: var(--learning-disabled-ink);
+      background: var(--learning-disabled);
+      border-color: var(--learning-disabled);
       cursor: not-allowed;
       pointer-events: none;
     }
@@ -381,29 +463,29 @@ export class CpkLearningView extends LitElement {
       justify-content: center;
       gap: 8px;
       margin-top: 16px;
-      color: #888993;
+      color: var(--learning-outcome);
       font-size: 11px;
     }
     .outcome-preview span {
       padding: 6px 9px;
-      background: #fff;
-      border: 1px dashed #cfd0d8;
+      background: var(--learning-surface);
+      border: 1px dashed var(--learning-outcome-dash);
       border-radius: 5px;
     }
     .outcome-preview b {
-      color: #b0b1b9;
+      color: var(--learning-outcome-arrow);
     }
     .analysis-card {
       padding: 18px 20px;
-      background: #f8f8fb;
+      background: var(--learning-surface-muted);
     }
     .analysis-card.ready {
-      background: #f5f3ff;
-      border-color: #cfc8ff;
+      background: var(--learning-soft-purple);
+      border-color: var(--learning-purple-border);
     }
     .analysis-card.error {
-      background: #fff8f8;
-      border-color: #efc7c7;
+      background: var(--learning-soft-danger-alt);
+      border-color: var(--learning-danger-border);
     }
     .analysis-row {
       display: flex;
@@ -437,9 +519,9 @@ export class CpkLearningView extends LitElement {
       gap: 16px;
       margin-bottom: 12px;
       padding: 11px 12px;
-      color: #7e2929;
-      background: #fff4f4;
-      border: 1px solid #efc7c7;
+      color: var(--learning-danger);
+      background: var(--learning-soft-danger);
+      border: 1px solid var(--learning-danger-border);
       border-radius: 6px;
       font-size: 11px;
     }
@@ -457,7 +539,7 @@ export class CpkLearningView extends LitElement {
       font-size: 14px;
     }
     .result-count {
-      color: #8c8d96;
+      color: var(--learning-muted-strong);
       font-size: 10px;
       font-weight: 700;
     }
@@ -486,7 +568,7 @@ export class CpkLearningView extends LitElement {
     .empty-card {
       padding: 24px;
       color: var(--learning-muted);
-      background: #fbfbfd;
+      background: var(--learning-surface-subtle);
       border: 1px solid var(--learning-line);
       border-radius: 8px;
     }
@@ -522,14 +604,14 @@ export class CpkLearningView extends LitElement {
     .skill-lineage {
       margin-top: 10px;
       padding: 10px 12px;
-      background: #f8f8fb;
+      background: var(--learning-surface-muted);
       border: 1px solid var(--learning-line);
       border-radius: 6px;
     }
     .skill-lineage > span {
       display: block;
       margin-bottom: 5px;
-      color: #858690;
+      color: var(--learning-muted-strong);
       font-size: 9px;
       font-weight: 800;
       letter-spacing: 0.06em;
@@ -558,7 +640,7 @@ export class CpkLearningView extends LitElement {
       font-weight: 750;
     }
     .supporting-unavailable {
-      color: #858690;
+      color: var(--learning-muted-strong);
       font-size: 11px;
       font-style: italic;
     }
@@ -575,7 +657,7 @@ export class CpkLearningView extends LitElement {
     .skill-source pre {
       margin: 10px 0 0;
       padding: 12px;
-      color: #34353d;
+      color: var(--learning-code);
       background: var(--learning-soft);
       border: 1px solid var(--learning-line);
       border-radius: 6px;
@@ -593,8 +675,8 @@ export class CpkLearningView extends LitElement {
       display: flex;
       align-items: center;
       padding: 10px 14px;
-      color: #858690;
-      background: #f8f8fa;
+      color: var(--learning-muted-strong);
+      background: var(--learning-surface-muted);
       border-bottom: 1px solid var(--learning-line);
       font-size: 10px;
       font-weight: 800;
@@ -611,7 +693,7 @@ export class CpkLearningView extends LitElement {
       width: 100%;
       padding: 16px;
       color: inherit;
-      background: #fff;
+      background: var(--learning-surface);
       border: 0;
       border-bottom: 1px solid var(--learning-line);
       text-align: left;
@@ -622,7 +704,7 @@ export class CpkLearningView extends LitElement {
     }
     .insight-row:hover,
     .insight-row[data-selected="true"] {
-      background: #fafaff;
+      background: var(--learning-surface-hover);
     }
     .insight-row h3 {
       margin: 0 0 6px;
@@ -645,8 +727,8 @@ export class CpkLearningView extends LitElement {
     .detail-panel {
       margin-top: 14px;
       padding: 18px;
-      background: #fafaff;
-      border: 1px solid #dcd9ff;
+      background: var(--learning-surface-hover);
+      border: 1px solid var(--learning-line-accent);
       border-radius: 8px;
     }
     .detail-head {
@@ -670,8 +752,8 @@ export class CpkLearningView extends LitElement {
     .close-detail {
       width: 28px;
       height: 28px;
-      color: #666771;
-      background: #fff;
+      color: var(--learning-muted);
+      background: var(--learning-surface);
       border: 1px solid var(--learning-line);
       border-radius: 5px;
       cursor: pointer;
@@ -688,8 +770,8 @@ export class CpkLearningView extends LitElement {
       gap: 10px;
       min-height: 38px;
       padding: 10px;
-      color: #34353d;
-      background: #fff;
+      color: var(--learning-code);
+      background: var(--learning-surface);
       border: 1px solid var(--learning-line);
       border-radius: 6px;
       font-size: 11px;
@@ -701,10 +783,10 @@ export class CpkLearningView extends LitElement {
     }
     .evidence-link span {
       margin-left: auto;
-      color: #898a93;
+      color: var(--learning-muted-strong);
     }
     .evidence-unavailable {
-      color: #858690;
+      color: var(--learning-muted-strong);
       font-style: italic;
     }
     .pagination {
@@ -723,7 +805,7 @@ export class CpkLearningView extends LitElement {
       min-height: 30px;
       padding: 0 10px;
       color: var(--learning-ink);
-      background: #fff;
+      background: var(--learning-surface);
       border: 1px solid var(--learning-line);
       border-radius: 5px;
       font-size: 11px;
@@ -731,8 +813,8 @@ export class CpkLearningView extends LitElement {
       cursor: pointer;
     }
     .pagination button:disabled {
-      color: #aaaab2;
-      background: #f6f6f8;
+      color: var(--learning-disabled-ink);
+      background: var(--learning-surface-muted);
       cursor: default;
     }
     .skeleton {
@@ -741,7 +823,12 @@ export class CpkLearningView extends LitElement {
     }
     .skeleton span {
       height: 74px;
-      background: linear-gradient(90deg, #eeeef2, #f8f8fa, #eeeef2);
+      background: linear-gradient(
+        90deg,
+        var(--learning-skeleton-edge),
+        var(--learning-skeleton-center),
+        var(--learning-skeleton-edge)
+      );
       background-size: 200% 100%;
       border-radius: 8px;
       animation: shimmer 1.3s infinite;
@@ -765,8 +852,8 @@ export class CpkLearningView extends LitElement {
       width: min(620px, 100%);
       max-height: min(680px, 90vh);
       flex-direction: column;
-      background: #fff;
-      border: 1px solid #d9d9e1;
+      background: var(--learning-surface);
+      border: 1px solid var(--learning-dialog-line);
       border-radius: 13px;
       box-shadow: 0 22px 70px rgba(0, 0, 0, 0.22);
     }
@@ -782,11 +869,11 @@ export class CpkLearningView extends LitElement {
     }
     .dialog header p {
       margin: 4px 0 0;
-      color: #6d6d75;
+      color: var(--learning-muted);
       font-size: 11px;
     }
     .dialog-close {
-      color: #777;
+      color: var(--learning-muted);
       background: transparent;
       border: 0;
       font-size: 20px;
@@ -815,7 +902,7 @@ export class CpkLearningView extends LitElement {
     }
     .copy-error {
       margin: 10px 19px 0;
-      color: #7e2929;
+      color: var(--learning-danger);
       font-size: 11px;
     }
     @media (max-width: 900px) {
@@ -897,12 +984,19 @@ export class CpkLearningView extends LitElement {
     const ready = mode === "ready";
     const running = mode === "running";
     const attention = mode === "attention";
+    const waitingForLearningSetup =
+      mode === "setup" &&
+      this.setupActive &&
+      (this.snapshot === null ||
+        this.snapshot.configuration.state === "not_configured");
     const completedSteps = ready || running ? 2 : 1;
     const pendingThreads = ready ? (this.snapshot?.pendingThreadCount ?? 0) : 0;
     const title = attention
       ? "Learning setup needs attention"
       : mode === "setup"
-        ? "Waiting for the first Thread"
+        ? waitingForLearningSetup
+          ? "Waiting for Learning setup"
+          : "Waiting for the first Thread"
         : ready
           ? "Threads ready to analyze"
           : "Analysis is running in the web app.";
@@ -950,8 +1044,20 @@ export class CpkLearningView extends LitElement {
                 : nothing
             }
           </div>
-          <h3>Create your first Thread</h3>
-          <p>Open Checkout Assistant and complete a conversation.</p>
+          <h3>
+            ${
+              waitingForLearningSetup
+                ? "Set up Learning"
+                : "Create your first Thread"
+            }
+          </h3>
+          <p>
+            ${
+              waitingForLearningSetup
+                ? "Run the copied prompt in your coding agent. This page will continue when Learning is ready."
+                : "Open Checkout Assistant and complete a conversation."
+            }
+          </p>
         </li>
         <li class="step ${ready || running ? "current" : ""}">
           <div class="step-header"><span class="step-number">3</span></div>
@@ -1012,7 +1118,9 @@ export class CpkLearningView extends LitElement {
                         ? "Threads available"
                         : running
                           ? "Analysis running"
-                          : "Waiting for first Thread"
+                          : waitingForLearningSetup
+                            ? "Waiting for Learning setup"
+                            : "Waiting for first Thread"
                     }
                   </dd>
                 </dl>
@@ -1378,11 +1486,7 @@ export class CpkLearningView extends LitElement {
       setupActive: this.setupActive,
     });
     let content: unknown;
-    if (state === "unsupported") {
-      content = this.renderCompactState({
-        title: "Learning is not available with this runtime version.",
-      });
-    } else if (state === "loading") {
+    if (state === "loading") {
       content = html`
         <div class="skeleton" aria-label="Loading Learning">
           <span></span><span></span><span></span>

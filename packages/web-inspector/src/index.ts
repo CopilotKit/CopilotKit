@@ -8065,14 +8065,7 @@ export class WebInspectorElement extends LitElement {
       this.learningSnapshotScope = `${requestContext}|${snapshot.projectKey}|${containerId}`;
       this.learningError = null;
       this.learningPollFailureCount = 0;
-      const setupConfirmed =
-        snapshot.pendingThreadCount > 0 ||
-        snapshot.run.hasActiveRun ||
-        snapshot.run.hasEverSucceeded ||
-        snapshot.pendingCandidateCount > 0 ||
-        snapshot.skillsPage.total > 0 ||
-        snapshot.insightsPage.total > 0;
-      if (snapshot.configuration.state === "configured" && setupConfirmed) {
+      if (snapshot.configuration.state === "configured") {
         clearLearningSetupMarker();
         this.learningSetupMarker = null;
       }
@@ -18260,6 +18253,7 @@ export class WebInspectorElement extends LitElement {
             "Copy this prompt into your coding agent to finish the setup.",
         };
       case "none":
+      case "unknown":
         return {
           heading:
             "Production-grade chat threads without the complexity. Self hostable.",
@@ -18271,12 +18265,6 @@ export class WebInspectorElement extends LitElement {
           heading: "Renew Intelligence to inspect Threads.",
           description:
             "Your Intelligence access has expired. Renew it to inspect saved thread history.",
-        };
-      case "unknown":
-        return {
-          heading: "Threads are unavailable.",
-          description:
-            "This runtime does not expose Threads for the Inspector.",
         };
     }
   }
@@ -18354,6 +18342,7 @@ export class WebInspectorElement extends LitElement {
     }
     return html`
       <cpk-learning-view
+        data-color-scheme=${this.colorScheme}
         .supported=${this.learningSupported}
         .loading=${this.learningLoading}
         .refreshing=${this.learningRefreshing}

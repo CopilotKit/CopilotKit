@@ -103,11 +103,34 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
   ).toBe(true);
 });
 
+test("guides an unavailable Threads runtime through setup instead of showing a dead end", async ({
+  page,
+}) => {
+  await openWorkbenchState(page, "landing");
+  await page.getByRole("button", { name: "Threads", exact: true }).click();
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Production-grade chat threads without the complexity. Self hostable.",
+    }),
+  ).toBeVisible();
+  await expect(page.getByText("Threads are unavailable.")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Copy setup prompt for Threads" }),
+  ).toBeVisible();
+  await expect(
+    page.locator('iframe[title="Rich Threads overview"]'),
+  ).toBeVisible();
+});
+
 test("selects every Automatic Learning state without editing the root URL", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.setViewportSize({ width: 1702, height: 1200 });
   await openWorkbenchState(page, "landing");
+  const inspectorWindow = page.locator(".inspector-window");
+  await expect(inspectorWindow).toHaveCSS("width", "960px");
+  await expect(inspectorWindow).toHaveCSS("height", "740px");
 
   for (const { key, state } of LEARNING_WORKBENCH_SCENARIOS.slice(1)) {
     await page.locator("#scenario-select").selectOption(key);
@@ -120,7 +143,88 @@ test("selects every Automatic Learning state without editing the root URL", asyn
       "data-learning-state",
       state,
     );
+    await expect(inspectorWindow).toHaveCSS("width", "960px");
+    await expect(inspectorWindow).toHaveCSS("height", "740px");
   }
+});
+
+test("provides a dedicated post-copy Learning setup state", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1702, height: 1200 });
+  await openWorkbenchState(page, "setup-pending");
+
+  const setup = page.getByRole("region", { name: "Set up Learning" });
+  await expect(setup.getByText("1 of 3 steps")).toBeVisible();
+  await expect(setup.locator("#learning-setup-title")).toBeVisible();
+  await expect(
+    setup.getByRole("heading", { name: "Waiting for Learning setup" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Copy setup prompt for Threads" }),
+  ).toHaveCount(0);
+});
+
+test("renders the Learning setup flow in dark mode", async ({ page }) => {
+  await openWorkbenchState(page, "setup-pending");
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+
+  const learning = page.locator('cpk-learning-view[data-color-scheme="dark"]');
+  await expect(learning).toBeVisible();
+  await expect(learning).toHaveCSS("background-color", "rgb(21, 23, 30)");
+  await expect(learning.locator(".setup-card")).toHaveCSS(
+    "background-color",
+    "rgb(29, 32, 41)",
+  );
+  await expect(learning.locator(".step.complete")).toHaveCSS(
+    "background-color",
+    "rgb(23, 41, 35)",
+  );
+});
+
+test("keeps the copied Learning setup state after a root workbench reload", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: "http://127.0.0.1:5177",
+  });
+  await openWorkbenchState(page, "landing");
+  await page
+    .getByRole("button", { name: "Copy setup prompt for Threads" })
+    .click();
+
+  const setup = page.getByRole("region", { name: "Set up Learning" });
+  await expect(
+    setup.getByRole("heading", { name: "Copy the setup prompt" }),
+  ).toBeVisible();
+  await expect(
+    setup
+      .locator(".step")
+      .nth(1)
+      .getByRole("heading", { name: "Set up Learning" }),
+  ).toBeVisible();
+  await expect(setup.locator(".step").first()).toHaveClass(/complete/);
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-ready", "true", {
+    timeout: 15_000,
+  });
+  await expect(
+    page.getByRole("region", { name: "Set up Learning" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Copy the setup prompt" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Set up Learning" })
+      .locator(".step")
+      .first(),
+  ).toHaveClass(/complete/);
+  await expect(
+    page.getByRole("button", { name: "Copy setup prompt for Threads" }),
+  ).toHaveCount(0);
 });
 
 test("renders the narrow root workbench with an icon rail and stacked setup steps", async ({

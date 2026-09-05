@@ -9,6 +9,7 @@ import type {
 } from "./learning-state-fixtures.js";
 
 const LEARNING_SETUP_STORAGE_KEY = "cpk:inspector:learning-setup:v1";
+const DEFAULT_FLOATING_WINDOW_SIZE = { width: 960, height: 740 };
 
 export function learningLabRuntimeUrl(
   origin: string,
@@ -21,42 +22,38 @@ export function prepareLearningStateClient(
   options: Readonly<{
     state: LearningScreenshotState;
     preserveSetup?: boolean;
-    embeddedWorkbench?: boolean;
     viewportWidth?: number;
     viewportHeight?: number;
   }>,
 ): void {
-  if (!options.preserveSetup) {
+  if (!options.preserveSetup && options.state !== "landing") {
     window.localStorage.removeItem(LEARNING_SETUP_STORAGE_KEY);
+  }
+  if (options.state === "setup-pending") {
+    // Start after a successful prompt copy so the workbench exercises the
+    // real waiting-for-setup path without requiring a manual click.
+    window.localStorage.setItem(
+      LEARNING_SETUP_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        runtimeUrl: learningLabRuntimeUrl(
+          window.location.origin,
+          options.state,
+        ),
+        agentId: "Checkout Assistant",
+        startedAt: new Date().toISOString(),
+      }),
+    );
   }
   const width = options.viewportWidth ?? window.innerWidth;
   const height = options.viewportHeight ?? window.innerHeight;
   const narrow = width <= 900;
-  const floatInWorkbench = options.embeddedWorkbench === true && !narrow;
-  const workbenchStage = floatInWorkbench
-    ? document
-        .querySelector<HTMLElement>(".inspector-stage")
-        ?.getBoundingClientRect()
-    : undefined;
-  const workbenchHeader = floatInWorkbench
-    ? document.querySelector<HTMLElement>(".topbar")?.getBoundingClientRect()
-    : undefined;
-  const windowOffset = floatInWorkbench
-    ? {
-        x: Math.round((workbenchStage?.left ?? 0) + 16),
-        y: Math.round((workbenchHeader?.bottom ?? 0) + 12),
-      }
-    : undefined;
-  const windowWidth = floatInWorkbench
-    ? Math.max(320, Math.min(width - 32, (workbenchStage?.width ?? width) - 32))
-    : narrow
-      ? width - 32
-      : width - 96;
-  const windowHeight = floatInWorkbench
-    ? Math.max(400, height - (windowOffset?.y ?? 0) - 16)
-    : narrow
-      ? height
-      : height - 48;
+  const windowWidth = narrow
+    ? width - 32
+    : Math.min(DEFAULT_FLOATING_WINDOW_SIZE.width, width - 32);
+  const windowHeight = narrow
+    ? height
+    : Math.min(DEFAULT_FLOATING_WINDOW_SIZE.height, height - 48);
   window.localStorage.setItem(
     "cpk:inspector:state",
     JSON.stringify({
@@ -68,27 +65,14 @@ export function prepareLearningStateClient(
       sidebarCollapsed: false,
       colorSchemePreference: "light",
       window: {
-        ...(windowOffset
-          ? {
-              anchor: { horizontal: "left", vertical: "top" },
-              anchorOffset: windowOffset,
-            }
-          : {}),
         size: {
           width: windowWidth,
           height: windowHeight,
         },
-        hasCustomPosition: floatInWorkbench,
+        hasCustomPosition: false,
       },
     }),
   );
-
-  if (options.state === "copy-error") {
-    Object.defineProperty(window.navigator, "clipboard", {
-      configurable: true,
-      value: { writeText: () => Promise.reject(new Error("Clipboard denied")) },
-    });
-  }
 }
 
 function waitFor<T>(
@@ -155,30 +139,9 @@ export async function readyIntegratedLearningState(
   await inspector.updateComplete;
   const internals = inspector as unknown as {
     handleMenuSelect: (key: "memories") => void;
-    learningError: string | null;
   };
   internals.handleMenuSelect("memories");
   await inspector.updateComplete;
-
-  if (state === "copy-error") {
-    const landing = await waitFor(
-      () =>
-        inspector.shadowRoot?.querySelector<HTMLElement>(
-          '[data-inspector-locked-feature="memory"]',
-        ),
-      "the existing Learning landing surface",
-    );
-    landing
-      .querySelector<HTMLButtonElement>(
-        '[data-inspector-feature-setup-prompt="threads"]',
-      )
-      ?.click();
-    await waitFor(
-      () => landing.querySelector('[data-copy-state="error"]'),
-      "the landing copy error",
-    );
-    return;
-  }
 
   if (state === "landing") {
     await waitFor(
@@ -199,6 +162,7 @@ export async function readyIntegratedLearningState(
     "the integrated Learning pane",
   );
   const expectedState: Record<LearningScreenshotState, string> = {
+    "setup-pending": "setup",
     "no-threads": "setup",
     "threads-available": "ready",
     success: "results",
@@ -207,18 +171,12 @@ export async function readyIntegratedLearningState(
     "new-threads": "results",
     "empty-results": "empty",
     "setup-error": "invalid",
-    unsupported: "unsupported",
     loading: "loading",
     "data-error": "error",
     "selection-required": "selection_required",
     "first-run": "first_run",
     "candidates-only": "results",
-    "results-error": "results",
-    "results-evidence": "results",
-    "evidence-unavailable": "results",
-    "setup-prompt": "invalid",
     landing: "landing",
-    "copy-error": "landing",
   };
   await waitFor(
     () =>
@@ -227,30 +185,6 @@ export async function readyIntegratedLearningState(
       ),
     `${state} Learning state`,
   );
-
-  if (state === "results-error") {
-    internals.learningError =
-      "Learning could not refresh. Existing results are still available.";
-    inspector.requestUpdate();
-    await inspector.updateComplete;
-    await view.updateComplete;
-  }
-  if (state === "results-evidence" || state === "evidence-unavailable") {
-    view.shadowRoot?.querySelector<HTMLButtonElement>(".insight-row")?.click();
-    await view.updateComplete;
-    await waitFor(
-      () => view.shadowRoot?.querySelector(".detail-panel"),
-      "Insight evidence",
-    );
-  }
-  if (state === "setup-prompt") {
-    view.shadowRoot?.querySelector<HTMLButtonElement>(".prompt-link")?.click();
-    await view.updateComplete;
-    await waitFor(
-      () => view.shadowRoot?.querySelector('[role="dialog"]'),
-      "the setup prompt",
-    );
-  }
 }
 
 export async function settleLearningState(): Promise<void> {

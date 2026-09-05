@@ -130,12 +130,14 @@ const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
 const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
 const INSPECTOR_DISMISSAL_STORAGE_KEY = "cpk:inspector:dismissed_until";
 const INSPECTOR_DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
+const LEARNING_SETUP_STORAGE_KEY = "cpk:inspector:learning-setup:v1";
 const REPLAY_NOTIFICATION_QUERY_KEY = "replay-notification";
 
 export const LAB_RESET_STORAGE_KEYS = [
   INSPECTOR_STATE_STORAGE_KEY,
   "cpk:inspector:threads-example-tour:v1",
   INSPECTOR_DISMISSAL_STORAGE_KEY,
+  LEARNING_SETUP_STORAGE_KEY,
 ] as const;
 
 export const DEFAULT_SCENARIO_KEY: ScenarioKey = "free-figma-148-of-200";

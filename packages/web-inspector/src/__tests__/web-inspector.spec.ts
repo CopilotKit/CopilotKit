@@ -2682,7 +2682,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     });
   });
 
-  it("shows the locked Intelligence state when thread listing is unavailable without fetching threads", async () => {
+  it("shows the guided Threads setup preview when thread listing is unavailable without fetching threads", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
@@ -2708,7 +2708,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await inspector.updateComplete;
 
     const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toMatch(/Threads are unavailable\./);
+    expect(text).toContain(
+      "Production-grade chat threads without the complexity. Self hostable.",
+    );
+    expect(text).not.toContain("Threads are unavailable.");
     expect(text).toContain("Talk to an Engineer");
     expect(text).not.toContain("Sign up for Intelligence");
     const ctaLabels = Array.from(
@@ -3438,6 +3441,14 @@ describe("WebInspectorElement memories — view states", () => {
     return view!;
   }
 
+  function learningPreview(el: WebInspectorElement) {
+    const preview = el.shadowRoot?.querySelector<HTMLElement>(
+      '[data-inspector-locked-feature="memory"]',
+    );
+    expect(preview, "Learning preview should render").not.toBeNull();
+    return preview!;
+  }
+
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.stubGlobal("localStorage", {
@@ -3547,16 +3558,15 @@ describe("WebInspectorElement memories — view states", () => {
       ɵruntimeFetch: fetch,
     });
 
-  it("advances the existing Learning landing copy action into setup progress", async () => {
+  it("advances the Learning preview copy action into setup progress before capability is available", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText },
     });
-    const core = Object.assign(makeCoreWithMemory([]), {
+    const core = Object.assign(makeCoreNoIntelligence(), {
       runtimeUrl: "https://runtime.customer.example/api/copilotkit",
       runtimeTransport: "rest" as const,
-      inspectorLearning: true,
     });
     const el = await mountMemories(core);
     const internals = el as unknown as {
@@ -3568,14 +3578,7 @@ describe("WebInspectorElement memories — view states", () => {
       } | null;
       selectedMenu: string;
     };
-    internals.learningSupported = true;
-    internals.learningSnapshot = landingSnapshot;
-    el.requestUpdate();
-    await el.updateComplete;
-
-    const landing = el.shadowRoot?.querySelector(
-      '[data-inspector-locked-feature="memory"]',
-    );
+    const landing = learningPreview(el);
     expect(landing?.textContent).toContain(
       "Turn every interaction into reusable context.",
     );
@@ -3600,6 +3603,14 @@ describe("WebInspectorElement memories — view states", () => {
     expect(
       view?.shadowRoot?.querySelector('[data-learning-state="setup"]'),
     ).not.toBeNull();
+    expect(view?.shadowRoot?.textContent).toContain(
+      "Waiting for Learning setup",
+    );
+    expect(view?.shadowRoot?.textContent).toContain("Copy the setup prompt");
+    expect(view?.shadowRoot?.textContent).toContain("Set up Learning");
+    expect(
+      view?.shadowRoot?.querySelector(".step")?.classList.contains("complete"),
+    ).toBe(true);
   });
 
   it("keeps all-agents Learning unscoped when several agents are present", () => {
@@ -3815,22 +3826,15 @@ describe("WebInspectorElement memories — view states", () => {
     el.remove();
   });
 
-  it("renders the unsupported Learning surface when the capability is absent", async () => {
+  it("renders the Learning preview when the capability is absent", async () => {
     const core = makeCoreNoIntelligence();
     const el = await mountMemories(core);
 
-    const view = await learningSurface(el);
-    const text = view.shadowRoot?.textContent ?? "";
+    const preview = learningPreview(el);
+    const text = preview.textContent ?? "";
     expect(text).toContain("Learning");
-    expect(text).toContain(
-      "Learning is not available with this runtime version.",
-    );
-    expect(
-      view.shadowRoot?.querySelector('[data-learning-state="unsupported"]'),
-    ).not.toBeNull();
-    expect(el.shadowRoot?.textContent).not.toContain(
-      "Sign up for Intelligence",
-    );
+    expect(text).toContain("Turn every interaction into reusable context.");
+    expect(preview.querySelector("iframe")).not.toBeNull();
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -3838,24 +3842,25 @@ describe("WebInspectorElement memories — view states", () => {
     ).toBeNull();
   });
 
-  it("does not infer Learning support from a legacy Memory license", async () => {
+  it("renders the Learning preview when a legacy Memory license is unavailable", async () => {
     const core = makeCoreWithMemory([], { licenseStatus: "none" });
     const el = await mountMemories(core);
 
-    const view = await learningSurface(el);
-    expect(view.shadowRoot?.textContent).toContain(
-      "Learning is not available with this runtime version.",
+    expect(learningPreview(el).textContent).toContain(
+      "Turn every interaction into reusable context.",
     );
     expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
   });
 
-  it("does not render setup or external actions when Learning is unsupported", async () => {
+  it("offers the setup prompt from the Learning preview when capability is absent", async () => {
     const core = makeCoreNoIntelligence();
     const el = await mountMemories(core);
-    const view = await learningSurface(el);
+    const preview = learningPreview(el);
 
-    expect(view.shadowRoot?.querySelectorAll("a, button")).toHaveLength(0);
-    expect(view.shadowRoot?.textContent).not.toContain("setup prompt");
+    expect(
+      preview.querySelector('[data-inspector-feature-setup-prompt="threads"]'),
+    ).not.toBeNull();
+    expect(preview.textContent).toContain("Copy setup prompt");
   });
 
   it("renders the locked teaser when memories are unavailable", async () => {
@@ -3875,9 +3880,8 @@ describe("WebInspectorElement memories — view states", () => {
     const core = makeCoreWithMemory([], { available: true });
     const el = await mountMemories(core);
 
-    const view = await learningSurface(el);
-    expect(view.shadowRoot?.textContent).toContain(
-      "Learning is not available with this runtime version.",
+    expect(learningPreview(el).textContent).toContain(
+      "Turn every interaction into reusable context.",
     );
     expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
   });
@@ -3904,11 +3908,8 @@ describe("WebInspectorElement memories — view states", () => {
     el.requestUpdate();
     await el.updateComplete;
 
-    const view = await learningSurface(el);
-    const text = view.shadowRoot?.textContent ?? "";
-    expect(text).toContain(
-      "Learning is not available with this runtime version.",
-    );
+    const text = learningPreview(el).textContent ?? "";
+    expect(text).toContain("Turn every interaction into reusable context.");
     expect(text).not.toContain("could not delete memory");
     expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
   });
@@ -3924,11 +3925,8 @@ describe("WebInspectorElement memories — view states", () => {
     el.requestUpdate();
     await el.updateComplete;
 
-    const view = await learningSurface(el);
-    const text = view.shadowRoot?.textContent ?? "";
-    expect(text).toContain(
-      "Learning is not available with this runtime version.",
-    );
+    const text = learningPreview(el).textContent ?? "";
+    expect(text).toContain("Turn every interaction into reusable context.");
     expect(text).not.toContain("network down");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(memoryList).toBeNull();
@@ -3954,11 +3952,8 @@ describe("WebInspectorElement memories — view states", () => {
     });
     const el = await mountMemories(core);
 
-    const view = await learningSurface(el);
-    const text = view.shadowRoot?.textContent ?? "";
-    expect(text).toContain(
-      "Learning is not available with this runtime version.",
-    );
+    const text = learningPreview(el).textContent ?? "";
+    expect(text).toContain("Turn every interaction into reusable context.");
     expect(text).not.toContain("reconnecting");
   });
 
@@ -3969,11 +3964,8 @@ describe("WebInspectorElement memories — view states", () => {
     });
     const el = await mountMemories(core);
 
-    const view = await learningSurface(el);
-    const text = view.shadowRoot?.textContent ?? "";
-    expect(text).toContain(
-      "Learning is not available with this runtime version.",
-    );
+    const text = learningPreview(el).textContent ?? "";
+    expect(text).toContain("Turn every interaction into reusable context.");
     expect(text).not.toContain("offline");
   });
 
@@ -3990,8 +3982,7 @@ describe("WebInspectorElement memories — view states", () => {
     const core = makeCoreWithMemory([oneMemory]);
     const el = await mountMemories(core);
 
-    const view = await learningSurface(el);
-    expect(view.shadowRoot?.textContent).not.toContain("Prefers dark mode");
+    expect(learningPreview(el).textContent).not.toContain("Prefers dark mode");
     expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
   });
 });
@@ -4391,9 +4382,8 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
   });
 
   it("uses the negotiated Learning capability instead of getMemoryStore presence", async () => {
-    // INSP-3: an older @copilotkit/core (no getMemoryStore) must guide an SDK
-    // upgrade, with copy distinct from the genuine "not enabled on this
-    // deployment" teaser shown by a current SDK against a memory-less backend.
+    // An older @copilotkit/core (no getMemoryStore) still receives the same
+    // Learning setup preview as every other unavailable Runtime.
     const olderCore = {
       agents: {},
       context: {},
@@ -4419,28 +4409,28 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
     internals.handleMenuSelect("memories");
     await el.updateComplete;
 
-    const view = el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
-    await (view as HTMLElement & { updateComplete: Promise<void> })
-      .updateComplete;
-    expect(view?.shadowRoot?.textContent).toContain(
-      "Learning is not available with this runtime version.",
+    const preview = el.shadowRoot?.querySelector<HTMLElement>(
+      '[data-inspector-locked-feature="memory"]',
     );
-    expect(view?.shadowRoot?.textContent).not.toContain("@copilotkit SDK");
+    expect(preview?.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    expect(preview?.textContent).not.toContain("@copilotkit SDK");
   });
 
   it("ignores legacy Memory availability when Learning was not negotiated", async () => {
-    // INSP-3 counterpart: a current SDK (getMemoryStore present) whose store
-    // reports available=false shows the deployment teaser, NOT upgrade copy.
+    // A current SDK whose legacy store reports unavailable still shows the
+    // common Learning setup preview, not legacy Memory copy.
     const core = makeCoreWithMemory([], { available: false });
     const el = await mountMemories(core);
 
-    const view = el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
-    await (view as HTMLElement & { updateComplete: Promise<void> })
-      .updateComplete;
-    expect(view?.shadowRoot?.textContent).toContain(
-      "Learning is not available with this runtime version.",
+    const preview = el.shadowRoot?.querySelector<HTMLElement>(
+      '[data-inspector-locked-feature="memory"]',
     );
-    expect(view?.shadowRoot?.textContent).not.toContain("@copilotkit SDK");
+    expect(preview?.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    expect(preview?.textContent).not.toContain("@copilotkit SDK");
   });
 });
 

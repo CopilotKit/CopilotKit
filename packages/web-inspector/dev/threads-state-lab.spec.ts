@@ -91,7 +91,7 @@ const EXPECTED_EDGE_KEYS = [
 
 const EXPECTED_LEARNING_KEYS = [
   "learning-landing",
-  "learning-copy-error",
+  "learning-setup-pending",
   "learning-no-threads",
   "learning-threads-available",
   "learning-first-run",
@@ -102,14 +102,9 @@ const EXPECTED_LEARNING_KEYS = [
   "learning-candidates-only",
   "learning-empty-results",
   "learning-setup-error",
-  "learning-unsupported",
   "learning-loading",
   "learning-data-error",
   "learning-selection-required",
-  "learning-results-error",
-  "learning-results-evidence",
-  "learning-evidence-unavailable",
-  "learning-setup-prompt",
 ] as const;
 
 const EXPECTED_RECORDING_THREADS = [
@@ -507,7 +502,7 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 54-scenario route catalog", () => {
+test("exports the exact ordered 49-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
@@ -516,7 +511,7 @@ test("exports the exact ordered 54-scenario route catalog", () => {
     ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(54);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(49);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -587,7 +582,7 @@ test("models the complete Automatic Learning workbench matrix", () => {
     expect(scenario.learning).toBe("disabled");
     expect(scenario.memories).toEqual([]);
     expect(scenario.runtimeInfo.inspectorLearning).toBe(
-      descriptor.state === "unsupported" ? undefined : true,
+      descriptor.state === "setup-pending" ? undefined : true,
     );
   }
 
@@ -1144,6 +1139,7 @@ test("parses direct links and limits reset to the Inspector-owned keys", () => {
     "cpk:inspector:state",
     "cpk:inspector:threads-example-tour:v1",
     "cpk:inspector:dismissed_until",
+    "cpk:inspector:learning-setup:v1",
   ]);
 });
 

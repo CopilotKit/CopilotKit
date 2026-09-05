@@ -601,7 +601,6 @@ export function trackMemoriesTabClicked(
 }
 
 export type InspectorLearningViewState =
-  | "unsupported"
   | "loading"
   | "error"
   | "selection_required"

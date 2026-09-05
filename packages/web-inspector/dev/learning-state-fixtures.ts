@@ -19,17 +19,12 @@ export const LEARNING_LAB_BASE_PATH = "/inspector-learning-lab";
 
 export const BEHAVIOR_LEARNING_STATES = [
   "landing",
-  "unsupported",
+  "setup-pending",
   "loading",
   "data-error",
   "selection-required",
   "first-run",
   "candidates-only",
-  "results-error",
-  "results-evidence",
-  "evidence-unavailable",
-  "setup-prompt",
-  "copy-error",
 ] as const;
 
 export type LearningScreenshotState =
@@ -42,7 +37,11 @@ export type LearningWorkbenchScenarioKey =
 /** Ordered state catalog shared by the root workbench and browser harness. */
 export const LEARNING_WORKBENCH_SCENARIOS = [
   { state: "landing", key: "learning-landing", label: "Landing" },
-  { state: "copy-error", key: "learning-copy-error", label: "Copy error" },
+  {
+    state: "setup-pending",
+    key: "learning-setup-pending",
+    label: "Waiting · setup completion",
+  },
   {
     state: "no-threads",
     key: "learning-no-threads",
@@ -89,37 +88,12 @@ export const LEARNING_WORKBENCH_SCENARIOS = [
     key: "learning-setup-error",
     label: "Setup error",
   },
-  {
-    state: "unsupported",
-    key: "learning-unsupported",
-    label: "Unsupported",
-  },
   { state: "loading", key: "learning-loading", label: "Loading" },
   { state: "data-error", key: "learning-data-error", label: "Data error" },
   {
     state: "selection-required",
     key: "learning-selection-required",
     label: "Selection required",
-  },
-  {
-    state: "results-error",
-    key: "learning-results-error",
-    label: "Refresh error",
-  },
-  {
-    state: "results-evidence",
-    key: "learning-results-evidence",
-    label: "Evidence detail",
-  },
-  {
-    state: "evidence-unavailable",
-    key: "learning-evidence-unavailable",
-    label: "Unavailable evidence",
-  },
-  {
-    state: "setup-prompt",
-    key: "learning-setup-prompt",
-    label: "Setup prompt",
   },
 ] as const satisfies readonly Readonly<{
   state: LearningScreenshotState;
@@ -148,10 +122,10 @@ export function learningRuntimeInfo(state: LearningLabState): RuntimeInfo {
     a2uiEnabled: false,
     openGenerativeUIEnabled: false,
     telemetryDisabled: true,
-    ...(!["landing", "copy-error"].includes(state)
+    ...(state !== "landing"
       ? { intelligence: { wsUrl: "ws://127.0.0.1:5177/intelligence-lab" } }
       : {}),
-    ...(state === "unsupported" ? {} : { inspectorLearning: true }),
+    ...(state === "setup-pending" ? {} : { inspectorLearning: true }),
   };
 }
 
@@ -426,25 +400,9 @@ export function learningSnapshotForState(
       links: links(true),
     });
   }
-  const resultsState = [
-    "success",
-    "new-threads",
-    "results-error",
-    "results-evidence",
-    "evidence-unavailable",
-  ].includes(state);
+  const resultsState = ["success", "new-threads"].includes(state);
   if (resultsState) {
     const resultInsights = insights.slice(1);
-    const visibleInsights =
-      state === "evidence-unavailable"
-        ? [
-            {
-              ...resultInsights[0]!,
-              evidence: [{ status: "unavailable" as const }],
-            },
-            ...resultInsights.slice(1),
-          ]
-        : resultInsights;
     return base({
       configuration: configured,
       pendingThreadCount: state === "new-threads" ? 8 : 0,
@@ -458,7 +416,7 @@ export function learningSnapshotForState(
         },
       },
       skillsPage: page(skills.slice(0, 1), 3, requested.skillsPage),
-      insightsPage: page(visibleInsights, 4, requested.insightsPage),
+      insightsPage: page(resultInsights, 4, requested.insightsPage),
       links: links(true),
     });
   }
@@ -504,7 +462,7 @@ export function learningSnapshotForState(
   if (state === "no-threads") {
     return base({ configuration: configured, links: links(true) });
   }
-  if (state === "setup-error" || state === "setup-prompt") {
+  if (state === "setup-error") {
     return base({
       configuration: { state: "invalid", reason: "instrumentation" },
     });

@@ -52,8 +52,12 @@ const state = (
   });
 
 describe("Learning state precedence", () => {
-  it("prioritizes capability, initial load, fatal error, and scope failures", () => {
-    expect(state(null, { supported: false })).toBe("unsupported");
+  it("keeps unavailable capability on the product setup path", () => {
+    expect(state(null, { supported: false })).toBe("landing");
+    expect(state(null, { supported: false, setupActive: true })).toBe("setup");
+  });
+
+  it("prioritizes initial load, fatal error, and scope failures", () => {
     expect(state(null, { loading: true })).toBe("loading");
     expect(state(null, { error: "offline" })).toBe("error");
     expect(
@@ -297,9 +301,23 @@ describe("Learning setup progress", () => {
     const view = await renderProgress(snapshot(), true);
     expect(view.shadowRoot!.textContent).toContain("1 of 3 steps");
     expect(view.shadowRoot!.textContent).toContain(
-      "Waiting for the first Thread",
+      "Waiting for Learning setup",
+    );
+    expect(view.shadowRoot!.textContent).toContain("Copy the setup prompt");
+    expect(view.shadowRoot!.textContent).toContain("Set up Learning");
+    expect(view.shadowRoot!.textContent).toContain(
+      "Nice work. You’ve completed the first step.",
     );
     expect(view.shadowRoot!.querySelectorAll(".step")).toHaveLength(3);
+    const [promptStep, setupStep] = [
+      ...view.shadowRoot!.querySelectorAll<HTMLElement>(".step"),
+    ];
+    if (!promptStep || !setupStep) {
+      throw new Error("Expected the first two Learning setup steps.");
+    }
+    expect(promptStep.classList.contains("complete")).toBe(true);
+    expect(promptStep.querySelector(".step-number")?.textContent).toBe("✓");
+    expect(setupStep.classList.contains("current")).toBe(true);
     expect(
       view.shadowRoot!.querySelector<HTMLButtonElement>("button[disabled]")
         ?.textContent,
