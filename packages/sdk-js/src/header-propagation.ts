@@ -46,6 +46,22 @@ function filterForwardableHeaders(headers: HeaderMap): HeaderMap {
 /**
  * Run a callback with forwarded headers available via getForwardedHeaders().
  * Call this at the AG-UI request entry point.
+ *
+ * Only `x-*` prefixed headers are forwarded (case-insensitive); all other
+ * headers are dropped. Keys are normalized to lowercase.
+ *
+ * @param headers - Incoming request headers (any casing).
+ * @param fn - Callback to run inside the forwarded-headers scope.
+ * @returns The callback's return value (supports async callbacks).
+ *
+ * @example
+ * ```ts
+ * import { withForwardedHeaders, getForwardedHeaders } from "@copilotkit/sdk-js";
+ *
+ * withForwardedHeaders({ "x-request-id": "abc", authorization: "Bearer s" }, () => {
+ *   getForwardedHeaders(); // { "x-request-id": "abc" }
+ * });
+ * ```
  */
 export function withForwardedHeaders<T>(headers: HeaderMap, fn: () => T): T {
   return headerStorage.run(filterForwardableHeaders(headers), fn);
@@ -55,6 +71,13 @@ export function withForwardedHeaders<T>(headers: HeaderMap, fn: () => T): T {
  * Get x-* prefixed headers that should be forwarded to outgoing LLM calls.
  * Returns empty object when called outside a withForwardedHeaders() scope
  * (demo traffic).
+ *
+ * @returns A map of lowercased `x-*` headers, or `{}` outside a scope.
+ *
+ * @example
+ * ```ts
+ * getForwardedHeaders(); // {} when no scope is active
+ * ```
  */
 export function getForwardedHeaders(): HeaderMap {
   return headerStorage.getStore() ?? {};
