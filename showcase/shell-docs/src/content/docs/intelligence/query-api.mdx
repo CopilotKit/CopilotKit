@@ -182,8 +182,13 @@ new pagination rather than continuing the old one.
 | `sort` | Field name, `-` prefix for descending. All terms must share a direction, because keyset pagination compares them as one row. |
 | `limit` | Page size. |
 | `project_id` | Restrict to one project, subject to the key's allowlist. |
+| `start`, `end` | Half-open time window `[start, end)` on the resource's time field, as RFC 3339 timestamps. |
 | `include_deleted` | Include soft-deleted rows, which are excluded by default. |
 | `include_total` | Add `page.total`, the count of rows matching the filters. Absent unless asked for. |
+
+A parameter this API does not implement is refused by name rather than accepted
+and ignored, so a request that returns rows is a request that did what you
+asked.
 
 ## Aggregating
 
