@@ -2,6 +2,15 @@ import type { CopilotKitCore, Memory } from "@copilotkit/core";
 import type { InspectorMetadataV1, RuntimeInfo } from "@copilotkit/shared";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 
+import {
+  LEARNING_WORKBENCH_SCENARIOS,
+  learningRuntimeInfo,
+} from "./learning-state-fixtures.js";
+import type {
+  LearningScreenshotState,
+  LearningWorkbenchScenarioKey,
+} from "./learning-state-fixtures.js";
+
 export const CORE_SCENARIO_KEYS = [
   "pro-enabled-zero",
   "pro-enabled-existing",
@@ -42,11 +51,8 @@ export const EDGE_SCENARIO_KEYS = [
   "telemetry-disabled",
 ] as const;
 
-export const LEARNING_SCENARIO_KEYS = [
-  "learning-enabled-existing",
-  "learning-enabled-empty",
-  "learning-disabled",
-] as const;
+export const LEARNING_SCENARIO_KEYS: readonly LearningWorkbenchScenarioKey[] =
+  LEARNING_WORKBENCH_SCENARIOS.map(({ key }) => key);
 
 export const ALL_SCENARIO_KEYS = [
   ...CORE_SCENARIO_KEYS,
@@ -115,6 +121,7 @@ export interface ThreadsStateScenario {
   readonly media: "normal" | "video_error" | "reduced_motion";
   readonly learning: "enabled" | "disabled";
   readonly memories: readonly Memory[];
+  readonly learningState?: LearningScreenshotState;
 }
 
 const INSPECTOR_STATE_STORAGE_KEY = "cpk:inspector:state";
@@ -123,12 +130,14 @@ const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
 const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
 const INSPECTOR_DISMISSAL_STORAGE_KEY = "cpk:inspector:dismissed_until";
 const INSPECTOR_DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
+const LEARNING_SETUP_STORAGE_KEY = "cpk:inspector:learning-setup:v1";
 const REPLAY_NOTIFICATION_QUERY_KEY = "replay-notification";
 
 export const LAB_RESET_STORAGE_KEYS = [
   INSPECTOR_STATE_STORAGE_KEY,
   "cpk:inspector:threads-example-tour:v1",
   INSPECTOR_DISMISSAL_STORAGE_KEY,
+  LEARNING_SETUP_STORAGE_KEY,
 ] as const;
 
 export const DEFAULT_SCENARIO_KEY: ScenarioKey = "free-figma-148-of-200";
@@ -842,89 +851,40 @@ function edgeScenario(
   }
 }
 
-function learningMemoryFixtures(
-  key: (typeof LEARNING_SCENARIO_KEYS)[number],
-  threads: readonly ThreadFixture[],
-): readonly Memory[] {
-  const [earlierThread, newestThread] = threads;
-  return [
-    {
-      id: `${key}-topical-preference`,
-      kind: "topical",
-      scope: "user",
-      content:
-        "Prefers concise implementation plans with the highest-risk verification step listed first.",
-      sourceThreadIds: newestThread ? [newestThread.id] : [],
-      invalidatedAt: null,
-    },
-    {
-      id: `${key}-episodic-resolution`,
-      kind: "episodic",
-      scope: "user",
-      content:
-        "Resolved the onboarding follow-up by validating the local Inspector flow before requesting review.",
-      sourceThreadIds: threads.map((thread) => thread.id),
-      invalidatedAt: null,
-    },
-    {
-      id: `${key}-operational-handoff`,
-      kind: "operational",
-      scope: "project",
-      content:
-        "For launch reviews, include a working local preview and a screenshot of the final state.",
-      sourceThreadIds: earlierThread ? [earlierThread.id] : [],
-      invalidatedAt: null,
-    },
-  ];
-}
-
 function buildLearningScenario(
-  key: (typeof LEARNING_SCENARIO_KEYS)[number],
+  descriptor: (typeof LEARNING_WORKBENCH_SCENARIOS)[number],
 ): ThreadsStateScenario {
-  const threads = threadFixtures(key);
-  const enabled = key !== "learning-disabled";
-  const memories =
-    key === "learning-enabled-existing"
-      ? learningMemoryFixtures(key, threads)
-      : [];
+  const { key, label, state } = descriptor;
   const inspectorMetadata = metadata("pro", {
-    used: 122,
+    used: 0,
     limit: { kind: "finite", value: 5_000 },
-    expiringSoonCount: 7,
+    expiringSoonCount: 0,
     action: { kind: "manage_plan", url: MANAGE_PLAN_URL },
   });
-  const label =
-    key === "learning-enabled-existing"
-      ? "Automatic Learning · enabled · records"
-      : key === "learning-enabled-empty"
-        ? "Automatic Learning · enabled · empty"
-        : "Automatic Learning · disabled";
-  const description = enabled
-    ? `${memories.length || "No"} learning record${memories.length === 1 ? "" : "s"}; Memory API enabled.`
-    : "Memory API unavailable; the Learning setup gate is shown.";
 
   return buildScenario({
     key,
-    label,
-    description,
+    label: `Automatic Learning · ${label}`,
+    description: `Integrated Inspector fixture for the ${label.toLowerCase()} state.`,
     deployment: "managed",
     plan: "pro",
-    capability: "enabled",
-    data: "existing",
-    runtimeInfo: runtimeInfo(key, { capability: "enabled" }),
+    capability: "absent",
+    data: "zero",
+    runtimeInfo: learningRuntimeInfo(state),
     inspectorMetadata,
     inspectorMetadataBody: inspectorMetadata,
-    threads,
+    threads: [],
     media: "normal",
     initialMenu: "memories",
-    learning: enabled ? "enabled" : "disabled",
-    memories,
+    learning: "disabled",
+    memories: [],
+    learningState: state,
   });
 }
 
 const scenarios = [
   ...CORE_SCENARIO_KEYS.map(buildCoreScenario),
-  ...LEARNING_SCENARIO_KEYS.map(buildLearningScenario),
+  ...LEARNING_WORKBENCH_SCENARIOS.map(buildLearningScenario),
   ...EDGE_SCENARIO_KEYS.map(edgeScenario),
 ];
 

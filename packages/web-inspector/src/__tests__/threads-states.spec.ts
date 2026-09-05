@@ -1130,7 +1130,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "unknown",
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/unknown",
-    heading: "Threads are unavailable.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "missing action",
@@ -1185,6 +1186,7 @@ test.each(lockedActionCases)(
       );
 
       expect(root.textContent).toContain(case_.heading);
+      expect(root.textContent).not.toContain("Threads are unavailable.");
       if (case_.description) {
         expect(root.textContent).toContain(case_.description);
       }

@@ -71,6 +71,7 @@ interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
   threadEndpointsEnabled?: boolean;
+  inspectorLearningEnabled?: boolean;
   singleRouteResourceOperationsEnabled?: boolean;
 }
 
@@ -117,6 +118,7 @@ export async function handleGetRuntimeInfo({
   runtime,
   request,
   threadEndpointsEnabled = true,
+  inspectorLearningEnabled = false,
   singleRouteResourceOperationsEnabled = false,
 }: HandleGetRuntimeInfoParameters) {
   try {
@@ -188,6 +190,9 @@ export async function handleGetRuntimeInfo({
               wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
             inspectorMetadata: true,
+            ...(runtime.debug?.enabled === true && inspectorLearningEnabled
+              ? { inspectorLearning: true }
+              : {}),
           }
         : {}),
       // Legacy flat flag, kept for older clients. The `a2ui` object below is

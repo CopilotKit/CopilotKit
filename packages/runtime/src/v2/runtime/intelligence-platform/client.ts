@@ -1,5 +1,11 @@
-import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
+import {
+  logger,
+  parseInspectorLearningSnapshotV1,
+  parseInspectorMetadataV1,
+} from "@copilotkit/shared";
 import type {
+  InspectorLearningRequestV1,
+  InspectorLearningSnapshotV1,
   InspectorMetadataV1,
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
@@ -163,6 +169,7 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 
 /** Maximum time spent on the optional Inspector metadata provider request. */
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
+const INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
  * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
@@ -860,6 +867,58 @@ export class CopilotKitIntelligence {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+    }
+  }
+
+  /** Fetches one credential-scoped, bounded Learning projection for Inspector. */
+  async getInspectorLearning(
+    request: InspectorLearningRequestV1 & {
+      readonly runtimeContainerId?: string;
+    },
+  ): Promise<InspectorLearningSnapshotV1> {
+    const path = "/api/inspector/learning";
+    const url = new URL(`${this.#apiUrl}${path}`);
+    if (request.agentId) url.searchParams.set("agentId", request.agentId);
+    if (request.skillsPage)
+      url.searchParams.set("skillsPage", String(request.skillsPage));
+    if (request.insightsPage) {
+      url.searchParams.set("insightsPage", String(request.insightsPage));
+    }
+    if (request.runtimeContainerId) {
+      url.searchParams.set("runtimeContainerId", request.runtimeContainerId);
+    }
+    const controller = new AbortController();
+    const timeoutError = new Error(
+      "Intelligence Inspector Learning request timed out",
+    );
+    const timeout = setTimeout(
+      () => controller.abort(timeoutError),
+      INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${this.#apiKey}` },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new PlatformRequestError(
+          `Intelligence platform error ${response.status}`,
+          response.status,
+          response.status === 429 || response.status >= 500,
+        );
+      }
+      const snapshot = parseInspectorLearningSnapshotV1(await response.json());
+      if (!snapshot) {
+        throw new PlatformRequestError(
+          "Invalid Inspector Learning response",
+          502,
+          true,
+        );
+      }
+      return snapshot;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

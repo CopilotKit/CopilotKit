@@ -1,4 +1,7 @@
-import type { InspectorMetadataV1 } from "@copilotkit/shared";
+import type {
+  InspectorLearningSnapshotV1,
+  InspectorMetadataV1,
+} from "@copilotkit/shared";
 import { describe, it, expect, test, vi } from "vitest";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
@@ -818,6 +821,159 @@ function setupInspectorMetadataRoute() {
 
   return { getInspectorMetadata, metadata, runtime };
 }
+
+function setupInspectorLearningRoute(debug = true) {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com",
+    wsUrl: "wss://ws.example.com",
+    apiKey: "server-api-key",
+  });
+  const snapshot = {
+    schemaVersion: 1,
+    projectKey: "project-safe-key",
+    snapshotVersion: "snapshot-1",
+    webAppOrigin: "https://app.copilotkit.ai",
+    configuration: {
+      state: "configured",
+      container: { id: "checkout", name: "Checkout Assistant" },
+    },
+    pendingThreadCount: 8,
+    run: { hasActiveRun: false, hasEverSucceeded: false, latest: null },
+    pendingCandidateCount: 0,
+    skillsPage: {
+      page: 1,
+      pageSize: 3,
+      total: 0,
+      totalPages: 0,
+      items: [],
+    },
+    insightsPage: {
+      page: 1,
+      pageSize: 4,
+      total: 0,
+      totalPages: 0,
+      items: [],
+    },
+    links: {
+      learning: "https://app.copilotkit.ai/learning",
+      candidates: null,
+      runs: "https://app.copilotkit.ai/learning?tab=runs",
+    },
+  } satisfies InspectorLearningSnapshotV1;
+  const getInspectorLearning = vi
+    .spyOn(intelligence, "getInspectorLearning")
+    .mockResolvedValue(snapshot);
+  const runtime = new CopilotRuntime({
+    agents: { checkout: createMockAgent() },
+    intelligence,
+    identifyUser: async () => ({ id: "user-1", name: "User One" }),
+    debug,
+  });
+  return { getInspectorLearning, runtime, snapshot };
+}
+
+test.each(["multi-route", "single-route"] as const)(
+  "negotiates and fetches Inspector Learning through the authorized %s transport",
+  async (mode) => {
+    const { getInspectorLearning, runtime, snapshot } =
+      setupInspectorLearningRoute();
+    const requireHostAuth = vi.fn(({ request }: { request: Request }) => {
+      if (request.headers.get("authorization") !== "Bearer host-session") {
+        throw new Response("Unauthorized", { status: 401 });
+      }
+    });
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+      mode,
+      inspectorLearning: true,
+      hooks: { onRequest: requireHostAuth },
+    });
+    const request = (method: string, params?: Record<string, unknown>) =>
+      mode === "single-route"
+        ? post("https://runtime.example/api/copilotkit", { method, params })
+        : get(
+            `https://runtime.example/api/copilotkit/${
+              method === "info" ? "info" : "inspector-learning"
+            }${params ? "?agentId=checkout&skillsPage=1" : ""}`,
+          );
+    const authorized = (source: Request) =>
+      new Request(source, {
+        headers: {
+          ...Object.fromEntries(source.headers),
+          authorization: "Bearer host-session",
+        },
+      });
+
+    const info = await handler(authorized(request("info")));
+    expect(info.status).toBe(200);
+    expect(await info.json()).toHaveProperty("inspectorLearning", true);
+
+    const unauthorizedLearning = await handler(
+      request("inspector/learning", {
+        agentId: "checkout",
+        skillsPage: 1,
+      }),
+    );
+    expect(unauthorizedLearning.status).toBe(401);
+    expect(getInspectorLearning).not.toHaveBeenCalled();
+
+    const learning = await handler(
+      authorized(
+        request("inspector/learning", {
+          agentId: "checkout",
+          skillsPage: 1,
+        }),
+      ),
+    );
+    expect(learning.status).toBe(200);
+    await expect(learning.json()).resolves.toEqual(snapshot);
+    expect(getInspectorLearning).toHaveBeenCalledWith({
+      agentId: "checkout",
+      skillsPage: 1,
+    });
+
+    const rejectedInfo = await handler(request("info"));
+    expect(rejectedInfo.status).toBe(401);
+  },
+);
+
+test("keeps Inspector Learning unadvertised and unreachable without every release gate", async () => {
+  const enabledDebug = setupInspectorLearningRoute();
+  const defaultOff = createCopilotRuntimeHandler({
+    runtime: enabledDebug.runtime,
+    basePath: "/api/copilotkit",
+  });
+  const defaultInfo = await defaultOff(
+    get("https://runtime.example/api/copilotkit/info"),
+  );
+  expect(await defaultInfo.json()).not.toHaveProperty("inspectorLearning");
+  expect(
+    (
+      await defaultOff(
+        get("https://runtime.example/api/copilotkit/inspector-learning"),
+      )
+    ).status,
+  ).toBe(404);
+
+  const debugOff = setupInspectorLearningRoute(false);
+  const debugOffHandler = createCopilotRuntimeHandler({
+    runtime: debugOff.runtime,
+    basePath: "/api/copilotkit",
+    inspectorLearning: true,
+  });
+  const debugOffInfo = await debugOffHandler(
+    get("https://runtime.example/api/copilotkit/info"),
+  );
+  expect(await debugOffInfo.json()).not.toHaveProperty("inspectorLearning");
+  expect(
+    (
+      await debugOffHandler(
+        get("https://runtime.example/api/copilotkit/inspector-learning"),
+      )
+    ).status,
+  ).toBe(404);
+});
 
 test("fetch-handler routes multi-route inspector metadata through hooks without forwarding browser auth", async () => {
   const { getInspectorMetadata, metadata, runtime } =

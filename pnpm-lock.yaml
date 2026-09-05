@@ -3769,6 +3769,9 @@ importers:
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@playwright/test':
+        specifier: ^1.59.1
+        version: 1.59.1
       '@tailwindcss/cli':
         specifier: ^4.1.11
         version: 4.1.18
