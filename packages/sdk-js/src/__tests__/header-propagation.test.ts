@@ -127,5 +127,29 @@ describe("header-propagation", () => {
         expect(getForwardedHeaders()).toEqual({ "x-aimock-strict": "true" });
       });
     });
+
+    it("preserves header values verbatim (including special chars)", () => {
+      withForwardedHeaders({ "x-trace": "a=b&c/d;e:f" }, () => {
+        expect(getForwardedHeaders()).toEqual({ "x-trace": "a=b&c/d;e:f" });
+      });
+    });
+
+    it("supports async callbacks and propagates the promise value", async () => {
+      const result = await withForwardedHeaders(
+        { "x-request-id": "async-1" },
+        async () => {
+          await new Promise((r) => setTimeout(r, 1));
+          expect(getForwardedHeaders()).toEqual({ "x-request-id": "async-1" });
+          return "done";
+        },
+      );
+      expect(result).toBe("done");
+    });
+
+    it("handles empty headers input", () => {
+      withForwardedHeaders({}, () => {
+        expect(getForwardedHeaders()).toEqual({});
+      });
+    });
   });
 });
