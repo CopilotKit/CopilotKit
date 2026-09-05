@@ -14,13 +14,18 @@
 #     the normal flow failed BEFORE npm publish succeeded.
 #   - workflow_dispatch with mode=prerelease → canary publish. Bumps versions
 #     in the build job to <X.Y.Z>-canary.<suffix>, publishes with --tag canary,
-#     skips tag push + GH Release + Notion notification.
+#     skips tag push + GH Release + Slack notification.
 name: release / publish
 
 # This workflow handles two independent release lanes:
 #
 # 1. npm (TypeScript) — fires on merged release/publish/* PRs or manual dispatch.
-#    Build → publish via nx release + OIDC trusted publishers.
+#    Build with `nx run-many -t build` → `pnpm pack` each package →
+#    `npm publish <tarball>` from scripts/release/publish-release.ts, under the
+#    OIDC trusted-publisher binding above. This does NOT use `nx release`: the
+#    publish path needs the pinned npm from scripts/release/lib/npm-cli.ts
+#    (>= 11.5.1 for OIDC; the runner ships 10.x), and versioning/notes happen
+#    earlier, in the release PR that stable-release.yml opens.
 #
 # 2. PyPI (Python SDK) — fires on any merged PR that bumps sdk-python/pyproject.toml.
 #    Detects version change vs PyPI registry, builds with poetry, publishes with uv.
@@ -384,10 +389,9 @@ jobs:
       # or `prepare`, so `pnpm pack` runs no lifecycle scripts; voice's
       # `prepublishOnly` fires for neither `pnpm pack` nor `npm publish <tarball>`.
       #
-      # Stable keeps the FULL install: publish-release.ts additionally imports
-      # lib/notion.js and the channels umbrella verifier runs a root workspace
-      # script, so its dependency surface is wider and far less worth trimming on
-      # the highest-stakes path.
+      # Stable keeps the FULL install: the channels umbrella verifier runs a
+      # root workspace script, so its dependency surface is wider and far less
+      # worth trimming on the highest-stakes path.
       - name: Install Dependencies (prerelease — root + packages only)
         if: ${{ steps.meta.outputs.mode == 'prerelease' }}
         run: pnpm install --frozen-lockfile --filter . --filter "./packages/**"
@@ -425,7 +429,6 @@ jobs:
         if: ${{ inputs.dry-run != true }}
         env:
           NODE_AUTH_TOKEN: ""
-          NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
           PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
           SCOPE: ${{ steps.meta.outputs.scope }}
         run: |
@@ -493,6 +496,17 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
         id: tag
 
+      # The notes live in the lane's CHANGELOG.md, which the release PR merged to
+      # main. This materializes just this version's section as release-notes.md
+      # for the step below. It never fails the job: the packages are already
+      # published by this point, so a miss must not block the tag or the release.
+      - name: Read release notes from the lane changelog
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
+        run: pnpm tsx scripts/release/extract-release-notes.ts "$VERSION" "$SCOPE"
+
       - name: Create GitHub Release
         if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -510,6 +524,8 @@ jobs:
             const version = process.env.RELEASE_VERSION;
             const name = scope === "monorepo" ? `v${version}` : `${scope}/v${version}`;
 
+            // Written by the preceding step from the lane's CHANGELOG.md. The
+            // fallback is a bodyless release, which the step annotates loudly.
             let body = "";
             try {
               body = fs.readFileSync("./release-notes.md", "utf8");

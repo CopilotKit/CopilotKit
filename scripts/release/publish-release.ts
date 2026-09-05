@@ -2,7 +2,6 @@
  * Publish a stable release (runs after merge of a release PR).
  *
  * 1. Reads the scope and current version from package.json (already bumped by the release PR)
- * 2. Optionally reads the Notion draft for the final release notes
  * 3. Publishes pre-built packages to npm with "latest" tag
  * 4. Outputs the version for downstream steps (git tag, GitHub Release)
  *
@@ -10,7 +9,6 @@
  * This script receives pre-built artifacts and only performs the publish step.
  *
  * Env vars:
- *   NOTION_API_KEY    — for reading edited release notes from Notion (optional)
  *   GITHUB_OUTPUT     — CI output file
  *
  * Auth: Uses npm OIDC trusted publishers (id-token: write) via the pinned npm 11
@@ -20,15 +18,12 @@
  * Usage: tsx scripts/release/publish-release.ts --scope <scope from release.config.json>
  */
 
-import fs from "fs";
-import path from "path";
 import { spawnSync } from "child_process";
 import {
   getCurrentVersion,
   getPackagesForScope,
   parseSemver,
 } from "./lib/versions.js";
-import { readReleaseDraft } from "./lib/notion.js";
 import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
@@ -166,27 +161,6 @@ async function main() {
         `Refusing to publish: ${version} is not greater than the currently published ${published}.`,
       );
       process.exit(1);
-    }
-  }
-
-  // Try to read edited release notes from Notion
-  const notionRefPath = path.join(ROOT, "release-notes-notion.json");
-  const releaseNotesPath = path.join(ROOT, "release-notes.md");
-
-  if (phase !== "dependencies" && fs.existsSync(notionRefPath)) {
-    try {
-      const ref = JSON.parse(fs.readFileSync(notionRefPath, "utf8"));
-      if (ref.pageId && process.env.NOTION_API_KEY) {
-        console.log("Reading edited release notes from Notion...");
-        const notionContent = await readReleaseDraft(ref.pageId);
-        if (notionContent.trim()) {
-          fs.writeFileSync(releaseNotesPath, notionContent);
-          console.log("Release notes updated from Notion draft.");
-        }
-      }
-    } catch (err: any) {
-      console.error(`Failed to read Notion draft: ${err.message}`);
-      console.log("Using release notes from the PR branch.");
     }
   }
 
