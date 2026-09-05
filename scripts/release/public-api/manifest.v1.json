@@ -1838,6 +1838,20 @@
             "path": "packages/shared/package.json",
             "selector": "exports[\"./package.json\"]"
           }
+        },
+        {
+          "importPath": "@copilotkit/shared/telemetry",
+          "exportKey": "./telemetry",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/telemetry/index.mjs",
+            "require": "./dist/telemetry/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "exports[\"./telemetry\"]"
+          }
         }
       ],
       "compatibility": {
@@ -2624,6 +2638,7 @@
           "runtime",
           "basePath",
           "mode",
+          "inspectorLearning",
           "cors",
           "hooks",
           "activateChannels"
@@ -2661,6 +2676,7 @@
           "mode",
           "cors",
           "hooks",
+          "inspectorLearning",
           "activateChannels"
         ],
         "provenance": {
@@ -2696,6 +2712,7 @@
           "mode",
           "cors",
           "hooks",
+          "inspectorLearning",
           "activateChannels"
         ],
         "provenance": {
@@ -2751,6 +2768,7 @@
           "runtime",
           "basePath",
           "mode",
+          "inspectorLearning",
           "cors",
           "hooks",
           "activateChannels"

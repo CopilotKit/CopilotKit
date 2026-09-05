@@ -4,6 +4,7 @@ import { DocsPage } from "fumadocs-ui/page";
 import { describe, expect, it } from "vitest";
 import { DocsContentHeader } from "@/components/docs-content-header";
 import { DocsPageView } from "@/components/docs-page-view";
+import { buildRootSurfaceNav } from "@/lib/docs-render";
 
 function findElementByType<Props>(
   node: ReactNode,
@@ -51,9 +52,10 @@ describe("DocsPageView table of contents", () => {
     expect(page.props.tableOfContentPopover).toEqual({ enabled: false });
     expect(page.props.full).toBe(true);
 
-    const header = findElementByType<
-      ComponentProps<typeof DocsContentHeader>
-    >(page, DocsContentHeader);
+    const header = findElementByType<ComponentProps<typeof DocsContentHeader>>(
+      page,
+      DocsContentHeader,
+    );
     expect(header?.props.ancestorBreadcrumbs).toEqual([]);
   });
 
@@ -69,5 +71,28 @@ describe("DocsPageView table of contents", () => {
 
     expect(page.props.toc).not.toEqual([]);
     expect(page.props.tableOfContentPopover).toEqual({ enabled: true });
+  });
+});
+
+describe("DocsPageView breadcrumbs", () => {
+  it.each([
+    ["frontend-tools", ["Basics"]],
+    ["threads", ["Basics", "Rich Threads"]],
+    ["prebuilt-components", ["Basics", "Chat"]],
+  ])("uses the sidebar hierarchy for %s", async (slugPath, labels) => {
+    const page = await DocsPageView({
+      slugPath,
+      slugHrefPrefix: "",
+      frameworkOverride: "built-in-agent",
+      navTree: buildRootSurfaceNav("built-in-agent"),
+    });
+    const header = findElementByType<ComponentProps<typeof DocsContentHeader>>(
+      page,
+      DocsContentHeader,
+    );
+
+    expect(header?.props.ancestorBreadcrumbs).toEqual(
+      labels.map((label) => ({ label, href: null })),
+    );
   });
 });

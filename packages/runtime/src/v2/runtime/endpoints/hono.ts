@@ -73,6 +73,12 @@ interface CopilotEndpointParams {
   hooks?: CopilotRuntimeHooks;
 
   /**
+   * Whether to expose the debug-gated Inspector Learning snapshot route.
+   * Defaults to `false`.
+   */
+  inspectorLearning?: boolean;
+
+  /**
    * Whether the underlying handler builds the control surface for the runtime's
    * declared managed Channels. Defaults to `true`. Building it opens no
    * connection — activation is deferred to the first `channels.ready()`. See
@@ -95,6 +101,7 @@ export function createCopilotHonoHandler({
   mode = "multi-route",
   cors: corsConfig,
   hooks,
+  inspectorLearning,
   activateChannels,
   __channelEngine,
 }: CopilotEndpointParams): CopilotHonoApp {
@@ -104,6 +111,7 @@ export function createCopilotHonoHandler({
     mode,
     cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
+    inspectorLearning,
     activateChannels,
     __channelEngine,
   });

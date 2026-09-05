@@ -515,3 +515,96 @@ export const useCopilotChatConfiguration =
     const configuration = useContext(CopilotChatConfiguration);
     return configuration;
   };
+
+/**
+ * Props for {@link ControlledModalOpenScope}.
+ */
+export interface ControlledModalOpenScopeProps {
+  children: ReactNode;
+  /**
+   * The host-owned open state. When this is a boolean, everything inside the
+   * scope reads it as `isModalOpen`, so the host prop is the single source of
+   * truth for what is on screen. Leave it `undefined` to keep the underlying
+   * state in charge and only report requests through `onOpenChange`.
+   */
+  open?: boolean;
+  /**
+   * Called with the requested state whenever something inside the scope asks
+   * to open or close the modal (the toggle button, click-outside, a consumer
+   * calling `setModalOpen`). Fires whether or not `open` is supplied.
+   */
+  onOpenChange?: (open: boolean) => void;
+}
+
+/**
+ * Reports modal open/close requests to the host, and — when `open` is
+ * supplied — makes the modal state of an already-established chat
+ * configuration **controlled** for the subtree it wraps.
+ *
+ * This is deliberately a scope component rather than another mode inside
+ * {@link CopilotChatConfigurationProvider}. The provider resolves modal state
+ * across a nested chain (own state, parent sync, drawer mutual-exclusion, the
+ * modal-closer registry); a controlled branch inside that resolution would add
+ * a fourth interacting mode. Overriding the context for the subtree instead
+ * leaves every one of those paths untouched:
+ *
+ * - `isModalOpen` is replaced with the host's `open`, so the rendered surface
+ *   follows the prop from the very first frame (no open-then-close flash).
+ * - `setModalOpen` still calls the underlying setter, so the existing
+ *   parent-sync and drawer mutual-exclusion side effects continue to run, and
+ *   *then* reports the request through `onOpenChange`.
+ * - The wrapped setter is registered as the modal closer, so the drawer's
+ *   mobile mutual-exclusion reaches the host instead of silently flipping
+ *   state that nothing displays.
+ *
+ * A host that supplies `open` and ignores `onOpenChange` gets a modal pinned
+ * to `open`, which is the standard controlled-component contract. A host that
+ * supplies only `onOpenChange` is notified while the modal keeps managing
+ * itself.
+ *
+ * Renders `children` unchanged when no chat configuration is in scope.
+ */
+export const ControlledModalOpenScope: React.FC<
+  ControlledModalOpenScopeProps
+> = ({ children, open, onOpenChange }) => {
+  const parentConfig = useContext(CopilotChatConfiguration);
+  const parentSetModalOpen = parentConfig?.setModalOpen;
+  const registerModalCloser = parentConfig?.ɵregisterModalCloser;
+
+  const setModalOpen = useCallback(
+    (next: boolean) => {
+      parentSetModalOpen?.(next);
+      onOpenChange?.(next);
+    },
+    [parentSetModalOpen, onOpenChange],
+  );
+
+  useEffect(() => {
+    if (!registerModalCloser) return;
+    return registerModalCloser(setModalOpen);
+  }, [registerModalCloser, setModalOpen]);
+
+  const configurationValue = useMemo(
+    () =>
+      parentConfig
+        ? {
+            ...parentConfig,
+            isModalOpen: open ?? parentConfig.isModalOpen,
+            setModalOpen,
+          }
+        : null,
+    [parentConfig, open, setModalOpen],
+  );
+
+  if (!configurationValue) {
+    return <>{children}</>;
+  }
+
+  return (
+    <CopilotChatConfiguration.Provider value={configurationValue}>
+      {children}
+    </CopilotChatConfiguration.Provider>
+  );
+};
+
+ControlledModalOpenScope.displayName = "ControlledModalOpenScope";

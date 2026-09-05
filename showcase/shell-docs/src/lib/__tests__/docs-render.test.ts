@@ -19,6 +19,7 @@ import {
   CONTENT_DIR,
   inlineSnippets,
   loadDoc,
+  navAncestorBreadcrumbsForSlug,
   readIcon,
   readTitle,
   SNIPPET_MAP,
@@ -265,18 +266,19 @@ describe("loadDoc", () => {
     expect(overview).toContain("threads-diagram-dark.png");
   });
 
-  it("links locked Inspector users to a complete Rich Threads Runtime repair journey", () => {
+  it("links locked Inspector users to both Rich Threads Runtime route modes", () => {
     const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
     const inspector = loadDoc("inspector")?.source ?? "";
 
     expect(runtimeEndpoints).toContain("## Enable Rich Threads routes");
-    expect(runtimeEndpoints).toContain('Remove `mode: "single-route"`');
+    expect(runtimeEndpoints).toContain('mode: "single-route"');
     expect(runtimeEndpoints).toContain(
       'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
     );
     expect(runtimeEndpoints).toContain("`useSingleEndpoint={false}`");
     expect(runtimeEndpoints).toContain("`identifyUser`");
-    expect(runtimeEndpoints).toContain("GET, POST, PATCH, and DELETE");
+    expect(runtimeEndpoints).toContain("`GET`, `POST`, `PATCH`, and `DELETE`");
+    expect(runtimeEndpoints).toContain('"resourceOperations": true');
     expect(runtimeEndpoints).toContain('"list": true');
     expect(runtimeEndpoints).toContain('"inspect": true');
     expect(inspector).toContain(
@@ -491,6 +493,31 @@ describe("cookbook nav", () => {
 });
 
 describe("framework nav", () => {
+  it("derives breadcrumbs from the complete sidebar hierarchy", () => {
+    const navTree = buildRootSurfaceNav("built-in-agent");
+
+    expect(navAncestorBreadcrumbsForSlug(navTree, "frontend-tools")).toEqual([
+      { label: "Basics", href: null },
+    ]);
+    expect(navAncestorBreadcrumbsForSlug(navTree, "threads")).toEqual([
+      { label: "Basics", href: null },
+      { label: "Rich Threads", href: null },
+    ]);
+    expect(
+      navAncestorBreadcrumbsForSlug(navTree, "prebuilt-components"),
+    ).toEqual([
+      { label: "Basics", href: null },
+      { label: "Chat", href: null },
+    ]);
+    expect(
+      navAncestorBreadcrumbsForSlug(navTree, "custom-look-and-feel/slots"),
+    ).toEqual([
+      { label: "Basics", href: null },
+      { label: "Chat", href: null },
+      { label: "Custom Look and Feel", href: null },
+    ]);
+  });
+
   it("uses the requested section flow on the root docs surface", () => {
     const navTree = buildRootSurfaceNav("built-in-agent");
     const titles = sectionTitles(navTree);
@@ -551,9 +578,7 @@ describe("framework nav", () => {
       ),
     ).toMatchObject({ icon: "lucide/Sparkles" });
     expect(
-      navTree.find(
-        (node) => node.type === "section" && node.title === "Other",
-      ),
+      navTree.find((node) => node.type === "section" && node.title === "Other"),
     ).toMatchObject({ icon: "lucide/Wrench" });
     expect(
       navTree
@@ -567,7 +592,25 @@ describe("framework nav", () => {
     ]);
     expect(
       sectionNodes(navTree, "Intelligence").map((node) => node.title),
-    ).toEqual(["Overview", "Get started", "Features", "Hosting"]);
+    ).toEqual([
+      "Overview",
+      "Get started",
+      "Rich Threads",
+      "Automatic Learning",
+      "User Memories",
+      "Hosting",
+    ]);
+    expect(
+      sectionNodes(navTree, "Interactivity").map((node) => node.title),
+    ).toEqual(["Shared state", "Human-in-the-loop", "WebMCP"]);
+    expect(
+      sectionNodes(navTree, "Agent capabilities").map((node) => node.title),
+    ).toEqual([
+      "Built-in Agent",
+      "Automatic Learning",
+      "User Memories",
+      "Sub-agents",
+    ]);
     expect(groupPageEntries(navTree, "Get started")).toEqual([
       { title: "Quickstart", slug: "intelligence/quickstart" },
       { title: "Architecture", slug: "intelligence/intelligence-platform" },
@@ -576,23 +619,40 @@ describe("framework nav", () => {
         slug: "intelligence/connect-your-runtime",
       },
     ]);
-    expect(groupPageEntries(navTree, "Features")).toEqual([
-      { title: "Rich threads", slug: "threads" },
+    expect(
+      sectionNodes(navTree, "Intelligence").filter(
+        (node) => node.type === "page",
+      ),
+    ).toMatchObject([
+      { type: "page", title: "Overview", slug: "intelligence/overview" },
+      { type: "page", title: "Rich Threads", slug: "threads" },
       {
-        title: "Automatic learning",
-        slug: "intelligence/automatic-learning",
+        type: "page",
+        title: "Automatic Learning",
+        slug: "learning",
+      },
+      {
+        type: "page",
+        title: "User Memories",
+        slug: "intelligence/memories",
       },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([
       { title: "Cloud", slug: "intelligence/managed-intelligence-platform" },
       { title: "Self-hosted", slug: "intelligence/self-hosting" },
     ]);
-    expect(findPageByTitle(navTree, "Automatic learning")).toMatchObject({
-      href: "https://www.copilotkit.ai/copilotkit-intelligence#self-improvement",
+    expect(findPageByTitle(navTree, "Automatic Learning")).toMatchObject({
+      slug: "learning",
     });
     expect(findPageByTitle(navTree, "WebMCP")).toMatchObject({
       slug: "webmcp",
     });
+    expect(
+      hasSectionPage(navTree, "Agent capabilities", "Automatic Learning"),
+    ).toBe(true);
+    expect(hasSectionPage(navTree, "Agent capabilities", "User Memories")).toBe(
+      true,
+    );
     expect(sectionNodes(navTree, "Backend").map((node) => node.title)).toEqual([
       "Runtime",
       "Deployment",
@@ -645,9 +705,7 @@ describe("framework nav", () => {
     expect(hasSectionPage(authoredNav, "Backend", "Copilot Runtime")).toBe(
       true,
     );
-    expect(hasSectionPage(authoredNav, "Intelligence", "Overview")).toBe(
-      true,
-    );
+    expect(hasSectionPage(authoredNav, "Intelligence", "Overview")).toBe(true);
     expect(
       sectionNodes(generatedNav, "Agent capabilities").some(
         (node) => node.type === "group" && node.title === "LangGraph (Python)",
@@ -885,7 +943,14 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
     expect(
       sectionNodes(navTree, "Intelligence").map((node) => node.title),
-    ).toEqual(["Overview", "Get started", "Features", "Hosting"]);
+    ).toEqual([
+      "Overview",
+      "Get started",
+      "Rich Threads",
+      "Automatic Learning",
+      "User Memories",
+      "Hosting",
+    ]);
     expect(groupPageEntries(navTree, "Get started")).toEqual([
       { title: "Quickstart", slug: "intelligence/quickstart" },
       {
@@ -897,11 +962,22 @@ describe("framework nav", () => {
         slug: "intelligence/connect-your-runtime",
       },
     ]);
-    expect(groupPageEntries(navTree, "Features")).toEqual([
-      { title: "Rich threads", slug: "threads" },
+    expect(
+      sectionNodes(navTree, "Intelligence").filter(
+        (node) => node.type === "page",
+      ),
+    ).toMatchObject([
+      { type: "page", title: "Overview", slug: "intelligence/overview" },
+      { type: "page", title: "Rich Threads", slug: "threads" },
       {
-        title: "Automatic learning",
-        slug: "intelligence/automatic-learning",
+        type: "page",
+        title: "Automatic Learning",
+        slug: "learning",
+      },
+      {
+        type: "page",
+        title: "User Memories",
+        slug: "intelligence/memories",
       },
     ]);
     expect(groupPageEntries(navTree, "Hosting")).toEqual([

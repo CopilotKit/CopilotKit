@@ -4,6 +4,7 @@ export * from "./console-styling";
 export * from "./errors";
 export * from "./json-schema";
 export * from "./inspector-metadata";
+export * from "./inspector-learning";
 export * from "./inspector-visibility";
 export * from "./types";
 export * from "./random-id";

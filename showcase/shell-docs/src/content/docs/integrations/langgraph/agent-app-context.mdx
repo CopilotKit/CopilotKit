@@ -4,6 +4,8 @@ icon: "lucide/BookA"
 description: Share app specific context with your agent.
 hideTOC: true
 ---
+
+import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
 One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
 This way, you can notify CopilotKit of what is going on in your app in real time.
 Some examples might be: the current user, the current page, etc.
@@ -14,6 +16,8 @@ This context can then be shared with your LangGraph agent.
 <Callout>
     Check out the [Frontend Data documentation](/langgraph-python/agent-app-context) to understand what this is and how to use it.
 </Callout>
+
+<AgentContextJsonString />
 
 <TailoredContent
     className="step"
@@ -102,6 +106,8 @@ This context can then be shared with your LangGraph agent.
                 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
+                        import json # [!code highlight]
+
                         from langchain_core.runnables import RunnableConfig
                         from langchain_core.messages import SystemMessage
                         from langchain_openai import ChatOpenAI
@@ -117,12 +123,20 @@ This context can then be shared with your LangGraph agent.
                                 (item for item in state["copilotkit"]["context"] if item.get("description") == "The current user's colleagues"),
                                 None
                             )
-                            colleagues = colleagues_context_item.get("value") if colleagues_context_item else []
+
+                            # [!code highlight:7]
+                            # The value is a JSON string, so parse it to read the fields
+                            colleagues = []
+                            if colleagues_context_item:
+                                colleagues = json.loads(colleagues_context_item["value"])
+
+                            # Now each entry is a dict, so colleague["name"] works
+                            colleague_list = ", ".join(f"{c['name']} ({c['role']})" for c in colleagues)
 
                             # Provide the list of colleagues to the LLM
                             system_message = SystemMessage(
                                 content=f"""You are a helpful assistant that can help emailing colleagues.
-                                The user's colleagues are: {colleagues}"""
+                                The user's colleagues are: {colleague_list}"""
                             )
 
                             response = ChatOpenAI(model="gpt-5.4").invoke(
@@ -151,13 +165,20 @@ This context can then be shared with your LangGraph agent.
                         async function chat_node(state: AgentState, config: RunnableConfig) {
                           // Extract the colleagues from CopilotKit context
                           const copilotKitContext = state.copilotKit.context
-                          const colleaguesContextItem = copilotKitContext.find(contextItem => contextItem.description === 'The current user\'s colleagues"')
+                          const colleaguesContextItem = copilotKitContext.find(contextItem => contextItem.description === "The current user's colleagues")
+
+                          // [!code highlight:5]
+                          // The value is a JSON string, so parse it to read the fields
+                          const colleagues = colleaguesContextItem ? JSON.parse(colleaguesContextItem.value) : [];
+
+                          // Now each entry is an object, so colleague.name works
+                          const colleagueList = colleagues.map((c) => `${c.name} (${c.role})`).join(", ");
 
                           // Provide the list of colleagues to the LLM
                           const systemMessage = new SystemMessage({
                             content: `
                               You are a helpful assistant that can help emailing colleagues.
-                              The user's colleagues are: ${colleaguesContextItem.value}
+                              The user's colleagues are: ${colleagueList}
                             `,
                           });
 
