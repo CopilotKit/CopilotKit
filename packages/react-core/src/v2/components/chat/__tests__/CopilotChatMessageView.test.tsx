@@ -6,6 +6,7 @@ import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import CopilotChatMessageView, {
   deduplicateMessages,
+  shouldAdjustScrollForMeasuredItem,
 } from "../CopilotChatMessageView";
 import type {
   ActivityMessage,
@@ -106,6 +107,32 @@ describe("CopilotChatMessageView activity rendering", () => {
     renderMessageView({ messages, renderActivityMessages: [] });
 
     expect(screen.queryByTestId("activity-renderer")).toBeNull();
+  });
+});
+
+describe("virtual message measurement scroll anchoring", () => {
+  it("adjusts the scroll position only for items fully above the viewport", () => {
+    expect(
+      shouldAdjustScrollForMeasuredItem({ start: 300, end: 399 }, 400),
+    ).toBe(true);
+    expect(
+      shouldAdjustScrollForMeasuredItem({ start: 300, end: 400 }, 400),
+    ).toBe(true);
+    expect(
+      shouldAdjustScrollForMeasuredItem({ start: 700, end: 800 }, 400),
+    ).toBe(false);
+  });
+
+  it("does not apply the full height delta to an item entering from the top", () => {
+    expect(
+      shouldAdjustScrollForMeasuredItem({ start: 350, end: 450 }, 400),
+    ).toBe(false);
+  });
+
+  it("does not adjust before the scroll offset is initialized", () => {
+    expect(
+      shouldAdjustScrollForMeasuredItem({ start: 0, end: 100 }, null),
+    ).toBe(false);
   });
 });
 
