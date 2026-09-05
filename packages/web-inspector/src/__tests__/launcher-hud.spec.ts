@@ -469,16 +469,15 @@ test("disabled feature rows open their landing pages, where setup prompts can be
     ).click();
     await settle(inspector);
     expect(currentMenu(inspector)).toBe("memories");
-    requireElement(
-      root(inspector).querySelector<HTMLButtonElement>(
-        '[data-inspector-feature-setup-prompt="memory"]',
-      ),
-    ).click();
-    await settle(inspector);
-    expect(writeText).toHaveBeenCalledTimes(2);
-    expect(String(writeText.mock.calls[1]?.[0])).toContain(
-      "This task is specifically to enable Learning",
+    const learningView = requireElement(
+      root(inspector).querySelector<HTMLElement>("cpk-learning-view"),
     );
+    await (learningView as HTMLElement & { updateComplete: Promise<void> })
+      .updateComplete;
+    expect(learningView.shadowRoot?.textContent).toContain(
+      "Learning is not available with this runtime version.",
+    );
+    expect(writeText).toHaveBeenCalledTimes(1);
     expect(root(inspector).querySelector(".inspector-window")).not.toBeNull();
   } finally {
     if (originalClipboard) {

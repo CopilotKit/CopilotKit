@@ -36,6 +36,7 @@ import type {
   ThreadRequestCounters,
   ThreadsStateScenario,
 } from "./threads-state-lab.js";
+import { LEARNING_WORKBENCH_SCENARIOS } from "./learning-state-fixtures.js";
 import {
   createThreadsStateLabPlugin,
   createThreadsStateLabRuntime,
@@ -89,9 +90,26 @@ const EXPECTED_EDGE_KEYS = [
 ] as const;
 
 const EXPECTED_LEARNING_KEYS = [
-  "learning-enabled-existing",
-  "learning-enabled-empty",
-  "learning-disabled",
+  "learning-landing",
+  "learning-copy-error",
+  "learning-no-threads",
+  "learning-threads-available",
+  "learning-first-run",
+  "learning-success",
+  "learning-insights-only",
+  "learning-multiple-skills",
+  "learning-new-threads",
+  "learning-candidates-only",
+  "learning-empty-results",
+  "learning-setup-error",
+  "learning-unsupported",
+  "learning-loading",
+  "learning-data-error",
+  "learning-selection-required",
+  "learning-results-error",
+  "learning-results-evidence",
+  "learning-evidence-unavailable",
+  "learning-setup-prompt",
 ] as const;
 
 const EXPECTED_RECORDING_THREADS = [
@@ -489,7 +507,7 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 37-scenario route catalog", () => {
+test("exports the exact ordered 54-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
@@ -498,7 +516,7 @@ test("exports the exact ordered 37-scenario route catalog", () => {
     ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(37);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(54);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -556,24 +574,26 @@ test("models every plan deployment capability and data matrix cell", () => {
   }
 });
 
-test("models enabled, empty, and disabled Automatic Learning fixtures", () => {
-  const existing = getThreadsStateScenario("learning-enabled-existing");
-  const empty = getThreadsStateScenario("learning-enabled-empty");
-  const disabled = getThreadsStateScenario("learning-disabled");
+test("models the complete Automatic Learning workbench matrix", () => {
+  expect(LEARNING_SCENARIO_KEYS).toEqual(
+    LEARNING_WORKBENCH_SCENARIOS.map(({ key }) => key),
+  );
 
-  expect(existing.learning).toBe("enabled");
-  expect(existing.initialMenu).toBe("memories");
-  expect(existing.memories.map((memory) => memory.kind)).toEqual([
-    "topical",
-    "episodic",
-    "operational",
-  ]);
-  expect(empty.learning).toBe("enabled");
-  expect(empty.initialMenu).toBe("memories");
-  expect(empty.memories).toEqual([]);
-  expect(disabled.learning).toBe("disabled");
-  expect(disabled.initialMenu).toBe("memories");
-  expect(disabled.memories).toEqual([]);
+  for (const descriptor of LEARNING_WORKBENCH_SCENARIOS) {
+    const scenario = getThreadsStateScenario(descriptor.key);
+    expect(scenario.label).toBe(`Automatic Learning · ${descriptor.label}`);
+    expect(scenario.learningState).toBe(descriptor.state);
+    expect(scenario.initialMenu).toBe("memories");
+    expect(scenario.learning).toBe("disabled");
+    expect(scenario.memories).toEqual([]);
+    expect(scenario.runtimeInfo.inspectorLearning).toBe(
+      descriptor.state === "unsupported" ? undefined : true,
+    );
+  }
+
+  expect(LEARNING_SCENARIO_KEYS).not.toContain("learning-enabled-existing");
+  expect(LEARNING_SCENARIO_KEYS).not.toContain("learning-enabled-empty");
+  expect(LEARNING_SCENARIO_KEYS).not.toContain("learning-disabled");
 });
 
 test("models zero-thread routes with available usage as true zero states", () => {
@@ -774,50 +794,6 @@ test("serves deterministic list and bounded list-error responses", async () => {
   expect(await readJson(failure)).toEqual({
     error: "Thread list unavailable in this lab scenario.",
   });
-  await runtime.dispose();
-});
-
-test("serves Automatic Learning records, realtime credentials, recall, and the disabled gate", async () => {
-  const runtime = createThreadsStateLabRuntime();
-  const enabledBase =
-    "http://127.0.0.1/inspector-lab-runtime/learning-enabled-existing";
-  const list = await runtime.handleRequest(
-    new Request(`${enabledBase}/memories`),
-  );
-  expect(await readJson(list)).toMatchObject({
-    memories: [
-      { kind: "topical" },
-      { kind: "episodic" },
-      { kind: "operational" },
-    ],
-  });
-  const subscribe = await runtime.handleRequest(
-    new Request(`${enabledBase}/memories/subscribe`, {
-      method: "POST",
-      body: "{}",
-    }),
-  );
-  expect(await readJson(subscribe)).toEqual({
-    joinToken: "threads-lab-token-learning-enabled-existing",
-    joinCode: "memories-threads-lab-learning-enabled-existing",
-  });
-  const recall = await runtime.handleRequest(
-    new Request(`${enabledBase}/memories/recall`, {
-      method: "POST",
-      body: JSON.stringify({ query: "launch review" }),
-    }),
-  );
-  const recallBody = (await readJson(recall)) as { memories: unknown[] };
-  expect(recallBody).toMatchObject({
-    memories: expect.any(Array),
-  });
-  expect(recallBody.memories[0]).toMatchObject({ score: 0.95 });
-  const disabled = await runtime.handleRequest(
-    new Request(
-      "http://127.0.0.1/inspector-lab-runtime/learning-disabled/memories",
-    ),
-  );
-  expect(disabled.status).toBe(404);
   await runtime.dispose();
 });
 
@@ -1363,7 +1339,7 @@ test("runs teardown before real select and reset control navigation", async () =
   }
 });
 
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 Thread routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1388,7 +1364,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
           }),
         });
       }
-      for (const key of ALL_SCENARIO_KEYS) {
+      for (const key of [...CORE_SCENARIO_KEYS, ...EDGE_SCENARIO_KEYS]) {
         const scenario = getThreadsStateScenario(key);
         const runtimeUrl = runtimeUrlFor(lab.origin, key);
         const resetResponse = await fetch(`${runtimeUrl}/request-log/reset`, {
