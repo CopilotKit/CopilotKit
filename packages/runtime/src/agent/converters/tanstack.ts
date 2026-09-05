@@ -18,6 +18,7 @@ import type {
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { warnIfAssembledAgentContextOversized } from "../agent-context-size";
 import { createStateEventNormalizer } from "../state-delta";
 import {
   aggregateRunUsage,
@@ -302,16 +303,28 @@ export function convertInputToTanStackAI(
     }
   }
 
-  if (
+  const hasState =
     input.state !== undefined &&
     input.state !== null &&
     typeof input.state === "object" &&
-    Object.keys(input.state).length > 0
-  ) {
+    Object.keys(input.state).length > 0;
+  const serializedState = hasState
+    ? String(JSON.stringify(input.state, null, 2))
+    : undefined;
+
+  if (hasState) {
     systemPrompts.push(
-      `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
+      `Application State:\n\`\`\`json\n${serializedState}\n\`\`\``,
     );
   }
+
+  // Approximate: `chat()` returns the array and the provider adapter performs
+  // the final join, so the separator is adapter-dependent. Sum the entry lengths
+  // without counting separators — good enough for a warning.
+  warnIfAssembledAgentContextOversized(
+    systemPrompts.reduce((sum, prompt) => sum + prompt.length, 0),
+    "tanstack",
+  );
 
   // Frontend-provided tools become client-side TanStack tools (no executor):
   // the model can call them, TanStack pauses the run, and the AG-UI client

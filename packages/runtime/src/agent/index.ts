@@ -49,6 +49,7 @@ import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
+import { warnIfAssembledAgentContextOversized } from "./agent-context-size";
 import {
   convertAISDKStream,
   getAISDKRunFinishedDetails,
@@ -1066,15 +1067,22 @@ export class BuiltInAgent extends AbstractAgent {
         }
 
         // Third: state from the application that can be edited
+        const serializedState = hasState
+          ? String(JSON.stringify(input.state, null, 2))
+          : undefined;
         if (hasState) {
           parts.push(
             "\n## Application State\n" +
               "This is state from the application that you can edit by calling AGUISendStateSnapshot or AGUISendStateDelta.\n" +
-              `\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\`\n`,
+              `\`\`\`json\n${serializedState}\n\`\`\`\n`,
           );
         }
 
         systemPrompt = parts.join("");
+        // Measure the exact assembled string — it cannot drift from what is sent,
+        // and it also covers the developer's own `config.prompt` (the most likely
+        // thing to bloat the prompt).
+        warnIfAssembledAgentContextOversized(systemPrompt.length, "builtIn");
       }
 
       // Convert messages and prepend system message if we have a prompt

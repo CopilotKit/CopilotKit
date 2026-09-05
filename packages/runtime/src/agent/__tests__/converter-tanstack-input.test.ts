@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { convertInputToTanStackAI } from "../converters/tanstack";
 import { createDefaultInput } from "./agent-test-helpers";
 
@@ -272,6 +272,23 @@ describe("convertInputToTanStackAI", () => {
       expect(
         systemPrompts.find((p) => p.startsWith("Application State:")),
       ).toBeUndefined();
+    });
+
+    it("serializes state exactly once per assembly (toJSON is not re-run by the warning path)", () => {
+      const toJSON = vi.fn(() => ({ count: 42 }));
+      const input = createDefaultInput({
+        state: { toJSON },
+      });
+
+      const { systemPrompts } = convertInputToTanStackAI(input);
+
+      const statePrompt = systemPrompts.find((p) =>
+        p.startsWith("Application State:"),
+      );
+      expect(statePrompt).toBeDefined();
+      // The prompt builder serializes once and passes the text to the warning
+      // helper, so a stateful toJSON() must not be invoked a second time.
+      expect(toJSON).toHaveBeenCalledTimes(1);
     });
   });
 
