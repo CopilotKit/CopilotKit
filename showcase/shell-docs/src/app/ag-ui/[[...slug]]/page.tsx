@@ -159,11 +159,14 @@ const NAV_DEFINITION: NavTab[] = [
       },
       {
         section: "Development",
-        entries: [
-          "development/updates",
-          "development/roadmap",
-          "development/contributing",
-        ],
+        // "development/updates" ("What's New") is deliberately absent: it
+        // renders an <Update> component this app does not provide, so the
+        // page throws, and its newest entry is from April 2025. The MDX is
+        // vendored AG-UI content whose canonical home is docs.ag-ui.com, so
+        // it is unlinked here rather than edited. It is also excluded from
+        // the search index — see AGUI_PUBLISHED_SLUGS in
+        // showcase/scripts/generate-search-index.ts.
+        entries: ["development/roadmap", "development/contributing"],
       },
     ],
   },
