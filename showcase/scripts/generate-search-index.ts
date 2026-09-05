@@ -358,6 +358,18 @@ function isFrontendDocsEntry(href: string): boolean {
 }
 
 async function main() {
+  // A content-free build may emit a stub, but a partially staged tree must
+  // never overwrite a complete search index with missing content families.
+  const contentRoots = ["docs", "reference", "ag-ui"].map((name) =>
+    path.join(CONTENT_ROOT, "content", name),
+  );
+  const missingRoots = contentRoots.filter((root) => !fs.existsSync(root));
+  if (missingRoots.length > 0 && missingRoots.length < contentRoots.length) {
+    throw new Error(
+      `[generate-search-index] incomplete content tree; missing: ${missingRoots.join(", ")}`,
+    );
+  }
+
   const entries: SearchEntry[] = [];
 
   // Static pages. `/` is the showcase front door — it is filtered out of

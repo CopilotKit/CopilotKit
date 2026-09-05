@@ -789,13 +789,13 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     results.length > 0 ||
     (hasQuery && results.length === 0 && !registryLoading);
 
-  // Announces the current selection to assistive technology whether it
-  // sits on the recommendation or on a result row.
+  // Only result options belong to the combobox listbox. The separate
+  // recommendation keeps its links and is announced by a live region.
   const activeDescendantId =
     selectableCount === 0
       ? undefined
       : intelligenceCta && selectedIndex === 0
-        ? CTA_OPTION_ID
+        ? undefined
         : `${RESULTS_LISTBOX_ID}-option-${selectedIndex - ctaOffset}`;
 
   return (
@@ -838,9 +838,12 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
               role="combobox"
               aria-expanded={selectableCount > 0}
               aria-controls={
-                intelligenceCta
-                  ? `${CTA_GROUP_ID} ${RESULTS_LISTBOX_ID}`
-                  : RESULTS_LISTBOX_ID
+                [
+                  intelligenceCta ? CTA_GROUP_ID : null,
+                  results.length > 0 ? RESULTS_LISTBOX_ID : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
               }
               aria-activedescendant={activeDescendantId}
               aria-autocomplete="list"
@@ -960,6 +963,17 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
               Loading integrations and framework docs...
             </div>
           )}
+
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+          >
+            {intelligenceCta && selectedIndex === 0
+              ? `Recommended: ${intelligenceCta.title}. ${intelligenceCta.primary.label}. Press Enter to open.`
+              : ""}
+          </div>
 
           {intelligenceCta && (
             <IntelligenceSearchCtaBlock

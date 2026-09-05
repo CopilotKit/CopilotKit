@@ -540,9 +540,13 @@ export function readPageSourceWithSnippets(
   console.warn = () => {};
   try {
     return inlineSnippets(raw, slug);
-  } catch {
+  } catch (error) {
     // Never let one unresolvable snippet reference cost us the links that
     // are in the page file itself.
+    warn(
+      `[searchable-pages] Failed to inline snippets for "${slug}"; link discovery will use only the page source.`,
+      error,
+    );
     return raw;
   } finally {
     console.warn = warn;

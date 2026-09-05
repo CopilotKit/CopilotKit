@@ -50,6 +50,8 @@ vi.mock("../framework-provider", () => ({
   }),
 }));
 
+import * as ctaMatching from "../../lib/intelligence-search-ctas";
+
 import { SearchModal } from "../search-modal";
 
 function resultRows(): HTMLElement[] {
@@ -93,7 +95,11 @@ async function search(query: string): Promise<void> {
   );
   fireEvent.change(screen.getByRole("combobox"), { target: { value: query } });
   await waitFor(() =>
-    expect(resultRows().length + (recommendation() ? 1 : 0)).toBeGreaterThan(0),
+    expect(
+      resultRows().length > 0 ||
+        recommendation() !== null ||
+        screen.queryByText(/No results for/) !== null,
+    ).toBe(true),
   );
 }
 
@@ -117,6 +123,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   delete window.__SHOWCASE_CONFIG__;
 });
 
@@ -144,7 +151,12 @@ describe("when the recommendation appears", () => {
   });
 
   it("stays away from unrelated queries", async () => {
-    for (const query of ["useCopilotAction", "angular quickstart", "css"]) {
+    for (const query of [
+      "useCopilotAction",
+      "angular quickstart",
+      "css",
+      "zzzznomatchingpage",
+    ]) {
       await search(query);
       expect(recommendation()).toBeNull();
       cleanup();
@@ -160,12 +172,36 @@ describe("when the recommendation appears", () => {
     expect(
       block.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    // ...and costs none of the twelve result slots.
-    expect(resultRows()).toHaveLength(12);
+    // ...and costs no organic result slots, regardless of index size.
+    const withRecommendation = resultRows().map((row) => row.textContent);
+    cleanup();
+    vi.spyOn(ctaMatching, "matchIntelligenceSearchCta").mockReturnValue(null);
+    await search("threads");
+    expect(recommendation()).toBeNull();
+    expect(resultRows().map((row) => row.textContent)).toEqual(
+      withRecommendation,
+    );
   });
 });
 
 describe("how the recommendation is announced", () => {
+  it.each(["threads", "threads zzzznomatchingpage", "zzzznomatchingpage"])(
+    "only controls rendered elements for %s",
+    async (query) => {
+      await search(query);
+      const input = screen.getByRole("combobox");
+      const controlled = input.getAttribute("aria-controls")?.split(" ") ?? [];
+      for (const id of controlled)
+        expect(document.getElementById(id)).not.toBeNull();
+      const list = screen.queryByRole("listbox", { name: "Search results" });
+      if (list) expect(controlled).toContain(list.id);
+      else
+        expect(controlled).toEqual(
+          recommendation() ? [recommendation()!.id] : [],
+        );
+    },
+  );
+
   it("is a labelled group, not another row in the results listbox", async () => {
     await search("threads");
 
@@ -191,17 +227,23 @@ describe("keyboard and pointer selection", () => {
     await search("threads");
 
     const input = screen.getByRole("combobox");
-    expect(input.getAttribute("aria-activedescendant")).toBe(primaryLink().id);
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain(
+      "Recommended: Threads",
+    );
     expect(resultRows()[0].getAttribute("aria-selected")).toBe("false");
 
     fireEvent.keyDown(input, { key: "ArrowDown" });
     expect(resultRows()[0].getAttribute("aria-selected")).toBe("true");
-    expect(input.getAttribute("aria-activedescendant")).not.toBe(
-      primaryLink().id,
-    );
+    const activeId = input.getAttribute("aria-activedescendant")!;
+    expect(document.getElementById(activeId)).toBe(resultRows()[0]);
+    expect(screen.getByRole("status").textContent).toBe("");
 
     fireEvent.keyDown(input, { key: "ArrowUp" });
-    expect(input.getAttribute("aria-activedescendant")).toBe(primaryLink().id);
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain(
+      "Recommended: Threads",
+    );
     expect(resultRows()[0].getAttribute("aria-selected")).toBe("false");
   });
 
@@ -229,7 +271,10 @@ describe("keyboard and pointer selection", () => {
 
     fireEvent.mouseEnter(recommendation()!);
     expect(resultRows()[2].getAttribute("aria-selected")).toBe("false");
-    expect(input.getAttribute("aria-activedescendant")).toBe(primaryLink().id);
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain(
+      "Recommended: Threads",
+    );
   });
 
   it("activates the block on Enter", async () => {

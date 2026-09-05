@@ -2,15 +2,21 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { canonicalDocsSlug, computeSearchablePages } from "../searchable-pages";
+import {
+  canonicalDocsSlug,
+  computeSearchablePages,
+  readPageSourceWithSnippets,
+} from "../searchable-pages";
 import type { NavigationSurface } from "../searchable-pages";
+import * as docsRender from "../docs-render";
 import type { NavNode } from "../docs-render";
 
 const tempDirs: string[] = [];
 
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const dir of tempDirs.splice(0)) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -338,5 +344,26 @@ describe("canonicalDocsSlug", () => {
 
   it("does not mistake a slug segment that merely starts with docs", () => {
     expect(canonicalDocsSlug("/docs/docs-status")).toBe("docs-status");
+  });
+});
+
+describe("snippet failure diagnostics", () => {
+  it("reports the source and error, preserves raw links, and restores the logger", () => {
+    const raw = "See [guide](/guide).";
+    const dir = contentTree({ source: raw });
+    const error = new Error("snippet read failed");
+    vi.spyOn(docsRender, "inlineSnippets").mockImplementation(() => {
+      throw error;
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(
+      readPageSourceWithSnippets(path.join(dir, "source.mdx"), "source"),
+    ).toBe(raw);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('"source"'),
+      error,
+    );
+    expect(console.warn).toBe(warn);
   });
 });

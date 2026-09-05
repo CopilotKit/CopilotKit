@@ -1,5 +1,7 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
+import { spawnSync } from "child_process";
 
 import { describe, expect, it } from "vitest";
 
@@ -93,4 +95,75 @@ describe("docs-search build contract", () => {
     ) as { dependencies?: Record<string, string> };
     expect(scriptsPkg.dependencies?.["gray-matter"]).toBeTruthy();
   });
+});
+
+describe("partially staged content", () => {
+  it.each([
+    ["reference"],
+    ["ag-ui"],
+    ["docs"],
+    ["reference", "ag-ui"],
+    ["docs", "reference"],
+    ["docs", "ag-ui"],
+  ])(
+    "rejects a build containing only %j before writing either index",
+    (...roots) => {
+      const staged = fs.mkdtempSync(
+        path.join(os.tmpdir(), "search-index-staging-"),
+      );
+      try {
+        const scripts = path.join(staged, "scripts");
+        fs.mkdirSync(scripts);
+        for (const file of ["generate-search-index.ts", "package.json"]) {
+          fs.copyFileSync(
+            path.join(SHOWCASE_ROOT, "scripts", file),
+            path.join(scripts, file),
+          );
+        }
+        fs.cpSync(
+          path.join(SHOWCASE_ROOT, "scripts/lib"),
+          path.join(scripts, "lib"),
+          { recursive: true },
+        );
+        fs.symlinkSync(
+          path.join(SHOWCASE_ROOT, "scripts/node_modules"),
+          path.join(scripts, "node_modules"),
+        );
+        for (const root of roots) {
+          fs.mkdirSync(path.join(staged, "shell-docs/src/content", root), {
+            recursive: true,
+          });
+        }
+        for (const app of ["shell-docs", "shell"]) {
+          const data = path.join(staged, app, "src/data");
+          fs.mkdirSync(data, { recursive: true });
+          fs.writeFileSync(
+            path.join(data, "search-index.json"),
+            "existing index",
+          );
+        }
+        const result = spawnSync(
+          process.execPath,
+          [
+            "--import",
+            path.join(scripts, "node_modules/tsx/dist/loader.mjs"),
+            path.join(scripts, "generate-search-index.ts"),
+          ],
+          { encoding: "utf8", timeout: 10000 },
+        );
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toContain("incomplete content tree");
+        for (const app of ["shell-docs", "shell"]) {
+          expect(
+            fs.readFileSync(
+              path.join(staged, app, "src/data/search-index.json"),
+              "utf8",
+            ),
+          ).toBe("existing index");
+        }
+      } finally {
+        fs.rmSync(staged, { recursive: true, force: true });
+      }
+    },
+  );
 });
