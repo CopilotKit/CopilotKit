@@ -396,6 +396,32 @@ describe("BasicAgent", () => {
       expect(systemMessage.content).toContain('"items"');
     });
 
+    it("should serialize state exactly once per assembly (toJSON is not re-run by the warning path)", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+
+      const toJSON = vi.fn(() => ({ counter: 1 }));
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: { toJSON },
+      };
+
+      await collectEvents(agent["run"](input));
+
+      // The prompt builder serializes once and passes the text to the warning
+      // helper, so a stateful toJSON() must not be invoked a second time.
+      expect(toJSON).toHaveBeenCalledTimes(1);
+    });
+
     it("should combine prompt, context, and state", async () => {
       const agent = new BasicAgent({
         model: "openai/gpt-4o",
