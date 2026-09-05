@@ -5,6 +5,7 @@ import {
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
+import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
 
 const headers = {
   "Cache-Control": "no-store, private",
@@ -34,6 +35,8 @@ export async function handleInspectorLearning({
   ) {
     return errorResponse(404, "Not found");
   }
+  const user = await resolveIntelligenceUser({ runtime, request });
+  if (user instanceof Response) return user;
   const url = new URL(request.url);
   if (
     [...url.searchParams.keys()].some(

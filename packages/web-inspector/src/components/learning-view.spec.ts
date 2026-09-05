@@ -361,4 +361,92 @@ describe("Learning setup progress", () => {
     ).toContain("Inspector did not find the Learning container");
     view.remove();
   });
+
+  it("keeps every retained snapshot state retryable after a refresh error", async () => {
+    const configured = {
+      state: "configured" as const,
+      container: { id: "container-1", name: "Production" },
+    };
+    const retainedStates = [
+      ["setup", snapshot({ configuration: configured })],
+      [
+        "first_run",
+        snapshot({
+          configuration: configured,
+          run: { hasActiveRun: true, hasEverSucceeded: false, latest: null },
+        }),
+      ],
+      ["ready", snapshot({ configuration: configured, pendingThreadCount: 1 })],
+      [
+        "empty",
+        snapshot({
+          configuration: configured,
+          run: { hasActiveRun: false, hasEverSucceeded: true, latest: null },
+        }),
+      ],
+      [
+        "invalid",
+        snapshot({
+          configuration: { state: "invalid", reason: "instrumentation" },
+        }),
+      ],
+      [
+        "selection_required",
+        snapshot({ configuration: { state: "selection_required" } }),
+      ],
+    ] as const;
+
+    for (const [expectedState, current] of retainedStates) {
+      const view = await renderProgress(current);
+      view.error = "Could not refresh Learning";
+      await view.updateComplete;
+      expect(
+        view.shadowRoot!.querySelector("main")?.dataset.learningState,
+      ).toBe(expectedState);
+      expect(view.shadowRoot!.querySelectorAll(".retry-strip")).toHaveLength(1);
+      view.remove();
+    }
+  });
+
+  it("keeps the setup prompt modal keyboard-accessible", async () => {
+    const view = await renderProgress(
+      snapshot({
+        configuration: { state: "invalid", reason: "instrumentation" },
+      }),
+    );
+    view.setupPrompt = "Set up Learning";
+    await view.updateComplete;
+
+    const trigger =
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".prompt-link");
+    if (!trigger) throw new Error("Expected the setup prompt trigger.");
+    trigger.focus();
+    trigger.click();
+    await view.updateComplete;
+
+    const dialog = view.shadowRoot!.querySelector<HTMLElement>(".dialog");
+    const close =
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".dialog-close");
+    const copy = view.shadowRoot!.querySelector<HTMLButtonElement>(
+      ".dialog footer .primary",
+    );
+    if (!dialog || !close || !copy) {
+      throw new Error("Expected the complete setup prompt dialog.");
+    }
+    expect(view.shadowRoot!.activeElement).toBe(close);
+
+    copy.focus();
+    copy.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }),
+    );
+    expect(view.shadowRoot!.activeElement).toBe(close);
+
+    dialog.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+    );
+    await view.updateComplete;
+    expect(view.shadowRoot!.querySelector(".dialog")).toBeNull();
+    expect(view.shadowRoot!.activeElement).toBe(trigger);
+    view.remove();
+  });
 });

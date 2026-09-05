@@ -72,6 +72,7 @@ export class CpkLearningView extends LitElement {
   copyState: "idle" | "copied" | "error" = "idle";
   setupPrompt = "";
   private promptOpen = false;
+  private promptTrigger: HTMLElement | null = null;
   private expandedSkillId: string | null = null;
   private selectedInsightId: string | null = null;
   private skillPageKey = "";
@@ -960,18 +961,60 @@ export class CpkLearningView extends LitElement {
       : nothing;
   }
 
-  private openPrompt() {
+  private openPrompt(event?: Event) {
+    const trigger = event?.currentTarget;
+    this.promptTrigger = trigger instanceof HTMLElement ? trigger : null;
     this.promptOpen = true;
     this.requestUpdate();
+    void this.updateComplete.then(() => {
+      this.renderRoot
+        .querySelector<HTMLButtonElement>(".dialog-close")
+        ?.focus();
+    });
   }
+
+  private closePrompt(): void {
+    this.promptOpen = false;
+    this.requestUpdate();
+    void this.updateComplete.then(() => this.promptTrigger?.focus());
+  }
+
+  private handlePromptKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this.closePrompt();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const dialog = event.currentTarget;
+    if (!(dialog instanceof HTMLElement)) return;
+    const root = dialog.getRootNode();
+    const activeElement =
+      root instanceof ShadowRoot ? root.activeElement : document.activeElement;
+    const focusable = [
+      ...dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ];
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   private setupPromptButton(label = "Copy the setup prompt") {
     return html`<button
       class="primary"
       type="button"
-      @click=${() =>
+      @click=${(event: Event) =>
         label === "Open the setup prompt"
-          ? this.openPrompt()
+          ? this.openPrompt(event)
           : this.emit("learning-copy-setup")}
     >
       ${this.copyState === "copied" ? "Prompt copied" : label}
@@ -1079,7 +1122,7 @@ export class CpkLearningView extends LitElement {
                 <button
                   class="prompt-link"
                   type="button"
-                  @click=${() => this.openPrompt()}
+                  @click=${(event: Event) => this.openPrompt(event)}
                 >
                   Open the setup prompt ↗
                 </button>
@@ -1401,24 +1444,24 @@ export class CpkLearningView extends LitElement {
           </section>`
           : nothing
       }
-      ${
-        this.error
-          ? html`<div class="retry-strip" role="status">
-            <span>${this.error}</span>
-            <button
-              class="secondary"
-              type="button"
-              @click=${() => this.emit("learning-retry")}
-            >
-              Retry
-            </button>
-          </div>`
-          : nothing
-      }
       ${this.renderSkills(snapshot)}
       ${sourceInsight ? this.renderEvidence(sourceInsight) : nothing}
       ${this.renderInsights(snapshot)}
     `;
+  }
+
+  private renderRetryStrip() {
+    if (!this.error) return nothing;
+    return html`<div class="retry-strip" role="status">
+      <span>${this.error}</span>
+      <button
+        class="secondary"
+        type="button"
+        @click=${() => this.emit("learning-retry")}
+      >
+        Retry
+      </button>
+    </div>`;
   }
 
   private renderEmptyResults(snapshot: InspectorLearningSnapshotV1) {
@@ -1533,6 +1576,9 @@ export class CpkLearningView extends LitElement {
       content = this.renderResults(this.snapshot!);
     }
 
+    const retry =
+      state === "error" || !this.snapshot ? nothing : this.renderRetryStrip();
+
     return html`<main class="pane-inner" data-learning-state=${state}>
         <header class="pane-heading">
           <div>
@@ -1547,6 +1593,7 @@ export class CpkLearningView extends LitElement {
               : nothing
           }
         </header>
+        ${retry}
         ${content}
       </main>
       ${
@@ -1557,6 +1604,7 @@ export class CpkLearningView extends LitElement {
               role="dialog"
               aria-modal="true"
               aria-labelledby="learning-prompt-title"
+              @keydown=${this.handlePromptKeydown}
             >
               <header>
                 <div>
@@ -1566,10 +1614,7 @@ export class CpkLearningView extends LitElement {
                 <button
                   class="dialog-close"
                   aria-label="Close setup prompt"
-                  @click=${() => {
-                    this.promptOpen = false;
-                    this.requestUpdate();
-                  }}
+                  @click=${() => this.closePrompt()}
                 >
                   ×
                 </button>
@@ -1587,10 +1632,7 @@ export class CpkLearningView extends LitElement {
               <footer>
                 <button
                   class="secondary"
-                  @click=${() => {
-                    this.promptOpen = false;
-                    this.requestUpdate();
-                  }}
+                  @click=${() => this.closePrompt()}
                 >
                   Close
                 </button>

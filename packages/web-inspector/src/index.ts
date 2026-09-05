@@ -7928,15 +7928,19 @@ export class WebInspectorElement extends LitElement {
   }
 
   private clearLearningSnapshot(): void {
-    this.learningRequestGeneration += 1;
-    this.learningAbortController?.abort();
-    this.learningAbortController = null;
+    this.cancelLearningRequest();
     this.learningSnapshot = null;
     this.learningSnapshotScope = null;
     this.learningError = null;
     this.learningLoading = false;
     this.learningRefreshing = false;
     this.cancelLearningPoll();
+  }
+
+  private cancelLearningRequest(): void {
+    this.learningRequestGeneration += 1;
+    this.learningAbortController?.abort();
+    this.learningAbortController = null;
   }
 
   private refreshLearningSnapshot = async (
@@ -15407,7 +15411,7 @@ export class WebInspectorElement extends LitElement {
 
     this.isOpen = false;
     this.cancelLearningPoll();
-    this.learningAbortController?.abort();
+    this.cancelLearningRequest();
     this.learningViewedState = null;
 
     // Remove docking styles when closing
@@ -19862,7 +19866,7 @@ export class WebInspectorElement extends LitElement {
     } else if (previousMenu === "memories") {
       this.learningViewedState = null;
       this.cancelLearningPoll();
-      this.learningAbortController?.abort();
+      this.cancelLearningRequest();
     }
 
     if (key === "home" && previousMenu !== "home") {

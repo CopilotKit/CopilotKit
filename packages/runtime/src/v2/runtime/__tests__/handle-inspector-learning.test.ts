@@ -40,6 +40,7 @@ function runtime(overrides: Record<string, unknown> = {}): CopilotRuntimeLike {
     mode: "intelligence",
     debug: { enabled: true, events: false, lifecycle: false, verbose: false },
     intelligence: { getInspectorLearning: vi.fn().mockResolvedValue(snapshot) },
+    identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "Ada" }),
     learning: { containerId: "container-static" },
     ...overrides,
   } as unknown as CopilotRuntimeLike;
@@ -98,6 +99,21 @@ describe("handleInspectorLearning", () => {
       enabled: false,
     });
     expect(response.status).toBe(404);
+    expect(fixture.intelligence?.getInspectorLearning).not.toHaveBeenCalled();
+  });
+
+  it("requires a resolved request user before proxying Learning", async () => {
+    const identifyUser = vi.fn().mockResolvedValue({ id: "", name: "Ada" });
+    const fixture = runtime({ identifyUser });
+
+    const response = await handleInspectorLearning({
+      runtime: fixture,
+      request: new Request("https://runtime.example/inspector-learning"),
+      enabled: true,
+    });
+
+    expect(response.status).toBe(400);
+    expect(identifyUser).toHaveBeenCalledOnce();
     expect(fixture.intelligence?.getInspectorLearning).not.toHaveBeenCalled();
   });
 });

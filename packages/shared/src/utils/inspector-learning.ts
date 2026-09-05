@@ -335,15 +335,21 @@ export function parseInspectorLearningSnapshotV1(
   if (!configuration || !skillsPage || !insightsPage) return undefined;
   let latest: InspectorLearningSnapshotV1["run"]["latest"] = null;
   if (value.run.latest !== null) {
-    if (
-      !record(value.run.latest) ||
-      !runStatuses.has(String(value.run.latest.status)) ||
-      (value.run.latest.completedAt !== null &&
-        !date(value.run.latest.completedAt))
-    ) {
+    const latestRun = value.run.latest;
+    if (!record(latestRun)) {
       return undefined;
     }
-    latest = value.run.latest as NonNullable<typeof latest>;
+    const { status, completedAt } = latestRun;
+    if (
+      typeof status !== "string" ||
+      !runStatuses.has(status) ||
+      (completedAt !== null && !date(completedAt))
+    )
+      return undefined;
+    latest = {
+      status: status as NonNullable<typeof latest>["status"],
+      completedAt: completedAt as NonNullable<typeof latest>["completedAt"],
+    };
   }
   if (!record(value.links)) return undefined;
   const originUrl = parseInspectorLearningUrl(

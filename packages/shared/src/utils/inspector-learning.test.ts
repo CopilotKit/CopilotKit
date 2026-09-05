@@ -44,6 +44,26 @@ describe("Inspector Learning wire validation", () => {
     expect(parsed).not.toBe(source);
   });
 
+  it("copies only the supported fields from the latest Learning run", () => {
+    const source = {
+      ...emptySnapshot(),
+      run: {
+        hasActiveRun: false,
+        hasEverSucceeded: true,
+        latest: {
+          status: "succeeded",
+          completedAt: "2026-09-04T12:00:00.000Z",
+          internalPayload: "must-not-cross-the-boundary",
+        },
+      },
+    };
+
+    expect(parseInspectorLearningSnapshotV1(source)?.run.latest).toEqual({
+      status: "succeeded",
+      completedAt: "2026-09-04T12:00:00.000Z",
+    });
+  });
+
   it("rejects unsafe links and oversized evidence", () => {
     expect(
       parseInspectorLearningUrl(
