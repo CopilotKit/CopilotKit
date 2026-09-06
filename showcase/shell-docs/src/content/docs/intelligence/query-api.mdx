@@ -215,10 +215,32 @@ new pagination rather than continuing the old one.
 | `start`, `end` | Half-open time window `[start, end)` on the resource's time field, as RFC 3339 timestamps. |
 | `include_deleted` | Include soft-deleted rows, which are excluded by default. |
 | `include_total` | Add `page.total`, the count of rows matching the filters. Absent unless asked for. |
+| `expand` | Attach a declared related resource, one level deep. |
 
 A parameter this API does not implement is refused by name rather than accepted
 and ignored, so a request that returns rows is a request that did what you
 asked.
+
+### Expanding related rows
+
+`expand` attaches a related resource that the model declares, one level deep:
+
+```bash
+curl -G https://your-deployment/v1/threads \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>" \
+  --data-urlencode "expand=runs"
+```
+
+A many-to-one relation attaches a single object, a one-to-many attaches an
+array, and an empty result attaches an empty array rather than omitting the key,
+so "expanded, nothing there" is distinguishable from "not expanded". Asking for
+a relation the resource does not declare is refused, and the error names the
+ones it does.
+
+Each side is fetched separately rather than joined, so the expanded resource is
+gated by its own scopes: expanding into something your key cannot read is
+refused rather than quietly returning it. `GET /v1/meta/resources/:name` lists
+what a resource can expand, with a cost for each.
 
 ## Aggregating
 
