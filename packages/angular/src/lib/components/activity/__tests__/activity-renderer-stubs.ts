@@ -15,7 +15,7 @@ import type { ActivityRenderer } from "../../../activity-renderer";
  */
 @Component({
   selector: "primary-activity-renderer",
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
       data-testid="primary-activity"
@@ -37,7 +37,7 @@ export class PrimaryActivityRenderer implements ActivityRenderer {
 
 @Component({
   selector: "secondary-activity-renderer",
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div data-testid="secondary-activity"></div>
   `,
@@ -51,7 +51,7 @@ export class SecondaryActivityRenderer implements ActivityRenderer {
 
 @Component({
   selector: "wildcard-activity-renderer",
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div data-testid="wildcard-activity"></div>
   `,
