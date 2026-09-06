@@ -22,6 +22,7 @@ interface CopilotKitCoreConfig {
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
+  messageFilter?: CopilotKitMessageFilter;
   properties?: Record<string, unknown>;
   tools?: FrontendTool<any>[];
   suggestionsConfig?: SuggestionsConfig[];
@@ -49,6 +50,14 @@ interface CopilotKitCoreConfig {
 
 <PropertyReference name="credentials" type="RequestCredentials">
   Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies).
+</PropertyReference>
+
+<PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
+  Rewrites the message list sent to runtime agents on every run. Use it when the
+  agent already stores the conversation and re-sending it is waste or
+  duplication. The filter changes the request body only — the transcript the UI
+  renders is untouched — and broken tool-call pairs are repaired before the
+  request goes out. Change it later with `setMessageFilter`.
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, unknown>" default="{}">

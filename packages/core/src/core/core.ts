@@ -17,6 +17,7 @@ import type {
   CopilotKitCoreRegisterProxiedAgentParams,
   CopilotKitCoreRegisterProxiedAgentResult,
 } from "./agent-registry";
+import type { CopilotKitMessageFilter } from "./message-filter";
 import { AgentRegistry } from "./agent-registry";
 import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
@@ -66,6 +67,12 @@ export interface CopilotKitCoreConfig {
   headers?: Record<string, string>;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run. Use it when
+   * the backend already stores the conversation and re-sending it is waste or
+   * duplication. See `setMessageFilter` and {@link CopilotKitMessageFilter}.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   /** Properties sent as `forwardedProps` to the AG-UI agent. */
   properties?: Record<string, unknown>;
   /** Ordered collection of frontend tools available to the core. */
@@ -75,6 +82,8 @@ export interface CopilotKitCoreConfig {
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
 }
+
+export type { CopilotKitMessageFilter } from "./message-filter";
 
 export type {
   CopilotKitCoreAddAgentParams,
@@ -347,6 +356,7 @@ export interface CopilotKitCoreFriendsAccess {
   // Getters for internal state
   readonly headers: Readonly<Record<string, string>>;
   readonly credentials: RequestCredentials | undefined;
+  readonly messageFilter: CopilotKitMessageFilter | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
   readonly context: Readonly<Record<string, Context>>;
   readonly debug?: DebugConfig;
@@ -402,6 +412,7 @@ function normalizeHeaders(
 export class CopilotKitCore {
   private _headers: Record<string, string>;
   private _credentials?: RequestCredentials;
+  private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
@@ -436,6 +447,7 @@ export class CopilotKitCore {
     deferInitialConnection = false,
     headers = {},
     credentials,
+    messageFilter,
     properties = {},
     agents__unsafe_dev_only = {},
     tools = [],
@@ -444,6 +456,7 @@ export class CopilotKitCore {
   }: CopilotKitCoreConfig) {
     this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
+    this._messageFilter = messageFilter;
     this._properties = properties;
     this._debug = debug;
 
@@ -667,6 +680,10 @@ export class CopilotKitCore {
     return this._credentials;
   }
 
+  get messageFilter(): CopilotKitMessageFilter | undefined {
+    return this._messageFilter;
+  }
+
   get properties(): Readonly<Record<string, unknown>> {
     return this._properties;
   }
@@ -845,6 +862,20 @@ export class CopilotKitCore {
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
     this.agentRegistry.handleCredentialsChanged();
+  }
+
+  /**
+   * Replace the message filter applied to every runtime agent.
+   *
+   * Applies to agents already discovered as well as ones discovered later, so
+   * a filter set before `/info` lands is not lost. Pass `undefined` to go back
+   * to sending the full thread.
+   */
+  setMessageFilter(messageFilter: CopilotKitMessageFilter | undefined): void {
+    this._messageFilter = messageFilter;
+    this.agentRegistry.applyMessageFilterToAgents(
+      this.agentRegistry.agents as Record<string, AbstractAgent>,
+    );
   }
 
   setProperties(properties: Record<string, unknown>): void {

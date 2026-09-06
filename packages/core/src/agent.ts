@@ -30,6 +30,8 @@ import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
+import type { CopilotKitMessageFilter } from "./core/message-filter";
+import { ɵrepairToolCallPairs } from "./core/message-filter";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -97,6 +99,12 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
    * bookkeeping; only outbound routing is overridden.
    */
   runtimeAgentId?: string;
+  /**
+   * Rewrites the outbound message list on every run. See
+   * {@link CopilotKitMessageFilter}. Ignored in Intelligence mode, where the
+   * runtime owns the canonical transcript.
+   */
+  messageFilter?: CopilotKitMessageFilter;
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
@@ -114,6 +122,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
+  private _messageFilter?: CopilotKitMessageFilter;
 
   constructor(config: ProxiedCopilotRuntimeAgentConfig) {
     const normalizedRuntimeUrl = config.runtimeUrl
@@ -143,6 +152,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
     this._capabilities = config.capabilities;
+    this._messageFilter = config.messageFilter;
     if (config.debug) {
       this.debug = config.debug;
     }
@@ -173,6 +183,53 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   get capabilities(): AgentCapabilities | undefined {
     return this._capabilities;
+  }
+
+  /**
+   * The filter applied to the outbound message list on every run. Set by
+   * `AgentRegistry` whenever the core-level filter changes, so an agent
+   * discovered before the app configured one still picks it up.
+   */
+  get messageFilter(): CopilotKitMessageFilter | undefined {
+    return this._messageFilter;
+  }
+
+  set messageFilter(filter: CopilotKitMessageFilter | undefined) {
+    this._messageFilter = filter;
+  }
+
+  /**
+   * Apply the configured message filter to the outbound payload.
+   *
+   * This is the only place the proxy narrows what goes on the wire. Both run
+   * paths build their input here (`#runViaHttp`, and `#runViaDelegate`, which
+   * forwards this exact input to the Intelligence delegate), and so does the
+   * self-hosted connect replay, so a filter set on this agent reaches every
+   * outbound request without each transport having to remember it.
+   *
+   * `super.prepareRunAgentInput` already deep-cloned the thread and stripped
+   * `activity` messages, so the filter cannot reach the messages the UI
+   * renders no matter what it does with the array it is handed.
+   */
+  protected override prepareRunAgentInput(
+    parameters?: RunAgentParameters,
+  ): RunAgentInput {
+    const input = super.prepareRunAgentInput(parameters);
+    const filter = this._messageFilter;
+    if (!filter) return input;
+
+    const kept = filter([...input.messages], { agentId: this.agentId ?? "" });
+    if (!Array.isArray(kept)) {
+      // Sending the untrimmed thread is the recoverable half of this mistake:
+      // the run still succeeds, and the payload is merely as large as it was
+      // before the filter existed.
+      console.warn(
+        "ProxiedCopilotRuntimeAgent: messageFilter returned a non-array value; sending the full message history instead.",
+      );
+      return input;
+    }
+
+    return { ...input, messages: ɵrepairToolCallPairs(kept, input.messages) };
   }
 
   override requestInit(input: RunAgentInput): RequestInit {
@@ -459,6 +516,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       capabilities: this._capabilities,
       debug: this.debug,
       fetch: this.fetch,
+      messageFilter: this._messageFilter,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);

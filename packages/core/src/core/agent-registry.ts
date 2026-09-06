@@ -291,6 +291,7 @@ export class AgentRegistry {
     this.localAgents = this.assignAgentIds(agents);
     this.applyHeadersToAgents(this.localAgents);
     this.applyCredentialsToAgents(this.localAgents);
+    this.applyMessageFilterToAgents(this.localAgents);
     this.applyRuntimeFetchToAgents(this.localAgents);
     this._agents = this.localAgents;
   }
@@ -439,6 +440,7 @@ export class AgentRegistry {
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     this.applyHeadersToAgents(this._agents);
     this.applyCredentialsToAgents(this._agents);
+    this.applyMessageFilterToAgents(this._agents);
     this.applyRuntimeFetchToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
@@ -509,6 +511,7 @@ export class AgentRegistry {
         : RUNTIME_MODE_SSE,
       intelligence: this._intelligence,
       debug: debug ? resolveDebugConfig(debug) : undefined,
+      messageFilter: friends.messageFilter,
     });
     this.applyHeadersToAgent(agent);
     this.applyRuntimeFetchToAgent(agent);
@@ -603,6 +606,32 @@ export class AgentRegistry {
   applyCredentialsToAgents(agents: Record<string, AbstractAgent>): void {
     Object.values(agents).forEach((agent) => {
       this.applyCredentialsToAgent(agent);
+    });
+  }
+
+  /**
+   * Apply the core's message filter to an agent.
+   *
+   * Only `ProxiedCopilotRuntimeAgent` carries the hook. Agents the app
+   * constructed itself (`agents__unsafe_dev_only`) are left untouched: their
+   * owner can already rewrite the outbound payload with an AG-UI middleware,
+   * and quietly reaching into an instance the app owns would be the more
+   * surprising behavior.
+   */
+  applyMessageFilterToAgent(agent: AbstractAgent): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.messageFilter = (
+        this.core as unknown as CopilotKitCoreFriendsAccess
+      ).messageFilter;
+    }
+  }
+
+  /**
+   * Apply the core's message filter to all agents
+   */
+  applyMessageFilterToAgents(agents: Record<string, AbstractAgent>): void {
+    Object.values(agents).forEach((agent) => {
+      this.applyMessageFilterToAgent(agent);
     });
   }
 
@@ -1334,6 +1363,9 @@ export class AgentRegistry {
               intelligence: runtimeInfoResponse.intelligence,
               capabilities,
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
+              messageFilter: (
+                this.core as unknown as CopilotKitCoreFriendsAccess
+              ).messageFilter,
             });
             this.applyHeadersToAgent(agent);
             this.applyRuntimeFetchToAgent(agent);
