@@ -82,7 +82,7 @@ export default function InterruptsRoute() {
   const [agentType, setAgentType] = useState<AgentType>("tanstack");
 
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
       <div className="flex h-screen w-screen flex-col">
         <header className="border-b bg-white px-4 py-3">
           <div className="flex items-center gap-3">

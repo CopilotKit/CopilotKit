@@ -25,98 +25,108 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
 <PropertyReference name="config" type="CopilotKitConfig" required>
   The CopilotKit configuration object.
 
-  <PropertyReference name="runtimeUrl" type="string">
-    The URL of your CopilotKit runtime endpoint. Set this to route agent
-    traffic through a runtime (for example a Next.js, Express, or Hono backend).
-  </PropertyReference>
+<PropertyReference name="runtimeUrl" type="string">
+  The URL of your CopilotKit runtime endpoint. Set this to route agent traffic
+  through a runtime (for example a Next.js, Express, or Hono backend).
+</PropertyReference>
 
-  <PropertyReference name="headers" type="Record<string, string>">
-    Extra HTTP headers sent with every runtime request, for example an
-    `Authorization` header. If you pass a format-valid `licenseKey`, a
-    `X-CopilotCloud-Public-Api-Key` header is merged in automatically unless you
-    already set one here.
-  </PropertyReference>
+<PropertyReference name="headers" type="Record<string, string>">
+  Extra HTTP headers sent with every runtime request, for example an
+  `Authorization` header. If you pass a format-valid `licenseKey`, a
+  `X-CopilotCloud-Public-Api-Key` header is merged in automatically unless you
+  already set one here.
+</PropertyReference>
 
-  <PropertyReference name="credentials" type="RequestCredentials">
-    Credentials mode for runtime fetch requests. Use `"include"` for HTTP-only
-    cookies in cross-origin requests. When omitted, the browser Fetch default
-    applies.
-  </PropertyReference>
+<PropertyReference name="credentials" type="RequestCredentials">
+  Credentials mode for runtime fetch requests. Use `"include"` for HTTP-only
+  cookies in cross-origin requests. When omitted, the browser Fetch default
+  applies.
+</PropertyReference>
 
-  <PropertyReference name="licenseKey" type="string">
-    Your CopilotCloud public key. A value matching `ck_pub_` followed by 32
-    hexadecimal characters is sent as the
-    `X-CopilotCloud-Public-Api-Key` header unless that header is already set.
-    Watermark rendering and missing-key warnings are disabled in the current
-    package.
-  </PropertyReference>
+<PropertyReference name="licenseKey" type="string">
+  Your CopilotCloud public key. A value matching `ck_pub_` followed by 32
+  hexadecimal characters is sent as the `X-CopilotCloud-Public-Api-Key` header
+  unless that header is already set. Watermark rendering and missing-key
+  warnings are disabled in the current package.
+</PropertyReference>
 
-  <PropertyReference name="properties" type="Record<string, unknown>">
-    Arbitrary key/value properties forwarded to the runtime with each request.
-    Use this for request-scoped metadata such as a user id or tenant.
-  </PropertyReference>
+<PropertyReference name="properties" type="Record<string, unknown>">
+  Arbitrary key/value properties forwarded to the runtime with each request. Use
+  this for request-scoped metadata such as a user id or tenant.
+</PropertyReference>
 
-  <PropertyReference name="agents" type="Record<string, AbstractAgent>">
-    A map of agent id to AG-UI agent instance. Use this to register agents
-    directly in the client. These are merged with `selfManagedAgents` when the
-    underlying core is constructed.
-  </PropertyReference>
+<PropertyReference name="enableInspector" type="boolean">
+  Controls the CopilotKit Inspector in development browser builds. It is shown
+  by default unless set to `false`, and is never loaded in production or during
+  server-side rendering, even when explicitly set to `true`.
+</PropertyReference>
 
-  <PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>">
-    A map of agent id to AG-UI agent instance that connect directly to an agent
-    endpoint without a CopilotKit runtime. Provide an `@ag-ui/client` agent such
-    as `HttpAgent` here to talk to an agent server directly.
-  </PropertyReference>
+<PropertyReference name="agents" type="Record<string, AbstractAgent>">
+  A map of agent id to AG-UI agent instance. Use this to register agents
+  directly in the client. These are merged with `selfManagedAgents` when the
+  underlying core is constructed.
+</PropertyReference>
 
-  <PropertyReference name="tools" type="ClientTool[]">
-    Client tools registered at startup. Each `ClientTool` is a frontend tool
-    definition without a `handler`, plus an optional `renderer` component. When
-    a tool supplies both a `renderer` and `parameters`, its renderer is
-    registered as a tool call renderer automatically.
-  </PropertyReference>
+<PropertyReference
+  name="selfManagedAgents"
+  type="Record<string, AbstractAgent>"
+>
+  A map of agent id to AG-UI agent instance that connect directly to an agent
+  endpoint without a CopilotKit runtime. Provide an `@ag-ui/client` agent such
+  as `HttpAgent` here to talk to an agent server directly.
+</PropertyReference>
 
-  <PropertyReference name="renderToolCalls" type="RenderToolCallConfig[]">
-    Renderers for tool calls. Each entry maps a tool `name` and a `args`
-    [Standard Schema](https://standardschema.dev) to a `component` that
-    visualizes the call. Optional `agentId` scopes the renderer to one agent and
-    `passAgent` exposes the agent to the renderer.
-  </PropertyReference>
+<PropertyReference name="tools" type="ClientTool[]">
+  Client tools registered at startup. Each `ClientTool` is a frontend tool
+  definition without a `handler`, plus an optional `renderer` component. When a
+  tool supplies both a `renderer` and `parameters`, its renderer is registered
+  as a tool call renderer automatically.
+</PropertyReference>
 
-  <PropertyReference name="renderActivityMessages" type="RenderActivityMessageConfig[]">
-    Renderers for agent activity messages. Each entry maps an `activityType` and
-    a `content` schema to a `component`. Optional `agentId` scopes the renderer
-    to one agent.
-  </PropertyReference>
+<PropertyReference name="renderToolCalls" type="RenderToolCallConfig[]">
+  Renderers for tool calls. Each entry maps a tool `name` and a `args` [Standard
+  Schema](https://standardschema.dev) to a `component` that visualizes the call.
+  Optional `agentId` scopes the renderer to one agent and `passAgent` exposes
+  the agent to the renderer.
+</PropertyReference>
 
-  <PropertyReference name="suggestionsConfig" type="SuggestionsConfig[]">
-    Suggestion configurations. Each entry is either a dynamic config
-    (`instructions` plus optional `minSuggestions`, `maxSuggestions`,
-    `available`, `providerAgentId`, `consumerAgentId`) or a static config (an
-    explicit `suggestions` array plus optional `available` and
-    `consumerAgentId`).
-  </PropertyReference>
+<PropertyReference
+  name="renderActivityMessages"
+  type="RenderActivityMessageConfig[]"
+>
+  Renderers for agent activity messages. Each entry maps an `activityType` and a
+  `content` schema to a `component`. Optional `agentId` scopes the renderer to
+  one agent.
+</PropertyReference>
 
-  <PropertyReference name="frontendTools" type="FrontendToolConfig[]">
-    Client-side tools registered at startup, each with a `name`, `description`,
-    `parameters` schema, async `handler`, and optional `component` renderer,
-    `followUp`, and `agentId`. Handlers run inside the root injection context,
-    so they can use `inject()`. Prefer
-    [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool)
-    for tools scoped to a component.
-  </PropertyReference>
+<PropertyReference name="suggestionsConfig" type="SuggestionsConfig[]">
+  Suggestion configurations. Each entry is either a dynamic config
+  (`instructions` plus optional `minSuggestions`, `maxSuggestions`, `available`,
+  `providerAgentId`, `consumerAgentId`) or a static config (an explicit
+  `suggestions` array plus optional `available` and `consumerAgentId`).
+</PropertyReference>
 
-  <PropertyReference name="humanInTheLoop" type="HumanInTheLoopConfig[]">
-    Human-in-the-loop tools registered at startup. Each entry has a `name`,
-    `description`, `parameters` schema, a `component` renderer that collects the
-    user's response, and an optional `agentId`. Prefer
-    [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop)
-    for tools scoped to a component.
-  </PropertyReference>
+<PropertyReference name="frontendTools" type="FrontendToolConfig[]">
+  Client-side tools registered at startup, each with a `name`, `description`,
+  `parameters` schema, async `handler`, and optional `component` renderer,
+  `followUp`, and `agentId`. Handlers run inside the root injection context, so
+  they can use `inject()`. Prefer
+  [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool)
+  for tools scoped to a component.
+</PropertyReference>
 
-  <PropertyReference name="defaultToolRendering" type="boolean" default="false">
-    Opts into the text-only fallback renderer for otherwise unknown tool calls.
-    Unknown tools are hidden when this is omitted or `false`.
-  </PropertyReference>
+<PropertyReference name="humanInTheLoop" type="HumanInTheLoopConfig[]">
+  Human-in-the-loop tools registered at startup. Each entry has a `name`,
+  `description`, `parameters` schema, a `component` renderer that collects the
+  user's response, and an optional `agentId`. Prefer
+  [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop)
+  for tools scoped to a component.
+</PropertyReference>
+
+<PropertyReference name="defaultToolRendering" type="boolean" default="false">
+  Opts into the text-only fallback renderer for otherwise unknown tool calls.
+  Unknown tools are hidden when this is omitted or `false`.
+</PropertyReference>
 
   <PropertyReference name="a2ui" type="A2UIConfig">
     Configuration for A2UI (agent-to-UI declarative surfaces). A runtime may
@@ -151,6 +161,7 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
         override it.
       </PropertyReference>
     </PropertyReference>
+
   </PropertyReference>
 
   <PropertyReference name="openGenerativeUI" type="OpenGenerativeUIConfig">
@@ -166,6 +177,7 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
       Design guidelines passed to the agent for generated UI. Defaults to the
       built-in shadcn-inspired design skill.
     </PropertyReference>
+
   </PropertyReference>
 </PropertyReference>
 
@@ -251,6 +263,9 @@ export const appConfig: ApplicationConfig = {
   `X-CopilotCloud-Public-Api-Key` header unless that header is already present.
   The current package does not render a watermark or log a missing-key warning.
 - `agents` and `selfManagedAgents` are merged together when the underlying core is created, so an id present in both resolves to the `selfManagedAgents` entry.
+- The Inspector receives that same core instance. Angular reuses an existing
+  `cpk-web-inspector` element when present and removes only an element it created
+  when the root service is destroyed.
 
 ## Related
 

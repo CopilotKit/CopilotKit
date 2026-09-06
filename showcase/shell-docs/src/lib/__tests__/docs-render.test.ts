@@ -15,9 +15,11 @@ vi.mock("../registry", async (importOriginal) => {
 import {
   buildFrameworkNav,
   buildFrameworkOnlyNav,
+  buildRootSurfaceNav,
   CONTENT_DIR,
   inlineSnippets,
   loadDoc,
+  navAncestorBreadcrumbsForSlug,
   readIcon,
   readTitle,
   SNIPPET_MAP,
@@ -75,6 +77,20 @@ function hasPageTitle(navTree: NavNode[], page: string): boolean {
   });
 }
 
+function findPageByTitle(
+  navTree: NavNode[],
+  page: string,
+): Extract<NavNode, { type: "page" }> | undefined {
+  for (const node of navTree) {
+    if (node.type === "page" && node.title === page) return node;
+    if (node.type === "group") {
+      const match = findPageByTitle(node.children, page);
+      if (match) return match;
+    }
+  }
+  return undefined;
+}
+
 type NavPageEntry = { title: string; slug: string };
 
 function groupPageEntries(
@@ -100,18 +116,28 @@ function groupPageEntries(
   return [];
 }
 
-function sectionPages(navTree: NavNode[], section: string): string[] {
-  const pages: string[] = [];
-  let inSection = false;
-  for (const node of navTree) {
-    if (node.type === "section") {
-      inSection = node.title === section;
-      continue;
-    }
-    if (!inSection) continue;
-    if (node.type === "page") pages.push(node.title);
-  }
-  return pages;
+function sectionTitles(navTree: NavNode[]): string[] {
+  return navTree
+    .filter(
+      (node): node is Extract<NavNode, { type: "section" }> =>
+        node.type === "section",
+    )
+    .map((node) => node.title);
+}
+
+function sectionNodes(navTree: NavNode[], section: string): NavNode[] {
+  const sectionIndex = navTree.findIndex(
+    (node) => node.type === "section" && node.title === section,
+  );
+  if (sectionIndex === -1) return [];
+
+  const nextSectionIndex = navTree.findIndex(
+    (node, index) => index > sectionIndex && node.type === "section",
+  );
+  return navTree.slice(
+    sectionIndex + 1,
+    nextSectionIndex === -1 ? undefined : nextSectionIndex,
+  );
 }
 
 function collectMdxFiles(dir: string): string[] {
@@ -201,7 +227,7 @@ describe("loadDoc", () => {
   it("resolves clean URLs to files stored under route-group folders", () => {
     const doc = loadDoc("integrations/aws-strands/telemetry");
 
-    expect(doc?.filePath).toContain(
+    expect(doc?.filePath.split(path.sep).join("/")).toContain(
       "integrations/aws-strands/(other)/telemetry/index.mdx",
     );
   });
@@ -240,18 +266,19 @@ describe("loadDoc", () => {
     expect(overview).toContain("threads-diagram-dark.png");
   });
 
-  it("links locked Inspector users to a complete Rich Threads Runtime repair journey", () => {
+  it("links locked Inspector users to both Rich Threads Runtime route modes", () => {
     const runtimeEndpoints = loadDoc("backend/runtime-endpoints")?.source ?? "";
     const inspector = loadDoc("inspector")?.source ?? "";
 
     expect(runtimeEndpoints).toContain("## Enable Rich Threads routes");
-    expect(runtimeEndpoints).toContain('Remove `mode: "single-route"`');
+    expect(runtimeEndpoints).toContain('mode: "single-route"');
     expect(runtimeEndpoints).toContain(
       'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
     );
     expect(runtimeEndpoints).toContain("`useSingleEndpoint={false}`");
     expect(runtimeEndpoints).toContain("`identifyUser`");
-    expect(runtimeEndpoints).toContain("GET, POST, PATCH, and DELETE");
+    expect(runtimeEndpoints).toContain("`GET`, `POST`, `PATCH`, and `DELETE`");
+    expect(runtimeEndpoints).toContain('"resourceOperations": true');
     expect(runtimeEndpoints).toContain('"list": true');
     expect(runtimeEndpoints).toContain('"inspect": true');
     expect(inspector).toContain(
@@ -466,6 +493,231 @@ describe("cookbook nav", () => {
 });
 
 describe("framework nav", () => {
+  it("derives breadcrumbs from the complete sidebar hierarchy", () => {
+    const navTree = buildRootSurfaceNav("built-in-agent");
+
+    expect(navAncestorBreadcrumbsForSlug(navTree, "frontend-tools")).toEqual([
+      { label: "Basics", href: null },
+    ]);
+    expect(navAncestorBreadcrumbsForSlug(navTree, "threads")).toEqual([
+      { label: "Basics", href: null },
+      { label: "Rich Threads", href: null },
+    ]);
+    expect(
+      navAncestorBreadcrumbsForSlug(navTree, "prebuilt-components"),
+    ).toEqual([
+      { label: "Basics", href: null },
+      { label: "Chat", href: null },
+    ]);
+    expect(
+      navAncestorBreadcrumbsForSlug(navTree, "custom-look-and-feel/slots"),
+    ).toEqual([
+      { label: "Basics", href: null },
+      { label: "Chat", href: null },
+      { label: "Custom Look and Feel", href: null },
+    ]);
+  });
+
+  it("uses the requested section flow on the root docs surface", () => {
+    const navTree = buildRootSurfaceNav("built-in-agent");
+    const titles = sectionTitles(navTree);
+    const backend = sectionNodes(navTree, "Backend");
+    const runtime = backend.find(
+      (node) => node.type === "group" && node.title === "Runtime",
+    );
+
+    expect(titles).toEqual([
+      "Basics",
+      "Generative UI",
+      "Interactivity",
+      "Agent capabilities",
+      "Intelligence",
+      "Backend",
+      "Learn",
+      "Other",
+    ]);
+    expect(navTree.slice(0, 3)).toMatchObject([
+      {
+        type: "page",
+        title: "Introduction",
+        slug: "",
+        icon: "lucide/Rocket",
+      },
+      {
+        type: "page",
+        title: "Quickstart",
+        slug: "quickstart",
+        icon: "lucide/Play",
+      },
+      {
+        type: "page",
+        title: "Intelligence",
+        slug: "intelligence/overview",
+        icon: "custom/intelligence-kite",
+      },
+    ]);
+    expect(
+      navTree.find(
+        (node) => node.type === "section" && node.title === "Intelligence",
+      ),
+    ).toMatchObject({ icon: "custom/copilotkit-kite" });
+    expect(
+      navTree.find(
+        (node) => node.type === "section" && node.title === "Basics",
+      ),
+    ).toMatchObject({ icon: "lucide/Sprout" });
+    expect(
+      navTree.find(
+        (node) => node.type === "section" && node.title === "Generative UI",
+      ),
+    ).toMatchObject({ icon: "lucide/LayoutTemplate" });
+    expect(
+      navTree.find(
+        (node) =>
+          node.type === "section" && node.title === "Agent capabilities",
+      ),
+    ).toMatchObject({ icon: "lucide/Sparkles" });
+    expect(
+      navTree.find((node) => node.type === "section" && node.title === "Other"),
+    ).toMatchObject({ icon: "lucide/Wrench" });
+    expect(
+      navTree
+        .filter((node) => node.type === "section")
+        .every((node) => Boolean(node.icon)),
+    ).toBe(true);
+    expect(sectionNodes(navTree, "Basics").map((node) => node.title)).toEqual([
+      "Chat",
+      "Rich threads",
+      "Frontend-tools",
+    ]);
+    expect(
+      sectionNodes(navTree, "Intelligence").map((node) => node.title),
+    ).toEqual([
+      "Overview",
+      "Get started",
+      "Rich Threads",
+      "Automatic Learning",
+      "User Memories",
+      "Hosting",
+    ]);
+    expect(
+      sectionNodes(navTree, "Interactivity").map((node) => node.title),
+    ).toEqual(["Shared state", "Human-in-the-loop", "WebMCP"]);
+    expect(
+      sectionNodes(navTree, "Agent capabilities").map((node) => node.title),
+    ).toEqual([
+      "Built-in Agent",
+      "Automatic Learning",
+      "User Memories",
+      "Sub-agents",
+    ]);
+    expect(groupPageEntries(navTree, "Get started")).toEqual([
+      { title: "Quickstart", slug: "intelligence/quickstart" },
+      { title: "Architecture", slug: "intelligence/intelligence-platform" },
+      {
+        title: "Connect your runtime",
+        slug: "intelligence/connect-your-runtime",
+      },
+    ]);
+    expect(
+      sectionNodes(navTree, "Intelligence").filter(
+        (node) => node.type === "page",
+      ),
+    ).toMatchObject([
+      { type: "page", title: "Overview", slug: "intelligence/overview" },
+      { type: "page", title: "Rich Threads", slug: "threads" },
+      {
+        type: "page",
+        title: "Automatic Learning",
+        slug: "learning",
+      },
+      {
+        type: "page",
+        title: "User Memories",
+        slug: "intelligence/memories",
+      },
+    ]);
+    expect(groupPageEntries(navTree, "Hosting")).toEqual([
+      { title: "Cloud", slug: "intelligence/managed-intelligence-platform" },
+      { title: "Self-hosted", slug: "intelligence/self-hosting" },
+    ]);
+    expect(findPageByTitle(navTree, "Automatic Learning")).toMatchObject({
+      slug: "learning",
+    });
+    expect(findPageByTitle(navTree, "WebMCP")).toMatchObject({
+      slug: "webmcp",
+    });
+    expect(
+      hasSectionPage(navTree, "Agent capabilities", "Automatic Learning"),
+    ).toBe(true);
+    expect(hasSectionPage(navTree, "Agent capabilities", "User Memories")).toBe(
+      true,
+    );
+    expect(sectionNodes(navTree, "Backend").map((node) => node.title)).toEqual([
+      "Runtime",
+      "Deployment",
+      "Debugging",
+    ]);
+    expect(runtime).toMatchObject({ type: "group", title: "Runtime" });
+    expect(
+      runtime?.type === "group" &&
+        hasPageTitle(runtime.children, "Copilot Runtime"),
+    ).toBe(true);
+    expect(sectionNodes(navTree, "Learn").map((node) => node.title)).toEqual([
+      "Concepts",
+      "Cookbook",
+      "Reference",
+    ]);
+    expect(findPageByTitle(navTree, "Open-source telemetry")).toMatchObject({
+      type: "page",
+      slug: "telemetry",
+    });
+  });
+
+  it("uses the same section flow for generated and authored frameworks", () => {
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    const authoredNav = buildFrameworkOnlyNav("ag2");
+
+    expect(sectionTitles(generatedNav)).toEqual([
+      "Basics",
+      "Generative UI",
+      "Interactivity",
+      "Agent capabilities",
+      "Intelligence",
+      "Backend",
+      "Learn",
+      "Other",
+    ]);
+    expect(sectionTitles(authoredNav)).toEqual([
+      "Basics",
+      "Generative UI",
+      "Interactivity",
+      "Agent capabilities",
+      "Intelligence",
+      "Backend",
+      "Learn",
+      "Other",
+    ]);
+    expect(hasSectionPage(authoredNav, "Backend", "Copilot Runtime")).toBe(
+      true,
+    );
+    expect(hasSectionPage(authoredNav, "Intelligence", "Overview")).toBe(true);
+    expect(
+      sectionNodes(generatedNav, "Agent capabilities").some(
+        (node) => node.type === "group" && node.title === "LangGraph (Python)",
+      ),
+    ).toBe(true);
+    expect(
+      sectionNodes(authoredNav, "Agent capabilities").some(
+        (node) => node.type === "group" && node.title === "AG2",
+      ),
+    ).toBe(true);
+  });
+
   it("leaves Slack and Teams platform guides ungated", () => {
     const slack = loadDoc("frontends/slack");
     const teams = loadDoc("frontends/teams");
@@ -498,7 +750,7 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
   });
 
-  it("shows the CLI page in generated and authored framework nav", () => {
+  it("keeps the compact start links in generated and authored framework nav", () => {
     const generatedNav = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
@@ -507,9 +759,19 @@ describe("framework nav", () => {
     const authoredNav = buildFrameworkOnlyNav("mastra");
     const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
 
-    expect(hasPageTitle(generatedNav, "CopilotKit CLI")).toBe(true);
-    expect(hasPageTitle(authoredNav, "CopilotKit CLI")).toBe(true);
-    expect(hasPageTitle(sharedFolderAuthoredNav, "CopilotKit CLI")).toBe(true);
+    for (const nav of [generatedNav, authoredNav, sharedFolderAuthoredNav]) {
+      expect(nav.slice(0, 3)).toMatchObject([
+        { type: "page", title: "Introduction", slug: "" },
+        { type: "page", title: "Quickstart", slug: "quickstart" },
+        {
+          type: "page",
+          title: "Intelligence",
+          slug: "intelligence/overview",
+          icon: "custom/intelligence-kite",
+        },
+      ]);
+      expect(hasPageTitle(nav, "CopilotKit CLI")).toBe(false);
+    }
   });
 
   it("orders the Threads job routes consistently across framework modes", () => {
@@ -533,14 +795,14 @@ describe("framework nav", () => {
       },
       {
         title: "Threads & Persistence Architecture",
-        slug: "premium/threads-explained",
+        slug: "intelligence/threads-explained",
       },
     ];
     const withoutDrawer = expected.filter(
       (entry) => entry.title !== "Threads Drawer",
     );
 
-    expect(groupPageEntries(generatedNav, "Rich Threads")).toEqual(expected);
+    expect(groupPageEntries(generatedNav, "Rich threads")).toEqual(expected);
 
     const authoredFolders = [
       ...new Set(
@@ -552,7 +814,7 @@ describe("framework nav", () => {
 
     for (const folder of authoredFolders) {
       expect(
-        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich Threads"),
+        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich threads"),
       ).toEqual(folder === "deepagents" ? withoutDrawer : expected);
     }
   });
@@ -578,7 +840,7 @@ describe("framework nav", () => {
       "LangGraph (Python)",
       "langgraph-python",
     );
-    expect(groupPageEntries(generatedNav, "Rich Threads")).toContainEqual({
+    expect(groupPageEntries(generatedNav, "Rich threads")).toContainEqual({
       title: "Synchronize Thread History",
       slug: "threads-import",
     });
@@ -598,9 +860,10 @@ describe("framework nav", () => {
         "does not load `.env` or `.copilotkit/project.json` automatically",
       );
       expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
-      expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
+      expect(source).toContain('export CPK_INTELLIGENCE_API_KEY="cpk-..."');
+      expect(source).not.toContain('export CPK_INTELLIGENCE_API_KEY="cpk_..."');
       expect(source).toContain(
-        "does not need an Enterprise Intelligence URL or API key",
+        "does not need a CopilotKit Intelligence URL or API key",
       );
     }
 
@@ -635,7 +898,7 @@ describe("framework nav", () => {
     );
     expect(headless).toContain("adding a custom thread UI to an existing app");
     expect(headless).toContain(
-      "Your `CopilotRuntime` must be connected to Enterprise Intelligence",
+      "Your `CopilotRuntime` must be connected to CopilotKit Intelligence",
     );
     expect(headless).not.toContain("npx copilotkit@latest init");
   });
@@ -645,7 +908,8 @@ describe("framework nav", () => {
       path.join(SNIPPETS_DIR, "shared/threads/threads-lifecycle.mdx"),
       "utf8",
     );
-    const architecture = loadDoc("premium/threads-explained")?.source ?? "";
+    const architecture =
+      loadDoc("intelligence/threads-explained")?.source ?? "";
 
     for (const source of [lifecycle, architecture]) {
       const normalized = source.replace(/\s+/g, " ");
@@ -662,14 +926,14 @@ describe("framework nav", () => {
 
   it("links the hosted Intelligence guide to the Rich Threads journey", () => {
     const managed =
-      loadDoc("premium/managed-intelligence-platform")?.source ?? "";
+      loadDoc("intelligence/managed-intelligence-platform")?.source ?? "";
 
     expect(managed).toContain("[Rich Threads overview](/threads)");
     expect(managed).toContain("[CopilotKit CLI](/cli)");
     expect(managed).toContain("[Headless Threads](/headless-threads)");
   });
 
-  it("uses the generated Intelligence Platform section for authored framework nav", () => {
+  it("uses the generated Intelligence topic for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 
     expect(navTree.some((node) => node.title === "Premium Features")).toBe(
@@ -677,12 +941,51 @@ describe("framework nav", () => {
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
-    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
-      "Enterprise Intelligence Platform",
-      "Cloud-Hosted Enterprise Intelligence",
-      "Connect your runtime to Intelligence",
-      "Self-Hosting Enterprise Intelligence",
-      "Enterprise Intelligence Architecture",
+    expect(
+      sectionNodes(navTree, "Intelligence").map((node) => node.title),
+    ).toEqual([
+      "Overview",
+      "Get started",
+      "Rich Threads",
+      "Automatic Learning",
+      "User Memories",
+      "Hosting",
+    ]);
+    expect(groupPageEntries(navTree, "Get started")).toEqual([
+      { title: "Quickstart", slug: "intelligence/quickstart" },
+      {
+        title: "Architecture",
+        slug: "intelligence/intelligence-platform",
+      },
+      {
+        title: "Connect your runtime",
+        slug: "intelligence/connect-your-runtime",
+      },
+    ]);
+    expect(
+      sectionNodes(navTree, "Intelligence").filter(
+        (node) => node.type === "page",
+      ),
+    ).toMatchObject([
+      { type: "page", title: "Overview", slug: "intelligence/overview" },
+      { type: "page", title: "Rich Threads", slug: "threads" },
+      {
+        type: "page",
+        title: "Automatic Learning",
+        slug: "learning",
+      },
+      {
+        type: "page",
+        title: "User Memories",
+        slug: "intelligence/memories",
+      },
+    ]);
+    expect(groupPageEntries(navTree, "Hosting")).toEqual([
+      {
+        title: "Cloud",
+        slug: "intelligence/managed-intelligence-platform",
+      },
+      { title: "Self-hosted", slug: "intelligence/self-hosting" },
     ]);
   });
 });

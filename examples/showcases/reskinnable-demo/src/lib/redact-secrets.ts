@@ -72,7 +72,7 @@ const ENV_SECRETS: readonly EnvSecret[] = [
     kind: "url",
   },
   {
-    env: "INTELLIGENCE_API_KEY",
+    env: "CPK_INTELLIGENCE_API_KEY",
     placeholder: "<intelligence-api-key>",
     kind: "opaque",
   },

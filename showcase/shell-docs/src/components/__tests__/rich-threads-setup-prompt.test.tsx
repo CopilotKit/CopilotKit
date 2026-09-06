@@ -60,6 +60,35 @@ function setup(writeText = vi.fn().mockResolvedValue(undefined)): SetupResult {
   };
 }
 
+test("uses the shared expandable coding-agent prompt card", () => {
+  render(<RichThreadsSetupPrompt />);
+
+  try {
+    const region = screen.getByRole("region", {
+      name: "Use this pre-built prompt to finish Intelligence setup faster.",
+    });
+    expect(region.getAttribute("data-docs-copy-surface")).toBe(
+      "docs_rich_threads_setup_agent_prompt",
+    );
+    expect(screen.queryByText(RICH_THREADS_SETUP_PROMPT)).toBeNull();
+
+    const toggle = screen.getByRole("button", { name: "Show prompt text" });
+    const promptId = toggle.getAttribute("aria-controls");
+    fireEvent.click(toggle);
+
+    expect(document.getElementById(promptId ?? "")?.textContent).toBe(
+      RICH_THREADS_SETUP_PROMPT,
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Hide prompt text" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+  } finally {
+    cleanup();
+  }
+});
+
 test("copies the canonical Rich Threads repair prompt and announces success", async () => {
   const { writeText, teardown } = setup();
 
@@ -90,7 +119,11 @@ test("keeps the Rich Threads repair prompt anchored and safe for autonomous edit
     "Never use a fixed demo identity in production",
   );
   expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "threadEndpoints.list, inspect, mutations, and realtimeMetadata as true",
+    "Home shows Intelligence connected",
+  );
+  expect(RICH_THREADS_SETUP_PROMPT).toContain("open Threads in Inspector");
+  expect(RICH_THREADS_SETUP_PROMPT).toContain(
+    "React Native does not include Inspector",
   );
 });
 
@@ -151,7 +184,7 @@ test("does not schedule Rich Threads copy feedback after unmount", async () => {
   }
 });
 
-test("labels each Rich Threads prompt instance with its own title", () => {
+test("labels each Rich Threads prompt instance with its own summary", () => {
   render(
     <>
       <RichThreadsSetupPrompt />
@@ -161,7 +194,7 @@ test("labels each Rich Threads prompt instance with its own title", () => {
 
   try {
     const regions = screen.getAllByRole("region", {
-      name: "Finish setup with your coding agent",
+      name: "Use this pre-built prompt to finish Intelligence setup faster.",
     });
     const titleIds = regions.map((region) =>
       region.getAttribute("aria-labelledby"),

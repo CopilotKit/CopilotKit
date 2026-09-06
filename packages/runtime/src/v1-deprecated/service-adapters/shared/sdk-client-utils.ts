@@ -18,6 +18,26 @@
  */
 
 /**
+ * The part of a vendor SDK client these adapters actually use.
+ *
+ * `@anthropic-ai/sdk` and `groq-sdk` are *optional* peer dependencies, so a
+ * consumer who never touches those adapters does not install them. Naming their
+ * types in a published signature makes the declaration unresolvable for everyone
+ * else -- a TS2307 on a bare `import { CopilotRuntime }` under
+ * `skipLibCheck: false` (OSS-899).
+ *
+ * A real `Anthropic` or `Groq` instance satisfies this, so passing one still
+ * type-checks. The adapters read nothing beyond these two fields; everything
+ * else goes through `getSdkClientOptions`, which takes an `object`.
+ */
+export interface SdkClientLike {
+  /** Base URL the client was configured with. */
+  baseURL: string;
+  /** API key the client was configured with. */
+  apiKey: string | null;
+}
+
+/**
  * SDK clients (OpenAI, Anthropic, Groq) store constructor options like
  * `defaultHeaders` and `fetch` in a private/protected `_options` field
  * with no public accessor. This extracts them with a narrow type assertion.

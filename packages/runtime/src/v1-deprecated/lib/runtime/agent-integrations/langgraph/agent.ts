@@ -31,7 +31,6 @@ import {
   LangGraphHttpAgent,
 } from "@ag-ui/langgraph";
 import type { LangGraphAgentConfig, State } from "@ag-ui/langgraph";
-import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 import type { ThreadState } from "@langchain/langgraph-sdk";
 
 interface CopilotKitStateEnrichment {
@@ -52,6 +51,20 @@ import type {
 } from "./consts";
 import { CustomEventNames } from "./consts";
 export { CustomEventNames };
+
+/**
+ * The message type the base class's `langGraphDefaultMergeState` accepts.
+ *
+ * Derived from the base signature rather than deep-imported from
+ * `@langchain/langgraph-sdk/dist/types.messages`. That path is an internal file
+ * of an optional peer dependency: it is not part of the SDK's public entry
+ * points, and consumers who skip the optional peer cannot resolve it at all,
+ * which costs them a TS2307 on `skipLibCheck: false` (OSS-899). `@ag-ui/langgraph`
+ * is a real dependency, so this stays resolvable for everyone.
+ */
+type LangGraphMessage = Parameters<
+  AGUILangGraphAgent["langGraphDefaultMergeState"]
+>[1][number];
 
 export class LangGraphAgent extends AGUILangGraphAgent {
   constructor(config: LangGraphAgentConfig) {

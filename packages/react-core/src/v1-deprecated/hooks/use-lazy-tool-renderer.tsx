@@ -30,19 +30,26 @@ export function useLazyToolRenderer(): (
   return useCallback(
     (message?: AIMessage, messages?: Message[]) => {
       if (!message?.toolCalls?.length) return null;
+      const toolCalls = message.toolCalls;
 
-      const toolCall = message.toolCalls[0];
-      if (!toolCall) return null;
+      return () => {
+        const renderedToolCalls = toolCalls
+          .map((toolCall) => {
+            const toolMessage = messages?.find(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            ) as ToolResult;
 
-      const toolMessage = messages?.find(
-        (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-      ) as ToolResult;
+            return renderToolCall({
+              toolCall,
+              toolMessage,
+            });
+          })
+          .filter((renderedToolCall) => renderedToolCall !== null);
 
-      return () =>
-        renderToolCall({
-          toolCall,
-          toolMessage,
-        });
+        if (!renderedToolCalls.length) return null;
+
+        return <>{renderedToolCalls}</>;
+      };
     },
     [renderToolCall],
   );

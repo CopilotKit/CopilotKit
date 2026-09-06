@@ -40,7 +40,7 @@ export interface CopilotKitProps extends Omit<
   /** Your CopilotKit public license key. */
   publicApiKey?: string;
 
-  /** Your public license key for accessing Enterprise Intelligence Platform features. */
+  /** Your public license key for accessing CopilotKit Intelligence features. */
   publicLicenseKey?: string;
 
   /**
@@ -189,8 +189,9 @@ export interface CopilotKitProps extends Omit<
 
   /**
    * Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
-   * view agent messages, check agent state, and visualize agent context. Defaults
-   * to enabled.
+   * view agent messages, check agent state, and visualize agent context. The
+   * Inspector is enabled by default in development browser builds and is always
+   * disabled in production and during server rendering.
    */
   enableInspector?: boolean;
 

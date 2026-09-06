@@ -8,15 +8,15 @@ import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import {
   ALL_SCENARIO_KEYS,
   CORE_SCENARIO_KEYS,
+  LEARNING_SCENARIO_KEYS,
   THREAD_REQUEST_KINDS,
+  canonicalScenarioUrl,
   clearThreadsStateLabNotificationState,
   clearThreadsStateLabStorage,
   consumedNotificationReplayUrl,
-  copyThreadsStateLabDirectLink,
   getThreadsStateScenario,
   installThreadsStateLabNavigation,
   installThreadsStateLabReducedMotion,
-  navigateThreadsStateLabScenario,
   notificationReplayUrl,
   parseScenarioKey,
   runtimeUrlFor,
@@ -29,8 +29,28 @@ import type {
   ThreadsStateScenario,
 } from "./threads-state-lab.js";
 import type { ThreadRequestLog } from "./threads-state-lab-server.js";
+import {
+  learningLabRuntimeUrl,
+  prepareLearningStateClient,
+  readyIntegratedLearningState,
+  settleLearningState,
+  waitForLearningConnection,
+} from "./learning-state-client.js";
 
 const scenarioSelect = requiredElement<HTMLSelectElement>("#scenario-select");
+const notificationField = requiredElement<HTMLElement>("#notification-field");
+const notificationSource = requiredElement<HTMLSelectElement>(
+  "#notification-source",
+);
+const notificationCustomControls = requiredElement<HTMLElement>(
+  "#notification-custom-controls",
+);
+const notificationCustomText = requiredElement<HTMLInputElement>(
+  "#notification-custom-text",
+);
+const applyNotificationButton = requiredElement<HTMLButtonElement>(
+  "#apply-notification",
+);
 const copyButton = requiredElement<HTMLButtonElement>("#copy-link");
 const replayNotificationButton = requiredElement<HTMLButtonElement>(
   "#replay-notification",
@@ -45,12 +65,32 @@ const runtimeStatus = requiredElement<HTMLElement>("#runtime-status");
 const mediaStatus = requiredElement<HTMLElement>("#media-status");
 const inspectorHost = requiredElement<HTMLElement>("#inspector-host");
 
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const NOTIFICATION_SOURCE_QUERY_KEY = "notification";
+const NOTIFICATION_TEXT_QUERY_KEY = "notification-text";
+
+type NotificationConfig =
+  | Readonly<{ source: "live" }>
+  | Readonly<{ source: "custom"; text: string }>;
+
 const query = new URLSearchParams(window.location.search);
 const replayingNotification = query.get("replay-notification") === "1";
 const parsedScenario = parseScenarioKey(query.get("scenario"));
 const scenario = getThreadsStateScenario(parsedScenario.scenarioKey);
-const runtimeUrl = runtimeUrlFor(window.location.origin, scenario.key);
-const requestLogUrl = `${runtimeUrl}/request-log`;
+const SCENARIO_RESET_SESSION_PREFIX = "cpk:inspector:workbench-reset:";
+const scenarioResetSessionKey = `${SCENARIO_RESET_SESSION_PREFIX}${scenario.key}`;
+const customNotificationText = query.get(NOTIFICATION_TEXT_QUERY_KEY)?.trim();
+const notificationConfig: NotificationConfig =
+  query.get(NOTIFICATION_SOURCE_QUERY_KEY) === "custom" &&
+  customNotificationText
+    ? { source: "custom", text: customNotificationText }
+    : { source: "live" };
+const runtimeUrl = scenario.learningState
+  ? learningLabRuntimeUrl(window.location.origin, scenario.learningState)
+  : runtimeUrlFor(window.location.origin, scenario.key);
+const requestLogUrl = scenario.learningState
+  ? null
+  : `${runtimeUrl}/request-log`;
 
 let core: CopilotKitCore | null = null;
 let inspector: WebInspectorElement | null = null;
@@ -65,6 +105,79 @@ function requiredElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
   if (!element) throw new Error(`Missing lab element: ${selector}`);
   return element;
+}
+
+function applyNotificationQuery(url: URL, config: NotificationConfig): URL {
+  url.searchParams.delete(NOTIFICATION_SOURCE_QUERY_KEY);
+  url.searchParams.delete(NOTIFICATION_TEXT_QUERY_KEY);
+  if (config.source === "custom") {
+    url.searchParams.set(NOTIFICATION_SOURCE_QUERY_KEY, "custom");
+    url.searchParams.set(NOTIFICATION_TEXT_QUERY_KEY, config.text);
+  }
+  return url;
+}
+
+function notificationPreviewUrl(config: NotificationConfig): string {
+  const url = applyNotificationQuery(new URL(window.location.href), config);
+  url.searchParams.delete("reset");
+  url.searchParams.set("replay-notification", "1");
+  return url.toString();
+}
+
+function customNotificationTimestamp(text: string): string {
+  let hash = 2_166_136_261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = Math.imul(hash ^ text.charCodeAt(index), 16_777_619);
+  }
+  const offsetWithinDay = (hash >>> 0) % 86_400_000;
+  return new Date(Date.UTC(2026, 8, 1) + offsetWithinDay).toISOString();
+}
+
+function escapeMarkdownText(text: string): string {
+  const markdownSyntax = "\\`*[]{}()#+.!|>~-_";
+  return Array.from(text, (character) =>
+    markdownSyntax.includes(character) ? `\\${character}` : character,
+  ).join("");
+}
+
+function installCustomNotificationResponse(config: NotificationConfig): void {
+  if (config.source !== "custom") return;
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const requestedUrl =
+      typeof input === "string"
+        ? new URL(input, window.location.href).href
+        : input instanceof URL
+          ? input.href
+          : input.url;
+    if (requestedUrl !== ANNOUNCEMENT_URL) {
+      return nativeFetch(input, init);
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          timestamp: customNotificationTimestamp(config.text),
+          previewText: config.text,
+          announcement: `## Workbench preview\n\n${escapeMarkdownText(config.text)}`,
+        }),
+        {
+          headers: {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+          },
+          status: 200,
+        },
+      ),
+    );
+  };
+}
+
+function renderNotificationEditor(config: NotificationConfig): void {
+  notificationSource.value = config.source;
+  notificationField.dataset.source = config.source;
+  const custom = config.source === "custom";
+  notificationCustomControls.hidden = !custom;
+  notificationCustomText.value = custom ? config.text : "";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,6 +240,8 @@ function parseRequestLog(value: unknown): ThreadRequestLog {
 function populateScenarioSelect(): void {
   const coreGroup = document.createElement("optgroup");
   coreGroup.label = "Plan and capability matrix";
+  const learningGroup = document.createElement("optgroup");
+  learningGroup.label = "Automatic Learning";
   const edgeGroup = document.createElement("optgroup");
   edgeGroup.label = "Edge cases";
   for (const key of ALL_SCENARIO_KEYS) {
@@ -136,11 +251,15 @@ function populateScenarioSelect(): void {
     option.selected = key === scenario.key;
     if (CORE_SCENARIO_KEYS.some((coreKey) => coreKey === key)) {
       coreGroup.append(option);
+    } else if (
+      LEARNING_SCENARIO_KEYS.some((learningKey) => learningKey === key)
+    ) {
+      learningGroup.append(option);
     } else {
       edgeGroup.append(option);
     }
   }
-  scenarioSelect.replaceChildren(coreGroup, edgeGroup);
+  scenarioSelect.replaceChildren(coreGroup, learningGroup, edgeGroup);
 }
 
 function renderFixture(): void {
@@ -155,6 +274,9 @@ function renderFixture(): void {
     runtimeInfo: scenario.runtimeInfo,
     inspectorMetadataBody: scenario.inspectorMetadataBody ?? null,
     threads: scenario.threads,
+    learning: scenario.learning,
+    memories: scenario.memories,
+    learningState: scenario.learningState ?? null,
     expectedNewestThreadId: scenario.expectedNewestThreadId ?? null,
     expectedInitialRequests: scenario.expectedRequests,
     media: scenario.media,
@@ -218,6 +340,9 @@ function renderLedger(log: ThreadRequestLog): void {
 async function fetchRequestLog(
   signal?: AbortSignal,
 ): Promise<ThreadRequestLog> {
+  if (!requestLogUrl) {
+    throw new Error("The Thread request ledger does not apply to Learning.");
+  }
   const response = await fetch(requestLogUrl, {
     headers: { accept: "application/json" },
     signal,
@@ -228,8 +353,27 @@ async function fetchRequestLog(
   return parseRequestLog(await response.json());
 }
 
+function renderLearningLedger(): void {
+  for (const kind of THREAD_REQUEST_KINDS) {
+    const actualCell = requiredElement<HTMLElement>(`#actual-${kind}`);
+    const outcomeCell = requiredElement<HTMLElement>(`#outcome-${kind}`);
+    actualCell.textContent = "—";
+    outcomeCell.textContent = "Not used";
+    outcomeCell.dataset.state = "match";
+  }
+  const empty = document.createElement("li");
+  empty.textContent = "Learning uses the shared Inspector Learning Runtime.";
+  requestLogOutput.replaceChildren(empty);
+  ledgerStatus.textContent = "Not applicable to Learning fixtures.";
+  ledgerStatus.dataset.state = "match";
+}
+
 async function refreshLedger(): Promise<void> {
   if (teardownStarted) return;
+  if (scenario.learningState) {
+    renderLearningLedger();
+    return;
+  }
   ledgerAbortController?.abort();
   const controller = new AbortController();
   ledgerAbortController = controller;
@@ -322,16 +466,18 @@ async function openInspectorSurface(
     "the Web Inspector launcher",
   );
   launcher.click();
-  if (initialMenu === "threads") {
-    const threads = await waitForButton(
-      (button) => button.textContent?.trim() === "Threads",
-      "the Threads navigation button",
+  if (initialMenu !== "home") {
+    const menuLabel = initialMenu === "memories" ? "Learning" : "Threads";
+    const menuButton = await waitForButton(
+      (button) => button.textContent?.trim() === menuLabel,
+      `the ${menuLabel} navigation button`,
     );
-    threads.click();
+    menuButton.click();
   }
 }
 
 async function resetServerLedger(): Promise<void> {
+  if (!requestLogUrl) return;
   const response = await fetch(`${requestLogUrl}/reset`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -370,16 +516,54 @@ async function teardownAndReset(): Promise<void> {
 
 async function navigateToScenario(key: ScenarioKey): Promise<void> {
   actionStatus.textContent = "Closing the current fixture…";
-  await navigateThreadsStateLabScenario(window.location, key, teardownAndReset);
+  window.sessionStorage.removeItem(`${SCENARIO_RESET_SESSION_PREFIX}${key}`);
+  await teardownAndReset();
+  const directLink = applyNotificationQuery(
+    new URL(canonicalScenarioUrl(window.location.origin, key)),
+    notificationConfig,
+  );
+  window.location.assign(directLink.href);
 }
 
 async function copyDirectLink(): Promise<void> {
-  await copyThreadsStateLabDirectLink(
-    navigator.clipboard,
-    window.location.origin,
-    scenario.key,
+  const directLink = applyNotificationQuery(
+    new URL(canonicalScenarioUrl(window.location.origin, scenario.key)),
+    notificationConfig,
   );
+  await navigator.clipboard.writeText(directLink.href);
   actionStatus.textContent = "Direct link copied.";
+}
+
+function handleNotificationSourceChange(): void {
+  if (notificationSource.value === "live") {
+    if (notificationConfig.source === "custom") {
+      actionStatus.textContent = "Loading the live announcement…";
+      window.location.assign(notificationPreviewUrl({ source: "live" }));
+      return;
+    }
+    renderNotificationEditor({ source: "live" });
+    actionStatus.textContent = "Using the live announcement.";
+    return;
+  }
+
+  notificationField.dataset.source = "custom";
+  notificationCustomControls.hidden = false;
+  notificationCustomText.value =
+    notificationConfig.source === "custom" ? notificationConfig.text : "";
+  actionStatus.textContent = "Write a custom notification, then apply it.";
+  notificationCustomText.focus();
+}
+
+function applyCustomNotification(): void {
+  const text = notificationCustomText.value.trim();
+  if (!text) {
+    notificationCustomText.setCustomValidity("Write notification text first.");
+    notificationCustomText.reportValidity();
+    return;
+  }
+  notificationCustomText.setCustomValidity("");
+  actionStatus.textContent = "Loading the custom notification…";
+  window.location.assign(notificationPreviewUrl({ source: "custom", text }));
 }
 
 function replayNotification(): void {
@@ -391,13 +575,17 @@ function reportFatalError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   actionStatus.textContent = message;
   actionStatus.dataset.state = "error";
+  document.body.dataset.labReady = "error";
+  document.documentElement.dataset.ready = "error";
   console.error("[Inspector Threads lab]", error);
 }
 
 async function boot(): Promise<void> {
   populateScenarioSelect();
+  renderNotificationEditor(notificationConfig);
+  installCustomNotificationResponse(notificationConfig);
   renderFixture();
-  document.title = `${scenario.label} · Inspector Threads lab`;
+  document.title = `${scenario.label} · Inspector state workbench`;
   document.body.dataset.scenario = scenario.key;
 
   if (parsedScenario.rejectedKey) {
@@ -428,10 +616,20 @@ async function boot(): Promise<void> {
     );
   }
 
-  if (query.get("reset") === "1") {
-    clearThreadsStateLabStorage(window.localStorage);
+  if (
+    query.get("reset") === "1" &&
+    window.sessionStorage.getItem(scenarioResetSessionKey) !== "1"
+  ) {
+    clearThreadsStateLabStorage(window.localStorage, document);
+    window.sessionStorage.setItem(scenarioResetSessionKey, "1");
     await resetServerLedger();
     actionStatus.textContent = "Inspector state and fixture ledger reset.";
+  }
+
+  if (scenario.learningState) {
+    prepareLearningStateClient({
+      state: scenario.learningState,
+    });
   }
 
   core = new CopilotKitCore({
@@ -456,17 +654,31 @@ async function boot(): Promise<void> {
   refreshLedger().catch(reportFatalError);
   mediaTimer = window.setInterval(updateMediaStatus, 400);
   updateMediaStatus();
-  seedThreadsStateLabAgentEvents(inspector, scenario);
-  await inspector.updateComplete;
-  if (replayingNotification) {
-    actionStatus.textContent =
-      "Notification re-armed. Watch the closed launcher for the halo and dot.";
+  if (scenario.learningState) {
+    await waitForLearningConnection(core);
+    await readyIntegratedLearningState(scenario.learningState, inspector);
+    if (window.innerWidth <= 900) {
+      // The narrow Inspector remains truly docked, but the workbench itself
+      // must keep its normal viewport width so closing the Inspector reveals
+      // usable scenario controls instead of a page shifted off canvas.
+      document.body.style.marginLeft = "";
+    }
+    await settleLearningState();
+    document.body.dataset.learningState = scenario.learningState;
   } else {
-    await openInspectorSurface(scenario.initialMenu);
-    actionStatus.textContent = `Inspector open on ${
-      scenario.initialMenu === "home" ? "Home" : "Threads"
-    }.`;
+    seedThreadsStateLabAgentEvents(inspector, scenario);
+    await inspector.updateComplete;
   }
+  if (replayingNotification && !scenario.learningState) {
+    actionStatus.textContent = "";
+  } else if (!scenario.learningState) {
+    await openInspectorSurface(scenario.initialMenu);
+    actionStatus.textContent = "";
+  } else {
+    actionStatus.textContent = "";
+  }
+  document.body.dataset.labReady = "true";
+  document.documentElement.dataset.ready = "true";
 }
 
 const removeNavigationListeners = installThreadsStateLabNavigation(
@@ -480,6 +692,16 @@ copyButton.addEventListener("click", () => {
   copyDirectLink().catch(reportFatalError);
 });
 replayNotificationButton.addEventListener("click", replayNotification);
+notificationSource.addEventListener("change", handleNotificationSourceChange);
+notificationCustomText.addEventListener("input", () => {
+  notificationCustomText.setCustomValidity("");
+});
+notificationCustomText.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  applyCustomNotification();
+});
+applyNotificationButton.addEventListener("click", applyCustomNotification);
 window.addEventListener(
   "pagehide",
   () => {

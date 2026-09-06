@@ -486,7 +486,7 @@ test("keeps shared backend guidance while expanding Angular source regions", () 
     "connectAgentContext(this.configContext)",
   );
   expect(angularAgentConfig).toContain(
-    "The backend half is also a single node.",
+    "The framework setup above shows the exact backend bridge",
   );
   expect(angularAgentConfig).not.toContain("useAgentContext({");
   expect(angularSubagents).toContain(
@@ -551,6 +551,18 @@ test.each([
   }
 });
 
+test("keeps programmatic control on one client-safe React example", () => {
+  const doc = loadDoc("programmatic-control");
+  const example = doc?.source.match(
+    /```tsx title="frontend\/src\/app\/agent-trigger\.tsx"\n([\s\S]*?)```/,
+  )?.[1];
+
+  expect(example).toMatch(
+    /^"use client";\n\nimport \{ useAgent, useCopilotKit \} from "@copilotkit\/react-core\/v2";/,
+  );
+  expect(loadDoc("integrations/langgraph/programmatic-control")).toBeNull();
+});
+
 test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
   "renders a lifecycle-safe shared-state initializer for %s",
   (framework) => {
@@ -591,6 +603,91 @@ test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
     expect(output).not.toContain("from google.adk");
   },
 );
+
+test.each([
+  [
+    "strands-typescript",
+    "integrations/aws-strands/shared-state/in-app-agent-read",
+    'language: "spanish"',
+  ],
+  [
+    "pydantic-ai",
+    "integrations/pydantic-ai/shared-state/in-app-agent-read",
+    'language: "english"',
+  ],
+] as const)(
+  "renders supported state initialization on the %s read route",
+  (framework, loadSlug, initialLanguage) => {
+    const doc = loadDoc(loadSlug);
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `${framework}/shared-state/in-app-agent-read`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug,
+        framework,
+      },
+      { framework },
+    );
+
+    expect(output).toContain("const { agent, isReady } = useAgent({");
+    expect(output).toContain(
+      "if (!isReady || state.language !== undefined) return;",
+    );
+    expect(output).toContain(initialLanguage);
+    expect(output).not.toMatch(/\binitialState\s*:/);
+    expect(output).not.toContain("render: ({ state })");
+  },
+);
+
+test("renders executable Claude SDK shared-state wiring on both public routes", () => {
+  const doc = loadDoc("shared-state");
+  expect(doc).not.toBeNull();
+
+  const render = (framework: string) =>
+    renderPageToLlmText(
+      {
+        url: `${framework}/shared-state`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "shared-state",
+        framework,
+      },
+      { framework },
+    );
+
+  const python = render("claude-sdk-python");
+  expect(python).toContain("tools=[SET_NOTES_TOOL]");
+  expect(python).toContain('if tc["name"] == "set_notes"');
+  expect(python).toContain("StateSnapshotEvent");
+  expect(python).toContain("ToolCallResultEvent");
+  expect(python).toContain("run_shared_state_read_write_agent");
+  expect(python).toContain("intentionally uses its own Messages API loop");
+  expect(python).not.toContain("<FrameworkSetup");
+  expect(python).not.toContain("@region[");
+
+  const typeScript = render("claude-sdk-typescript");
+  expect(typeScript).toContain(
+    "toolSchemas: [SET_NOTES_TOOL_SCHEMA] as Anthropic.Tool[]",
+  );
+  expect(typeScript).toContain("runWithClaudeAgentSdk({");
+  expect(typeScript).toContain("createSdkMcpServer({");
+  expect(typeScript).toContain("mcp__copilotkit__set_notes");
+  expect(typeScript).toContain('toolName === "set_notes"');
+  expect(typeScript).toContain("direct Anthropic Messages API fallback");
+  expect(typeScript).not.toContain("<FrameworkSetup");
+  expect(typeScript).not.toContain("@region[");
+
+  const control = render("langgraph-typescript");
+  expect(control).not.toContain("mcp__copilotkit__set_notes");
+  expect(control).not.toContain("run_shared_state_read_write_agent");
+  expect(control).not.toContain("ClaudeAgentAdapter");
+  expect(control).not.toContain("<FrameworkSetup");
+});
 
 test("publishes both canonical Strands starter commands in LLM text", () => {
   const loadSlug = "integrations/aws-strands/quickstart";
@@ -860,6 +957,52 @@ test("renders executable Deep Agents state streaming in both languages", () => {
   expect(output).not.toContain("copilotkitEmitState");
   expect(output).not.toContain("chatNode");
 });
+
+test.each(["generative-ui/state-rendering", "shared-state/streaming"])(
+  "renders the Google ADK termination setup on %s without leaking internals",
+  (loadSlug) => {
+    const doc = loadDoc(loadSlug);
+    expect(doc).not.toBeNull();
+
+    const render = (framework: string) =>
+      renderPageToLlmText(
+        {
+          url: `${framework}/${loadSlug}`,
+          title: doc!.fm.title,
+          description: doc!.fm.description,
+          filePath: doc!.filePath,
+          loadSlug,
+          framework,
+        },
+        { framework },
+      );
+
+    const googleAdk = render("google-adk");
+    expect(googleAdk).toContain("after_model_callback=stop_on_terminal_text");
+    expect(googleAdk).toContain(
+      "showcase/integrations/google-adk/src/agents/shared_chat.py",
+    );
+    expect(googleAdk).not.toContain("def stop_on_terminal_text(");
+    expect(googleAdk).not.toContain("simple_after_model_modifier");
+    expect(googleAdk).not.toContain("AAPL");
+    expect(googleAdk).not.toContain("ADK_DISABLE_PROGRESSIVE_SSE_STREAMING");
+    expect(googleAdk).not.toContain("_invocation_context");
+    expect(googleAdk).not.toContain("<FrameworkSetup");
+    expect(googleAdk).not.toContain("@region[");
+
+    const otherPublicFrameworks = getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => integration.slug)
+      .filter((framework) => framework !== "google-adk");
+    for (const framework of otherPublicFrameworks) {
+      const output = render(framework);
+      expect(output, framework).not.toContain(
+        "showcase/integrations/google-adk/src/agents/shared_chat.py",
+      );
+      expect(output, framework).not.toContain("<FrameworkSetup");
+    }
+  },
+);
 
 test("raw Markdown keeps only the active framework's <WhenFrameworkHas> branch", () => {
   const slug = "generative-ui/a2ui/fixed-schema";

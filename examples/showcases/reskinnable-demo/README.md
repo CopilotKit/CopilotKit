@@ -249,7 +249,7 @@ requirement for its memory and stored-procedure beats are at the top of
 
 By default the runtime is pure OSS — the teach-a-workflow loop works within a
 single conversation, but nothing persists across threads or restarts. When
-`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and `INTELLIGENCE_API_KEY`
+`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and `CPK_INTELLIGENCE_API_KEY`
 are all set (`src/app/api/copilotkit/[[...slug]]/route.ts`), the runtime builds
 in Intelligence mode: the agent gains durable long-term memory via the
 `recall_memory` / `save_memory` tools, so a demonstrated procedure — every skin

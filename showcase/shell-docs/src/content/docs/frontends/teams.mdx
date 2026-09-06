@@ -18,7 +18,7 @@ New to the product? Start with the [Channels overview](/channels) to understand
 how the SDK, Runtime, Intelligence, and provider connection fit together.
 
 Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
-You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
+You should have `CHANNEL_CODE` and `CPK_INTELLIGENCE_API_KEY`.
 
 ## What kind of bot this is
 
@@ -141,7 +141,7 @@ re-installing.
     });
 
     const intelligence = new CopilotKitIntelligence({
-      apiKey: required("INTELLIGENCE_API_KEY"),
+      apiKey: required("CPK_INTELLIGENCE_API_KEY"),
       // Managed deployments use the hosted defaults. Override both URLs
       // together only for self-hosted or non-production Intelligence.
       apiUrl: process.env.INTELLIGENCE_API_URL,
@@ -207,7 +207,7 @@ re-installing.
     ### Configure secrets and start
 
     ```dotenv title=".env"
-    INTELLIGENCE_API_KEY=<project-api-key>
+    CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-teams
     # Add the agent variables shown for your selected backend.
     PORT=3000

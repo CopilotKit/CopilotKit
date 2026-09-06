@@ -33,6 +33,7 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
+import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 import { DemoSource } from "@/components/demo-source";
 import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
 import { AngularSnippet } from "@/components/angular-snippet";
@@ -40,6 +41,10 @@ import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import {
+  IntelligenceFeatureCards,
+  IntelligenceOverview,
+} from "@/components/content/landing-pages/intelligence-overview";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import {
   AdkIcon,
@@ -106,13 +111,13 @@ const Callout = DocsCallout;
 // Keeping this map alongside the stub definitions also makes the
 // mapping discoverable from a single place.
 const STUB_PARTIAL_MAP: Record<string, string> = {
-  Inspector: "shared/premium/inspector.mdx",
+  Inspector: "shared/intelligence/inspector.mdx",
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   A2UI: "shared/generative-ui/a2ui.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
-  Overview: "shared/premium/overview.mdx",
+  Overview: "shared/intelligence/overview.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
@@ -121,7 +126,7 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  SelfHosting: "shared/premium/self-hosting.mdx",
+  SelfHosting: "shared/intelligence/self-hosting.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CustomAgent: "shared/backend/custom-agent.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
@@ -270,6 +275,7 @@ export const docsComponents = {
   SignupLink,
   DocsTrackedCopy,
   DocsTrackedLink,
+  WebMCPSetupPrompt,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) {
       warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
@@ -588,6 +594,8 @@ export const docsComponents = {
   // features grid, architecture image, live demos) instead of being
   // dropped on the floor as a children-passthrough used to do.
   FrameworkOverview: MdxFrameworkOverview,
+  IntelligenceOverview,
+  IntelligenceFeatureCards,
   // Per-render override in DocsPageView binds `currentFramework` from
   // the URL — same closure pattern as MdxFrameworkOverview. The base
   // registration renders null when invoked without a framework slug

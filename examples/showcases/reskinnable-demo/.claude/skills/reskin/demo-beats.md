@@ -97,7 +97,7 @@ not `status` (`tools.tsx:553-572`).
 
 **⚠️ Runtime-conditional.** Durable cross-reload thread history exists only in
 **Intelligence mode** — all three of `INTELLIGENCE_API_URL`,
-`INTELLIGENCE_GATEWAY_WS_URL`, `INTELLIGENCE_API_KEY` set. The default OSS path
+`INTELLIGENCE_GATEWAY_WS_URL`, `CPK_INTELLIGENCE_API_KEY` set. The default OSS path
 uses `InMemoryAgentRunner` and is ephemeral. No skin code persists anything.
 Demo this beat in Intelligence mode or not at all — and write your tools
 replay-safe regardless, because the failure is invisible until you reload.

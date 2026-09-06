@@ -17,7 +17,7 @@ describe("POST /dev/reset", () => {
     // Unset explicitly: with Intelligence configured this route also sweeps and
     // re-seeds memory over the network, which is the sibling file's subject.
     vi.stubEnv("INTELLIGENCE_API_URL", "");
-    vi.stubEnv("INTELLIGENCE_API_KEY", "");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "");
 
     store.updateShipment("shp-4821", { status: "resolved" });
     store.addDecision({

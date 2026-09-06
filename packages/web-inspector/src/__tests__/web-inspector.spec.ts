@@ -1,17 +1,21 @@
 import {
   CpkThreadInspector,
+  configureWebInspectorElement,
   WebInspectorElement,
   ɵbuildCapabilityRows,
   ɵCpkThreadDetails,
 } from "../index.js";
 import type { ThreadDebuggerProvider } from "../index.js";
-import type { CopilotKitCore } from "@copilotkit/core";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { Memory } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type { InspectorOpenSource } from "../lib/telemetry.js";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
+import { describe, it, test, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Types for accessing LitElement-private reactive properties ---
 // WebInspectorElement stores these as private Lit reactive properties.
@@ -294,6 +298,17 @@ describe("WebInspectorElement", () => {
     vi.clearAllTimers();
   });
 
+  it("binds a host core before the real custom element connects", () => {
+    const { core } = createMockCore();
+    const inspector = new WebInspectorElement();
+
+    configureWebInspectorElement(inspector, core as unknown as CopilotKitCore);
+    document.body.appendChild(inspector);
+
+    expect(inspector.autoAttachCore).toBe(false);
+    expect(inspector.core).toBe(core);
+  });
+
   it("records agent events and syncs state/messages/tools", async () => {
     const { agent, controller } = createMockAgent("alpha", {
       messages: [{ id: "m1", role: "user", content: "hi there" }],
@@ -571,28 +586,22 @@ function createDeferred<T>(): {
   });
   return { promise, resolve, reject };
 }
+/**
+ * Drive the threadId-change `updated()` block once so its reset path runs
+ * before a cache test seeds the state it intends to inspect.
+ */
+async function settleThread(
+  el: ɵCpkThreadDetails,
+  internals: ThreadDetailsInternals,
+  threadId: string,
+): Promise<void> {
+  internals.threadId = threadId;
+  await el.updateComplete;
+}
 describe("ɵCpkThreadDetails caching", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
   });
-
-  /**
-   * Drive the threadId-change `updated()` block once so its reset path
-   * runs on entry, then seed the data the test cares about AFTER. If we
-   * seed before the first updateComplete, `updated()` immediately nulls
-   * `_fetchedState` / `_fetchedEvents` / `_conversation` (and
-   * `fetchMessages` re-clears `_conversation` when no `runtimeUrl` is
-   * configured, as in this jsdom test), so the assertions below would
-   * be running against an empty element.
-   */
-  async function settleThread(
-    el: ɵCpkThreadDetails,
-    internals: ThreadDetailsInternals,
-    threadId: string,
-  ): Promise<void> {
-    internals.threadId = threadId;
-    await el.updateComplete;
-  }
 
   it("threadId change drops template and timeline item caches", async () => {
     const { el, internals } = createThreadDetails();
@@ -770,6 +779,7 @@ describe("ɵCpkThreadDetails caching", () => {
       },
     ];
     internals._fetchedEvents = events;
+    const originalConversation = internals._conversation;
 
     const timelineTpl = internals.renderTimeline();
     expect(internals._panelTplCache.get("timeline")?.tpl).toBe(timelineTpl);
@@ -786,6 +796,7 @@ describe("ɵCpkThreadDetails caching", () => {
       fallbackTpl,
     );
 
+    internals._conversation = originalConversation;
     internals._fetchedEvents = events;
     expect(internals.renderTimeline()).toBe(timelineTpl);
   });
@@ -988,7 +999,7 @@ describe("CpkThreadInspector provider contract", () => {
       "thread-1234567890",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    expect(provider.getMessages).not.toHaveBeenCalled();
+    expect(provider.getMessages).toHaveBeenCalledTimes(1);
     expect(internals._fetchedMetadata?.agentId).toBe("agent-a");
     expect(internals._fetchedEvents).toHaveLength(6);
 
@@ -997,7 +1008,7 @@ describe("CpkThreadInspector provider contract", () => {
     expect(text).toContain("AG-UI Events");
     expect(text).toContain("State");
     expect(text).toContain("Run started");
-    expect(text).toContain("assistant message");
+    expect(text).toContain("Assistant message");
     expect(text).toContain("hello from events");
     expect(text).toContain("lookup_docs");
     expect(text).toContain("Could not decode tool call arguments");
@@ -1189,7 +1200,10 @@ describe("CpkThreadInspector provider contract", () => {
       if (url.endsWith("/threads/t1/state")) return t1State.promise;
       if (url.endsWith("/threads/t2/events")) return t2Events.promise;
       if (url.endsWith("/threads/t2/state")) return t2State.promise;
-      if (url.endsWith("/threads/t2/messages")) {
+      if (
+        url.endsWith("/threads/t1/messages") ||
+        url.endsWith("/threads/t2/messages")
+      ) {
         return Promise.resolve(
           new Response(JSON.stringify({ messages: [] }), { status: 200 }),
         );
@@ -1272,6 +1286,8 @@ describe("CpkThreadInspector provider contract", () => {
       fetchMock.mock.calls.filter((call) =>
         String(call[0]).startsWith("http://runtime"),
       );
+    const eventFetches = () =>
+      threadFetches().filter((call) => String(call[0]).endsWith("/events"));
 
     internals.runtimeUrl = "http://runtime";
     internals.threadInspectionAvailable = true;
@@ -1280,7 +1296,7 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
-      expect(threadFetches()).toHaveLength(1);
+      expect(eventFetches()).toHaveLength(1);
       expect(internals._fetchedEvents?.[0]?.payload).toEqual({
         auth: "Bearer first",
       });
@@ -1290,12 +1306,12 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
-      expect(threadFetches()).toHaveLength(2);
+      expect(eventFetches()).toHaveLength(2);
       expect(internals._fetchedEvents?.[0]?.payload).toEqual({
         auth: "Bearer second",
       });
     });
-    expect(headersOf(threadFetches().at(-1)!)).toMatchObject({
+    expect(headersOf(eventFetches().at(-1)!)).toMatchObject({
       Authorization: "Bearer second",
     });
   });
@@ -1363,7 +1379,7 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     expect(internals.activeTimelineItems).toHaveLength(1);
-    expect(el.shadowRoot?.textContent ?? "").toContain("THREAD_STATE_WRITTEN");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Thread state written");
     expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
     expect(el.shadowRoot?.textContent ?? "").not.toContain("checkpointId");
     expect(el.shadowRoot?.textContent ?? "").toContain("Source event #1");
@@ -1518,7 +1534,7 @@ type OpenTelemetryInternals = {
  */
 async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
   inspector.shadowRoot
-    ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+    ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
     ?.click();
   await inspector.updateComplete;
   inspector.shadowRoot
@@ -1537,7 +1553,8 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     window.sessionStorage.clear();
     body = "Channels are here — [read more](https://x.test)";
     fetchMock = vi.fn((input: unknown) => {
-      if (String(input) === ANNOUNCEMENT_URL) {
+      const href = String(input);
+      if (href === ANNOUNCEMENT_URL) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -1547,6 +1564,14 @@ describe("WebInspectorElement open + What's new telemetry", () => {
             }),
             { status: 200 },
           ),
+        );
+      }
+      if (href.includes("/threads")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ threads: [], joinCode: null }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
         );
       }
       return Promise.resolve(new Response(null, { status: 204 }));
@@ -1586,7 +1611,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     posts().filter((post) => post.event === name);
   const launcherIsPulsing = (inspector: WebInspectorElement) =>
     inspector.shadowRoot
-      ?.querySelector('button[aria-label="Web Inspector"]')
+      ?.querySelector('button[aria-label^="Web Inspector"]')
       ?.getAttribute("data-cpk-signal-pulsing") === "true";
   const announcementLink = (inspector: WebInspectorElement) => {
     const link = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -1790,7 +1815,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
     // No dot to click: nothing armed, because nothing renders.
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1821,7 +1846,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1839,7 +1864,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1973,6 +1998,10 @@ describe("WebInspectorElement open + What's new telemetry", () => {
 // the headers configured on <CopilotKit> (e.g. X-CSRF / auth), otherwise the
 // requests 403 in environments that enforce CSRF/auth checks.
 
+type RuntimeEntitlementDiagnostics = NonNullable<
+  CopilotKitCore["runtimeEntitlements"]
+>;
+
 type HeaderMockCore = {
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
@@ -1984,9 +2013,11 @@ type HeaderMockCore = {
   // assertions about pre-handshake segmentation pass for the wrong reason.
   runtimeMode: string;
   licenseStatus?: string;
+  runtimeEntitlements?: RuntimeEntitlementDiagnostics;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
     list: boolean;
     inspect: boolean;
@@ -2008,8 +2039,18 @@ function createHeaderMockCore(
   headers: Record<string, string>,
   endpointOverrides: Partial<HeaderMockCore["threadEndpoints"]> = {},
   telemetryDisabled = true,
+  diagnostics: Pick<
+    HeaderMockCore,
+    "runtimeEntitlements" | "licenseStatus"
+  > = {},
 ) {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
+  // Delegates to the live `globalThis.fetch` so every existing assertion on the
+  // fetch stub keeps working, while a regression back to the global leaves this
+  // spy uncalled.
+  const runtimeFetch = vi.fn<typeof fetch>((...args) =>
+    globalThis.fetch(...args),
+  );
   const core: HeaderMockCore = {
     agents,
     context: {},
@@ -2019,6 +2060,7 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    ɵruntimeFetch: runtimeFetch,
     threadEndpoints: {
       list: true,
       inspect: true,
@@ -2046,6 +2088,7 @@ function createHeaderMockCore(
   const asCore = () => core as unknown as CopilotKitCore;
   return {
     core,
+    runtimeFetch,
     emitAgentsChanged() {
       subscribers.forEach((s) =>
         s.onAgentsChanged?.({ copilotkit: asCore(), agents: core.agents }),
@@ -2086,6 +2129,343 @@ function createHeaderMockCore(
 const headersOf = (call: unknown[]) =>
   (call[1] as { headers?: Record<string, string> } | undefined)?.headers ?? {};
 
+/** Return the rendered text inside the nested Threads list component. */
+const threadListText = (inspector: WebInspectorElement) =>
+  inspector.shadowRoot?.querySelector("cpk-thread-list")?.shadowRoot
+    ?.textContent ?? "";
+
+/** Create an isolated Runtime-diagnostics browser fixture. */
+function setupRuntimeDiagnostics() {
+  document.body.innerHTML = "";
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+
+  const threadListCalls = () =>
+    fetchMock.mock.calls.filter((call) =>
+      String(call[0]).includes("/threads?"),
+    );
+
+  /** Mount the Threads view with one capability and entitlement state. */
+  async function mountThreadsWithCapability(
+    threadListAvailable: boolean,
+    diagnostics: Pick<HeaderMockCore, "runtimeEntitlements" | "licenseStatus">,
+  ): Promise<WebInspectorElement> {
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/info")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              version: "1.0.0",
+              agents: {
+                alpha: {
+                  name: "alpha",
+                  className: "HttpAgent",
+                  description: "Alpha",
+                },
+              },
+              audioFileTranscriptionEnabled: false,
+              mode: "intelligence",
+              threadEndpoints: {
+                list: threadListAvailable,
+                inspect: true,
+                mutations: true,
+                realtimeMetadata: true,
+              },
+              telemetryDisabled: true,
+              ...diagnostics,
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+      if (url.includes("/threads?")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ threads: [] }), { status: 200 }),
+        );
+      }
+      if (url.includes("announcement.json")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              timestamp: "2026-07-11T00:00:00.000Z",
+              previewText: "",
+              announcement: "Inspector",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const core = new CopilotKitCore({
+      runtimeUrl: "http://localhost/api",
+      runtimeTransport: "rest",
+    });
+    await vi.waitFor(() => {
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+    });
+
+    localStorage.removeItem("cpk:inspector:state");
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core;
+    await inspector.updateComplete;
+
+    const openInspector =
+      inspector.shadowRoot?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Web Inspector"]',
+      );
+    expect(openInspector).not.toBeNull();
+    openInspector?.click();
+    await inspector.updateComplete;
+
+    const threadsButton = Array.from(
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ).find((button) => button.textContent?.trim() === "Threads");
+    expect(threadsButton).toBeDefined();
+    threadsButton?.click();
+    await inspector.updateComplete;
+
+    return inspector;
+  }
+
+  return {
+    fetchMock,
+    mountThreadsWithCapability,
+    threadListCalls,
+    teardown: () => {
+      document.body.innerHTML = "";
+      vi.unstubAllGlobals();
+    },
+  };
+}
+
+test.each([
+  {
+    diagnostic: "ready entitlement",
+    legacyStatus: "expired",
+    runtimeEntitlements: {
+      status: "ready",
+      entitlement: {
+        active: true,
+        source: "managedOrgSubscription",
+        features: { msteams: true },
+        limits: { "threads.retention_hours": 120 },
+        planCode: "pro",
+        entitlementSource: "clerk_subscription",
+      },
+    },
+    lockedHeading: "Renew Intelligence to inspect Threads.",
+  },
+  {
+    diagnostic: "expired self-hosted entitlement",
+    legacyStatus: "valid",
+    runtimeEntitlements: {
+      status: "degraded",
+      error: {
+        code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
+        message: "Self-hosted license has expired.",
+        retryable: false,
+        requestId: "req-expired",
+        traceId: "trace-expired",
+      },
+    },
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+  {
+    diagnostic: "misconfigured self-hosted entitlement",
+    legacyStatus: "valid",
+    runtimeEntitlements: {
+      status: "misconfigured",
+      error: {
+        code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+        message: "Self-hosted license configuration is missing or invalid.",
+        retryable: false,
+      },
+    },
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+  {
+    diagnostic: "unavailable managed entitlement",
+    legacyStatus: "valid",
+    runtimeEntitlements: {
+      status: "unavailable",
+      error: {
+        code: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
+        message: "Managed entitlement resolution is temporarily unavailable.",
+        retryable: true,
+      },
+    },
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+  {
+    diagnostic: "SDK fail-soft entitlement lookup",
+    legacyStatus: "valid",
+    runtimeEntitlements: {
+      status: "unavailable",
+      error: {
+        code: "runtime_entitlements_unavailable",
+        message: "Runtime entitlement lookup failed",
+        retryable: true,
+      },
+    },
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+] as const)(
+  "keeps the unified locked splash for $diagnostic",
+  async ({ legacyStatus, runtimeEntitlements, lockedHeading }) => {
+    const fixture = setupRuntimeDiagnostics();
+
+    try {
+      const inspector = await fixture.mountThreadsWithCapability(false, {
+        runtimeEntitlements,
+        licenseStatus: legacyStatus,
+      });
+
+      const diagnostics = inspector.shadowRoot?.querySelectorAll(
+        "[data-runtime-entitlement-status]",
+      );
+      expect(diagnostics).toHaveLength(0);
+      expect(
+        inspector.shadowRoot?.querySelector(
+          '[data-inspector-feature-video="threads"]',
+        ),
+      ).not.toBeNull();
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
+      expect(
+        fixture.fetchMock.mock.calls.some((call) =>
+          String(call[0]).includes("/threads"),
+        ),
+      ).toBe(false);
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
+test("keeps the unified locked splash for an expired legacy license", async () => {
+  const fixture = setupRuntimeDiagnostics();
+
+  try {
+    const inspector = await fixture.mountThreadsWithCapability(false, {
+      licenseStatus: "expired",
+    });
+
+    const diagnostics = inspector.shadowRoot?.querySelectorAll(
+      "[data-runtime-entitlement-status]",
+    );
+    expect(diagnostics).toHaveLength(0);
+    expect(inspector.shadowRoot?.textContent ?? "").toContain(
+      "Renew Intelligence to inspect Threads.",
+    );
+  } finally {
+    fixture.teardown();
+  }
+});
+
+test.each([
+  {
+    diagnostic: "structured misconfiguration",
+    diagnostics: {
+      runtimeEntitlements: {
+        status: "misconfigured",
+        error: {
+          code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+          message: "Self-hosted license configuration is missing or invalid.",
+          retryable: false,
+        },
+      },
+      licenseStatus: "valid",
+    },
+  },
+  {
+    diagnostic: "legacy expired license",
+    diagnostics: { licenseStatus: "expired" },
+  },
+] as const)(
+  "keeps Threads available for $diagnostic when the Runtime advertises list capability",
+  async ({ diagnostics }) => {
+    const fixture = setupRuntimeDiagnostics();
+
+    try {
+      const inspector = await fixture.mountThreadsWithCapability(
+        true,
+        diagnostics,
+      );
+
+      const threadsButton = Array.from(
+        inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
+          [],
+      ).find((button) => button.textContent?.trim() === "Threads");
+      expect(threadsButton).toBeDefined();
+      await vi.waitFor(() => {
+        expect(threadListText(inspector)).toContain("Realtime thread sync");
+      });
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(
+        "Threads are persistent, inspectable conversations",
+      );
+      expect(inspector.shadowRoot?.textContent ?? "").not.toContain(
+        "Enable Intelligence to inspect Threads.",
+      );
+      expect(fixture.threadListCalls().length).toBeGreaterThan(0);
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
+test.each([
+  {
+    diagnostic: "structured ready entitlement",
+    diagnostics: {
+      runtimeEntitlements: {
+        status: "ready",
+        entitlement: {
+          active: true,
+          source: "managedOrgSubscription",
+          features: { msteams: true },
+          limits: { "threads.retention_hours": 120 },
+        },
+      },
+      licenseStatus: "expired",
+    },
+    lockedHeading: "Renew Intelligence to inspect Threads.",
+  },
+  {
+    diagnostic: "legacy valid license",
+    diagnostics: { licenseStatus: "valid" },
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+] as const)(
+  "keeps Threads unavailable for $diagnostic when the Runtime omits list capability",
+  async ({ diagnostics, lockedHeading }) => {
+    const fixture = setupRuntimeDiagnostics();
+
+    try {
+      const inspector = await fixture.mountThreadsWithCapability(
+        false,
+        diagnostics,
+      );
+
+      const threadsButton = Array.from(
+        inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
+          [],
+      ).find((button) => button.textContent?.trim() === "Threads");
+      expect(threadsButton).toBeDefined();
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
+      expect(threadListText(inspector)).not.toContain(
+        "Threads are persistent, inspectable conversations",
+      );
+      expect(fixture.threadListCalls()).toHaveLength(0);
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
 describe("WebInspectorElement owned thread store headers (#5581)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -2108,9 +2488,6 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
           properties: Record<string, unknown>;
         };
       });
-  const threadListText = (inspector: WebInspectorElement) =>
-    inspector.shadowRoot?.querySelector("cpk-thread-list")?.shadowRoot
-      ?.textContent ?? "";
   const expectNoUtmParams = (url: URL) => {
     expect(url.searchParams.has("utm_source")).toBe(false);
     expect(url.searchParams.has("utm_medium")).toBe(false);
@@ -2166,6 +2543,46 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     });
   });
 
+  it("routes the owned store's /threads request through the core's instrumented fetch", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {});
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+
+    expect(
+      harness.runtimeFetch.mock.calls.filter((call) =>
+        String(call[0]).includes("/threads?"),
+      ).length,
+    ).toBe(threadListCalls().length);
+  });
+
+  // The Inspector ships independently of the core it attaches to, so a newer
+  // Inspector can meet an older pinned core with no `ɵruntimeFetch`. Losing
+  // detection through the Threads view is acceptable; handing the thread store
+  // `undefined` and breaking the view outright is not.
+  it("falls back to the global fetch when the core has no instrumented fetch", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {});
+    delete (harness.core as { ɵruntimeFetch?: unknown }).ɵruntimeFetch;
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+    expect(harness.runtimeFetch).not.toHaveBeenCalled();
+  });
+
   it("re-applies headers on the owned store when core headers change", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
@@ -2215,6 +2632,11 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
             new Response(JSON.stringify({ threads: [] }), { status: 200 }),
           );
         }
+        if (url.includes("/threads/") && url.endsWith("/messages")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ messages: [] }), { status: 200 }),
+          );
+        }
         return Promise.reject(new Error(`Unexpected URL ${url}`));
       },
     );
@@ -2248,19 +2670,19 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     harness.emitHeadersChanged({ "X-CSRF": "2" });
 
+    let eventCalls: unknown[][] = [];
     await vi.waitFor(() => {
-      expect(
-        fetchMock.mock.calls.filter((call) =>
-          String(call[0]).endsWith("/threads/thread-1/events"),
-        ),
-      ).toHaveLength(2);
+      eventCalls = fetchMock.mock.calls.filter((call) =>
+        String(call[0]).endsWith("/threads/thread-1/events"),
+      );
+      expect(eventCalls).toHaveLength(2);
     });
-    expect(headersOf(fetchMock.mock.calls.at(-1)!)).toMatchObject({
+    expect(headersOf(eventCalls.at(-1)!)).toMatchObject({
       "X-CSRF": "2",
     });
   });
 
-  it("shows the locked Intelligence state when thread listing is unavailable without fetching threads", async () => {
+  it("shows the guided Threads setup preview when thread listing is unavailable without fetching threads", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
@@ -2286,7 +2708,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await inspector.updateComplete;
 
     const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toMatch(/Threads are unavailable\./);
+    expect(text).toContain(
+      "Production-grade chat threads without the complexity. Self hostable.",
+    );
+    expect(text).not.toContain("Threads are unavailable.");
     expect(text).toContain("Talk to an Engineer");
     expect(text).not.toContain("Sign up for Intelligence");
     const ctaLabels = Array.from(
@@ -2294,11 +2719,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     ).map((anchor) => anchor.textContent?.trim());
     expect(
       ctaLabels.filter((label) => label === "Talk to an Engineer"),
-    ).toEqual(["Talk to an Engineer"]);
+    ).toEqual(["Talk to an Engineer", "Talk to an Engineer"]);
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
+      '[data-inspector-locked-feature-talk="threads"]',
     );
-    expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
+    expect(engineer?.closest("#cpk-main-scroll")).not.toBeNull();
+    expect(inspector.shadowRoot?.querySelector("cpk-thread-list")).toBeNull();
+    expect(text).toContain("Rich Threads");
     expect(text).not.toContain("No threads yet");
     expect(
       fetchMock.mock.calls.some((call) => String(call[0]).includes("/threads")),
@@ -2822,6 +3249,7 @@ type MemoryMockCore = {
   telemetryDisabled: boolean;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   intelligence: { wsUrl: string } | undefined;
+  licenseStatus?: "valid" | "none" | "expired" | "unknown";
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
@@ -2842,6 +3270,7 @@ function makeCoreWithMemory(
     available?: boolean;
     telemetryDisabled?: boolean;
     realtimeStatus?: MemoryStoreState["realtimeStatus"];
+    licenseStatus?: "valid" | "none" | "expired" | "unknown";
   } = {},
 ): MemoryMockCore {
   const available = opts.available ?? true;
@@ -2859,6 +3288,7 @@ function makeCoreWithMemory(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     // Intelligence present → locked teaser is NOT shown (unless available=false).
     intelligence: { wsUrl: "wss://localhost" },
+    licenseStatus: opts.licenseStatus,
     subscribe: (_subscriber: CopilotKitCoreSubscriber) => ({
       unsubscribe: () => undefined,
     }),
@@ -3002,6 +3432,23 @@ describe("WebInspectorElement memories — tab presence", () => {
 // ── 6.4  View states ──────────────────────────────────────────────────────
 
 describe("WebInspectorElement memories — view states", () => {
+  async function learningSurface(el: WebInspectorElement) {
+    await el.updateComplete;
+    const view = el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
+    expect(view, "Learning surface should render").not.toBeNull();
+    await (view as HTMLElement & { updateComplete: Promise<void> })
+      .updateComplete;
+    return view!;
+  }
+
+  function learningPreview(el: WebInspectorElement) {
+    const preview = el.shadowRoot?.querySelector<HTMLElement>(
+      '[data-inspector-locked-feature="memory"]',
+    );
+    expect(preview, "Learning preview should render").not.toBeNull();
+    return preview!;
+  }
+
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.stubGlobal("localStorage", {
@@ -3020,22 +3467,374 @@ describe("WebInspectorElement memories — view states", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the locked teaser when intelligence is absent", async () => {
+  const landingSnapshot: InspectorLearningSnapshotV1 = {
+    schemaVersion: 1,
+    projectKey: "project-safe-key",
+    snapshotVersion: "snapshot-landing",
+    webAppOrigin: "https://intelligence.customer.example",
+    configuration: { state: "not_configured" },
+    pendingThreadCount: 0,
+    run: { hasActiveRun: false, hasEverSucceeded: false, latest: null },
+    pendingCandidateCount: 0,
+    skillsPage: {
+      page: 1,
+      pageSize: 3,
+      total: 0,
+      totalPages: 0,
+      items: [],
+    },
+    insightsPage: {
+      page: 1,
+      pageSize: 4,
+      total: 0,
+      totalPages: 0,
+      items: [],
+    },
+    links: {
+      learning: "https://intelligence.customer.example/learning",
+      candidates: null,
+      runs: null,
+    },
+  };
+
+  const resultsSnapshot = (
+    overrides: Partial<InspectorLearningSnapshotV1> = {},
+  ): InspectorLearningSnapshotV1 => ({
+    ...landingSnapshot,
+    snapshotVersion: "snapshot-results",
+    configuration: {
+      state: "configured",
+      container: { id: "container-1", name: "Checkout Assistant" },
+    },
+    run: { hasActiveRun: false, hasEverSucceeded: true, latest: null },
+    skillsPage: {
+      page: 1,
+      pageSize: 3,
+      total: 0,
+      totalPages: 0,
+      items: [],
+    },
+    insightsPage: {
+      page: 1,
+      pageSize: 4,
+      total: 1,
+      totalPages: 1,
+      items: [
+        {
+          id: "insight-1",
+          statement: "Confirm the order before giving refund guidance.",
+          impact: "Customers get an accurate next step.",
+          totalThreadCount: 1,
+          evidenceTruncated: false,
+          evidence: [
+            {
+              status: "available",
+              threadId: "thread-1",
+              threadName: "Refund request #1798",
+              messageIds: ["message-1"],
+              updatedAt: "2026-09-03T19:00:00.000Z",
+            },
+          ],
+        },
+      ],
+    },
+    links: {
+      learning: "https://intelligence.customer.example/learning",
+      candidates: null,
+      runs: null,
+    },
+    ...overrides,
+  });
+
+  const learningCore = (
+    fetch: ReturnType<typeof vi.fn>,
+    agents: Record<string, AbstractAgent> = {},
+  ) =>
+    Object.assign(makeCoreWithMemory([]), {
+      agents,
+      runtimeUrl: "https://runtime.customer.example/api/copilotkit",
+      runtimeTransport: "rest" as const,
+      inspectorLearning: true,
+      ɵruntimeFetch: fetch,
+    });
+
+  it("advances the Learning preview copy action into setup progress before capability is available", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const core = Object.assign(makeCoreNoIntelligence(), {
+      runtimeUrl: "https://runtime.customer.example/api/copilotkit",
+      runtimeTransport: "rest" as const,
+    });
+    const el = await mountMemories(core);
+    const internals = el as unknown as {
+      learningSupported: boolean;
+      learningSnapshot: InspectorLearningSnapshotV1 | null;
+      learningSetupMarker: {
+        runtimeUrl: string;
+        agentId: string | null;
+      } | null;
+      selectedMenu: string;
+    };
+    const landing = learningPreview(el);
+    expect(landing?.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    const copy = landing?.querySelector<HTMLButtonElement>(
+      '[data-inspector-feature-setup-prompt="threads"]',
+    );
+    expect(copy).not.toBeNull();
+    copy?.click();
+
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledOnce();
+      expect(internals.learningSetupMarker).toMatchObject({
+        runtimeUrl: "https://runtime.customer.example/api/copilotkit",
+        agentId: null,
+      });
+    });
+    expect(internals.selectedMenu).toBe("memories");
+    await el.updateComplete;
+    const view = el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
+    await (view as HTMLElement & { updateComplete: Promise<void> })
+      .updateComplete;
+    expect(
+      view?.shadowRoot?.querySelector('[data-learning-state="setup"]'),
+    ).not.toBeNull();
+    expect(view?.shadowRoot?.textContent).toContain(
+      "Waiting for Learning setup",
+    );
+    expect(view?.shadowRoot?.textContent).toContain("Copy the setup prompt");
+    expect(view?.shadowRoot?.textContent).toContain("Set up Learning");
+    expect(
+      view?.shadowRoot?.querySelector(".step")?.classList.contains("complete"),
+    ).toBe(true);
+  });
+
+  it("keeps all-agents Learning unscoped when several agents are present", () => {
+    const alpha = createMockAgent("alpha").agent;
+    const beta = createMockAgent("beta").agent;
+    const core = makeCoreWithMemory([]);
+    core.agents = { alpha, beta };
+    const el = createInspectorWithCore(core as unknown as MockCore);
+    const internals = el as unknown as {
+      selectedContext: string;
+      getLearningAgentId: () => string | null;
+    };
+
+    internals.selectedContext = "all-agents";
+    expect(internals.getLearningAgentId()).toBeNull();
+    internals.selectedContext = "beta";
+    expect(internals.getLearningAgentId()).toBe("beta");
+  });
+
+  it("keeps Skills and Insights pagination independent through the integrated pane", async () => {
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const skillsPage = Number(url.searchParams.get("skillsPage") ?? "1");
+      const insightsPage = Number(url.searchParams.get("insightsPage") ?? "1");
+      return new Response(
+        JSON.stringify(
+          resultsSnapshot({
+            snapshotVersion: `snapshot-${skillsPage}-${insightsPage}`,
+            skillsPage: {
+              page: skillsPage,
+              pageSize: 3,
+              total: 4,
+              totalPages: 2,
+              items: Array.from(
+                { length: skillsPage === 1 ? 3 : 1 },
+                (_, index) => ({
+                  id: `skill-${skillsPage}-${index}`,
+                  name: `skill-page-${skillsPage}-${index}`,
+                  description: "Use this Skill for support requests.",
+                  revision: 1,
+                  skillMd: "# Skill",
+                  sourceInsight: null,
+                }),
+              ),
+            },
+            insightsPage: {
+              ...resultsSnapshot().insightsPage,
+              page: insightsPage,
+              total: 5,
+              totalPages: 2,
+              items: Array.from(
+                { length: insightsPage === 1 ? 4 : 1 },
+                (_, index) => ({
+                  ...resultsSnapshot().insightsPage.items[0]!,
+                  id: `insight-${insightsPage}-${index}`,
+                }),
+              ),
+            },
+          }),
+        ),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    const el = await mountMemories(learningCore(fetch));
+    const view = await learningSurface(el);
+    await vi.waitFor(() => {
+      expect(
+        view.shadowRoot?.querySelector("[data-learning-state='results']"),
+      ).not.toBeNull();
+    });
+
+    view.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        "nav[aria-label='insights pages'] button:last-child",
+      )
+      ?.click();
+    await vi.waitFor(() => {
+      expect(
+        fetch.mock.calls.some(([input]) =>
+          String(input).includes("skillsPage=1&insightsPage=2"),
+        ),
+      ).toBe(true);
+      expect(
+        (
+          view as HTMLElement & {
+            snapshot: InspectorLearningSnapshotV1 | null;
+          }
+        ).snapshot?.insightsPage.page,
+      ).toBe(2);
+    });
+
+    view.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        "nav[aria-label='skills pages'] button:last-child",
+      )
+      ?.click();
+    await vi.waitFor(() => {
+      expect(
+        fetch.mock.calls.some(([input]) =>
+          String(input).includes("skillsPage=2&insightsPage=2"),
+        ),
+      ).toBe(true);
+    });
+    el.remove();
+  });
+
+  it("clears the prior scope and refetches when the Inspector agent changes", async () => {
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const agentId = url.searchParams.get("agentId");
+      return new Response(
+        JSON.stringify(
+          resultsSnapshot({
+            projectKey: agentId ? `project-${agentId}` : "project-all",
+            snapshotVersion: agentId ? `snapshot-${agentId}` : "snapshot-all",
+          }),
+        ),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    const alpha = createMockAgent("alpha").agent;
+    const beta = createMockAgent("beta").agent;
+    const el = await mountMemories(learningCore(fetch, { alpha, beta }));
+    const internals = el as unknown as {
+      contextOptions: Array<{ key: string; label: string }>;
+      handleContextOptionSelect: (key: string) => void;
+      learningSnapshot: InspectorLearningSnapshotV1 | null;
+    };
+    await vi.waitFor(() => {
+      expect(internals.learningSnapshot?.projectKey).toBe("project-all");
+    });
+
+    internals.handleContextOptionSelect("beta");
+    expect(internals.learningSnapshot).toBeNull();
+    await vi.waitFor(() => {
+      expect(internals.learningSnapshot?.projectKey).toBe("project-beta");
+    });
+    expect(
+      fetch.mock.calls.some(([input]) =>
+        String(input).includes("agentId=beta"),
+      ),
+    ).toBe(true);
+    el.remove();
+  });
+
+  it("routes accessible evidence through the integrated Threads navigator", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify(resultsSnapshot()), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    const el = await mountMemories(learningCore(fetch));
+    const view = await learningSurface(el);
+    await vi.waitFor(() => {
+      expect(view.shadowRoot?.querySelector(".insight-row")).not.toBeNull();
+    });
+    const focusThread = vi.fn();
+    (el as unknown as { focusThread: typeof focusThread }).focusThread =
+      focusThread;
+
+    view.shadowRoot?.querySelector<HTMLButtonElement>(".insight-row")?.click();
+    await (view as HTMLElement & { updateComplete: Promise<void> })
+      .updateComplete;
+    view.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".evidence-link")
+      ?.click();
+    expect(focusThread).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      messageId: "message-1",
+    });
+    el.remove();
+  });
+
+  it("renders a retryable data error when a pending action link is missing", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify(
+            resultsSnapshot({
+              pendingThreadCount: 2,
+              links: {
+                learning: "https://intelligence.customer.example/learning",
+                candidates: null,
+                runs: null,
+              },
+            }),
+          ),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+    );
+    const el = await mountMemories(learningCore(fetch));
+    const view = await learningSurface(el);
+
+    await vi.waitFor(() => {
+      expect(
+        view.shadowRoot?.querySelector('[data-learning-state="error"]'),
+      ).not.toBeNull();
+    });
+    expect(view.shadowRoot?.textContent).toContain(
+      "Learning snapshot response is invalid.",
+    );
+    expect(
+      Array.from(
+        view.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+      ).some((button) => button.textContent?.trim() === "Retry"),
+    ).toBe(true);
+    expect(view.shadowRoot?.querySelector("a")).toBeNull();
+    el.remove();
+  });
+
+  it("renders the Learning preview when the capability is absent", async () => {
     const core = makeCoreNoIntelligence();
     const el = await mountMemories(core);
 
-    const text = el.shadowRoot?.textContent ?? "";
+    const preview = learningPreview(el);
+    const text = preview.textContent ?? "";
     expect(text).toContain("Learning");
-    expect(text).toContain(
-      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
-    );
-    expect(el.shadowRoot?.querySelector(".cpk-memory-locked")).not.toBeNull();
-    expect(
-      el.shadowRoot?.querySelector(".cpk-memory-locked-scrim"),
-    ).not.toBeNull();
-    expect(
-      el.shadowRoot?.querySelector(".cpk-memory-locked-action-secondary"),
-    ).not.toBeNull();
+    expect(text).toContain("Turn every interaction into reusable context.");
+    expect(preview.querySelector("iframe")).not.toBeNull();
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -3043,27 +3842,25 @@ describe("WebInspectorElement memories — view states", () => {
     ).toBeNull();
   });
 
-  it("does not use Threads onboarding UTM attribution for locked memory CTAs", async () => {
-    const core = makeCoreNoIntelligence();
+  it("renders the Learning preview when a legacy Memory license is unavailable", async () => {
+    const core = makeCoreWithMemory([], { licenseStatus: "none" });
     const el = await mountMemories(core);
 
-    const talkToEngineer = el.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
+    expect(learningPreview(el).textContent).toContain(
+      "Turn every interaction into reusable context.",
     );
-    const signup = el.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://intelligence.copilotkit.ai/?ref="]',
-    );
+    expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
+  });
 
-    expect(talkToEngineer).not.toBeNull();
-    expect(signup).not.toBeNull();
+  it("offers the setup prompt from the Learning preview when capability is absent", async () => {
+    const core = makeCoreNoIntelligence();
+    const el = await mountMemories(core);
+    const preview = learningPreview(el);
 
-    for (const href of [talkToEngineer!.href, signup!.href]) {
-      const url = new URL(href);
-      expect(url.searchParams.get("ref")).toBeTruthy();
-      expect(url.searchParams.has("utm_source")).toBe(false);
-      expect(url.searchParams.has("utm_medium")).toBe(false);
-      expect(url.searchParams.has("utm_campaign")).toBe(false);
-    }
+    expect(
+      preview.querySelector('[data-inspector-feature-setup-prompt="threads"]'),
+    ).not.toBeNull();
+    expect(preview.textContent).toContain("Copy setup prompt");
   });
 
   it("renders the locked teaser when memories are unavailable", async () => {
@@ -3079,23 +3876,17 @@ describe("WebInspectorElement memories — view states", () => {
     ).toBeNull();
   });
 
-  it("renders cpk-memory-list with empty state when available and no memories", async () => {
+  it("does not render the legacy Memory list when Memory is available", async () => {
     const core = makeCoreWithMemory([], { available: true });
     const el = await mountMemories(core);
 
-    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
-    expect(
-      memoryList,
-      "cpk-memory-list should render when enabled",
-    ).not.toBeNull();
-
-    await (memoryList as unknown as { updateComplete: Promise<void> })
-      .updateComplete;
-    const listText = memoryList?.shadowRoot?.textContent ?? "";
-    expect(listText).toContain("No learning records yet");
+    expect(learningPreview(el).textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
   });
 
-  it("keeps the list rendered (not the full-screen error) when a mutation error arrives with memories present", async () => {
+  it("ignores a legacy Memory mutation error on the Learning surface", async () => {
     // INSP-2: a failed remove/update sets the store error while a valid list is
     // already on screen. That must NOT blank the list with the full-screen
     // "Failed to load learning data" state — the error is surfaced inline instead.
@@ -3117,21 +3908,13 @@ describe("WebInspectorElement memories — view states", () => {
     el.requestUpdate();
     await el.updateComplete;
 
-    // The list survives.
-    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
-    expect(
-      memoryList,
-      "cpk-memory-list must remain rendered on a mutation error",
-    ).not.toBeNull();
-
-    const text = el.shadowRoot?.textContent ?? "";
-    // Inline, non-blocking error with distinct copy.
-    expect(text).toContain("Action failed: could not delete memory");
-    // The full-screen load-failure copy must NOT appear.
-    expect(text).not.toContain("Failed to load learning data");
+    const text = learningPreview(el).textContent ?? "";
+    expect(text).toContain("Turn every interaction into reusable context.");
+    expect(text).not.toContain("could not delete memory");
+    expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
   });
 
-  it("shows the full-screen load error only when no memories are loaded", async () => {
+  it("ignores a legacy Memory load error on the Learning surface", async () => {
     // INSP-2 counterpart: a snapshot-load failure (empty list) still shows the
     // full-screen "Failed to load learning data" state.
     const core = makeCoreWithMemory([]);
@@ -3142,10 +3925,9 @@ describe("WebInspectorElement memories — view states", () => {
     el.requestUpdate();
     await el.updateComplete;
 
-    const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Failed to load learning data");
-    expect(text).toContain("network down");
-    expect(text).not.toContain("Action failed:");
+    const text = learningPreview(el).textContent ?? "";
+    expect(text).toContain("Turn every interaction into reusable context.");
+    expect(text).not.toContain("network down");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(memoryList).toBeNull();
   });
@@ -3163,33 +3945,31 @@ describe("WebInspectorElement memories — view states", () => {
     expect(text).not.toContain("reconnecting");
   });
 
-  it("shows a muted 'reconnecting' indicator while realtime is connecting", async () => {
+  it("does not expose legacy Memory reconnect state", async () => {
     const core = makeCoreWithMemory([], {
       available: true,
       realtimeStatus: "connecting",
     });
     const el = await mountMemories(core);
 
-    const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("reconnecting");
-    // It must NOT claim "live" while still connecting.
-    expect(text).not.toMatch(/>\s*live\s*</);
+    const text = learningPreview(el).textContent ?? "";
+    expect(text).toContain("Turn every interaction into reusable context.");
+    expect(text).not.toContain("reconnecting");
   });
 
-  it("shows a muted 'offline' indicator when realtime has permanently given up", async () => {
+  it("does not expose legacy Memory offline state", async () => {
     const core = makeCoreWithMemory([], {
       available: true,
       realtimeStatus: "unavailable",
     });
     const el = await mountMemories(core);
 
-    const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("offline");
-    // The frozen snapshot must NOT be labelled "live".
-    expect(text).not.toMatch(/>\s*live\s*</);
+    const text = learningPreview(el).textContent ?? "";
+    expect(text).toContain("Turn every interaction into reusable context.");
+    expect(text).not.toContain("offline");
   });
 
-  it("renders cpk-memory-list with a card when one memory is present", async () => {
+  it("does not project a legacy Memory record as a Learning result", async () => {
     const oneMemory: Memory = {
       id: "m1",
       kind: "topical",
@@ -3202,13 +3982,8 @@ describe("WebInspectorElement memories — view states", () => {
     const core = makeCoreWithMemory([oneMemory]);
     const el = await mountMemories(core);
 
-    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
-    expect(memoryList, "cpk-memory-list should render").not.toBeNull();
-
-    await (memoryList as unknown as { updateComplete: Promise<void> })
-      .updateComplete;
-    const cards = memoryList?.shadowRoot?.querySelectorAll(".cpk-ml__card");
-    expect(cards?.length).toBe(1);
+    expect(learningPreview(el).textContent).not.toContain("Prefers dark mode");
+    expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
   });
 });
 
@@ -3263,10 +4038,10 @@ describe("cpk-memory-list", () => {
     const el = await mountList(threeMemories);
     const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
     expect(cards?.length).toBe(3);
-    const contents = Array.from(cards ?? []).map((card) =>
+    const renderedMemoryText = Array.from(cards ?? []).map((card) =>
       card.querySelector(".cpk-ml__content")?.textContent?.trim(),
     );
-    expect(contents).toEqual([
+    expect(renderedMemoryText).toEqual([
       "Likes cats",
       "First login was on a Monday",
       "Deploys on Thursdays",
@@ -3379,13 +4154,14 @@ describe("WebInspectorElement memories — passive store guard", () => {
 
     expect(spy).not.toHaveBeenCalled();
 
-    // Activating the Memories tab is what creates + subscribes to the store.
+    // Learning reads the Intelligence projection and must not create the
+    // legacy browser Memory store as a side effect.
     (
       el as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("memories");
     await el.updateComplete;
 
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it("does not double-subscribe when the Memories tab is re-activated", async () => {
@@ -3605,10 +4381,9 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
     ).toBeNull();
   });
 
-  it("shows the SDK-upgrade teaser (distinct from the not-enabled teaser) when getMemoryStore is absent", async () => {
-    // INSP-3: an older @copilotkit/core (no getMemoryStore) must guide an SDK
-    // upgrade, with copy distinct from the genuine "not enabled on this
-    // deployment" teaser shown by a current SDK against a memory-less backend.
+  it("uses the negotiated Learning capability instead of getMemoryStore presence", async () => {
+    // An older @copilotkit/core (no getMemoryStore) still receives the same
+    // Learning setup preview as every other unavailable Runtime.
     const olderCore = {
       agents: {},
       context: {},
@@ -3634,26 +4409,28 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
     internals.handleMenuSelect("memories");
     await el.updateComplete;
 
-    const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("@copilotkit SDK");
-    expect(text).toContain("Upgrade");
-    // Must NOT show the deployment-not-enabled copy in this case.
-    expect(text).not.toContain(
-      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
+    const preview = el.shadowRoot?.querySelector<HTMLElement>(
+      '[data-inspector-locked-feature="memory"]',
     );
+    expect(preview?.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    expect(preview?.textContent).not.toContain("@copilotkit SDK");
   });
 
-  it("shows the not-enabled teaser (distinct from the upgrade teaser) when the current SDK reports memory unavailable", async () => {
-    // INSP-3 counterpart: a current SDK (getMemoryStore present) whose store
-    // reports available=false shows the deployment teaser, NOT upgrade copy.
+  it("ignores legacy Memory availability when Learning was not negotiated", async () => {
+    // A current SDK whose legacy store reports unavailable still shows the
+    // common Learning setup preview, not legacy Memory copy.
     const core = makeCoreWithMemory([], { available: false });
     const el = await mountMemories(core);
 
-    const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain(
-      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
+    const preview = el.shadowRoot?.querySelector<HTMLElement>(
+      '[data-inspector-locked-feature="memory"]',
     );
-    expect(text).not.toContain("@copilotkit SDK");
+    expect(preview?.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    expect(preview?.textContent).not.toContain("@copilotkit SDK");
   });
 });
 
@@ -3733,7 +4510,7 @@ describe("WebInspectorElement memories — tab telemetry + detach reset", () => 
     const clicks = memoriesTabClicks();
     expect(clicks).toHaveLength(1);
     expect(clicks[0]!.properties).toMatchObject({
-      memory_count: 1,
+      memory_count: 0,
       available: true,
     });
   });

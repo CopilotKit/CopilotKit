@@ -56,7 +56,6 @@ import {
   ResultMessage,
   TextMessage,
 } from "../types/converted";
-import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { resolveMessageId } from "./resolve-message-id";
 import { AgentsResponse } from "../types/agents-response.type";
@@ -158,27 +157,30 @@ export class CopilotResolver {
     @Arg("properties", () => GraphQLJSONObject, { nullable: true })
     properties?: CopilotRequestContextProperties,
   ) {
-    telemetry.capture("oss.runtime.copilot_request_created", {
-      "cloud.guardrails.enabled": data.cloud?.guardrails !== undefined,
-      requestType: data.metadata.requestType,
-      "cloud.api_key_provided": !!ctx.request.headers.get(
-        "x-copilotcloud-public-api-key",
-      ),
-      ...(ctx.request.headers.get("x-copilotcloud-public-api-key")
-        ? {
-            "cloud.public_api_key": ctx.request.headers.get(
-              "x-copilotcloud-public-api-key",
-            ),
-          }
-        : {}),
-      ...(ctx._copilotkit.baseUrl
-        ? {
-            "cloud.base_url": ctx._copilotkit.baseUrl,
-          }
-        : {
-            "cloud.base_url": "https://api.cloud.copilotkit.ai",
-          }),
-    });
+    ctx._copilotkit.runtime.telemetry.capture(
+      "oss.runtime.copilot_request_created",
+      {
+        "cloud.guardrails.enabled": data.cloud?.guardrails !== undefined,
+        requestType: data.metadata.requestType,
+        "cloud.api_key_provided": !!ctx.request.headers.get(
+          "x-copilotcloud-public-api-key",
+        ),
+        ...(ctx.request.headers.get("x-copilotcloud-public-api-key")
+          ? {
+              "cloud.public_api_key": ctx.request.headers.get(
+                "x-copilotcloud-public-api-key",
+              ),
+            }
+          : {}),
+        ...(ctx._copilotkit.baseUrl
+          ? {
+              "cloud.base_url": ctx._copilotkit.baseUrl,
+            }
+          : {
+              "cloud.base_url": "https://api.cloud.copilotkit.ai",
+            }),
+      },
+    );
 
     let logger = ctx.logger.child({
       component: "CopilotResolver.generateCopilotResponse",

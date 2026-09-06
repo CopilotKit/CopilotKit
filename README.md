@@ -8,7 +8,7 @@
 
 [Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
 [Examples](https://www.copilotkit.ai/examples) ·
-[Enterprise Intelligence Platform](https://go.copilotkit.ai/enterprise-intelligence-platform) ·
+[CopilotKit Intelligence](https://go.copilotkit.ai/enterprise-intelligence-platform) ·
 [Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
 
 </div>
@@ -51,13 +51,13 @@ Generative UI, shared state, and human-in-the-loop workflows for React, Angular,
 
 ---
 
-## What is CopilotKit
+## What is CopilotKit?
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
 What started as a React library is now the **horizontal layer between your agents and your users**: the same agent can power your web app, your mobile app, and your team's Slack or Microsoft Teams workspace.
 
-We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
+We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** — adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
 ## Quick Start
 
@@ -124,7 +124,7 @@ The **Channels SDK** takes the agent you already built and drops it into the cha
 
 Improve your product by learning over time.
 
-With **Continuous Learning from Human Feedback (CLHF)**, part of the [CopilotKit Intelligence Platform](https://www.copilotkit.ai/copilotkit-intelligence), agents improve with every interaction:
+With **Continuous Learning from Human Feedback (CLHF)**, part of [CopilotKit Intelligence](https://www.copilotkit.ai/copilotkit-intelligence), agents improve with every interaction:
 
 - **In-context reinforcement learning** – Agents automatically improve from user interactions, no model fine-tuning required.
 - **Automatic prompt augmentation** – Agent behavior adapts based on recent interactions and outcomes.
@@ -227,7 +227,7 @@ npx create-ag-ui-app my-agent-app
   Read the Docs →
   </a> </br>
     <a href="https://dashboard.operations.copilotkit.ai?ref=github_readme" target="_blank">
-   Try the Enterprise Intelligence Platform →
+   Try CopilotKit Intelligence →
   </a>
 <h3>Stay up to date with our latest releases!</h3>
   <a href="https://www.linkedin.com/company/copilotkit/" target="_blank">

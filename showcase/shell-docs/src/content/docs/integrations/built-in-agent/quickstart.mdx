@@ -1,11 +1,11 @@
 ---
 title: Quickstart
-description: Get started with CopilotKit's Built-in Agent in minutes.
+description: Build a working AI chat with CopilotKit in minutes.
 icon: "lucide/Play"
-hideTOC: true
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+import { QuickstartIntelligenceCta } from "@/components/quickstart-intelligence-cta";
 
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import {
@@ -15,14 +15,6 @@ import {
   MonitorIcon,
 } from "lucide-react";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
-
-<OpsPlatformCTA
-  variant="card"
-  title="Ship the Built-in Agent to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_built_in_agent_quickstart"
-/>
 
 ## Prerequisites
 
@@ -36,15 +28,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
-
-        <SignupLink surface="docs_built_in_agent_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
-    </Step>
-
-    <Step>
         ### Create your frontend
 
-        CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+        CopilotKit's React components work with Next.js, React Router, Remix, TanStack Start, Vite, and other React apps. This walkthrough uses Next.js because it can host the frontend and runtime in one project.
 
         ```bash
         npx create-next-app@latest my-copilot-app
@@ -52,7 +38,7 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="Already have an app?">
-          Skip this step and install CopilotKit into your existing React or Next.js project. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) scaffolds a brand-new project in its own directory — it does not add CopilotKit to an app you already have.
+          Keep your current setup and install CopilotKit there. Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
         </Callout>
     </Step>
     <Step>
@@ -62,7 +48,7 @@ Before you begin, you'll need the following:
         npm install @copilotkit/react-core @copilotkit/runtime
         ```
 
-        The components used below (`CopilotKit`, `CopilotSidebar`) and the
+        The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
         stylesheet all come from `@copilotkit/react-core/v2`, so
         `@copilotkit/react-ui` is not needed for this setup.
     </Step>
@@ -76,7 +62,7 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="What about other models?">
-          This example uses OpenAI's GPT-4o. See [Model Selection](/model-selection) for Anthropic, Google, or custom model setup.
+          This example uses an OpenAI model. See [Model Selection](/model-selection) for Anthropic, Google, or custom model setup.
         </Callout>
     </Step>
     <Step>
@@ -102,7 +88,6 @@ Before you begin, you'll need the following:
         import {
           CopilotRuntime,
           createCopilotRuntimeHandler,
-          InMemoryAgentRunner,
         } from "@copilotkit/runtime/v2";
         import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
 
@@ -112,7 +97,6 @@ Before you begin, you'll need the following:
 
         const runtime = new CopilotRuntime({
           agents: { default: builtInAgent }, // [!code highlight],
-          runner: new InMemoryAgentRunner(),
         });
 
         const handler = createCopilotRuntimeHandler({
@@ -129,18 +113,8 @@ Before you begin, you'll need the following:
 
         Wrap your application with the CopilotKit provider:
 
-        <Callout type="info" title="Which provider goes with which handler?">
-          `<CopilotKit>` here is the backward-compatible wrapper, and every released
-          version pins it to the single-route transport — which is why it needs the
-          explicit `useSingleEndpoint={false}` below to reach the multi-route
-          `createCopilotRuntimeHandler` route above. `<CopilotKitProvider>` is the v2
-          provider from the same package and detects the transport from `/info` on
-          its own. They are not aliases — see
-          [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
-        </Callout>
-
         ```tsx title="app/layout.tsx"
-        import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { CopilotKitProvider } from "@copilotkit/react-core/v2"; // [!code highlight]
         import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
         import './globals.css';
 
@@ -151,14 +125,22 @@ Before you begin, you'll need the following:
             <html lang="en">
               <body>
                 {/* [!code highlight:3] */}
-                <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+                <CopilotKitProvider runtimeUrl="/api/copilotkit">
                   {children}
-                </CopilotKit>
+                </CopilotKitProvider>
               </body>
             </html>
           );
         }
         ```
+
+        <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+          `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+          same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+          server of its own and an absolute `runtimeUrl` such as
+          `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+          `/angular` and `/react-native` each show that setup.
+        </Callout>
     </Step>
     <Step>
         ### Add the chat interface
@@ -206,7 +188,7 @@ Before you begin, you'll need the following:
         </Tabs>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
         Your AI agent is now ready to use! Try asking it some questions:
 
@@ -248,9 +230,17 @@ Before you begin, you'll need the following:
 
 </Steps>
 
+## Keep conversations between visits
+
+Your sample chat is running. When you need production conversation history,
+CopilotKit Intelligence can keep each user's messages, generated interfaces,
+and tool activity available across sessions and devices.
+
+<QuickstartIntelligenceCta />
+
 ## What's next?
 
-Now that you have your basic agent setup, explore these advanced features:
+Now that your basic chat is running, explore these advanced features:
 
 <Cards>
   <Card

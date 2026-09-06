@@ -11,7 +11,9 @@
  * A body that isn't JSON, or carries no string `message`, contributes nothing:
  * the status is then the whole error.
  */
-export async function runtimeInfoError(response: Response): Promise<Error> {
+export async function runtimeInfoError(
+  response: Response,
+): Promise<RuntimeInfoRequestError> {
   const base = `Runtime info request failed with status ${response.status}`;
 
   let detail: string | undefined;
@@ -25,5 +27,24 @@ export async function runtimeInfoError(response: Response): Promise<Error> {
     // Unparseable or already-consumed body — fall back to the status.
   }
 
-  return new Error(detail ? `${base}: ${detail}` : base);
+  const error = new Error(
+    detail ? `${base}: ${detail}` : base,
+  ) as RuntimeInfoRequestError;
+  error.runtimeInfoStatus = response.status;
+  return error;
+}
+
+export interface RuntimeInfoRequestError extends Error {
+  runtimeInfoStatus: number;
+}
+
+export function isRuntimeInfoRequestError(
+  error: unknown,
+): error is RuntimeInfoRequestError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    typeof (error as { runtimeInfoStatus?: unknown }).runtimeInfoStatus ===
+      "number"
+  );
 }

@@ -2,6 +2,7 @@
 
 import posthog from "posthog-js";
 import { useCallback } from "react";
+import { buildIntelligenceAuthEntryHref } from "@/lib/docs-cta-href";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 export interface SignupLinkProps {
@@ -26,14 +27,11 @@ function buildHref(
   // vs prod by changing the Railway env var. The reader already returns
   // a fallback when NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL is unset.
   const signupUrl = getRuntimeConfig().intelligenceSignupUrl;
-  const url = new URL(signupUrl);
-  url.searchParams.set("utm_source", "docs");
-  url.searchParams.set("utm_medium", "cta");
-  url.searchParams.set("utm_campaign", "intelligence");
-  url.searchParams.set("utm_content", surface);
-  if (frontend) url.searchParams.set("utm_frontend", frontend);
-  if (backend) url.searchParams.set("utm_backend", backend);
-  return url.toString();
+  return buildIntelligenceAuthEntryHref(signupUrl, {
+    surface,
+    frontend,
+    backend,
+  });
 }
 
 export function SignupLink({

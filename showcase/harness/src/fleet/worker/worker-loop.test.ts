@@ -3086,7 +3086,7 @@ describe("startWorkerLoop PID headroom gate", () => {
 //
 // After ~WORKER_MAX_JOBS settled jobs (staggered per-replica by a deterministic
 // jitter) the worker stops claiming, runs the existing graceful drain, and exits
-// NON-ZERO so Railway (restartPolicyType ON_FAILURE) replaces the container —
+// cleanly so Railway's ALWAYS restart policy replaces the container —
 // pre-empting slow Chromium/heap growth on long-lived workers. Mirrors Gunicorn
 // --max-requests / Celery max-tasks-per-child.
 
@@ -3110,10 +3110,10 @@ function recordingLogger(): { logger: Logger; messages: string[] } {
 }
 
 describe("startWorkerLoop — worker recycle (WORKER_MAX_JOBS)", () => {
-  it("recycles after WORKER_MAX_JOBS settled jobs: drains and exits non-zero", async () => {
+  it("recycles after WORKER_MAX_JOBS settled jobs: drains and exits cleanly", async () => {
     // Two claimable jobs, threshold 2 (jitter 0 → deterministic). After the 2nd
     // job SETTLES the worker must stop claiming, fire the drain, and call the
-    // (injected) exit with a NON-ZERO code.
+    // zero-argument injected exit exactly once.
     const queue = makeQueue([
       { claimed: true, lease: makeLease({ job: { id: "job-1" } }) },
       { claimed: true, lease: makeLease({ job: { id: "job-2" } }) },
@@ -3123,7 +3123,9 @@ describe("startWorkerLoop — worker recycle (WORKER_MAX_JOBS)", () => {
       cells: [{ featureId: "shared-state", state: "green" }],
       aggregateState: "green",
     });
-    const exit = vi.fn<(code: number) => void>();
+    const exit = vi.fn<() => void>(() => {
+      expect(queue.reports).toHaveLength(2);
+    });
     const { logger, messages } = recordingLogger();
     const handle = startWorkerLoop({
       workerId: "worker-test",
@@ -3144,14 +3146,12 @@ describe("startWorkerLoop — worker recycle (WORKER_MAX_JOBS)", () => {
       exit,
     });
 
-    // The (injected) exit is called with a NON-ZERO code once the 2nd job settles.
+    // The injected exit is called once, with no arguments, after the 2nd job settles.
     await vi.waitFor(() => expect(exit).toHaveBeenCalledTimes(1));
+    expect(exit).toHaveBeenCalledWith();
     // The loop stopped on its own (drain → break), so `done` resolves.
     await handle.done;
 
-    const code = exit.mock.calls[0]![0];
-    expect(code).not.toBe(0);
-    expect(code).toBeGreaterThan(0);
     // Both jobs ran and were reported before the recycle fired.
     expect(queue.reports).toHaveLength(2);
     // The EXISTING drain path was invoked (requestDrain logs drain-requested),
@@ -3184,7 +3184,7 @@ describe("startWorkerLoop — worker recycle (WORKER_MAX_JOBS)", () => {
       cells: [{ featureId: "shared-state", state: "green" }],
       aggregateState: "green",
     });
-    const exit = vi.fn<(code: number) => void>();
+    const exit = vi.fn<() => void>();
     const handle = startWorkerLoop({
       workerId: "worker-test",
       queue,
@@ -3228,7 +3228,7 @@ describe("startWorkerLoop — worker recycle (WORKER_MAX_JOBS)", () => {
         cells: [{ featureId: "shared-state", state: "green" }],
         aggregateState: "green",
       });
-      const exit = vi.fn<(code: number) => void>();
+      const exit = vi.fn<() => void>();
       const handle = startWorkerLoop({
         workerId,
         queue,

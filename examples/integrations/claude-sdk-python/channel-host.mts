@@ -44,7 +44,7 @@ async function main(): Promise<void> {
     agents: {},
     channels: [createDefaultChannel(channelName)],
     intelligence: new CopilotKitIntelligence({
-      apiKey: required("INTELLIGENCE_API_KEY"),
+      apiKey: required("CPK_INTELLIGENCE_API_KEY"),
       ...(process.env.INTELLIGENCE_API_URL
         ? { apiUrl: process.env.INTELLIGENCE_API_URL }
         : {}),

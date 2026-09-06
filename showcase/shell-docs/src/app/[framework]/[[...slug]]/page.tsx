@@ -60,6 +60,8 @@ import {
 import { resolveChannelGuideRoute } from "@/lib/channel-guide-routes";
 import type { ChannelFrontend } from "@/lib/channel-guide-routes";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
+import { onboardingFrontendFor } from "@/lib/docs-onboarding-frontend";
 import {
   CONTENT_DIR,
   buildFrameworkNav,
@@ -668,6 +670,10 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={resolution.framework}
+          onboardingFramework={onboardingFrameworkFor(resolution.framework)}
+          // `framework` is the URL's first segment and this branch has already
+          // narrowed it to `angular`, so the URL is what names the frontend.
+          onboardingFrontend={onboardingFrontendFor(`/${framework}`)}
           frontendOverride="angular"
           navTree={getAngularDocsNavTree(activeBackendFramework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
@@ -702,6 +708,22 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={activeBackendFramework}
+          // This is the `else` of `if (activeBackendFramework)`, so the URL
+          // carries no backend segment — which on a frontend route is exactly
+          // how the Built-in Agent is spelled: `/vue/built-in-agent/<slug>`
+          // redirects here, and the framework selector shows the Built-in
+          // Agent as the active backend. So `/vue/<slug>` and
+          // `/vue/mastra/<slug>` are the same page under two framework
+          // selections and both name theirs in the copied prompt.
+          //
+          // `frameworkOverride` stays null: no backend segment still means no
+          // framework-scoped snippet resolution for this content.
+          onboardingFramework={onboardingFrameworkFor(
+            activeBackendFramework ?? ROOT_FRAMEWORK,
+          )}
+          // Inside `isFrontendPageId(framework)`, so the URL's first segment
+          // is the frontend the reader selected.
+          onboardingFrontend={onboardingFrontendFor(`/${framework}`)}
           frontendOverride={framework}
           navTree={getFrontendQuickstartNavTree(framework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
@@ -939,6 +961,13 @@ export default async function FrameworkScopedDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
       frameworkOverride={scopedFramework}
+      onboardingFramework={onboardingFrameworkFor(scopedFramework)}
+      // The page's own URL prefix: `/vue/mastra` on a frontend route,
+      // `/mastra` off one. Only its first segment can name a frontend, so a
+      // backend-only prefix resolves to the default React frontend.
+      onboardingFrontend={onboardingFrontendFor(
+        scopedSlugHrefPrefix ?? `/${scopedFramework}`,
+      )}
       frontendOverride={activeFrontendPage ?? undefined}
       navTree={
         activeFrontendPage
@@ -974,6 +1003,15 @@ function ChannelGuideDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework ?? ROOT_FRAMEWORK}
+      // A channel guide with no backend selected still documents the
+      // Built-in Agent, so `ROOT_FRAMEWORK` is the framework being read
+      // about here, not a placeholder.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
+      // `frontend` is the URL's first segment on every route that reaches
+      // these components, so this is the frontend the URL asserts.
+      onboardingFrontend={onboardingFrontendFor(`/${frontend}`)}
       frontendOverride={frontend}
       navTree={getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1004,6 +1042,16 @@ function FrontendQuickstartDocsPage({
         activeBackendFramework ??
         (frontend === "slack" || frontend === "teams" ? ROOT_FRAMEWORK : null)
       }
+      // No backend segment in the URL means the Built-in Agent is selected,
+      // for every frontend — unlike `frameworkOverride` above, which stays
+      // null off the channel frontends because their quickstart content is
+      // not framework-scoped.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
+      // `frontend` is the URL's first segment on every route that reaches
+      // these components, so this is the frontend the URL asserts.
+      onboardingFrontend={onboardingFrontendFor(`/${frontend}`)}
       frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1029,6 +1077,15 @@ function FrontendGuidanceDocsPage({
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework}
+      // Same rule as every other frontend route: no backend segment is the
+      // Built-in Agent, so `/vue/using-these-docs` names it where
+      // `/vue/mastra/using-these-docs` names Mastra.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
+      // `frontend` is the URL's first segment on every route that reaches
+      // these components, so this is the frontend the URL asserts.
+      onboardingFrontend={onboardingFrontendFor(`/${frontend}`)}
       frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1116,6 +1173,10 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        onboardingFramework={onboardingFrameworkFor(framework)}
+        // `slugHrefPrefix` is this page's own URL prefix — `/angular/mastra`
+        // when a frontend route delegated here, `/<framework>` otherwise.
+        onboardingFrontend={onboardingFrontendFor(slugHrefPrefix)}
         frontendOverride={frontendOverride}
         navTree={navTree}
         sidebarBannerSlot={sidebarBannerSlot}
@@ -1250,6 +1311,10 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        onboardingFramework={onboardingFrameworkFor(framework)}
+        // `slugHrefPrefix` is this page's own URL prefix — `/angular/mastra`
+        // when a frontend route delegated here, `/<framework>` otherwise.
+        onboardingFrontend={onboardingFrontendFor(slugHrefPrefix)}
         frontendOverride={frontendOverride}
         navTree={navTree}
         sidebarBannerSlot={sidebarBannerSlot}

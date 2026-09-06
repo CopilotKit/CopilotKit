@@ -88,8 +88,8 @@ export interface Integration {
    */
   interrupt_pattern?: "native" | "promise-based" | null;
   /**
-   * Framework-specific pattern for aligning Enterprise Intelligence
-   * Platform threads with an external framework's own persistence/session
+   * Framework-specific pattern for aligning CopilotKit Intelligence threads
+   * with an external framework's own persistence/session
    * identifiers.
    *
    * - `langgraph`: explicit CopilotKit thread IDs are forwarded as AG-UI
@@ -341,7 +341,7 @@ export function getDemo(
 const CATEGORY_LABELS: Record<string, string> = {
   popular: "Most Popular",
   "agent-framework": "Agent Frameworks",
-  "enterprise-platform": "Intelligence Platform",
+  "enterprise-platform": "Intelligence",
   "provider-sdk": "Provider SDKs",
   protocol: "Protocols & Standards",
   emerging: "Emerging",

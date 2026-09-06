@@ -39,11 +39,13 @@ export type {
   ChannelComponentRenderContext,
 } from "./channel-component.js";
 export {
+  channelActorIdentity,
   ChannelIdentityResolutionError,
   ChannelIdentityResultError,
   resolveChannelUser,
 } from "./identity.js";
 export type {
+  ChannelActorIdentity,
   ChannelConversation,
   ChannelEvent,
   ChannelIdentifyUser,

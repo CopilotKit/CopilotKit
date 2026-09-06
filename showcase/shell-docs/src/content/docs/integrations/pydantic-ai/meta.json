@@ -29,12 +29,13 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
+    "agent-app-context",
     "---Pydantic AI---",
     "multi-agent-flows",
     "---Backend---",
     "copilot-runtime",
     "ag-ui",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     "---Troubleshooting---",
     "...troubleshooting"
   ]

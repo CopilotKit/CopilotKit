@@ -218,7 +218,7 @@ Used by `@copilotkit/shared` and `@copilotkit/react-core`. Defined in `packages/
 
 ---
 
-## Intelligence Platform Error (`PlatformRequestError`)
+## Intelligence Error (`PlatformRequestError`)
 
 Used by `@copilotkit/runtime` for Intelligence mode. Defined in `packages/runtime/src/v2/runtime/intelligence-platform/client.ts`.
 

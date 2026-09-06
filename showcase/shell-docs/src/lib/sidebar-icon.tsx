@@ -13,10 +13,12 @@
 import React from "react";
 import Image from "next/image";
 import { LanggraphIcon } from "@/components/icons/framework-icons";
-import { CopilotKitMark } from "@/components/copilotkit-mark";
+import { CopilotKitIcon } from "@/components/copilotkit-icon";
+import { IntelligenceKiteIcon } from "@/components/intelligence-kite-icon";
 import { FrontendLogo } from "@/components/frontend-logo";
 import {
   // Pages / sections
+  ArrowUpRight,
   Bolt,
   BookA,
   BookOpen,
@@ -39,6 +41,8 @@ import {
   Gauge,
   Globe,
   LayoutDashboard,
+  LayoutGrid,
+  LayoutTemplate,
   LifeBuoy,
   Lightbulb,
   ListChecks,
@@ -64,6 +68,8 @@ import {
   Shield,
   SlidersHorizontal,
   Sparkles,
+  Sprout,
+  Star,
   TextSelect,
   Terminal,
   RefreshCw,
@@ -81,6 +87,7 @@ import {
 // in MDX frontmatter and meta.json `icon` fields. Add to this map (and
 // to the import block above) when content references a new lucide icon.
 const ICONS: Record<string, React.ReactNode> = {
+  "lucide/ArrowUpRight": <ArrowUpRight />,
   "lucide/Bolt": <Bolt />,
   "lucide/BookA": <BookA />,
   "lucide/BookOpen": <BookOpen />,
@@ -103,6 +110,8 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/Gauge": <Gauge />,
   "lucide/Globe": <Globe />,
   "lucide/LayoutDashboard": <LayoutDashboard />,
+  "lucide/LayoutGrid": <LayoutGrid />,
+  "lucide/LayoutTemplate": <LayoutTemplate />,
   "lucide/LifeBuoy": <LifeBuoy />,
   "lucide/Lightbulb": <Lightbulb />,
   "lucide/ListChecks": <ListChecks />,
@@ -129,6 +138,8 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/Shield": <Shield />,
   "lucide/SlidersHorizontal": <SlidersHorizontal />,
   "lucide/Sparkles": <Sparkles />,
+  "lucide/Sprout": <Sprout />,
+  "lucide/Star": <Star />,
   "lucide/Terminal": <Terminal />,
   "lucide/TextSelect": <TextSelect />,
   "lucide/TriangleAlert": <TriangleAlert />,
@@ -140,11 +151,11 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/Wrench": <Wrench />,
   "lucide/Zap": <Zap />,
   // Custom marks — used by section headers for framework / enterprise
-  // scaffolding. The CopilotKit kite is the inline gradient mark from
-  // BrandNav; the LangGraph mark comes from the framework-icons set so
+  // scaffolding. The LangGraph mark comes from the framework-icons set so
   // its visual treatment matches the framework picker.
   "custom/langgraph": <LanggraphIcon />,
-  "custom/copilotkit-kite": <CopilotKitMark />,
+  "custom/copilotkit-kite": <CopilotKitIcon />,
+  "custom/intelligence-kite": <IntelligenceKiteIcon />,
   "custom/react": <FrontendLogo icon="react" size={16} />,
   "custom/daytona": (
     <Image

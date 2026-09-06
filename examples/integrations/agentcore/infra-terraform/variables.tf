@@ -35,7 +35,7 @@ variable "admin_user_email" {
 # =============================================================================
 
 variable "backend_pattern" {
-  description = "Agent pattern to deploy. Available patterns: strands-single-agent, langgraph-single-agent, claude-agent-sdk-single-agent, claude-agent-sdk-multi-agent"
+  description = "Agent pattern to deploy; must match a directory under ../agents/. Shipped in this example: strands-single-agent, langgraph-single-agent. The validation below also accepts claude-agent-sdk-single-agent and claude-agent-sdk-multi-agent, which this example does not include."
   type        = string
   default     = "strands-single-agent"
 
@@ -46,7 +46,7 @@ variable "backend_pattern" {
 }
 
 variable "backend_deployment_type" {
-  description = "Deployment type for AgentCore Runtime. 'docker' uses ECR container image (requires Docker + separate build step). 'zip' uses S3 Python package (no Docker required, single-step deploy)."
+  description = "Deployment type for AgentCore Runtime. 'docker' uses an ECR container image; the apply builds and pushes it before creating the runtime, so Docker must be running but no separate build step is needed. 'zip' uses an S3 Python package (no Docker required)."
   type        = string
   default     = "docker"
 

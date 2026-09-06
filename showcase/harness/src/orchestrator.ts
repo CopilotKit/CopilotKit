@@ -4029,29 +4029,38 @@ export function latchOnce<T>(fn: () => Promise<T>): () => Promise<T> {
  * deregister-first graceful teardown as SIGTERM (`gracefulTeardown`, which wraps
  * `drainFleetWorker` — roster delete + pool shutdown) BEFORE exiting.
  *
- * The `finally` GUARANTEES the (non-zero) exit even if the teardown rejects, so a
- * failed drain still surrenders the container to Railway's restart policy — the
- * recycle's whole purpose. Teardown is best-effort; the exit is load-bearing.
- * `processExit` is injectable so the recycle path is unit-testable without
- * killing the test process (defaults to `process.exit`).
+ * A fulfilled teardown exits 0. A rejected teardown exits 1, even if the
+ * best-effort error log itself throws, so a failed drain still surrenders the
+ * container to Railway's restart policy — the recycle's whole purpose. Teardown
+ * is best-effort; the exit is load-bearing. `processExit` is injectable so the
+ * recycle path is unit-testable without killing the test process (defaults to
+ * `process.exit`).
  */
 export function makeRecycleExit(deps: {
   gracefulTeardown: () => Promise<void>;
   logger: Logger;
   processExit?: (code: number) => void;
-}): (code: number) => void {
+}): () => void {
   const doExit = deps.processExit ?? ((code: number) => process.exit(code));
-  return (code: number): void => {
-    void deps
-      .gracefulTeardown()
-      .catch((err) =>
-        logErrorWithStack(
-          deps.logger,
-          "showcase-harness.fleet.worker.recycle-drain-failed",
-          err,
-        ),
-      )
-      .finally(() => doExit(code));
+  return (): void => {
+    void (async () => {
+      try {
+        await deps.gracefulTeardown();
+        doExit(0);
+      } catch (err) {
+        try {
+          logErrorWithStack(
+            deps.logger,
+            "showcase-harness.fleet.worker.recycle-drain-failed",
+            err,
+          );
+        } catch {
+          // Best-effort logging must never block the load-bearing exit.
+        } finally {
+          doExit(1);
+        }
+      }
+    })();
   };
 }
 

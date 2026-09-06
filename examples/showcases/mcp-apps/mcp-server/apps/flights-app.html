@@ -1695,7 +1695,7 @@
       function reportSize() {
         requestAnimationFrame(() => {
           const rect = document.body.getBoundingClientRect();
-          mcpApp.sendNotification("ui/notifications/size-change", {
+          mcpApp.sendNotification("ui/notifications/size-changed", {
             width: Math.ceil(rect.width),
             height: Math.ceil(rect.height),
           });

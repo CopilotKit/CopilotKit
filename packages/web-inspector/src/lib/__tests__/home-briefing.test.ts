@@ -4,7 +4,9 @@ import { projectInspectorMetadata } from "../inspector-metadata.js";
 import {
   announcementPreview,
   buildHomeModel,
+  homeFeatureImplementationPrompt,
   homeHeroActionFromMetadata,
+  runtimeConnectionNeedsAttention,
 } from "../home-briefing.js";
 
 describe("home-briefing", () => {
@@ -35,7 +37,18 @@ describe("home-briefing", () => {
       suggestionsOn: false,
       audioOn: false,
     });
-    expect(model.hero.title).toBe("Intelligence is not setup");
+    expect(model.hero.title).toBe("CopilotKit Intelligence");
+    // In install mode this body is the screen-reader summary, not the visible
+    // paragraph, so it has to carry the whole chain in one sentence. If a link
+    // in that chain drops out, assistive tech gets a weaker pitch than sighted
+    // users and nothing else in the suite would notice.
+    expect(model.hero.body).toContain("thread");
+    expect(model.hero.body).toContain("evidence");
+    expect(model.hero.body).toContain("skills");
+    // The approval step is the one claim we must not quietly drop: the
+    // platform does not apply skills at run time, and promising that it does
+    // is a promise the product cannot keep.
+    expect(model.hero.body).toContain("approve");
     expect(model.hero.connection).toBe("disconnected");
     expect(model.hero.action).toBeUndefined();
     expect(model.projectLinked).toBe(false);
@@ -52,6 +65,27 @@ describe("home-briefing", () => {
       "audio",
       "websocket",
     ]);
+    const learning = model.services.find((service) => service.id === "memory");
+    const suggestions = model.services.find(
+      (service) => service.id === "suggestions",
+    );
+    const voice = model.services.find((service) => service.id === "audio");
+    expect(learning).toMatchObject({ label: "Learning" });
+    expect(voice).toMatchObject({ label: "Voice" });
+    expect(suggestions).toMatchObject({
+      docsUrl:
+        "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
+    });
+    expect(
+      homeFeatureImplementationPrompt(learning!, {
+        onboardingRunId: "21bcf98aa5fd",
+      }),
+    )
+      .toBe(`Identify your coding-agent slug (for example, \`codex\` or \`claude-code\`). From the target project root, run \`npx copilotkit@latest onboard start --run 21bcf98aa5fd --coding-agent <coding-agent-slug>\` and use its output as onboarding context. If it requires a CopilotKit CLI session check, you have permission to run it; never reveal credentials or send optional diagnostic feedback reports.
+
+This task is specifically to enable Learning, not to re-onboard the application. First inspect the existing CopilotKit runtime, provider, agent, and UI wiring, and confirm that Learning is not already enabled. Then read the Learning guide (https://docs.copilotkit.ai/intelligence/intelligence-platform) and make a short plan before editing. Preserve the project's framework, package manager, installed CopilotKit version, existing agent IDs, routes, provider layout, and working behavior. Do not create, select, or alter a CopilotKit Intelligence project—or add Intelligence configuration—unless this feature's official guide explicitly requires it or the user asks.
+
+Implement the smallest complete integration: wire every feature-required client and runtime configuration into the chat-to-agent path people already use, reuse local patterns, and do not invent environment values or hardcode secrets. Add or update focused tests and run the relevant project checks. Finish only after local validation proves Learning works—not merely that the code compiles. Use a feature-specific runtime or Inspector capability check and, when the feature supports one, a representative UI interaction that proves the user-facing result. If the project overrides default rendering (for example, with a wildcard tool renderer), make that override compatible with this feature; a capability flag alone is not success. Summarize the changed files, validation, and any manual setup still required.`);
   });
 
   it("marks a linked project as connected and keeps Threads usage on the project card", () => {
@@ -291,5 +325,70 @@ describe("home-briefing", () => {
       liveUpdates: { label: "Disconnected", tone: "error" },
       lastEvent: { label: "No events yet", tone: "muted" },
     });
+  });
+  // The launcher's error signal and System Health read this one predicate, so
+  // the dot is red exactly when System Health says the runtime needs
+  // attention. A second evaluation anywhere could drift from it.
+  it("treats only the error connection state as needing attention", () => {
+    expect(runtimeConnectionNeedsAttention("error")).toBe(true);
+    // `disconnected` is also the INITIAL value, so counting it would raise the
+    // signal on every page load; `connecting` is a normal startup step; and
+    // `unavailable` means no Core is attached, which is not a wiring defect.
+    expect(runtimeConnectionNeedsAttention("disconnected")).toBe(false);
+    expect(runtimeConnectionNeedsAttention("connecting")).toBe(false);
+    expect(runtimeConnectionNeedsAttention("unavailable")).toBe(false);
+    expect(runtimeConnectionNeedsAttention("connected")).toBe(false);
+  });
+
+  it("keeps the predicate and the built health model in agreement", () => {
+    const base = {
+      intelligenceConnected: false,
+      threadsAvailable: false,
+      metadata: projectInspectorMetadata(undefined, undefined),
+      memoriesOn: false,
+      a2uiOn: false,
+      openGenUiOn: false,
+      suggestionsOn: false,
+      audioOn: false,
+    } as const;
+
+    for (const state of [
+      "connected",
+      "connecting",
+      "disconnected",
+      "error",
+      "unavailable",
+    ] as const) {
+      const model = buildHomeModel({ ...base, runtimeConnectionState: state });
+      expect(
+        model.runtime.health.state === "error",
+        `${state}: connection health`,
+      ).toBe(runtimeConnectionNeedsAttention(state));
+    }
+  });
+
+  // A failed RUN also drives System Health to "Needs attention", and must NOT
+  // reach the launcher: an event does not belong on a state indicator. The
+  // predicate is the boundary that keeps the two apart.
+  it("separates a failed run from a broken connection", () => {
+    const model = buildHomeModel({
+      intelligenceConnected: false,
+      threadsAvailable: false,
+      metadata: projectInspectorMetadata(undefined, undefined),
+      runtimeConnectionState: "connected",
+      lastRuntimeEvent: {
+        id: "support:2",
+        agentId: "support",
+        type: "RUN_ERROR",
+        timestamp: 2_000,
+      },
+      memoriesOn: false,
+      a2uiOn: false,
+      openGenUiOn: false,
+      suggestionsOn: false,
+      audioOn: false,
+    });
+    expect(model.runtime.health.state).toBe("error");
+    expect(runtimeConnectionNeedsAttention("connected")).toBe(false);
   });
 });

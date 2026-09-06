@@ -157,4 +157,5 @@ export function KeyboardAgentSwitcher() {
 
 - Use `copilotkit.subscribe({ onAgentsChanged })` — there is no `useAgents()` hook.
 - Always `key={activeAgent}` on `<CopilotChat>` so thread state doesn't leak when swapping agents in the same slot.
+- Keep that `key` on `<CopilotChat>` and nowhere higher. A `key` discards every bit of state beneath it, so on a wrapper or a layout provider it silently wipes app state too.
 - Clean up the subscription with `sub.unsubscribe()` in the effect cleanup.

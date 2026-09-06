@@ -1,4 +1,31 @@
+import type { RunAgentInput } from "@ag-ui/client";
 import type { MaybePromise } from "@copilotkit/shared";
+
+/** Application user resolved by an Intelligence runtime. */
+export interface CopilotRuntimeUser {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** Context for choosing a Learning Container through the public Intelligence SDK. */
+export type LearningContainerSelectorInput =
+  | {
+      readonly surface: "web";
+      readonly user: CopilotRuntimeUser;
+      readonly agentId: string;
+      readonly input: Readonly<RunAgentInput>;
+    }
+  | {
+      readonly surface: "channel";
+      readonly user: CopilotRuntimeUser | null;
+      readonly agentId: string;
+      readonly input: Readonly<RunAgentInput>;
+    };
+
+/** Chooses one developer-created Learning Container for an Intelligence run. */
+export type GetLearningContainerId = (
+  input: LearningContainerSelectorInput,
+) => MaybePromise<string | null | undefined>;
 
 /** Context for choosing one Learning Container for an Intelligence run. */
 export type CopilotRuntimeLearningContext =
@@ -43,6 +70,16 @@ export function assertStableLearningContainerId(value: unknown): string {
     );
   }
   return value;
+}
+
+/** Resolves and validates a public Intelligence Learning Container selection. */
+export async function resolveLearningContainerSelector(
+  selector: GetLearningContainerId,
+  input: LearningContainerSelectorInput,
+): Promise<string | undefined> {
+  const value = await selector(input);
+  if (value == null) return undefined;
+  return assertStableLearningContainerId(value);
 }
 
 /** Resolves the configured Container once for one web or Channel run. */

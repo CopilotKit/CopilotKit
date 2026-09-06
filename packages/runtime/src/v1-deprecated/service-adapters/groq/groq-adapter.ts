@@ -55,6 +55,7 @@ import {
   limitMessagesToTokenCount,
 } from "../openai/utils";
 import { randomUUID } from "@copilotkit/shared";
+import type { SdkClientLike } from "../shared";
 import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
@@ -63,7 +64,7 @@ export interface GroqAdapterParams {
   /**
    * An optional Groq instance to use.
    */
-  groq?: Groq;
+  groq?: SdkClientLike;
 
   /**
    * The model to use.
@@ -86,8 +87,8 @@ export class GroqAdapter implements CopilotServiceAdapter {
   public provider = "groq";
 
   private disableParallelToolCalls: boolean = false;
-  private _groq: Groq;
-  public get groq(): Groq {
+  private _groq: SdkClientLike;
+  public get groq(): SdkClientLike {
     return this._groq;
   }
   public get name() {
@@ -118,7 +119,7 @@ export class GroqAdapter implements CopilotServiceAdapter {
     return provider(this.model);
   }
 
-  private ensureGroq(): Groq {
+  private ensureGroq(): SdkClientLike {
     if (!this._groq) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { Groq } = require("groq-sdk");
@@ -154,7 +155,10 @@ export class GroqAdapter implements CopilotServiceAdapter {
     }
     let stream;
     try {
-      const groq = this.ensureGroq();
+      // The public surface is structural so consumers who skip the optional
+      // peer can still compile (see SdkClientLike); the SDK type is only
+      // reachable here, inside a function body, where it is never emitted.
+      const groq = this.ensureGroq() as Groq;
       stream = await groq.chat.completions.create({
         model: model,
         stream: true,

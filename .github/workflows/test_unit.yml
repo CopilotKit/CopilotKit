@@ -253,6 +253,10 @@ jobs:
         if: matrix.node-version == '22.x'
         run: pnpm --dir showcase/scripts exec playwright install chromium
 
+      - name: Run Web Inspector browser tests
+        if: ${{ matrix.node-version == '22.x' && matrix.react-version == '19' && contains(steps.select.outputs.projects, '@copilotkit/web-inspector') }}
+        run: pnpm nx run @copilotkit/web-inspector:test:browser
+
       - name: Verify packed Angular consumer matrix
         if: matrix.node-version == '22.x'
         run: pnpm run verify:angular-package

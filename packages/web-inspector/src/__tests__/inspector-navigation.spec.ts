@@ -8,11 +8,18 @@ import type { ɵThread } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
+import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
+
+type TelemetryBody = {
+  event: string;
+  properties: Record<string, unknown>;
+};
 
 type InspectorNavigationContext = {
   core: CopilotKitCore;
   inspector: WebInspectorElement;
   selectedMenuBeforeCore?: unknown;
+  telemetryBodies: TelemetryBody[];
   open: () => Promise<void>;
   selectGroup: (key: string) => Promise<void>;
   selectLeaf: (key: string) => Promise<void>;
@@ -35,7 +42,9 @@ type SetupOptions = {
     announcement: string;
   };
   runtimeMode?: "sse" | "intelligence";
+  telemetryDisabled?: boolean;
   threads?: ɵThread[];
+  failThreadMessages?: boolean;
 };
 
 /** Build the trusted account metadata fixture used by the shell test. */
@@ -68,6 +77,22 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseTelemetryBody(raw: string): TelemetryBody {
+  const body: unknown = JSON.parse(raw);
+  if (
+    !isRecord(body) ||
+    typeof body.event !== "string" ||
+    !isRecord(body.properties)
+  ) {
+    throw new Error("Telemetry request body had an unexpected shape");
+  }
+  return { event: body.event, properties: body.properties };
+}
+
 /** Wait for an observable public state without reaching into component fields. */
 async function waitFor(
   predicate: () => boolean,
@@ -92,9 +117,15 @@ async function setup(
     window.localStorage.setItem("cpk:inspector:state", options.persistedState);
   }
 
+  const telemetryBodies: TelemetryBody[] = [];
+
   const fetchMock = vi.fn(
-    async (input: RequestInfo | URL): Promise<Response> => {
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const url = input instanceof Request ? input.url : String(input);
+      if (url === TELEMETRY_INGEST_URL) {
+        telemetryBodies.push(parseTelemetryBody(String(init?.body)));
+        return new Response(null, { status: 204 });
+      }
       if (url === "https://cdn.copilotkit.ai/announcements.json") {
         if (!options.announcement) {
           return new Response(null, { status: 404 });
@@ -122,7 +153,7 @@ async function setup(
           },
           inspectorMetadata: options.metadata !== undefined,
           licenseStatus: options.metadata?.license?.state ?? "unknown",
-          telemetryDisabled: true,
+          telemetryDisabled: options.telemetryDisabled ?? true,
         });
       }
       if (url.endsWith("/inspector-metadata")) {
@@ -137,6 +168,9 @@ async function setup(
         return jsonResponse({ threads: options.threads ?? [], joinCode: null });
       }
       if (url.endsWith("/threads/thread-1/messages")) {
+        if (options.failThreadMessages) {
+          return new Response("missing thread", { status: 500 });
+        }
         return jsonResponse({
           messages: [
             { id: "message-1", role: "user", content: "Earlier question" },
@@ -185,7 +219,7 @@ async function setup(
     document.body.appendChild(inspector);
     await inspector.updateComplete;
     const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Web Inspector"]',
+      'button[aria-label^="Web Inspector"]',
     );
     if (!opener) {
       throw new Error("Web Inspector opener was not rendered before Core");
@@ -240,12 +274,13 @@ async function setup(
     core,
     inspector,
     selectedMenuBeforeCore,
+    telemetryBodies,
     open: async () => {
       if (inspector.shadowRoot?.querySelector(".inspector-window")) {
         return;
       }
       const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!opener) {
         throw new Error("Web Inspector opener was not rendered");
@@ -354,6 +389,53 @@ function expectVisibleFocus(root: ShadowRoot, control: HTMLElement): void {
   const styles = getComputedStyle(control);
   expect(styles.outlineStyle).toBe("solid");
   expect(Number.parseFloat(styles.outlineWidth)).toBeGreaterThanOrEqual(2);
+}
+
+const SAVED_THREAD: ɵThread = {
+  id: "thread-1",
+  organizationId: "organization-1",
+  agentId: "default",
+  createdById: "user-1",
+  name: "Saved conversation",
+  archived: false,
+  createdAt: "2026-08-19T12:00:00.000Z",
+  updatedAt: "2026-08-19T12:01:00.000Z",
+};
+
+async function selectSavedThread(
+  inspector: WebInspectorElement,
+): Promise<void> {
+  const root = requireElement(
+    inspector.shadowRoot,
+    "Web Inspector shadow root was not rendered",
+  );
+  await waitFor(() => {
+    const list = root.querySelector("cpk-thread-list");
+    return Boolean(list?.shadowRoot?.querySelector(".cpk-tl__item"));
+  }, "saved thread row");
+  const list = requireElement(
+    root.querySelector("cpk-thread-list"),
+    "Thread list was not rendered",
+  );
+  const row = requireElement(
+    list.shadowRoot?.querySelector<HTMLButtonElement>(".cpk-tl__item"),
+    "Saved thread row was not rendered",
+  );
+  row.click();
+  await inspector.updateComplete;
+  await waitFor(
+    () => root.querySelector("cpk-thread-details") !== null,
+    "thread details",
+  );
+}
+
+function tryFromHereButton(root: ShadowRoot): HTMLButtonElement | null {
+  const details = root.querySelector("cpk-thread-details");
+  return (
+    details?.shadowRoot?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Try from here"]',
+    ) ?? null
+  );
 }
 
 function sidebarLeaves(root: ShadowRoot): string[] {
@@ -537,6 +619,172 @@ test("Playground forks saved thread history without changing the app agent", asy
   }
 });
 
+test("Try from here copies a stored thread into Playground without changing the app agent", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const button = requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    );
+    expect(button.closest(".cpk-td__timeline-toolbar")).not.toBeNull();
+    expect(button.querySelector("svg")).not.toBeNull();
+    button.click();
+
+    await waitFor(
+      () => root.textContent?.includes("Earlier answer") === true,
+      "copied thread messages",
+    );
+    expectCurrentNavigation(root, "workbench", "playground");
+    expect(root.textContent).toContain("Earlier question");
+    expect(context.core.getAgent("default")?.messages).toEqual([]);
+    expect(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source")
+        ?.value,
+    ).toBe("thread-1");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here discards a stale copy after leaving Threads", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+
+    const pendingFetch = globalThis.fetch;
+    let releaseMessages!: () => void;
+    let messagesResolved = false;
+    const messagesGate = new Promise<void>((resolve) => {
+      releaseMessages = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const isMessages = url.endsWith("/threads/thread-1/messages");
+        if (isMessages) {
+          await messagesGate;
+        }
+        const response = await pendingFetch(input, init);
+        if (isMessages) {
+          messagesResolved = true;
+        }
+        return response;
+      },
+    );
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const button = requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    );
+    button.click();
+    await context.selectLeaf("home");
+    expectCurrentNavigation(root, "home", "home");
+
+    releaseMessages();
+    await waitFor(() => messagesResolved, "stale Try from here load");
+    await context.inspector.updateComplete;
+
+    expectCurrentNavigation(root, "home", "home");
+    await context.selectLeaf("playground");
+    expect(root.textContent).not.toContain("Earlier answer");
+    expect(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source")
+        ?.value ?? "",
+    ).not.toBe("thread-1");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here stays on Threads when messages fail", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+    failThreadMessages: true,
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const button = requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    );
+    button.click();
+    await waitFor(() => {
+      const details = root.querySelector("cpk-thread-details");
+      return (
+        details?.shadowRoot?.textContent?.includes("Failed to load thread") ===
+        true
+      );
+    }, "Try from here error");
+    expectCurrentNavigation(root, "workbench", "threads");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here is hidden on example tour threads", async () => {
+  const context = await setup({ agent: true, threads: [] });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    await waitFor(() => {
+      const list = root.querySelector("cpk-thread-list");
+      return Boolean(list?.shadowRoot?.querySelector(".cpk-tl__item"));
+    }, "example thread row");
+    const list = requireElement(
+      root.querySelector("cpk-thread-list"),
+      "Thread list was not rendered",
+    );
+    const row = requireElement(
+      list.shadowRoot?.querySelector<HTMLButtonElement>(".cpk-tl__item"),
+      "Example thread row was not rendered",
+    );
+    row.click();
+    await context.inspector.updateComplete;
+    await waitFor(
+      () => root.querySelector("cpk-thread-details") !== null,
+      "example thread details",
+    );
+    expect(tryFromHereButton(root)).toBeNull();
+  } finally {
+    context.teardown();
+  }
+});
+
 test("Playground omits the durability CTA when Intelligence is active", async () => {
   const context = await setup({ agent: true, runtimeMode: "intelligence" });
   try {
@@ -560,6 +808,66 @@ test("Playground omits the durability CTA when Intelligence is active", async ()
   } finally {
     context.teardown();
   }
+});
+
+test("Playground composer stays readable in dark mode", async () => {
+  const context = await setup({ agent: true });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const inspectorWindow = requireElement(
+      root.querySelector<HTMLElement>(".inspector-window"),
+      "Inspector window was not rendered",
+    );
+    const toggle = requireElement(
+      root.querySelector<HTMLButtonElement>("[data-inspector-theme-toggle]"),
+      "Theme toggle was not rendered",
+    );
+
+    toggle.click();
+    await waitFor(
+      () => inspectorWindow.dataset.colorScheme === "dark",
+      "dark color scheme",
+    );
+
+    expect(
+      root
+        .querySelector('textarea[aria-label="Playground message"]')
+        ?.classList.contains("cpk-playground-input"),
+    ).toBe(true);
+    expect(root.querySelector(".cpk-playground-composer")).not.toBeNull();
+    expect(
+      root
+        .querySelector('button[aria-label="Send playground message"]')
+        ?.classList.contains("cpk-playground-send"),
+    ).toBe(true);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground surface styles live in the Web Inspector shadow root", () => {
+  const styles = WebInspectorElement.styles as Array<{ cssText?: string }>;
+  const cssText = styles.map((style) => style.cssText ?? "").join("\n");
+
+  expect(cssText).toMatch(
+    /\.cpk-playground-root\s*\{[^}]*background:\s*#fbfbfd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-header\s*\{[^}]*min-height:\s*58px[^}]*background:\s*#f7f6fd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-composer\s*\{[^}]*border:\s*1px solid #dcdce8/s,
+  );
+  expect(cssText).toMatch(
+    /\.inspector-window\[data-color-scheme="dark"\]\s+\.cpk-playground-composer\s*\{[^}]*background:\s*#15171e\s*!important/s,
+  );
+  expect(cssText).toContain("@keyframes cpk-playground-message-enter");
 });
 
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
@@ -708,7 +1016,7 @@ test("trusted identity stays on Home while connection state moves into branded c
     );
     expect(features.textContent).toContain("Features");
     expect(features.textContent?.replace(/\s+/g, " ")).toContain(
-      "1 active, 6 off",
+      "0 enabled, 7 available",
     );
     expect(features.querySelectorAll("[data-inspector-service]")).toHaveLength(
       7,
@@ -720,16 +1028,87 @@ test("trusted identity stays on Home while connection state moves into branded c
       features.querySelectorAll(
         '[data-feature-state-group="active"] [data-inspector-service]',
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       features.querySelectorAll(
         '[data-feature-state-group="available"] [data-inspector-service]',
       ),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
     expect(
       features.querySelector<HTMLElement>('[data-inspector-service="memory"]')
         ?.dataset.state,
-    ).toBe("on");
+    ).toBe("off");
+    const learning = requireElement(
+      features.querySelector<HTMLElement>('[data-inspector-service="memory"]'),
+      "Learning feature was not rendered",
+    );
+    expect(learning.textContent).toContain("Learning");
+    expect(
+      learning
+        .querySelector(".inspector-home-feature-status")
+        ?.getAttribute("aria-label"),
+    ).toBe("Learning is not enabled in your runtime");
+    expect(
+      learning.querySelector('[data-inspector-home-feature-prompt="memory"]'),
+    ).not.toBeNull();
+    const learningDocs = requireElement(
+      learning.querySelector<HTMLAnchorElement>(
+        '[data-inspector-home-feature-docs="memory"]',
+      ),
+      "Learning documentation link was not rendered",
+    );
+    expect(learningDocs.title).toBe("");
+    expect(learningDocs.dataset.fullValue).toBeUndefined();
+    expect(
+      learningDocs.classList.contains("inspector-home-feature-label"),
+    ).toBe(true);
+    expect(learningDocs.classList.contains("inspector-system-health-url")).toBe(
+      false,
+    );
+    expect(learningDocs.textContent).toContain("Learning");
+    expect(learningDocs.querySelector("svg")).not.toBeNull();
+    expect(learningDocs.href).toBe(
+      "https://docs.copilotkit.ai/intelligence/intelligence-platform?ref=cpk-inspector-home",
+    );
+    expect(
+      learning.firstElementChild?.classList.contains(
+        "inspector-home-feature-status",
+      ),
+    ).toBe(true);
+    const a2ui = requireElement(
+      features.querySelector<HTMLElement>('[data-inspector-service="a2ui"]'),
+      "A2UI feature was not rendered",
+    );
+    const a2uiPrompt = requireElement(
+      a2ui.querySelector<HTMLButtonElement>(
+        '[data-inspector-home-feature-prompt="a2ui"]',
+      ),
+      "A2UI copy action was not rendered",
+    );
+    expect(a2uiPrompt.title).toBe("");
+    expect(a2uiPrompt.dataset.fullValue).toBe("Copy prompt");
+    expect(a2uiPrompt.textContent).toContain("Copy prompt");
+    expect(a2uiPrompt.querySelector("svg")).not.toBeNull();
+    const a2uiDocs = requireElement(
+      a2ui.querySelector<HTMLAnchorElement>(
+        '[data-inspector-home-feature-docs="a2ui"]',
+      ),
+      "A2UI documentation link was not rendered",
+    );
+    expect(a2uiDocs.title).toBe("");
+    expect(a2uiDocs.dataset.fullValue).toBeUndefined();
+    expect(a2uiDocs.classList.contains("inspector-home-feature-label")).toBe(
+      true,
+    );
+    expect(a2uiDocs.classList.contains("inspector-system-health-url")).toBe(
+      false,
+    );
+    expect(a2uiDocs.textContent).toContain("A2UI");
+    expect(
+      a2ui.firstElementChild?.classList.contains(
+        "inspector-home-feature-status",
+      ),
+    ).toBe(true);
     expect(
       features.querySelector<HTMLElement>('[data-inspector-service="threads"]')
         ?.dataset.state,
@@ -817,27 +1196,85 @@ test("disabled Intelligence becomes a setup action in the sidebar and on Home", 
       "Disconnected Intelligence module was not rendered",
     );
     expect(intelligenceHud.dataset.state).toBe("disconnected");
-    expect(intelligenceHud.textContent).toContain("Intelligence is not setup");
-    expect(intelligenceHud.textContent).toContain(
-      "persistent Threads, Learning and Analytics",
-    );
+    expect(intelligenceHud.dataset.mode).toBe("install");
+    expect(intelligenceHud.textContent).toContain("CopilotKit Intelligence");
     expect(
       intelligenceHud.querySelector(".inspector-intelligence-hud-details"),
     ).toBeNull();
+
+    // The install prompt is the primary action; the signup page is demoted to
+    // a secondary link. Assert both, because the whole point of this card is
+    // that leaving for a signup page is no longer the only way forward.
+    const copyPrompt = requireElement(
+      intelligenceHud.querySelector<HTMLButtonElement>(
+        "[data-inspector-intelligence-copy-prompt]",
+      ),
+      "Home Intelligence copy-prompt button was not rendered",
+    );
+    expect(copyPrompt.textContent).toContain("Copy setup prompt");
+
     const homeSetup = requireElement(
       intelligenceHud.querySelector<HTMLAnchorElement>(
         '[data-inspector-home-intelligence-action="enable_intelligence"]',
       ),
       "Home Intelligence setup action was not rendered",
     );
-    expect(homeSetup.textContent).toContain("Setup Intelligence");
+    // Names the alternative route, not an explainer: this href is the
+    // Intelligence product page, so promising an explanation would mislead.
+    expect(homeSetup.textContent).toContain("Set it up yourself");
     expect(homeSetup.href).toBe(setupUrl);
+
+    // The condensed story only belongs to the never-connected state.
+    const story = requireElement(
+      intelligenceHud.querySelector<HTMLElement>(
+        "[data-inspector-intelligence-story]",
+      ),
+      "Intelligence story was not rendered",
+    );
+    expect(story.querySelectorAll(".inspector-intelligence-beat")).toHaveLength(
+      4,
+    );
+    expect(story.dataset.beat).toBe("threads");
+
+    // Copy and picture must stay paired — one slide of prose per beat, and the
+    // same beat marked active in both. This is the whole point of the section:
+    // an earlier version sold Threads in prose while showing Learning.
+    const copy = requireElement(
+      intelligenceHud.querySelector<HTMLElement>(
+        "[data-inspector-intelligence-copy]",
+      ),
+      "Intelligence rotating copy was not rendered",
+    );
+    expect(
+      copy.querySelectorAll(".inspector-intelligence-copy-slide"),
+    ).toHaveLength(4);
+    expect(copy.dataset.beat).toBe(story.dataset.beat);
+    const activeCopy = requireElement(
+      copy.querySelector<HTMLElement>('[data-active="true"]'),
+      "No active copy slide",
+    );
+    expect(activeCopy.dataset.beatId).toBe("threads");
+
+    // The rotating text is hidden from assistive tech, so one stable sentence
+    // has to be exposed in its place.
+    expect(copy.getAttribute("aria-hidden")).toBe("true");
+    requireElement(
+      intelligenceHud.querySelector<HTMLElement>(
+        ".inspector-intelligence-sr-summary",
+      ),
+      "Screen-reader summary was not rendered",
+    );
+
+    // Tabs let a developer go back to a slide that already passed.
+    expect(
+      story.querySelectorAll(".inspector-intelligence-story-tab"),
+    ).toHaveLength(4);
     const features = requireElement(
       home.querySelector<HTMLElement>('[data-inspector-home-card="services"]'),
       "Features section was not rendered",
     );
     expect(features.textContent?.replace(/\s+/g, " ")).toContain(
-      "0 active, 7 off",
+      "0 enabled, 7 available",
     );
     expect(
       features.querySelector<HTMLElement>('[data-inspector-service="threads"]')
@@ -850,6 +1287,98 @@ test("disabled Intelligence becomes a setup action in the sidebar and on Home", 
     ).toHaveLength(0);
   } finally {
     context.teardown();
+  }
+});
+
+test("Home feature actions copy correlated onboarding prompts", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  const originalClipboard = Object.getOwnPropertyDescriptor(
+    navigator,
+    "clipboard",
+  );
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+
+  const context = await setup({
+    metadata: trustedMetadata(),
+    telemetryDisabled: false,
+  });
+  try {
+    await context.open();
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const copyPrompt = requireElement(
+      root.querySelector<HTMLButtonElement>(
+        '[data-inspector-home-feature-prompt="a2ui"]',
+      ),
+      "A2UI copy action was not rendered",
+    );
+
+    copyPrompt.click();
+    copyPrompt.click();
+    await waitFor(() => writeText.mock.calls.length === 2, "prompt copies");
+    await waitFor(
+      () =>
+        context.telemetryBodies.filter(
+          ({ event }) => event === TELEMETRY_EVENTS.homeFeaturePromptClicked,
+        ).length === 2,
+      "feature-prompt telemetry",
+    );
+    await context.inspector.updateComplete;
+
+    const copiedPrompts = writeText.mock.calls.map(([prompt]) =>
+      String(prompt),
+    );
+    const onboardingRunIds = copiedPrompts.map((prompt) => {
+      expect(prompt).toContain(
+        "Identify your coding-agent slug (for example, `codex` or `claude-code`)",
+      );
+      expect(prompt).toContain(
+        "never reveal credentials or send optional diagnostic feedback reports",
+      );
+      expect(prompt).toContain(
+        "local validation proves A2UI works—not merely that the code compiles",
+      );
+      expect(prompt).toContain("A2UI guide");
+      expect(prompt).not.toContain("--intent");
+      const match = prompt.match(
+        /--run ([A-Za-z0-9_-]{12}) --coding-agent <coding-agent-slug>/,
+      );
+      expect(match?.[1]).toBeDefined();
+      return match![1]!;
+    });
+    expect(onboardingRunIds[0]).not.toBe(onboardingRunIds[1]);
+
+    const promptClicks = context.telemetryBodies.filter(
+      ({ event }) => event === TELEMETRY_EVENTS.homeFeaturePromptClicked,
+    );
+    expect(promptClicks.map(({ properties }) => properties)).toEqual([
+      expect.objectContaining({
+        feature_id: "a2ui",
+        onboarding_run_id: onboardingRunIds[0],
+      }),
+      expect.objectContaining({
+        feature_id: "a2ui",
+        onboarding_run_id: onboardingRunIds[1],
+      }),
+    ]);
+    expect(copyPrompt.dataset.copyState).toBe("copied");
+    expect(copyPrompt.title).toBe("");
+    expect(copyPrompt.dataset.fullValue).toBe("Copied");
+    expect(copyPrompt.getAttribute("aria-label")).toBe("Copied for A2UI");
+    expect(copyPrompt.textContent).toContain("Copied");
+    expect(copyPrompt.querySelector("svg")).not.toBeNull();
+  } finally {
+    context.teardown();
+    if (originalClipboard) {
+      Object.defineProperty(navigator, "clipboard", originalClipboard);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
   }
 });
 
@@ -1104,7 +1633,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
     {
       leaf: "threads",
       group: "workbench",
-      marker: "Threads are unavailable.",
+      marker:
+        "Production-grade chat threads without the complexity. Self hostable.",
     },
     { leaf: "memories", group: "workbench", marker: "Learning" },
     { leaf: "home", group: "home", marker: "System Health" },
@@ -1131,9 +1661,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
         "Web Inspector shadow root was not rendered",
       );
       expectCurrentNavigation(root, expected.group, expected.leaf);
-      expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-        expected.marker,
-      );
+      const renderedText = root.querySelector("#cpk-main-scroll")?.textContent;
+      expect(renderedText).toContain(expected.marker);
       expect(storedSelectedMenu()).toBe(expected.leaf);
     } finally {
       context.teardown();
@@ -1336,7 +1865,7 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
     await context.inspector.updateComplete;
     const visibleOption = () =>
       scope.querySelector(
-        '[data-context-dropdown-root="true"] > button[data-context-dropdown-root="true"]',
+        '.inspector-icon-rail-menu[data-open="true"] button[data-context-dropdown-root="true"]',
       );
     expect(visibleOption()).not.toBeNull();
     scopeTrigger.dispatchEvent(
@@ -1350,6 +1879,7 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
     await context.inspector.updateComplete;
     expect(visibleOption()).not.toBeNull();
     scopeRoot.dispatchEvent(new Event("pointerleave"));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     await context.inspector.updateComplete;
     expect(visibleOption()).toBeNull();
     expect(sidebar.querySelector(".inspector-sidebar-footer")).toBeNull();

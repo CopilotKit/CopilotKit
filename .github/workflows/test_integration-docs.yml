@@ -5,6 +5,10 @@ on:
     paths:
       - "showcase/shell-docs/src/content/**"
       - "showcase/shell-docs/model-allowlist.json"
+      - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
+      - "showcase/shell-docs/package.json"
+      - "showcase/shell-docs/package-lock.json"
+      - "examples/integrations/ms-agent-framework-dotnet/**"
       - "scripts/validate-doc-model-names.ts"
       - "scripts/doc-tests/**"
       - ".github/workflows/test_integration-docs.yml"
@@ -13,6 +17,10 @@ on:
     paths:
       - "showcase/shell-docs/src/content/**"
       - "showcase/shell-docs/model-allowlist.json"
+      - "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts"
+      - "showcase/shell-docs/package.json"
+      - "showcase/shell-docs/package-lock.json"
+      - "examples/integrations/ms-agent-framework-dotnet/**"
       - "scripts/validate-doc-model-names.ts"
       - "scripts/doc-tests/**"
       - ".github/workflows/test_integration-docs.yml"
@@ -40,6 +48,29 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm tsx scripts/validate-doc-model-names.ts
+
+  ms-agent-dotnet-guidance:
+    name: Microsoft Agent Framework .NET guidance
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # zizmor: ignore[undocumented-permissions] Depot runner OIDC.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: showcase/shell-docs/package-lock.json
+      - name: Install shell-docs dependencies
+        working-directory: showcase/shell-docs
+        run: npm ci --ignore-scripts
+      - name: Check Microsoft Agent Framework .NET guidance
+        working-directory: showcase/shell-docs
+        run: npm exec -- vitest run src/lib/__tests__/ms-agent-dotnet-provider.test.ts
 
   doc-tests:
     runs-on: depot-ubuntu-24.04-4

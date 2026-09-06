@@ -111,6 +111,39 @@ function installCookieShim(): void {
 }
 
 /**
+ * jsdom exposes mouse events but does not construct PointerEvent. The
+ * Inspector uses pointer handlers for launcher and resize interactions, so a
+ * small MouseEvent-based constructor keeps those tests on their browser path.
+ */
+function installPointerEventShim(): void {
+  if (
+    typeof globalThis.PointerEvent === "function" ||
+    typeof globalThis.MouseEvent !== "function"
+  ) {
+    return;
+  }
+
+  class PointerEventShim extends MouseEvent {
+    readonly pointerId: number;
+    readonly pointerType: string;
+    readonly isPrimary: boolean;
+
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+      this.pointerType = init.pointerType ?? "mouse";
+      this.isPrimary = init.isPrimary ?? true;
+    }
+  }
+
+  Object.defineProperty(globalThis, "PointerEvent", {
+    value: PointerEventShim,
+    writable: true,
+    configurable: true,
+  });
+}
+
+/**
  * jsdom does not implement the pointer-capture methods, so any handler that
  * releases capture on pointerup throws under test even though it is correct in
  * every real browser. Capture has no observable effect here, so tracking the
@@ -148,6 +181,7 @@ function installPointerCaptureShim(): void {
 // imports that read localStorage on init) sees the shim.
 installLocalStorageShim();
 installCookieShim();
+installPointerEventShim();
 installPointerCaptureShim();
 
 // Re-install before each test so `vi.restoreAllMocks()` from a prior test

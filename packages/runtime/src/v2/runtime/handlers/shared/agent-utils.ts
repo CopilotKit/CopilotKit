@@ -162,7 +162,7 @@ export function configureAgentForRequest(params: {
 }
 
 /**
- * Attach the Intelligence platform's MCP tools to the agent run when
+ * Attach CopilotKit Intelligence's MCP tools to the agent run when
  * `CopilotKitIntelligence` was constructed with
  * `enableEnterpriseLearning: true`. Uses `@ag-ui/mcp-middleware`, so the
  * tools are available uniformly across agent frameworks (not just

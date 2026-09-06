@@ -16,6 +16,7 @@ export interface AngularSupportContract {
 }
 
 interface AngularConsumerManifestOptions {
+  agUiClient: string;
   angularTarball: string;
   packageManager: string;
   siblingTarballs: ReadonlyMap<string, string>;
@@ -30,6 +31,8 @@ export interface DependencyNode {
   devDependencies?: Record<string, DependencyNode>;
   optionalDependencies?: Record<string, DependencyNode>;
 }
+
+const AG_UI_CLIENT = "@ag-ui/client";
 
 const FRAMEWORK_PEERS = [
   "@angular/cdk",
@@ -100,6 +103,21 @@ export function readAngularSupportContract(
     ),
     supportedMajors: support.supportedMajors.map(readSupportEntry),
   };
+}
+
+/**
+ * Reads the AG-UI client version the package itself ships against. The smoke
+ * consumer imports `AbstractAgent` directly, so it must resolve the identical
+ * copy; a second one makes the two `AbstractAgent` declarations structurally
+ * incompatible over their private fields.
+ */
+export function readAgUiClientDependency(manifest: unknown): string {
+  const root = requireRecord(manifest, "package manifest");
+  const dependencies = requireRecord(root.dependencies, "dependencies");
+  return requireString(
+    dependencies[AG_UI_CLIENT],
+    `dependencies["${AG_UI_CLIENT}"]`,
+  );
 }
 
 function peerRange(support: AngularSupportContract): string {
@@ -215,6 +233,7 @@ export function validateAngularPackageManifest(manifest: unknown): string[] {
  * Angular itself always resolves normally so peer incompatibilities fail CI.
  */
 export function createAngularConsumerManifest({
+  agUiClient,
   angularTarball,
   packageManager,
   siblingTarballs,
@@ -230,7 +249,7 @@ export function createAngularConsumerManifest({
       "serve:ssr": "node dist/smoke/server/server.mjs",
     },
     dependencies: {
-      "@ag-ui/client": "0.0.57",
+      [AG_UI_CLIENT]: agUiClient,
       "@angular/cdk": support.cdk,
       "@angular/common": support.angular,
       "@angular/core": support.angular,

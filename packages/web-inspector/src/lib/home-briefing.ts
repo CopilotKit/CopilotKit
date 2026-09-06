@@ -39,6 +39,27 @@ export type HomeServiceTile = {
   docsUrl: string;
 };
 
+export type HomeFeatureImplementationPromptContext = {
+  onboardingRunId: string;
+};
+
+/**
+ * A self-contained handoff for a coding agent. It answers the onboarding
+ * workflow's session and feedback consent gates up front, while keeping the
+ * feature guide—not a generic product-onboarding branch—in control of the
+ * implementation plan.
+ */
+export function homeFeatureImplementationPrompt(
+  service: Pick<HomeServiceTile, "label" | "docsUrl">,
+  context: HomeFeatureImplementationPromptContext,
+): string {
+  return `Identify your coding-agent slug (for example, \`codex\` or \`claude-code\`). From the target project root, run \`npx copilotkit@latest onboard start --run ${context.onboardingRunId} --coding-agent <coding-agent-slug>\` and use its output as onboarding context. If it requires a CopilotKit CLI session check, you have permission to run it; never reveal credentials or send optional diagnostic feedback reports.
+
+This task is specifically to enable ${service.label}, not to re-onboard the application. First inspect the existing CopilotKit runtime, provider, agent, and UI wiring, and confirm that ${service.label} is not already enabled. Then read the ${service.label} guide (${service.docsUrl}) and make a short plan before editing. Preserve the project's framework, package manager, installed CopilotKit version, existing agent IDs, routes, provider layout, and working behavior. Do not create, select, or alter a CopilotKit Intelligence project—or add Intelligence configuration—unless this feature's official guide explicitly requires it or the user asks.
+
+Implement the smallest complete integration: wire every feature-required client and runtime configuration into the chat-to-agent path people already use, reuse local patterns, and do not invent environment values or hardcode secrets. Add or update focused tests and run the relevant project checks. Finish only after local validation proves ${service.label} works—not merely that the code compiles. Use a feature-specific runtime or Inspector capability check and, when the feature supports one, a representative UI interaction that proves the user-facing result. If the project overrides default rendering (for example, with a wildcard tool renderer), make that override compatible with this feature; a capability flag alone is not success. Summarize the changed files, validation, and any manual setup still required.`;
+}
+
 export type HomeModel = {
   hero: {
     connection: HomeConnection;
@@ -116,12 +137,13 @@ export type HomeBriefingInput = {
 
 const SERVICE_DOCS_URL: Record<HomeServiceId, string> = {
   threads: "https://docs.copilotkit.ai/threads",
-  memory: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  memory: "https://docs.copilotkit.ai/intelligence/intelligence-platform",
   a2ui: "https://docs.copilotkit.ai/generative-ui/a2ui",
   "open-gen-ui": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
-  suggestions: "https://docs.copilotkit.ai/agentic-chat-ui",
+  suggestions:
+    "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
   audio: "https://docs.copilotkit.ai/voice",
-  websocket: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  websocket: "https://docs.copilotkit.ai/intelligence/intelligence-platform",
 };
 
 /** Return the Home hero button for a trusted metadata action. */
@@ -187,10 +209,19 @@ function heroForState(args: {
     const renewing = args.action?.kind === "renew";
     return {
       connection: "disconnected",
-      title: renewing ? "Renew Intelligence" : "Intelligence is not setup",
+      // Not "Intelligence is not setup" — that reads as a defect in the tool,
+      // and a defect gets dismissed. The heading names the product; the
+      // argument for it is made by the rotating copy on Home, which changes
+      // with the picture beside it.
+      title: renewing ? "Renew Intelligence" : "CopilotKit Intelligence",
+      // In install mode this is NOT the visible paragraph. The visible copy
+      // rotates every few seconds, which would make a screen reader announce a
+      // new sentence four times a loop, so the rotating text is hidden from
+      // assistive tech and this one stable sentence is exposed instead. It has
+      // to carry the whole chain on its own.
       body: renewing
         ? "Renew Intelligence to restore persistent Threads and Memory."
-        : "Connect CopilotKit Intelligence to add persistent Threads, Learning and Analytics to your application. Inspect conversations and allow your agents to learn from real use.",
+        : "Intelligence keeps every thread your users have, finds evidence-backed patterns in them, and proposes skills you approve before your agent uses them.",
       action: connectIntelligenceAction(
         args.action,
         args.connectUrl,
@@ -316,6 +347,27 @@ function runtimeEventSignal(
   };
 }
 
+/**
+ * Whether the runtime *connection* needs attention — the single condition
+ * shared by System Health and the launcher's error signal, so the two can
+ * never disagree about whether the wiring is broken.
+ *
+ * Exactly one state counts. `disconnected` is also the initial value, so
+ * counting it would raise the signal on every page load; `connecting` is a
+ * normal startup step; `unavailable` means no Core is attached, which is not
+ * a defect of the developer's wiring.
+ *
+ * Note the deliberate asymmetry with `health.state`: a failed *run* also
+ * drives System Health to "Needs attention" while the connection is fine.
+ * That is an event rather than a state, and it is excluded from the launcher
+ * on purpose — see the launcher-signal comments in index.ts.
+ */
+export function runtimeConnectionNeedsAttention(
+  state: HomeRuntimeConnectionState,
+): boolean {
+  return state === "error";
+}
+
 function runtimeHealthFromInput(
   input: HomeBriefingInput,
 ): HomeModel["runtime"]["health"] {
@@ -351,14 +403,15 @@ function runtimeHealthFromInput(
     };
   }
 
+  const needsAttention = runtimeConnectionNeedsAttention(
+    input.runtimeConnectionState,
+  );
   return {
-    state: input.runtimeConnectionState === "error" ? "error" : "offline",
-    label:
-      input.runtimeConnectionState === "error" ? "Runtime error" : "Offline",
+    state: needsAttention ? "error" : "offline",
+    label: needsAttention ? "Runtime error" : "Offline",
     runtime: { label: "Offline", tone: "error" },
     liveUpdates: {
-      label:
-        input.runtimeConnectionState === "error" ? "Error" : "Disconnected",
+      label: needsAttention ? "Error" : "Disconnected",
       tone: "error",
     },
     lastEvent,
@@ -422,7 +475,7 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
       },
       {
         id: "memory",
-        label: "Memory",
+        label: "Learning",
         enabled: intelligenceConnected && input.memoriesOn,
         docsUrl: SERVICE_DOCS_URL.memory,
       },
@@ -446,7 +499,7 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
       },
       {
         id: "audio",
-        label: "Audio",
+        label: "Voice",
         enabled: input.audioOn,
         docsUrl: SERVICE_DOCS_URL.audio,
       },

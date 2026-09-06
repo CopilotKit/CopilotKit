@@ -62,4 +62,8 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - run: npx pkg-pr-new publish  --pnpm --packageManager pnpm "./packages/*"
+      # The generated default template installs every published package into a
+      # single Node sandbox. That mixes browser, server, Angular, Vue, and React
+      # Native packages, making the StackBlitz preview unusable. Package preview
+      # URLs remain available without the default template.
+      - run: npx pkg-pr-new publish --pnpm --packageManager pnpm --no-template "./packages/*"

@@ -22,8 +22,6 @@ export const routes: Routes = [
       import("./routes/headless/headless-chat.component").then(
         (m) => m.HeadlessChatComponent,
       ),
-    // The web inspector is hidden on the headless route.
-    data: { inspector: false },
   },
   {
     path: "custom-input",

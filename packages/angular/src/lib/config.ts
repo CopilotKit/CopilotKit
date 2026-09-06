@@ -53,6 +53,12 @@ export interface CopilotKitConfig {
   defaultToolRendering?: boolean;
   a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
+  /**
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
+   */
+  enableInspector?: boolean;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";
@@ -117,7 +123,7 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
   return inject(COPILOT_KIT_CONFIG);
 }
 
-export function provideCopilotKit(config: CopilotKitConfig): Provider {
+export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
   const resolvedLicense = resolveLicense(config);
   const headers = config.headers ?? {};
   if (

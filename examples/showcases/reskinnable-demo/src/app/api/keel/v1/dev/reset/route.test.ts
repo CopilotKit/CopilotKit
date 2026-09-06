@@ -15,7 +15,7 @@ beforeEach(() => {
   // The store-only cases below must not reach a memory backend. Every
   // Intelligence-path test arms these itself.
   vi.stubEnv("INTELLIGENCE_API_URL", "");
-  vi.stubEnv("INTELLIGENCE_API_KEY", "");
+  vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "");
 });
 // `vi.stubEnv` leaks into later test FILES, not just later tests, so the
 // unstub is mandatory rather than tidy.
@@ -125,7 +125,7 @@ describe("the OSS path, where there is no durable memory", () => {
     // misleading string this route could return: a presenter reading it stops
     // looking for the reason beat 6 opened already taught.
     vi.stubEnv("INTELLIGENCE_API_URL", "");
-    vi.stubEnv("INTELLIGENCE_API_KEY", "");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "");
     const body = await (await POST()).json();
     expect(body).toEqual({ ok: true, reset: ["store"] });
     expect(JSON.stringify(body)).not.toContain("memory");
@@ -144,7 +144,7 @@ describe("the OSS path, where there is no durable memory", () => {
 describe("the Intelligence path — wipe, re-seed, and what it claims", () => {
   const armEnv = () => {
     vi.stubEnv("INTELLIGENCE_API_URL", "http://intel.internal:7450");
-    vi.stubEnv("INTELLIGENCE_API_KEY", "sk-test-key");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "sk-test-key");
     // Unpinned, so the bucket set is the derived one rather than collapsing onto a
     // single pinned id (playwright pins one; see intelligence/user-id.ts).
     vi.stubEnv("INTELLIGENCE_USER_ID", "");

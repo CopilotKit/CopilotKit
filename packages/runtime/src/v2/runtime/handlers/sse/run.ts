@@ -35,6 +35,7 @@ export function handleSseRun({
     logger,
     runtimeErrorReporter: getRuntimeErrorReporter(runtime),
     startTime,
+    telemetry: runtime.telemetry,
     observableFactory: () =>
       runtime.runner.run({
         threadId: input.threadId,

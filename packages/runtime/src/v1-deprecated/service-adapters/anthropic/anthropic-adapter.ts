@@ -71,6 +71,7 @@ import {
 } from "./utils";
 
 import { randomId, randomUUID } from "@copilotkit/shared";
+import type { SdkClientLike } from "../shared";
 import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
 const DEFAULT_MODEL = "claude-opus-4-8";
@@ -92,7 +93,7 @@ export interface AnthropicAdapterParams {
    * An optional Anthropic instance to use.  If not provided, a new instance will be
    * created.
    */
-  anthropic?: Anthropic;
+  anthropic?: SdkClientLike;
 
   /**
    * The model to use.
@@ -118,8 +119,8 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
   private promptCaching: AnthropicPromptCachingConfig;
   private maxInputTokens?: number;
 
-  private _anthropic: Anthropic;
-  public get anthropic(): Anthropic {
+  private _anthropic: SdkClientLike;
+  public get anthropic(): SdkClientLike {
     return this._anthropic;
   }
   public get name() {
@@ -150,7 +151,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     return provider(this.model);
   }
 
-  private ensureAnthropic(): Anthropic {
+  private ensureAnthropic(): SdkClientLike {
     if (!this._anthropic) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const Anthropic = require("@anthropic-ai/sdk").default;
@@ -409,7 +410,10 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         stream: true,
       };
 
-      const anthropic = this.ensureAnthropic();
+      // The public surface is structural so consumers who skip the optional
+      // peer can still compile (see SdkClientLike); the SDK type is only
+      // reachable here, inside a function body, where it is never emitted.
+      const anthropic = this.ensureAnthropic() as Anthropic;
       const stream = await anthropic.messages.create(createParams);
 
       eventSource.stream(async (eventStream$) => {

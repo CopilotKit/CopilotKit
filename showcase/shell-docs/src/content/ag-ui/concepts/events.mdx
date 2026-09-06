@@ -568,7 +568,7 @@ and
 for the underlying concept of encrypted reasoning items, which inspired this
 design.
 
-See [Reasoning](/concepts/reasoning) for comprehensive documentation including
+See [Reasoning](/ag-ui/concepts/reasoning) for comprehensive documentation including
 privacy considerations, compliance guidance, and implementation examples.
 
 ```mermaid
@@ -706,7 +706,7 @@ The `THINKING_*` events have been replaced by `REASONING_*` events:
 | `THINKING_TEXT_MESSAGE_CONTENT` | `REASONING_MESSAGE_CONTENT` |
 | `THINKING_TEXT_MESSAGE_END`     | `REASONING_MESSAGE_END`     |
 
-See [Reasoning Migration](/concepts/reasoning#migration-from-thinking-events)
+See [Reasoning Migration](/ag-ui/concepts/reasoning#migration-from-thinking-events)
 for detailed migration guidance.
 
 ## Draft Events
@@ -729,7 +729,7 @@ development and discussion.
 >
   DRAFT
 </span>
-[View Proposal](/drafts/meta-events)
+[View Proposal](/ag-ui/drafts/meta-events)
 
 Meta events provide annotations and signals independent of agent runs, such as
 user feedback or external system events.
@@ -757,7 +757,7 @@ A side-band annotation event that can occur anywhere in the stream.
 >
   DRAFT
 </span>
-[View Proposal](/drafts/interrupts)
+[View Proposal](/ag-ui/drafts/interrupts)
 
 Extensions to existing lifecycle events to support interrupts and branching.
 
@@ -770,7 +770,7 @@ The `RunFinished` event gains new fields to support interrupt-aware workflows.
 | `outcome`   | Optional: "success" or "interrupt"               |
 | `interrupt` | Optional: Contains interrupt details when paused |
 
-See [Serialization](/concepts/serialization) for lineage and input capture.
+See [Serialization](/ag-ui/concepts/serialization) for lineage and input capture.
 
 #### RunStarted (Extended)
 

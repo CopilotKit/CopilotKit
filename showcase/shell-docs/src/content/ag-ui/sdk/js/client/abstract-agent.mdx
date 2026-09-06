@@ -71,7 +71,7 @@ interface RunAgentParameters {
 ```
 
 The optional `subscriber` parameter allows you to provide an
-[AgentSubscriber](/sdk/js/client/subscriber) for handling events during this
+[AgentSubscriber](/ag-ui/sdk/js/client/subscriber) for handling events during this
 specific run.
 
 #### Return Value
@@ -85,7 +85,7 @@ interface RunAgentResult {
 
 ### subscribe()
 
-Adds an [AgentSubscriber](/sdk/js/client/subscriber) to handle events across
+Adds an [AgentSubscriber](/ag-ui/sdk/js/client/subscriber) to handle events across
 multiple agent runs.
 
 ```typescript
@@ -126,7 +126,7 @@ agent.use(
 agent.use(loggingMiddleware, authMiddleware, filterMiddleware);
 ```
 
-Middleware executes in the order added, with each wrapping the next. Middleware is applied in `runAgent()`; `connectAgent()` currently calls `connect()` directly. See the [Middleware documentation](/sdk/js/client/middleware) for more details.
+Middleware executes in the order added, with each wrapping the next. Middleware is applied in `runAgent()`; `connectAgent()` currently calls `connect()` directly. See the [Middleware documentation](/ag-ui/sdk/js/client/middleware) for more details.
 
 ### getCapabilities()
 
@@ -137,7 +137,7 @@ to advertise what they support. Returns `undefined` if not implemented.
 getCapabilities?(): Promise<AgentCapabilities>
 ```
 
-See [Capabilities](/concepts/capabilities) for the full `AgentCapabilities`
+See [Capabilities](/ag-ui/concepts/capabilities) for the full `AgentCapabilities`
 type definition and usage patterns.
 
 ### abortRun()

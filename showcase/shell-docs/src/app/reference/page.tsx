@@ -1,10 +1,6 @@
-import {
-  DocsPage,
-  DocsBody,
-  DocsTitle,
-  DocsDescription,
-} from "fumadocs-ui/page";
+import { DocsPage, DocsBody } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { DocsContentHeader } from "@/components/docs-content-header";
 import { Cards, Card } from "@/components/mdx-components";
 import { ReferenceVersionSelector } from "@/components/reference-version-selector";
 import {
@@ -102,15 +98,14 @@ export default function ReferencePage() {
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-          <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
-            Overview
-          </DocsTitle>
-          <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
-            {intro}
-          </DocsDescription>
+        <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
+          <DocsContentHeader
+            ancestorBreadcrumbs={[{ label: "Reference", href: null }]}
+            title="Overview"
+            description={intro}
+          />
 
-          <DocsBody className="reference-content prose-sm mt-8">
+          <DocsBody className="reference-content">
             <section>
               <h2>Choose your SDK</h2>
               <Cards>

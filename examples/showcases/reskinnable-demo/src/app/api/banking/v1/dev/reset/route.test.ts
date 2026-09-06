@@ -33,7 +33,7 @@ describe("POST /api/banking/v1/dev/reset", () => {
   it("resets the store only when Intelligence is unconfigured", async () => {
     vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
     vi.stubEnv("INTELLIGENCE_API_URL", "");
-    vi.stubEnv("INTELLIGENCE_API_KEY", "");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "");
     const res = await POST();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, reset: ["store"] });
@@ -44,7 +44,7 @@ describe("POST /api/banking/v1/dev/reset", () => {
   it("forgets every seeded persona when Intelligence is configured", async () => {
     vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
     vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7250");
-    vi.stubEnv("INTELLIGENCE_API_KEY", "cpk_test");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
     const res = await POST();
     expect(res.status).toBe(200);
     expect(store.reset).toHaveBeenCalledTimes(1);
@@ -79,7 +79,7 @@ describe("POST /api/banking/v1/dev/reset", () => {
   it("reports partial progress on a mid-loop memory failure", async () => {
     vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
     vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7250");
-    vi.stubEnv("INTELLIGENCE_API_KEY", "cpk_test");
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
     // First persona succeeds (2 forgotten), second persona throws.
     vi.mocked(forgetAllMemories)
       .mockResolvedValueOnce(2)
