@@ -53,6 +53,31 @@ The Query API is gated behind a `query-api` feature flag that defaults to off.
 Turn it on for the deployment before minting a key.
 </Callout>
 
+## Getting a key
+
+Mint one from the CLI:
+
+```bash
+copilotkit query-keys create --name reporting
+```
+
+That prints the token once. Only a hash is stored, so it cannot be recovered:
+if you lose it, mint another. Omitting `--scopes` gives the key every scope, and
+it expires in a year. Narrow it when you know what you need:
+
+```bash
+copilotkit query-keys create \
+  --name nightly-export \
+  --scopes threads:read,analytics:read \
+  --projects 4 \
+  --expires-in-days 90
+```
+
+`copilotkit query-keys list` shows what exists, marking any key that has
+expired, and `copilotkit query-keys revoke <id>` retires one. The same
+operations are available over REST at `/api/query-keys`, which is
+session-authenticated: a query key cannot mint another query key.
+
 ## Authentication
 
 Authentication is a single bearer token. There is no user header and no cookie,
