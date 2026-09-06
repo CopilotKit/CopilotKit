@@ -27,7 +27,7 @@ delivery records, and the tenancy tables.
 |--------|----------|
 | Conversations | `threads`, `runs`, `thread_messages`, `run_events`, `utterances` |
 | Memory | `memories` |
-| Learning | `learning_runs`, `learning_skill_candidates`, `learning_skill_candidate_events`, `learning_skills`, `learning_insights`, `learning_skill_insights` |
+| Learning | `learning_runs`, `learning_skill_candidates`, `learning_skill_candidate_events`, `learning_skills`, `learning_skill_sections`, `skill_usage_events`, `learning_insights`, `learning_skill_insights` |
 | Channels | `channels`, `channel_messages`, `channel_deliveries`, `channel_provider_conversations` |
 | Tenancy | `organizations`, `projects`, `api_keys`, `user_identities` |
 | Governance | `audit_events` |
@@ -299,6 +299,27 @@ curl -G https://your-deployment/v1/sql/<query_id> \
   --data-urlencode "cursor=<next_cursor>" \
   --data-urlencode "limit=100"
 ```
+
+## Skills, in pieces and in use
+
+Two resources make skills answerable rather than opaque.
+
+`learning_skill_sections` is a published skill split into its heading-path
+sections at publish time, versioned with the skill revision. So "which skills
+mention this term" and "how did this section change between revisions" are
+ordinary queries against an indexed table rather than a scan of one markdown
+blob. The body is full-text indexed, so `body[search]=...` is index-backed.
+
+`skill_usage_events` records that a skill reached an agent: which skill, which
+revision, in which thread or run, and how it was delivered. Run outcome is not
+copied here. It comes by joining to the analytics events, so the definition of a
+successful run can change without rewriting history.
+
+<Callout type="warn">
+A zero-usage answer for a period before this instrumentation existed is
+indistinguishable from a skill nobody used. Check the earliest `occurred_at`
+before concluding a skill was never loaded.
+</Callout>
 
 ## Exports
 
