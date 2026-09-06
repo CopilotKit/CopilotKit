@@ -432,6 +432,16 @@ agent can answer questions about your deployment without being handed SQL.
 | `intelligence_describe_resource` | Fields, measures and operators for one resource. |
 | `intelligence_list` | Rows from one resource. |
 | `intelligence_query` | Grouped aggregation. |
+| `intelligence_get` | One row by primary key. |
+| `intelligence_thread_timeline` | A thread as ordered turns. |
+| `intelligence_learning_provenance` | The insights a skill was learned from. |
+| `intelligence_recall_memory` | Memories by meaning, across every user in a project. |
+| `intelligence_sql` | Read-only SQL, when the deployment allows it. |
+
+`intelligence_recall_memory` searches by meaning rather than keyword, across
+every user in the project unless `user_id` narrows it. The key is an
+organization credential, so it recalls the whole project's memories the same way
+it already lists them; it needs `memory:content` to return the text.
 
 Tool results carry an `equivalent_request` naming the REST call that produces
 the same rows, so an agent can hand a person something reproducible. They also
