@@ -101,8 +101,11 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
   runtimeAgentId?: string;
   /**
    * Rewrites the outbound message list on every run. See
-   * {@link CopilotKitMessageFilter}. Ignored in Intelligence mode, where the
-   * runtime owns the canonical transcript.
+   * {@link CopilotKitMessageFilter}.
+   *
+   * Applies in every runtime mode, Intelligence included: `#runViaDelegate`
+   * forwards the input this agent built, so the delegate sends the filtered
+   * list rather than rebuilding one of its own.
    */
   messageFilter?: CopilotKitMessageFilter;
 }

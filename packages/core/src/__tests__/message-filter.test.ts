@@ -265,6 +265,26 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
     ]);
   });
 
+  it("hands the filtered list to run(), whichever transport it dispatches to", async () => {
+    // `run()` is the fork between the HTTP transports and the Intelligence
+    // delegate, and the delegate forwards this input rather than rebuilding
+    // one. Asserting here covers the delegate path without standing up a
+    // gateway.
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example",
+      agentId: "a",
+      transport: "rest",
+      messageFilter: (messages) => messages.slice(-1),
+    });
+    agent.setMessages(history());
+    const run = vi.spyOn(agent, "run");
+
+    await agent.runAgent();
+
+    const input = run.mock.calls[0]?.[0];
+    expect(input?.messages.map((m) => m.id)).toEqual(["u2"]);
+  });
+
   it("tells the filter which agent is running", async () => {
     const seen: string[] = [];
     const agent = new ProxiedCopilotRuntimeAgent({
