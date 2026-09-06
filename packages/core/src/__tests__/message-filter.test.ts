@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "@ag-ui/client";
+import { EMPTY } from "rxjs";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { CopilotKitCore } from "../core";
 import { ɵrepairToolCallPairs } from "../core/message-filter";
 import {
+  createSuggestionsConfig,
   waitForCondition,
   createAssistantMessage,
   createMultipleToolCallsMessage,
@@ -285,6 +287,46 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
     expect(input?.messages.map((m) => m.id)).toEqual(["u2"]);
   });
 
+  it("drops a non-message entry the filter smuggled in, without failing the run", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example",
+      agentId: "a",
+      transport: "rest",
+      // The shape a `m.filter(x => x.content.length > 0)` mistake produces.
+      messageFilter: () => [undefined as never],
+    });
+    agent.setMessages(history());
+
+    await expect(agent.runAgent()).resolves.toMatchObject({
+      newMessages: expect.any(Array),
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(sentMessages(init).map((m) => m.id)).toEqual(["u1", "a1", "u2"]);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("leaves Intelligence runs untrimmed, because that runtime is the store of record", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example",
+      agentId: "a",
+      transport: "rest",
+      runtimeMode: "intelligence",
+      messageFilter: (messages) => messages.slice(-1),
+    });
+    agent.setMessages(history());
+    const run = vi.spyOn(agent, "run").mockReturnValue(EMPTY);
+
+    await agent.runAgent().catch(() => undefined);
+
+    expect(run.mock.calls[0]?.[0].messages.map((m) => m.id)).toEqual([
+      "u1",
+      "a1",
+      "u2",
+    ]);
+  });
+
   it("tells the filter which agent is running", async () => {
     const seen: string[] = [];
     const agent = new ProxiedCopilotRuntimeAgent({
@@ -385,7 +427,7 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(sentMessages(init).map((m) => m.id)).toEqual(["u1", "a1", "u2"]);
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("messageFilter threw"),
+      expect.stringContaining("messageFilter failed"),
       expect.any(Error),
     );
   });
@@ -527,5 +569,88 @@ describe("CopilotKitCore messageFilter reaches runtime-discovered agents", () =>
     await agent.runAgent();
 
     expect(runRequestBody().map((m) => m.id)).toEqual(["u1", "u2"]);
+  });
+});
+
+describe("messageFilter and suggestions", () => {
+  const originalFetch = global.fetch;
+  const originalWindow = (global as { window?: unknown }).window;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    // No `suggestions` capability advertised, so the engine takes the
+    // clone + runAgent fallback rather than the stateless /suggest path.
+    fetchMock = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(
+        String(url).includes("/info")
+          ? new Response(
+              JSON.stringify({
+                version: "1.0.0",
+                mode: "sse",
+                audioFileTranscriptionEnabled: false,
+                agents: {
+                  default: { name: "default", className: "HttpAgent" },
+                  consumer: { name: "consumer", className: "HttpAgent" },
+                },
+              }),
+              { status: 200, headers: { "content-type": "application/json" } },
+            )
+          : createSseResponse(),
+      ),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+    (global as { window?: unknown }).window = {};
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = originalFetch;
+    if (originalWindow === undefined) {
+      delete (global as { window?: unknown }).window;
+    } else {
+      (global as { window?: unknown }).window = originalWindow;
+    }
+  });
+
+  it("keeps the seeded context on a suggestion run", async () => {
+    // A suggestion clone runs under a fresh thread id, so no backend store can
+    // fill in what a filter withheld: the seeded messages ARE the context. If
+    // the app's filter rode the clone, the provider would be asked to suggest
+    // from a single message.
+    const core = new CopilotKitCore({
+      runtimeUrl: "https://runtime.example",
+      messageFilter: (messages) => messages.slice(-1),
+    });
+    await waitForCondition(() => Boolean(core.getAgent("consumer")));
+
+    core
+      .getAgent("consumer")!
+      .setMessages([
+        createMessage({ id: "c1", content: "first" }),
+        createAssistantMessage({ id: "c2" }),
+        createMessage({ id: "c3", content: "latest" }),
+      ]);
+    core.addSuggestionsConfig(
+      createSuggestionsConfig({
+        providerAgentId: "default",
+        consumerAgentId: "consumer",
+      }),
+    );
+
+    core.reloadSuggestions("consumer");
+
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).endsWith("/agent/default/run"),
+        ),
+      ).toBe(true);
+    });
+
+    const call = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith("/agent/default/run"),
+    ) as [string, RequestInit];
+    // Trimmed, this would be exactly one message.
+    expect(sentMessages(call[1]).length).toBeGreaterThan(1);
   });
 });

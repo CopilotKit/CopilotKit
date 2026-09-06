@@ -4,7 +4,6 @@ import type {
   AgentSubscriber,
   BaseEvent,
   HttpAgentConfig,
-  Message,
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
@@ -102,11 +101,7 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
   runtimeAgentId?: string;
   /**
    * Rewrites the outbound message list on every run. See
-   * {@link CopilotKitMessageFilter}.
-   *
-   * Applies in every runtime mode, Intelligence included: `#runViaDelegate`
-   * forwards the input this agent built, so the delegate sends the filtered
-   * list rather than rebuilding one of its own.
+   * {@link CopilotKitMessageFilter}. Not applied in Intelligence mode.
    */
   messageFilter?: CopilotKitMessageFilter;
 }
@@ -190,9 +185,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   /**
-   * The filter applied to the outbound message list on every run. Set by
-   * `AgentRegistry` whenever the core-level filter changes, so an agent
-   * discovered before the app configured one still picks it up.
+   * The filter applied to the outbound message list on every run.
+   *
+   * Registry-owned. `AgentRegistry` writes it whenever the core-level filter
+   * changes, so an agent discovered before the app configured one still picks
+   * it up — and so a value written here by hand is replaced on the registry's
+   * next sweep. Configure it through `CopilotKitCore` instead.
    */
   get messageFilter(): CopilotKitMessageFilter | undefined {
     return this._messageFilter;
@@ -222,31 +220,42 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     const filter = this._messageFilter;
     if (!filter) return input;
 
-    // A filter that throws or returns the wrong shape falls back to the
-    // untrimmed thread rather than failing the run. Trimming is an
-    // optimization, and taking the user's message down with it would be the
-    // worse outcome; the warning is what surfaces the bug.
-    let kept: Message[];
+    // Intelligence is exempt. The managed runtime is the store of record for
+    // the thread — the threads drawer and the Slack transcript read from it —
+    // so a client-side truncation there has a blast radius nobody asked for:
+    // every reporter on #1482 is self-hosted. It also keeps this agent
+    // self-consistent, because the Intelligence connect path runs through
+    // `delegate.connectAgent`, which builds its own input and could not be
+    // filtered here even if we wanted it to be.
+    //
+    // A "pending" mode still filters: the agent has not yet learned what the
+    // runtime is, and agents discovered from `/info` arrive with a resolved
+    // mode.
+    if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) return input;
+
+    // A filter that throws, returns the wrong shape, or hands back entries the
+    // repair cannot read falls back to the untrimmed thread rather than
+    // failing the run. Trimming is an optimization, and taking the user's
+    // message down with it would be the worse outcome; the warning is what
+    // surfaces the bug.
     try {
-      const returned = filter([...input.messages], {
+      const kept = filter([...input.messages], {
         agentId: this.agentId ?? "",
       });
-      if (!Array.isArray(returned)) {
+      if (!Array.isArray(kept)) {
         console.warn(
           "ProxiedCopilotRuntimeAgent: messageFilter returned a non-array value; sending the full message history instead.",
         );
         return input;
       }
-      kept = returned;
+      return { ...input, messages: ɵrepairToolCallPairs(kept, input.messages) };
     } catch (error) {
       console.warn(
-        "ProxiedCopilotRuntimeAgent: messageFilter threw; sending the full message history instead.",
+        "ProxiedCopilotRuntimeAgent: messageFilter failed; sending the full message history instead.",
         error,
       );
       return input;
     }
-
-    return { ...input, messages: ɵrepairToolCallPairs(kept, input.messages) };
   }
 
   override requestInit(input: RunAgentInput): RequestInit {

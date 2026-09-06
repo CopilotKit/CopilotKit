@@ -146,12 +146,17 @@ gets that call put back in front of it, and a kept call whose result was trimmed
 gets the result back. A filter as blunt as `slice(-1)` therefore cannot strand a
 tool result mid-approval, and it cannot silently throw away the approval either.
 
-Two limits to know:
+Limits to know:
 
-- Only agents discovered from your runtime honor this. An agent your app
-  constructs itself takes an AG-UI middleware instead.
 - Your agent must really store the conversation. Against a stateless agent, a
   filter this aggressive means the model forgets the thread.
+- Agents reached through your CopilotRuntime honor this. An agent your app
+  constructs itself and passes in directly does not — use an AG-UI middleware
+  for those.
+- CopilotKit Intelligence runs are never filtered. That runtime is the store of
+  record for the thread, so the client does not get to decide what reaches it.
+- Suggestions are never filtered. A suggestion run uses a fresh thread, so the
+  messages sent with it are the only context the provider has.
 
 If the filter throws or returns something other than an array, CopilotKit warns
 and sends the full thread. Trimming is an optimization, so a bug in it does not

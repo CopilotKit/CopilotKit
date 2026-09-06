@@ -140,8 +140,9 @@ export interface CopilotKitProviderProps {
    * untouched. Broken tool-call pairs are repaired before the request is sent,
    * so a filter this blunt cannot strand a tool result mid-HITL.
    *
-   * Only agents discovered from the runtime honor this. An agent your app
-   * constructs itself takes an AG-UI middleware instead.
+   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * passes in directly does not, and neither Intelligence runs nor suggestion
+   * runs are ever filtered.
    *
    * Prefer a stable reference (`useCallback`). An inline arrow re-registers the
    * filter on every render, which is harmless but needless.

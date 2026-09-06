@@ -612,11 +612,17 @@ export class AgentRegistry {
   /**
    * Apply the core's message filter to an agent.
    *
-   * Only `ProxiedCopilotRuntimeAgent` carries the hook. Agents the app
-   * constructed itself (`agents__unsafe_dev_only`) are left untouched: their
-   * owner can already rewrite the outbound payload with an AG-UI middleware,
-   * and quietly reaching into an instance the app owns would be the more
-   * surprising behavior.
+   * The test is the class, not which bucket the agent is registered in: every
+   * `ProxiedCopilotRuntimeAgent` gets the core filter, whether it came from
+   * `/info` or from `registerProxiedAgent` (which files its proxy under
+   * `localAgents`). Agents of any other class are left untouched — an
+   * `AbstractAgent` the app built has no such hook, and its owner already has
+   * the AG-UI middleware seam.
+   *
+   * This is the sole writer of `agent.messageFilter` in normal operation. The
+   * public setter exists for the registry and for tests; a value written
+   * directly onto an agent is replaced the next time the registry sweeps, the
+   * same way per-agent credentials are.
    */
   applyMessageFilterToAgent(agent: AbstractAgent): void {
     if (agent instanceof ProxiedCopilotRuntimeAgent) {

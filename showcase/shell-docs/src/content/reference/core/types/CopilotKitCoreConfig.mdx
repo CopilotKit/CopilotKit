@@ -57,7 +57,8 @@ interface CopilotKitCoreConfig {
   agent already stores the conversation and re-sending it is waste or
   duplication. The filter changes the request body only — the transcript the UI
   renders is untouched — and broken tool-call pairs are repaired before the
-  request goes out. Change it later with `setMessageFilter`.
+  request goes out. Intelligence runs and suggestion runs are never filtered.
+  Change it later with `setMessageFilter`.
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, unknown>" default="{}">
