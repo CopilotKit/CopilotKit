@@ -6,6 +6,7 @@ import { ɵrepairToolCallPairs } from "../core/message-filter";
 import {
   waitForCondition,
   createAssistantMessage,
+  createMultipleToolCallsMessage,
   createMessage,
   createToolCallMessage,
   createToolResultMessage,
@@ -57,6 +58,11 @@ function infoResponse(): Response {
   );
 }
 
+function toolCallIdsOf(message: Message): string[] {
+  const calls = (message as { toolCalls?: { id: string }[] }).toolCalls ?? [];
+  return calls.map((call) => call.id);
+}
+
 function toolCallIdOf(message: Message): string {
   const calls = (message as { toolCalls?: { id: string }[] }).toolCalls;
   if (!calls?.[0]) throw new Error("message carries no tool call");
@@ -69,14 +75,37 @@ function sentMessages(init: RequestInit): Message[] {
 }
 
 describe("ɵrepairToolCallPairs", () => {
-  it("drops a tool result whose assistant call was trimmed away", () => {
+  it("restores the assistant call in front of a kept tool result", () => {
     const call = createToolCallMessage("lookup");
     const result = createToolResultMessage(toolCallIdOf(call), "done");
     const full = [createMessage({ id: "u1" }), call, result];
 
     const repaired = ɵrepairToolCallPairs([result], full);
 
-    expect(repaired).toEqual([]);
+    // Dropping the result would be valid but would throw away the only new
+    // information in a human-in-the-loop turn.
+    expect(repaired.map((m) => m.id)).toEqual([call.id, result.id]);
+  });
+
+  it("restores every sibling result when it restores a parallel call", () => {
+    const call = createMultipleToolCallsMessage([
+      { name: "lookupA" },
+      { name: "lookupB" },
+    ]);
+    const [callA, callB] = toolCallIdsOf(call);
+    const resultA = createToolResultMessage(callA!, "a");
+    const resultB = createToolResultMessage(callB!, "b");
+    const full = [call, resultA, resultB];
+
+    // Keeping only the second result: a provider rejects the turn unless the
+    // first call is answered too.
+    const repaired = ɵrepairToolCallPairs([resultB], full);
+
+    expect(repaired.map((m) => m.id)).toEqual([
+      call.id,
+      resultA.id,
+      resultB.id,
+    ]);
   });
 
   it("restores the result of a kept call, directly after the call", () => {
@@ -209,8 +238,10 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
 
     await agent.runAgent();
 
+    // The call comes back, the earlier user turn stays trimmed. Sending `[]`
+    // here would hand a resuming backend nothing to act on.
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(sentMessages(init).map((m) => m.id)).toEqual([]);
+    expect(sentMessages(init).map((m) => m.id)).toEqual([call.id, result.id]);
   });
 
   it("restores a dropped result so a kept call is never left unanswered", async () => {
@@ -271,7 +302,7 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
 
     await agent.runAgent();
 
-    expect(seen[0].map((m) => m.id)).toEqual(["u1", "u2"]);
+    expect(seen[0]?.map((m) => m.id)).toEqual(["u1", "u2"]);
   });
 
   it("cannot corrupt the transcript by mutating the array it is handed", async () => {

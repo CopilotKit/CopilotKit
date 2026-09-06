@@ -140,10 +140,11 @@ Return the messages to send:
 The filter changes the request body only. The transcript the UI renders is
 untouched, so the chat still shows the full conversation.
 
-Broken tool-call pairs are repaired before the request goes out: a tool result
-whose call was trimmed away is dropped, and a kept call whose result was trimmed
-gets it back. A filter as blunt as `slice(-1)` therefore cannot strand a tool
-result mid-approval.
+Broken tool-call pairs are repaired before the request goes out, and the repair
+always restores rather than discards: a tool result whose call was trimmed away
+gets that call put back in front of it, and a kept call whose result was trimmed
+gets the result back. A filter as blunt as `slice(-1)` therefore cannot strand a
+tool result mid-approval, and it cannot silently throw away the approval either.
 
 Two limits to know:
 

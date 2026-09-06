@@ -50,25 +50,34 @@ function resultCallIdOf(message: Message): string | undefined {
  * A filter written as `messages.slice(-1)` cannot know this, so the repair runs
  * for every filter rather than being something each caller opts into.
  *
- * Two directions, both anchored on the untrimmed thread:
+ * Both repairs restore, never discard, and both are anchored on the untrimmed
+ * thread:
  *
- * - A kept tool result whose assistant call was dropped is dropped too.
- * - A kept assistant call whose result was dropped gets that result restored,
+ * - A kept tool result whose assistant call was trimmed away gets that call put
+ *   back in front of it. Dropping the result instead would be protocol-safe and
+ *   semantically wrong: on a human-in-the-loop turn the result IS the new
+ *   information, and a backend that already holds the call would be asked to
+ *   resume with nothing.
+ * - A kept assistant call whose result was trimmed gets that result restored,
  *   placed directly after the call.
  *
- * A call with no result anywhere in `full` is left alone. That is an open call
- * (a pending frontend tool, an unanswered interrupt), not a broken pair.
+ * Restoring a call pulls in every result for that call, not only the one the
+ * filter kept. Providers reject an assistant turn with a parallel tool call
+ * left unanswered, so a half-answered set is as invalid as a missing one.
  *
- * The filter's own ordering is preserved. Restored results are the only
- * insertions, and messages the filter synthesized (absent from `full`) pass
- * through untouched.
+ * A call with no result anywhere in `full` is left alone. That is an open call
+ * (a pending frontend tool, an unanswered interrupt), not a broken pair. A
+ * result whose call is nowhere in `full` is left alone too: it was already
+ * unpaired before the filter ran, so it is not this function's to fix.
+ *
+ * The filter's own ordering is preserved. Restorations are the only insertions,
+ * and messages the filter synthesized (absent from `full`) pass through
+ * untouched.
  */
 export function ɵrepairToolCallPairs(
   kept: Message[],
   full: Message[],
 ): Message[] {
-  const keptIds = new Set(kept.map((message) => message.id));
-
   // Both maps are built from the untrimmed thread: the repair has to reason
   // about pairs the filter already broke, so the kept list cannot answer
   // "did this call have a result".
@@ -93,25 +102,29 @@ export function ɵrepairToolCallPairs(
     repaired.push(message);
   };
 
+  /** Emit an assistant turn together with every result it is owed. */
+  const emitWithResults = (message: Message) => {
+    emit(message);
+    for (const callId of toolCallIdsOf(message)) {
+      const result = callIdToResult.get(callId);
+      if (result) emit(result);
+    }
+  };
+
   for (const message of kept) {
     const resultCallId = resultCallIdOf(message);
-    if (resultCallId !== undefined) {
-      const issuer = callIdToIssuer.get(resultCallId);
-      // Unknown issuer means the pair never existed in this thread — the
-      // result stands on its own and is not ours to drop.
-      if (issuer && !keptIds.has(issuer.id)) continue;
-      emit(message);
+    if (resultCallId === undefined) {
+      emitWithResults(message);
       continue;
     }
 
-    emit(message);
-
-    for (const callId of toolCallIdsOf(message)) {
-      const result = callIdToResult.get(callId);
-      if (result && !keptIds.has(result.id)) {
-        emit(result);
-      }
+    const issuer = callIdToIssuer.get(resultCallId);
+    if (issuer) {
+      // Emits the issuer first, then this result along with its siblings.
+      emitWithResults(issuer);
+      continue;
     }
+    emit(message);
   }
 
   return repaired;

@@ -1350,6 +1350,7 @@ export class AgentRegistry {
             ) {
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
+              this.applyMessageFilterToAgent(existing);
               this.applyRuntimeFetchToAgent(existing);
               return [id, existing];
             }
