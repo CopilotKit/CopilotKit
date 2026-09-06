@@ -1,14 +1,18 @@
 /// <reference types="vitest" />
-import { defineConfig } from "vite";
+/// <reference types="@vitest/browser/providers/playwright" />
 import angular from "@analogjs/vite-plugin-angular";
-import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vite";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const r = (...p: string[]) => resolve(__dirname, ...p);
 
 export default defineConfig(({ mode }) => ({
   plugins: [angular()],
+  optimizeDeps: {
+    include: ["@angular/compiler", "@analogjs/vitest-angular/setup-testbed"],
+  },
   resolve: {
     alias: {
       "@copilotkit/angular": r("src/public-api.ts"),
@@ -24,24 +28,21 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     globals: true,
-    environment: "jsdom",
-    setupFiles: [r("src/test-setup.ts")], // Use absolute path
-    include: ["src/**/*.{spec,test}.{ts,tsx}"],
-    exclude: ["src/**/*.browser.spec.ts"],
-    pool: "threads",
-    poolOptions: { threads: { singleThread: true } },
+    setupFiles: [r("src/test-setup.browser.ts")],
+    include: ["src/**/*.browser.spec.ts"],
     reporters: [["default", { summary: false }]],
     silent: true,
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "json", "html"],
-      exclude: [
-        "node_modules/",
-        "dist/",
-        "*.config.*",
-        "src/test-setup.ts",
-        "src/index.ts",
-        "src/public-api.ts",
+    browser: {
+      enabled: true,
+      headless: true,
+      provider: "playwright",
+      instances: [
+        {
+          browser: "chromium",
+          launch: process.env.PLAYWRIGHT_EXECUTABLE_PATH
+            ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH }
+            : {},
+        },
       ],
     },
   },
