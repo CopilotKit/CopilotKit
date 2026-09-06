@@ -89,6 +89,11 @@ every thread without ever reading a message body.
 | `governance:read` | Governance decisions |
 | `meta:read` | The catalog |
 
+Scopes apply on every surface, `/v1/sql` included: a statement selecting a
+gated column with a key that lacks its scope is refused before it runs, whether
+the column is named directly, reached through `SELECT *`, used in a `WHERE`
+clause, or read inside a CTE.
+
 When a key lacks the `:content` scope for a resource it still gets the rows. The
 omitted field names come back in `meta.fields_omitted_for_scope`, so a caller
 can tell a redacted field from an empty one. Naming an ungranted field
@@ -294,6 +299,59 @@ curl -G https://your-deployment/v1/sql/<query_id> \
   --data-urlencode "cursor=<next_cursor>" \
   --data-urlencode "limit=100"
 ```
+
+## Exports
+
+A query can only return what the database still holds, and raw analytics events
+are retained for 90 days. If you want a year of history, or you want this data
+in your own warehouse, export it.
+
+```bash
+curl -X POST https://your-deployment/v1/exports \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resource": "utterances",
+    "format": "parquet",
+    "query": { "start": "2026-01-01T00:00:00Z", "end": "2026-02-01T00:00:00Z" }
+  }'
+```
+
+Formats are `ndjson`, `csv` and `parquet`. The request returns `202` with a job
+id. Poll it, and a completed job carries a short-lived `download_url`:
+
+```bash
+curl https://your-deployment/v1/exports/<job_id> \
+  -H "Authorization: Bearer cpkq-<org>_<short>_<long>"
+```
+
+A malformed filter is rejected when you request the job, not an hour later when
+it runs. Jobs are scoped to the key that created them, so a second key in the
+same organization cannot collect your output. Quota is 20 jobs a day and one at
+a time; asking for a second while one is running returns
+`EXPORT_QUOTA_EXCEEDED`.
+
+Parquet columns are typed rather than all-text, so the file re-imports into a
+warehouse with dates as dates and counts as integers.
+
+### Exports carry your vectors
+
+This is the one place `memories.embedding` is available. It is deliberately
+absent from every list and query response, because 1024 floats are noise inline
+and similarity search is the first-class operation. Naming it in `fields`
+returns `FIELD_EXPORT_ONLY` rather than silently omitting it.
+
+An export includes it, as a list of doubles rather than a string, alongside
+`embedding_model`. That combination is what makes the file self-describing: you
+can load your memories elsewhere without re-embedding them, and you know which
+vector space they are in. It still requires `memory:content`, so a key without
+that scope exports the memory rows without the vector rather than being refused.
+
+<Callout type="warn">
+A download URL is minted per request and expires in 15 minutes. It carries no
+authentication of its own, so treat it as a credential: anyone holding it can
+fetch the file until it expires.
+</Callout>
 
 ## Agents, over MCP
 
