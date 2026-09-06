@@ -4,6 +4,7 @@ import type {
   AgentSubscriber,
   BaseEvent,
   HttpAgentConfig,
+  Message,
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
@@ -221,13 +222,26 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     const filter = this._messageFilter;
     if (!filter) return input;
 
-    const kept = filter([...input.messages], { agentId: this.agentId ?? "" });
-    if (!Array.isArray(kept)) {
-      // Sending the untrimmed thread is the recoverable half of this mistake:
-      // the run still succeeds, and the payload is merely as large as it was
-      // before the filter existed.
+    // A filter that throws or returns the wrong shape falls back to the
+    // untrimmed thread rather than failing the run. Trimming is an
+    // optimization, and taking the user's message down with it would be the
+    // worse outcome; the warning is what surfaces the bug.
+    let kept: Message[];
+    try {
+      const returned = filter([...input.messages], {
+        agentId: this.agentId ?? "",
+      });
+      if (!Array.isArray(returned)) {
+        console.warn(
+          "ProxiedCopilotRuntimeAgent: messageFilter returned a non-array value; sending the full message history instead.",
+        );
+        return input;
+      }
+      kept = returned;
+    } catch (error) {
       console.warn(
-        "ProxiedCopilotRuntimeAgent: messageFilter returned a non-array value; sending the full message history instead.",
+        "ProxiedCopilotRuntimeAgent: messageFilter threw; sending the full message history instead.",
+        error,
       );
       return input;
     }

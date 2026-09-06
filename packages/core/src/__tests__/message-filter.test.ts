@@ -364,6 +364,32 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
     );
   });
 
+  it("falls back to the full thread when the filter throws", async () => {
+    // Trimming is an optimization. A bug in it must not take the user's
+    // message down with it.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example",
+      agentId: "a",
+      transport: "rest",
+      messageFilter: () => {
+        throw new Error("boom");
+      },
+    });
+    agent.setMessages(history());
+
+    await expect(agent.runAgent()).resolves.toMatchObject({
+      newMessages: expect.any(Array),
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(sentMessages(init).map((m) => m.id)).toEqual(["u1", "a1", "u2"]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("messageFilter threw"),
+      expect.any(Error),
+    );
+  });
+
   it("applies a filter assigned after construction", async () => {
     const agent = new ProxiedCopilotRuntimeAgent({
       runtimeUrl: "https://runtime.example",

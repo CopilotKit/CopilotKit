@@ -153,6 +153,10 @@ Two limits to know:
 - Your agent must really store the conversation. Against a stateless agent, a
   filter this aggressive means the model forgets the thread.
 
+If the filter throws or returns something other than an array, CopilotKit warns
+and sends the full thread. Trimming is an optimization, so a bug in it does not
+fail the run.
+
 Prefer a stable reference (`useCallback`). An inline arrow re-registers the
 filter on every render, which is harmless but needless.
 
