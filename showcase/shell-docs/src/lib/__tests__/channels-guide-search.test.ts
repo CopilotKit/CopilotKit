@@ -98,9 +98,20 @@ describe("generated Channels search index", () => {
     }
   });
 
-  it("emits byte-identical indexes for shell-docs and shell", () => {
-    expect(fs.readFileSync(docsIndexPath)).toEqual(
-      fs.readFileSync(shellIndexPath),
+  it("emits the same docs rows to shell-docs and shell", () => {
+    // The two indexes were byte-identical until the docs target stopped
+    // carrying the showcase-host rows (the showcase front door, the
+    // integrations explorer, the feature matrix) — clicking one of those
+    // from the docs leaves the documentation. Everything else must still
+    // match, so the dual emit cannot drift.
+    const showcaseHostDestinations = new Set(["/", "/integrations", "/matrix"]);
+    const docsIndex = JSON.parse(fs.readFileSync(docsIndexPath, "utf8"));
+    const shellIndex = JSON.parse(fs.readFileSync(shellIndexPath, "utf8"));
+
+    expect(docsIndex).toEqual(
+      shellIndex.filter(
+        (entry: { href: string }) => !showcaseHostDestinations.has(entry.href),
+      ),
     );
   });
 

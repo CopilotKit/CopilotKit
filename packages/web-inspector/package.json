@@ -34,6 +34,7 @@
     "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
     "check-types": "pnpm run build:css && tsc --noEmit && tsc --project dev/tsconfig.json",
     "test": "pnpm run build:css && vitest run",
+    "test:browser": "playwright test --config dev/playwright.config.ts",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
@@ -47,6 +48,7 @@
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/cli": "^4.1.11",
     "@types/node": "^22.15.3",
     "@types/ws": "^8.18.1",

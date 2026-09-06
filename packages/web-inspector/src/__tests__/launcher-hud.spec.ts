@@ -469,16 +469,15 @@ test("disabled feature rows open their landing pages, where setup prompts can be
     ).click();
     await settle(inspector);
     expect(currentMenu(inspector)).toBe("memories");
-    requireElement(
-      root(inspector).querySelector<HTMLButtonElement>(
-        '[data-inspector-feature-setup-prompt="memory"]',
+    const learningPreview = requireElement(
+      root(inspector).querySelector<HTMLElement>(
+        '[data-inspector-locked-feature="memory"]',
       ),
-    ).click();
-    await settle(inspector);
-    expect(writeText).toHaveBeenCalledTimes(2);
-    expect(String(writeText.mock.calls[1]?.[0])).toContain(
-      "This task is specifically to enable Learning",
     );
+    expect(learningPreview.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
+    expect(writeText).toHaveBeenCalledTimes(1);
     expect(root(inspector).querySelector(".inspector-window")).not.toBeNull();
   } finally {
     if (originalClipboard) {

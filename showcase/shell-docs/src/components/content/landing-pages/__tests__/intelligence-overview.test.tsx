@@ -111,6 +111,11 @@ describe("IntelligenceOverview", () => {
     ).toBe("/threads");
     expect(
       screen
+        .getByRole("link", { name: "Open the Memory guide" })
+        .getAttribute("href"),
+    ).toBe("/intelligence/memories");
+    expect(
+      screen
         .getByRole("link", { name: "See Analytics on the product page" })
         .getAttribute("href"),
     ).toBe(
@@ -129,6 +134,7 @@ describe("IntelligenceOverview", () => {
 
     for (const title of [
       "Rich Threads",
+      "Memory",
       "Analytics",
       "Automatic Learning",
       "Self-hosting",

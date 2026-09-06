@@ -302,7 +302,11 @@ test.each([
     "Production-grade chat threads without the complexity. Self hostable.",
   ],
   ["expired", "renew", "Renew Intelligence to inspect Threads."],
-  ["unknown", "manage_plan", "Threads are unavailable."],
+  [
+    "unknown",
+    "manage_plan",
+    "Production-grade chat threads without the complexity. Self hostable.",
+  ],
 ] as const)(
   "locked Threads use %s license copy and the unified actions",
   async (licenseState, actionKind, heading) => {
@@ -362,7 +366,7 @@ test("renders valid partial modules without identity placeholders", async () => 
   }
 });
 
-test("an old runtime omits metadata UI and keeps the generic locked fallback", async () => {
+test("an old runtime omits metadata UI and keeps the guided setup fallback", async () => {
   const context = await setup({
     metadataSupported: false,
     threadsAvailable: false,
@@ -374,7 +378,10 @@ test("an old runtime omits metadata UI and keeps the generic locked fallback", a
     const root = context.inspector.shadowRoot!;
     expect(root.querySelector("[data-inspector-metadata]")).toBeNull();
     expect(root.querySelector("[data-inspector-action-placement]")).toBeNull();
-    expect(root.textContent).toContain("Threads are unavailable.");
+    expect(root.textContent).toContain(
+      "Production-grade chat threads without the complexity. Self hostable.",
+    );
+    expect(root.textContent).not.toContain("Threads are unavailable.");
   } finally {
     context.teardown();
   }

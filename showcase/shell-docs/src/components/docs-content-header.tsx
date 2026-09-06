@@ -16,7 +16,7 @@ export interface DocsContentHeaderProps {
   description?: React.ReactNode;
   /** Keep breadcrumb/actions chrome while an MDX-owned hero replaces the H1. */
   hideHeading?: boolean;
-  /** Page-level actions composed into the title row. */
+  /** Page-level actions shown after the page introduction. */
   children?: React.ReactNode;
 }
 
@@ -55,12 +55,9 @@ export function DocsContentHeader({
         </nav>
       )}
 
-      {(!hideHeading || children) && (
+      {!hideHeading && (
         <div className="docs-page-heading-row">
-          {!hideHeading && (
-            <DocsTitle className="docs-page-title">{title}</DocsTitle>
-          )}
-          {children}
+          <DocsTitle className="docs-page-title">{title}</DocsTitle>
         </div>
       )}
 
@@ -69,6 +66,8 @@ export function DocsContentHeader({
           {description}
         </DocsDescription>
       )}
+
+      {children && <div className="docs-page-actions-row">{children}</div>}
     </header>
   );
 }

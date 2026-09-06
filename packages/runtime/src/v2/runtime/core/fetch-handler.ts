@@ -85,6 +85,7 @@ import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleInspectorMetadata } from "../handlers/handle-inspector-metadata";
+import { handleInspectorLearning } from "../handlers/handle-inspector-learning";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { handleDebugEvents } from "../handlers/handle-debug-events";
 import {
@@ -157,6 +158,14 @@ export interface CopilotRuntimeHandlerOptions {
    * - "single-route": Single POST endpoint with JSON envelope { method, params, body }
    */
   mode?: "multi-route" | "single-route";
+
+  /**
+   * Explicitly exposes the read-only Inspector Learning capability.
+   *
+   * Defaults to `false`. Debug mode and the handler's normal request/auth
+   * middleware remain independent, additional gates.
+   */
+  inspectorLearning?: boolean;
 
   /**
    * Optional CORS configuration.
@@ -322,7 +331,14 @@ export function createCopilotRuntimeHandler(
 export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
-  const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
+  const {
+    runtime,
+    basePath,
+    mode = "multi-route",
+    cors,
+    hooks,
+    inspectorLearning = false,
+  } = options;
 
   fireInstanceCreatedTelemetry({ runtime });
 
@@ -407,9 +423,27 @@ export function createCopilotRuntimeHandler(
           route.method === "transcribe"
         ) {
           request = createJsonRequest(request, methodCall.body);
+        } else if (route.method === "inspector/learning") {
+          const learningUrl = new URL(request.url);
+          for (const key of [
+            "agentId",
+            "skillsPage",
+            "insightsPage",
+          ] as const) {
+            const value = methodCall.params?.[key];
+            if (typeof value === "string" || typeof value === "number") {
+              learningUrl.searchParams.set(key, String(value));
+            }
+          }
+          request = new Request(learningUrl, {
+            method: "GET",
+            headers: request.headers,
+            signal: request.signal,
+          });
         }
         response = await dispatchRoute(runtime, request, route, {
           threadEndpointsEnabled: methodCall.method === "resource/request",
+          inspectorLearningEnabled: inspectorLearning,
           singleRouteResourceOperationsEnabled: true,
         });
       } else {
@@ -471,6 +505,7 @@ export function createCopilotRuntimeHandler(
         // 6. Handler dispatch
         response = await dispatchRoute(runtime, request, route, {
           threadEndpointsEnabled: true,
+          inspectorLearningEnabled: inspectorLearning,
           singleRouteResourceOperationsEnabled: false,
         });
       }
@@ -586,6 +621,7 @@ function dispatchRoute(
   route: RouteInfo,
   options: {
     threadEndpointsEnabled: boolean;
+    inspectorLearningEnabled: boolean;
     singleRouteResourceOperationsEnabled: boolean;
   },
 ): Promise<Response> {
@@ -641,11 +677,18 @@ function dispatchRoute(
         runtime,
         request,
         threadEndpointsEnabled: options.threadEndpointsEnabled,
+        inspectorLearningEnabled: options.inspectorLearningEnabled,
         singleRouteResourceOperationsEnabled:
           options.singleRouteResourceOperationsEnabled,
       });
     case "inspector/metadata":
       return handleInspectorMetadata({ runtime, request });
+    case "inspector/learning":
+      return handleInspectorLearning({
+        runtime,
+        request,
+        enabled: options.inspectorLearningEnabled,
+      });
     case "transcribe":
       return handleTranscribe({ runtime, request });
     case "threads/clear":
@@ -778,6 +821,9 @@ async function resolveSingleRoute(
     case "inspector/metadata":
       route = { method: "inspector/metadata" };
       break;
+    case "inspector/learning":
+      route = { method: "inspector/learning" };
+      break;
     case "transcribe":
       route = { method: "transcribe" };
       break;
@@ -853,6 +899,7 @@ function validateHttpMethod(
   switch (route.method) {
     case "info":
     case "inspector/metadata":
+    case "inspector/learning":
     case "threads/list":
     case "threads/messages":
     case "threads/events":
