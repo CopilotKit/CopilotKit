@@ -29,8 +29,8 @@ import type { SandboxFunction } from "@copilotkit/react-core/v2";
  *      every skin's Intelligence runs. Identity now flows through
  *      `CopilotKitProvider`'s `properties` prop (provider-owned), not a child
  *      racing `setProperties`.
- *   6. `useData` made OPTIONAL — banking has no shell-managed data, so it need
- *      not stub the hook; `useSkinData<T>()` returns `undefined` for such skins.
+ *   6. `useData` is OPTIONAL — a REST-backed skin has no shell-managed data, so
+ *      it need not stub the hook; `useSkinData<T>()` returns `undefined` there.
  */
 
 /** A nav entry that drives the skin's layout navigation and route resolution. */
@@ -103,7 +103,8 @@ export interface Skin {
    * surface (it typically wraps its data provider + <A2UIProvider catalog>).
    * The shell handles the OGUI surface kind generically, so a skin does NOT
    * supply an OGUI renderer here — this is only its own a2ui report surface.
-   * Omit if the skin has no a2ui report canvas.
+   * Omit if the skin has no a2ui report canvas; every shipped skin has one, so
+   * the canvas's "no surface for this kind" branch is currently unexercised.
    */
   CanvasSurface?: ComponentType;
   catalog: A2uiCatalog;
@@ -145,7 +146,13 @@ export interface Skin {
    * read — because `properties` is a prop of `CopilotKitProvider`, its source
    * has to live above the provider so the provider OWNS the identity from its
    * very first commit (no child racing it in via `setProperties`). Banking uses
-   * this to hoist its auth context; airline needs neither, so omits it.
+   * this to hoist its auth context.
+   *
+   * This is SEPARABLE from `useRuntimeProperties` and airline is the worked
+   * example: it supplies `useRuntimeProperties` (and a server `identifyUser`) and
+   * omits THIS, because it has one account holder and no switcher, so its hook
+   * reads no context and returns a frozen module constant. Mount this only when
+   * the hook actually has context to read.
    */
   RuntimeProviders?: ComponentType<{ children: ReactNode }>;
   /**
@@ -162,10 +169,21 @@ export interface Skin {
   useRuntimeProperties?: () => Record<string, unknown> | undefined;
   /**
    * OPTIONAL seed-backed data hook consumed by the skin's own components via
-   * `useSkinData<T>()`. Omit when a skin has no shell-managed data (banking
-   * reads REST via `useCreditCards` and the member via `useAuthContext`
-   * directly, so nothing flows through `useSkinData`). When omitted,
-   * `useSkinData<T>()` returns `undefined`.
+   * `useSkinData<T>()`. This is the IN-MEMORY substrate, and it is the minority
+   * path: most skins omit it, being REST-backed and reading their own ledger
+   * through their own context (banking `useCreditCards` + `useAuthContext`, the
+   * rest a `use<Id>Ledger()`), so `useSkinData<T>()` returns `undefined` there.
+   * Derive who takes it rather than trusting this comment — from the app root:
+   *
+   *     grep -l 'useData:' src/skins/-/skin.tsx   # with - as the glob star
+   *
+   * (Written with `-` on purpose: a literal glob star followed by a slash closes
+   * this block comment and the rest of the file becomes a syntax error.)
+   *
+   * The shell runs the hook whenever a skin supplies one, so the field is live
+   * rather than vestigial, and it has a worked example: read that implementor
+   * first, then `.claude/skills/reskin/templates.md` § `data/use-data.ts`, which
+   * explains when you probably want REST instead.
    */
   useData?: () => unknown;
 }

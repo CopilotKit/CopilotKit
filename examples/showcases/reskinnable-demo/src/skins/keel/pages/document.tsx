@@ -4,13 +4,16 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { useParams } from "next/navigation";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import { getDoc } from "@/skins/keel/knowledge/corpus";
 import { DocReader } from "@/skins/keel/components/doc-reader";
+import { DocumentRegisterStrip } from "@/skins/keel/components/document-register-strip";
 import {
   consumeSectionTarget,
   getSectionTarget,
@@ -18,6 +21,14 @@ import {
 } from "@/skins/keel/knowledge/citation-target";
 import type { KnowledgeDoc } from "@/skins/keel/knowledge/types";
 import { useKeelHref } from "@/skins/keel/href";
+import { useKeelLedger } from "@/skins/keel/ledger-context";
+import {
+  attentionClasses,
+  coveragePercent,
+  missingEndorsements,
+  nullableCoverageShort,
+  reviewDebtDays,
+} from "@/skins/keel/data/attention";
 
 /**
  * Drive the citation-landing beat for the open document: resolve a target
@@ -112,9 +123,23 @@ function useCitationLanding(doc: KnowledgeDoc | undefined): string | undefined {
 
 /**
  * The sectioned document reader page. Deep-linked from agent citations as
- * /keel/knowledge/<docId>#<sectionId>. It renders NO props from the shell — it
- * reads its own docId from the route (params.rest === ["knowledge", docId]);
- * the target section arrives via {@link useCitationLanding}.
+ * /keel/knowledge/<docId>#<sectionId>. It reads its own docId from the route
+ * (params.rest === ["knowledge", docId]); the target section arrives via
+ * {@link useCitationLanding}.
+ *
+ * It renders BOTH halves of what a document at Harbor Point is — the corpus
+ * PROSE (static, from `knowledge/corpus.ts`) and the register OVERLAY (mutable,
+ * from the ledger snapshot). That split is the same one
+ * `GET /api/keel/v1/documents/<docId>` returns as `{ doc, record }`, and a
+ * document with prose but no register row still renders: the strip is simply
+ * absent, never drawn empty.
+ *
+ * BEAT 3b, the SECOND ask. The readable below describes THIS document — its
+ * review debt, its attestation coverage, its pending revision and the bodies
+ * that have not endorsed it — so "what's on my screen?" answers differently here
+ * than it does on the Register. Two different, correct answers on two pages is
+ * the entire beat, and a page with no readable of its own answers the second ask
+ * with the first page's contents.
  */
 export function DocumentPage() {
   const keelHref = useKeelHref();
@@ -129,6 +154,68 @@ export function DocumentPage() {
 
   const highlightSectionId = useCitationLanding(doc);
 
+  // The lifecycle half. Read off the SAME snapshot the Register reads, so the
+  // two pages cannot describe the register a fetch apart.
+  const { data } = useKeelLedger();
+  const record = useMemo(
+    () => (docId ? data.documents.find((r) => r.docId === docId) : undefined),
+    [data.documents, docId],
+  );
+  // The instant this page describes — the snapshot's OWN `asOf`, never the wall
+  // clock, for the three reasons `pages/knowledge.tsx` sets out at length. NaN
+  // before a snapshot lands, which is unobservable here because the strip below
+  // renders only when the register carries a row.
+  const now = useMemo(() => Date.parse(data.asOf), [data.asOf]);
+
+  // Registered UNCONDITIONALLY, before the not-found early return: a hook after
+  // a conditional return is a hook-order violation, and "the operator is looking
+  // at a document id the library does not carry" is itself worth describing.
+  // No semicolons in the description — see the note in `knowledge.tsx`.
+  useAgentContext({
+    description:
+      "What is on the open policy document screen right now — the document " +
+      "being read, the sections rendered in order, and its register status. " +
+      "This describes ONE document rather than the register board. An " +
+      "`attestation_coverage_percent` of null means coverage is NOT MEASURABLE " +
+      "for this document rather than zero — say so.",
+    value: JSON.stringify({
+      page: "Policy document",
+      doc_id: docId ?? null,
+      found: Boolean(doc),
+      ref: doc?.ref ?? null,
+      title: doc?.title ?? null,
+      owner: doc?.owner ?? null,
+      space: doc?.space ?? null,
+      // The sections the reader paints, in the order it paints them, plus the
+      // one currently highlighted by a citation landing.
+      sections: (doc?.sections ?? []).map((section) => ({
+        id: section.id,
+        heading: section.heading,
+      })),
+      highlighted_section: highlightSectionId ?? null,
+      register: record
+        ? {
+            status: record.status,
+            effective_revision: record.effectiveRevision ?? null,
+            last_reviewed: record.lastReviewed,
+            review_due: record.reviewDue,
+            days_past_review: reviewDebtDays(record, now),
+            attestation_coverage_percent: coveragePercent(record),
+            attestation_short: nullableCoverageShort(record),
+            attention: attentionClasses(record, now),
+            pending_revision: record.pendingRevision
+              ? {
+                  label: record.pendingRevision.label,
+                  stage: record.pendingRevision.stage,
+                  summary: record.pendingRevision.summary,
+                  missing_endorsements: missingEndorsements(record),
+                }
+              : null,
+          }
+        : null,
+    }),
+  });
+
   if (!doc) {
     return (
       <div className="mx-auto flex max-w-xl flex-col items-center gap-3 rounded-lg border border-dashed border-hairline bg-surface px-6 py-16 text-center shadow-soft">
@@ -141,11 +228,16 @@ export function DocumentPage() {
           href={keelHref("knowledge")}
           className="mt-1 rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-foreground transition-colors hover:bg-brand-indigo"
         >
-          Back to Knowledge
+          Back to the register
         </Link>
       </div>
     );
   }
 
-  return <DocReader doc={doc} highlightSectionId={highlightSectionId} />;
+  return (
+    <div className="flex flex-col gap-6">
+      {record && <DocumentRegisterStrip record={record} now={now} />}
+      <DocReader doc={doc} highlightSectionId={highlightSectionId} />
+    </div>
+  );
 }

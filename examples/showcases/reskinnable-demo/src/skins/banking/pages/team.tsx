@@ -83,7 +83,7 @@ export default function Team() {
           "The ID of the member to remove (provided by copilot, ask questions to figure out the member)",
         ),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { id } = args;
       if (status === "inProgress")
         return (
@@ -105,6 +105,7 @@ export default function Team() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!id) {
                 respond?.("Missing member information");
@@ -129,7 +130,7 @@ export default function Team() {
       id: z.string().describe("The ID of the member to change the role of"),
       role: z.string().describe("The new role of the member"),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { id, role } = args;
       if (status === "inProgress")
         return (
@@ -155,6 +156,7 @@ export default function Team() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!id || !role) {
                 respond?.("Missing member or role information");
@@ -179,7 +181,7 @@ export default function Team() {
       id: z.string().describe("The ID of the member to change the team of"),
       team: z.string().describe("The new team of the member"),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { id, team: newTeam } = args;
       if (status === "inProgress")
         return (
@@ -205,6 +207,7 @@ export default function Team() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!id || !newTeam) {
                 respond?.("Missing member or team information");

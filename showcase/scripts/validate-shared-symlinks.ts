@@ -1,7 +1,7 @@
 /**
  * Single-Source Symlink Erosion Guard
  *
- * The `shared-tools`, `tools`, and `_shared` dirs under each
+ * The `shared-tools`, `tools`, `data`, and `_shared` dirs under each
  * `showcase/integrations/<slug>/` are
  * meant to be SYMLINKS into `showcase/shared/...` — a single source of truth
  * (see showcase/AGENTS.md "The single-source symlink mechanism"). The build
@@ -66,6 +66,7 @@ const BASELINE_PATH = path.join(
 export const EXPECTED_SYMLINK_NAMES = [
   "shared-tools",
   "tools",
+  "data",
   "_shared",
 ] as const;
 
@@ -99,6 +100,7 @@ export interface Erosion {
  * `<showcaseRoot>/integrations/<slug>`), so a self-contained fixture tree with
  * its own `shared/` validates against ITS roots, not the repo's:
  *   tools / shared-tools → showcase/shared/{python,typescript}/tools (either)
+ *   data                 → showcase/shared/python/data
  *   _shared              → showcase/integrations/_shared (the canonical dir the
  *                          per-slug `_shared` symlinks all point at)
  */
@@ -110,6 +112,9 @@ export function expectedTargets(
   const showcaseRoot = path.dirname(integrationsDir);
   if (linkName === "_shared") {
     return [path.join(integrationsDir, "_shared")];
+  }
+  if (linkName === "data") {
+    return [path.join(showcaseRoot, "shared", "python", "data")];
   }
   // tools / shared-tools: accept either language's shared tools dir; a slug uses
   // exactly one, but the guard doesn't need to know which — either is valid.
@@ -205,6 +210,7 @@ export function loadBaseline(
     throw new Error(
       `validate-shared-symlinks: baseline is not valid JSON (${baselinePath}): ` +
         `${(err as Error).message}`,
+      { cause: err },
     );
   }
   const keys = Array.isArray(parsed)

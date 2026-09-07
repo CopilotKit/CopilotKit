@@ -64,7 +64,7 @@ export function proxy(request: NextRequest) {
   // Unconditional: a request that already carries the prefix (`/banking` from a
   // stale bookmark) becomes `/banking/banking`, whose `resolvePage` lookup
   // misses and 404s. That is the intended answer — under a lock the tenant path
-  // is as absent as `/nope`, matching how the other three skins behave.
+  // is as absent as `/nope`, matching how every OTHER skin's prefix behaves.
   url.pathname = pathname === "/" ? `/${locked}` : `/${locked}${pathname}`;
   return NextResponse.rewrite(url);
 }

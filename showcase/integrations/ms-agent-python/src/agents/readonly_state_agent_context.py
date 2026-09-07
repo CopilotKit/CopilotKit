@@ -11,14 +11,15 @@ minimal shape of the useAgentContext pattern.
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncGenerator
 from textwrap import dedent
 from typing import Any
+from uuid import uuid4
 
 from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
-
 
 SYSTEM_PROMPT = dedent(
     """
@@ -44,12 +45,17 @@ def build_context_system_message(context: Any) -> str | None:
 
         description = entry.get("description")
         value = entry.get("value")
-        if description is None or value is None:
+        if not isinstance(description, str) or not description or value is None:
             continue
 
+        if not isinstance(value, str):
+            try:
+                value = json.dumps(value, ensure_ascii=False, indent=2)
+            except (TypeError, ValueError):
+                value = str(value)
         lines.append("")
-        lines.append(str(description))
-        lines.append(str(value))
+        lines.append(description)
+        lines.append(value)
 
     if len(lines) == 1:
         return None
@@ -62,8 +68,8 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
 
     LangGraph gets this behavior from CopilotKitMiddleware. The MS Agent
     adapter receives the AG-UI `context` entries in `input_data`, so this
-    shim appends them to the wrapped agent's instruction string before
-    delegating to the standard Agent Framework runner.
+    shim adds them to a request-local message before delegating to the
+    standard Agent Framework runner.
     """
 
     async def run(  # type: ignore[override]
@@ -76,22 +82,36 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
                 yield event
             return
 
-        options = getattr(self.agent, "default_options", None)
-        if not isinstance(options, dict):
+        messages = input_data.get("messages")
+        # The upstream adapter returns without a model response when messages
+        # are empty. Context alone must not create an unsolicited model call.
+        if not isinstance(messages, list) or len(messages) == 0:
             async for event in super().run(input_data):
                 yield event
             return
 
-        previous_instructions = options.get("instructions")
-        options["instructions"] = f"{SYSTEM_PROMPT}\n\n{context_prompt}"
-        try:
-            async for event in super().run(input_data):
-                yield event
-        finally:
-            if previous_instructions is None:
-                options.pop("instructions", None)
-            else:
-                options["instructions"] = previous_instructions
+        run_id = input_data.get("runId") or str(uuid4())
+        request_input = dict(input_data)
+        request_input["runId"] = run_id
+        request_input["messages"] = [
+            {
+                "id": f"{run_id}-app-context",
+                "role": "system",
+                "content": context_prompt,
+            },
+            *[
+                message
+                for message in messages
+                if not (
+                    isinstance(message, dict)
+                    and isinstance(message.get("id"), str)
+                    and message["id"].endswith("-app-context")
+                )
+            ],
+        ]
+
+        async for event in super().run(request_input):
+            yield event
 
 
 def create_readonly_state_agent_context(

@@ -38,7 +38,7 @@ There are two documentation domains — make sure your change goes to the right 
 
 ## Good first issues
 
-Are you new to open source contribution? Wondering how contributions work in our project? Here's a quick rundown.
+Are you new to open-source contribution? Wondering how contributions work in our project? Here's a quick rundown.
 
 Find an issue that you're interested in addressing, or a feature that you'd like to add.
 You can use [this view](https://github.com/CopilotKit/CopilotKit/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) which helps new contributors find easy gateways into our project.
@@ -60,14 +60,14 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 
 ## Step 3: Prepare the development environment
 
-### 1)Install Prerequisites
+### 1) Install Prerequisites
 
 - Node.js 20.x or later
 - pnpm v9.x installed globally (npm i -g pnpm@^9)
 
 > **Windows users:** Enable **Developer Mode** (Settings > System > For developers > Developer Mode → On) to allow symlink creation. This is required for Next.js standalone builds and pnpm to work correctly.
 
-### 2)Install Dependencies
+### 2) Install Dependencies
 
 To install the dependencies using pnpm
 Go inside project folder and run :
@@ -76,7 +76,7 @@ Go inside project folder and run :
 pnpm install
 ```
 
-### 3)Build Packages
+### 3) Build Packages
 
 To make sure everything works, let’s build all packages once:
 
@@ -202,6 +202,6 @@ Our Code of Conduct means that you are responsible for treating everyone on the 
 ## Need Help?
 
 - **Questions**: Use our [Discord support channel](https://discord.com/invite/6dffbvGU3D) for any questions you have.
-- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/) for more helpful documentatation info.
+- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/) for more helpful documentation info.
 
 ⭐ Happy coding, and we look forward to your contributions!

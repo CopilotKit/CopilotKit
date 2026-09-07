@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { limitMessagesToTokenCount } from "../../../src/service-adapters/anthropic/utils";
+import { limitMessagesToTokenCount } from "../../../src/v1-deprecated/service-adapters/anthropic/utils";
 
 // Helper to build messages for testing. The token counter is length/3,
 // so we can control token counts via string length.

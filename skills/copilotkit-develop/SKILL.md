@@ -66,10 +66,10 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 
 function App() {
   return (
-    // useSingleEndpoint={false} matches the multi-route backend above. The
-    // v1-compat CopilotKit bridge defaults it to true (single transport),
-    // which would 404 against a multi-route handler.
-    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+    // No useSingleEndpoint: the provider negotiates the transport, so this
+    // works against a multi-route handler (the default) and a single-route one
+    // alike. Pass the prop only to pin one mode deliberately.
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <YourApp />
     </CopilotKit>
   );
@@ -177,7 +177,7 @@ useRenderTool(
 | `useRenderCustomMessages`  | Internal hook for rendering custom message decorators                                             |
 | `useSuggestions`           | Read the current suggestion list and control reload/clear                                         |
 | `useConfigureSuggestions`  | Register static or dynamic (LLM-generated) suggestion configs                                     |
-| `useThreads`               | List, rename, archive, and delete Intelligence platform threads                                   |
+| `useThreads`               | List, rename, archive, and delete CopilotKit Intelligence threads                                 |
 
 ## Quick Reference: Components
 
@@ -203,4 +203,4 @@ All v2 runtime symbols import from `@copilotkit/runtime/v2` (`createCopilotExpre
 | `CopilotIntelligenceRuntime`  | Intelligence-mode runtime with durable threads            |
 | `createCopilotHonoHandler`    | Create a Hono app with all CopilotKit routes              |
 | `createCopilotExpressHandler` | Create an Express router with all CopilotKit routes       |
-| `CopilotKitIntelligence`      | Intelligence platform client configuration                |
+| `CopilotKitIntelligence`      | CopilotKit Intelligence client configuration              |

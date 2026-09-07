@@ -5,9 +5,8 @@
 import type { MetadataRoute } from "next";
 import { getBaseUrl } from "@/lib/sitemap-helpers";
 
-// Force-dynamic so the emitted sitemap URL reflects the live
-// NEXT_PUBLIC_BASE_URL at request time — see app/sitemap.ts for the
-// same rationale.
+// Force-dynamic so non-production overrides are read at request time. In
+// production getBaseUrl() locks this to the public canonical docs origin.
 export const dynamic = "force-dynamic";
 
 export default function robots(): MetadataRoute.Robots {

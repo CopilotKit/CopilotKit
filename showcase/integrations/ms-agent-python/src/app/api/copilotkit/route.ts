@@ -2,9 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { EventType, FunctionMiddleware, HttpAgent } from "@ag-ui/client";
 import { Observable } from "rxjs";
@@ -121,35 +120,6 @@ function textFromMessageContent(content: unknown): string | undefined {
     .join("");
 
   return text || undefined;
-}
-
-function textFromContextValue(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
-  if (value === undefined || value === null) return undefined;
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function buildContextSystemMessage(context: unknown): string | undefined {
-  if (!Array.isArray(context) || context.length === 0) return undefined;
-
-  const lines = ["## Context from the application"];
-  for (const entry of context) {
-    if (!entry || typeof entry !== "object") continue;
-    const record = entry as Record<string, unknown>;
-    const description =
-      typeof record.description === "string" ? record.description : undefined;
-    const value = textFromContextValue(record.value);
-    if (!description || !value) continue;
-
-    lines.push("", description, value);
-  }
-
-  return lines.length > 1 ? lines.join("\n") : undefined;
 }
 
 function readRecord(value: unknown): Record<string, unknown> | undefined {
@@ -510,32 +480,7 @@ function createGenUiAgent() {
 }
 
 function createReadonlyContextAgent() {
-  const agent = createAgent("/readonly-state-agent-context");
-
-  agent.use(
-    new FunctionMiddleware((input, next) => {
-      const contextMessage = buildContextSystemMessage(
-        (input as { context?: unknown }).context,
-      );
-      if (!contextMessage) {
-        return next.run(input);
-      }
-
-      return next.run({
-        ...input,
-        messages: [
-          {
-            id: `${input.runId ?? crypto.randomUUID()}-app-context`,
-            role: "system",
-            content: contextMessage,
-          },
-          ...(input.messages ?? []),
-        ],
-      });
-    }),
-  );
-
-  return agent;
+  return createAgent("/readonly-state-agent-context");
 }
 
 function createSharedStateReadWriteAgent() {
@@ -696,16 +641,16 @@ export const POST = async (req: NextRequest) => {
   }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
+    const response = await copilotHandler(req);
     if (!response.ok) {
       console.log(`[copilotkit/route] Response status: ${response.status}`);
     } else if (ROUTE_DEBUG) {

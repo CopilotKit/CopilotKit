@@ -14,18 +14,29 @@ const ELEMENTS = "https://docs.slack.dev/reference/block-kit/block-elements/";
 const OBJECTS =
   "https://docs.slack.dev/reference/block-kit/composition-objects/";
 
-/** Reviewed message-valid Slack Block Kit catalog. */
+/**
+ * Reviewed message-valid Slack Block Kit catalog — the blocks an app can
+ * actually post. Two documented blocks are deliberately absent:
+ *
+ * - `alert`: "Alert blocks are currently only supported in modals." Verified by
+ *   posting Slack's own example into a message and having it refused, while a
+ *   plain section in the same delivery arrived.
+ * - `file`: "You can't add this block to app surfaces directly, but it will
+ *   show up when retrieving messages that contain remote files." The same
+ *   sentence appears in `@slack/types`' own doc comment. It is an inbound
+ *   shape, not an authorable one — offering it means offering a component that
+ *   can never succeed. Sending a file is `thread.postFile()`.
+ */
 export const SLACK_BLOCK_MANIFEST = [
   ["Actions", "actions", "elements"],
   ["Card", "card"],
   ["Carousel", "carousel", "elements"],
-  ["Container", "container", "blocks"],
+  ["Container", "container", "child_blocks"],
   ["Context", "context", "elements"],
   ["ContextActions", "context_actions", "elements"],
   ["DataTable", "data_table", "rows"],
   ["DataVisualization", "data_visualization"],
   ["Divider", "divider"],
-  ["File", "file"],
   ["Header", "header", "text"],
   ["Image", "image"],
   ["Input", "input", "element"],
@@ -90,6 +101,29 @@ export const SLACK_OBJECT_MANIFEST = [
 ] as const satisfies ReadonlyArray<
   readonly [component: string, type: string, childrenSlot?: string]
 >;
+
+/**
+ * Composition objects that carry **no** `type` discriminator in Slack's schema.
+ * Text and rich-text nodes are tagged (`plain_text`, `mrkdwn`, `text`,
+ * `rich_text_section`, …); the rest are plain structures — an option is
+ * `{text, value}`, a confirm dialog is `{title, text, confirm, deny}`. Emitting
+ * a `type` on those is an unknown field and Slack refuses the entire message,
+ * which took out every select, checkbox, radio group and overflow menu authored
+ * through this catalog.
+ *
+ * The manifest still needs the type string as its lookup key, so the exclusion
+ * is recorded here rather than by leaving the entry untyped.
+ */
+export const SLACK_UNTYPED_OBJECTS: ReadonlySet<string> = new Set([
+  "confirm",
+  "conversation_filter",
+  "dispatch_action_config",
+  "option",
+  "option_group",
+  "slack_file",
+  "trigger",
+  "workflow",
+]);
 
 function entries(
   rows: ReadonlyArray<readonly [string, string, string?]>,

@@ -75,7 +75,7 @@ test("metadata helpers send only coarse allowlisted properties", async () => {
       license_bucket: "valid" as const,
       usage_bucket: "within_limit" as const,
       expiry_bucket: "positive" as const,
-      group_key: "agents" as const,
+      group_key: "inspect" as const,
       leaf_key: "agent-context" as const,
       organizationName: "Acme Inc.",
       projectId: "project-secret",
@@ -88,7 +88,7 @@ test("metadata helpers send only coarse allowlisted properties", async () => {
       license_bucket: "expired" as const,
       usage_bucket: "at_or_over_limit" as const,
       expiry_bucket: "zero" as const,
-      group_key: "threads" as const,
+      group_key: "workbench" as const,
       leaf_key: "threads" as const,
       action_placement: "threads_footer" as const,
       url: "https://cloud.copilotkit.ai/private",
@@ -116,7 +116,7 @@ test("metadata helpers send only coarse allowlisted properties", async () => {
       license_bucket: "valid",
       usage_bucket: "within_limit",
       expiry_bucket: "positive",
-      group_key: "agents",
+      group_key: "inspect",
       leaf_key: "agent-context",
     });
     expect(bodies[1]?.properties).toMatchObject({
@@ -125,7 +125,7 @@ test("metadata helpers send only coarse allowlisted properties", async () => {
       license_bucket: "expired",
       usage_bucket: "at_or_over_limit",
       expiry_bucket: "zero",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
       action_placement: "threads_footer",
     });
@@ -183,7 +183,7 @@ test("metadata helpers honor local opt-out before creating a request", async () 
       license_bucket: "none",
       usage_bucket: "absent",
       expiry_bucket: "unavailable",
-      group_key: "agents",
+      group_key: "inspect",
       leaf_key: "capabilities",
     });
     trackMetadataActionClicked({
@@ -191,7 +191,7 @@ test("metadata helpers honor local opt-out before creating a request", async () 
       license_bucket: "valid",
       usage_bucket: "unlimited",
       expiry_bucket: "positive",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
       action_placement: "threads_footer",
     });
@@ -214,7 +214,7 @@ test("metadata helper delivery failures stay best-effort", async () => {
         license_bucket: "unknown",
         usage_bucket: "unknown_limit",
         expiry_bucket: "unavailable",
-        group_key: "learning",
+        group_key: "workbench",
         leaf_key: "memories",
       }),
     ).not.toThrow();

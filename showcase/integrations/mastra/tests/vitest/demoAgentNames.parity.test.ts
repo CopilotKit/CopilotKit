@@ -26,12 +26,11 @@ vi.mock("@ag-ui/mastra", () => ({
   MastraAgent: { getLocalAgents: vi.fn() },
   getLocalAgent: vi.fn(),
 }));
-vi.mock("@copilotkit/runtime", () => ({
+vi.mock("@copilotkit/runtime/v2", () => ({
   CopilotRuntime: vi.fn(),
-  ExperimentalEmptyAdapter: vi.fn(),
-  copilotRuntimeNextJSAppRouterEndpoint: vi.fn(() => ({
-    handleRequest: vi.fn(async () => new Response("ok")),
-  })),
+  createCopilotRuntimeHandler: vi.fn(() =>
+    vi.fn(async () => new Response("ok")),
+  ),
 }));
 vi.mock("next/server", () => ({
   NextRequest: class {},

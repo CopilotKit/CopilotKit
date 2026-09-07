@@ -1,6 +1,11 @@
 import { NgComponentOutlet } from "@angular/common";
-import { Component, inject, input } from "@angular/core";
 import {
+  Component,
+  inject,
+  input,
+  ChangeDetectionStrategy,
+} from "@angular/core";
+import type {
   AssistantMessage,
   Message,
   ToolCall,
@@ -8,7 +13,7 @@ import {
 } from "@ag-ui/client";
 import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopToolCall,
   HumanInTheLoopConfig,
@@ -136,6 +141,7 @@ export function pickToolCallHandler(
 @Component({
   selector: "copilot-render-tool-calls",
   imports: [NgComponentOutlet],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @for (toolCall of message().toolCalls ?? []; track toolCall.id) {
       @let renderConfig = pickRenderer(toolCall.function.name);

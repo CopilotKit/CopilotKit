@@ -136,6 +136,7 @@ def _build_sdk_tools(
     ]
 
 
+# @region[claude-agent-sdk-tool-handler]
 def _make_sdk_tool(
     schema: dict[str, Any],
     *,
@@ -171,6 +172,9 @@ def _make_sdk_tool(
             }
 
     return sdk_tool_handler
+
+
+# @endregion[claude-agent-sdk-tool-handler]
 
 
 def _set_state(

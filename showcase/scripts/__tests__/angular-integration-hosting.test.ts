@@ -92,6 +92,20 @@ test.each(["showcase_build.yml", "showcase_build_check.yml"])(
   },
 );
 
+test.each(["showcase_build.yml", "showcase_build_check.yml"])(
+  "materializes every shared integration symlink in %s",
+  async (workflowFile) => {
+    const workflow = await readFile(
+      resolve(repositoryRoot, ".github/workflows", workflowFile),
+      "utf8",
+    );
+
+    expect(workflow).toContain(
+      "for link_name in tools shared-tools data _shared; do",
+    );
+  },
+);
+
 test("has no dedicated Angular host, image, proxy, or server", async () => {
   const packageJson = JSON.parse(
     await readFile(

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CopilotChat } from "@copilotkit/react-core/v2";
+import { SubagentFilteredAssistantMessage } from "@/shell/subagents/subagent-message-filter";
 import type { CopilotChatProps } from "@copilotkit/react-core/v2";
 
 import { useSkin } from "@/shell/skin-provider";
@@ -55,6 +56,12 @@ export function ChatPanel({ threadId }: { threadId: string }) {
           <CopilotChat
             agentId={skin.id}
             threadId={threadId}
+            // Route a SUBAGENT's narration to whatever surface the skin uses for
+            // it (banking: a CLI console) instead of inlining it in the
+            // conversation. Inert for a skin whose agent has no subagents — the
+            // suppression set is keyed by `subagentRunId` and stays empty. See
+            // `shell/subagents/subagent-message-filter.tsx`.
+            messageView={{ assistantMessage: SubagentFilteredAssistantMessage }}
             // Custom suggestion pills: the eight registered via
             // useConfigureSuggestions. This slot owns the empty-state layout and
             // routes each click through the active skin first

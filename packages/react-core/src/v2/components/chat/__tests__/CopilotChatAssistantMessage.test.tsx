@@ -4,7 +4,8 @@ import { vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
-import { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage } from "@ag-ui/core";
+import { CopilotKitInspectorContextProvider } from "../../CopilotKitInspectorContext";
 
 // No mocks needed - Vitest handles ES modules natively!
 
@@ -96,6 +97,77 @@ describe("CopilotChatAssistantMessage", () => {
       expect(screen.queryByRole("button", { name: /thumbs down/i })).toBeNull();
       expect(screen.queryByRole("button", { name: /read aloud/i })).toBeNull();
       expect(screen.queryByRole("button", { name: /regenerate/i })).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /view in inspector/i }),
+      ).toBeNull();
+    });
+
+    it("renders the local Inspector button and opens it from the toolbar", async () => {
+      const openInspector = vi.fn();
+
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector }}
+        >
+          <CopilotChatAssistantMessage message={basicMessage} />
+        </CopilotKitInspectorContextProvider>,
+      );
+
+      const inspectorButton = screen.getByRole("button", {
+        name: "View in Inspector (local only)",
+      });
+      const inspectorIcon = screen.getByTestId("copilot-inspector-icon");
+
+      expect(inspectorIcon.querySelectorAll("linearGradient")).toHaveLength(4);
+      expect(inspectorButton.textContent).toContain("View in Inspector");
+      expect(inspectorButton.textContent).toContain("(local only)");
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /save as snippet/i }),
+      ).toBeNull();
+
+      fireEvent.mouseEnter(inspectorButton);
+      await waitFor(() =>
+        expect(
+          screen.getByText(
+            "View this message in the Inspector to get more information. This button and the inspector only display during local development (localhost, dev env).",
+          ),
+        ).toBeDefined(),
+      );
+
+      fireEvent.click(inspectorButton);
+
+      expect(openInspector).toHaveBeenCalledWith({
+        messageId: basicMessage.id,
+        threadId: TEST_THREAD_ID,
+        agentId: "default",
+      });
+    });
+
+    it("preserves props added to the bound Inspector button", () => {
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector: vi.fn() }}
+        >
+          <CopilotChatAssistantMessage message={basicMessage}>
+            {({ inspectorButton }) =>
+              React.cloneElement(
+                inspectorButton as React.ReactElement<
+                  React.ButtonHTMLAttributes<HTMLButtonElement>
+                >,
+                {
+                  className: "custom-inspector-button",
+                },
+              )
+            }
+          </CopilotChatAssistantMessage>
+        </CopilotKitInspectorContextProvider>,
+      );
+
+      const inspectorButton = screen.getByRole("button", {
+        name: "View in Inspector (local only)",
+      });
+      expect(inspectorButton.className).toContain("custom-inspector-button");
     });
 
     it("renders all buttons when all callbacks provided", () => {

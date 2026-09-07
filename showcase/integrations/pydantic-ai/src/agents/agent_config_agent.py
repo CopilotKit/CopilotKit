@@ -7,8 +7,8 @@ and builds its system prompt dynamically per turn.
 PydanticAI-specific wiring
 --------------------------
 The CopilotKit provider's ``properties`` prop is forwarded by the runtime
-as ``forwardedProps`` on each AG-UI run. PydanticAI's ``agent.to_ag_ui()``
-bridge surfaces that via ``ctx.deps.copilotkit.context`` when the runtime
+as ``forwardedProps`` on each AG-UI run. PydanticAI's AG-UI adapter
+(``AGUIAdapter.dispatch_request``) surfaces that via ``ctx.deps.copilotkit.context`` when the runtime
 route repacks it (see ``src/app/api/copilotkit-agent-config/route.ts``)
 — the TS route appends a synthetic ``agent-config-properties`` context
 entry whose JSON payload carries the three properties.
@@ -27,7 +27,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
 
 

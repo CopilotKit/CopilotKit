@@ -33,7 +33,7 @@ services:
         "0.0.0.0",
         "--record",
         "--provider-openai",
-        "https://api.openai.com",
+        "https://api.openai.com/v1",
         "--provider-anthropic",
         "https://api.anthropic.com",
         # Load ONLY the recorded dir as the fixture source. The baseline

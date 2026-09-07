@@ -35,6 +35,10 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import {
+  isV1ReferenceUrl,
+  renderV1DeprecationNoticeUseV2InsteadMarkdown,
+} from "@/lib/v1-deprecation-use-v2-instead";
+import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
   channelConnectHref,
@@ -63,6 +67,7 @@ import angularSourceContent from "@/data/angular-source-content.json";
 import setupContentData from "@/data/setup-content.json";
 import {
   filterAngularBackendScopedBlocks,
+  filterFrameworkScopedBlocks,
   filterFrontendScopedBlocks,
 } from "./toc";
 import type { FrontendId } from "./frontend-options";
@@ -70,6 +75,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 
 interface Region {
   file: string;
@@ -761,6 +767,17 @@ function expandRichThreadsSetupPrompts(body: string): string {
   );
 }
 
+/** Expand the Automatic Learning prompt for raw Markdown consumers. */
+function expandLearningSetupPrompts(body: string): string {
+  return body.replace(
+    /<LearningSetupPrompt\s*\/>/g,
+    `#### Copy this prompt into your coding agent\n\n${fenceFor(
+      "text",
+      LEARNING_SETUP_PROMPT,
+    )}`,
+  );
+}
+
 /**
  * Drop `<InlineDemo ... />` tags — these mount live iframes in the
  * browser; in plain markdown they're noise. Leave a short note so the
@@ -894,6 +911,7 @@ export function renderPageToLlmText(
 
   // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
   body = expandRichThreadsSetupPrompts(body);
+  body = expandLearningSetupPrompts(body);
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
@@ -907,6 +925,25 @@ export function renderPageToLlmText(
   if (frontend === "angular") {
     body = filterAngularBackendScopedBlocks(body, framework);
   }
+
+  // Framework-gated branches (`<WhenFrameworkHas flag=… equals=…>`) have to be
+  // resolved here too, and against the SAME framework the `<Snippet />` tags
+  // below resolve to. The live HTML page drops the non-matching branches (the
+  // component returns null); raw Markdown used to keep every branch verbatim,
+  // so a gated page emitted all of its mutually-exclusive variants at once,
+  // each one carrying the single selected framework's code. On
+  // `generative-ui/a2ui/fixed-schema` that meant three "how the schema is
+  // delivered" sections whose prose contradicted the identical snippet under
+  // each of them — including a branch stating the language ships no
+  // `load_schema` helper directly above a snippet calling `load_schema`.
+  //
+  // `pickFramework` is what `expandSnippets` uses, so routing the gating
+  // decision through it keeps prose and code agreeing even on unscoped
+  // (`/<slug>.md`) requests where no framework was passed in.
+  const gatedFramework = frontmatterCell
+    ? (pickFramework(frontmatterCell, undefined, framework) ?? framework)
+    : framework;
+  body = filterFrameworkScopedBlocks(body, gatedFramework);
 
   // 2) Inline the selected package-owned framework setup. Bare docs URLs use
   // Built-in Agent on the live site, so use that same default for setup
@@ -938,7 +975,10 @@ export function renderPageToLlmText(
   const header: string[] = [`# ${title}`];
   if (description) header.push("", `> ${description}`);
   header.push("");
-  return `${header.join("\n")}${body.trimEnd()}\n`;
+  const v1DeprecationNoticeUseV2Instead = isV1ReferenceUrl(page.url)
+    ? renderV1DeprecationNoticeUseV2InsteadMarkdown()
+    : "";
+  return `${header.join("\n")}${v1DeprecationNoticeUseV2Instead}${body.trimEnd()}\n`;
 }
 
 /**

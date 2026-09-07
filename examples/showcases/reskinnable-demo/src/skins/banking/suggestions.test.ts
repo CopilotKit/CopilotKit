@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { bankingSuggestions, Q2_REPORT_MESSAGE } from "./suggestions";
+import {
+  bankingSuggestions,
+  EXPENSE_PILL_MESSAGE,
+  Q2_REPORT_MESSAGE,
+} from "./suggestions";
 
 /**
  * Guards the Q2 multimodal invoice beat.
@@ -33,5 +37,38 @@ describe("banking Q2 report suggestion", () => {
   it("keeps that pill titled so the demo script still reads correctly", () => {
     const q2 = bankingSuggestions.find((s) => s.message === Q2_REPORT_MESSAGE);
     expect(q2?.title).toBe("Prep the Q2 spend report");
+  });
+});
+
+/**
+ * Guards the offsite-expenses beat's ONLY entry point.
+ *
+ * This pill is not matched by string equality anywhere — banking's agent IS the
+ * Python deep agent, so selecting it just sends a message. That is precisely why
+ * it needs a test: nothing else in the tree references it. No type, no matcher,
+ * no route. The service can be running, the agent registered, all four gates
+ * green, and the beat still be unreachable because the one pill that starts it
+ * is absent from the catalog.
+ *
+ * That is not hypothetical — it shipped that way once. The whole beat was wired
+ * and verified end to end against the runtime, and the first person to open the
+ * app could not find the button.
+ */
+describe("banking offsite-expenses suggestion", () => {
+  it("keeps exactly one pill carrying EXPENSE_PILL_MESSAGE", () => {
+    const matching = bankingSuggestions.filter(
+      (s) => s.message === EXPENSE_PILL_MESSAGE,
+    );
+    expect(
+      matching,
+      "the offsite-expenses beat has no other entry point — without this pill it is unreachable from the UI",
+    ).toHaveLength(1);
+  });
+
+  it("keeps that pill titled so the demo script still reads correctly", () => {
+    const pill = bankingSuggestions.find(
+      (s) => s.message === EXPENSE_PILL_MESSAGE,
+    );
+    expect(pill?.title).toBe("Sort out my offsite expenses");
   });
 });

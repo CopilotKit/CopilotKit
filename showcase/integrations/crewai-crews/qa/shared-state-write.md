@@ -1,41 +1,50 @@
-# QA: Shared State (Writing) — CrewAI (Crews)
+# QA: Shared State (Read + Write) — CrewAI (Flows)
 
 ## Prerequisites
 
 - Demo is deployed and accessible
-- Agent backend is healthy (check /api/health)
+- Agent backend is healthy (`/api/health`)
 
 ## Test Steps
 
 ### 1. Basic Functionality
 
-- [ ] Navigate to the shared-state-write demo page
-- [ ] Verify the chat interface loads with title "Shared State (Writing)"
-- [ ] Verify the chat input placeholder "Type a message..." is visible
-- [ ] Send a basic message (e.g. "Hello! What can you do?")
-- [ ] Verify the agent responds
+- [ ] Navigate to `/demos/shared-state-read-write`; verify the preferences and scratch-pad cards render and the chat sidebar opens by default
+- [ ] Verify `data-testid="preferences-card"` is visible with heading "Your preferences"
+- [ ] Verify `data-testid="notes-card"` is visible with heading "Agent Scratch pad"
+- [ ] Verify `data-testid="notes-empty"` reads "the agent will make observations about you and note them here!"
+- [ ] Verify the chat input placeholder is "Chat with the agent..."
+- [ ] Verify the suggestions "Greet me", "Remember something", and "Plan a weekend" are visible
+- [ ] Send "Hello" and verify an assistant response appears
 
 ### 2. Feature-Specific Checks
 
-#### Suggestions
+#### UI Writes -> Agent Reads
 
-- [ ] Verify "Get started" suggestion button is visible
+- [ ] Enter "Atai" in `data-testid="pref-name"`; set tone to `formal`, language to `Spanish`, and select `Cooking` and `Travel`
+- [ ] Verify `data-testid="pref-state-json"` immediately reflects all four preference changes
+- [ ] Send "What do you know about me?" and verify the response uses the name, tone, language, and interests supplied through shared state
 
-#### Note: Stub Demo
+#### Agent Writes -> UI Reads
 
-> **Status: Stub** — This demo is currently a stub (TODO: implement)
+- [ ] Click "Remember something"
+- [ ] Verify `data-testid="notes-list"` appears and contains `data-testid="note-item"` entries for morning meetings and dairy
+- [ ] Send "Also remember I live in Berlin." and verify the notes list preserves the previous entries and adds Berlin
 
-- [ ] Verify the basic CopilotChat loads and accepts messages
-- [ ] Verify the agent responds to messages
-- [ ] No custom UI components are expected beyond the chat interface
+#### UI Writes Back to Agent State
+
+- [ ] Click `data-testid="notes-clear-button"`; verify the list disappears and `data-testid="notes-empty"` returns
+- [ ] Ask "What do you remember about me?" and verify the cleared notes are no longer cited
 
 ### 3. Error Handling
 
-- [ ] Send an empty message (should be handled gracefully)
-- [ ] Verify no console errors during normal usage
+- [ ] Attempt to send an empty message; verify it is a no-op
+- [ ] Clear the name and deselect all interests; verify a subsequent turn completes without an error
+- [ ] Verify the browser console has no uncaught errors during the flow
 
 ## Expected Results
 
-- Chat loads within 3 seconds
-- Agent responds within 10 seconds
+- UI preference edits reach the agent on the next turn
+- Agent-authored notes appear in shared state and preserve prior entries
+- Clearing notes round-trips from the UI back to agent state
 - No UI errors or broken layouts

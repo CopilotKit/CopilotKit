@@ -42,7 +42,7 @@ Detect the project's framework before generating any setup code. The detection o
 - **Frontend connects to external URL:** `runtimeUrl` points to the Express server (e.g., `http://localhost:4000/api/copilotkit`)
 - **Stylesheet import:** In `pages/_app.tsx` or `styles/globals.css`: `import "@copilotkit/react-core/v2/styles.css"`
 - **Env file:** `.env.local`
-- **Key prop:** `useSingleEndpoint` must be set on the provider when using single-route Express endpoints
+- **Key prop:** `useSingleEndpoint` may be set on the provider to pin single-route transport for single-route Express endpoints; omitting it lets the provider detect the mode
 
 ### Angular
 

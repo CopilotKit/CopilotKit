@@ -73,7 +73,7 @@ const { agent } = useAgent({
 const isRunning = agent.isRunning;
 ```
 
-`useAgent` returns `{ agent }` only; `isRunning` lives on the agent
+`useAgent` returns `{ agent, isReady }`; `isRunning` lives on the agent
 itself. Subscribing to `OnRunStatusChanged` forces a re-render when the
 value flips, so reading `agent.isRunning` stays live.
 
@@ -93,6 +93,23 @@ useAgentContext({ description: "user cart + route", value });
 const { agent } = useAgent({ agentId: "default" });
 <button onClick={() => agent.abortRun()}>Stop</button>;
 ```
+
+### Wait for the real agent before attaching to it
+
+```tsx
+const { agent, isReady } = useAgent({ agentId: "default" });
+
+useEffect(() => {
+  if (!isReady) return; // provisional stand-in — don't attach yet
+  const sub = agent.subscribe({ onRunStartedEvent: handleRunStarted });
+  return () => sub.unsubscribe();
+}, [agent, isReady]);
+```
+
+Until the runtime `/info` sync resolves, `agent` is a provisional
+stand-in. It is a fully-constructed `AbstractAgent`, so every call on it
+is safe — but it is then **replaced**, and `agent` changes reference.
+Anything keyed to the old instance goes with it.
 
 ## Common Mistakes
 
@@ -125,6 +142,56 @@ class MyAgent extends AbstractAgent {
 instance. This guards per-thread isolation.
 
 Source: `packages/react-core/src/v2/hooks/use-agent.tsx:58-69`
+
+### HIGH — Deriving app state from `agent` without guarding on `isReady`
+
+Wrong:
+
+```tsx
+const { agent } = useAgent({ agentId: "default" });
+
+// Correlation map for matching responses back to the row that asked.
+const pending = useRef(new Map<string, string>());
+
+useEffect(() => {
+  pending.current = new Map(); // re-runs when `agent` is swapped
+  const sub = agent.subscribe({ onRunFinishedEvent: resolvePending });
+  return () => sub.unsubscribe();
+}, [agent]);
+```
+
+Correct:
+
+```tsx
+const { agent, isReady } = useAgent({ agentId: "default" });
+
+// Owned by the component, not by the agent — survives the swap.
+const pending = useRef(new Map<string, string>());
+
+useEffect(() => {
+  if (!isReady) return;
+  const sub = agent.subscribe({ onRunFinishedEvent: resolvePending });
+  return () => sub.unsubscribe();
+}, [agent, isReady]);
+```
+
+`agent` changes reference exactly once per mount, when `/info` resolves and
+the provisional stand-in is swapped for the real instance. Any effect with
+`agent` in its dependency array re-runs at that moment — so app state
+initialized inside such an effect is silently reset partway through the
+first interaction.
+
+This bites hardest with Intelligence configured, because license
+verification and thread-endpoint discovery lengthen the provisional window
+past the first user action. In plain SSE mode the window usually closes
+before anyone can interact, which is why the bug does not reproduce in
+OSS-only development.
+
+Never put per-component bookkeeping (correlation maps, in-flight request
+records, refs) behind an `agent` dependency. Initialize it in the ref
+itself and let the effect only manage the subscription.
+
+Source: `packages/react-core/src/v2/hooks/use-agent.tsx:226-290,465-481`
 
 ### HIGH — Mutating `agent.messages` directly
 

@@ -1,0 +1,12 @@
+{
+  "typescript": {
+    "deps": [
+      "@copilotkit/runtime@1.68.3",
+      "@ag-ui/client@0.0.57",
+      "@ag-ui/core@0.0.57",
+      "@ag-ui/mastra",
+      "@mastra/client-js",
+      "next"
+    ]
+  }
+}

@@ -145,7 +145,7 @@ export class ɵInterruptState<TValue = unknown> {
     const mutableInterrupts = [...interrupts];
     const resume = buildResumeArray(mutableInterrupts, this.#responses);
     const toolResults = mutableInterrupts.flatMap((interrupt) => {
-      if (!interrupt.toolCallId) return [];
+      if (!interrupt.toolCallId || interrupt.reason !== "tool_call") return [];
       return [
         {
           toolCallId: interrupt.toolCallId,

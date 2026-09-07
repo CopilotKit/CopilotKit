@@ -1,17 +1,21 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import CopilotChatView, {
+import type {
   CopilotChatViewProps,
   WelcomeScreenProps,
 } from "./CopilotChatView";
+import CopilotChatView from "./CopilotChatView";
 import {
+  ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
+import { useModalOpenControl } from "./modal-open-control";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { cn } from "../../lib/utils";
 import { CopilotModalHeader } from "./CopilotModalHeader";
-import { renderSlot, SlotValue } from "../../lib/slots";
+import type { SlotValue } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 
 const DEFAULT_SIDEBAR_WIDTH = 480;
 const SIDEBAR_TRANSITION_MS = 260;
@@ -32,15 +36,35 @@ export function CopilotSidebarView({
   position = "right",
   ...props
 }: CopilotSidebarViewProps) {
+  // Controlled open state supplied by `<CopilotSidebar open onOpenChange>`.
+  const { open, onOpenChange } = useModalOpenControl();
+  // The scope is needed for either half: `open` pins the state, and
+  // `onOpenChange` reports requests even while the sidebar manages itself.
+  const hasOpenControl = open !== undefined || onOpenChange !== undefined;
+
+  const internal = (
+    <CopilotSidebarViewInternal
+      header={header}
+      toggleButton={toggleButton}
+      width={width}
+      position={position}
+      {...props}
+    />
+  );
+
   return (
-    <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
-      <CopilotSidebarViewInternal
-        header={header}
-        toggleButton={toggleButton}
-        width={width}
-        position={position}
-        {...props}
-      />
+    // Seed the underlying uncontrolled state from `open` so it starts aligned
+    // with the host. The scope below is what the surface actually renders, so
+    // this only matters if the host later drops `open` and hands control back:
+    // the sidebar then stays where it was instead of jumping to `defaultOpen`.
+    <CopilotChatConfigurationProvider isModalDefaultOpen={open ?? defaultOpen}>
+      {hasOpenControl ? (
+        <ControlledModalOpenScope open={open} onOpenChange={onOpenChange}>
+          {internal}
+        </ControlledModalOpenScope>
+      ) : (
+        internal
+      )}
     </CopilotChatConfigurationProvider>
   );
 }
@@ -181,7 +205,7 @@ function CopilotSidebarViewInternal({
         style={
           {
             // Use CSS custom property for responsive width
-            ["--sidebar-width" as string]: widthToCss(sidebarWidth),
+            "--sidebar-width": widthToCss(sidebarWidth),
             // Safe area insets for iOS
             paddingTop: "env(safe-area-inset-top)",
             paddingBottom: "env(safe-area-inset-bottom)",

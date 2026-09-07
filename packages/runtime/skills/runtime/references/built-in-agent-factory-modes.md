@@ -110,7 +110,7 @@ new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: anthropic("claude-sonnet-4"),
+      model: anthropic("claude-sonnet-4-6"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       providerOptions: {
         anthropic: { thinking: { type: "enabled", budgetTokens: 10000 } },

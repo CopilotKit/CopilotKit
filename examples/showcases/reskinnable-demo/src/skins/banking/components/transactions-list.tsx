@@ -25,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording } from "@/shell/teach";
 import { PolicyExceptionInline } from "@/skins/banking/components/policy-exception-inline";
 
 type ExceptionResult = {

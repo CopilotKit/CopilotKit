@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useSkinData } from "@/shell/skin-provider";
+import { useKeelDesk } from "@/skins/keel/desk-data";
 import { useRole } from "@/skins/keel/role-context";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { RunTimeline } from "@/skins/keel/components/run-timeline";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/skins/keel/pages/format-date";
-import type { KeelData, RunStep } from "@/skins/keel/data/types";
+import type { RunStep } from "@/skins/keel/data/types";
 
 export function RunDetailPage() {
   // All hooks run unconditionally BEFORE the not-found early return.
   const params = useParams<{ skin: string; rest?: string[] }>();
-  const data = useSkinData<KeelData>();
+  const data = useKeelDesk();
   const { persona } = useRole();
   // Per-step action failures (stale-approval race / wrong state), keyed by step id.
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
@@ -40,15 +40,18 @@ export function RunDetailPage() {
   const inputLabel = (key: string) =>
     playbook?.inputs.find((i) => i.key === key)?.label ?? key;
 
-  const handleAction = (kind: "approve" | "reject", stepId: string) => {
+  // Awaited: the write is a POST and the timeline only moves once the ledger has
+  // been re-read. A `reason` on an `ok` result means the write landed but this
+  // page is still painting the pre-write run — shown, never swallowed.
+  const handleAction = async (kind: "approve" | "reject", stepId: string) => {
     const note = `${kind === "approve" ? "Approved" : "Rejected"} by ${persona.name}`;
     const result =
       kind === "approve"
-        ? data.approveStep(runForActions.id, stepId, note)
-        : data.rejectStep(runForActions.id, stepId, note);
+        ? await data.approveStep(runForActions.id, stepId, note)
+        : await data.rejectStep(runForActions.id, stepId, note);
     setActionErrors((prev) => {
       const next = { ...prev };
-      if (result.ok) delete next[stepId];
+      if (result.ok && !result.reason) delete next[stepId];
       else next[stepId] = result.reason ?? "This step could not be updated.";
       return next;
     });
@@ -70,13 +73,16 @@ export function RunDetailPage() {
     return (
       <div className="mt-2 flex flex-col gap-1.5">
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => handleAction("approve", step.id)}>
+          <Button
+            size="sm"
+            onClick={() => void handleAction("approve", step.id)}
+          >
             Approve
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleAction("reject", step.id)}
+            onClick={() => void handleAction("reject", step.id)}
           >
             Reject
           </Button>

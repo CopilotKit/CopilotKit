@@ -1,8 +1,9 @@
-import { Component, Input } from "@angular/core";
+import { Component, Input, ChangeDetectionStrategy } from "@angular/core";
 
 @Component({
   selector: "custom-disclaimer",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       [class]="inputClass"

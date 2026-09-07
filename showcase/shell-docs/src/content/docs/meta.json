@@ -20,7 +20,8 @@
         "headless-threads",
         "threads-lifecycle",
         "threads-import",
-        "premium/threads-explained"
+        "threads-self-managed",
+        "intelligence/threads-explained"
       ]
     },
     "custom-look-and-feel",
@@ -31,6 +32,8 @@
     "...generative-ui",
     "---Add Agent Powers---",
     "frontend-tools",
+    "webmcp",
+    "learning",
     {
       "title": "Shared State",
       "pages": [
@@ -51,11 +54,14 @@
     "---Observe & Operate---",
     "inspector",
     "vs-code-extension",
-    "---Intelligence Platform---",
-    "premium/overview",
-    "premium/managed-intelligence-platform",
-    "premium/self-hosting",
-    "premium/intelligence-platform",
+    "---Intelligence---",
+    "intelligence/overview",
+    "intelligence/memories",
+    "intelligence/quickstart",
+    "intelligence/managed-intelligence-platform",
+    "intelligence/connect-your-runtime",
+    "intelligence/self-hosting",
+    "intelligence/intelligence-platform",
     "---Deploy---",
     "...deploy",
     "---Other---",

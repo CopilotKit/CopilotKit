@@ -169,7 +169,7 @@ function parseRecallBody(
 }
 
 /**
- * Lists the resolved user's long-term memories via the Intelligence platform.
+ * Lists the resolved user's long-term memories via CopilotKit Intelligence.
  *
  * Mirrors {@link handleListThreads}: requires a `CopilotKitIntelligence`
  * runtime, resolves the user with `identifyUser` (never trusting a

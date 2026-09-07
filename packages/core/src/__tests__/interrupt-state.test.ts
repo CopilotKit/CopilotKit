@@ -3,10 +3,14 @@ import { describe, expect, it } from "vitest";
 
 import { ɵInterruptState } from "../interrupt-state";
 
-function interrupt(id: string, toolCallId?: string): Interrupt {
+function interrupt(
+  id: string,
+  toolCallId?: string,
+  reason: string = id,
+): Interrupt {
   return {
     id,
-    reason: id,
+    reason,
     ...(toolCallId ? { toolCallId } : {}),
   };
 }
@@ -14,7 +18,10 @@ function interrupt(id: string, toolCallId?: string): Interrupt {
 describe("ɵInterruptState", () => {
   it("waits for every interrupt and emits one resume decision", () => {
     const state = new ɵInterruptState();
-    state.setStandard([interrupt("one", "call-one"), interrupt("two")]);
+    state.setStandard([
+      interrupt("one", "call-one", "tool_call"),
+      interrupt("two"),
+    ]);
 
     expect(state.resolve({ approved: true }, "one")).toEqual({
       kind: "waiting",
@@ -35,6 +42,18 @@ describe("ɵInterruptState", () => {
           content: JSON.stringify({ approved: true }),
         },
       ],
+    });
+  });
+
+  it("does not create tool results for backend-owned interrupts", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([
+      interrupt("mastra-run::tool-one", "tool-one", "human_approval"),
+    ]);
+
+    expect(state.resolve("approved")).toMatchObject({
+      kind: "resume",
+      toolResults: [],
     });
   });
 

@@ -37,6 +37,33 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+// The page now registers a beat-3b on-screen readable. `useAgentContext` reaches
+// `useCopilotKit`, which THROWS outside a provider by design, and this tree is
+// rendered bare — so it is stubbed rather than the throw tolerated. Nothing here
+// asserts on the readable (that is `on-screen-readables.test.tsx`'s job).
+vi.mock("@copilotkit/react-core/v2", () => ({
+  useAgentContext: () => {},
+}));
+
+// The page reads the register overlay off the ledger snapshot. Stubbed empty so
+// these citation-landing cases exercise the corpus half only, and so no test in
+// this file reaches for the network.
+vi.mock("@/skins/keel/ledger-context", () => ({
+  useKeelLedger: () => ({
+    data: {
+      documents: [],
+      runs: [],
+      playbooks: [],
+      personas: [],
+      variances: [],
+      impactBriefs: [],
+      asOf: "2026-08-12T00:00:00.000Z",
+    },
+    refresh: async () => true,
+    ready: true,
+  }),
+}));
+
 const HIGHLIGHT = "bg-brand-soft";
 
 function sectionEl(id: string): HTMLElement {

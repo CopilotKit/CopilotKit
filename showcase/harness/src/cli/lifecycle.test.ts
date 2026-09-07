@@ -127,6 +127,40 @@ describe("stageSharedModules() — Angular browser artifact", () => {
   });
 });
 
+describe("stageSharedModules() — shared data", () => {
+  it("materializes an integration data symlink inside its Docker build context", () => {
+    existsSyncMock.mockImplementation((candidate: unknown) => {
+      const value = String(candidate);
+      return (
+        value.endsWith("/showcase/integrations") ||
+        value.endsWith("/showcase/shared/python/data")
+      );
+    });
+    readdirSyncMock.mockReturnValue([
+      {
+        name: "crewai-crews",
+        isDirectory: () => true,
+      },
+    ]);
+    lstatSyncMock.mockImplementation((candidate: unknown) => ({
+      isSymbolicLink: () => String(candidate).endsWith("/data"),
+    }));
+    readlinkSyncMock.mockReturnValue("../../shared/python/data");
+    statSyncMock.mockReturnValue({ isDirectory: () => true });
+
+    stageSharedModules();
+
+    expect(rmSyncMock).toHaveBeenCalledWith(
+      expect.stringMatching(/integrations\/crewai-crews\/data$/),
+    );
+    expect(cpSyncMock).toHaveBeenCalledWith(
+      expect.stringMatching(/showcase\/shared\/python\/data$/),
+      expect.stringMatching(/integrations\/crewai-crews\/data$/),
+      { recursive: true },
+    );
+  });
+});
+
 describe("rebuild() — targeted slugs", () => {
   it("includes the infra profile in the build invocation so aimock resolves", async () => {
     await rebuild(["langgraph-python"]);

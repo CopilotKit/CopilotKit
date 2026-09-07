@@ -3,16 +3,24 @@
 import type { InventoryRisk } from "../data/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * At-risk SKUs first, then the tightest cover next. Exported so the Inventory
+ * page's beat-3b readable and this list share ONE ordering rather than each
+ * carrying a copy of the comparator — see `orderExceptionRows`.
+ */
+export function orderInventoryRows(items: InventoryRisk[]): InventoryRisk[] {
+  return [...items].sort(
+    (a, b) =>
+      Number(b.atRisk) - Number(a.atRisk) || a.daysOfCover - b.daysOfCover,
+  );
+}
+
 export function InventoryRiskList({ items }: { items: InventoryRisk[] }) {
   if (!items.length) {
     return <p className="text-sm text-ink-muted">No inventory risk to show.</p>;
   }
 
-  // At-risk SKUs first, then the tightest cover next.
-  const rows = [...items].sort(
-    (a, b) =>
-      Number(b.atRisk) - Number(a.atRisk) || a.daysOfCover - b.daysOfCover,
-  );
+  const rows = orderInventoryRows(items);
 
   return (
     <ul className="space-y-2">

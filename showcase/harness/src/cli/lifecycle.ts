@@ -142,7 +142,7 @@ function resolveHealthEndpoint(service: string): string {
 
 /**
  * For each integration package directory, replace `tools`, `shared-tools`,
- * `_shared`, and `public/angular` symlinks with real directory copies so
+ * `data`, `_shared`, and `public/angular` symlinks with real directory copies so
  * Docker can access them inside the build context. This mirrors
  * `stage_shared()` in `scripts/cli/_common.sh`. `_shared` carries the
  * single-source CVDIAG bootstrap module (`showcase/integrations/_shared/`)
@@ -166,7 +166,7 @@ export function stageSharedModules(): void {
   for (const pkg of packages) {
     const pkgDir = path.join(INTEGRATIONS_DIR, pkg.name);
 
-    for (const linkName of ["tools", "shared-tools", "_shared"]) {
+    for (const linkName of ["tools", "shared-tools", "data", "_shared"]) {
       const linkPath = path.join(pkgDir, linkName);
 
       // Only process if it's a symlink
@@ -257,7 +257,7 @@ export function restoreSymlinks(): void {
     // matches the canonical source dir `integrations/_shared` (a real tracked
     // dir, never a symlink) — a no-op restore there is harmless.
     execSync(
-      "git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular",
+      "git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/data integrations/*/_shared integrations/*/public/angular",
       {
         cwd: SHOWCASE_DIR,
         stdio: "pipe",

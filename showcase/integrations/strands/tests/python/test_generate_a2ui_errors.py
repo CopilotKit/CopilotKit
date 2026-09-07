@@ -1,5 +1,8 @@
 """Tests for the hardened ``generate_a2ui`` error-handling surface.
 
+The tool lives in ``agents/a2ui_generate.py``; ``agents/agent.py`` imports it
+into the shared agent's tool list, so importing it from either module works.
+
 Mirrors the google-adk sibling agent's hardening pattern: every failure
 branch returns a structured ``{error, message, remediation}`` dict
 (JSON-serialized, since the strands tool returns a string) instead of
@@ -336,10 +339,12 @@ def test_happy_path_returns_a2ui_operations(monkeypatch):
 
     # Stub build_a2ui_operations_from_tool_call to return a marker payload
     # so we don't depend on the shared tool's real implementation shape.
-    import agents.agent as agent_mod
+    # The tool (and this name) live in `agents.a2ui_generate`; `agents.agent`
+    # only re-exports the tool for the agent's tool list.
+    import agents.a2ui_generate as a2ui_mod
 
     monkeypatch.setattr(
-        agent_mod,
+        a2ui_mod,
         "build_a2ui_operations_from_tool_call",
         lambda args: {"a2ui_marker": True, "surfaceId": args.get("surfaceId")},
     )

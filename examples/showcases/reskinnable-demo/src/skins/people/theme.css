@@ -132,27 +132,11 @@
   }
 }
 
-/* BEAT 6 — the recording vignette. A slow breathe on the canvas edge so a room
-   can see that Rowan is watching the demonstration, without a spinner or a
-   modal stealing focus from the thing being demonstrated. */
-@keyframes rowan-record-breathe {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* Keep the border — it carries the "recording" signal — drop the pulse. */
-  [style*="rowan-record-breathe"] {
-    animation: none !important;
-    opacity: 0.85 !important;
-  }
-}
+/* BEAT 6's recording vignette is NOT here. The shell owns it — `.recording-vignette`
+   plus its `recording-pulse` keyframes and reduced-motion rule live in
+   `src/app/globals.css`, valued from the `--brand-violet` / `--brand-indigo` tokens
+   this file sets above. Rowan's copy was deleted with its per-skin keyframes: the
+   glow reskins through the tokens, so a duplicate here could only drift. */
 
 /* Tabular figures everywhere a salary, a band or a day-count is shown, so
    columns of numbers line up and a changed digit is visible as a change rather

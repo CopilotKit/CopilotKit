@@ -18,14 +18,10 @@ import {
   testId,
 } from "../../../__tests__/utils/test-helpers";
 import { MCPAppsActivityType } from "../../../components/MCPAppsActivityRenderer";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentResult,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import type { RunAgentInput, RunAgentResult, BaseEvent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
 
 // ---------------------------------------------------------------------------
 // MockMCPProxyAgent — same shape as the one in MCPAppsUiMessage tests but
@@ -455,13 +451,86 @@ describe("MCP Apps Proxy E2E", () => {
       const reqId = testId("req");
       await sendJsonRpc(iframe, reqId, "ui/open-link", {});
 
-      // Verify an error response for missing url
+      // A ui/open-link without `url` is an invalid request. Since the migration
+      // to the ext-apps AppBridge, the bridge validates the request against its
+      // schema and rejects the missing required `url` with a JSON-RPC error
+      // (InternalError -32603) before any host handler runs.
       const errorResponse = captured.find(
         (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.error,
       ) as any;
       expect(errorResponse).toBeDefined();
-      expect(errorResponse.error.code).toBe(-32602);
-      expect(errorResponse.error.message).toContain("Missing url");
+      expect(errorResponse.error.code).toBe(-32603);
+      expect(typeof errorResponse.error.message).toBe("string");
+      expect(errorResponse.error.message.length).toBeGreaterThan(0);
+    });
+
+    it("rejects a disallowed url scheme without calling window.open", async () => {
+      const agent = new MockMCPProxyAgent();
+      agent.agentId = "proxy-open-link-scheme";
+
+      const iframe = await setupMCPActivity(
+        agent,
+        "proxy-open-link-scheme",
+        "Bad scheme test",
+      );
+      const captured = captureIframeMessages(iframe);
+
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+      const reqId = testId("req");
+      await sendJsonRpc(iframe, reqId, "ui/open-link", {
+        // eslint-disable-next-line no-script-url
+        url: "javascript:alert(document.domain)",
+      });
+
+      // The host refuses the denylisted script/HTML schemes
+      // (javascript:/data:/vbscript:/blob:/file:) so a widget cannot use
+      // ui/open-link as an XSS vector.
+      expect(openSpy).not.toHaveBeenCalled();
+
+      const response = captured.find(
+        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+      ) as any;
+      expect(response).toBeDefined();
+      expect(response.result).toMatchObject({ isError: true });
+
+      openSpy.mockRestore();
+    });
+
+    it("allows a custom-scheme deep link (only script/HTML schemes are blocked)", async () => {
+      const agent = new MockMCPProxyAgent();
+      agent.agentId = "proxy-open-link-deeplink";
+
+      const iframe = await setupMCPActivity(
+        agent,
+        "proxy-open-link-deeplink",
+        "Deep link test",
+      );
+      const captured = captureIframeMessages(iframe);
+
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+      const reqId = testId("req");
+      // Deep links use arbitrary app-defined schemes; they hand off to an OS
+      // handler rather than executing in the page, so they are allowed (a
+      // denylist blocks only javascript:/data:/vbscript:/blob:/file:).
+      await sendJsonRpc(iframe, reqId, "ui/open-link", {
+        url: "myapp://widgets/open?id=42",
+      });
+
+      expect(openSpy).toHaveBeenCalledWith(
+        "myapp://widgets/open?id=42",
+        "_blank",
+        "noopener,noreferrer",
+      );
+
+      const response = captured.find(
+        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+      ) as any;
+      expect(response).toBeDefined();
+      expect(response.result).toMatchObject({ isError: false });
+
+      openSpy.mockRestore();
     });
   });
 
@@ -584,6 +653,106 @@ describe("MCP Apps Proxy E2E", () => {
       );
       expect(uris).toContain("ui://first/widget");
       expect(uris).toContain("ui://second/widget");
+    });
+  });
+
+  // ui/initialize is handled entirely by the ext-apps AppBridge. These tests pin
+  // the negotiation contract (the compile-time tie to the spec this migration
+  // argues for), because the strictness changed vs the hand-rolled host:
+  // - the bridge validates params against the spec schema, so a widget that omits
+  //   the required fields (e.g. appCapabilities) now fails initialize with a
+  //   JSON-RPC error instead of getting a lenient response;
+  // - the host advertises only the latest MCP Apps protocol version, so a widget
+  //   declaring a different version string gets the host version back, not its
+  //   own echoed.
+  describe("ui/initialize negotiation", () => {
+    const LATEST_PROTOCOL_VERSION = "2026-01-26";
+
+    it("negotiates and returns the host context for a well-formed initialize", async () => {
+      const agent = new MockMCPProxyAgent();
+      agent.agentId = "proxy-init-ok";
+
+      const iframe = await setupMCPActivity(
+        agent,
+        "proxy-init-ok",
+        "Initialize test",
+      );
+      const captured = captureIframeMessages(iframe);
+
+      const reqId = testId("req");
+      await sendJsonRpc(iframe, reqId, "ui/initialize", {
+        appInfo: { name: "test-widget", version: "1.0.0" },
+        appCapabilities: {},
+        protocolVersion: LATEST_PROTOCOL_VERSION,
+      });
+
+      const response = captured.find(
+        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+      ) as any;
+      expect(response).toBeDefined();
+      expect(response).not.toHaveProperty("error");
+      // Protocol version is negotiated to the host's latest.
+      expect(response.result.protocolVersion).toBe(LATEST_PROTOCOL_VERSION);
+      // Host context seeded at construction is advertised at initialize.
+      expect(response.result.hostContext).toMatchObject({
+        theme: "light",
+        platform: "web",
+      });
+    });
+
+    it("rejects an initialize that omits required fields with -32603", async () => {
+      const agent = new MockMCPProxyAgent();
+      agent.agentId = "proxy-init-bad";
+
+      const iframe = await setupMCPActivity(
+        agent,
+        "proxy-init-bad",
+        "Initialize invalid test",
+      );
+      const captured = captureIframeMessages(iframe);
+
+      // Empty params: no appInfo / appCapabilities / protocolVersion. The bridge
+      // validates against the spec schema and rejects before any host handler.
+      const reqId = testId("req");
+      await sendJsonRpc(iframe, reqId, "ui/initialize", {});
+
+      const errorResponse = captured.find(
+        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.error,
+      ) as any;
+      expect(errorResponse).toBeDefined();
+      expect(errorResponse.error.code).toBe(-32603);
+      expect(typeof errorResponse.error.message).toBe("string");
+      expect(errorResponse.error.message.length).toBeGreaterThan(0);
+    });
+
+    it("returns the host protocol version, not the widget's, when they differ", async () => {
+      const agent = new MockMCPProxyAgent();
+      agent.agentId = "proxy-init-version";
+
+      const iframe = await setupMCPActivity(
+        agent,
+        "proxy-init-version",
+        "Initialize version test",
+      );
+      const captured = captureIframeMessages(iframe);
+
+      const reqId = testId("req");
+      // The widget sends a different protocol-version string ("2025-06-18" is a
+      // base-MCP-protocol version, independent from the MCP Apps protocol; it is
+      // also what the old hand-rolled host hardcoded). The bridge supports only
+      // its own MCP Apps version and returns that, rather than echoing whatever
+      // the widget declared.
+      await sendJsonRpc(iframe, reqId, "ui/initialize", {
+        appInfo: { name: "legacy-widget", version: "1.0.0" },
+        appCapabilities: {},
+        protocolVersion: "2025-06-18",
+      });
+
+      const response = captured.find(
+        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+      ) as any;
+      expect(response).toBeDefined();
+      expect(response.result.protocolVersion).toBe(LATEST_PROTOCOL_VERSION);
     });
   });
 });

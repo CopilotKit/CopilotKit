@@ -12,7 +12,7 @@ import { skinIds } from "@/shell/skins-config";
  *
  * A per-deploy SERVER env (deliberately non-NEXT_PUBLIC_, like
  * PRESENTER_RESET_ENABLED) so one build serves both a locked single-tenant host
- * and the unlocked four-skin demo. Threaded to client chrome as a prop in
+ * and the unlocked multi-skin demo. Threaded to client chrome as a prop in
  * `src/app/layout.tsx` → `LockedSkinProvider`.
  *
  * NOTE: this does NOT pin dark/light. That is a separate axis (localStorage +

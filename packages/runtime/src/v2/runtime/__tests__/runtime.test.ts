@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
   CopilotIntelligenceRuntime,
   CopilotRuntime,
   CopilotSseRuntime,
 } from "../core/runtime";
+import type { CopilotIntelligenceRuntimeOptions } from "../core/runtime";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -21,6 +22,13 @@ describe("runtime construction", () => {
       ɵgetClientWsUrl: vi.fn().mockReturnValue("ws://client.example"),
     }) as unknown as CopilotKitIntelligence;
 
+  it("exposes Learning configuration only under the experimental marker", () => {
+    type HasUnprefixedLearning =
+      "learning" extends keyof CopilotIntelligenceRuntimeOptions ? true : false;
+
+    expectTypeOf<HasUnprefixedLearning>().toEqualTypeOf<false>();
+  });
+
   it("builds an SSE runtime by default", () => {
     const runtime = new CopilotSseRuntime({ agents });
 
@@ -28,6 +36,16 @@ describe("runtime construction", () => {
 
     expect(runtime.runner).toBeInstanceOf(InMemoryAgentRunner);
     expect(runtime.intelligence).toBeUndefined();
+  });
+
+  it("rejects Learning Container config in SSE mode", () => {
+    expect(
+      () =>
+        new CopilotSseRuntime({
+          agents,
+          ɵlearning: { containerId: "support-quality" },
+        } as never),
+    ).toThrow("`ɵlearning` requires the Intelligence runtime");
   });
 
   it("builds an Intelligence runtime with an Intelligence runner", () => {
@@ -48,6 +66,35 @@ describe("runtime construction", () => {
     expect(sdk.ɵgetRunnerWsUrl).toHaveBeenCalledTimes(1);
     expect(sdk.ɵgetRunnerAuthToken).toHaveBeenCalledTimes(1);
   });
+
+  it("stores one Learning Container resolver for web and Channels", () => {
+    const sdk = createMockIntelligence();
+    const containerId = vi.fn().mockResolvedValue("support-quality");
+
+    const runtime = new CopilotIntelligenceRuntime({
+      agents,
+      intelligence: sdk,
+      identifyUser,
+      ɵlearning: { containerId },
+    });
+
+    expect(runtime.learning?.containerId).toBe(containerId);
+  });
+
+  it.each(["Support Quality", "support--quality", "-support"])(
+    "rejects invalid static Learning Container ID %s",
+    (containerId) => {
+      expect(
+        () =>
+          new CopilotIntelligenceRuntime({
+            agents,
+            intelligence: createMockIntelligence(),
+            identifyUser,
+            ɵlearning: { containerId },
+          }),
+      ).toThrow("stable ID");
+    },
+  );
 
   it("preserves an explicit generateThreadNames=false option in Intelligence mode", () => {
     const sdk = createMockIntelligence();

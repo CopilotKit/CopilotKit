@@ -54,6 +54,7 @@ jobs:
           - llamaindex
           - langgraph-fastapi
           - strands-python
+          - strands-typescript
           - ms-agent-framework-python
           - ms-agent-framework-dotnet
       fail-fast: false

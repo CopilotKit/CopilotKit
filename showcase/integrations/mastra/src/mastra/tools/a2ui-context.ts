@@ -26,3 +26,17 @@ export function readForwardedA2uiContext(
     ? (context as Array<Record<string, unknown>>)
     : [];
 }
+
+/**
+ * Flatten forwarded context entries into the system prompt for the inner
+ * `render_a2ui` call. Entries without a non-empty string `value` are dropped,
+ * so an empty (ungrounded) prompt is `""` rather than a string of blanks.
+ */
+export function systemPromptFrom(
+  contextEntries: Array<Record<string, unknown>> | undefined,
+): string {
+  return (contextEntries ?? [])
+    .map((entry) => entry?.value)
+    .filter((value): value is string => typeof value === "string" && !!value)
+    .join("\n\n");
+}

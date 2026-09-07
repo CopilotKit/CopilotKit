@@ -44,3 +44,19 @@ export function getPersona(id: string): Persona {
     KEEL_PERSONAS[0]
   );
 }
+
+/**
+ * The persona with this id, or `undefined`.
+ *
+ * The strict sibling of `getPersona`, and the one every WRITE route uses. The
+ * falling-back version is right for a render — a component with no persona in
+ * context should still draw something — and wrong for a mutation: an unknown id
+ * would silently be attributed to Ana Reyes, so the register would record a
+ * release, a notice or a variance as filed by somebody who never touched it.
+ * Every write route resolves through this and answers 400 on a miss, matching
+ * the rule that `filedBy` / `raisedBy` / `releasedBy` are DERIVED from the
+ * resolved persona and never read off the request body.
+ */
+export function findPersona(id: string): Persona | undefined {
+  return KEEL_PERSONAS.find((p) => p.id === id);
+}

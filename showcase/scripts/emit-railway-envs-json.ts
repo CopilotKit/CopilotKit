@@ -70,6 +70,10 @@ interface Emitted {
     stagingInstanceId: string;
     ciBuilt: boolean;
     gateValidated: boolean;
+    // Present only when the SSOT declares exactly one environment. Ruby uses
+    // this explicit marker to distinguish intentional fleet asymmetry from
+    // unknown live Railway drift during a full-fleet promote.
+    onlyEnvironment?: string;
     dispatchName?: string;
     repoNameOverride?: { prod?: string; staging?: string };
     domains: { staging: string; prod: string };
@@ -118,9 +122,8 @@ interface Emitted {
       staging: WorkerProvisioning;
     };
     // Railway auto-updates policy (ADDITIVE, PER-ENV). ALWAYS emitted with both
-    // env keys so the sibling drift gate can enforce the managed (concrete-
-    // "disabled") envs and skip the "unmanaged" ones. Today: staging "disabled"
-    // (enforced), prod "unmanaged" (skipped) for the staging-first rollout.
+    // env keys so the sibling drift gate can enforce the managed policies.
+    // Today both staging and prod are "disabled" for every service.
     autoUpdates: { staging: AutoUpdatesPolicy; prod: AutoUpdatesPolicy };
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
@@ -158,6 +161,9 @@ function projectServiceToLegacyJson(
 ): Emitted["services"][number] {
   const prodEnv = entry.environments.prod;
   const stagingEnv = entry.environments.staging;
+  const declaredEnvironments = Object.keys(entry.environments);
+  const onlyEnvironment =
+    declaredEnvironments.length === 1 ? declaredEnvironments[0] : undefined;
 
   // Real per-env repoName wins; the legacy-compat shim fills an env the
   // env-map schema omits (a single-env worker's absent env still carried a
@@ -222,6 +228,7 @@ function projectServiceToLegacyJson(
     stagingInstanceId: stagingEnv?.instanceId ?? entry.serviceId,
     ciBuilt: entry.ciBuilt,
     gateValidated: entry.gateValidated,
+    ...(onlyEnvironment !== undefined ? { onlyEnvironment } : {}),
     dispatchName: entry.dispatchName,
     repoNameOverride,
     domains: { staging: stagingDomain, prod: prodDomain },

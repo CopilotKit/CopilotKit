@@ -1,0 +1,318 @@
+@import "tailwindcss";
+@import "../styles/paint-loading.css";
+
+/**
+ * Dark surface built on the VERIFIED CopilotKit brand palette.
+ *
+ * Deliberate deviation: brand rules say product UI should avoid dark by
+ * default. This is a launch/social surface authored to live on X, and
+ * #010507 is a Verified approved brand context with "reversed wordmark +
+ * colored symbol" as the documented dark treatment.
+ *
+ * Every accent below is a verified token. Panel/border alphas are
+ * implementation defaults (dark analogs of the light glass recipe), not
+ * verified tokens.
+ */
+:root {
+  /* Verified brand */
+  --ink: #010507; /* grey/1000 — approved dark context */
+  --mint: #85ecce; /* mint/400 */
+  --mint-dim: #189370; /* mint/800 */
+  --lilac: #bec2ff; /* lilac/400 */
+  --orange: #ffac4d; /* orange/400 */
+  --yellow: #fff388; /* yellow/400 */
+  --red: #fa5f67; /* Red/400 */
+  --grey-600: #afafb7;
+  --grey-700: #838389;
+
+  /* Implementation defaults — dark analogs of the glass recipe */
+  --panel: rgba(255, 255, 255, 0.028);
+  --panel-hi: rgba(255, 255, 255, 0.055);
+  --line: rgba(255, 255, 255, 0.075);
+  --line-hi: rgba(255, 255, 255, 0.14);
+
+  --text: #ffffff;
+  --text-2: var(--grey-600);
+  --text-3: var(--grey-700);
+
+  /* Semantic */
+  --bull: var(--mint);
+  --bull-wash: rgba(133, 236, 206, 0.09);
+  --bear: var(--red);
+  --bear-wash: rgba(250, 95, 103, 0.09);
+  --agent: var(--lilac);
+
+  --r: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--ink);
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family:
+    "Plus Jakarta Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv02", "cv03";
+}
+
+/* Spline Sans Mono — technical annotation only, never a reading face. */
+.mono {
+  font-family: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+  font-variant-ligatures: none;
+}
+
+/* Uppercase mono = label. Lowercase mono = code-like. Per brand rules. */
+.label {
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.section-title .rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.pill {
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.caret {
+  display: inline-block;
+  width: 8px;
+  height: 17px;
+  background: var(--mint);
+  vertical-align: text-bottom;
+  animation: blink 1s steps(1) infinite;
+}
+
+.live {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* Paint-in reveal reads on dark by default — no .paint-light here. */
+
+/* ---------------------------------------------------------------------------
+ * Chat, themed as part of the page.
+ *
+ * The slots come from CopilotChatView's render prop, so layout is ours and only
+ * the surface treatment is overridden here. Targets are the stable
+ * `copilotKit*` classes and `data-testid` hooks, never hashed utility classes.
+ *
+ * `[data-copilotkit]` paints an opaque background of its own — left alone, the
+ * chat reads as an iframe pasted onto the page rather than part of it.
+ * ------------------------------------------------------------------------- */
+[data-copilotkit],
+.copilotKitChat,
+[data-testid="copilot-chat"],
+[data-testid="copilot-scroll-content"],
+[data-testid="copilot-message-list"] {
+  background: transparent !important;
+}
+
+/* The composer: our panel recipe, not the default pill. */
+[data-testid="copilot-chat-input"] {
+  background: var(--panel-hi) !important;
+  border: 1px solid var(--line-hi) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  transition: border-color 200ms ease;
+}
+
+[data-testid="copilot-chat-input"]:focus-within {
+  border-color: rgba(190, 194, 255, 0.5) !important;
+}
+
+[data-testid="copilot-chat-textarea"] {
+  color: var(--text) !important;
+  font-family:
+    "Plus Jakarta Sans",
+    -apple-system,
+    sans-serif !important;
+  font-size: 15px !important;
+}
+
+/* Undocked, the composer IS the hero's call to action, so it scales with the
+   headline. `.chat-rail` marks the docked state, where 15px is right again. */
+aside:not(.chat-rail) [data-testid="copilot-chat-input"] {
+  border-radius: 18px !important;
+}
+
+aside:not(.chat-rail) [data-testid="copilot-chat-textarea"] {
+  font-size: clamp(16px, 1.2vw, 20px) !important;
+  padding-block: 6px !important;
+}
+
+[data-testid="copilot-chat-textarea"]::placeholder {
+  color: var(--text-3) !important;
+}
+
+/* Messages sit flush in the rail — the surrounding panel is the frame.
+ *
+ * `.copilotKitUserMessage` is the full-width flex-column WRAPPER (it also holds
+ * the hover toolbar), not the bubble. Styling it paints a full-width box with
+ * the bubble floating inside. The bubble is its first child. */
+.copilotKitUserMessage {
+  background: transparent !important;
+  border: none !important;
+  padding-top: 1rem !important;
+}
+
+.copilotKitUserMessage > div:first-child {
+  background: var(--panel-hi) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--text) !important;
+}
+
+.copilotKitAssistantMessage {
+  color: var(--text-2) !important;
+}
+
+/* The input overlay lays a gradient scrim over the transcript; on a
+   transparent rail that shows as a grey smear. */
+[data-testid="copilot-input-overlay"] {
+  background: transparent !important;
+}
+
+/* The per-message hover toolbars (copy, regenerate, thumbs) leave stray icons
+   floating between messages. They are dead weight in a demo — nobody is copying
+   the agent's replies — and they were the main source of visual scatter. */
+[data-testid="copilot-assistant-toolbar"],
+[data-testid="copilot-user-toolbar"] {
+  display: none !important;
+}
+
+/* Tighter vertical rhythm: the default message padding is tuned for a wide
+   chat pane, not a 336px rail. */
+.copilotKitAssistantMessage {
+  padding-block: 0 !important;
+}
+.copilotKitUserMessage {
+  padding-top: 0.75rem !important;
+}
+
+/* Reasoning summaries are context, not content — keep them quiet. */
+.copilotKitMessage button:has(+ *),
+[data-testid="copilot-assistant-message"] summary {
+  color: var(--text-3) !important;
+}
+
+/* Run log. Chips butt together so their left borders form one rail. */
+.tool-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 0 5px 11px;
+  border-left: 1px solid var(--line-hi);
+}
+
+.tool-chip .mono {
+  font-size: 11.5px;
+  color: var(--text-2);
+  letter-spacing: 0.01em;
+}
+
+.tool-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  /* Sits ON the rail rather than beside it. */
+  margin-left: -13px;
+  box-shadow: 0 0 0 3px var(--ink);
+}
+
+/* Hairline seam between canvas and chat instead of a floating card. */
+.chat-rail {
+  border-left: 1px solid var(--line);
+}
+
+.chat-scroll {
+  mask-image: linear-gradient(to bottom, transparent, #000 24px);
+}
+
+.suggestion {
+  font-size: clamp(11px, 0.82vw, 14px);
+  padding: 7px 14px;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+}
+.suggestion:hover {
+  border-color: var(--line-hi);
+  color: var(--text);
+}

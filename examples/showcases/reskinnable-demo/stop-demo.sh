@@ -5,16 +5,30 @@
 #   cd examples/showcases/reskinnable-demo && ./stop-demo.sh
 #
 # The companion to run-demo.sh. That script detaches everything except the
-# Next.js dev server (`docker compose up -d`, native TEI via `nohup … & disown`,
-# then `exec pnpm dev`), so Ctrl-C on the dev server leaves the docker stack and
-# the native embedder running. This script brings those leftovers down.
+# Next.js dev server (`docker compose up -d`, native TEI and banking's Python
+# agent via `nohup`, then `exec pnpm dev`), so Ctrl-C takes down ONLY the dev
+# server and leaves the rest running. This script brings those leftovers down.
+#
+# Measured, because the shell rule behind it is not obvious: SIGINT goes to the
+# foreground process GROUP, which includes the backgrounded children — but a
+# NON-INTERACTIVE shell sets a background job to ignore SIGINT (POSIX), so they
+# survive and only the exec'd dev server dies (`exit=-2`).
 #
 # It tears down, in order:
 #   - the Next.js dev server on :3000 (defensive; usually already gone via Ctrl-C)
+#   - banking's Python agent on :8124 (the `agent/` service; not a compose
+#     service, so docker cannot reach it)
 #   - the docker compose stack (project `reskinnable-demo-memory`) — containers only by
 #     default, so a re-run of run-demo.sh reuses the built image + seeded data
 #   - the native Metal TEI on :7067 (Apple Silicon only; the host process
 #     run-demo.sh started outside docker's knowledge)
+#
+# The agent is the one whose absence here BITES rather than merely litters:
+# run-demo.sh reuses a live :8124 (it health-checks before starting), so an
+# orphan left running after a teardown is silently adopted by the next cold
+# start — serving whatever code it was launched with. Editing `agent/` and
+# re-running the script would then change nothing, which reads as the edit having
+# no effect.
 #
 # Idempotent: safe to re-run — anything already down is skipped.
 #
@@ -69,6 +83,13 @@ kill_port() { # port label
 say "Stopping the Next.js dev server (:3000)"
 kill_port 3000 "dev server"
 
+# --- Banking's Python agent -------------------------------------------------
+# No --keep flag, unlike TEI: this one boots in seconds, so there is nothing to
+# save by leaving it up — and leaving it up is the failure described in the
+# header (the next run-demo.sh adopts it, stale code and all).
+say "Stopping banking's Python agent (:8124)"
+kill_port 8124 "banking agent"
+
 # --- Docker stack -----------------------------------------------------------
 # run-demo.sh may have brought the stack up with or without the cpu-fallback
 # `tei` profile. `down` ignores unknown profiles, but pass --profile so the
@@ -81,7 +102,15 @@ if docker info >/dev/null 2>&1; then
     warn "--purge: deleting volumes (postgres data, redis, minio, tei model cache)"
   fi
   docker compose "${DOWN_ARGS[@]}"
-  ok "docker stack down${PURGE:+ (volumes removed)}"
+  # `${PURGE:+…}` was wrong here and printed on EVERY run: the flag holds the
+  # string "0" when unset, which is non-empty, so `:+` expands. The action was
+  # always correct (--volumes is gated on `-eq 1`), but the line told anyone who
+  # read it that their seeded Postgres data had just been deleted.
+  if [ "$PURGE" -eq 1 ]; then
+    ok "docker stack down (volumes removed)"
+  else
+    ok "docker stack down"
+  fi
 else
   warn "Docker is not running — assuming the stack is already down"
 fi

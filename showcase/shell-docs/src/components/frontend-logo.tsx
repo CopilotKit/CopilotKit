@@ -81,6 +81,7 @@ function SlackColorLogo({
 const FRONTEND_ICONS: Record<FrontendIcon, { Icon: BrandIcon; color: string }> =
   {
     react: { Icon: SiReact, color: "#61DAFB" },
+    "react-spa": { Icon: SiReact, color: "#61DAFB" },
     vue: { Icon: SiVuedotjs, color: "#4FC08D" },
     "react-native": { Icon: TbBrandReactNative, color: "#61DAFB" },
     angular: { Icon: SiAngular, color: "#DD0031" },

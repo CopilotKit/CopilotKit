@@ -173,6 +173,30 @@
         "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
       }
     },
+    "strands-typescript": {
+      "role": "instance",
+      "agent": {
+        "language": "typescript",
+        "runtime": "strands-ag-ui"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "Dockerfile",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "entrypoint.sh",
+        "serve.py",
+        "scripts/**",
+        "docker-route-override.ts",
+        "src/app/declarative-generative-ui/renderers.tsx",
+        "src/components/generative-ui/charts/bar-chart.tsx"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
+      }
+    },
     "claude-sdk-python": {
       "role": "instance",
       "agent": {

@@ -1,7 +1,10 @@
 import { isNativeNode } from "@copilotkit/channels-ui";
 import type { ChannelNode, NativeChannelNode } from "@copilotkit/channels-ui";
 import { validateSlackDataVisualization } from "./data-visualization.js";
-import { SLACK_NATIVE_MANIFEST } from "./native-manifest.js";
+import {
+  SLACK_NATIVE_MANIFEST,
+  SLACK_UNTYPED_OBJECTS,
+} from "./native-manifest.js";
 
 const manifest = new Map(
   SLACK_NATIVE_MANIFEST.map((entry) => [`${entry.kind}:${entry.type}`, entry]),
@@ -13,7 +16,7 @@ const REQUIRED_FIELDS: Readonly<Record<string, readonly string[]>> = {
   context: ["elements"],
   data_visualization: ["title", "chart"],
   header: ["text"],
-  image: ["image_url", "alt_text"],
+  image: ["alt_text"], // plus image_url OR slack_file — checked below
   input: ["label", "element"],
   option: ["text", "value"],
   video: ["alt_text", "thumbnail_url", "title", "title_url", "video_url"],
@@ -43,7 +46,12 @@ export function serializeSlackNativeNode(
     );
   }
 
-  const output: Record<string, unknown> = { type: entry.type };
+  // Untyped composition objects are plain structures; tagging them with a
+  // `type` makes Slack reject the message that contains them.
+  const output: Record<string, unknown> =
+    entry.kind === "object" && SLACK_UNTYPED_OBJECTS.has(entry.type)
+      ? {}
+      : { type: entry.type };
   for (const [name, value] of Object.entries(node.props)) {
     if (
       name === "provider" ||
@@ -99,6 +107,16 @@ function validateRequiredFields(
     output.fields === undefined
   ) {
     throw new Error(`${path}.${component} requires text or fields.`);
+  }
+  // An image points at either an external URL or a file already in the
+  // workspace. Demanding `image_url` unconditionally made the `slack_file` form
+  // impossible to build.
+  if (
+    type === "image" &&
+    output.image_url === undefined &&
+    output.slack_file === undefined
+  ) {
+    throw new Error(`${path}.${component} requires image_url or slack_file.`);
   }
 }
 

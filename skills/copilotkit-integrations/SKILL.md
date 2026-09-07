@@ -85,7 +85,7 @@ export default function RootLayout({ children }) {
 }
 ```
 
-The provider component is `CopilotKit` (imported from `@copilotkit/react-core/v2`). There is no `agent` prop -- agents are selected per-hook via `agentId` (matching a key from `CopilotRuntime({ agents: { ... } })`). Set `useSingleEndpoint={false}` so the v1-compat bridge uses multi-route transport against the catch-all backend route below; omitting it defaults to single-route, which a multi-route backend 404s.
+The provider component is `CopilotKit` (imported from `@copilotkit/react-core/v2`). There is no `agent` prop -- agents are selected per-hook via `agentId` (matching a key from `CopilotRuntime({ agents: { ... } })`). `useSingleEndpoint={false}` pins multi-route transport against the catch-all backend route below. It is optional — omitting it lets the provider detect the mode — but pinning it skips the detection probe.
 
 ### API Route Pattern (route.ts)
 

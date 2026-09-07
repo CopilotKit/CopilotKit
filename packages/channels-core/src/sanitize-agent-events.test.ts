@@ -30,8 +30,15 @@ function streamResponse(
 
 /**
  * A run whose `TOOL_CALL_START` carries `parentMessageId: null` — the shape
- * `@ag-ui/langgraph` emits for the tool call that triggers an interrupt, and
- * the one `EventSchemas.parse` rejects with "Expected string, received null".
+ * `@ag-ui/langgraph` emits for the tool call that triggers an interrupt.
+ *
+ * Up to @ag-ui/client 0.0.57 this was rejected by `EventSchemas.parse` with
+ * "Expected string, received null", which is why the sanitizer exists. As of
+ * 0.0.59 the client accepts it: a null `parentMessageId` on TOOL_CALL_START is
+ * one of a small set of receive tolerances kept for producers that still emit
+ * it, and the reducer treats the null as absent. The sanitizer still coerces
+ * the byte on the wire (see the coercion tests below), but it is no longer
+ * what keeps such a run alive.
  */
 const nullParentRun = (): string[] => [
   frame({ type: "RUN_STARTED", threadId: "t1", runId: "r1" }),
@@ -77,12 +84,26 @@ describe("sanitizeAgentEventStream", () => {
     expect(started).toEqual(["ask_human"]);
   });
 
-  it("aborts that same run when the sanitizer is not applied", async () => {
+  it("survives that same run without the sanitizer, since 0.0.59 tolerates the null", async () => {
+    // Before @ag-ui/client 0.0.59 this rejected with "Expected string,
+    // received null" — the failure the sanitizer was written to prevent. The
+    // client now accepts the null and treats it as absent, so the raw run
+    // reaches the tool call on its own. Asserting the tool call still arrives
+    // (rather than just "does not throw") keeps this a real check: a client
+    // that dropped the malformed event instead of tolerating it would fail
+    // here.
     const agent = agentServing(nullParentRun());
 
-    await expect(agent.runAgent({})).rejects.toThrow(
-      /parentMessageId|received null/,
+    const started: string[] = [];
+    await agent.runAgent(
+      {},
+      {
+        onToolCallStartEvent: ({ event }) =>
+          void started.push(event.toolCallName),
+      },
     );
+
+    expect(started).toEqual(["ask_human"]);
   });
 
   it("coerces the null to an empty string and leaves every other byte alone", async () => {
@@ -249,11 +270,14 @@ describe("createChannel({ sanitizeAgentEvents })", () => {
     expect(failure).toBeUndefined();
   });
 
-  it("lets the run abort when sanitizing is disabled", async () => {
+  it("no longer aborts the turn when sanitizing is disabled", async () => {
+    // The channel-level counterpart of the test above: with 0.0.59 tolerating
+    // the null parentMessageId, opting out of the sanitizer no longer costs
+    // the turn.
     const failure = await runTurn(agentServing(nullParentRun()), {
       sanitizeAgentEvents: false,
     });
 
-    expect(String(failure)).toMatch(/parentMessageId|received null/);
+    expect(failure).toBeUndefined();
   });
 });

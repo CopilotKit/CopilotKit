@@ -26,7 +26,7 @@ import {
   Pill,
   SectionLabel,
 } from "../components/primitives";
-import { useRecording } from "../components/recording-context";
+import { useRecording } from "@/shell/teach";
 
 /**
  * BEAT 6 — the human demonstration surface.

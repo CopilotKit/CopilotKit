@@ -60,8 +60,10 @@ import {
 } from "../shell-dashboard/src/lib/live-status";
 import type { LiveStatusMap } from "../shell-dashboard/src/lib/live-status";
 
-/** A single (integration, feature) cell to compare across envs. */
-export type GateCell = CellModelInput;
+/** A feature-bearing cell to compare across environments. */
+export type GateCell = Omit<CellModelInput, "featureId"> & {
+  featureId: string;
+};
 
 /** Why a cell was excluded from the gate verdict. */
 export type ExclusionReason =

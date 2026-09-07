@@ -6,8 +6,7 @@ import {
   AuthContextProvider,
   useAuthContext,
 } from "@/skins/banking/components/auth-context";
-import { RecordingProvider } from "@/skins/banking/components/recording-context";
-import { RecordingVignette } from "@/skins/banking/components/recording-vignette";
+import { RecordingProvider, RecordingVignette } from "@/shell/teach";
 import { SandboxDataSync } from "@/skins/banking/sandbox-data-sync";
 import { ReportCopilotTools } from "@/skins/banking/components/wow/report-tool";
 
@@ -60,7 +59,9 @@ export function useBankingRuntimeProperties(): Record<string, unknown> {
  *   page. This is exactly why the whole stack can NOT be hoisted above the
  *   provider — it depends on the CopilotKit context.
  * - RecordingVignette: the soft violet canvas-edge glow while a demonstration
- *   records (its `.recording-vignette` CSS lives in the shell's globals.css).
+ *   records. Both it and RecordingProvider come from the shell's `@/shell/teach`
+ *   module — banking no longer owns a copy — and its `.recording-vignette` CSS
+ *   lives in the shell's globals.css.
  */
 export function BankingProviders({ children }: { children: ReactNode }) {
   return (

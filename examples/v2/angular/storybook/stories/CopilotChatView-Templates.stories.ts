@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/angular";
-import { moduleMetadata } from "@storybook/angular";
+import { applicationConfig, moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
-import { Component, Injectable, Input, signal } from "@angular/core";
+import { Component, Input, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
   CopilotChatView,
@@ -11,29 +11,17 @@ import {
   provideCopilotChatLabels,
   provideCopilotKit,
 } from "@copilotkit/angular";
+import { StoryChatState } from "./story-chat-state";
 import type { Message } from "@ag-ui/client";
-
-@Injectable()
-class StoryChatState extends ChatState {
-  readonly inputValue = signal<string>("");
-
-  submitInput(value: string): void {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    console.log("[Storybook] submitInput", trimmed);
-    this.inputValue.set("");
-  }
-
-  changeInput(value: string): void {
-    this.inputValue.set(value);
-  }
-}
 
 // Custom input components defined after imports
 const meta: Meta<CopilotChatView> = {
   title: "UI/CopilotChatView/Customized with Templates",
   component: CopilotChatView,
   decorators: [
+    applicationConfig({
+      providers: [provideCopilotKit()],
+    }),
     moduleMetadata({
       imports: [
         CommonModule,
@@ -43,7 +31,6 @@ const meta: Meta<CopilotChatView> = {
         CopilotChatInput,
       ],
       providers: [
-        provideCopilotKit({}),
         provideCopilotChatLabels({
           chatInputPlaceholder: "Type a message...",
           chatDisclaimerText:
@@ -128,7 +115,8 @@ export const CustomDisclaimerTemplate: Story = {
 @Component({
   selector: "template-custom-input",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       style="
@@ -313,7 +301,8 @@ export const CustomScrollButtonTemplate: Story = {
 @Component({
   selector: "combined-custom-input",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       style="

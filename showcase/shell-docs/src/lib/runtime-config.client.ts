@@ -49,6 +49,7 @@ const SSR_PLACEHOLDER: RuntimeConfig = {
   googleAnalyticsTrackingId: "",
   reb2bKey: "",
   reoKey: "",
+  clerkPublishableKey: "",
 };
 
 /**

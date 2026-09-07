@@ -85,7 +85,7 @@ check all four rather than assuming:
    app-level-token field, because managed delivery does not use Socket Mode. Tell
    them which field takes which value; never take the values yourself.
 4. **Issue a project-scoped runtime API key.** The developer copies it straight
-   into `.env` as `INTELLIGENCE_API_KEY`. It should not pass through the chat.
+   into `.env` as `CPK_INTELLIGENCE_API_KEY`. It should not pass through the chat.
 
 ## Reading the status
 

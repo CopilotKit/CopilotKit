@@ -18,6 +18,7 @@ import { ChatPanel } from "@/shell/chat/chat-panel";
 import { ChatInboxProvider } from "@/shell/chat/chat-inbox-context";
 import { TOOL_CALL_RENDERERS } from "@/shell/chat/tool-activity";
 import { CanvasProvider } from "@/shell/canvas/canvas-context";
+import { SubagentActivityProvider } from "@/shell/subagents/subagent-activity";
 import { CanvasRegion } from "@/shell/canvas/canvas";
 import { useThreadSelection } from "@/shell/threads/use-thread-selection";
 
@@ -193,10 +194,6 @@ function SkinCopilotRuntime({
         sandboxFunctions: skin.sandboxFunctions ?? [],
         designSkill: skin.designSkill,
       }}
-      // Surface the product web-inspector (<CopilotKitInspector>) on every
-      // host — this reference demo showcases it. `true` (not "auto") so
-      // deployed demo hosts show it too.
-      showDevConsole={true}
     >
       <CopilotChatConfigurationProvider agentId={skin.id} threadId={threadId}>
         <SkinProvider skin={skin}>
@@ -206,21 +203,36 @@ function SkinCopilotRuntime({
             onCreateThread={createThread}
           >
             <CanvasProvider>
-              <Providers>
-                <SkinSuggestions skin={skin} />
-                <Tools />
-                <LayoutPreferencesProvider>
-                  <ShellFrame
-                    activeSkinId={skin.id}
-                    chat={<ChatPanel threadId={threadId} />}
-                    app={
-                      <Layout>
-                        <CanvasRegion>{children}</CanvasRegion>
-                      </Layout>
-                    }
-                  />
-                </LayoutPreferencesProvider>
-              </Providers>
+              {/*
+                Above BOTH consumers on purpose: the skin's `Tools` (whose
+                renderers read which tool calls came from a subagent) and the
+                shared `ChatPanel` (which suppresses subagent narration inline).
+                One event subscription feeds both; mounting it lower would mean
+                two subscriptions disagreeing about the same run.
+              */}
+              {/*
+                KEYED BY THREAD so switching conversations gives a fresh
+                accumulator instead of inheriting the previous run's console.
+                Remounting is deliberate — it is React's answer to "reset state
+                when an input changes" and keeps a `setState` out of an effect.
+              */}
+              <SubagentActivityProvider key={threadId}>
+                <Providers>
+                  <SkinSuggestions skin={skin} />
+                  <Tools />
+                  <LayoutPreferencesProvider>
+                    <ShellFrame
+                      activeSkinId={skin.id}
+                      chat={<ChatPanel threadId={threadId} />}
+                      app={
+                        <Layout>
+                          <CanvasRegion>{children}</CanvasRegion>
+                        </Layout>
+                      }
+                    />
+                  </LayoutPreferencesProvider>
+                </Providers>
+              </SubagentActivityProvider>
             </CanvasProvider>
           </ChatInboxProvider>
         </SkinProvider>

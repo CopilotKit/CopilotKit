@@ -1,13 +1,10 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI - Dynamic Schema)
 // cell.
 //
-// Option A (JS-runtime-injected A2UI): `injectA2UITool` defaults to true so
-// the CopilotKit runtime middleware intercepts the agent's no-arg
-// `generate_a2ui` toolcall and drives the secondary `render_a2ui` LLM pass
-// itself, emitting `a2ui_operations` that the frontend renderer paints.
-// The backend crew (see src/agents/declarative_gen_ui.py) wires a no-arg
-// `generate_a2ui` tool that raises loudly if called directly — the
-// middleware should always intercept before it reaches Python.
+// `injectA2UITool` defaults to true. The dedicated backend Flow (see
+// src/agents/declarative_gen_ui.py) forces the runtime-injected `render_a2ui`
+// action, and the middleware turns that streamed tool call into the operations
+// consumed by the frontend renderer.
 //
 // `defaultCatalogId` pins the catalog the page registers so the middleware's
 // secondary-LLM pass uses the correct component set (models that follow the
@@ -15,16 +12,14 @@
 // unregistered spec basic catalog, giving a "Catalog not found" render error).
 //
 // Agent URL points at the dedicated `/declarative-gen-ui` FastAPI endpoint
-// mounted by `agent_server.py`, so this demo runs against its own crew
-// rather than the shared `LatestAiDevelopment` crew on "/".
+// mounted by `agent_server.py`, so this demo runs against its own Flow.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -52,12 +47,12 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-declarative-gen-ui",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-declarative-gen-ui",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

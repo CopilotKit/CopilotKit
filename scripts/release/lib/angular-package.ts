@@ -3,6 +3,7 @@ import { major as semverMajor, satisfies } from "semver";
 export interface AngularSupportEntry {
   angular: string;
   cdk: string;
+  cli: string;
   major: number;
   typescript: string;
 }
@@ -15,6 +16,7 @@ export interface AngularSupportContract {
 }
 
 interface AngularConsumerManifestOptions {
+  agUiClient: string;
   angularTarball: string;
   packageManager: string;
   siblingTarballs: ReadonlyMap<string, string>;
@@ -29,6 +31,8 @@ export interface DependencyNode {
   devDependencies?: Record<string, DependencyNode>;
   optionalDependencies?: Record<string, DependencyNode>;
 }
+
+const AG_UI_CLIENT = "@ag-ui/client";
 
 const FRAMEWORK_PEERS = [
   "@angular/cdk",
@@ -63,6 +67,7 @@ function readSupportEntry(value: unknown, index: number): AngularSupportEntry {
   return {
     angular: requireString(entry.angular, `${path}.angular`),
     cdk: requireString(entry.cdk, `${path}.cdk`),
+    cli: requireString(entry.cli, `${path}.cli`),
     major: requireInteger(entry.major, `${path}.major`),
     typescript: requireString(entry.typescript, `${path}.typescript`),
   };
@@ -98,6 +103,21 @@ export function readAngularSupportContract(
     ),
     supportedMajors: support.supportedMajors.map(readSupportEntry),
   };
+}
+
+/**
+ * Reads the AG-UI client version the package itself ships against. The smoke
+ * consumer imports `AbstractAgent` directly, so it must resolve the identical
+ * copy; a second one makes the two `AbstractAgent` declarations structurally
+ * incompatible over their private fields.
+ */
+export function readAgUiClientDependency(manifest: unknown): string {
+  const root = requireRecord(manifest, "package manifest");
+  const dependencies = requireRecord(root.dependencies, "dependencies");
+  return requireString(
+    dependencies[AG_UI_CLIENT],
+    `dependencies["${AG_UI_CLIENT}"]`,
+  );
 }
 
 function peerRange(support: AngularSupportContract): string {
@@ -156,6 +176,11 @@ export function validateAngularPackageManifest(manifest: unknown): string[] {
         `CDK version ${entry.cdk} does not match major ${entry.major}`,
       );
     }
+    if (versionMajor(entry.cli) !== entry.major) {
+      problems.push(
+        `Angular CLI version ${entry.cli} does not match major ${entry.major}`,
+      );
+    }
   }
 
   const floor = support.supportedMajors[0];
@@ -208,6 +233,7 @@ export function validateAngularPackageManifest(manifest: unknown): string[] {
  * Angular itself always resolves normally so peer incompatibilities fail CI.
  */
 export function createAngularConsumerManifest({
+  agUiClient,
   angularTarball,
   packageManager,
   siblingTarballs,
@@ -223,14 +249,14 @@ export function createAngularConsumerManifest({
       "serve:ssr": "node dist/smoke/server/server.mjs",
     },
     dependencies: {
-      "@ag-ui/client": "0.0.57",
+      [AG_UI_CLIENT]: agUiClient,
       "@angular/cdk": support.cdk,
       "@angular/common": support.angular,
       "@angular/core": support.angular,
       "@angular/platform-browser": support.angular,
       "@angular/platform-server": support.angular,
       "@angular/router": support.angular,
-      "@angular/ssr": support.angular,
+      "@angular/ssr": support.cli,
       "@copilotkit/angular": `file:${angularTarball}`,
       express: "^5.1.0",
       rxjs: testedRxjs,
@@ -238,8 +264,8 @@ export function createAngularConsumerManifest({
       zod: "^3.25.75",
     },
     devDependencies: {
-      "@angular/build": support.angular,
-      "@angular/cli": support.angular,
+      "@angular/build": support.cli,
+      "@angular/cli": support.cli,
       "@angular/compiler": support.angular,
       "@angular/compiler-cli": support.angular,
       "@types/express": "^5.0.1",
@@ -249,16 +275,19 @@ export function createAngularConsumerManifest({
     packageManager,
   };
 
-  if (siblingTarballs.size) {
-    manifest.pnpm = {
-      overrides: Object.fromEntries(
+  manifest.pnpm = {
+    overrides: {
+      // Angular CLI 22's prompt adapter declares this exact peer while the
+      // CLI's own range otherwise resolves a newer incompatible patch.
+      listr2: "10.2.1",
+      ...Object.fromEntries(
         [...siblingTarballs].map(([name, tarball]) => [
           name,
           `file:${tarball}`,
         ]),
       ),
-    };
-  }
+    },
+  };
 
   return manifest;
 }

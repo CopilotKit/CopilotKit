@@ -44,7 +44,16 @@ const licenseKey = "ck_pub_" + "a".repeat(32);
 let lastCoreInstance: any;
 let lastCoreConfig: any;
 
-vi.mock("@copilotkit/core", () => {
+// Spread the real module and override only what these tests drive. The factory
+// used to replace `@copilotkit/core` wholesale, which broke as soon as the
+// Inspector mounted here: it is enabled by default in browser frameworks now,
+// and its connectedCallback reaches for `isInspectorThreadBridgeEnabled` — one
+// of seventeen value exports it needs. A missing one throws an uncaught
+// exception that fails the run while all 49 test files still pass, which is a
+// confusing way to learn about it. Listing the seventeen would only postpone
+// the next occurrence.
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@copilotkit/core")>();
   const CopilotKitCoreRuntimeConnectionStatus = {
     Disconnected: "disconnected",
     Connected: "connected",
@@ -89,8 +98,10 @@ vi.mock("@copilotkit/core", () => {
   }
 
   return {
+    ...actual,
     CopilotKitCore: MockCopilotKitCore,
     CopilotKitCoreRuntimeConnectionStatus,
+    isInspectorThreadBridgeEnabled: () => false,
   } as any;
 });
 
@@ -207,6 +218,34 @@ describe("CopilotKit", () => {
     };
     await tool.handler({ value: "ok" }, mockContext);
     expect(handlerSpy).toHaveBeenCalledWith({ value: "ok" }, mockContext);
+  });
+
+  it("adds a display-only client tool with no handler at all", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const injector = TestBed.inject(Injector);
+
+    copilotKit.addFrontendTool({
+      name: "display-only",
+      description: "Renders a card",
+      args: z.object({ value: z.string() }),
+      component: class {
+        toolCall = signal({} as any);
+      },
+      injector,
+    } as never);
+
+    // Core inserts an empty tool result for a tool that declares no handler, so a
+    // display-only registration must reach it with `handler` still absent. Binding
+    // a wrapper around `undefined` here would throw on the first tool call, and
+    // supplying a stub would write a fabricated result into the thread.
+    const tool = mockAddTool.mock.calls.at(-1)![0];
+    expect(tool.name).toBe("display-only");
+    expect(tool.handler).toBeUndefined();
+    expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
   });
 
   it("registers human-in-the-loop tools and delegates responses", async () => {

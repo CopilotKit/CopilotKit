@@ -65,8 +65,10 @@ export type D5FeatureType =
   | "frontend-tools"
   | "frontend-tools-async"
   | "threadid-frontend-tool-roundtrip"
-  // Reasoning family — reasoning/thinking block + final answer.
-  | "reasoning-display"
+  // Reasoning family — custom slot and built-in/default slot are separate
+  // probe identities so an integration declaring both must pass both routes.
+  | "reasoning-custom"
+  | "reasoning-default"
   // State family — streaming state updates and read-only agent context.
   | "shared-state-streaming"
   | "readonly-state-context"
@@ -98,7 +100,7 @@ export type D5FeatureType =
   // Tool-rendering with reasoning chain — combines per-tool renderers
   // (WeatherCard / FlightListCard / catchall) with a `reasoningMessage`
   // slot rendering reasoning tokens. Distinct from `tool-rendering`
-  // (no reasoning) and `reasoning-display` (no per-tool renderers).
+  // (no reasoning) and the reasoning display probes (no per-tool renderers).
   | "tool-rendering-reasoning-chain"
   // BYOC family — bring-your-own-component structured-output rendering
   // (one literal covers hashbrown + json-render via preNavigateRoute).
@@ -150,7 +152,8 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "frontend-tools",
   "frontend-tools-async",
   "threadid-frontend-tool-roundtrip",
-  "reasoning-display",
+  "reasoning-custom",
+  "reasoning-default",
   "shared-state-streaming",
   "readonly-state-context",
   "gen-ui-declarative",

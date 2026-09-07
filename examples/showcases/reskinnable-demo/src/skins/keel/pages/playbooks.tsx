@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSkinData } from "@/shell/skin-provider";
-import type { KeelData, Playbook } from "@/skins/keel/data/types";
+import { useKeelDesk } from "@/skins/keel/desk-data";
+import type { Playbook } from "@/skins/keel/data/types";
 import { useKeelHref } from "@/skins/keel/href";
 
 /** The distinct performing roles across a playbook's steps, first-seen order. */
@@ -28,7 +28,7 @@ function distinctPolicyRefs(
 
 export function PlaybooksPage() {
   const keelHref = useKeelHref();
-  const { playbooks } = useSkinData<KeelData>();
+  const { playbooks } = useKeelDesk();
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">

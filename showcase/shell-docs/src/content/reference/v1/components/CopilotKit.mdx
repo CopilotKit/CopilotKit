@@ -7,7 +7,7 @@ description: "The CopilotKit provider component, wrapping your application."
  /*
   * ATTENTION! DO NOT MODIFY THIS FILE!
   * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * packages/react-core/src/components/copilot-provider/copilotkit.tsx
+  * packages/react-core/src/v1-deprecated/components/copilot-provider/copilotkit.tsx
   */
 }
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
@@ -33,7 +33,7 @@ Your Copilot Cloud API key.
 </PropertyReference>
 
 <PropertyReference name="publicLicenseKey" type="string"  > 
-Your public license key for accessing Enterprise Intelligence Platform features.
+Your public license key for accessing CopilotKit Intelligence features.
  
   Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
 </PropertyReference>
@@ -46,7 +46,7 @@ Restrict input to specific topics using guardrails.
 </PropertyReference>
 
 <PropertyReference name="runtimeUrl" type="string"  > 
-The endpoint for the Copilot Runtime instance. [Click here for more information](/concepts/copilot-runtime).
+The endpoint for the Copilot Runtime instance. [Click here for more information](/backend/copilot-runtime).
 </PropertyReference>
 
 <PropertyReference name="transcribeAudioUrl" type="string"  > 
@@ -91,7 +91,7 @@ Custom properties to be sent with the request.
   }
   ```
  
-  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/coagents/shared/guides/langgraph-platform-authentication) for details.
+  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/langgraph-python/auth) for details.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials"  > 
@@ -142,7 +142,7 @@ The thread id to use for the CopilotKit.
 Optional error handler for comprehensive debugging and observability.
  
   Requires publicApiKey: Error handling only works when publicApiKey is provided.
-  This is an Enterprise Intelligence Platform feature.
+  This is a CopilotKit Intelligence feature.
  
   @param errorEvent - Structured error event with rich debugging context
  

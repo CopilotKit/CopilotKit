@@ -19,7 +19,7 @@
     {
       "match": {
         "userMessage": "3D axis visualization (model airplane)",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -45,7 +45,7 @@
     {
       "match": {
         "userMessage": "How a neural network works",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -71,7 +71,7 @@
     {
       "match": {
         "userMessage": "Quicksort visualization",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -97,7 +97,7 @@
     {
       "match": {
         "userMessage": "Fourier: square wave from sines",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -123,7 +123,7 @@
     {
       "match": {
         "userMessage": "Calculator (calls evaluateExpression)",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -149,7 +149,7 @@
     {
       "match": {
         "userMessage": "Ping the host (calls notifyHost)",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {
@@ -175,7 +175,7 @@
     {
       "match": {
         "userMessage": "Inline expression evaluator",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "crewai-crews"
       },
       "response": {

@@ -9,7 +9,7 @@ Every CopilotKit conversation is scoped to a **thread**, identified by a `thread
 ## The lifecycle at a glance
 
 1. **Mint.** When a chat mounts without an explicit `threadId`, the client generates one (a UUID v4).
-2. **Run.** Messages and tool calls stream under that `threadId`. If a server-side store is configured (the Enterprise Intelligence Platform, or a persisting `AgentRunner`), they are persisted as they happen so the thread can be replayed later. A runtime with no persistence layer keeps nothing server-side. See [Threads & Persistence Architecture](/premium/threads-explained) for the full server-side model.
+2. **Run.** Messages and tool calls stream under that `threadId`. If a server-side store is configured (CopilotKit Intelligence, or a persisting `AgentRunner`), they are persisted as they happen so the thread can be replayed later. A runtime with no persistence layer keeps nothing server-side. See [Threads & Persistence Architecture](/intelligence/threads-explained) for the full server-side model.
 3. **Hydrate.** When a chat mounts *with* a known `threadId`, the client connects and replays the persisted history into the UI.
 4. **Switch / start.** You change the active thread (restoring its history) or start a fresh one (clearing the view).
 
@@ -45,7 +45,7 @@ CopilotKit v2 does **not** use an `initialMessages` prop to seed a conversation.
 ```
 
 <Callout type="warn">
-  Replay requires a **server-side store to replay from**: the Enterprise Intelligence Platform, or a persisting `AgentRunner` (e.g. the SQLite runner). A self-hosted runtime with no persistence layer has nothing to replay, so `connectAgent()` returns an empty stream and the conversation starts blank. If history isn't restoring, check that a store is configured, not the client code. The [Persistence Architecture](/premium/threads-explained) page covers how replay works server-side.
+  Replay requires a **server-side store to replay from**: CopilotKit Intelligence, or a persisting `AgentRunner` (e.g. the SQLite runner). A self-hosted runtime with no persistence layer has nothing to replay, so `connectAgent()` returns an empty stream and the conversation starts blank. If history isn't restoring, check that a store is configured, not the client code. The [Persistence Architecture](/intelligence/threads-explained) page covers how replay works server-side.
 </Callout>
 
 For a *fresh* (non-explicit) thread, e.g. after `startNewThread()`, there's nothing to replay, so `connect` is skipped and the message view is cleared.
@@ -79,6 +79,14 @@ Runtime, implement `identifyUser(request)` with the server-verified session or
 token from your auth provider and return a stable user `id` and `name`:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime/v2";
+
+// `apiKey` is the only required field. The key scopes the project, so there is
+// no separate project or organization id to pass. See Connect your runtime.
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+});
+
 const runtime = new CopilotRuntime({
   agents: { default: agent },
   intelligence,
@@ -94,11 +102,16 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-Enterprise Intelligence combines that application user identity with the
+CopilotKit Intelligence combines that application user identity with the
 selected project when it scopes thread lists, subscriptions, history, rename,
 archive, unarchive, and delete operations. The project Runtime API key is a
 separate credential: keep it on the server and do not use the developer who
 created that key as the application user.
+
+[Connect your runtime to Intelligence](/intelligence/connect-your-runtime) covers the
+`CopilotKitIntelligence` constructor in full — where the project API key comes
+from, the self-hosted `apiUrl` / `wsUrl` override rule, and how to confirm the
+credential is actually being read rather than silently ignored.
 
 <Callout type="warn">
   A static `identifyUser` value is suitable only for a single-user demo. In a
@@ -192,7 +205,7 @@ These are **two different layers**, correlated only by the shared `threadId`:
 
 | Layer | What it stores | Managed by |
 | --- | --- | --- |
-| **CopilotKit threads** | Conversation list + full AG-UI event history (messages, tool calls, state), with realtime sync | The Enterprise Intelligence Platform, via `useThreads` |
+| **CopilotKit threads** | Conversation list + full AG-UI event history (messages, tool calls, state), with realtime sync | CopilotKit Intelligence, via `useThreads` |
 | **Framework-native persistence** | Framework-internal state/checkpoints | Your agent, e.g. a LangGraph `AsyncPostgresSaver` |
 
 A LangGraph checkpointer (an `AsyncPostgresSaver` + `compile(checkpointer=...)`) creates LangGraph's own **checkpoint tables**. It does *not* create a CopilotKit "threads" table, and you won't see a threads table appear just from configuring a checkpointer. Conversely, `useThreads` rename/archive/delete operate on platform threads and do **not** reach into LangGraph (or ADK, etc.) stores unless your backend explicitly bridges them.
@@ -202,7 +215,7 @@ The bridge between the two is the `threadId`: when you pass an explicit CopilotK
 ### Future runs can remain durable in both places
 
 After historical import, future conversations that run through CopilotKit are
-written to Enterprise Intelligence as Rich Threads. If your LangGraph agent
+written to CopilotKit Intelligence as Rich Threads. If your LangGraph agent
 continues using a durable checkpointer or LangGraph Platform, those same runs
 also continue through LangGraph's native persistence. The same applies to an ADK
 agent that remains connected to a durable session service with retained
@@ -212,7 +225,7 @@ CopilotKit.
 
 This is coordinated persistence during future CopilotKit-mediated runs, not
 general database replication. CopilotKit lifecycle actions such as rename,
-archive, and delete apply to the Enterprise Intelligence thread; they do not
+archive, and delete apply to the CopilotKit Intelligence thread; they do not
 rename, archive, or delete records in the native framework store.
 
 <Callout type="info">
@@ -233,6 +246,6 @@ Practically, MCP App UI restores the same way the rest of the conversation does:
 ## See also
 
 - [Headless Threads](/headless-threads) — the full `useThreads` API
-- [Threads & Persistence Architecture](/premium/threads-explained) — server-side replay, resume, realtime sync
+- [Threads & Persistence Architecture](/intelligence/threads-explained) — server-side replay, resume, realtime sync
 - [Multi-conversation chat](/tutorials/multi-conversation-chat) — build a chat-history sidebar
 - [Importing and synchronizing thread history](/threads-import) — bring existing framework conversations into the platform and keep future runs continuous

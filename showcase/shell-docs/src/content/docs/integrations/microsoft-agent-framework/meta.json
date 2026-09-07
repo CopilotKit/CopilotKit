@@ -17,7 +17,8 @@
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import"
+        "threads-import",
+        "threads-self-managed"
       ]
     },
     "custom-look-and-feel",
@@ -34,7 +35,7 @@
     "---Backend---",
     "copilot-runtime",
     "ag-ui",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     "---Troubleshooting---",
     "...troubleshooting",
     "---Other---",

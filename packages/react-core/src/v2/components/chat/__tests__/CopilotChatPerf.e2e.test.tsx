@@ -325,5 +325,5 @@ describe("CopilotChat perf — re-render regression", () => {
       },
       { timeout: 15_000 },
     );
-  });
+  }, 20_000);
 });

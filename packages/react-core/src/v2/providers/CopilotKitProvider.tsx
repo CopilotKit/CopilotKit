@@ -5,6 +5,7 @@ import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
   useMemo,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useReducer,
@@ -19,12 +20,14 @@ export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
-import type { Anchor } from "@copilotkit/web-inspector";
+import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInspectorContext";
+import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
 import type {
   LicenseContextValue,
   DebugConfig,
+  RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
@@ -56,7 +59,7 @@ import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
-import { schemaToJsonSchema } from "@copilotkit/shared";
+import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Adapts zod-to-json-schema's zod-specific signature to the injectable
@@ -85,7 +88,6 @@ const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
 const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
 const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
-
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -121,10 +123,10 @@ export interface CopilotKitProviderProps {
   credentials?: RequestCredentials;
   /** Your CopilotKit public license key. */
   publicApiKey?: string;
-  /** Your public license key for accessing Enterprise Intelligence Platform features. */
+  /** Your public license key for accessing CopilotKit Intelligence features. */
   publicLicenseKey?: string;
   /**
-   * Signed license token for offline verification of Enterprise Intelligence Platform features.
+   * Signed license token for offline verification of CopilotKit Intelligence features.
    * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
@@ -170,7 +172,17 @@ export interface CopilotKitProviderProps {
      */
     designSkill?: string;
   };
+  /**
+   * @deprecated This prop no longer controls the Inspector. Use
+   * `enableInspector` instead.
+   */
   showDevConsole?: boolean | "auto";
+  /**
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
+   */
+  enableInspector?: boolean;
   /**
    * Error handler called when CopilotKit encounters an error.
    * Fires for all error types (runtime connection failures, agent errors, tool errors).
@@ -233,12 +245,6 @@ export interface CopilotKitProviderProps {
    */
   defaultThrottleMs?: number;
   /**
-   * Default anchor corner for the inspector button and window.
-   * Only used on first load before the user drags to a custom position.
-   * Defaults to `{ horizontal: "right", vertical: "top" }`.
-   */
-  inspectorDefaultAnchor?: Anchor;
-  /**
    * Enable debug logging for the client-side event pipeline.
    */
   debug?: DebugConfig;
@@ -285,15 +291,30 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   frontendTools,
   humanInTheLoop,
   openGenerativeUI,
-  showDevConsole = false,
+  enableInspector,
   useSingleEndpoint,
   onError,
   a2ui,
   defaultThrottleMs,
-  inspectorDefaultAnchor,
   debug,
 }) => {
+  // Keep the server render and the first client render identical. The
+  // Inspector is browser-only, so resolve its development policy after
+  // hydration instead of branching on `window` during render.
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
+
+  useEffect(() => {
+    setShouldRenderInspector(
+      shouldEnableInspector({
+        enableInspector,
+        isBrowser: true,
+        isDevelopment: process.env.NODE_ENV === "development",
+      }),
+    );
+  }, [enableInspector]);
+
+  const [inspectorOpenRequest, setInspectorOpenRequest] =
+    useState<CopilotKitInspectorOpenRequest | null>(null);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   // Bumped by onCatalogComponentsChanged so the filtered catalog re-derives
@@ -308,28 +329,26 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
   >(undefined);
+  const [runtimeEntitlements, setRuntimeEntitlements] = useState<
+    RuntimeEntitlementResponse | undefined
+  >(undefined);
+  const [runtimeEntitlementRetryPending, setRuntimeEntitlementRetryPending] =
+    useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
+  const requestInspectorOpen = useCallback(
+    (request: CopilotKitInspectorOpenRequest) => {
+      setInspectorOpenRequest({ ...request });
+    },
+    [],
+  );
 
-    if (showDevConsole === true) {
-      // Explicitly show the inspector
-      setShouldRenderInspector(true);
-    } else if (showDevConsole === "auto") {
-      // Show on localhost or 127.0.0.1 only
-      const localhostHosts = new Set(["localhost", "127.0.0.1"]);
-      if (localhostHosts.has(window.location.hostname)) {
-        setShouldRenderInspector(true);
-      } else {
-        setShouldRenderInspector(false);
-      }
-    } else {
-      // showDevConsole is false or undefined (default false)
-      setShouldRenderInspector(false);
-    }
-  }, [showDevConsole]);
+  const inspectorContextValue = useMemo(
+    () => ({
+      isInspectorEnabled: shouldRenderInspector,
+      openInspector: requestInspectorOpen,
+    }),
+    [shouldRenderInspector, requestInspectorOpen],
+  );
 
   // Normalize array props to stable references with clear dev warnings
   const renderToolCallsList = useStableArrayProp<ReactToolCallRenderer<any>>(
@@ -439,7 +458,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
 
-  // `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence offering.
+  // `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence tier.
   // The signal is advisory and client-side only (not enforced): warn — in both
   // development and production — when it is used without a license key so
   // production usage is surfaced. `agents__unsafe_dev_only` is the free local-dev
@@ -449,7 +468,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     if (hasSelfManagedAgents && !resolvedPublicKey) {
       console.warn(
         "[CopilotKit] `selfManagedAgents` is part of CopilotKit's Enterprise " +
-          "Intelligence offering. Provide a `publicLicenseKey` for production " +
+          "Intelligence tier. Provide a `publicLicenseKey` for production " +
           "use — contact the CopilotKit team about licensing.",
       );
     }
@@ -676,7 +695,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // past the `/info` resolution. If that happens, the settled values would be
   // lost forever. To close the race we read the CURRENT values immediately, so a
   // status that already resolved is captured whether or not we caught its event.
-  // This MUST mirror the subscriber below (all three values), otherwise a missed
+  // This MUST mirror the subscriber below (all five values), otherwise a missed
   // event leaves e.g. `licenseStatus` null indefinitely — which pins the threads
   // drawer to its "Loading threads…" state (licensePending never clears).
   useEffect(() => {
@@ -684,6 +703,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
       setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
       setRuntimeLicenseStatus(copilotkit.licenseStatus);
+      setRuntimeEntitlements(copilotkit.runtimeEntitlements);
+      setRuntimeEntitlementRetryPending(
+        copilotkit.runtimeEntitlementRetryPending,
+      );
     };
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: syncRuntimeInfo,
@@ -902,11 +925,47 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
-  // License context — driven by server-reported status via /info endpoint
-  const licenseContextValue = useMemo(
-    () => createLicenseContextValue(runtimeLicenseStatus),
-    [runtimeLicenseStatus],
-  );
+  // License context — driven by server-reported authority via /info endpoint
+  const retryableRuntimeEntitlementFailure =
+    runtimeEntitlements?.status !== "ready" &&
+    runtimeEntitlements?.error.retryable === true;
+  const hasNonReadyRuntimeEntitlement =
+    runtimeEntitlements !== undefined && runtimeEntitlements.status !== "ready";
+  const hasLegacyRuntimeEntitlementFallback =
+    runtimeLicenseStatus === "valid" || runtimeLicenseStatus === "expiring";
+  const runtimeEntitlementRetryInProgress =
+    retryableRuntimeEntitlementFailure &&
+    runtimeEntitlementRetryPending &&
+    !hasLegacyRuntimeEntitlementFallback;
+  const runtimeEntitlementFailureSettled =
+    hasNonReadyRuntimeEntitlement &&
+    !runtimeEntitlementRetryInProgress &&
+    !hasLegacyRuntimeEntitlementFallback;
+  const licenseContextValue = useMemo<LicenseContextValue>(() => {
+    const runtimeLicenseContext = createLicenseContextValue(
+      runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
+      runtimeEntitlements,
+    );
+    if (!runtimeEntitlementFailureSettled) {
+      return runtimeLicenseContext;
+    }
+
+    // The Runtime has neither managed authority nor a usable legacy fallback.
+    // Keep its truthful status, but deny feature-only consumers.
+    return {
+      ...runtimeLicenseContext,
+      checkFeature: () => false,
+      getLimit: () => null,
+    };
+  }, [
+    runtimeEntitlementFailureSettled,
+    runtimeEntitlementRetryInProgress,
+    runtimeEntitlements,
+    runtimeLicenseStatus,
+  ]);
+  const runtimeLicenseWarningStatus = runtimeEntitlementRetryInProgress
+    ? undefined
+    : (licenseContextValue.status ?? undefined);
 
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
@@ -919,24 +978,26 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               includeSchema={a2ui?.includeSchema}
             />
           )}
-          {children}
-          {shouldRenderInspector ? (
-            <CopilotKitInspector
-              core={copilotkit}
-              defaultAnchor={inspectorDefaultAnchor}
-            />
-          ) : null}
+          <CopilotKitInspectorContextProvider value={inspectorContextValue}>
+            {children}
+            {shouldRenderInspector ? (
+              <CopilotKitInspector
+                core={copilotkit}
+                openRequest={inspectorOpenRequest}
+              />
+            ) : null}
+          </CopilotKitInspectorContextProvider>
           {/* License warnings — driven by server-reported status */}
-          {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
+          {runtimeLicenseWarningStatus === "none" && !resolvedPublicKey && (
             <LicenseWarningBanner type="no_license" />
           )}
-          {runtimeLicenseStatus === "expired" && (
+          {runtimeLicenseWarningStatus === "expired" && (
             <LicenseWarningBanner type="expired" />
           )}
-          {runtimeLicenseStatus === "invalid" && (
+          {runtimeLicenseWarningStatus === "invalid" && (
             <LicenseWarningBanner type="invalid" />
           )}
-          {runtimeLicenseStatus === "expiring" && (
+          {runtimeLicenseWarningStatus === "expiring" && (
             <LicenseWarningBanner type="expiring" />
           )}
         </LicenseContext.Provider>

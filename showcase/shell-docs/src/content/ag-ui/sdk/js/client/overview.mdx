@@ -19,13 +19,13 @@ npm install @ag-ui/client
 connectivity. Extending this class and implementing `run()` lets you bridge your
 own service or agent implementation to AG-UI.
 
-- [Configuration](/sdk/js/client/abstract-agent#configuration) - Setup with
+- [Configuration](/ag-ui/sdk/js/client/abstract-agent#configuration) - Setup with
   agent ID, messages, and state
-- [Core Methods](/sdk/js/client/abstract-agent#core-methods) - Run, abort, and
+- [Core Methods](/ag-ui/sdk/js/client/abstract-agent#core-methods) - Run, abort, and
   clone functionality
-- [Protected Methods](/sdk/js/client/abstract-agent#protected-methods) -
+- [Protected Methods](/ag-ui/sdk/js/client/abstract-agent#protected-methods) -
   Extensible hooks for custom implementations
-- [Properties](/sdk/js/client/abstract-agent#properties) - State and message
+- [Properties](/ag-ui/sdk/js/client/abstract-agent#properties) - State and message
   tracking
 
 <Card
@@ -42,13 +42,13 @@ own service or agent implementation to AG-UI.
 
 Concrete implementation for HTTP-based agent connectivity:
 
-- [Configuration](/sdk/js/client/http-agent#configuration) - URL and header
+- [Configuration](/ag-ui/sdk/js/client/http-agent#configuration) - URL and header
   setup
-- [Methods](/sdk/js/client/http-agent#methods) - HTTP-specific execution and
+- [Methods](/ag-ui/sdk/js/client/http-agent#methods) - HTTP-specific execution and
   cancellation
-- [Protected Methods](/sdk/js/client/http-agent#protected-methods) -
+- [Protected Methods](/ag-ui/sdk/js/client/http-agent#protected-methods) -
   Customizable HTTP request handling
-- [Properties](/sdk/js/client/http-agent#properties) - Connection management
+- [Properties](/ag-ui/sdk/js/client/http-agent#properties) - Connection management
 
 <Card
   title="HttpAgent Reference"
@@ -66,13 +66,13 @@ Concrete implementation for HTTP-based agent connectivity:
 Transform and intercept event streams flowing through agents with a flexible
 middleware system:
 
-- [Function Middleware](/sdk/js/client/middleware#function-based-middleware) - Simple
+- [Function Middleware](/ag-ui/sdk/js/client/middleware#function-based-middleware) - Simple
   transformations with plain functions
-- [Class Middleware](/sdk/js/client/middleware#class-based-middleware) - Stateful
+- [Class Middleware](/ag-ui/sdk/js/client/middleware#class-based-middleware) - Stateful
   middleware with configuration
-- [Built-in Middleware](/sdk/js/client/middleware#built-in-middleware) -
+- [Built-in Middleware](/ag-ui/sdk/js/client/middleware#built-in-middleware) -
   FilterToolCallsMiddleware and more
-- [Middleware Patterns](/sdk/js/client/middleware#middleware-patterns) - Common
+- [Middleware Patterns](/ag-ui/sdk/js/client/middleware#middleware-patterns) - Common
   use cases and examples
 
 <Card
@@ -90,13 +90,13 @@ middleware system:
 Event-driven subscriber system for handling agent lifecycle events and state
 mutations during agent execution:
 
-- [Event Handlers](/sdk/js/client/subscriber#event-handlers) - Lifecycle,
+- [Event Handlers](/ag-ui/sdk/js/client/subscriber#event-handlers) - Lifecycle,
   message, tool call, and state events
-- [State Management](/sdk/js/client/subscriber#state-management) - Mutation
+- [State Management](/ag-ui/sdk/js/client/subscriber#state-management) - Mutation
   control and propagation handling
-- [Usage Examples](/sdk/js/client/subscriber#usage-examples) - Logging,
+- [Usage Examples](/ag-ui/sdk/js/client/subscriber#usage-examples) - Logging,
   persistence, and error handling patterns
-- [Integration](/sdk/js/client/subscriber#integration-with-agents) - Registering
+- [Integration](/ag-ui/sdk/js/client/subscriber#integration-with-agents) - Registering
   and using subscribers with agents
 
 <Card

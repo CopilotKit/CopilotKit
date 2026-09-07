@@ -11,9 +11,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
@@ -50,12 +49,12 @@ const runtime = new CopilotRuntime({
 export const POST = async (req: NextRequest) =>
   withForwardedHeaders(req, async () => {
     try {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        endpoint: "/api/copilotkit-a2ui-recovery",
-        serviceAdapter: new ExperimentalEmptyAdapter(),
+      const copilotHandler = createCopilotRuntimeHandler({
         runtime,
+        basePath: "/api/copilotkit-a2ui-recovery",
+        mode: "single-route",
       });
-      return await handleRequest(req);
+      return await copilotHandler(req);
     } catch (error: unknown) {
       const e = error as { message?: string; stack?: string };
       return NextResponse.json(

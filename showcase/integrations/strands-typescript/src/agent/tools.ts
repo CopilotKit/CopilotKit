@@ -157,6 +157,7 @@ export const writeDocument = tool({
 
 // ---- Sub-agents ----------------------------------------------------------
 
+// @region[subagent-setup]
 const SUBAGENT_SYSTEM_PROMPTS: Record<string, string> = {
   research_agent:
     "You are a research sub-agent. Given a topic, produce a concise bulleted list of 3-5 key facts. No preamble, no closing.",
@@ -219,7 +220,9 @@ async function runSubagent(name: string, task: string): Promise<string> {
     return `${SUBAGENT_FAILURE_MARKER}${cls}`;
   }
 }
+// @endregion[subagent-setup]
 
+// @region[supervisor-delegation-tools]
 export const researchAgent = tool({
   name: "research_agent",
   description:
@@ -249,6 +252,7 @@ export const critiqueAgent = tool({
   }),
   callback: ({ task }) => runSubagent("critique_agent", task),
 });
+// @endregion[supervisor-delegation-tools]
 
 /** Full tool set for the shared showcase agent. */
 export const SHOWCASE_TOOLS = [

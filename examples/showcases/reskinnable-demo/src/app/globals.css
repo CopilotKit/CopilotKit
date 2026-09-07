@@ -505,3 +505,51 @@ body {
 [data-radix-popper-content-wrapper] {
   z-index: 1300 !important;
 }
+
+/* ── Teach-mode recording vignette ──────────────────────────────────────────
+   Shell-owned (src/shell/teach/recording.tsx renders it for every skin). A soft
+   pulsating glow hugging the canvas edges while the agent records a
+   demonstrated operator action. Purely presentational and non-blocking: a fixed
+   full-viewport overlay with pointer-events:none, driven by the
+   `data-recording` attribute. Colours come from the SHARED --brand-violet /
+   --brand-indigo tokens, which all six skins re-value in their own theme.css,
+   so the glow reskins without a per-skin copy. */
+@keyframes recording-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.recording-vignette {
+  position: fixed;
+  inset: 0;
+  /* Above the docked chat panel (z-1200) so the glow frames the WHOLE canvas —
+     including over the panel — reading as "the entire app is being recorded".
+     pointer-events:none keeps it from ever intercepting clicks. */
+  z-index: 1300;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease-in-out;
+  box-shadow:
+    inset 0 0 0 3px hsl(var(--brand-violet) / 0.6),
+    inset 0 0 70px 2px hsl(var(--brand-violet) / 0.45),
+    inset 0 0 170px 36px hsl(var(--brand-indigo) / 0.22);
+}
+
+.recording-vignette[data-recording="true"] {
+  opacity: 1;
+  /* Delay the pulse by the fade-in duration so opacity eases 0 → 1 first, then
+     breathes; the keyframe starts at opacity 1 to avoid a snap. */
+  animation: recording-pulse 2.4s ease-in-out 0.22s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording-vignette[data-recording="true"] {
+    animation: none;
+    opacity: 0.45;
+  }
+}
