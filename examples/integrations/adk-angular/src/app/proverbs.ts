@@ -1,4 +1,9 @@
-import { Component, computed, effect } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+} from "@angular/core";
 import { injectAgentStore } from "@copilotkit/angular";
 import { AGENT_ID } from "./app.config";
 import type { AgentState } from "./agent-state";
@@ -6,6 +11,7 @@ import type { AgentState } from "./agent-state";
 @Component({
   selector: "app-proverbs",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <h1>Proverbs</h1>

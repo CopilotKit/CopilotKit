@@ -15,41 +15,40 @@
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.58",
-    "@ag-ui/core": "0.0.58",
-    "@angular/cdk": "^21.2.13",
-    "@angular/common": "^21.2.15",
-    "@angular/compiler": "^21.2.15",
-    "@angular/core": "^21.2.15",
-    "@angular/platform-browser": "^21.2.15",
-    "@copilotkit/angular": "0.3.1",
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
+    "@angular/cdk": "^22.1.5",
+    "@angular/common": "^22.1.5",
+    "@angular/compiler": "^22.1.5",
+    "@angular/core": "^22.1.5",
+    "@angular/platform-browser": "^22.1.5",
+    "@copilotkit/angular": "0.5.0",
     "@copilotkit/core": "1.70.0",
     "@copilotkit/runtime": "1.70.0",
     "@copilotkit/shared": "1.70.0",
+    "@lucide/angular": "^1.31.0",
     "dotenv": "^16.4.5",
-    "lucide-angular": "^0.577.0",
     "rxjs": "^7.8.1",
     "tslib": "^2.6.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@angular/build": "^21.2.13",
-    "@angular/cli": "^21.2.13",
-    "@angular/compiler-cli": "^21.2.15",
-    "@types/node": "^20",
+    "@angular/build": "^22.1.7",
+    "@angular/cli": "^22.1.7",
+    "@angular/compiler-cli": "^22.1.5",
+    "@types/node": "^22",
     "concurrently": "^9.1.2",
     "tsx": "^4",
-    "typescript": "~5.9.0"
+    "typescript": "~6.0.3"
   },
   "overrides": {
-    "@ag-ui/client": "0.0.58",
-    "@ag-ui/core": "0.0.58",
-    "@ag-ui/encoder": "0.0.58",
-    "@ag-ui/proto": "0.0.58",
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
+    "@ag-ui/encoder": "0.0.59",
+    "@ag-ui/proto": "0.0.59",
     "@copilotkit/a2ui-renderer": "1.70.0",
     "@copilotkit/core": "1.70.0",
     "@copilotkit/shared": "1.70.0",
-    "@copilotkit/web-components": "1.70.0",
-    "lucide-angular": "^0.577.0"
+    "@copilotkit/web-components": "1.70.0"
   }
 }
