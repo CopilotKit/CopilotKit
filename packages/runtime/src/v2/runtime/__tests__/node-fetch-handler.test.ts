@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type IncomingMessage } from "node:http";
 import { createNodeFetchHandler } from "../endpoints/node-fetch-handler";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
 
@@ -69,6 +69,56 @@ describe("createNodeFetchHandler", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body).toEqual({ received: { hello: "world" } });
+    } finally {
+      await close(server);
+    }
+  });
+
+  it("handles POST when the Node request body was already consumed", async () => {
+    const fetchHandler: CopilotRuntimeFetchHandler = async (request) => {
+      const body = await request.json();
+
+      return new Response(JSON.stringify({ received: body }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    const nodeHandler = createNodeFetchHandler(fetchHandler);
+
+    const port = getPort();
+
+    const server = createServer(async (req, res) => {
+      // Simulate Express/NestJS body-parser consuming the request stream.
+      const chunks: Buffer[] = [];
+
+      for await (const chunk of req) {
+        chunks.push(Buffer.from(chunk));
+      }
+
+      (req as IncomingMessage & { body?: unknown }).body = JSON.parse(
+        Buffer.concat(chunks).toString("utf-8"),
+      );
+
+      await nodeHandler(req, res);
+    });
+
+    await listen(server, port);
+
+    try {
+      const response = await fetch(`http://localhost:${port}/data`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hello: "world" }),
+      });
+
+      expect(response.status).toBe(200);
+
+      const body = await response.json();
+
+      expect(body).toEqual({
+        received: { hello: "world" },
+      });
     } finally {
       await close(server);
     }
