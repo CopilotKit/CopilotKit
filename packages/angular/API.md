@@ -8,7 +8,7 @@ symbol requires the package's normal breaking-change process.
 For task-oriented examples, start with the [package README](./README.md) and the
 [Angular documentation](https://docs.copilotkit.ai/frontends/angular). The high-level
 APIs most applications need are `provideCopilotKit`, `CopilotChat`,
-`CopilotPopup`, `CopilotSidebar`, `injectAgentStore`, `injectCapabilities`, the
+`CopilotPopup`, `CopilotSidebar`, `injectAgentStore`, `initAgentStore`, `injectCapabilities`, the
 `register*` helpers, and the `inject*` controllers. The remaining components
 and context types are supported customization primitives for replacing
 individual chat slots.
@@ -153,6 +153,7 @@ Import these symbols from `@copilotkit/angular`.
 - `HumanInTheLoopConfig`
 - `HumanInTheLoopToolCall`
 - `HumanInTheLoopToolRenderer`
+- `InitAgentStoreConfig`
 - `InjectInterruptOptions`
 - `InjectThreadsInput`
 - `InjectThreadsResult`
@@ -225,6 +226,7 @@ Import these symbols from `@copilotkit/angular`.
 - `createSlotConfig`
 - `createSlotRenderer`
 - `getSlotConfig`
+- `initAgentStore`
 - `injectAgentStore`
 - `injectCapabilities`
 - `injectChatConfiguration`

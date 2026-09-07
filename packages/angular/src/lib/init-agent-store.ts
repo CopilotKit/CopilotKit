@@ -2,17 +2,21 @@ import { HttpAgent, randomUUID, type HttpAgentConfig } from "@ag-ui/client";
 import { inject } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import {
+  registerComponent,
   registerFrontendTool,
   registerHumanInTheLoop,
   registerRenderToolCall,
   type FrontendToolConfig,
   type HumanInTheLoopConfig,
+  type RegisterComponentConfig,
   type RenderToolCallConfig,
 } from "./tools";
 
 export interface InitAgentStoreConfig {
   agentId: string;
   url: string;
+  /** Display-only components the agent can call, see `registerComponent`. */
+  components?: RegisterComponentConfig[];
   frontendTools?: FrontendToolConfig[];
   renderToolCalls?: RenderToolCallConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
@@ -27,9 +31,9 @@ export interface InitAgentStoreConfig {
 
 /**
  * Registers a self-managed `HttpAgent` under `agentId` together with the
- * agent-scoped frontend tools, tool-call renderers, and human-in-the-loop
- * tools it needs, so `injectAgentStore(agentId)` resolves the agent
- * afterwards. A fresh `threadId` is generated per registration.
+ * agent-scoped components, frontend tools, tool-call renderers, and
+ * human-in-the-loop tools it needs, so `injectAgentStore(agentId)` resolves
+ * the agent afterwards. A fresh `threadId` is generated per registration.
  *
  * Must run in an injection context, but is otherwise placement-agnostic:
  * call it from an environment initializer (e.g. in route-level `providers`),
@@ -55,6 +59,10 @@ export function initAgentStore(config: InitAgentStoreConfig): void {
       [config.agentId]: agent,
     },
   });
+
+  for (const component of config.components ?? []) {
+    registerComponent({ ...component, agentId: config.agentId });
+  }
 
   for (const frontendTool of config.frontendTools ?? []) {
     registerFrontendTool({ ...frontendTool, agentId: config.agentId });

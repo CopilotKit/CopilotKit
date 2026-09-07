@@ -1,11 +1,11 @@
 import { HttpAgent, type HttpAgentConfig } from "@ag-ui/client";
 import { Component, EnvironmentInjector, input } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { provideCopilotKit } from "./config";
 import { CopilotKit } from "./copilotkit";
-import { initAgentStore } from "./init-agent-store";
+import { initAgentStore, type InitAgentStoreConfig } from "./init-agent-store";
 import type { AngularToolCall, HumanInTheLoopToolCall } from "./tools";
 
 @Component({ template: `` })
@@ -20,29 +20,29 @@ class ApprovalComponent {
 
 class TestHttpAgent extends HttpAgent {}
 
-describe("initAgentStore", () => {
-  let copilotKit: CopilotKit;
-
-  beforeEach(() => {
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      providers: [provideCopilotKit({})],
-    });
-    copilotKit = TestBed.inject(CopilotKit);
+function setup(config: Partial<InitAgentStoreConfig> = {}) {
+  TestBed.configureTestingModule({
+    providers: [provideCopilotKit({})],
   });
+  const copilotKit = TestBed.inject(CopilotKit);
 
-  function init(config: Partial<Parameters<typeof initAgentStore>[0]> = {}) {
+  const init = (overrides: Partial<InitAgentStoreConfig> = {}) =>
     TestBed.runInInjectionContext(() =>
       initAgentStore({
         agentId: "pilot",
         url: "http://localhost:9000/agent",
-        ...config,
+        ...overrides,
       }),
     );
-  }
 
+  init(config);
+
+  return { copilotKit, init };
+}
+
+describe("initAgentStore", () => {
   it("registers a self-managed HttpAgent with a fresh threadId", () => {
-    init();
+    const { copilotKit } = setup();
 
     const agent = copilotKit.getAgent("pilot");
 
@@ -56,7 +56,7 @@ describe("initAgentStore", () => {
       (agentConfig: HttpAgentConfig) => new TestHttpAgent(agentConfig),
     );
 
-    init({ createAgent });
+    const { copilotKit } = setup({ createAgent });
 
     expect(createAgent).toHaveBeenCalledWith({
       agentId: "pilot",
@@ -67,7 +67,7 @@ describe("initAgentStore", () => {
   });
 
   it("keeps previously registered agents when called again", () => {
-    init();
+    const { copilotKit, init } = setup();
     init({ agentId: "copilot", url: "http://localhost:9001/agent" });
 
     expect(copilotKit.getAgent("pilot")).toBeInstanceOf(HttpAgent);
@@ -75,7 +75,7 @@ describe("initAgentStore", () => {
   });
 
   it("registers tool-call renderers scoped to the agent", () => {
-    init({
+    const { copilotKit } = setup({
       renderToolCalls: [
         {
           name: "show_flight",
@@ -93,10 +93,35 @@ describe("initAgentStore", () => {
     expect(config?.component).toBe(FlightCardComponent);
   });
 
+  it("registers display-only components as agent-scoped tools", () => {
+    const { copilotKit } = setup({
+      components: [
+        {
+          name: "show_flight",
+          description: "Shows one flight.",
+          parameters: z.object({ flightId: z.string() }),
+          component: FlightCardComponent,
+        },
+      ],
+    });
+
+    const config = copilotKit
+      .clientToolCallRenderConfigs()
+      .find((candidate) => candidate.name === "show_flight");
+
+    expect(config?.agentId).toBe("pilot");
+    expect(config?.component).toBe(FlightCardComponent);
+    expect(config?.handler).toBeUndefined();
+    expect(config?.description).toContain("Shows one flight.");
+    expect(
+      copilotKit.core.getTool({ toolName: "show_flight", agentId: "pilot" }),
+    ).toBeTruthy();
+  });
+
   it("registers frontend tools scoped to the agent", () => {
     const handler = vi.fn(async () => "ok");
 
-    init({
+    const { copilotKit } = setup({
       frontendTools: [
         {
           name: "load_flights",
@@ -118,7 +143,7 @@ describe("initAgentStore", () => {
   });
 
   it("registers human-in-the-loop tools scoped to the agent", () => {
-    init({
+    const { copilotKit } = setup({
       humanInTheLoop: [
         {
           name: "confirm_booking",
@@ -143,7 +168,7 @@ describe("initAgentStore", () => {
   });
 
   it("removes registered tools when the injection context is destroyed", () => {
-    init({
+    const { copilotKit } = setup({
       renderToolCalls: [
         {
           name: "show_flight",
