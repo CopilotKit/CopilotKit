@@ -139,6 +139,58 @@ describe("CopilotKitCore.runAgent - message reconciliation", () => {
     expect(toolMessage.content).toBe("report-created");
   });
 
+  it("preserves omitted streamed tool calls handled by a wildcard frontend tool", async () => {
+    const copilotKitCore = new CopilotKitCore({});
+    const userMessage = createMessage({
+      id: "user-1",
+      content: "Create a report",
+    });
+    const assistantMessage = createToolCallMessage(
+      "dynamicFrontendTool",
+      { name: "safety" },
+      { id: "assistant-1" },
+    ) as AssistantMessage;
+    const toolCallId = assistantMessage.toolCalls?.[0]?.id;
+    if (!toolCallId) throw new Error("Expected tool call id");
+
+    const agent = new SnapshotTruncatingAgent({
+      initialMessages: [userMessage],
+      finalMessages: [userMessage],
+      streamedMessages: [userMessage, assistantMessage],
+    });
+    const wildcardHandler = vi.fn(async () => "wildcard-result");
+    const wildcardTool = createTool({
+      name: "*",
+      handler: wildcardHandler,
+      followUp: false,
+    });
+
+    copilotKitCore.addTool(wildcardTool);
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    const result = await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(wildcardHandler).toHaveBeenCalledOnce();
+    expect(wildcardHandler).toHaveBeenCalledWith(
+      { toolName: "dynamicFrontendTool", args: { name: "safety" } },
+      expect.objectContaining({
+        agent,
+        toolCall: expect.objectContaining({ id: toolCallId }),
+      }),
+    );
+    expect(result.newMessages.map((message) => message.id)).toEqual([
+      assistantMessage.id,
+    ]);
+    const toolMessage = getToolMessage(
+      agent.messages.find((message) => message.role === "tool"),
+    );
+    expect(toolMessage.toolCallId).toBe(toolCallId);
+    expect(toolMessage.content).toBe("wildcard-result");
+  });
+
   it("does not restore streamed messages after the agent switches threads", async () => {
     const copilotKitCore = new CopilotKitCore({});
     const userMessage = createMessage({

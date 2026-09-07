@@ -971,12 +971,21 @@ export class RunHandler {
     // calls that still need client-side execution; intentionally pruned
     // backend/plain-text messages must stay pruned.
     return message.toolCalls.some((toolCall) => {
-      const tool = this.getTool({
+      const namedTool = this.getTool({
         toolName: toolCall.function.name,
         agentId: agent.agentId,
       });
+      const executableTool =
+        namedTool ??
+        this.getTool({
+          toolName: WILDCARD_TOOL_NAME,
+          agentId: agent.agentId,
+        });
 
-      return Boolean(tool?.handler) && !finalToolResultIds.has(toolCall.id);
+      return (
+        Boolean(executableTool?.handler) &&
+        !finalToolResultIds.has(toolCall.id)
+      );
     });
   }
 
