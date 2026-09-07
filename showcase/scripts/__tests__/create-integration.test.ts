@@ -828,10 +828,24 @@ describe("Template Generator — hardening regressions", () => {
     // to the in-process status.
     expect(healthRoute).toContain("IS_IN_PROCESS = true");
     expect(healthRoute).toContain('"in-process"');
-    // And the happy-path must treat in-process as 200 alongside "ok"
-    expect(healthRoute).toMatch(
-      /agentStatus\s*===\s*"ok"\s*\|\|\s*agentStatus\s*===\s*"in-process"/,
+    // The in-process status must never be reported as a failure. It used to be
+    // checked via `agentStatus === "ok" || agentStatus === "in-process"`
+    // driving a 200/503 choice. The route now always answers 200 — it is the
+    // PUBLIC front door that the container watchdog and Railway's
+    // healthcheckPath poll, and a 503 for an unhealthy AGENT made a slow
+    // agent restart-loop a healthy frontend. Agent health moved to the
+    // `agent` field, asserted above. See
+    // showcase/scripts/__tests__/entrypoint-watchdog.test.ts.
+    expect(healthRoute).toContain(
+      "return NextResponse.json(publicResponse, { status: 200 });",
     );
+    // Code only — the route carries a comment explaining why 503 was dropped,
+    // and prose must not decide this assertion either way.
+    const code = healthRoute
+      .split("\n")
+      .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+      .join("\n");
+    expect(code).not.toMatch(/status:\s*(?:[^,}]*\?[^,}]*:\s*)?5\d\d/);
   });
 
   it("generated health route has an out-of-process probe for Python integrations", async () => {

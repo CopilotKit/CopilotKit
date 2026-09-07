@@ -914,8 +914,14 @@ export async function GET(req: NextRequest) {
         };
     }
 
-    const httpStatus = agentStatus === "ok" || agentStatus === "in-process" ? 200 : 503;
-    return NextResponse.json(publicResponse, { status: httpStatus });
+    // ALWAYS 200. This route is the PUBLIC front door: the container
+    // watchdog in entrypoint.sh polls it to decide whether the Next.js
+    // listener itself is wedged, and Railway's healthcheckPath points at it.
+    // Returning 503 for an unhealthy AGENT conflates two different faults —
+    // a slow agent would make the watchdog kill a healthy frontend in a
+    // restart loop. Agent health is reported in the \`agent\` field; the
+    // agent-side watchdog branch (:8000/health) is what acts on it.
+    return NextResponse.json(publicResponse, { status: 200 });
 }
 `;
 }
@@ -1136,14 +1142,80 @@ exec npx next start --port \${PORT:-10000}
   return `#!/bin/bash
 set -e
 
-# Start agent backend
-python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &
+PORT=\${PORT:-10000}
 
-# Start Next.js frontend
-npx next start --port \${PORT:-10000} &
+# Start agent backend on :8000. \`-u\` forces unbuffered stdout so a crash
+# during import reaches the log stream instead of sitting in a pipe buffer.
+python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &
+AGENT_PID=$!
+
+# Start Next.js frontend on the public $PORT. NODE_ENV is scoped to this exec
+# so it does not leak into the agent process.
+env NODE_ENV=production npx next start --port $PORT &
+NEXTJS_PID=$!
+
+# Watchdog — BOTH probes are load-bearing; do not ship one without the other.
+#
+# Either process can hang WITHOUT exiting: the process stays alive, so
+# \`wait -n\` never fires and Railway never restarts the container. Probe both
+# every 30s and kill the offending process after 3 strikes (~90s) so \`wait -n\`
+# returns through the normal path.
+#
+#   agent   :8000/health       -> kill $AGENT_PID
+#   public  $PORT/api/health   -> kill $NEXTJS_PID, paging #oss-alerts first
+#
+# The public probe is the surface real users and the Railway healthcheck hit.
+# An agent-only watchdog leaves a wedged frontend returning 502 indefinitely
+# while the service still reports Online — that is the outage class this
+# guard exists to end. Reference: showcase/integrations/claude-sdk-python.
+(
+  FAILS=0
+  PUBLIC_FAILS=0
+  while sleep 30; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent already dead — wait -n in the main shell will handle it.
+      break
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
+      FAILS=0
+    else
+      FAILS=$((FAILS + 1))
+      echo "[watchdog] Agent health probe failed (count=$FAILS)"
+      if [ $FAILS -ge 3 ]; then
+        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
+        kill -9 $AGENT_PID 2>/dev/null || true
+        break
+      fi
+    fi
+
+    # Public front door guard.
+    if curl -fsS --max-time 5 "http://127.0.0.1:\${PORT}/api/health" > /dev/null 2>&1; then
+      PUBLIC_FAILS=0
+    else
+      PUBLIC_FAILS=$((PUBLIC_FAILS + 1))
+      echo "[watchdog] Public /api/health probe failed on port \${PORT} (count=$PUBLIC_FAILS)"
+      if [ $PUBLIC_FAILS -ge 3 ]; then
+        WEDGE_ENV="\${RAILWAY_ENVIRONMENT_NAME:-$(hostname)}"
+        echo "[watchdog] Public port \${PORT} unresponsive for ~90s — killing PID $NEXTJS_PID to trigger container restart"
+        # LOUD alert before we kill. Never let a failed or absent webhook
+        # crash the watchdog — only attempt if the var is set, swallow errors.
+        if [ -n "$SLACK_WEBHOOK_OSS_ALERTS" ]; then
+          curl -fsS -m 10 -X POST -H 'Content-type: application/json' \\
+            --data "{\\"text\\":\\"[${args.slug}] env=\${WEDGE_ENV} public \\$PORT (\${PORT}) /api/health unresponsive ~90s — restarting (Next.js PID $NEXTJS_PID)\\"}" \\
+            "$SLACK_WEBHOOK_OSS_ALERTS" > /dev/null 2>&1 || true
+        fi
+        kill -9 $NEXTJS_PID 2>/dev/null || true
+        break
+      fi
+    fi
+  done
+) &
+WATCHDOG_PID=$!
+
+trap 'kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true' EXIT
 
 # Wait for either process to exit
-wait -n
+wait -n $AGENT_PID $NEXTJS_PID
 exit $?
 `;
 }
