@@ -181,6 +181,7 @@ describe("create-integration scaffolder", () => {
   // stayed green when the template's webhook var was renamed. So run the real
   // generator into a tmpdir and read what a new integration would actually get.
   let entrypoint = "";
+  let entrypointPath = "";
   let healthRoute = "";
 
   beforeAll(() => {
@@ -212,7 +213,8 @@ describe("create-integration scaffolder", () => {
       },
     );
     const pkg = path.join(out, "watchdog-probe");
-    entrypoint = fs.readFileSync(path.join(pkg, "entrypoint.sh"), "utf8");
+    entrypointPath = path.join(pkg, "entrypoint.sh");
+    entrypoint = fs.readFileSync(entrypointPath, "utf8");
     healthRoute = fs.readFileSync(
       path.join(pkg, "src/app/api/health/route.ts"),
       "utf8",
@@ -222,8 +224,11 @@ describe("create-integration scaffolder", () => {
   it("emits a runnable entrypoint", () => {
     expect(entrypoint).toMatch(/^#!\/bin\/bash/);
     // Proves the emitted shell parses — a template with a quoting slip would
-    // otherwise ship broken to every new integration.
-    execFileSync("bash", ["-n", "/dev/stdin"], { input: entrypoint });
+    // otherwise ship broken to every new integration. Check the file the
+    // generator wrote, not stdin: `bash -n /dev/stdin` exits 126 on the CI
+    // runner, which made this assertion fail for a reason unrelated to the
+    // shell it was meant to check.
+    execFileSync("bash", ["-n", entrypointPath], { stdio: "pipe" });
   });
 
   it("emits the agent probe", () => {
