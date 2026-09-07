@@ -615,6 +615,30 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
 
       const actions = this.params?.actions;
+
+      // These tools are advertised to the model and then never executed: the
+      // machinery that ran them (remote-actions.ts, remote-action-constructors.ts,
+      // agui-action.ts) was removed in v1.50.0 and only the parameters were kept.
+      // The model calls the tool, `execute` resolves `undefined`,
+      // `JSON.stringify(undefined)` is not a string, and the emitted
+      // TOOL_CALL_RESULT loses its required `content` — which reaches the caller
+      // as a Zod validation error in the browser (#2915, #3198). Fail at
+      // construction instead of at the first tool call.
+      if (actions || this.params?.mcpServers?.length) {
+        throw new CopilotKitMisuseError({
+          message:
+            "`actions` and `mcpServers` on the v1 `CopilotRuntime` no longer execute. " +
+            "Their executor was removed in v1.50.0, so the tools would be offered to the " +
+            "model and then return nothing, breaking the response.\n\n" +
+            "Server-side tools: define them on the agent instead.\n" +
+            '  import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";\n' +
+            '  new CopilotRuntime({ agents: { default: new BuiltInAgent({ model: "...", tools: [defineTool({ ... })] }) } })\n\n' +
+            "MCP servers: pass them to the agent, which creates and closes a client per run.\n" +
+            '  new BuiltInAgent({ model: "...", mcpServers: [{ type: "sse", url: "..." }] })\n\n' +
+            "See https://docs.copilotkit.ai/docs/integrations/built-in-agent/mcp-servers",
+        });
+      }
+
       if (actions) {
         const mcpTools = await this.getToolsFromMCP();
         agentsList = this.assignToolsToAgents(agentsList, [
