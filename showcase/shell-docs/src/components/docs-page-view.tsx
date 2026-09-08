@@ -415,6 +415,12 @@ export async function DocsPageView({
                         // TAB_DEFAULTS_BY_SLUG) fall through to the MDX
                         // `default` and the component's first-label
                         // fallback unchanged.
+                        //
+                        // Pass this as `urlDefault`, NOT by overwriting
+                        // `default`: <Tabs> ranks a persisted pick above
+                        // the author's `default` but below the URL, and
+                        // it can only tell the two apart if they arrive
+                        // on separate props.
                         Tabs: (props: {
                           groupId?: string;
                           default?: string;
@@ -427,10 +433,7 @@ export async function DocsPageView({
                             props.groupId,
                           );
                           return (
-                            <DocsTabs
-                              {...props}
-                              default={urlDefault ?? props.default}
-                            >
+                            <DocsTabs {...props} urlDefault={urlDefault}>
                               {props.children}
                             </DocsTabs>
                           );
