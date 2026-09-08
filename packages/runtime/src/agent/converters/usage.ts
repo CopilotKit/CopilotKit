@@ -1,3 +1,5 @@
+import type { BaseEvent } from "@ag-ui/client";
+
 export interface AgentRunUsage {
   provider?: string;
   model?: string;
@@ -9,7 +11,7 @@ export interface AgentRunUsage {
 }
 
 export interface AgentRunFinishedDetails {
-  finishReason?: string;
+  metadata?: BaseEvent["metadata"];
   usage?: AgentRunUsage[];
 }
 
@@ -61,14 +63,16 @@ export function aggregateRunUsage(
   }
 }
 
-/** Copies standard AG-UI terminal usage into a run-level accumulator. */
+/** Keeps the latest AG-UI terminal metadata and accumulates usage across runs. */
 export function collectStandardRunFinishedDetails(
   event: Record<string, unknown>,
   details: AgentRunFinishedDetails,
   fallbackIdentity: { provider?: string; model?: string } = {},
 ): void {
-  if (typeof event.finishReason === "string") {
-    details.finishReason = event.finishReason;
+  if (isRecord(event.metadata)) {
+    details.metadata = { ...event.metadata };
+  } else {
+    delete details.metadata;
   }
 
   if (!Array.isArray(event.usage)) return;

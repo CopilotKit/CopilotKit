@@ -39,7 +39,7 @@ function lifecycleBatch(
     outputTokens?: number;
     totalTokens?: number;
   }>,
-  finishReason?: RunFinishedEvent["finishReason"],
+  metadata?: RunFinishedEvent["metadata"],
 ): TestEvent[] {
   return [
     {
@@ -53,7 +53,7 @@ function lifecycleBatch(
       threadId: "inner-thread",
       runId,
       ...(usage ? { usage } : {}),
-      ...(finishReason !== undefined ? { finishReason } : {}),
+      ...(metadata !== undefined ? { metadata } : {}),
     } as RunFinishedEvent,
   ];
 }
@@ -72,7 +72,7 @@ async function emitBatch(
   runId: string,
   middle: readonly TestEvent[],
   usage?: Parameters<typeof lifecycleBatch>[2],
-  finishReason?: Parameters<typeof lifecycleBatch>[3],
+  metadata?: Parameters<typeof lifecycleBatch>[3],
 ): Promise<void> {
   const input: RunAgentInput = {
     threadId: agent.threadId,
@@ -90,7 +90,7 @@ async function emitBatch(
     input,
   };
 
-  for (const event of lifecycleBatch(runId, middle, usage, finishReason)) {
+  for (const event of lifecycleBatch(runId, middle, usage, metadata)) {
     await subscriber.onEvent?.({ ...params, event });
     switch (event.type) {
       case EventType.RUN_STARTED:
@@ -201,57 +201,96 @@ test("managed runAgentLoop aggregates token usage across agent iterations", asyn
   });
 });
 
-test("managed runAgentLoop preserves the latest inner finish reason", async () => {
+test.each([
+  { finishReason: "stop", traceId: "last-turn" },
+  { traceId: "last-turn" },
+  undefined,
+])(
+  "managed runAgentLoop forwards the latest inner metadata: %j",
+  async (metadata) => {
+    let agent!: FakeAgent;
+    agent = new FakeAgent([
+      (subscriber) =>
+        emitBatch(subscriber, agent, "inner-run-1", [], undefined, {
+          finishReason: "length",
+          previousTurn: true,
+        }),
+      (subscriber) =>
+        emitBatch(subscriber, agent, "inner-run-2", [], undefined, metadata),
+    ]);
+    const { renderer } = setupRenderer();
+    const ingestedEvents: BaseEvent[] = [];
+    const echo: ChannelTool = {
+      name: "echo",
+      description: "Return the value.",
+      parameters: z.object({ value: z.string() }),
+      handler: ({ value }) => value,
+    };
+
+    // Force a second iteration without depending on streamed tool-call content.
+    let calls = 0;
+    renderer.getCapturedToolCalls = () =>
+      calls++ === 0
+        ? [
+            {
+              toolCallId: "tool-call-1",
+              toolCallName: "echo",
+              toolCallArgs: { value: "ok" },
+            },
+          ]
+        : [];
+
+    await runAgentLoop({
+      agent,
+      renderer,
+      tools: new Map([["echo", echo]]),
+      toolDescriptors: [],
+      context: [],
+      makeToolCtx: () => {
+        throw new Error("tool context is not used by this test");
+      },
+      subscriber: {
+        onEvent: ({ event }) => {
+          ingestedEvents.push(event);
+        },
+      },
+      canonicalRun,
+    });
+
+    const finished = ingestedEvents.at(-1);
+    expect(finished).toMatchObject({ type: EventType.RUN_FINISHED });
+    expect(finished).not.toHaveProperty("finishReason");
+    expect(finished?.metadata).toEqual(metadata);
+  },
+);
+
+test("managed runAgentLoop captures metadata before the inner agent completes", async () => {
+  const metadata = { finishReason: "stop", traceId: "captured-trace" };
   let agent!: FakeAgent;
   agent = new FakeAgent([
-    (subscriber) =>
-      emitBatch(subscriber, agent, "inner-run-1", [], undefined, "length"),
-    (subscriber) =>
-      emitBatch(subscriber, agent, "inner-run-2", [], undefined, "stop"),
+    async (subscriber) => {
+      await emitBatch(subscriber, agent, "inner-run", [], undefined, metadata);
+      metadata.finishReason = "length";
+      metadata.traceId = "changed-after-event";
+    },
   ]);
-  const { renderer } = setupRenderer();
-  const ingestedEvents: BaseEvent[] = [];
-  const echo: ChannelTool = {
-    name: "echo",
-    description: "Return the value.",
-    parameters: z.object({ value: z.string() }),
-    handler: ({ value }) => value,
-  };
-
-  // Force a second iteration without depending on streamed tool-call content.
-  let calls = 0;
-  renderer.getCapturedToolCalls = () =>
-    calls++ === 0
-      ? [
-          {
-            toolCallId: "tool-call-1",
-            toolCallName: "echo",
-            toolCallArgs: { value: "ok" },
-          },
-        ]
-      : [];
+  const { renderer, renderedFinishMetadata } = setupRenderer();
 
   await runAgentLoop({
     agent,
     renderer,
-    tools: new Map([["echo", echo]]),
+    tools: new Map(),
     toolDescriptors: [],
     context: [],
     makeToolCtx: () => {
       throw new Error("tool context is not used by this test");
     },
-    subscriber: {
-      onEvent: ({ event }) => {
-        ingestedEvents.push(event);
-      },
-    },
     canonicalRun,
   });
 
-  expect(ingestedEvents.at(-1)).toMatchObject({
-    type: EventType.RUN_FINISHED,
-    finishReason: "stop",
-  });
+  expect(renderedFinishMetadata).toEqual([
+    { finishReason: "stop", traceId: "captured-trace" },
+  ]);
 });
 
 function setupRenderer(
@@ -687,7 +726,11 @@ test("inner RUN_ERROR becomes one canonical outer RUN_ERROR", async () => {
 test("managed renderer finalization sees runner metadata without replacing canonical RUN_FINISHED", async () => {
   let agent!: FakeAgent;
   agent = new FakeAgent([
-    (subscriber) => emitBatch(subscriber, agent, "inner-run", []),
+    (subscriber) =>
+      emitBatch(subscriber, agent, "inner-run", [], undefined, {
+        finishReason: "stop",
+        traceId: "inner-trace",
+      }),
   ]);
   const { renderer, renderedFinishMetadata } = setupRenderer({
     failOnFinish: true,
@@ -710,7 +753,7 @@ test("managed renderer finalization sees runner metadata without replacing canon
     subscriber: {
       onEvent: ({ event }) => {
         if (event.type === EventType.RUN_FINISHED) {
-          event.metadata = runnerMetadata;
+          event.metadata = { ...event.metadata, ...runnerMetadata };
         }
         ingestedEvents.push(event);
       },
@@ -733,5 +776,7 @@ test("managed renderer finalization sees runner metadata without replacing canon
       )
       .map(({ type }) => type),
   ).toEqual([EventType.RUN_STARTED, EventType.RUN_FINISHED]);
-  expect(renderedFinishMetadata).toEqual([runnerMetadata]);
+  expect(renderedFinishMetadata).toEqual([
+    { finishReason: "stop", traceId: "inner-trace", ...runnerMetadata },
+  ]);
 });

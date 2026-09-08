@@ -610,18 +610,23 @@ function collectTanStackRunFinishedDetails(
 ): void {
   if (!details) return;
 
-  if (typeof event.finishReason === "string") {
-    details.finishReason = event.finishReason;
-  }
-
   const fallbackIdentity = {
     provider: getNonEmptyString(event.provider),
     model: getNonEmptyString(event.model),
   };
+  collectStandardRunFinishedDetails(event, details, fallbackIdentity);
+
+  // TanStack's native finish reason becomes AG-UI terminal metadata.
+  if (typeof event.finishReason === "string") {
+    details.metadata = {
+      ...details.metadata,
+      finishReason: event.finishReason,
+    };
+  }
+
   const usage = event.usage;
 
   if (Array.isArray(usage)) {
-    collectStandardRunFinishedDetails(event, details, fallbackIdentity);
     return;
   }
 
