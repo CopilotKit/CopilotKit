@@ -1,7 +1,7 @@
 import { REGISTRY_TO_D5 } from "./helpers/d5-feature-mapping.js";
 import type { D5FeatureType } from "./helpers/d5-registry.js";
 
-export type RunnableFrontend = "react" | "angular";
+export type RunnableFrontend = "react" | "angular" | "vue";
 
 interface FrontendCatalogCellInput {
   id: string;
@@ -56,7 +56,11 @@ export function buildFrontendMatrix(
 
   const seen = new Set<string>();
   const matrix = runnable.map((cell): FrontendMatrixCell => {
-    if (cell.frontend !== "react" && cell.frontend !== "angular") {
+    if (
+      cell.frontend !== "react" &&
+      cell.frontend !== "angular" &&
+      cell.frontend !== "vue"
+    ) {
       throw new Error(
         `runnable cell "${cell.id}" uses unsupported frontend "${cell.frontend}"`,
       );
@@ -116,10 +120,13 @@ function baseWithoutTrailingSlash(value: string): string {
 /** Resolve one matrix cell to the exact framework-specific browser route. */
 export function urlForFrontendCell(
   cell: FrontendMatrixCell,
-  bases: { angularBaseUrl: string; reactBaseUrl: string },
+  bases: { angularBaseUrl: string; integrationBaseUrl: string },
 ): string {
   if (cell.frontend === "angular") {
     return `${baseWithoutTrailingSlash(bases.angularBaseUrl)}/angular/${cell.feature}`;
   }
-  return `${baseWithoutTrailingSlash(bases.reactBaseUrl)}/demos/${cell.feature}`;
+  if (cell.frontend === "vue") {
+    return `${baseWithoutTrailingSlash(bases.integrationBaseUrl)}/vue/${cell.feature}`;
+  }
+  return `${baseWithoutTrailingSlash(bases.integrationBaseUrl)}/demos/${cell.feature}`;
 }
