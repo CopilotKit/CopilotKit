@@ -25,6 +25,7 @@ import { z } from "zod";
 
 import { forwardingFetch } from "./header-forwarding.js";
 import {
+  APP_CATALOG_ID,
   buildA2uiOperations,
   DYNAMIC_A2UI_SYSTEM_PROMPT,
   parseRenderA2uiArguments,
@@ -36,7 +37,6 @@ dotenv.config({ path: resolve(agentDir, "../../.env") });
 dotenv.config();
 
 const AIMOCK_CONTEXT = "strands-typescript";
-const APP_CATALOG_ID = "copilotkit://app-dashboard-catalog";
 const FLIGHT_SURFACE_ID = "flight-search-results";
 const FLIGHT_SCHEMA = JSON.parse(
   readFileSync(
