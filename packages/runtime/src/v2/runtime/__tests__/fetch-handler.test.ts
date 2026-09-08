@@ -823,11 +823,12 @@ function setupInspectorMetadataRoute() {
   return { getInspectorMetadata, metadata, runtime };
 }
 
-function setupInspectorLearningRoute(debug = false) {
+function setupInspectorLearningRoute(debug = false, configured = true) {
   const intelligence = new CopilotKitIntelligence({
     apiUrl: "https://api.example.com",
     wsUrl: "wss://ws.example.com",
     apiKey: "server-api-key",
+    getLearningContainerId: configured ? () => "checkout" : undefined,
   });
   const snapshot = {
     schemaVersion: 1,
@@ -953,6 +954,28 @@ test("advertises and serves Inspector Learning without debug or a handler opt-in
   );
   expect(learning.status).toBe(200);
   expect(await learning.json()).toEqual(snapshot);
+});
+
+test("does not advertise or proxy Learning without container assignment configuration", async () => {
+  const { runtime, getInspectorLearning } = setupInspectorLearningRoute(
+    false,
+    false,
+  );
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
+  const info = await handler(
+    get("https://runtime.example/api/copilotkit/info"),
+  );
+  const data = await info.json();
+  expect(data.inspectorLearning).not.toBe(true);
+  expect(data.intelligence).toBeDefined();
+  const response = await handler(
+    get("https://runtime.example/api/copilotkit/inspector-learning"),
+  );
+  expect(response.status).toBe(404);
+  expect(getInspectorLearning).not.toHaveBeenCalled();
 });
 
 test("keeps Inspector Learning unavailable for runtimes without a web identity resolver", async () => {

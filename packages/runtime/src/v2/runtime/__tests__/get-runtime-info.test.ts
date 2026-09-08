@@ -607,15 +607,21 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.intelligence).toEqual({
       wsUrl: "wss://runtime.example/client",
     });
-    expect(data).toHaveProperty("inspectorLearning", true);
+    expect(data.inspectorLearning).not.toBe(true);
   });
 
-  it("advertises Inspector Learning without debug mode or an opt-in", async () => {
+  it("advertises configured Learning without debug mode or an opt-in and does not invoke the selector", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+    const selector = vi.fn(() => "support");
+    vi.spyOn(runtime.intelligence, "ɵgetLearningContainerId").mockReturnValue(
+      selector,
+    );
     const response = await handleGetRuntimeInfo({
-      runtime: createIntelligenceRuntimeLike(),
+      runtime,
       request: mockRequest,
     });
     expect(await response.json()).toHaveProperty("inspectorLearning", true);
+    expect(selector).not.toHaveBeenCalled();
   });
 
   it("should return a2uiEnabled: true when runtime has a2ui configured", async () => {

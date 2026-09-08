@@ -3,6 +3,7 @@ import {
   parseInspectorLearningSnapshotV1,
 } from "@copilotkit/shared";
 import type { CopilotRuntimeLike } from "../core/runtime";
+import { hasLearningContainerConfiguration } from "../core/learning";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
@@ -26,7 +27,10 @@ export async function handleInspectorLearning({
   readonly runtime: CopilotRuntimeLike;
   readonly request: Request;
 }): Promise<Response> {
-  if (!isIntelligenceRuntime(runtime)) {
+  if (
+    !isIntelligenceRuntime(runtime) ||
+    !hasLearningContainerConfiguration(runtime)
+  ) {
     return errorResponse(404, "Not found");
   }
   const user = await resolveIntelligenceUser({ runtime, request });

@@ -31,7 +31,10 @@ function learningRuntime(): CopilotRuntimeLike {
   return {
     mode: "intelligence",
     identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "Ada" }),
-    intelligence: { getInspectorLearning: vi.fn().mockResolvedValue(snapshot) },
+    intelligence: {
+      getInspectorLearning: vi.fn().mockResolvedValue(snapshot),
+      ɵgetLearningContainerId: () => () => "container-1",
+    },
   } as unknown as CopilotRuntimeLike;
 }
 
