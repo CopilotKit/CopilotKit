@@ -385,6 +385,74 @@ function supportedBlockProps(kind: BlockKindName): BlockQueryProp[] {
 }
 
 /** One sentence naming what a kind DOES take, so the refusal is correctable. */
+/**
+ * Where to send the model when a prop it asked for is not on this kind.
+ *
+ * "Pick the kind that does honour it" is only actionable if the refusal SAYS
+ * which kind that is — and it is actively misleading when the rejected props
+ * live on DIFFERENT kinds, because swapping to the kind that honours one gets
+ * refused on the other. That is a live dead end, not a hypothetical: "revenue
+ * vs plan for this quarter" wants a trailing window (`months`, trendLine) AND
+ * a plan comparison (`compare`, metricTile), no one block carries both, and
+ * the model ping-ponged between the two kinds until it gave up. So: name the
+ * honouring kind per prop, and when they disagree, say plainly that one block
+ * cannot do it and that the unrendered half belongs in the sentence.
+ */
+function redirectForUnsupported(
+  kind: BlockKindName,
+  unsupported: BlockQueryProp[],
+  present: BlockQueryProp[],
+): string {
+  const honouredBy = (prop: BlockQueryProp): BlockKindName[] =>
+    (Object.keys(BLOCK_KIND_PROPS) as BlockKindName[]).filter(
+      (candidate) =>
+        candidate !== kind && supportedBlockProps(candidate).includes(prop),
+    );
+
+  const routes = unsupported.map((prop) => ({ prop, kinds: honouredBy(prop) }));
+  const homeless = routes.filter((r) => r.kinds.length === 0);
+  const placed = routes.filter((r) => r.kinds.length > 0);
+
+  const sentences: string[] = [];
+  for (const { prop, kinds } of placed) {
+    sentences.push(`A ${kinds.join(" or ")} renders "${prop}".`);
+  }
+  if (homeless.length > 0) {
+    const names = homeless.map((r) => `"${r.prop}"`).join(" or ");
+    sentences.push(`No block kind renders ${names} at all.`);
+  }
+
+  // THE LOAD-BEARING HALF. Swapping kinds is only advice worth taking if some
+  // kind honours EVERYTHING the spec asked for. When none does — `compare`
+  // lives on metricTile, `months` on trendLine — "pick the kind that honours
+  // it" walks the model from one refusal into the other, forever. So check the
+  // whole requested set, not just the rejected half, and when nothing carries
+  // it, say so and send the remainder to the sentence instead.
+  const carriesEverything = (Object.keys(BLOCK_KIND_PROPS) as BlockKindName[])
+    .filter((candidate) => candidate !== kind)
+    .some((candidate) => {
+      const supports = new Set<string>(supportedBlockProps(candidate));
+      return present.every((prop) => supports.has(prop));
+    });
+
+  if (!carriesEverything) {
+    sentences.push(
+      `No single block carries all of ${present
+        .map((p) => `"${p}"`)
+        .join(" and ")} together, so choose one — render the block for the ` +
+        `part you lead with, and say the rest in your sentence rather than ` +
+        `calling render_metric_block again for it.`,
+    );
+  } else {
+    sentences.push(
+      `Call render_metric_block again without ${unsupported
+        .map((p) => `"${p}"`)
+        .join(" or ")}, or with the kind named above.`,
+    );
+  }
+  return sentences.join(" ");
+}
+
 function describeSupportedProps(kind: BlockKindName): string {
   const supported = supportedBlockProps(kind);
   if (supported.length === 0) {
@@ -466,8 +534,12 @@ export const renderMetricBlockTool = defineTool({
         message:
           `A "${spec.kind}" block does not render ${named}, so nothing was ` +
           `rendered rather than a block quietly ignoring it. ` +
-          `${describeSupportedProps(spec.kind)} Call render_metric_block ` +
-          `again without ${named}, or pick the kind that does honour it.`,
+          `${describeSupportedProps(spec.kind)} ` +
+          `${redirectForUnsupported(
+            spec.kind,
+            unsupported,
+            BLOCK_QUERY_PROPS.filter((prop) => spec[prop] !== undefined),
+          )}`,
       };
     }
 
@@ -806,6 +878,18 @@ show means several blocks, one call each, each with its own sentence. Rendering
 a block pins NOTHING: it arrives with an "Add to dashboard" control, and the
 dashboards only grow when the operator uses that control OR you call
 pinBlockToDashboard with the blockId render_metric_block gave you.
+
+   PICKING THE KIND. Each kind answers ONE shape of question, and the settings
+   do not travel between them: metricTile = where one metric stands right now,
+   optionally against plan or the prior period (compare); trendLine = one
+   metric ACROSS a window of months (months); varianceBar = actual vs plan
+   broken out per department, and ONLY for a metric that has per-department
+   series. No block does two of these at once. "Revenue vs plan this quarter"
+   asks for a window AND a comparison: render the trendLine for the quarter and
+   state the plan comparison in your sentence (or render the metricTile against
+   plan and say what the quarter did) — pick the half you lead with, say the
+   other half, and do not call render_metric_block a second time hunting for a
+   kind that carries both. There isn't one.
 
 4. ONE BLOCK AT A TIME — NEVER TWO RENDER CALLS IN THE SAME TURN. When a
 request needs several blocks, render them ONE PER TURN: call

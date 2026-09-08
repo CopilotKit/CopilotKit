@@ -1156,3 +1156,52 @@ describe("publish_board_pack", () => {
     });
   });
 });
+
+/**
+ * "Revenue vs plan for this quarter" — the most natural executive question in
+ * the demo, and the one that dead-ended on stage.
+ *
+ * No single kind carries both a trailing window and a plan comparison:
+ * `months` is trendLine-only, `compare` is metricTile-only, and the
+ * actual-vs-plan kind (varianceBar) draws per-department bars a company-wide
+ * metric like revenue does not have. The old refusal told the model to "pick
+ * the kind that does honour it", which sends it to the OTHER kind — where the
+ * OTHER prop is refused. Two identical refusals, no block, dead end.
+ *
+ * The refusal has to name which kind honours each rejected prop AND say that
+ * no one block carries them together, so the model drops one and narrates it
+ * instead of ping-ponging.
+ */
+describe("render_metric_block — props that live on different kinds", () => {
+  it("names the honouring kind for each rejected prop", async () => {
+    const result = (await renderMetricBlockTool.execute!({
+      kind: "trendLine",
+      metricId: "revenue",
+      title: "Revenue vs plan",
+      compare: "plan",
+    })) as Record<string, unknown>;
+    expect(result.error).toBe("UNSUPPORTED_BLOCK_PROP");
+    expect(String(result.message)).toContain('"compare"');
+    // The model cannot act on "pick the kind that does honour it" unless the
+    // refusal says WHICH kind that is.
+    expect(String(result.message)).toContain("metricTile");
+  });
+
+  it("tells the model no single block carries a window AND a comparison", async () => {
+    const result = (await renderMetricBlockTool.execute!({
+      kind: "metricTile",
+      metricId: "revenue",
+      title: "Revenue vs plan this quarter",
+      compare: "plan",
+      months: 3,
+    })) as Record<string, unknown>;
+    expect(result.error).toBe("UNSUPPORTED_BLOCK_PROP");
+    expect(String(result.message)).toContain('"months"');
+    expect(String(result.message)).toContain("trendLine");
+    // The load-bearing half: without this the model swaps kinds and is
+    // refused on `compare` instead, which is exactly the observed loop.
+    expect(String(result.message)).toMatch(
+      /no single block|one block cannot|choose one/i,
+    );
+  });
+});
