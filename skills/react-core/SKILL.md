@@ -13,7 +13,7 @@ description: >
   alias). Load the reference under references/ that matches your task.
 type: framework
 library: copilotkit
-library_version: "1.70.2"
+library_version: "1.70.3"
 requires:
   - copilotkit/runtime
 sources:
