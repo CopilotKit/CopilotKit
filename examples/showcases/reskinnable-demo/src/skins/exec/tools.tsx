@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { departmentLabel } from "@/skins/exec/data/department-label";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { z } from "zod";
@@ -162,6 +163,15 @@ interface PublishRefusal {
  * Each breach is reshaped to metric/department/period only, never the withheld
  * narrative-code vocabulary (which no `Exception` even carries).
  *
+ * BOTH THE METRIC AND THE DEPARTMENT ARE HUMANISED HERE. `metric` always went
+ * through `metricLabel`, but `department` was forwarded as the raw id — so the
+ * demo's climactic refusal read "Burn Rate · all · 2026-08" while the
+ * exception block on the same screen read "Burn Rate · Company-wide". "all"
+ * is the company-wide series, and as a bare word in a sentence it reads like
+ * a bug rather than a scope. Nothing round-trips this field back into a
+ * query — `file_variance_narrative` takes a metric and a period and no
+ * department — so the label is safe to be the only form that leaves here.
+ *
  * Both extras are spread CONDITIONALLY: a `BAD_COUNTERSIGN` refusal answers
  * `{ error }` and nothing else, and this must never grow it a body.
  */
@@ -176,7 +186,7 @@ export function publishRefusalPayload(
       ? {
           breaches: outcome.breaches.map((b) => ({
             metric: metricLabel(metricDefs, b.metricId),
-            department: b.department,
+            department: departmentLabel(b.department),
             period: b.period,
           })),
         }

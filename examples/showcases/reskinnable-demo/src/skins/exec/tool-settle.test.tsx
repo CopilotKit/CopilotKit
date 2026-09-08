@@ -335,12 +335,12 @@ describe("the countersign card's refusal forwarding", () => {
 
     const { container } = render(countersign(JSON.stringify(payload)));
     expect(container.textContent).toMatch(/Two metrics breach/);
-    // The breach list is reshaped to the display trio, and the metric id is
-    // resolved to its label.
+    // The breach list is reshaped to the display trio, and BOTH ids are
+    // resolved to their labels — see `publishRefusalPayload`.
     expect(payload.breaches).toEqual([
       {
         metric: "Operating expense",
-        department: "manufacturing",
+        department: "Manufacturing",
         period: "2024-06",
       },
     ]);
@@ -447,12 +447,46 @@ describe("the countersign card's publish decision", () => {
         breaches: [
           {
             metric: "Operating expense",
-            department: "manufacturing",
+            department: "Manufacturing",
             period: "2024-06",
           },
         ],
       },
     });
+  });
+
+  /**
+   * "all" IS THE ONE THAT HAD TO BE CAUGHT. Every breach the seeded demo
+   * actually refuses on is company-wide, so the raw id that reached the room
+   * at the climax of beat 6 was the bare word "all":
+   *
+   *     Publish refused: …
+   *     Burn Rate · all · 2026-08
+   *
+   * — two inches below an exception block reading "Burn Rate · Company-wide".
+   * `metric` was humanised from the start and `department` was not, which is
+   * exactly the asymmetry this pins. A department key with no label still
+   * falls through as itself, because that path exists to report a query the
+   * ledger could not answer and the raw key is what names it.
+   */
+  it("humanises the department, including the company-wide series", () => {
+    const payload = publishRefusalPayload(
+      {
+        error: "UNEXPLAINED_VARIANCE",
+        breaches: [
+          { metricId: "opex", department: "all", period: "2026-08" },
+          { metricId: "opex", department: "field-services", period: "2026-08" },
+          { metricId: "opex", department: "logistics", period: "2026-08" },
+        ] as unknown as Exception[],
+      },
+      METRIC_DEFS,
+    );
+
+    expect(payload.breaches?.map((b) => b.department)).toEqual([
+      "Company-wide",
+      "Field services",
+      "logistics",
+    ]);
   });
 });
 

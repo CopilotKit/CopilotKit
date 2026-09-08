@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { useExecLedger } from "../data/ledger-context";
 import { DashboardGrid } from "../components/dashboard-grid";
+import { departmentLabel } from "../data/department-label";
 import { reportMissingMetricDef } from "./metric-rows";
 import type {
   BlockSpec,
@@ -29,14 +30,6 @@ import type {
  * derived per-kind from the pinned blocks: unpin the exception block and the
  * agent stops claiming exceptions are on screen.
  */
-
-const DEPARTMENT_LABEL: Record<Department | "all", string> = {
-  manufacturing: "Manufacturing",
-  distribution: "Distribution",
-  "field-services": "Field services",
-  corporate: "Corporate",
-  all: "Company-wide",
-};
 
 function findMetricDef(
   defs: MetricDef[],
@@ -146,7 +139,7 @@ export function ceoReadableExceptions(
 ): CeoReadableException[] {
   return exceptions.map((exception) => ({
     metric: exception.label,
-    department: DEPARTMENT_LABEL[exception.department],
+    department: departmentLabel(exception.department),
     period: exception.period,
     variancePct: Number.isFinite(exception.variancePct)
       ? exception.variancePct

@@ -6,6 +6,7 @@ import { AlertTriangle } from "lucide-react";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { cn } from "@/lib/utils";
 import { useSkinHref } from "@/shell/skin-path";
+import { DEPARTMENT_LABEL } from "../data/department-label";
 import { useExecLedger } from "../data/ledger-context";
 import {
   DEPARTMENT_VALUES,
@@ -43,14 +44,6 @@ import type { Department, MetricId, MetricUnit } from "../data/types";
  * never a hardcoded `/exec/...` path, so the same push works whether this
  * skin is served at `/exec` or, under a `LOCK_SKIN=exec` deploy, at `/`.
  */
-
-const DEPARTMENT_LABEL: Record<Department | "all", string> = {
-  manufacturing: "Manufacturing",
-  distribution: "Distribution",
-  "field-services": "Field services",
-  corporate: "Corporate",
-  all: "Company-wide",
-};
 
 /** The `top` lever's fixed choices. `null` is "no limit". */
 const TOP_OPTIONS: readonly (number | null)[] = [null, 5, 10, 25];

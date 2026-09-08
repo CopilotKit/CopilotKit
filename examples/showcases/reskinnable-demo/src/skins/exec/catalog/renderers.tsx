@@ -23,6 +23,7 @@ import type {
 } from "@copilotkit/a2ui-renderer";
 import { cn } from "@/lib/utils";
 import { useBlockData } from "../block-data";
+import { DEPARTMENT_LABEL, departmentLabel } from "../data/department-label";
 import {
   isBreach,
   latestClosedPeriod,
@@ -68,31 +69,6 @@ const DEPARTMENTS: readonly Department[] = [
   "field-services",
   "corporate",
 ];
-
-const DEPARTMENT_LABEL: Record<Department | "all", string> = {
-  manufacturing: "Manufacturing",
-  distribution: "Distribution",
-  "field-services": "Field services",
-  corporate: "Corporate",
-  all: "Company-wide",
-};
-
-/**
- * A department's display label, falling back to the RAW KEY.
- *
- * `department` is part of the query descriptor the AGENT sends, so a key
- * outside the four seeded departments is reachable — and it lands on the
- * FAILURE path by construction, since no series exists for it. The map lookup
- * yields `undefined` there, and the failure sentence lower-cases it: the one
- * path that exists to REPORT a bad query used to throw on one, taking the
- * whole A2UI surface down instead of showing the block that could not be
- * built. Printing the raw key also keeps the report answerable — "no data for
- * ... at logistics" names what was actually asked for.
- */
-const departmentLabel = (department: string): string =>
-  Object.hasOwn(DEPARTMENT_LABEL, department)
-    ? DEPARTMENT_LABEL[department as Department | "all"]
-    : department;
 
 const MONTH_LABEL = [
   "Jan",
