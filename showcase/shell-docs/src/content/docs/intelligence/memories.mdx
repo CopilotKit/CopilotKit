@@ -215,6 +215,14 @@ for a worked component, and the
 for the exported surface.
 </FrontendOnly>
 
+<FrontendOnly frontend="vue">
+### Vue
+
+`@copilotkit/vue/v2` does not yet export a reactive memory controller equivalent
+to React's `useMemories()`. Use the REST routes below from a trusted backend, or
+let an agent use the MCP tools; do not put a project API key in the browser.
+</FrontendOnly>
+
 ### REST
 
 The memory routes are available to any backend or script holding a runtime

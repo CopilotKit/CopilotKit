@@ -106,7 +106,7 @@ test("Vue and Angular getting-started pages include the Open Inspector step", ()
 
   expect(vue).toContain("open-inspector-step.mdx");
   expect(vue).toContain("<OpenInspectorStep");
-  expect(vue).toContain('show-dev-console="auto"');
+  expect(vue).not.toContain("show-dev-console");
   expect(angular).toContain("open-inspector-step.mdx");
   expect(angular).toContain("<OpenInspectorStep");
   expect(angular).not.toContain("open-inspector-step-angular");

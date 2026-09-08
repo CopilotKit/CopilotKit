@@ -447,6 +447,7 @@ export async function DocsPageView({
                                 defaultFramework ??
                                 (props.integration as string | undefined)
                               }
+                              frontend={frontendOverride ?? "react"}
                             />
                           );
                         },

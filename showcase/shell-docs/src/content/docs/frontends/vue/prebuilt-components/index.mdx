@@ -1,0 +1,72 @@
+---
+title: Prebuilt Components
+icon: "lucide/MessageSquare"
+description: Drop-in Vue chat components with a customization path from CSS to headless composition.
+hideTOC: true
+---
+
+## Prebuilt components for agentic chat
+
+`@copilotkit/vue/v2` ships three chat surfaces: [**CopilotChat**](/vue/prebuilt-components/chat),
+[**CopilotSidebar**](/vue/prebuilt-components/sidebar), and
+[**CopilotPopup**](/vue/prebuilt-components/popup). They share the same chat
+primitives while choosing different layouts. Pick the surface that fits the
+product; each handles streaming messages, tool rendering, suggestions, and
+Vue slot customization.
+
+Use `CopilotThreadsDrawer` beside a supported surface when you need a
+conversation-history drawer, or use `useThreads` to build your own switcher.
+
+## The customization ladder
+
+1. **Drop in a surface.** Render `CopilotChat`, `CopilotSidebar`, or
+   `CopilotPopup` below `CopilotKitProvider`.
+2. **Re-skin with CSS.** Import the Vue stylesheet and override the
+   `[data-copilotkit]` design tokens.
+3. **Recompose with slots.** Replace an empty state, message list, composer,
+   header, or launcher using Vue named and scoped slots.
+4. **Go headless.** Build your layout from `useAgent`, `useCopilotKit`, and
+   the public chat leaf components where needed.
+
+These layers are incremental. A custom welcome-screen slot and CSS token
+overrides can coexist; moving to a custom surface does not require copying the
+runtime connection logic.
+
+## Drop-in chat
+
+Import the Vue CSS once, wrap the application in `CopilotKitProvider`, and put
+the chat surface in the provider's default slot:
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChat agent-id="my-agent" />
+  </CopilotKitProvider>
+</template>
+```
+
+The Vue Showcase currently exposes this `agentic-chat` surface. Other
+prebuilt-component variations do not have a runnable Vue Showcase route yet.
+
+## Starter suggestions
+
+Call `useConfigureSuggestions` inside a child component of
+`CopilotKitProvider`. Its reactive configuration is then available to the
+nearest chat surface.
+
+## Pick a surface
+
+- [`<CopilotChat>`](/vue/prebuilt-components/chat): an inline pane that fills
+  the container you give it.
+- [`<CopilotSidebar>`](/vue/prebuilt-components/sidebar): a collapsible,
+  docked surface.
+- [`<CopilotPopup>`](/vue/prebuilt-components/popup): a floating launcher and
+  overlay chat.
+
+For controlling a popup or sidebar from your own UI, and for feedback actions,
+see [Open, close, and feedback](/vue/prebuilt-components/chat-controls).
