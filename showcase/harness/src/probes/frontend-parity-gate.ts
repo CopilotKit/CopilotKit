@@ -449,24 +449,31 @@ interface FrontendAggregateInput {
 export function frontendParityCellsFromAggregate(
   report: FrontendAggregateInput,
 ): FrontendParityCell[] {
-  return report.cells.map((cell) => {
-    if (cell.frontend !== "react" && cell.frontend !== "angular") {
+  return report.cells.flatMap((cell) => {
+    if (
+      cell.frontend !== "react" &&
+      cell.frontend !== "angular" &&
+      cell.frontend !== "vue"
+    ) {
       throw new Error(`unsupported aggregate frontend ${cell.frontend}`);
     }
     if (cell.status !== "passed" && cell.status !== "failed") {
       throw new Error(`unsupported aggregate status ${cell.status}`);
     }
-    return {
-      frontend: cell.frontend,
-      integration: cell.integration,
-      feature: cell.feature,
-      status: cell.status,
-      sourceCommit: cell.sourceCommit,
-      containerImageRevision: cell.containerImageRevision,
-      fixtureRevision: cell.fixtureRevision,
-      featureContractRevision: cell.featureContractRevision,
-      probeIds: cell.probes.map((probe) => probe.featureType),
-      testIds: cell.testIds,
-    };
+    if (cell.frontend === "vue") return [];
+    return [
+      {
+        frontend: cell.frontend,
+        integration: cell.integration,
+        feature: cell.feature,
+        status: cell.status,
+        sourceCommit: cell.sourceCommit,
+        containerImageRevision: cell.containerImageRevision,
+        fixtureRevision: cell.fixtureRevision,
+        featureContractRevision: cell.featureContractRevision,
+        probeIds: cell.probes.map((probe) => probe.featureType),
+        testIds: cell.testIds,
+      },
+    ];
   });
 }
