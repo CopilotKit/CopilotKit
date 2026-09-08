@@ -54,6 +54,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotA2UIProgress`
 - `CopilotA2UIRecovery`
 - `CopilotA2UIToolRenderer`
+- `CopilotActivity`
 - `CopilotChat`
 - `CopilotChatAddFileButton`
 - `CopilotChatAssistantMessage`
