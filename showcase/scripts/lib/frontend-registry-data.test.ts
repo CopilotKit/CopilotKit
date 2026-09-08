@@ -71,3 +71,20 @@ it("contains no Angular quarantine", () => {
 
   expect(quarantinedFeatures).toEqual([]);
 });
+
+it("activates only the incremental Vue agentic-chat lifecycle", () => {
+  const registry = normalizeFrontendRegistry(
+    frontendRegistryData,
+    featureRegistryData.features,
+  );
+  const vue = registry.frontends.find((frontend) => frontend.id === "vue");
+  const vueDeclarations = Object.entries(registry.feature_support)
+    .filter(([, support]) => support.vue !== undefined)
+    .map(([feature, support]) => [feature, support.vue]);
+
+  expect(vue).toMatchObject({
+    runnable: true,
+    feature_support_required: false,
+  });
+  expect(vueDeclarations).toEqual([["agentic-chat", { state: "supported" }]]);
+});

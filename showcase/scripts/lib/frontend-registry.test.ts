@@ -34,7 +34,7 @@ function validRegistry(): unknown {
         name: "Vue",
         icon: "vue",
         summary: "Vue frontend.",
-        runnable: false,
+        runnable: true,
         feature_support_required: false,
       },
     ],
@@ -42,6 +42,7 @@ function validRegistry(): unknown {
       chat: {
         react: { state: "supported" },
         angular: { state: "supported" },
+        vue: { state: "supported" },
       },
       "cli-start": {
         react: { state: "docs-only" },
@@ -60,6 +61,19 @@ it("returns a complete normalized registry", () => {
   expect(normalizeFrontendRegistry(validRegistry(), features)).toEqual(
     validRegistry(),
   );
+});
+
+it("accepts a runnable frontend with only explicitly supported features", () => {
+  const registry = normalizeFrontendRegistry(validRegistry(), features);
+
+  expect(registry.frontends.find((frontend) => frontend.id === "vue")).toEqual(
+    expect.objectContaining({
+      runnable: true,
+      feature_support_required: false,
+    }),
+  );
+  expect(registry.feature_support.chat.vue).toEqual({ state: "supported" });
+  expect(registry.feature_support["cli-start"]).not.toHaveProperty("vue");
 });
 
 it("rejects a missing active feature declaration", () => {
