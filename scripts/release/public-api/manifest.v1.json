@@ -2638,7 +2638,6 @@
           "runtime",
           "basePath",
           "mode",
-          "inspectorLearning",
           "cors",
           "hooks",
           "activateChannels"
@@ -2676,7 +2675,6 @@
           "mode",
           "cors",
           "hooks",
-          "inspectorLearning",
           "activateChannels"
         ],
         "provenance": {
@@ -2712,7 +2710,6 @@
           "mode",
           "cors",
           "hooks",
-          "inspectorLearning",
           "activateChannels"
         ],
         "provenance": {
@@ -2768,7 +2765,6 @@
           "runtime",
           "basePath",
           "mode",
-          "inspectorLearning",
           "cors",
           "hooks",
           "activateChannels"

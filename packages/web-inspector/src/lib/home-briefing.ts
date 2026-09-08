@@ -123,7 +123,7 @@ export type HomeBriefingInput = {
     type: string;
     timestamp: number;
   };
-  memoriesOn: boolean;
+  learningOn: boolean;
   a2uiOn: boolean;
   openGenUiOn: boolean;
   suggestionsOn: boolean;
@@ -476,7 +476,7 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
       {
         id: "memory",
         label: "Learning",
-        enabled: intelligenceConnected && input.memoriesOn,
+        enabled: intelligenceConnected && input.learningOn,
         docsUrl: SERVICE_DOCS_URL.memory,
       },
       {

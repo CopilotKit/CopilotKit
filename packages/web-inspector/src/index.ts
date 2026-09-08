@@ -7571,7 +7571,7 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingWhatsNewTelemetry();
-          if (this.isOpen && this.selectedMenu === "memories") {
+          if (this.isLearningStatusVisible()) {
             this.clearLearningSnapshot();
             void this.refreshLearningSnapshot({ preserve: false });
           }
@@ -7613,7 +7613,7 @@ export class WebInspectorElement extends LitElement {
               if (identity !== this.learningProjectIdentity) {
                 this.learningProjectIdentity = identity;
                 this.clearLearningSnapshot();
-                if (this.isOpen && this.selectedMenu === "memories") {
+                if (this.isLearningStatusVisible()) {
                   void this.refreshLearningSnapshot({ preserve: false });
                 }
               }
@@ -7849,6 +7849,15 @@ export class WebInspectorElement extends LitElement {
     // first and can select the wrong container. Omit agentId so Intelligence
     // applies its deterministic sole-container / selection-required rules.
     return null;
+  }
+
+  /** Whether a visible surface needs the current Learning connection status. */
+  private isLearningStatusVisible(): boolean {
+    return (
+      this.launcherHudOpen ||
+      (this.isOpen &&
+        (this.selectedMenu === "home" || this.selectedMenu === "memories"))
+    );
   }
 
   private isLearningSetupActive(): boolean {
@@ -8315,8 +8324,7 @@ export class WebInspectorElement extends LitElement {
     }
     if (
       previousLearningAgentId !== learningAgentId &&
-      this.isOpen &&
-      this.selectedMenu === "memories"
+      this.isLearningStatusVisible()
     ) {
       this.clearLearningSnapshot();
       void this.refreshLearningSnapshot({ preserve: false });
@@ -10740,8 +10748,8 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: var(--hud-accent);
-        background: color-mix(in srgb, var(--hud-accent) 76%, transparent);
+        border-color: #087653;
+        background: #087653;
       }
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
@@ -10764,8 +10772,8 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: #6757b0;
-        background: #7563c7;
+        border-color: #087653;
+        background: #087653;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"]
@@ -11886,6 +11894,7 @@ export class WebInspectorElement extends LitElement {
       this.resolveLauncherHudSide();
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
+      void this.refreshLearningSnapshot({ preserve: true });
       this.requestUpdate();
       this.launcherHudIntroEndTimer = setTimeout(() => {
         this.launcherHudIntroEndTimer = null;
@@ -11940,6 +11949,7 @@ export class WebInspectorElement extends LitElement {
     }
     if (this.launcherHudOpen) return;
     this.launcherHudOpen = true;
+    void this.refreshLearningSnapshot({ preserve: true });
     this.requestUpdate();
   }
 
@@ -12609,13 +12619,12 @@ export class WebInspectorElement extends LitElement {
             timestamp: lastRuntimeEvent.timestamp,
           }
         : undefined,
-      // `available` begins optimistic inside the lazy Memory store. Until the
-      // first capability probe has actually settled, showing Learning as on
-      // would be a false positive that corrects itself only after navigation.
-      memoriesOn:
-        this._memorySubscribed &&
-        !this._memoriesLoading &&
-        this._memoriesAvailable,
+      // A capability advertises the endpoint, not a configured Learning
+      // container. Use its successful snapshot for Home and launcher status.
+      learningOn:
+        this.learningSupported &&
+        this.learningError === null &&
+        this.learningSnapshot?.configuration.state === "configured",
       a2uiOn: this._core?.a2uiEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
@@ -15362,7 +15371,7 @@ export class WebInspectorElement extends LitElement {
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
-    if (this.selectedMenu === "memories") {
+    if (this.isLearningStatusVisible()) {
       void this.refreshLearningSnapshot({
         preserve: this.learningSnapshot !== null,
       });
@@ -19870,6 +19879,7 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (key === "home" && previousMenu !== "home") {
+      void this.refreshLearningSnapshot({ preserve: true });
       this.homeViewedThisOpen = false;
     }
 
@@ -19976,7 +19986,7 @@ export class WebInspectorElement extends LitElement {
       this.autoSelectLatestThread();
       if (this.selectedMenu === "playground") {
         this.startPlaygroundSession(false);
-      } else if (this.selectedMenu === "memories") {
+      } else if (this.isLearningStatusVisible()) {
         this.clearLearningSnapshot();
         void this.refreshLearningSnapshot({ preserve: false });
       }
