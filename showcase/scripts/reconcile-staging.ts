@@ -721,7 +721,47 @@ function isRetryableRailwayReadStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
-function isRetryableTransportError(error: unknown, phase: "fetch" | "body") {
+function hasRetryableTransportSignature(error: TypeError): boolean {
+  if (
+    /^(failed to fetch|fetch failed|terminated)$/i.test(error.message) ||
+    /^networkerror when attempting to fetch resource\.?$/i.test(
+      error.message,
+    ) ||
+    /^the operation (was )?aborted\.?$/i.test(error.message) ||
+    /^the operation timed out\.?$/i.test(error.message)
+  ) {
+    return true;
+  }
+
+  const cause = error.cause;
+  if (cause === null || typeof cause !== "object") return false;
+
+  const code = (cause as { code?: unknown }).code;
+  if (
+    typeof code === "string" &&
+    (code.startsWith("UND_ERR_") ||
+      [
+        "ENOTFOUND",
+        "ECONNRESET",
+        "ECONNREFUSED",
+        "ETIMEDOUT",
+        "EAI_AGAIN",
+      ].includes(code))
+  ) {
+    return true;
+  }
+
+  const message = (cause as { message?: unknown }).message;
+  return (
+    typeof message === "string" &&
+    (/^(failed to fetch|fetch failed|terminated)$/i.test(message) ||
+      /^networkerror when attempting to fetch resource\.?$/i.test(message) ||
+      /^the operation (was )?aborted\.?$/i.test(message) ||
+      /^the operation timed out\.?$/i.test(message))
+  );
+}
+
+function isRetryableTransportError(error: unknown) {
   if (error instanceof DOMException) {
     return (
       error.name === "AbortError" ||
@@ -730,8 +770,7 @@ function isRetryableTransportError(error: unknown, phase: "fetch" | "body") {
     );
   }
   if (!(error instanceof TypeError)) return false;
-  if (phase === "fetch") return true;
-  return /fetch failed|network|terminated|timeout|aborted/i.test(error.message);
+  return hasRetryableTransportSignature(error);
 }
 
 function railwayReadRetryDelay(attempt: number): Promise<void> {
@@ -791,7 +830,7 @@ export async function liveFetchDeployedDigest(
     } catch (e) {
       if (
         attempt < RAILWAY_DEPLOYMENTS_QUERY_ATTEMPTS &&
-        isRetryableTransportError(e, "fetch")
+        isRetryableTransportError(e)
       ) {
         await railwayReadRetryDelay(attempt);
         continue;
@@ -826,7 +865,7 @@ export async function liveFetchDeployedDigest(
     } catch (e) {
       if (
         attempt < RAILWAY_DEPLOYMENTS_QUERY_ATTEMPTS &&
-        isRetryableTransportError(e, "body")
+        isRetryableTransportError(e)
       ) {
         await railwayReadRetryDelay(attempt);
         continue;

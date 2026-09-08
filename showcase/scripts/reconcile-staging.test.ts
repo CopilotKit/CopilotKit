@@ -741,6 +741,39 @@ describe("liveFetchDeployedDigest Railway read retry", () => {
     },
   );
 
+  it("does not retry fetch-phase request-construction TypeErrors", async () => {
+    const invalidHeaderMessages = [
+      'Headers.append: "Bearer bad\\nheader" is an invalid header value.',
+      'Headers.append: "Bearer bad\\nnetwork" is an invalid header value.',
+    ];
+
+    for (const message of invalidHeaderMessages) {
+      const fetchSpy = vi.fn().mockRejectedValue(new TypeError(message));
+      vi.stubGlobal("fetch", fetchSpy);
+      const slackSpy = vi.fn(async () => true);
+
+      const summary = await reconcileStaging({
+        services: ["showcase-ag2"],
+        fetchDeployedDigest: (serviceId, environmentId) =>
+          liveFetchDeployedDigest("bad\nheader", serviceId, environmentId),
+        fetchLatestDigest: async () => DIGEST_B,
+        redeployStaging: vi.fn(),
+        postSlackAlert: slackSpy,
+        log: () => {},
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(summary.unconfirmed.map((u) => u.service)).toEqual([
+        "showcase-ag2",
+      ]);
+      expect(summary.errors[0]?.error).toContain("invalid header value");
+      expect(slackSpy).toHaveBeenCalledTimes(1);
+      expect(reconcileExitCode(summary)).not.toBe(0);
+
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("exhausts retryable 503s through reconcileStaging as unconfirmed with Slack and non-zero exit", async () => {
     vi.useFakeTimers();
     const fetchSpy = vi
