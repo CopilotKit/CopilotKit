@@ -9,6 +9,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type {
+  InspectorLearningSnapshotV1,
   IntelligenceRuntimeInfo,
   RuntimeLicenseStatus,
   ThreadEndpointRuntimeInfo,
@@ -27,16 +28,79 @@ const ENABLED_ENDPOINTS = {
   realtimeMetadata: false,
 } satisfies ThreadEndpointRuntimeInfo;
 
+function learningSnapshotForState(
+  state:
+    | "success"
+    | "no-threads"
+    | "landing"
+    | "setup-error"
+    | "selection-required",
+): InspectorLearningSnapshotV1 {
+  const configuration: InspectorLearningSnapshotV1["configuration"] =
+    state === "landing"
+      ? { state: "not_configured" }
+      : state === "setup-error"
+        ? { state: "invalid", reason: "instrumentation" }
+        : state === "selection-required"
+          ? { state: "selection_required" }
+          : {
+              state: "configured",
+              container: { id: "container", name: "Learning" },
+            };
+  const skills =
+    state === "success"
+      ? [
+          {
+            id: "skill",
+            name: "Verify orders",
+            description: "Verify an order before proposing a refund.",
+            revision: 1,
+            skillMd: "# Verify orders",
+            sourceInsight: null,
+          },
+        ]
+      : [];
+  return {
+    schemaVersion: 1,
+    projectKey: "project",
+    snapshotVersion: "snapshot",
+    webAppOrigin: "https://app.copilotkit.ai",
+    configuration,
+    pendingThreadCount: 0,
+    pendingCandidateCount: 0,
+    run: {
+      hasActiveRun: false,
+      hasEverSucceeded: state === "success",
+      latest: null,
+    },
+    skillsPage: {
+      page: 1,
+      pageSize: 3,
+      total: skills.length,
+      totalPages: skills.length,
+      items: skills,
+    },
+    insightsPage: { page: 1, pageSize: 4, total: 0, totalPages: 0, items: [] },
+    links: {
+      learning: "https://app.copilotkit.ai/learning",
+      candidates: null,
+      runs: null,
+    },
+  };
+}
+
 type Options = Readonly<{
   endpoints?: ThreadEndpointRuntimeInfo;
   intelligence?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
+  learningResponse?: () => Promise<Response>;
 }>;
 
 class HudTestCore extends CopilotKitCore {
   private readonly endpointsValue: ThreadEndpointRuntimeInfo | undefined;
   private readonly intelligenceValue: IntelligenceRuntimeInfo | undefined;
   private readonly licenseStatusValue: RuntimeLicenseStatus | undefined;
+  private readonly learningSupported: boolean;
 
   constructor(options: Options) {
     super({
@@ -50,6 +114,7 @@ class HudTestCore extends CopilotKitCore {
         ? { wsUrl: "wss://intelligence.launcher-hud.test" }
         : undefined;
     this.licenseStatusValue = options.licenseStatus;
+    this.learningSupported = options.learningResponse !== undefined;
   }
 
   override get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
@@ -62,6 +127,10 @@ class HudTestCore extends CopilotKitCore {
 
   override get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.licenseStatusValue;
+  }
+
+  override get inspectorLearning(): boolean {
+    return this.learningSupported;
   }
 
   async emitStatus(
@@ -139,6 +208,7 @@ async function settle(inspector: WebInspectorElement): Promise<void> {
 
 async function setup(options: Options = {}): Promise<{
   inspector: WebInspectorElement;
+  core: HudTestCore;
   openHud: () => Promise<void>;
   clickHud: (row: string) => Promise<void>;
   pressLauncher: () => Promise<void>;
@@ -156,6 +226,11 @@ async function setup(options: Options = {}): Promise<{
         ).href;
         if (href === ANNOUNCEMENT_URL) {
           return new Response(null, { status: 404 });
+        }
+        if (new URL(href).pathname === "/inspector-learning") {
+          return (
+            options.learningResponse?.() ?? new Response(null, { status: 404 })
+          );
         }
         return new Response(null, { status: 404 });
       }),
@@ -209,8 +284,100 @@ async function setup(options: Options = {}): Promise<{
     await settle(inspector);
   };
 
-  return { inspector, openHud, clickHud, pressLauncher };
+  return { inspector, core, openHud, clickHud, pressLauncher };
 }
+
+test.each(["success", "no-threads"] as const)(
+  "configured Learning (%s) enables the HUD and Home before opening Learning",
+  async (state) => {
+    const memoryStore = vi.spyOn(CopilotKitCore.prototype, "getMemoryStore");
+    const { inspector, openHud, pressLauncher } = await setup({
+      intelligence: true,
+      learningResponse: async () =>
+        Response.json(learningSnapshotForState(state)),
+    });
+    await openHud();
+    await vi.waitFor(() => {
+      expect(
+        root(inspector)
+          .querySelector('[data-cpk-hud-toggle="learning"]')
+          ?.getAttribute("data-enabled"),
+      ).toBe("true");
+    });
+    await pressLauncher();
+    requireElement(
+      root(inspector).querySelector<HTMLButtonElement>(
+        '[data-inspector-menu-key="home"]',
+      ),
+    ).click();
+    await settle(inspector);
+    expect(
+      root(inspector)
+        .querySelector('[data-inspector-service="memory"]')
+        ?.getAttribute("data-state"),
+    ).toBe("on");
+    expect(memoryStore).not.toHaveBeenCalled();
+  },
+);
+
+test.each(["landing", "setup-error", "selection-required"] as const)(
+  "Learning endpoint support alone does not enable %s",
+  async (state) => {
+    const response = vi.fn(async () =>
+      Response.json(learningSnapshotForState(state)),
+    );
+    const { inspector, openHud } = await setup({
+      intelligence: true,
+      learningResponse: response,
+    });
+    await openHud();
+    await vi.waitFor(() => expect(response).toHaveBeenCalled());
+    await settle(inspector);
+    expect(
+      root(inspector)
+        .querySelector('[data-cpk-hud-toggle="learning"]')
+        ?.getAttribute("data-enabled"),
+    ).toBe("false");
+  },
+);
+
+test("Learning finishes loading after closing Inspector and clears on reconnect", async () => {
+  let resolveResponse!: (response: Response) => void;
+  const response = vi.fn(
+    () =>
+      new Promise<Response>((resolve) => {
+        resolveResponse = resolve;
+      }),
+  );
+  const { inspector, core, openHud, pressLauncher } = await setup({
+    intelligence: true,
+    learningResponse: response,
+  });
+  await openHud();
+  await vi.waitFor(() => expect(response).toHaveBeenCalled());
+  const toggle = () =>
+    root(inspector)
+      .querySelector('[data-cpk-hud-toggle="learning"]')
+      ?.getAttribute("data-enabled");
+  expect(toggle()).toBe("false");
+  await pressLauncher();
+  requireElement(
+    root(inspector).querySelector<HTMLButtonElement>(
+      'button[aria-label="Close Web Inspector"]',
+    ),
+  ).click();
+  await settle(inspector);
+  await openHud();
+  resolveResponse(Response.json(learningSnapshotForState("success")));
+  await vi.waitFor(() => expect(toggle()).toBe("true"));
+  await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Disconnected);
+  await settle(inspector);
+  expect(toggle()).toBe("false");
+  await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Connected);
+  resolveResponse(Response.json(learningSnapshotForState("landing")));
+  await settle(inspector);
+  expect(toggle()).toBe("false");
+});
 
 test("the HUD stays closed during the initial page-settle delay", async () => {
   const { inspector } = await setup();

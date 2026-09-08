@@ -7571,10 +7571,10 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingWhatsNewTelemetry();
-          if (this.isOpen && this.selectedMenu === "memories") {
-            this.clearLearningSnapshot();
-            void this.refreshLearningSnapshot({ preserve: false });
-          }
+          // Home and the closed launcher's status need the same configuration
+          // as Learning, even before the user visits that pane.
+          this.clearLearningSnapshot();
+          void this.refreshLearningSnapshot({ preserve: false });
           if (
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
@@ -7613,9 +7613,7 @@ export class WebInspectorElement extends LitElement {
               if (identity !== this.learningProjectIdentity) {
                 this.learningProjectIdentity = identity;
                 this.clearLearningSnapshot();
-                if (this.isOpen && this.selectedMenu === "memories") {
-                  void this.refreshLearningSnapshot({ preserve: false });
-                }
+                void this.refreshLearningSnapshot({ preserve: false });
               }
               this.requestUpdate();
             },
@@ -7678,6 +7676,9 @@ export class WebInspectorElement extends LitElement {
         maybeShowDisclosure();
       }
       this.flushPendingWhatsNewTelemetry();
+      if (!this.learningLoading) {
+        void this.refreshLearningSnapshot({ preserve: false });
+      }
     }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
@@ -8313,13 +8314,11 @@ export class WebInspectorElement extends LitElement {
         agentId: learningAgentId,
       });
     }
-    if (
-      previousLearningAgentId !== learningAgentId &&
-      this.isOpen &&
-      this.selectedMenu === "memories"
-    ) {
+    if (previousLearningAgentId !== learningAgentId) {
       this.clearLearningSnapshot();
-      void this.refreshLearningSnapshot({ preserve: false });
+      if (this.runtimeStatus === "connected") {
+        void this.refreshLearningSnapshot({ preserve: false });
+      }
     }
     this.refreshToolsSnapshot();
     this.requestUpdate();
@@ -11940,6 +11939,13 @@ export class WebInspectorElement extends LitElement {
     }
     if (this.launcherHudOpen) return;
     this.launcherHudOpen = true;
+    if (
+      this.runtimeStatus === "connected" &&
+      !this.learningLoading &&
+      !this.learningRefreshing
+    ) {
+      void this.refreshLearningSnapshot({ preserve: true });
+    }
     this.requestUpdate();
   }
 
@@ -12609,13 +12615,11 @@ export class WebInspectorElement extends LitElement {
             timestamp: lastRuntimeEvent.timestamp,
           }
         : undefined,
-      // `available` begins optimistic inside the lazy Memory store. Until the
-      // first capability probe has actually settled, showing Learning as on
-      // would be a false positive that corrects itself only after navigation.
+      // Endpoint support alone does not mean a container is configured. Use
+      // Learning's authoritative snapshot, not the legacy Memory store probe.
       memoriesOn:
-        this._memorySubscribed &&
-        !this._memoriesLoading &&
-        this._memoriesAvailable,
+        this.learningSupported &&
+        this.learningSnapshot?.configuration.state === "configured",
       a2uiOn: this._core?.a2uiEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
@@ -15411,7 +15415,7 @@ export class WebInspectorElement extends LitElement {
 
     this.isOpen = false;
     this.cancelLearningPoll();
-    this.cancelLearningRequest();
+    // The closed launcher still needs the pending configuration response.
     this.learningViewedState = null;
 
     // Remove docking styles when closing
@@ -19866,7 +19870,7 @@ export class WebInspectorElement extends LitElement {
     } else if (previousMenu === "memories") {
       this.learningViewedState = null;
       this.cancelLearningPoll();
-      this.cancelLearningRequest();
+      // Let an in-flight snapshot finish: Home and the launcher also use it.
     }
 
     if (key === "home" && previousMenu !== "home") {
@@ -19976,8 +19980,9 @@ export class WebInspectorElement extends LitElement {
       this.autoSelectLatestThread();
       if (this.selectedMenu === "playground") {
         this.startPlaygroundSession(false);
-      } else if (this.selectedMenu === "memories") {
-        this.clearLearningSnapshot();
+      }
+      this.clearLearningSnapshot();
+      if (this.runtimeStatus === "connected") {
         void this.refreshLearningSnapshot({ preserve: false });
       }
     }
