@@ -1,44 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup } from "@testing-library/react";
 import * as store from "../data/store";
-import {
-  ExceptionFeedStrip,
-  ceoReadableExceptions,
-  visibleExceptions,
-} from "./ceo-dashboard";
+import { ceoReadableExceptions, visibleExceptions } from "./ceo-dashboard";
 import type { VisibleException } from "./ceo-dashboard";
 
 /**
- * BEAT 3b's fixed exception strip, and specifically the color it paints a
- * breach.
+ * The CEO dashboard's page readable — the JSON the agent reads to answer
+ * "what am I looking at?".
  *
- * Every card `ExceptionFeedStrip` renders is, by construction, a breach —
- * `data/store.ts`'s `exceptions()` only ever includes points whose |variance|
- * exceeds their metric's threshold, in either direction (see `isBreach`,
- * `data/derive.ts`). It shipped colored by the SIGN of `variancePct` instead
- * (positive → `text-positive`, i.e. green), so an over-plan breach — a
- * department that spent well past its opex plan, say — rendered as good news
- * on this strip while the Metrics Explorer colors that identical number red
- * via its own `row.breaching` (`./metrics-explorer.tsx`). A breach is bad
- * regardless of sign, and the two screens must agree.
- *
- * next/link renders as a plain anchor so jsdom needs no router, mirroring
- * `src/skins/keel/components/playbook-card.test.tsx`.
+ * There is no component under test here any more: the fixed exception strip
+ * and initiative RYG strip came off the page (see `./ceo-dashboard.tsx`'s
+ * header) because the seeded dashboard already pins an `exceptionList` and an
+ * `initiativeTable` block, so the page rendered both sets of rows twice. What
+ * survives is the pair of pure functions that turn the ledger into the rows
+ * the readable publishes, and the rule they enforce: the readable must say
+ * what the SCREEN says.
  */
-vi.mock("next/link", () => ({
-  default: ({
-    href,
-    children,
-    ...props
-  }: {
-    href: string;
-    children: React.ReactNode;
-  }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}));
 
 afterEach(() => cleanup());
 
@@ -67,59 +44,10 @@ const UNDER_PLAN_BREACH: VisibleException = {
   variancePct: -0.2,
 };
 
-describe("ExceptionFeedStrip", () => {
-  it("colors an over-plan (positive-variance) breach with the alert treatment, not the positive one", () => {
-    render(
-      <ExceptionFeedStrip
-        exceptions={[OVER_PLAN_BREACH]}
-        skinHref={(path) => `/exec${path ? `/${path}` : ""}`}
-      />,
-    );
-    const value = screen.getByText("+12.0%");
-    expect(value.className).toContain("text-negative");
-    expect(value.className).not.toContain("text-positive");
-  });
-
-  it("also colors an under-plan (negative-variance) breach with the alert treatment", () => {
-    render(
-      <ExceptionFeedStrip
-        exceptions={[UNDER_PLAN_BREACH]}
-        skinHref={(path) => `/exec${path ? `/${path}` : ""}`}
-      />,
-    );
-    const value = screen.getByText("-20.0%");
-    expect(value.className).toContain("text-negative");
-  });
-
-  /**
-   * THE DRILL-IN. Each card is a link into the Metrics Explorer with that
-   * card's OWN levers pre-set — department, period, and the threshold filter —
-   * and it goes through the injected `skinHref` so a `LOCK_SKIN=exec` deploy
-   * resolves it too. A card that linked to a bare `metrics` would land the CEO
-   * on an unfiltered 14-metric table with no trace of the row they clicked.
-   */
-  it("drills into the Metrics Explorer with the card's own metric, department, period and threshold filter", () => {
-    render(
-      <ExceptionFeedStrip
-        exceptions={[OVER_PLAN_BREACH, UNDER_PLAN_BREACH]}
-        skinHref={(path) => `/base${path ? `/${path}` : ""}`}
-      />,
-    );
-
-    const [opex, dso] = screen.getAllByRole("link");
-    expect(opex.getAttribute("href")).toBe(
-      "/base/metrics?department=distribution&period=2024-06&threshold=1&metric=opex",
-    );
-    expect(dso.getAttribute("href")).toBe(
-      "/base/metrics?department=all&period=2024-06&threshold=1&metric=dsoDays",
-    );
-  });
-});
-
 /**
  * THE READABLE SAYS WHAT THE CARD SAYS.
  *
- * The strip renders `formatVariance(variancePct)` — "+12.0%" — while the
+ * The block renders `formatVariance(variancePct)` — "+12.0%" — while the
  * readable published the bare `0.12` fraction, so an assistant asked to read
  * the exception feed out loud said "zero point one two". That is the rule
  * keel's `deriveRegisterKpiTiles` states and the sibling Metrics Explorer
@@ -130,7 +58,7 @@ describe("ExceptionFeedStrip", () => {
  * And a metric planned at zero divides by zero (`variancePct`, `../data/derive`),
  * giving `Infinity` or `NaN` — neither of which JSON can hold. `JSON.stringify`
  * turns both into `null`, so the readable told the agent the variance was
- * unknown while the card on screen plainly read "— n/a". The raw field is
+ * unknown while the row on screen plainly read "— n/a". The raw field is
  * nulled DELIBERATELY here and the display string carries the answer.
  */
 describe("ceoReadableExceptions", () => {

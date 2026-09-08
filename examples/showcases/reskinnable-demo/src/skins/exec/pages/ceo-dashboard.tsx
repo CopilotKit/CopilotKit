@@ -1,17 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
 import { useAgentContext } from "@copilotkit/react-core/v2";
-import { cn } from "@/lib/utils";
-import { useSkinHref } from "@/shell/skin-path";
 import { useExecLedger } from "../data/ledger-context";
 import { DashboardGrid } from "../components/dashboard-grid";
-import { execNavTarget } from "../nav-target";
 import { reportMissingMetricDef } from "./metric-rows";
 import type {
+  BlockSpec,
   Department,
-  Initiative,
   LedgerSnapshot,
   MetricDef,
   MetricId,
@@ -20,12 +16,18 @@ import type {
 /**
  * The CEO dashboard — Vantage's index page.
  *
- * Two FIXED strips sit above the customizable pinned-block grid
- * (`DashboardGrid`, `../components/dashboard-grid`): the exception feed (this
- * period's breaches) and the initiative RYG strip. Unlike a pinned block,
- * neither is agent-configurable or removable — they read straight off
- * `useExecLedger().snapshot` so they are always current and never depend on
- * anything having been pinned.
+ * NOTHING BUT THE PINNED-BLOCK GRID (`DashboardGrid`,
+ * `../components/dashboard-grid`). Two fixed strips used to sit above it — an
+ * exception feed and an initiative RYG strip — but the seeded dashboard also
+ * pins an `exceptionList` and an `initiativeTable` block, so the page opened
+ * showing both sets of rows twice, once in chrome the agent cannot touch and
+ * once in a block it can. For a demo whose entire claim is "the assistant
+ * composes this page", static duplicates of the composable blocks were the
+ * strongest possible argument against it.
+ *
+ * The page readable below therefore reports what the GRID shows, and is
+ * derived per-kind from the pinned blocks: unpin the exception block and the
+ * agent stops claiming exceptions are on screen.
  */
 
 const DEPARTMENT_LABEL: Record<Department | "all", string> = {
@@ -34,26 +36,6 @@ const DEPARTMENT_LABEL: Record<Department | "all", string> = {
   "field-services": "Field services",
   corporate: "Corporate",
   all: "Company-wide",
-};
-
-/**
- * ONE carrier for status, not three. These cards used to stack a 40%-opacity
- * wash, a 4px coloured left edge AND the pill below — three signals saying the
- * same word, which on the dark theme muddied the surface until the tinted
- * cards read as a different material from every other card on the page. The
- * pill is the carrier; the card keeps a hairline edge tinted to match, which
- * is enough to scan a row by colour without repainting the surface.
- */
-const INITIATIVE_STATUS_STYLE: Record<Initiative["status"], string> = {
-  red: "border-negative/40",
-  yellow: "border-brand/40",
-  green: "border-positive/40",
-};
-
-const INITIATIVE_STATUS_PILL: Record<Initiative["status"], string> = {
-  red: "bg-negative-soft text-negative",
-  yellow: "bg-brand-soft text-brand",
-  green: "bg-positive-soft text-positive",
 };
 
 function findMetricDef(
@@ -174,141 +156,24 @@ export function ceoReadableExceptions(
   }));
 }
 
-/**
- * The card's drill-in target: the Metrics Explorer, narrowed to the row the
- * reader actually pointed at.
- *
- * The card names a METRIC and a department ("Opex · Distribution"), but the
- * link carried only the department, period and breaches-only toggle — so the
- * click landed on every metric that department has and the one row it was
- * about was somewhere in the list. `execNavTarget` (`../nav-target`) is the
- * AGENT's navigation vocabulary and carries no `metric` argument, so the key
- * is appended to its output here rather than the four shared levers being
- * re-composed alongside it: those four still have exactly one composer.
- */
-function exceptionDrillIn(exception: VisibleException): string {
-  const target = execNavTarget({
-    segment: "metrics",
-    department: exception.department,
-    period: exception.period,
-    threshold: true,
-  });
-  const [path, existing = ""] = target.split("?");
-  const params = new URLSearchParams(existing);
-  params.set("metric", exception.metricId);
-  return `${path}?${params.toString()}`;
-}
-
-export function ExceptionFeedStrip({
-  exceptions,
-  skinHref,
-}: {
-  exceptions: VisibleException[];
-  /** Built from `useSkinHref("exec")` — every in-skin link goes through it. */
-  skinHref: (path?: string) => string;
-}) {
-  if (exceptions.length === 0) {
-    return (
-      <div className="mb-4 rounded-xl border border-dashed border-hairline bg-surface-muted px-4 py-3 text-sm text-ink-muted">
-        No exceptions this period — everything is within threshold.
-      </div>
-    );
-  }
-  return (
-    <div className="mb-4 flex gap-3 overflow-x-auto pb-1">
-      {exceptions.map((exception) => (
-        <Link
-          key={`${exception.metricId}-${exception.department}`}
-          href={skinHref(exceptionDrillIn(exception))}
-          className="flex min-w-[13rem] flex-none flex-col gap-1 rounded-xl border border-hairline bg-surface px-3 py-2 shadow-soft transition-shadow hover:shadow-lift"
-        >
-          <span className="truncate text-[0.65rem] font-medium uppercase tracking-[0.1em] text-ink-muted">
-            {exception.label} · {DEPARTMENT_LABEL[exception.department]}
-          </span>
-          <div className="flex items-baseline justify-between gap-2">
-            {/*
-              Every card in this strip is, by construction, a BREACH —
-              `data/store.ts`'s `exceptions()` only ever includes points past
-              `isBreach`'s |variance| threshold, in either direction — so this
-              is never "good news, colored red": it is always the metric the
-              CEO needs to look at. It shipped colored by SIGN instead
-              (`variancePct > 0` → positive/green), which painted an
-              over-plan breach (e.g. opex running hot) the SAME green as an
-              on-plan metric, while the Metrics Explorer colors that identical
-              number red via `row.breaching` (`./metrics-explorer.tsx`) — two
-              screens disagreeing about whether the same figure is bad. The
-              sign itself still shows, via `formatVariance`; only the color
-              is now "this breached" rather than "this was positive".
-            */}
-            <span className="text-sm font-semibold tabular-nums text-negative">
-              {formatVariance(exception.variancePct)}
-            </span>
-            <span className="text-[0.65rem] text-ink-muted">
-              {exception.explained ? "Explained" : "Unexplained"}
-            </span>
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function InitiativeRygStrip({ initiatives }: { initiatives: Initiative[] }) {
-  if (initiatives.length === 0) {
-    return (
-      <div className="mb-5 rounded-xl border border-dashed border-hairline bg-surface-muted px-4 py-3 text-sm text-ink-muted">
-        No initiatives tracked.
-      </div>
-    );
-  }
-  return (
-    <div className="mb-5 flex flex-wrap gap-2">
-      {initiatives.map((initiative) => (
-        <div
-          key={initiative.id}
-          className={cn(
-            "flex min-w-[15rem] max-w-xs flex-1 flex-col gap-0.5 rounded-lg border border-hairline bg-surface px-3 py-2 shadow-soft",
-            INITIATIVE_STATUS_STYLE[initiative.status],
-          )}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="line-clamp-2 text-sm font-medium text-ink">
-              {initiative.name}
-            </span>
-            <span
-              className={cn(
-                "flex-none rounded-full px-2 py-0.5 text-[0.6rem] font-medium uppercase tracking-[0.1em]",
-                INITIATIVE_STATUS_PILL[initiative.status],
-              )}
-            >
-              {initiative.status}
-            </span>
-          </div>
-          <span className="truncate text-xs text-ink-muted">
-            {initiative.owner}
-          </span>
-          {initiative.note ? (
-            <span className="line-clamp-2 text-[0.72rem] text-ink-muted">
-              {initiative.note}
-            </span>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function CeoDashboardPage() {
   const { snapshot } = useExecLedger();
-  // Every in-skin link goes through `useSkinHref` — never a hardcoded
-  // `/exec/...` — so the exception feed's drill-in links resolve correctly
-  // under a `LOCK_SKIN=exec` deploy too.
-  const skinHref = useSkinHref("exec");
 
   const dashboard = snapshot.dashboards.ceo;
 
-  // One list, built once: the strip below RENDERS it and the readable REPORTS
-  // it, so the agent can never describe a feed the screen isn't showing.
+  // WHICH KINDS ARE ACTUALLY PINNED. The readable below claims to describe
+  // what is on screen, and since the fixed strips came off this page that is
+  // no longer guaranteed by the page itself — a reader can unpin either block.
+  // Reporting rows from a block that is not there is the one failure this
+  // readable exists to prevent: the agent confidently reading out an exception
+  // feed the CEO is not looking at.
+  const pinnedKinds = useMemo(
+    () => new Set<BlockSpec["kind"]>(dashboard.blocks.map((b) => b.spec.kind)),
+    [dashboard],
+  );
+
+  // One list, built once, and the SAME rows the pinned `exceptionList` block
+  // renders — see `visibleExceptions`, whose test pins that agreement.
   //
   // MEMOIZED on the snapshot, because `visibleExceptions` is a linear
   // `findMetricDef` scan of `metricDefs` PER exception — quadratic in the
@@ -318,37 +183,55 @@ export function CeoDashboardPage() {
 
   // ── WHAT IS VISIBLY ON SCREEN ─────────────────────────────────────────────
   // Not the whole ledger — the pinned block titles in the order the grid
-  // renders them, the exception rows actually shown in the feed strip above,
-  // and every initiative's status, in the order the RYG strip shows them.
-  // That distinction is the beat: the agent describing what the CEO can
-  // literally see right now, not a static page description.
+  // renders them, plus the rows of the two blocks whose contents an assistant
+  // is likely to be asked to read out loud, each reported ONLY when its block
+  // is actually pinned. That distinction is the beat: the agent describing
+  // what the CEO can literally see right now, not a static page description.
   useAgentContext({
     description:
       "The CEO dashboard the user is currently viewing: the pinned block " +
-      "titles in the order shown, the exception feed rows (metric, " +
-      "department and variance) actually on screen, and every tracked " +
-      "initiative's status, in the order shown. Each exception's " +
-      "`varianceDisplay` is the string that card shows — quote that rather " +
-      "than the raw `variancePct` fraction beside it, which is `null` " +
-      "whenever the figure cannot be ranked (a metric planned at zero) and " +
-      'the card reads "— n/a".',
+      "titles in the order shown, and — only when the corresponding block is " +
+      "pinned — the exception rows (metric, department and variance) and " +
+      "tracked initiatives on screen. An absent or empty list means those " +
+      "rows are NOT on this screen, not that the ledger has none. Each " +
+      "exception's `varianceDisplay` is the string that block shows — quote " +
+      "that rather than the raw `variancePct` fraction beside it, which is " +
+      "`null` whenever the figure cannot be ranked (a metric planned at " +
+      'zero) and the block reads "— n/a".',
     value: JSON.stringify({
       page: "ceo-dashboard",
       pinnedBlocks: dashboard.blocks.map((block) => block.spec.title),
-      exceptions: ceoReadableExceptions(exceptions),
-      initiatives: snapshot.initiatives.map((initiative) => ({
-        name: initiative.name,
-        owner: initiative.owner,
-        status: initiative.status,
-        note: initiative.note,
-      })),
+      exceptions: pinnedKinds.has("exceptionList")
+        ? ceoReadableExceptions(exceptions)
+        : [],
+      initiatives: pinnedKinds.has("initiativeTable")
+        ? snapshot.initiatives.map((initiative) => ({
+            name: initiative.name,
+            owner: initiative.owner,
+            status: initiative.status,
+            note: initiative.note,
+          }))
+        : [],
     }),
   });
 
   return (
     <div className="mx-auto max-w-6xl">
-      <ExceptionFeedStrip exceptions={exceptions} skinHref={skinHref} />
-      <InitiativeRygStrip initiatives={snapshot.initiatives} />
+      {/*
+        The page's own title, matching `./cfo-dashboard.tsx`'s. It is the one
+        piece of fixed chrome kept when the strips came off: without it the
+        grid started flush against the top and the two dashboards no longer
+        looked like the same screen with a different set of blocks on it.
+      */}
+      <header className="mb-5">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          CEO dashboard
+        </h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Everything here is pinned — ask Vantage for a metric and pin it.
+        </p>
+      </header>
+
       <DashboardGrid dashboardId="ceo" />
     </div>
   );

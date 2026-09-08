@@ -249,8 +249,11 @@ const TEXT_PAIRS: readonly Pair[] = [
       "the active nav item, the metric `Breach` chip, the amber initiative pill, the metrics-explorer filter, the shell selector card",
     sites: [
       `${EXEC}/layout.tsx`,
+      // The initiative pills now render ONLY in the catalog's InitiativeTable
+      // block. `pages/ceo-dashboard.tsx` used to carry a second copy on its
+      // fixed RYG strip; that strip came off the page (see its header), so
+      // citing it here would assert a pair that file no longer paints.
       `${EXEC}/catalog/renderers.tsx`,
-      `${EXEC}/pages/ceo-dashboard.tsx`,
       `${EXEC}/pages/metrics-explorer.tsx`,
       "shell/layout/selector-card.tsx",
     ].map((file) => ({
@@ -286,11 +289,8 @@ const TEXT_PAIRS: readonly Pair[] = [
   {
     fg: "--positive",
     bg: { token: "--positive-soft" },
-    label: "the green initiative status pill on both dashboards",
-    sites: [
-      `${EXEC}/catalog/renderers.tsx`,
-      `${EXEC}/pages/ceo-dashboard.tsx`,
-    ].map((file) => ({
+    label: "the green initiative status pill in the InitiativeTable block",
+    sites: [`${EXEC}/catalog/renderers.tsx`].map((file) => ({
       file,
       pattern: /\bbg-positive-soft\b[^"]*\btext-positive\b/,
     })),
@@ -345,7 +345,6 @@ const TEXT_PAIRS: readonly Pair[] = [
       "the red initiative pill, the missing-tile banner, the ledger's failure banner",
     sites: [
       `${EXEC}/catalog/renderers.tsx`,
-      `${EXEC}/pages/ceo-dashboard.tsx`,
       `${EXEC}/data/ledger-context.tsx`,
     ].map((file) => ({
       file,
