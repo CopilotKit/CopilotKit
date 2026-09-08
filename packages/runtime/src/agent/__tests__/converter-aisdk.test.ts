@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { compactEvents, EventType } from "@ag-ui/client";
+import { EventSchemas } from "@ag-ui/core/schemas";
 import {
   createAgent,
   createDefaultInput,
@@ -553,7 +554,7 @@ describe("AI SDK Converter", () => {
       expect(deltaIdx).toBeGreaterThanOrEqual(0);
       expect(deltaIdx).toBeLessThan(resultIdx);
       expect(eventField<unknown>(events[deltaIdx], "delta")).toEqual(delta);
-      expect(() => compactEvents(events)).toThrow("OPERATION_NOT_AN_OBJECT");
+      expect(EventSchemas.safeParse(events[deltaIdx]).success).toBe(false);
     });
 
     it("state tool result also emits TOOL_CALL_RESULT event", async () => {

@@ -5,18 +5,18 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@ag-ui/a2a': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/a2a-middleware': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/a2ui-middleware': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/encoder': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/langgraph': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/mcp-apps-middleware': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/mcp-middleware': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406
-  '@ag-ui/mcp-middleware>@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+  '@ag-ui/a2a': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/a2a-middleware': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/a2ui-middleware': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/encoder': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/langgraph': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/mcp-apps-middleware': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/mcp-middleware': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@b9751f011fb0701c8a2e349bdfc757071434c782
+  '@ag-ui/mcp-middleware>@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
   streamdown>react: ^19.0.0
   '@types/react': 19.1.8
   '@types/react-dom': ^19.0.2
@@ -101,12 +101,15 @@ importers:
 
   .:
     devDependencies:
+      '@ag-ui/a2ui-toolkit':
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@anthropic-ai/claude-code':
         specifier: 2.1.207
         version: 2.1.207
@@ -228,17 +231,17 @@ importers:
         specifier: ^0.8.1
         version: 0.8.3(signal-polyfill@0.2.2)
       '@ag-ui/a2a':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))
       '@ag-ui/a2a-middleware':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))(rxjs@7.8.1)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/mcp-apps-middleware':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../../../packages/a2ui-renderer
@@ -1053,17 +1056,17 @@ importers:
         specifier: 0.10.4
         version: 0.10.4
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@ag-ui/encoder':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@ag-ui/proto':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@b9751f011fb0701c8a2e349bdfc757071434c782
       '@angular/animations':
         specifier: 22.0.0
         version: 22.0.0(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1))
@@ -1188,9 +1191,12 @@ importers:
 
   examples/v2/angular/demo-server:
     dependencies:
+      '@ag-ui/client':
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/langgraph':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))
       '@ai-sdk/openai':
         specifier: 3.0.36
         version: 3.0.36(zod@3.25.76)
@@ -1223,8 +1229,8 @@ importers:
   examples/v2/angular/storybook:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@angular/animations':
         specifier: 22.0.0
         version: 22.0.0(@angular/core@22.0.0(@angular/compiler@22.0.0)(rxjs@7.8.1)(zone.js@0.15.1))
@@ -1652,11 +1658,11 @@ importers:
   examples/v2/react/demo:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/mcp-apps-middleware':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: 3.0.36
         version: 3.0.36(zod@3.25.76)
@@ -1908,12 +1914,15 @@ importers:
 
   examples/v2/vue/demo:
     dependencies:
+      '@ag-ui/client':
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@ag-ui/mcp-apps-middleware':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../../packages/core
@@ -1989,8 +1998,8 @@ importers:
         version: 3.5.34(typescript@5.8.2)
     devDependencies:
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/typescript-config
@@ -2096,8 +2105,8 @@ importers:
   packages/agentcore-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -2124,11 +2133,11 @@ importers:
   packages/angular:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../a2ui-renderer
@@ -2309,11 +2318,11 @@ importers:
   packages/channels-core:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/channels-ui':
         specifier: workspace:~
         version: link:../channels-ui
@@ -2346,8 +2355,8 @@ importers:
   packages/channels-discord:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
@@ -2377,8 +2386,8 @@ importers:
   packages/channels-intelligence:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
@@ -2396,8 +2405,8 @@ importers:
         version: 1.8.4
     devDependencies:
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/typescript-config':
         specifier: workspace:^
         version: link:../typescript-config
@@ -2420,11 +2429,11 @@ importers:
   packages/channels-slack:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
@@ -2472,11 +2481,11 @@ importers:
   packages/channels-teams:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
@@ -2527,8 +2536,8 @@ importers:
   packages/channels-telegram:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
@@ -2577,8 +2586,8 @@ importers:
   packages/channels-whatsapp:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
@@ -2602,8 +2611,8 @@ importers:
   packages/core:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -2660,8 +2669,8 @@ importers:
   packages/demo-agents:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       openai:
         specifier: ^4.85.1
         version: 4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76)
@@ -2688,11 +2697,11 @@ importers:
   packages/react-core:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../a2ui-renderer
@@ -2863,8 +2872,8 @@ importers:
   packages/react-native:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -3121,26 +3130,26 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(rxjs@7.8.1)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@ag-ui/encoder':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@ag-ui/langgraph':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))
       '@ag-ui/mcp-apps-middleware':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@ag-ui/mcp-middleware':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@e502761554721f76be0c2390f2acda7b624d2406(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@ai-sdk/anthropic':
         specifier: ^3.0.49
         version: 3.0.49(zod@3.25.76)
@@ -3416,9 +3425,12 @@ importers:
 
   packages/sdk-js:
     dependencies:
+      '@ag-ui/client':
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/langgraph':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -3475,11 +3487,11 @@ importers:
   packages/shared:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0
@@ -3539,8 +3551,8 @@ importers:
   packages/sqlite-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -3611,11 +3623,11 @@ importers:
         specifier: 0.10.4
         version: 0.10.4
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@ag-ui/core':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -3765,8 +3777,8 @@ importers:
   packages/web-inspector:
     dependencies:
       '@ag-ui/client':
-        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+        specifier: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+        version: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -4063,71 +4075,71 @@ packages:
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
-  '@ag-ui/a2a-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/a2a-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-YZWD/jLZDl+B3MoH3Jgffa4wOqkI3CSm7jcqFM/uMaWw6er4BSFlFtRwzKDhP8nmpIPwTQ6VrtpZkVpbFACXwQ==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.2
     peerDependencies:
       '@ag-ui/client': '>=0.0.40'
       '@ag-ui/core': '>=0.0.59'
       rxjs: 7.8.1
 
-  '@ag-ui/a2a@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/a2a@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-c692ChS/zoOMx4Rmq84vUYoIH1WksAxysXYDMJ5/mCUy2wCTWqIW1i3EMgZ9zUDMD8kd+OZAak1Fpq6neDq7GQ==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.6
     peerDependencies:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/a2ui-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/a2ui-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-lGNl9e0jagjCUwQEyVTyEjtq5ksa2hO75PnpHwctCpJdxR2lUCjc63Cof9wTIb2PQ/UoHNhuCylyYjhU/LbS8g==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.10
     peerDependencies:
       '@ag-ui/client': '>=0.0.40'
       rxjs: 7.8.1
 
-  '@ag-ui/a2ui-toolkit@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/a2ui-toolkit@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-mp/d5k7ojltW/G7XXA2TyxohnKxhuGklzTb0nHO39+Wm8LS/4/aYU26CBFWhBcxAQEqkNJ2s03qNaXYTGg+PfQ==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.4
 
-  '@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-cASWcAN+DuRJmignJk4YRI++mlk1/AInRJWHUyCOvgWZCmBh0h/mJfeI+H5Z4+nM9KSqEGPwU5KL4z2TyG7nNA==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.59
 
-  '@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-bghFHXgMNVcf3rTk+QytnyLxsVw1RSyGAT6/1EjcFeXwOQQgA6Ng8mrnn2TS8b54kKAw5fLZZJ7PGWemTdt+Sw==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.59
     peerDependencies:
-      zod: '>=3.22.3'
+      zod: ^3.25.18 || ^4.0.0
     peerDependenciesMeta:
       zod:
         optional: true
 
-  '@ag-ui/encoder@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/encoder@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-Ejaa6gicNxgGLSigMtdX8eVwI7Gg6zGI5NDMyqW6AMEuwJYuJJAk4gHb61B2cdOeMAg8Ot+lFA0MtcZas6JHLQ==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.59
 
-  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-683QA+qTR0RBgB0QJBRAWcUm43X6ULhAcz6bOHyRwrKejAvl2m3S9djFvu18u92GJZR5bUCj4qpES4sVmURsZA==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.43
     peerDependencies:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/mcp-apps-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/mcp-apps-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-IdDM5ol4PdyogyuBdgbk+hsKtZCxQYlzFfUTFf30OysGYrwEJ4BF/hEtkn9RJCK+BNQLeUrksaaCiU96cDpHVA==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.2
     peerDependencies:
       '@ag-ui/client': '>=0.0.40'
       rxjs: 7.8.1
 
-  '@ag-ui/mcp-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/mcp-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-a6LFezkK0sSXdxoiCNwxQwlutGCKIdpPj05J2nSIeGziwX6zCj+Gh+8ICImqpL7lHNIDcqQpZoI/eS5zraQLqA==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.1
     peerDependencies:
       rxjs: 7.8.1
 
-  '@ag-ui/proto@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406':
-    resolution: {tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406}
+  '@ag-ui/proto@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@b9751f011fb0701c8a2e349bdfc757071434c782':
+    resolution: {integrity: sha512-KftVatQOylVXuh+N5och27I/ZrE1OtcqdElco+PHS+NnTYE2EfhLzZlQNQJ/FS7kOPPiu3v18RsHjA4EEo89Xg==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@b9751f011fb0701c8a2e349bdfc757071434c782}
     version: 0.0.59
 
   '@ai-sdk/anthropic@2.0.71':
@@ -27289,40 +27301,40 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ag-ui/a2a-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))(rxjs@7.8.1)':
+  '@ag-ui/a2a-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))(rxjs@7.8.1)':
     dependencies:
       '@a2a-js/sdk': 0.2.5
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       ai: 6.0.156(zod@3.25.76)
       rxjs: 7.8.1
       zod: 3.25.76
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2a@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))':
+  '@ag-ui/a2a@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))':
     dependencies:
       '@a2a-js/sdk': 0.2.5
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(rxjs@7.8.1)':
     dependencies:
-      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       clarinet: 0.12.6
       rxjs: 7.8.1
 
-  '@ag-ui/a2ui-toolkit@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406': {}
+  '@ag-ui/a2ui-toolkit@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782': {}
 
-  '@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406':
+  '@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
-      '@ag-ui/encoder': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
-      '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
+      '@ag-ui/encoder': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
+      '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@b9751f011fb0701c8a2e349bdfc757071434c782
       '@types/uuid': 10.0.0
       compare-versions: 6.1.1
       fast-json-patch: 3.1.1
@@ -27331,22 +27343,22 @@ snapshots:
       uuid: 11.1.0
       zod: 3.25.76
 
-  '@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)':
+  '@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)':
     optionalDependencies:
       zod: 3.25.76
 
-  '@ag-ui/encoder@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)':
+  '@ag-ui/encoder@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
-      '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
+      '@ag-ui/proto': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@b9751f011fb0701c8a2e349bdfc757071434c782
     transitivePeerDependencies:
       - zod
 
-  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))':
+  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))':
     dependencies:
-      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
       langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))
@@ -27364,11 +27376,11 @@ snapshots:
       - ws
       - zod-to-json-schema
 
-  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))':
+  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))':
     dependencies:
-      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
       '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
       langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))
@@ -27386,11 +27398,11 @@ snapshots:
       - ws
       - zod-to-json-schema
 
-  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76))(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))':
+  '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@ag-ui/core@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76))(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))':
     dependencies:
-      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+      '@ag-ui/a2ui-toolkit': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))
       langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0))(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.2))
@@ -27408,9 +27420,9 @@ snapshots:
       - ws
       - zod-to-json-schema
 
-  '@ag-ui/mcp-apps-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
+  '@ag-ui/mcp-apps-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@ag-ui/client@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
     dependencies:
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -27418,9 +27430,9 @@ snapshots:
       - supports-color
       - zod
 
-  '@ag-ui/mcp-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@e502761554721f76be0c2390f2acda7b624d2406(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
+  '@ag-ui/mcp-middleware@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@b9751f011fb0701c8a2e349bdfc757071434c782(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
     dependencies:
-      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406
+      '@ag-ui/client': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@b9751f011fb0701c8a2e349bdfc757071434c782
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -27428,9 +27440,9 @@ snapshots:
       - supports-color
       - zod
 
-  '@ag-ui/proto@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406':
+  '@ag-ui/proto@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@b9751f011fb0701c8a2e349bdfc757071434c782':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@bufbuild/protobuf': 2.11.0
       '@protobuf-ts/protoc': 2.11.1
       zod: 3.25.76
@@ -41135,7 +41147,7 @@ snapshots:
 
   '@tanstack/ai@0.14.0(zod@3.25.76)':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@tanstack/ai-event-client': 0.2.8(@tanstack/ai@0.14.0(zod@3.25.76))
       partial-json: 0.1.7
     transitivePeerDependencies:
@@ -41143,7 +41155,7 @@ snapshots:
 
   '@tanstack/ai@0.42.0(@opentelemetry/api@1.9.0)(zod@3.25.76)':
     dependencies:
-      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406(zod@3.25.76)
+      '@ag-ui/core': https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@b9751f011fb0701c8a2e349bdfc757071434c782(zod@3.25.76)
       '@standard-schema/spec': 1.1.0
       '@tanstack/ai-event-client': 0.6.8
       '@tanstack/ai-utils': 0.3.1

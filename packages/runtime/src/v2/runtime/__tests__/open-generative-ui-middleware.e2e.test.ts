@@ -347,7 +347,11 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         (e) => e.type === EventType.ACTIVITY_DELTA,
       ) as ActivityDeltaEvent[];
       expect(secondDeltas).toHaveLength(1);
-      expect(secondDeltas[0].patch[0].value).toContain("chunk2");
+      const chunkOperation = secondDeltas[0].patch[0];
+      expect(chunkOperation.op).toBe("add");
+      if (chunkOperation.op === "add") {
+        expect(chunkOperation.value).toContain("chunk2");
+      }
 
       // Completing the html string should flush remaining + htmlComplete
       emitted.length = 0;
@@ -380,7 +384,8 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         (e) =>
           e.type === EventType.ACTIVITY_DELTA &&
           (e as ActivityDeltaEvent).patch.some(
-            (p) => p.path === "/initialHeight" && p.value === 300,
+            (p) =>
+              p.op === "add" && p.path === "/initialHeight" && p.value === 300,
           ),
       );
       expect(heightDelta).toBeDefined();
@@ -657,7 +662,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
       // htmlComplete should be emitted
       const htmlCompleteDelta = deltas.find((d) =>
-        d.patch.some((p) => p.path === "/htmlComplete" && p.value === true),
+        d.patch.some(
+          (p) =>
+            p.op === "add" && p.path === "/htmlComplete" && p.value === true,
+        ),
       );
       expect(htmlCompleteDelta).toBeDefined();
     });
@@ -808,7 +816,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         { op: "add", path: "/html", value: [] },
       ]);
       const htmlCompleteDelta = deltas.find((d) =>
-        d.patch.some((p) => p.path === "/htmlComplete" && p.value === true),
+        d.patch.some(
+          (p) =>
+            p.op === "add" && p.path === "/htmlComplete" && p.value === true,
+        ),
       );
       expect(htmlCompleteDelta).toBeDefined();
       const jsFuncDelta = deltas.find((d) =>

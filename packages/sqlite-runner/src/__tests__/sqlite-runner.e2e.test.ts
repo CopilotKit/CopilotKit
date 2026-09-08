@@ -1,16 +1,16 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { SqliteAgentRunner } from "..";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
   RunErrorEvent,
   RunFinishedEvent,
   RunStartedEvent,
 } from "@ag-ui/client";
-import { EMPTY, Subscription, firstValueFrom, from } from "rxjs";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Subscription } from "rxjs";
+import { EMPTY, firstValueFrom, from } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 type RunCallbacks = {
@@ -600,7 +600,7 @@ describe("SqliteAgentRunner e2e", () => {
         type: EventType.RUN_STARTED,
         threadId,
         runId,
-        parentRunId: null,
+        parentRunId: "custom-parent-run",
         input: customInput,
       };
 

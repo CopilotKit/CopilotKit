@@ -1,5 +1,6 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
-import { RunAgentInputSchema } from "@ag-ui/client";
+import { normalizeLegacyRunAgentInput } from "@ag-ui/client";
+import { RunAgentInputSchema } from "@ag-ui/core/schemas";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
@@ -242,12 +243,20 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   );
 }
 
+function parseRunAgentInput(value: unknown): RunAgentInput {
+  // With strictNullChecks disabled, Zod infers some required nested fields
+  // (such as image.source) as optional. The schema still validates them.
+  return RunAgentInputSchema.parse(
+    normalizeLegacyRunAgentInput(value),
+  ) as RunAgentInput;
+}
+
 export async function parseRunRequest(
   request: Request,
 ): Promise<RunAgentInput | Response> {
   try {
     const requestBody = await request.json();
-    return RunAgentInputSchema.parse(requestBody);
+    return parseRunAgentInput(requestBody);
   } catch (error) {
     logger.error("Invalid run request body:", error);
     return new Response(
@@ -272,7 +281,7 @@ export async function parseConnectRequest(request: Request): Promise<
 > {
   try {
     const requestBody = await request.json();
-    const input = RunAgentInputSchema.parse(requestBody);
+    const input = parseRunAgentInput(requestBody);
     let lastSeenEventId: string | null = null;
 
     if (

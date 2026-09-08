@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent } from "../index";
 import { compactEvents, EventType } from "@ag-ui/client";
-import type { RunAgentInput } from "@ag-ui/client";
+import { EventSchemas } from "@ag-ui/core/schemas";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import {
   mockStreamTextResponse,
@@ -11,6 +12,26 @@ import {
   finish,
   collectEvents,
 } from "./test-helpers";
+
+function expectUnappliablePatchRecovery(events: BaseEvent[], state: unknown) {
+  const delta = events.find((event) => event.type === EventType.STATE_DELTA);
+  expect(EventSchemas.safeParse(delta).success).toBe(true);
+
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    expect(compactEvents(events)).toContainEqual(
+      expect.objectContaining({
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: state,
+      }),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("[ag-ui][compact] Failed to apply state patch"),
+    );
+  } finally {
+    warn.mockRestore();
+  }
+}
 
 function cloneFallbackCallback() {
   return "keep this reference";
@@ -343,9 +364,7 @@ describe("State Update Tools", () => {
       );
 
       expect(deltaEvent?.delta).toEqual(delta);
-      expect(() => compactEvents(events)).toThrow(
-        "OPERATION_PATH_UNRESOLVABLE",
-      );
+      expectUnappliablePatchRecovery(events, { todos: "not an array" });
     });
 
     it("should preserve malformed entries for downstream validation", async () => {
@@ -366,7 +385,7 @@ describe("State Update Tools", () => {
         type: EventType.STATE_DELTA,
         delta,
       });
-      expect(() => compactEvents(events)).toThrow("OPERATION_NOT_AN_OBJECT");
+      expect(EventSchemas.safeParse(events[deltaIdx]).success).toBe(false);
     });
 
     it("should not synthesize an unknown ancestor", async () => {
@@ -377,7 +396,7 @@ describe("State Update Tools", () => {
       );
 
       expect(deltaEvent?.delta).toEqual(delta);
-      expect(() => compactEvents(events)).toThrow("OPERATION_PATH_CANNOT_ADD");
+      expectUnappliablePatchRecovery(events, {});
     });
 
     it("should clone state when structuredClone cannot clone it", async () => {

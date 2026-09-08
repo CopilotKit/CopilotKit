@@ -5,7 +5,12 @@ import { CopilotChat } from "../../components/chat/CopilotChat";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { AbstractAgent, EventType } from "@ag-ui/client";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  RunAgentInput,
+  RunStartedEvent,
+  RunFinishedEvent,
+} from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { Subject, from, delay } from "rxjs";
 import type {
@@ -225,15 +230,33 @@ export function renderWithCopilotKit({
 /**
  * Helper to create a RUN_STARTED event
  */
-export function runStartedEvent(): BaseEvent {
-  return { type: EventType.RUN_STARTED } as BaseEvent;
+export function runStartedEvent(
+  input: Pick<RunAgentInput, "threadId" | "runId"> = {
+    threadId: "test-thread",
+    runId: "test-run",
+  },
+): RunStartedEvent {
+  return {
+    type: EventType.RUN_STARTED,
+    threadId: input.threadId,
+    runId: input.runId,
+  };
 }
 
 /**
  * Helper to create a RUN_FINISHED event
  */
-export function runFinishedEvent(): BaseEvent {
-  return { type: EventType.RUN_FINISHED } as BaseEvent;
+export function runFinishedEvent(
+  input: Pick<RunAgentInput, "threadId" | "runId"> = {
+    threadId: "test-thread",
+    runId: "test-run",
+  },
+): RunFinishedEvent {
+  return {
+    type: EventType.RUN_FINISHED,
+    threadId: input.threadId,
+    runId: input.runId,
+  };
 }
 
 /**
@@ -571,7 +594,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
     // Use setTimeout to emit events asynchronously through the existing subject
     setTimeout(() => {
       const messageId = testId("suggest-msg");
-      this.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+      this.emit(runStartedEvent(_input));
 
       emitSuggestionToolCall(this, {
         toolCallId: testId("tc"),
@@ -579,7 +602,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
         suggestions: this._shared.suggestions,
       });
 
-      this.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+      this.emit(runFinishedEvent(_input));
       this.complete();
     }, 0);
 
