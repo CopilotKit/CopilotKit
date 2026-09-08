@@ -43,7 +43,7 @@ import { SignupLink } from "@/components/react/signup-link";
 import type { SignupLinkProps } from "@/components/react/signup-link";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
-import { resolveDocsHref } from "@/lib/docs-link-rewrite";
+import { resolveCtaCardHrefs, resolveDocsHref } from "@/lib/docs-link-rewrite";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
@@ -319,6 +319,31 @@ export async function DocsPageView({
                               : props.href;
                           return <CardComp {...props} href={href} />;
                         },
+                        // `<CTACards>` renders its cards through the
+                        // `Card` imported by the registry, so they never
+                        // reach the href-resolving `Card` override
+                        // above. Resolve each card href here instead.
+                        // Without this, a card on
+                        // `/ms-agent-python/human-in-the-loop` links to
+                        // the authored `/human-in-the-loop/...` path,
+                        // which leaves the active framework.
+                        CTACards: (
+                          props: React.ComponentProps<
+                            typeof docsComponents.CTACards
+                          >,
+                        ) => {
+                          const CTACardsComp = docsComponents.CTACards;
+                          return (
+                            <CTACardsComp
+                              {...props}
+                              cards={resolveCtaCardHrefs(props.cards, {
+                                slugHrefPrefix,
+                                frameworkOverride,
+                                frontendOverride,
+                              })}
+                            />
+                          );
+                        },
                         ChannelsStartPrompt: (
                           props: ChannelsStartPromptProps,
                         ) => (
@@ -565,6 +590,26 @@ export async function DocsPageView({
                         ),
                       }}
                       options={{
+                        // next-mdx-remote 6 defaults `blockJS` to true,
+                        // which runs a remark plugin that DELETES every
+                        // JSX attribute whose value is an expression
+                        // (`cards={[...]}`, `icon={<Sparkles />}`) and
+                        // every `{expression}` node. The default
+                        // sandboxes untrusted remote MDX; every source
+                        // here is first-party content from
+                        // `src/content`, so the sandbox only silently
+                        // dropped authored props — a `<CTACards
+                        // cards={[...]} />` reached the component with
+                        // no props at all and rendered an empty grid.
+                        // `blockDangerousJS` keeps its default.
+                        //
+                        // Scoped to this route on purpose. The other
+                        // MDXRemote call sites keep the default; the
+                        // ag-ui tree in particular relies on the
+                        // stripping, because `ag-ui/introduction.mdx`
+                        // authors inline `onMouseEnter={...}` handlers
+                        // that would otherwise reach a server component.
+                        blockJS: false,
                         mdxOptions: {
                           remarkPlugins: [remarkGfm],
                           // Use Fumadocs's Shiki-based `rehypeCode` for

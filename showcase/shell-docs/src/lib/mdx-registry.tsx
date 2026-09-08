@@ -274,6 +274,27 @@ export const ctaIcons: Record<string, React.ComponentType> = {
   share2: Share2,
 };
 
+// Own keys only. A plain `iconKey in ctaIcons` also matches inherited
+// names (`toString`, `constructor`), which resolve to a non-component
+// and break the no-icon fallback above.
+export function ctaIconFor(
+  iconKey: string | undefined,
+): React.ComponentType | undefined {
+  if (!iconKey || !Object.hasOwn(ctaIcons, iconKey)) return undefined;
+  return ctaIcons[iconKey];
+}
+
+// Grid classes per authored `columns` value. Tailwind only emits classes
+// it can find as literal text, so each variant is spelled out instead of
+// interpolated from `columns`. `@container` matches the shared `<Cards>`
+// wrapper so the cards' own container queries resolve the same way.
+const CTA_GRID_COLUMNS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-1 sm:grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+};
+
 export const docsComponents = {
   Callout,
   Cards,
@@ -685,6 +706,12 @@ export const docsComponents = {
   // `EcosystemTable` below: render from the prop when it is supplied,
   // otherwise wrap children so any legacy `<CTACards>...</CTACards>`
   // authoring keeps working.
+  //
+  // Authored `href`s are root-relative docs paths. They only pick up the
+  // active framework prefix when the page-level `CTACards` override in
+  // `docs-page-view.tsx` resolves them, because the cards render through
+  // the `Card` imported here rather than the href-resolving `Card` in
+  // that page's component map.
   CTACards: ({
     cards,
     columns = 2,
@@ -700,25 +727,21 @@ export const docsComponents = {
     children?: React.ReactNode;
   }) => (
     <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${columns}, 1fr)`,
-        gap: "0.75rem",
-        marginBottom: "1rem",
-      }}
+      className={`not-prose @container my-6 grid gap-4 ${
+        CTA_GRID_COLUMNS[columns] ?? CTA_GRID_COLUMNS[2]
+      }`}
     >
       {cards && cards.length > 0
         ? cards.map((card) => {
-            const Icon = card.iconKey ? ctaIcons[card.iconKey] : undefined;
+            const Icon = ctaIconFor(card.iconKey);
             return (
               <Card
                 key={card.href}
                 href={card.href}
                 title={card.title}
+                description={card.description}
                 icon={Icon ? <Icon /> : undefined}
-              >
-                {card.description}
-              </Card>
+              />
             );
           })
         : children}
@@ -769,11 +792,12 @@ export const docsComponents = {
       {children}
     </div>
   ),
-  // `<EcosystemTable data={[...]} />` is used by
-  // `concepts/generative-ui-overview.mdx` to render a 4-column matrix
-  // of generative-UI approaches. There is no partial for this — the
-  // data is supplied inline by the page — so the stub returns a real
-  // table rendered from `props.data` instead of a `<div>`.
+  // `<EcosystemTable data={[...]} />` renders a 4-column matrix of
+  // generative-UI approaches from data the page supplies inline, so the
+  // stub returns a real table rendered from `props.data` instead of a
+  // `<div>`. No content file calls it today: it used to back
+  // `concepts/generative-ui-overview.mdx`, which no longer references
+  // it. Kept as the prop-or-children precedent `CTACards` follows.
   EcosystemTable: ({
     data,
     children,
