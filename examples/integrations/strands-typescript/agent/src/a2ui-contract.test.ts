@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -23,6 +24,16 @@ test("requires the renderer wire contract in the model tool schema", () => {
     DYNAMIC_A2UI_SYSTEM_PROMPT,
     /StatusBadge|InfoRow|PrimaryButton/,
   );
+  const catalogDefinitions = readFileSync(
+    new URL(
+      "../../src/app/declarative-generative-ui/definitions.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  for (const name of DYNAMIC_A2UI_COMPONENT_NAMES) {
+    assert.match(catalogDefinitions, new RegExp(`^  ${name}: \\{`, "m"));
+  }
 });
 
 test("builds create-surface before update-components for a valid surface", () => {

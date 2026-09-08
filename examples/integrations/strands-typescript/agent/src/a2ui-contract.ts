@@ -8,7 +8,6 @@ import { z } from "zod";
 export const APP_CATALOG_ID = "copilotkit://app-dashboard-catalog";
 
 export const DYNAMIC_A2UI_COMPONENT_NAMES = [
-  "Text",
   "Title",
   "Row",
   "Column",
