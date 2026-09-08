@@ -127,13 +127,18 @@ asked for it by name.
 
 Some scopes also depend on the deployment's licence: `analytics:*` needs the
 analytics feature, `memory:*` needs memory, and `learning:*` needs self-learning.
-Both have to allow the read.
+The key's scope and the deployment's licence both have to allow a read; either
+one refusing is enough to refuse it.
 
 <Callout type="warn">
-Secret columns are not reachable at any scope. API key hashes, OAuth client
-secrets, encrypted channel credentials and memory vectors are excluded from the
-projection and withheld at the database grant, so no combination of scopes
-returns them.
+Credential columns are not reachable at any scope. API key hashes, OAuth client
+secrets and encrypted channel credentials are excluded from the projection and
+withheld at the database grant, so no combination of scopes returns them.
+
+Memory vectors are a different case: they are your data, not a credential. They
+are absent from every list and query response because 1024 floats are noise
+inline, and [an export returns them](#exports-carry-your-vectors) with
+`memory:content`.
 </Callout>
 
 ## Reading rows
@@ -465,6 +470,11 @@ you whether trying again can help.
   "traceId": "…"
 }
 ```
+
+Note that the two envelopes key their correlation ids differently: a success
+response nests them as `meta.request_id` and `meta.trace_id`, while an error
+response carries them at the top level as `requestId` and `traceId`. Read both
+spellings if your client logs ids for every response.
 
 | Code | Cause |
 |------|-------|
