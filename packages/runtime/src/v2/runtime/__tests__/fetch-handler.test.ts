@@ -5,6 +5,7 @@ import type {
 import { describe, it, expect, test, vi } from "vitest";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotRuntimeLike } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -822,7 +823,7 @@ function setupInspectorMetadataRoute() {
   return { getInspectorMetadata, metadata, runtime };
 }
 
-function setupInspectorLearningRoute(debug = true) {
+function setupInspectorLearningRoute(debug = false) {
   const intelligence = new CopilotKitIntelligence({
     apiUrl: "https://api.example.com",
     wsUrl: "wss://ws.example.com",
@@ -886,7 +887,6 @@ test.each(["multi-route", "single-route"] as const)(
       runtime,
       basePath: "/api/copilotkit",
       mode,
-      inspectorLearning: true,
       hooks: { onRequest: requireHostAuth },
     });
     const request = (method: string, params?: Record<string, unknown>) =>
@@ -938,41 +938,39 @@ test.each(["multi-route", "single-route"] as const)(
   },
 );
 
-test("keeps Inspector Learning unadvertised and unreachable without every release gate", async () => {
-  const enabledDebug = setupInspectorLearningRoute();
-  const defaultOff = createCopilotRuntimeHandler({
-    runtime: enabledDebug.runtime,
+test("advertises and serves Inspector Learning without debug or a handler opt-in", async () => {
+  const { runtime, snapshot } = setupInspectorLearningRoute();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
     basePath: "/api/copilotkit",
   });
-  const defaultInfo = await defaultOff(
+  const info = await handler(
     get("https://runtime.example/api/copilotkit/info"),
   );
-  expect(await defaultInfo.json()).not.toHaveProperty("inspectorLearning");
-  expect(
-    (
-      await defaultOff(
-        get("https://runtime.example/api/copilotkit/inspector-learning"),
-      )
-    ).status,
-  ).toBe(404);
+  expect(await info.json()).toHaveProperty("inspectorLearning", true);
+  const learning = await handler(
+    get("https://runtime.example/api/copilotkit/inspector-learning"),
+  );
+  expect(learning.status).toBe(200);
+  expect(await learning.json()).toEqual(snapshot);
+});
 
-  const debugOff = setupInspectorLearningRoute(false);
-  const debugOffHandler = createCopilotRuntimeHandler({
-    runtime: debugOff.runtime,
+test("keeps Inspector Learning unavailable for runtimes without a web identity resolver", async () => {
+  const { runtime, getInspectorLearning } = setupInspectorLearningRoute();
+  const handler = createCopilotRuntimeHandler({
+    runtime: {
+      ...runtime,
+      mode: "intelligence",
+      intelligence: runtime.intelligence,
+      identifyUser: undefined,
+    } as unknown as CopilotRuntimeLike,
     basePath: "/api/copilotkit",
-    inspectorLearning: true,
   });
-  const debugOffInfo = await debugOffHandler(
-    get("https://runtime.example/api/copilotkit/info"),
+  const response = await handler(
+    get("https://runtime.example/api/copilotkit/inspector-learning"),
   );
-  expect(await debugOffInfo.json()).not.toHaveProperty("inspectorLearning");
-  expect(
-    (
-      await debugOffHandler(
-        get("https://runtime.example/api/copilotkit/inspector-learning"),
-      )
-    ).status,
-  ).toBe(404);
+  expect(response.status).toBe(404);
+  expect(getInspectorLearning).not.toHaveBeenCalled();
 });
 
 test("fetch-handler routes multi-route inspector metadata through hooks without forwarding browser auth", async () => {

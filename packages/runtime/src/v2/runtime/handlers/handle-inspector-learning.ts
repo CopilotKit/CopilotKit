@@ -22,17 +22,11 @@ const queryPage = (value: string | null): number | undefined =>
 export async function handleInspectorLearning({
   runtime,
   request,
-  enabled,
 }: {
   readonly runtime: CopilotRuntimeLike;
   readonly request: Request;
-  readonly enabled: boolean;
 }): Promise<Response> {
-  if (
-    !enabled ||
-    runtime.debug?.enabled !== true ||
-    !isIntelligenceRuntime(runtime)
-  ) {
+  if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(404, "Not found");
   }
   const user = await resolveIntelligenceUser({ runtime, request });
