@@ -51,6 +51,8 @@
     "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color"
   },
   "devDependencies": {
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406",
+    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406",
     "@anthropic-ai/claude-code": "2.1.207",
     "@arethetypeswrong/cli": "^0.18.2",
     "@commitlint/cli": "^20.3.0",
@@ -105,7 +107,18 @@
       }
     },
     "overrides": {
-      "@ag-ui/mcp-middleware>@ag-ui/client": "0.0.53",
+      "@ag-ui/a2a": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/a2a-middleware": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2a-middleware@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/a2ui-middleware": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-middleware@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/a2ui-toolkit": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/a2ui-toolkit@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/encoder": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/encoder@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/langgraph": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/mcp-apps-middleware": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-apps-middleware@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/mcp-middleware": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/mcp-middleware@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/proto": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/proto@e502761554721f76be0c2390f2acda7b624d2406",
+      "@ag-ui/mcp-middleware>@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e502761554721f76be0c2390f2acda7b624d2406",
       "streamdown>react": "^19.0.0",
       "@types/react": "19.1.8",
       "@types/react-dom": "^19.0.2",
