@@ -12,6 +12,7 @@ import {
   renderPageToLlmText,
   rewriteScopedDocsLinks,
 } from "../llm-text";
+import { getVueDocsPageRoutes } from "../frontend-page-content";
 import { getDocsMode, getIntegrations, ROOT_FRAMEWORK } from "../registry";
 
 test.each([
@@ -59,6 +60,22 @@ test("publishes canonical Angular URLs instead of source-tree URLs", () => {
     ]),
   );
   expect(urls.some((url) => url.startsWith("frontends/angular"))).toBe(false);
+});
+
+test("publishes every canonical Vue page in the exhaustive corpus", () => {
+  const urls = new Set(
+    getAllLlmPages({ channelGuideVariants: "content-unique" }).map(
+      (page) => page.url,
+    ),
+  );
+
+  expect(urls.has("vue")).toBe(true);
+  for (const { canonicalSlugPath } of getVueDocsPageRoutes()) {
+    if (!canonicalSlugPath) continue;
+    expect(urls.has(`vue/${canonicalSlugPath}`), canonicalSlugPath).toBe(true);
+  }
+  expect(urls.has("vue/shared-state/streaming")).toBe(true);
+  expect(urls.has("vue/human-in-the-loop/governed-actions")).toBe(true);
 });
 
 test("publishes channel connection guides at canonical URLs with the default agent", () => {

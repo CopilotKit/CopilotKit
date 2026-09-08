@@ -107,8 +107,9 @@ function useThreads(input: UseThreadsInput): UseThreadsResult;
   </PropertyReference>
 
   <PropertyReference name="startNewThread" type="() => void">
-    Resets the store to a fresh thread. The threads drawer uses this for the
-    "New Conversation" action.
+    Notifies the thread store that a new thread started and clears stale
+    thread-list error state. It does not mint or switch the active chat thread
+    by itself. Use `useCopilotChatConfiguration().startNewThread()` to do that.
   </PropertyReference>
 
   <PropertyReference name="renameThread" type="(threadId: string, name: string) => Promise<void>">

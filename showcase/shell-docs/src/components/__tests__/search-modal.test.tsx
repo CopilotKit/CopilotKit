@@ -212,6 +212,12 @@ describe("the reader's own frontend ranks above the others", () => {
     expect(hrefs.filter(belongsToAnotherFrontend)).toEqual([]);
   });
 
+  it("restores Vue results when the query names Vue", async () => {
+    await search("vue copilotchat");
+
+    expect(resultHrefs()).toContain("/vue/prebuilt-components/chat");
+  });
+
   // The mirror image, and what it pins is the surface detection rather than
   // the size of the penalty: on an Angular route Angular is the reader's own
   // frontend, so its copy leads and React's agnostic copy follows. Ignore
@@ -227,17 +233,6 @@ describe("the reader's own frontend ranks above the others", () => {
       hrefs.indexOf("/reference/angular/components/CopilotChat"),
     ).toBeLessThan(hrefs.indexOf("/reference/components/CopilotChat"));
   });
-
-  // NOT tested, deliberately: the waiver that drops the penalty when the
-  // query names a frontend ("angular chat"). It is not observable through
-  // the result list, because every term must match for a row to appear at
-  // all — naming a frontend filters the agnostic rows out before ranking, so
-  // there is nothing left for a demoted row to lose to. Measured on the real
-  // index: "angular chat" matches 24 rows, 23 of them Angular's own, and a
-  // bare "angular" matches 78 with only 3 agnostic. The waiver stays in the
-  // code as a guard for a query where that ratio is different; a test
-  // asserting it here would pass with the waiver removed and would only look
-  // like coverage.
 });
 
 describe("the deprecated V1 reference", () => {

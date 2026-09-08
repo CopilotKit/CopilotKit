@@ -1,0 +1,55 @@
+---
+title: Which Hook for Which Job
+description: Choose the right CopilotKit Vue composable for tools, rendering, human review, and custom chat surfaces.
+icon: "lucide/Map"
+doc_type: explanation
+---
+
+CopilotKit Vue has composables for registering agent behavior and for deciding
+how agent output appears in chat. Call them from a component rendered below
+`CopilotKitProvider`, where Vue can inject the CopilotKit context.
+
+## The 30-second version
+
+| Composable | Use it when you want to |
+| --- | --- |
+| `useFrontendTool` | Give the agent a browser-side tool, optionally with inline UI. |
+| `useRenderTool` | Render a named tool call, or use `name: "*"` as the fallback. |
+| `useDefaultRenderTool` | Install the built-in or a custom fallback for otherwise-unrendered tool calls. |
+| `useComponent` | Register a Vue component as a named frontend tool renderer. |
+| `useHumanInTheLoop` | Pause a frontend tool until a user supplies a response. |
+| `useInterrupt` | Handle an agent interrupt and resume or cancel it. |
+| `useRenderActivityMessage` | Resolve a registered activity-message renderer for a custom surface. |
+| `useRenderCustomMessages` | Resolve registered before/after message renderers for a custom surface. |
+
+## How to choose
+
+- **The agent should run something in my app.** Use `useFrontendTool`. Define
+  its schema and handler; add `render` when the call also needs inline UI.
+- **A tool call should look different.** Use `useRenderTool` for one named
+  call, `useComponent` for a component-first frontend tool, or
+  `useDefaultRenderTool` for the fallback. In the prebuilt chat, named
+  `tool-call-<toolName>` and `tool-call` slots are the idiomatic template
+  customization path.
+- **The agent must stop for user input.** Use `useHumanInTheLoop` for a
+  tool-level approval or input gate; use `useInterrupt` for an
+  agent-initiated interrupt that you resolve or cancel.
+- **I am building my own surface.** Use `useAgent` for reactive messages and
+  run state, `useCopilotKit` for the runtime handle, and the activity/custom
+  message composables when you need those registered renderers.
+
+### Tool versus renderer
+
+`useFrontendTool` and `useComponent` register tools that an agent can call.
+`useRenderTool` and `useDefaultRenderTool` only control presentation, so they
+can render a backend tool without adding a browser handler. Vue components and
+templates should use slots for chat composition; composables remain useful for
+programmatic registration and custom surfaces.
+
+## Related
+
+- [Frontend Tools](/vue/frontend-tools)
+- [Generative UI: tool-based UI](/vue/generative-ui/tool-based) and
+  [tool rendering](/vue/generative-ui/tool-rendering)
+- [Human in the Loop](/vue/human-in-the-loop)
+- [Slots](/vue/custom-look-and-feel/slots)

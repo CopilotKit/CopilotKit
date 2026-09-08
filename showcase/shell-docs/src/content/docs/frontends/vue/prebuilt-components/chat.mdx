@@ -1,0 +1,58 @@
+---
+title: CopilotChat
+icon: "lucide/MessageSquare"
+description: Inline Vue chat component that you can place anywhere and size as needed.
+---
+
+## What is this?
+
+`<CopilotChat>` is the base prebuilt Vue chat surface. Place it in any layout
+and size its container to fit. `CopilotSidebar` and `CopilotPopup` compose the
+same chat primitives with docked and overlay chrome.
+
+## When should I use this?
+
+Choose `CopilotChat` for a dedicated chat page, an inline pane next to other
+content, or any layout where you do not need a launcher. Choose
+[CopilotSidebar](/vue/prebuilt-components/sidebar) for a collapsible docked
+surface and [CopilotPopup](/vue/prebuilt-components/popup) for an overlay.
+
+## Basic setup
+
+Import the components from `@copilotkit/vue/v2`, import the package stylesheet,
+and keep the chat below `CopilotKitProvider`:
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChat agent-id="my-agent" />
+  </CopilotKitProvider>
+</template>
+```
+
+`runtime-url` identifies the runtime that serves the configured agent. The
+current Vue Showcase demonstrates this base `agentic-chat` surface.
+
+## Common props and events
+
+| Surface | Purpose |
+| --- | --- |
+| `agent-id` | The runtime agent to use. |
+| `thread-id` | An explicit thread to connect to. |
+| `labels` | User-facing strings such as the title, placeholder, welcome text, and disclaimer. |
+| `welcome-screen` | Set to `false` to disable the empty state. |
+| `attachments` | Enable and configure file attachments. |
+| `auto-scroll` | Use `"pin-to-bottom"`, `"pin-to-send"`, `"none"`, or the legacy boolean shorthand. |
+| `@submit-message`, `@input-change`, `@select-suggestion` | Observe the corresponding chat interactions. |
+| `@stop` | Observe a stop action. |
+| `:on-error` | Bind a handler for CopilotKit runtime errors for this agent. |
+
+## Styling and composition
+
+Customize the surface with [CSS](/vue/custom-look-and-feel/css), named/scoped
+[slots](/vue/custom-look-and-feel/slots), or a [headless UI](/vue/custom-look-and-feel/headless-ui).

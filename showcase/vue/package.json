@@ -2,6 +2,16 @@
   "name": "@copilotkit/showcase-vue-host",
   "version": "0.0.0",
   "private": true,
+  "nx": {
+    "targets": {
+      "test": {
+        "inputs": [
+          "default",
+          "{workspaceRoot}/showcase/shell-docs/src/content/**/*.mdx"
+        ]
+      }
+    }
+  },
   "type": "module",
   "scripts": {
     "generate": "pnpm --dir ../scripts generate-registry && node scripts/stage-generated-data.mjs",

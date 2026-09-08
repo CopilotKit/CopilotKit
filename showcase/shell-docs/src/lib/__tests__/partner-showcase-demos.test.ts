@@ -4,7 +4,7 @@ import { getIntegrations, getDemo } from "../registry";
 import catalog from "@/data/frontend-catalog.json";
 
 describe("partner showcase links", () => {
-  it.each(["react", "angular"] as const)(
+  it.each(["react", "angular", "vue"] as const)(
     "only advertises exact runnable %s cells for every visible partner",
     (frontend) => {
       const partners = getIntegrations().filter(
@@ -23,26 +23,20 @@ describe("partner showcase links", () => {
         else expect(demos, partner.slug).toEqual([]);
         for (const demo of demos) {
           const source = getDemo(partner.slug, demo.id)!;
+          const cell = catalog.cells.find(
+            (candidate) =>
+              candidate.frontend === frontend &&
+              candidate.integration === partner.slug &&
+              candidate.feature === demo.id &&
+              candidate.runnable,
+          );
+          expect(cell).toBeDefined();
           expect(demo.embedHref).toBe(
-            new URL(
-              frontend === "angular"
-                ? `/angular/${demo.id}`
-                : source.demo.route,
-              source.integration.backend_url,
-            ).href,
+            new URL(cell!.demo_route, source.integration.backend_url).href,
           );
           expect(demo.href).toBe(
             `https://showcase.copilotkit.ai/${frontend}/${partner.slug}/${demo.id}`,
           );
-          expect(
-            catalog.cells.some(
-              (cell) =>
-                cell.frontend === frontend &&
-                cell.integration === partner.slug &&
-                cell.feature === demo.id &&
-                cell.runnable,
-            ),
-          ).toBe(true);
         }
       }
     },

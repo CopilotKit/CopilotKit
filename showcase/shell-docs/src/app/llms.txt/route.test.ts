@@ -126,3 +126,15 @@ test("leads with every visible external framework and validates its entry points
   );
   expect(body).toContain("Built-in Agent Quickstart");
 });
+
+test("keeps one canonical Vue entry in the curated index", async () => {
+  const body = await GET().text();
+  const vuePages = CURATED_LLM_PAGES.filter(
+    (page) => page.url === "vue" || page.url.startsWith("vue/"),
+  );
+
+  expect(vuePages).toEqual([
+    expect.objectContaining({ url: "vue", title: "Vue Frontend" }),
+  ]);
+  expect(body).toContain(`- [Vue Frontend](${getBaseUrl()}/vue):`);
+});

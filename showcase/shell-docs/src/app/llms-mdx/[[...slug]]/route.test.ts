@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as DocsRenderModule from "@/lib/docs-render";
+import type * as FrontendDocPolicyModule from "@/lib/frontend-doc-policy";
 import { loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import { getFrontendContentSlug } from "@/lib/frontend-page-content";
@@ -10,7 +12,7 @@ import { GET } from "./route";
 // resolution ORDER is the real shared implementation, because these tests
 // assert that order and a stubbed one would make them vacuous.
 vi.mock("@/lib/docs-render", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/docs-render")>();
+  const actual = await importOriginal<typeof DocsRenderModule>();
   return {
     loadDoc: vi.fn(),
     docCandidateOrder: actual.docCandidateOrder,
@@ -18,10 +20,14 @@ vi.mock("@/lib/docs-render", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/frontend-doc-policy", () => ({
-  resolveFrontendDocPage: vi.fn(),
-  isFrontendFirstClassDoc: vi.fn(() => true),
-}));
+vi.mock("@/lib/frontend-doc-policy", async (importOriginal) => {
+  const actual = await importOriginal<typeof FrontendDocPolicyModule>();
+  return {
+    ...actual,
+    resolveFrontendDocPage: vi.fn(),
+    isFrontendFirstClassDoc: vi.fn(() => true),
+  };
+});
 
 vi.mock("@/lib/frontend-page-content", () => ({
   getFrontendContentSlug: vi.fn((id: string) => `frontends/${id}`),
@@ -135,7 +141,7 @@ describe("llms-mdx route", () => {
     // Regression guard. This route special-cased only `quickstart`, while the
     // page route also gives `threads-import` to the framework tree, so raw
     // Markdown served ROOT content for a URL the site renders from the
-    // framework file. Both now share docCandidateOrder.
+    // framework file. Both now share the frontend-aware candidate helper.
     loadDocMock.mockImplementation((slug: string) =>
       slug === "integrations/langgraph/threads-import"
         ? {
@@ -217,6 +223,41 @@ describe("llms-mdx route", () => {
         loadSlug: "integrations/langgraph/quickstart",
       }),
       { framework: "langgraph-python" },
+    );
+  });
+
+  it("prefers a Vue variant for a backend-scoped Vue route", async () => {
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "frontends/vue/generative-ui/tool-rendering"
+        ? {
+            source: "",
+            filePath: "frontends/vue/generative-ui/tool-rendering.mdx",
+            fm: { title: "Vue tool rendering", description: "Vue variant." },
+          }
+        : slug === "generative-ui/tool-rendering"
+          ? {
+              source: "",
+              filePath: "generative-ui/tool-rendering.mdx",
+              fm: { title: "Tool rendering", description: "Root page." },
+            }
+          : null,
+    );
+
+    const response = await callLlmsMdxRoute([
+      "vue",
+      "langgraph-python",
+      "generative-ui",
+      "tool-rendering",
+    ]);
+
+    expect(response.status).toBe(200);
+    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        loadSlug: "frontends/vue/generative-ui/tool-rendering",
+        frontend: "vue",
+        framework: "langgraph-python",
+      }),
+      { framework: "langgraph-python", frontend: "vue" },
     );
   });
 
