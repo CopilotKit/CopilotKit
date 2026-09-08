@@ -36,10 +36,18 @@ const DEPARTMENT_LABEL: Record<Department | "all", string> = {
   all: "Company-wide",
 };
 
+/**
+ * ONE carrier for status, not three. These cards used to stack a 40%-opacity
+ * wash, a 4px coloured left edge AND the pill below — three signals saying the
+ * same word, which on the dark theme muddied the surface until the tinted
+ * cards read as a different material from every other card on the page. The
+ * pill is the carrier; the card keeps a hairline edge tinted to match, which
+ * is enough to scan a row by colour without repainting the surface.
+ */
 const INITIATIVE_STATUS_STYLE: Record<Initiative["status"], string> = {
-  red: "border-l-negative bg-negative-soft/40",
-  yellow: "border-l-brand bg-brand-soft/40",
-  green: "border-l-positive bg-positive-soft/40",
+  red: "border-negative/40",
+  yellow: "border-brand/40",
+  green: "border-positive/40",
 };
 
 const INITIATIVE_STATUS_PILL: Record<Initiative["status"], string> = {
@@ -259,12 +267,12 @@ function InitiativeRygStrip({ initiatives }: { initiatives: Initiative[] }) {
         <div
           key={initiative.id}
           className={cn(
-            "flex min-w-[13rem] max-w-xs flex-1 flex-col gap-0.5 rounded-lg border border-l-4 border-hairline bg-surface px-3 py-2 shadow-soft",
+            "flex min-w-[15rem] max-w-xs flex-1 flex-col gap-0.5 rounded-lg border border-hairline bg-surface px-3 py-2 shadow-soft",
             INITIATIVE_STATUS_STYLE[initiative.status],
           )}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-medium text-ink">
+            <span className="line-clamp-2 text-sm font-medium text-ink">
               {initiative.name}
             </span>
             <span

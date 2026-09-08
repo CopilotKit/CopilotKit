@@ -227,7 +227,6 @@ const EXEC = "skins/exec";
  * so the 40% tone tint composites over the page ground (`bg-canvas`, set on the
  * shell frame in `skins/exec/layout.tsx`), not over the card that never paints.
  */
-const RYG_WASH_OVER = "--canvas";
 
 const TEXT_PAIRS: readonly Pair[] = [
   {
@@ -353,18 +352,14 @@ const TEXT_PAIRS: readonly Pair[] = [
       pattern: /\bbg-negative-soft\b[^"]*\btext-negative\b/,
     })),
   },
-  // The RYG initiative rows: ink on a 40% tone wash. Composited, per the header.
-  ...(["negative", "brand", "positive"] as const).map((tone) => ({
-    fg: "--ink",
-    bg: { token: `--${tone}-soft`, alpha: 0.4, over: RYG_WASH_OVER },
-    label: `the initiative name on a ${tone} RYG row`,
-    sites: [
-      {
-        file: `${EXEC}/pages/ceo-dashboard.tsx`,
-        pattern: new RegExp(`bg-${tone}-soft/40`),
-      },
-    ],
-  })),
+  // RETIRED, not relaxed. The initiative rows used to paint a 40% tone wash
+  // behind the name, and these three pairs measured the ink against it. The
+  // wash is gone — status is carried by the pill and a tinted hairline, on the
+  // ordinary card surface — so there is no composited ground left to measure,
+  // and the pairs that replaced it (`--ink` on `--surface`, and the pill's own
+  // tone-on-tone-soft pairs) are already asserted above. Re-add a composited
+  // pair here the moment any exec surface paints a `bg-*-soft/<alpha>` again;
+  // the site scan below is what will tell you it has.
   // Diffuse pairs: no single render site to cite, so none is claimed.
   { fg: "--ink", bg: { token: "--surface" }, label: "every card body" },
   {
