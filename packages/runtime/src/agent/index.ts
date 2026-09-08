@@ -571,17 +571,15 @@ export function convertMessagesToVercelAISDKMessages(
 /**
  * JSON Schema type definition
  */
-type JsonSchemaType =
-  | "object"
-  | "string"
-  | "number"
-  | "integer"
-  | "boolean"
-  | "array"
-  | "null";
-
 interface JsonSchema {
-  type?: JsonSchemaType | JsonSchemaType[];
+  type?:
+    | "object"
+    | "string"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "array"
+    | "null";
   description?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
@@ -601,17 +599,6 @@ export function convertJsonSchemaToZodSchema(
   jsonSchema: JsonSchema,
   required: boolean,
 ): z.ZodSchema {
-  // Zod can emit nullable values as a type array instead of anyOf.
-  if (Array.isArray(jsonSchema.type)) {
-    return convertJsonSchemaToZodSchema(
-      {
-        ...jsonSchema,
-        type: undefined,
-        anyOf: jsonSchema.type.map((type) => ({ ...jsonSchema, type })),
-      },
-      required,
-    );
-  }
   if (jsonSchema.type === "null") {
     const schema = z.null().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();

@@ -86,13 +86,6 @@ Deploy the Intelligence producer before releasing a runtime that advertises the
 capability. New runtimes treat a `404` from an older Intelligence App API as
 compatible absence and return `204` to the client.
 
-## Nullable frontend tool parameters
-
-The built-in agent accepts nullable frontend tool fields in JSON Schema, including
-`anyOf`, `oneOf`, and type arrays such as `["string", "null"]`. A required nullable
-field accepts `null` but still requires the field to be present. Optional fields
-can be omitted. The runtime preserves this distinction when it builds model tools.
-
 ## Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
