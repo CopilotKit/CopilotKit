@@ -135,3 +135,4 @@ showcase/shell-dashboard/next.config.ts
 showcase/shell-docs/next.config.ts
 showcase/shell-dojo/next.config.ts
 showcase/shell/next.config.ts
+showcase/vue/vite.config.ts
