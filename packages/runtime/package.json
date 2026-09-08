@@ -182,9 +182,6 @@
     },
     "langchain": {
       "optional": true
-    },
-    "openai": {
-      "optional": true
     }
   },
   "nx": {
