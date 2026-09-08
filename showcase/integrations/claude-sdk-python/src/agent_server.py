@@ -114,6 +114,18 @@ from agents.mcp_apps_agent import run_mcp_apps_agent
 from agents.multimodal_agent import SYSTEM_PROMPT as MULTIMODAL_SYSTEM_PROMPT
 from agents.multimodal_agent import convert_part_for_claude
 from agents.reasoning_agent import run_reasoning_agent
+
+# Shared State (Frontend Context) — the reference
+# (langgraph-python/src/agents/readonly_state_agent_context.py) mounts a
+# DEDICATED graph with `tools=[]` and a system prompt telling the agent to
+# consult the READ-ONLY context the frontend publishes via `useAgentContext`.
+# Import the matching prompt hint so our dedicated
+# `/readonly-state-agent-context` endpoint applies it via
+# system_prompt_override (parity, not generic fallback). See
+# dedicatedAgentPaths in the copilotkit route.
+from agents.readonly_state_agent_context import (
+    SYSTEM_PROMPT_HINT as READONLY_STATE_AGENT_CONTEXT_SYSTEM_PROMPT,
+)
 from agents.shared_state_read_write_agent import (
     run_shared_state_read_write_agent,
 )
@@ -370,6 +382,35 @@ async def shared_state_read_write_endpoint(request: Request) -> StreamingRespons
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@app.post("/readonly-state-agent-context")
+async def readonly_state_agent_context_endpoint(
+    request: Request,
+) -> StreamingResponse:
+    """Shared State (Frontend Context) — read-only `useAgentContext` consumer.
+
+    Parity with langgraph-python, whose dedicated `readonly_state_agent_context`
+    graph is `tools=[]` plus a system prompt telling the agent to consult the
+    read-only context (name, timezone, recent activity) the frontend publishes
+    via `useAgentContext`. The demo page registers no frontend tools of its own,
+    so this endpoint is that prompt plus an empty backend tool set and nothing
+    else — the CopilotKit runtime already routes the context entries into the
+    message history.
+
+    Without the dedicated endpoint the demo fell through to the generic root
+    agent, whose sales-assistant SYSTEM_PROMPT and ~10 backend tools say nothing
+    about consuming frontend context: the GOTCHAS #8 masking bug (the fixture
+    replays a context-aware answer, so D6 is green while the wrong agent is
+    live).
+    """
+    body = await request.json()
+    input_data = RunAgentInput(**body)
+    return _stream_agent_response(
+        input_data,
+        system_prompt_override=READONLY_STATE_AGENT_CONTEXT_SYSTEM_PROMPT,
+        tools_override=[],
     )
 
 

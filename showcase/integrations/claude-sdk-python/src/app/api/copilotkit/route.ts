@@ -87,6 +87,14 @@ const dedicatedAgentPaths: Record<string, string> = {
   "tool-rendering-custom-catchall": "/tool-rendering",
   "shared-state-read-write": "/shared-state-read-write",
   "shared-state-streaming": "/shared-state-streaming",
+  // Shared State (Frontend Context) needs its own backend so the agent gets
+  // the tailored "consult the read-only useAgentContext entries" prompt and a
+  // tools=[] surface (mirrors langgraph-python's dedicated
+  // readonly_state_agent_context graph). Without this it fell through to the
+  // generic root agent's sales-assistant prompt + ~10 backend tools — the
+  // GOTCHAS #8 masking bug: the fixture replays a context-aware answer so D6
+  // is green, while live the wrong agent handles the turn.
+  "readonly-state-agent-context": "/readonly-state-agent-context",
   subagents: "/subagents",
   // Reasoning demos share a single backend that emits AG-UI
   // REASONING_MESSAGE_* events (parsed out of <reasoning>...</reasoning>

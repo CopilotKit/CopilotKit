@@ -6,11 +6,13 @@ be edited by the agent, but the agent reads this context on every turn
 via the CopilotKit runtime, which routes the context entries into the
 model's message history.
 
-The shared Claude backend in `src/agents/agent.py` handles this demo via
-the `readonly-state-agent-context` agent name registered in the
-copilotkit route. This module exists so the manifest's `highlight` path
-references a per-demo Python reference, mirroring the langgraph-python
-layout.
+Mirrors langgraph-python's dedicated `readonly_state_agent_context`
+graph, which is `tools=[]` plus the system prompt below. Here that same
+prompt drives the dedicated `/readonly-state-agent-context` endpoint in
+`src/agent_server.py` (with `tools_override=[]`); the copilotkit route
+maps the `readonly-state-agent-context` agent name to that path via
+`dedicatedAgentPaths`. The demo registers no tools of its own on either
+side — reading the context the frontend published is the whole feature.
 """
 
 SYSTEM_PROMPT_HINT = (
