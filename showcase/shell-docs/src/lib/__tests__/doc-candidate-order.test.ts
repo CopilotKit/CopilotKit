@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { docCandidateOrder, FRAMEWORK_WINS_SLUGS } from "../docs-render";
+import { frontendAwareDocCandidateOrder } from "../frontend-doc-policy";
 
 const FOLDER = "langgraph";
 
@@ -41,6 +42,29 @@ describe("docCandidateOrder", () => {
   });
 });
 
+describe("frontendAwareDocCandidateOrder", () => {
+  it("puts an existing Vue variant before the normal framework order", () => {
+    expect(
+      frontendAwareDocCandidateOrder(
+        "vue",
+        "authored",
+        FOLDER,
+        "generative-ui/tool-rendering",
+      ),
+    ).toEqual([
+      "frontends/vue/generative-ui/tool-rendering",
+      `integrations/${FOLDER}/generative-ui/tool-rendering`,
+      "generative-ui/tool-rendering",
+    ]);
+  });
+
+  it("keeps the normal order when no Vue variant exists", () => {
+    expect(
+      frontendAwareDocCandidateOrder("vue", "generated", FOLDER, "auth"),
+    ).toEqual(["auth", `integrations/${FOLDER}/auth`]);
+  });
+});
+
 describe("every framework-scoped resolver uses the shared order", () => {
   // Guards against a FOURTH divergent copy. Each of these files previously
   // carried its own ordering logic and two of them had drifted.
@@ -49,19 +73,17 @@ describe("every framework-scoped resolver uses the shared order", () => {
     "src/app/llms-mdx/[[...slug]]/route.ts",
   ];
 
-  it.each(callSites)("%s calls docCandidateOrder", (file) => {
+  it.each(callSites)("%s calls frontendAwareDocCandidateOrder", (file) => {
     const source = fs.readFileSync(path.join(process.cwd(), file), "utf8");
-    expect(source).toContain("docCandidateOrder(");
+    expect(source).toContain("frontendAwareDocCandidateOrder(");
   });
 
-  it("page.tsx resolves metadata and body through it, not ad hoc", () => {
+  it("page.tsx resolves metadata and body through it", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), callSites[0]),
       "utf8",
     );
-    // Two call sites in this file: generateMetadata and the body resolver.
-    expect(source.match(/docCandidateOrder\(/g)?.length).toBe(2);
-    // The pre-fix shape must not come back.
-    expect(source).not.toContain("frameworkScopedDoc");
+    expect(source.match(/frontendAwareDocCandidateOrder\(/g)?.length).toBe(2);
+    expect(source).not.toContain('hasFrontendVariant("vue", slugPath)');
   });
 });

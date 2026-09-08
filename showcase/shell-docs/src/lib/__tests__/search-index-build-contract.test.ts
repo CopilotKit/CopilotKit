@@ -97,6 +97,49 @@ describe("docs-search build contract", () => {
   });
 });
 
+it("emits reachable docs with only the scripts dependencies installed", () => {
+  const staged = fs.mkdtempSync(path.join(os.tmpdir(), "docs-search-deps-"));
+  try {
+    // Match the shell build: docs source and generated registry data are
+    // staged, but the docs app's React dependencies are not installed.
+    for (const entry of [
+      "src/lib",
+      "src/content/docs",
+      "scripts/emit-searchable-pages.ts",
+      "tsconfig.json",
+      "package.json",
+      "src/data/registry.json",
+      "src/data/frontend-registry.json",
+    ]) {
+      const target = path.join(staged, entry);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.cpSync(path.join(process.cwd(), entry), target, { recursive: true });
+    }
+    const outputPath = path.join(staged, "searchable-pages.json");
+    const scriptsModules = path.join(SHOWCASE_ROOT, "scripts/node_modules");
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(scriptsModules, "tsx/dist/cli.mjs"),
+        "scripts/emit-searchable-pages.ts",
+        outputPath,
+      ],
+      {
+        cwd: staged,
+        env: { ...process.env, NODE_PATH: scriptsModules },
+        encoding: "utf8",
+        timeout: 10000,
+      },
+    );
+    expect(result.status, result.stderr).toBe(0);
+    const payload = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    expect(payload.fromNavigation.length).toBeGreaterThan(0);
+    expect(payload.slugs).toContain("human-in-the-loop");
+  } finally {
+    fs.rmSync(staged, { recursive: true, force: true });
+  }
+});
+
 describe("partially staged content", () => {
   it.each([["reference"], ["docs"]])(
     "rejects a build containing only %j before writing either index",
