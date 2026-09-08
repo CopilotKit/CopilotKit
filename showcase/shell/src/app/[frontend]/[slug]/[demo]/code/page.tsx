@@ -1,6 +1,7 @@
 import { AngularSourceViewer } from "@/components/angular-source-viewer";
 import { FrontendCellStatus } from "@/components/frontend-cell-status";
 import ReactDemoCodeViewer from "@/components/react-demo-code-viewer";
+import { VueSourceViewer } from "@/components/vue-source-viewer";
 import { resolveShowcaseCell } from "@/lib/frontend-route";
 import { getRuntimeConfig } from "@/lib/runtime-config";
 
@@ -21,9 +22,11 @@ export default async function FrontendCodePage({
     return <FrontendCellStatus resolution={resolution} />;
   }
 
-  return frontend === "angular" ? (
-    <AngularSourceViewer feature={demo} />
-  ) : (
-    <ReactDemoCodeViewer />
-  );
+  if (frontend === "angular") {
+    return <AngularSourceViewer feature={demo} />;
+  }
+  if (frontend === "vue") {
+    return <VueSourceViewer feature={demo} />;
+  }
+  return <ReactDemoCodeViewer />;
 }

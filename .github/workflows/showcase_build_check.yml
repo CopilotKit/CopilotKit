@@ -13,7 +13,9 @@ on:
       - "packages/angular/**"
       - "packages/core/**"
       - "packages/shared/**"
+      - "packages/vue/**"
       - "packages/web-components/**"
+      - "packages/web-inspector/**"
       - ".github/workflows/showcase_build.yml"
       - ".github/workflows/showcase_build_check.yml"
 
@@ -34,6 +36,7 @@ jobs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
       needs_angular: ${{ steps.build-matrix.outputs.needs_angular }}
+      needs_vue: ${{ steps.build-matrix.outputs.needs_vue }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -54,6 +57,13 @@ jobs:
               - 'packages/core/**'
               - 'packages/shared/**'
               - 'packages/web-components/**'
+            vue:
+              - 'showcase/vue/**'
+              - 'packages/core/**'
+              - 'packages/shared/**'
+              - 'packages/vue/**'
+              - 'packages/web-components/**'
+              - 'packages/web-inspector/**'
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
@@ -136,10 +146,8 @@ jobs:
           PR_HEAD_REF: ${{ github.head_ref }}
           FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
-          # Mirror of the ALL_SERVICES definition from showcase_build.yml.
-          # Keep in sync — the matrix here must match the production build
-          # workflow so that every service buildable post-merge is also
-          # checked pre-merge.
+          # PR-check service matrix. Keep these entries in sync with their
+          # counterparts in showcase_build.yml.
           #
           # Fields carried over: dispatch_name, filter_key, context, image,
           # timeout, build_args_*, dockerfile.
@@ -181,12 +189,13 @@ jobs:
           # untrusted PR metadata so branch names are encoded as JSON data,
           # not interpolated into shell source.
           #
-          # A workflow change builds every image, because the edit can break
-          # any build step. An Angular/package change builds NO image by
-          # itself: integration images install PUBLISHED @copilotkit packages
+          # A workflow change builds every image declared here, because the
+          # edit can break any build step. An Angular/Vue/package change builds
+          # NO image by itself: integration images install PUBLISHED @copilotkit packages
           # and their contexts exclude packages/, so the image builds do not
-          # test the PR's package code. The build-angular job still compiles
-          # the Angular host against the PR's packages (needs_angular below).
+          # test the PR's package code. The canonical frontend jobs compile
+          # the affected hosts against the PR's packages. Any integration
+          # image needs both browser artifacts for staging below.
           # The post-merge showcase_build.yml still builds every image.
           MATRIX=$(echo "$ALL_SERVICES" | jq -c --argjson changes "$CHANGES" --arg sha "$PR_HEAD_SHA" --arg ref "$PR_HEAD_REF" '
             [.[] |
@@ -200,6 +209,7 @@ jobs:
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           echo "needs_angular=$(echo "$MATRIX" | jq -r --argjson changes "$CHANGES" 'any(.[]; (.context | startswith("showcase/integrations/"))) or ($changes | index("angular") != null)')" >> $GITHUB_OUTPUT
+          echo "needs_vue=$(echo "$MATRIX" | jq -r --argjson changes "$CHANGES" 'any(.[]; (.context | startswith("showcase/integrations/"))) or ($changes | index("vue") != null)')" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
@@ -209,8 +219,8 @@ jobs:
   build-angular:
     name: Build canonical Angular browser artifact
     needs: [detect-changes]
-    # Runs for an Angular/package change even when no image builds, so the
-    # Angular host still compiles against the PR's packages.
+    # Compile for Angular/package changes or integration images. For other
+    # images, run a successful no-op so build-check's needs does not skip them.
     if: needs.detect-changes.outputs.has_changes == 'true' || needs.detect-changes.outputs.needs_angular == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 30
@@ -250,8 +260,52 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  build-vue:
+    name: Build canonical Vue browser artifact
+    needs: [detect-changes]
+    # Compile for Vue/package changes or integration images. For other
+    # images, run a successful no-op so build-check's needs does not skip them.
+    if: needs.detect-changes.outputs.has_changes == 'true' || needs.detect-changes.outputs.needs_vue == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Install
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        run: pnpm nx build @copilotkit/showcase-vue-host
+
+      - name: Upload canonical Vue browser artifact
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: showcase-vue-browser-${{ github.sha }}
+          path: showcase/vue/dist
+          if-no-files-found: error
+          retention-days: 1
+
   build-check:
-    needs: [detect-changes, build-angular]
+    needs: [detect-changes, build-angular, build-vue]
     if: needs.detect-changes.outputs.has_changes == 'true'
     # The image builds on Depot's remote builder. This runner only waits for
     # it, so a free GitHub-hosted runner does the job.
@@ -288,6 +342,13 @@ jobs:
           name: showcase-angular-browser-${{ github.sha }}
           path: ${{ runner.temp }}/showcase-angular-browser
 
+      - name: Download canonical Vue browser artifact
+        if: startsWith(matrix.service.context, 'showcase/integrations/')
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: showcase-vue-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/showcase-vue-browser
+
       - name: Setup Depot
         uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c # v1
 
@@ -310,6 +371,7 @@ jobs:
       - name: Copy shared modules into build context
         env:
           ANGULAR_BROWSER: ${{ runner.temp }}/showcase-angular-browser
+          VUE_BROWSER: ${{ runner.temp }}/showcase-vue-browser
         run: |
           set -euo pipefail
           CONTEXT="${{ matrix.service.context }}"
@@ -346,6 +408,10 @@ jobs:
           if [ -L "$CONTEXT/public/angular" ]; then
             source showcase/scripts/cli/_common.sh
             stage_angular "$CONTEXT" "$ANGULAR_BROWSER"
+          fi
+          if [ -L "$CONTEXT/public/vue" ]; then
+            source showcase/scripts/cli/_common.sh
+            stage_vue "$CONTEXT" "$VUE_BROWSER"
           fi
 
       - name: Build Docker image (no push)
