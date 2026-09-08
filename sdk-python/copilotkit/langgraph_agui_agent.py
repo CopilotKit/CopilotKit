@@ -69,7 +69,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
         name: str,
         graph: CompiledStateGraph,
         description: str | None = None,
-        config: RunnableConfig | None | dict = None,
+        config: RunnableConfig | dict | None = None,
         **kwargs: Any,
     ):
         """Wrap a LangGraph graph as a CopilotKit-flavored AG-UI agent.
@@ -211,6 +211,118 @@ class LangGraphAGUIAgent(LangGraphAgent):
             return
         active_run.setdefault(bucket, set()).add(entity_id)
 
+    def _record_hidden_output_ids(self, event: Any) -> None:
+        """Record IDs of messages produced by nodes that ran under emit_messages=False.
+
+        This handles the checkpoint-side visibility problem for issue #3861:
+        when an inner subgraph (e.g. a delegated agent) runs with emit_messages=False,
+        its ToolMessage result lands in the outer graph's checkpoint. The ToolMessage
+        has no streaming event that carries emit_messages=False, so _dispatch_event
+        cannot record its ID directly.
+
+        Strategy:
+        1. When on_chat_model_end fires with emit_messages=False in namespace N,
+           record N as a "namespace where a hidden LLM call just completed".
+        2. When on_chain_end fires for the SAME namespace N, extract any
+           ToolMessages from the output and mark their IDs as hidden.
+           ToolMessages are node return values that carry the LLM's hidden content
+           to the outer graph's checkpoint.
+
+        Why only ToolMessages (not AIMessages)?
+        - A node may make a private LLM call (emit_messages=False) and then return
+          a SEPARATE visible AIMessage as its own output. Marking all output
+          messages as hidden would incorrectly hide that visible AIMessage.
+        - ToolMessages returned by a node that ran with emit_messages=False ARE the
+          hidden content: they carry the inner agent's response back to the outer
+          graph. There is no legitimate case where a node should run with
+          emit_messages=False and also return a visible ToolMessage — ToolMessages
+          are tool results, not user-facing content.
+
+        Additionally:
+        - If emit_tool_calls=False was also set on the LLM call, any tool_call_id
+          from the hidden AIMessage output is also recorded (tool_call_id links the
+          AIMessage tool call slot to the ToolMessage result).
+        """
+        event_type = event.get("event")
+        metadata = event.get("metadata") or {}
+        ns = metadata.get("langgraph_checkpoint_ns", "")
+
+        active_run = getattr(self, "active_run", None)
+        if active_run is None:
+            return
+
+        if event_type == "on_chat_model_end":
+            hide_messages = metadata.get("copilotkit:emit-messages") is False
+            hide_tool_calls = metadata.get("copilotkit:emit-tool-calls") is False
+
+            if hide_messages or hide_tool_calls:
+                hidden_ns = active_run.setdefault("copilotkit_hidden_namespaces", {})
+                hidden_ns[ns] = {
+                    "messages": hide_messages,
+                    "tool_calls": hide_tool_calls,
+                }
+
+                # If emit_tool_calls=False: also record any tool_call_ids from the
+                # AIMessage output so their ToolMessage results are filtered too.
+                if hide_tool_calls:
+                    output = (event.get("data") or {}).get("output")
+                    if isinstance(output, dict):
+                        for tc in output.get("tool_calls", []):
+                            tc_id = (
+                                tc.get("id")
+                                if isinstance(tc, dict)
+                                else getattr(tc, "id", None)
+                            )
+                            self._remember_hidden_id(
+                                "copilotkit_hidden_tool_call_ids", tc_id
+                            )
+                    elif output is not None:
+                        for tc in getattr(output, "tool_calls", None) or []:
+                            tc_id = (
+                                tc.get("id")
+                                if isinstance(tc, dict)
+                                else getattr(tc, "id", None)
+                            )
+                            self._remember_hidden_id(
+                                "copilotkit_hidden_tool_call_ids", tc_id
+                            )
+
+        elif event_type == "on_chain_end":
+            hidden_ns = active_run.get("copilotkit_hidden_namespaces") or {}
+            if ns not in hidden_ns:
+                return
+
+            hide_info = hidden_ns[ns]
+            output = (event.get("data") or {}).get("output")
+            if output is None:
+                return
+
+            # Extract messages from the node's output
+            if isinstance(output, dict):
+                raw_messages = output.get("messages", [])
+            else:
+                raw_messages = []
+
+            if not isinstance(raw_messages, list):
+                raw_messages = [raw_messages]
+
+            for msg in raw_messages:
+                msg_id = getattr(msg, "id", None)
+                if not msg_id:
+                    continue
+
+                # Only mark ToolMessages — not AIMessages.
+                # An AIMessage returned by the same node may be a separate,
+                # intentionally-visible response (the maintainer's false-positive case).
+                from langchain_core.messages import ToolMessage as LCToolMessage
+
+                if isinstance(msg, LCToolMessage) and hide_info.get("messages"):
+                    self._remember_hidden_id("copilotkit_hidden_message_ids", msg_id)
+
+            # Consume the namespace entry so subsequent on_chain_end events for
+            # an outer wrapper of the same subgraph don't re-apply the hide.
+            del hidden_ns[ns]
+
     async def get_state_and_messages_snapshots(
         self, config: RunnableConfig
     ) -> AsyncGenerator[Any, None]:
@@ -224,6 +336,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
         Reconcile the snapshot with the same ids `_dispatch_event` recorded.
         """
         await self._load_persisted_hidden_visibility(config)
+        # Persist once at each snapshot boundary so IDs recorded so far are
+        # durable across request boundaries. Subsequent calls in the same run
+        # are cheap because _persist_hidden_visibility skips unchanged markers.
         await self._persist_hidden_visibility(config)
         async for event in super().get_state_and_messages_snapshots(config):
             if event is not None and event.type == EventType.MESSAGES_SNAPSHOT:
@@ -381,8 +496,21 @@ class LangGraphAGUIAgent(LangGraphAgent):
     async def _handle_single_event(
         self, event: Any, state: State
     ) -> AsyncGenerator[str, None]:
-        """Override to add custom event processing for PredictState events"""
+        """Override to add custom event processing for PredictState events and
+        to record message IDs produced under emit_messages=False.
 
+        Hidden ID recording strategy (see _record_hidden_output_ids docstring):
+        - At on_chat_model_end: record the namespace as "had a hidden LLM call"
+        - At on_chain_end for that same namespace: mark any ToolMessage IDs as hidden
+          (not AIMessages, to avoid the false-positive where a visible AIMessage is
+          returned by the same node after a private LLM call)
+
+        This must be called before super()._handle_single_event so that IDs are in
+        active_run before any subgraph-boundary snapshot fires immediately after.
+        """
+
+        # Record hidden message/tool-call IDs BEFORE the base class handles the
+        # event, so IDs are in active_run when any subgraph-boundary snapshot fires.
         self._record_hidden_output_ids(event)
 
         # First, check if this is a raw event that should generate a PredictState event
@@ -441,54 +569,6 @@ class LangGraphAGUIAgent(LangGraphAgent):
             for transformed_event in transformed_events:
                 if transformed_event is not None:
                     yield transformed_event
-
-    def _record_hidden_output_ids(self, event: Any) -> None:
-        """Record IDs from source outputs hidden by delegated run metadata."""
-        metadata = event.get("metadata") or {}
-        hide_messages = metadata.get("copilotkit:emit-messages") is False
-        hide_tool_calls = metadata.get("copilotkit:emit-tool-calls") is False
-        namespace = metadata.get("langgraph_checkpoint_ns")
-        active_run = getattr(self, "active_run", None)
-        if active_run is None:
-            return
-
-        hidden_namespaces = active_run.setdefault(
-            "copilotkit_hidden_output_namespaces", {}
-        )
-        if namespace and (hide_messages or hide_tool_calls):
-            hidden_namespaces[namespace] = {
-                "messages": hide_messages,
-                "tool_calls": hide_tool_calls,
-            }
-        if not hide_messages and not hide_tool_calls and namespace:
-            visibility = hidden_namespaces.get(namespace)
-            if visibility:
-                hide_messages = visibility["messages"]
-                hide_tool_calls = visibility["tool_calls"]
-        if not hide_messages and not hide_tool_calls:
-            return
-
-        output = (event.get("data") or {}).get("output")
-        outputs = output.get("messages", []) if isinstance(output, dict) else [output]
-        if not isinstance(outputs, list):
-            outputs = [outputs]
-
-        for message in outputs:
-            if message is None:
-                continue
-            if hide_messages:
-                self._remember_hidden_id(
-                    "copilotkit_hidden_message_ids", getattr(message, "id", None)
-                )
-            if hide_tool_calls:
-                self._remember_hidden_id(
-                    "copilotkit_hidden_tool_call_ids",
-                    getattr(message, "tool_call_id", None),
-                )
-                for tool_call in getattr(message, "tool_calls", None) or []:
-                    self._remember_hidden_id(
-                        "copilotkit_hidden_tool_call_ids", tool_call.get("id")
-                    )
 
     def _materialize_tool_call_events(
         self,
@@ -609,6 +689,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
                         "Failed to emit compensating TOOL_CALL_END for %s",
                         tool_call_id,
                     )
+
             raise
         return True
 

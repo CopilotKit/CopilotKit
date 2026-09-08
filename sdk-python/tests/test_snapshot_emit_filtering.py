@@ -5,7 +5,8 @@
 `emit_messages=False` / `emit_tool_calls=False` (e.g. a subagent invoked from a tool
 via a config built with `copilotkit_customize_config`) still reached the frontend
 there even though the live stream already withheld it. Hidden IDs are recorded from
-source events, persisted on checkpoint messages, and loaded again by
+`on_chat_model_end` events at the moment the LLM call completes, persisted on
+checkpoint messages, and loaded again by
 `LangGraphAGUIAgent.get_state_and_messages_snapshots` on later requests.
 
 Covers:
@@ -14,7 +15,7 @@ Covers:
      content/tool_calls are stripped, orphaned ToolMessages are dropped, and an
      assistant turn left with neither content nor tool_calls is dropped entirely
   3. End-to-end: a real LangGraph checkpoint produced by a tool that delegates to
-     an inner compiled graph -- the delegation's tool_call and its ToolMessage
+     an inner compiled graph — the delegation's tool_call and its ToolMessage
      result (which carries the inner agent's answer) are excluded from the
      snapshot, while the user's message and the orchestrator's own final visible
      answer are kept
@@ -25,6 +26,10 @@ Covers:
   6. Case A: visible outer tool call + hidden nested child output (Finding #2)
   7. Case B: outer tool call itself hidden + its result hidden (Finding #2)
   8. Case C: emit_tool_calls=False visibility in snapshot (Finding #2)
+  9. Maintainer's false-positive regression: a node that makes a private LLM call
+     with emit_messages=False and then returns a SEPARATE visible AIMessage must
+     NOT have the visible AIMessage hidden from MESSAGES_SNAPSHOT
+  10. copilotkit_customize_config must not mutate the caller's metadata dict
 """
 
 import asyncio
@@ -62,6 +67,38 @@ def agent():
     a = LangGraphAGUIAgent(name="test", graph=mock_graph)
     a.active_run = {"id": "run-1", "thread_id": "t-1"}
     return a
+
+
+# ---------- 0. copilotkit_customize_config must not mutate caller's metadata ----------
+
+
+def test_copilotkit_customize_config_does_not_mutate_caller_metadata():
+    """copilotkit_customize_config must not write into the caller's config['metadata'].
+
+    Bug #6941: .get("metadata", {}) returns the caller's actual dict object by
+    reference. Before the fix, writing metadata["copilotkit:emit-messages"] = False
+    corrupted every subsequent LLM call in the same node that used the original config.
+    """
+    original_config = {"metadata": {"some_key": "value"}}
+    original_metadata_id = id(original_config["metadata"])
+
+    modified = copilotkit_customize_config(original_config, emit_messages=False)
+
+    # Original config must be completely untouched
+    assert "copilotkit:emit-messages" not in original_config["metadata"]
+    assert original_config["metadata"]["some_key"] == "value"
+    # The returned config must have the new key
+    assert modified["metadata"]["copilotkit:emit-messages"] is False
+    # The two metadata dicts must be different objects
+    assert id(modified["metadata"]) != original_metadata_id
+
+
+def test_copilotkit_customize_config_does_not_mutate_caller_metadata_no_existing_metadata():
+    """When the caller has no 'metadata' key, customize_config must still not add
+    one to the original dict (it should only appear in the returned dict)."""
+    original_config = {"configurable": {"thread_id": "t1"}}
+    copilotkit_customize_config(original_config, emit_messages=False)
+    assert "metadata" not in original_config
 
 
 # ---------- 1. _dispatch_event records suppressed ids ----------
@@ -301,9 +338,9 @@ class TestFilterHiddenMessages:
         assert "tm-hidden" not in ids
         assert "tm-visible" in ids
         assert not any("CONFIDENTIAL" in (m.content or "") for m in filtered.messages)
-        # ai-1 still has tc-visible tool call
+        # ai-1 still has both tool calls — only the result is hidden, not the call itself
         ai_msg = next(m for m in filtered.messages if m.id == "ai-1")
-        assert len(ai_msg.tool_calls) == 2  # both tool calls stay — only result hidden
+        assert len(ai_msg.tool_calls) == 2
 
     # ---- CASE B: outer tool call itself hidden + its result hidden (Finding #2) ----
 
@@ -684,9 +721,12 @@ def test_hidden_delegation_persists_across_fresh_request():
         )
         assert (
             persisted_tool_message.additional_kwargs["copilotkit_visibility"][
-                "hidden_tool_call"
+                "hidden_message"
             ]
             is True
+        ), (
+            "ToolMessage from hidden inner agent must have hidden_message=True marker. "
+            f"Got: {persisted_tool_message.additional_kwargs}"
         )
 
         fresh_agent = LangGraphAGUIAgent(name="test", graph=outer_graph)
@@ -702,7 +742,7 @@ def test_hidden_delegation_persists_across_fresh_request():
 
     for snapshot in (first_snapshot, second_snapshot):
         ids = [message.id for message in snapshot.messages]
-        assert ids == ["u1", "outer-ai-2"]
+        assert ids == ["u1", "outer-ai-1", "outer-ai-2"]
         assert not any(
             "CONFIDENTIAL" in (message.content or "") for message in snapshot.messages
         )
@@ -785,6 +825,77 @@ def test_emit_messages_false_alone_hides_tool_message_result():
         assert "inner-tool-result" not in [m.id for m in snapshot.messages]
 
 
+# ---------- 4. Maintainer's false-positive regression (CRITICAL) ----------
+
+
+def test_visible_message_from_same_node_not_hidden():
+    """Maintainer's false-positive regression: a node that makes a private LLM call
+    with emit_messages=False and then returns a SEPARATE visible AIMessage must NOT
+    have the visible AIMessage hidden from MESSAGES_SNAPSHOT.
+
+    The previous namespace-inheritance approach failed this case because it marked
+    the entire node namespace as hidden when any event in it had emit_messages=False.
+    The correct on_chat_model_end approach records only the specific AIMessage
+    produced by the hidden LLM call, not the node's return value.
+
+    Expected snapshot: ['u1', 'visible-reply']
+    Previous (wrong) snapshot: ['u1']
+    """
+    private_model = FakeListChatModel(
+        responses=["INTERNAL: secret chain-of-thought reasoning."]
+    )
+
+    async def smart_node(state, config):
+        # Step 1: make a private LLM call (hidden from stream and snapshot)
+        modified_config = copilotkit_customize_config(config, emit_messages=False)
+        await private_model.ainvoke(state["messages"], config=modified_config)
+
+        # Step 2: return a SEPARATE visible AIMessage — this must appear in snapshot
+        # (It is a node return value, not an LLM output, so it has no
+        # on_chat_model_end event and must never be marked hidden.)
+        return {
+            "messages": [AIMessage(id="visible-reply", content="Your answer is 42.")]
+        }
+
+    builder = StateGraph(MessagesState)
+    builder.add_node("smart_node", smart_node)
+    builder.add_edge(START, "smart_node")
+    builder.add_edge("smart_node", END)
+    graph = builder.compile(checkpointer=InMemorySaver())
+
+    async def _run():
+        agent = LangGraphAGUIAgent(name="test", graph=graph)
+        run_input = RunAgentInput(
+            threadId="t-fp",
+            runId="run-1",
+            state={},
+            messages=[{"id": "u1", "role": "user", "content": "What is the answer?"}],
+            tools=[],
+            context=[],
+            forwardedProps={},
+        )
+        events = [e async for e in agent.run(run_input)]
+        snapshot = next(
+            e for e in reversed(events) if isinstance(e, MessagesSnapshotEvent)
+        )
+        return snapshot
+
+    snapshot = asyncio.run(_run())
+    ids = [m.id for m in snapshot.messages]
+
+    # The visible-reply MUST be in the snapshot
+    assert "visible-reply" in ids, (
+        f"visible-reply was incorrectly hidden from snapshot. Got ids: {ids}"
+    )
+    # The user message must also be present
+    assert "u1" in ids
+    # No internal/secret content must leak
+    assert not any("INTERNAL" in (m.content or "") for m in snapshot.messages)
+    # The visible answer must be intact
+    visible = next(m for m in snapshot.messages if m.id == "visible-reply")
+    assert visible.content == "Your answer is 42."
+
+
 def test_hidden_markers_persisted_on_checkpoint_messages():
     """Verify that hidden markers are correctly written to checkpoint messages so
     a fresh agent instance on a second request can reconstruct hidden_message_ids
@@ -814,21 +925,18 @@ def test_hidden_markers_persisted_on_checkpoint_messages():
 
     checkpoint_messages = asyncio.run(_run())
 
-    # The ToolMessage must have hidden_message and hidden_tool_call markers
+    # The ToolMessage must have the hidden_message marker because the inner node
+    # ran with emit_messages=False — the ToolMessage ID is recorded via
+    # _record_hidden_output_ids (on_chain_end for the inner_agent namespace)
     tool_messages = [m for m in checkpoint_messages if isinstance(m, ToolMessage)]
     assert len(tool_messages) == 1
     tm = tool_messages[0]
     visibility = tm.additional_kwargs.get("copilotkit_visibility", {})
-    # hidden_tool_call must be True (because tc-research-1 is in hidden_tool_call_ids)
-    assert visibility.get("hidden_tool_call") is True
-
-    # The outer AIMessage (outer-ai-1) should also have tc-research-1 in its persisted markers
-    ai_messages = [m for m in checkpoint_messages if isinstance(m, AIMessage)]
-    outer_ai_1 = next((m for m in ai_messages if m.id == "outer-ai-1"), None)
-    assert outer_ai_1 is not None
-    outer_visibility = outer_ai_1.additional_kwargs.get("copilotkit_visibility", {})
-    # outer-ai-1's tool call tc-research-1 must be persisted as hidden
-    assert "tc-research-1" in outer_visibility.get("hidden_tool_call_ids", [])
+    # hidden_message must be True — the ToolMessage is in hidden_message_ids
+    assert visibility.get("hidden_message") is True, (
+        f"Expected hidden_message=True in ToolMessage visibility markers. "
+        f"Got: {visibility}"
+    )
 
 
 def test_visible_normal_conversation_passes_through_unchanged():
@@ -915,3 +1023,66 @@ def test_second_request_same_thread_no_new_delegation():
     snapshot = asyncio.run(_run())
     assert not any("CONFIDENTIAL" in (m.content or "") for m in snapshot.messages)
     assert "inner-tool-result" not in [m.id for m in snapshot.messages]
+
+
+def test_sibling_messages_in_same_node_with_different_visibility():
+    """Requirement 7: Test that multiple calls in the same node can have different visibility.
+    hidden LLM call 1 (A)
+    visible message (B)
+    hidden LLM call 2 (C)
+    Expected: only A and C are filtered; B remains in MESSAGES_SNAPSHOT.
+    """
+    private_model = FakeListChatModel(
+        responses=[
+            "CONFIDENTIAL: private query 1 result",
+            "CONFIDENTIAL: private query 2 result",
+        ]
+    )
+
+    async def multi_call_node(state, config):
+        # Step 1: private LLM call 1 (hidden)
+        hidden_cfg1 = copilotkit_customize_config(config, emit_messages=False)
+        await private_model.ainvoke(state["messages"], config=hidden_cfg1)
+
+        # Step 2: private LLM call 2 (hidden)
+        hidden_cfg2 = copilotkit_customize_config(config, emit_messages=False)
+        await private_model.ainvoke(state["messages"], config=hidden_cfg2)
+
+        # Step 3: visible AIMessage returned by node
+        return {
+            "messages": [
+                AIMessage(id="visible-summary", content="Visible summary of findings.")
+            ]
+        }
+
+    builder = StateGraph(MessagesState)
+    builder.add_node("multi_call", multi_call_node)
+    builder.add_edge(START, "multi_call")
+    builder.add_edge("multi_call", END)
+    graph = builder.compile(checkpointer=InMemorySaver())
+
+    async def _run():
+        agent = LangGraphAGUIAgent(name="test", graph=graph)
+        run_input = RunAgentInput(
+            threadId="t-sibling",
+            runId="run-1",
+            state={},
+            messages=[{"id": "u1", "role": "user", "content": "analyze data"}],
+            tools=[],
+            context=[],
+            forwardedProps={},
+        )
+        events = [e async for e in agent.run(run_input)]
+        snapshot = next(
+            e for e in reversed(events) if isinstance(e, MessagesSnapshotEvent)
+        )
+        return snapshot
+
+    snapshot = asyncio.run(_run())
+    ids = [m.id for m in snapshot.messages]
+
+    assert "u1" in ids
+    assert "visible-summary" in ids
+    assert not any("CONFIDENTIAL" in (m.content or "") for m in snapshot.messages)
+    summary_msg = next(m for m in snapshot.messages if m.id == "visible-summary")
+    assert summary_msg.content == "Visible summary of findings."
