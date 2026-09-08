@@ -12,7 +12,7 @@ We love community contributions! That said, we want to make sure we're all on th
 Investing a lot of time and effort just to find out it doesn't align with the upstream project feels awful, and we don't want that to happen.
 It also helps to make sure the work you're planning isn't already in progress.
 
-As described in our contributing guide, please file an issue first: https://github.com/ag-ui-protocol/ag-ui/issues
+As described in our contributing guide, please file an issue first: https://github.com/CopilotKit/CopilotKit/issues
 Or, reach out to us on Discord: https://discord.com/invite/6dffbvGU3D
 
 

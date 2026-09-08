@@ -12,7 +12,7 @@ We love community contributions! That said, we want to make sure we're all on th
 Investing a lot of time and effort just to find out it doesn't align with the upstream project feels awful, and we don't want that to happen.
 It also helps to make sure the work you're planning isn't already in progress.
 
-As described below, please file an issue first: https://github.com/ag-ui-protocol/ag-ui/issues
+As described below, please file an issue first: https://github.com/CopilotKit/CopilotKit/issues
 Or, reach out to us on Discord: https://discord.com/invite/6dffbvGU3D
 
 Ready to contribute but seeking guidance, we have several avenues to assist you. Explore the upcoming segment for clarity on the kind of contributions we appreciate and how to jump in. Reach out to us directly on [Discord](https://discord.gg/6dffbvGU3D) for immediate assistance! Alternatively, you're welcome to raise an issue and one of our dedicated maintainers will promptly steer you in the right direction!
