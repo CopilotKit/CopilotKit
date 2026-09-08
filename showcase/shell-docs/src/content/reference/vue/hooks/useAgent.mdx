@@ -7,7 +7,7 @@ description: "Vue 3 composable for accessing AG-UI agent instances"
 
 `useAgent` is a Vue 3 composable that returns a reactive reference to an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) instance. The composable subscribes to agent changes and triggers reactive updates when the agent's state, messages, or execution status changes.
 
-The composable returns `{ agent }`, where `agent` is a Vue `shallowRef<AbstractAgent | null>` — it is `null` until an agent resolves. (If the agent cannot be resolved for the given `agentId` after the runtime syncs, the composable throws rather than leaving `agent` as `null`.) Access the underlying instance with `agent.value` in `<script setup>`, or rely on auto-unwrapping in `<template>`, and guard with `agent?.` / `agent.value?.` for the unresolved case.
+The composable returns `{ agent }`, where `agent` is typed as a Vue `shallowRef<AbstractAgent | null>` for API compatibility. During setup, it synchronously assigns an existing or provisional agent; if neither can be resolved, it throws instead of returning with `agent.value` set to `null`. Access the underlying instance with `agent.value` in `<script setup>`, or rely on auto-unwrapping in `<template>`. Optional chaining remains useful when consuming the nullable public type.
 
 <Callout type="warn">
   Throws an error if no agent can be resolved for the given `agentId` after the runtime has synced (for example, when the id does not match any agent reported by your runtime `/info` or registered via `agents__unsafe_dev_only`).
@@ -27,17 +27,21 @@ function useAgent(props?: UseAgentProps): {
 
 ## Parameters
 
-All reactive inputs accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`, or a getter function and the composable will re-resolve when it changes.
+Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`, or a getter function. The composable responds to each input according to the behavior described below.
 
 <PropertyReference name="props" type="UseAgentProps">
   Configuration object for the composable.
 
   <PropertyReference name="agentId" type="MaybeRefOrGetter<string | undefined>" default='"default"'>
-    ID of the agent to retrieve. Must match an agent configured in the CopilotKit provider. Falls back to the default agent id when unset.
+    ID of the agent to resolve. Resolution uses the explicit `agentId`, then the surrounding chat configuration's `agentId`, then `DEFAULT_AGENT_ID`. The id may resolve to an agent discovered by the runtime or registered by the provider. For thread-scoped use, it is the local id under which the private proxy is registered.
   </PropertyReference>
 
-  <PropertyReference name="threadId" type="MaybeRefOrGetter<string | undefined>">
-    ID of the conversation thread. When provided, `useAgent` resolves a per-thread clone of the agent so each thread keeps independent messages and state. When unset, falls back to the thread id from the current chat configuration, if any.
+  <PropertyReference name="runtimeAgentId" type="MaybeRefOrGetter<string>">
+    Runtime agent id for thread-scoped use. Pass it together with `agentId` and `threadId` (all three are required) to register a private local proxy routed to this runtime agent. Partial combinations are invalid.
+  </PropertyReference>
+
+  <PropertyReference name="threadId" type="MaybeRefOrGetter<string>">
+    ID of the conversation thread for thread-scoped use. Pass it with `agentId` and `runtimeAgentId` to register the private proxy, route it to the runtime agent, and pin this thread onto the current proxy. Changing `threadId` repins that proxy. In the shared-agent form, omit it; an explicit thread from the current chat configuration is used when present.
   </PropertyReference>
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
@@ -64,7 +68,7 @@ All reactive inputs accept `MaybeRefOrGetter`, so you can pass a plain value, a 
   Object containing the reactive agent reference.
 
   <PropertyReference name="agent" type="ShallowRef<AbstractAgent | null>">
-    A Vue `shallowRef` holding the AG-UI agent instance, or `null` before it resolves. When an agent is configured on the provider it resolves synchronously during setup, but it can still be `null` during the unresolved window — for example during server-side rendering or while the runtime is still loading agents — so the examples below guard with `agent?.` / `v-if`. Read it with `agent.value` in `<script setup>`, or directly (auto-unwrapped) in `<template>`. See the [AbstractAgent documentation](https://docs.ag-ui.com/sdk/js/client/abstract-agent) for full interface details.
+    A Vue `shallowRef` holding the AG-UI agent instance. Its public type includes `null`, but the current implementation resolves synchronously during setup: it assigns an existing agent or a provisional proxy, or throws when it cannot resolve one. Read it with `agent.value` in `<script setup>`, or directly (auto-unwrapped) in `<template>`. The examples below retain `agent?.` / `v-if` guards because callers consume the nullable public type. See the [AbstractAgent documentation](https://docs.ag-ui.com/sdk/js/client/abstract-agent) for full interface details.
 
     The properties and methods below belong to the unwrapped agent (`agent.value`).
 
@@ -246,7 +250,7 @@ const { agent: support } = useAgent({ agentId: "support" });
 </template>
 ```
 
-### Per-Thread Agents
+### Thread-scoped Agent
 
 ```vue
 <script setup lang="ts">
@@ -255,9 +259,12 @@ import { useAgent } from "@copilotkit/vue/v2";
 
 const threadId = ref("thread-1");
 
-// Each thread id resolves an independent agent clone with its own
-// messages and state.
-const { agent } = useAgent({ agentId: "default", threadId });
+// Registers a local proxy routed to the runtime agent and pins it to this thread.
+const { agent } = useAgent({
+  agentId: "thread-1",
+  runtimeAgentId: "default",
+  threadId,
+});
 </script>
 
 <template>
@@ -295,8 +302,8 @@ const { agent } = useAgent({ throttleMs: 100 });
 ## Behavior
 
 - **Reactive updates**: The `agent` ref triggers reactivity when state, messages, or execution status changes (configurable via the `updates` parameter).
-- **Reactive inputs**: `agentId`, `threadId`, and `throttleMs` accept `MaybeRefOrGetter`. The composable re-resolves and re-subscribes when they change, and also re-resolves when the runtime connection status or available agents change.
-- **Per-thread clones**: When `threadId` is set, the composable resolves a per-thread clone of the agent so each thread keeps independent messages and state.
+- **Reactive inputs**: `agentId` and `runtimeAgentId` drive private-proxy registration; `agentId` plus core registry and connection changes drive resolution. `threadId` pins or repins the current agent. `updates`, `throttleMs`, and the provider's `defaultThrottleMs` drive subscription behavior.
+- **Agent binding**: The shared-agent form resolves the explicit `agentId`, then the chat configuration's `agentId`, then `DEFAULT_AGENT_ID`, and may return an agent discovered by the runtime or registered by the provider. The thread-scoped form registers a private proxy under the local `agentId`, routes it to `runtimeAgentId`, and pins `threadId` to that proxy. All three thread-scoped properties are required together; changing `threadId` repins the existing proxy.
 - **Throttling**: Message and state updates can be throttled via `throttleMs`, resolved as `throttleMs ?? provider defaultThrottleMs ?? 0`. Run lifecycle callbacks always fire immediately.
 - **Error handling**: Throws an error if no agent can be resolved for the specified `agentId` after the runtime has synced.
 - **State synchronization**: State updates via `setState()` are immediately available to both app and agent.
