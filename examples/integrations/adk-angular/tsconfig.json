@@ -10,8 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "noPropertyAccessFromIndexSignature": false,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "baseUrl": "."
+    "emitDecoratorMetadata": true
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
@@ -19,5 +18,8 @@
     "strictInputAccessModifiers": true,
     "strictTemplates": true
   },
-  "exclude": ["dist", "node_modules"]
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
 }
