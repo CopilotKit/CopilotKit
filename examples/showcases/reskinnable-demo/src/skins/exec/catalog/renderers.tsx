@@ -199,7 +199,13 @@ function Tile({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-hairline bg-surface p-4 shadow-soft">
+    // NO CARD CHROME HERE. Every block renders inside a host that already
+    // draws one — the chat bubble in `shell/chat/inline-block-surface.tsx` and
+    // the dashboard card in `../components/dashboard-grid.tsx` — so a border,
+    // surface and shadow at this level produced a card inside a card: two
+    // rings, two backgrounds, two shadows around one tile. The label stays:
+    // it carries the scope and period, which the host's title does not.
+    <div>
       <div className="text-[0.65rem] font-medium uppercase tracking-[0.12em] text-ink-muted">
         {label}
       </div>
@@ -732,8 +738,21 @@ const InitiativeTable = () => {
       />
     );
   }
+  // THE EYEBROW HAS TO EARN ITS LINE. A bare "Initiatives" under a host that
+  // already titles the card "Key Initiatives" is two labels saying one thing,
+  // which is what made the pinned card read as double-titled. The sibling
+  // tiles' labels all carry scope the title cannot (metric, department,
+  // period); this one carries the count and how much of it is off track.
+  const offTrack = snapshot.initiatives.filter(
+    (initiative) => initiative.status !== "green",
+  ).length;
+  const label =
+    offTrack === 0
+      ? `${snapshot.initiatives.length} tracked · all green`
+      : `${snapshot.initiatives.length} tracked · ${offTrack} off track`;
+
   return (
-    <Tile label="Initiatives">
+    <Tile label={label}>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="text-left text-[0.65rem] uppercase tracking-[0.12em] text-ink-muted">

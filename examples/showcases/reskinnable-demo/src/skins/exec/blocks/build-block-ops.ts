@@ -181,8 +181,14 @@ export function buildBlockOps(
   const components: Component[] = [];
   const rootChildren: string[] = [];
 
-  components.push({ id: "heading", component: "Heading", text: spec.title });
-  rootChildren.push("heading");
+  // The title is the HOST's job when the block is pinned: the dashboard card
+  // draws it in its chrome, beside the move/remove controls, so emitting it
+  // here too printed the same words twice in one card. In the chat there is no
+  // chrome title, so the block still names itself.
+  if (!opts?.pinned) {
+    components.push({ id: "heading", component: "Heading", text: spec.title });
+    rootChildren.push("heading");
+  }
 
   const kindId = "kind";
   components.push(buildKindComponent(kindId, spec));
