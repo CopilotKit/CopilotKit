@@ -42,6 +42,11 @@ useRenderTool(
 
 ### Named overload
 
+In this signature, `RenderToolProps<S>` is shorthand for the discriminated
+union described under [Render Props](#render-props). It is not exported from
+`@copilotkit/vue/v2`; let the `render` callback infer its props from the schema,
+as shown in the examples below.
+
 ```ts
 import { z } from "zod";
 import { useRenderTool } from "@copilotkit/vue/v2";
