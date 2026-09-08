@@ -5,6 +5,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { CirclePause, Share2 } from "lucide-react";
 import {
   Cards,
   Card,
@@ -263,6 +264,15 @@ function warnSilentNull(component: string, reason: string): void {
   // eslint-disable-next-line no-console
   console.warn(`[mdx-registry] <${component}> rendered nothing — ${reason}`);
 }
+
+// `iconKey` values used by `<CTACards>` in content. These are lucide
+// names, not the framework keys in `customIcons`, so they need their own
+// lookup. An unlisted key renders the card with no icon rather than
+// throwing, which keeps a typo from blanking the page.
+export const ctaIcons: Record<string, React.ComponentType> = {
+  circlePause: CirclePause,
+  share2: Share2,
+};
 
 export const docsComponents = {
   Callout,
@@ -668,16 +678,50 @@ export const docsComponents = {
         />
       </div>
     ) : null,
-  CTACards: ({ children }: { children?: React.ReactNode }) => (
+  // `<CTACards columns={2} cards={[...]} />` is the shape every
+  // human-in-the-loop landing page authors. The previous stub accepted
+  // only `children`, so all four call sites rendered an empty grid and
+  // silently dropped their links. Same fallback contract as
+  // `EcosystemTable` below: render from the prop when it is supplied,
+  // otherwise wrap children so any legacy `<CTACards>...</CTACards>`
+  // authoring keeps working.
+  CTACards: ({
+    cards,
+    columns = 2,
+    children,
+  }: {
+    cards?: Array<{
+      iconKey?: string;
+      title: string;
+      description?: string;
+      href: string;
+    }>;
+    columns?: number;
+    children?: React.ReactNode;
+  }) => (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(2, 1fr)",
+        gridTemplateColumns: `repeat(${columns}, 1fr)`,
         gap: "0.75rem",
         marginBottom: "1rem",
       }}
     >
-      {children}
+      {cards && cards.length > 0
+        ? cards.map((card) => {
+            const Icon = card.iconKey ? ctaIcons[card.iconKey] : undefined;
+            return (
+              <Card
+                key={card.href}
+                href={card.href}
+                title={card.title}
+                icon={Icon ? <Icon /> : undefined}
+              >
+                {card.description}
+              </Card>
+            );
+          })
+        : children}
     </div>
   ),
   AttributeCards: ({ children }: { children?: React.ReactNode }) => (
