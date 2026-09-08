@@ -99,6 +99,46 @@ When you are done, your Runtime will send selected Threads to a Learning contain
   </Step>
 </Steps>
 
+## Inspect Learning locally
+
+The Inspector Learning pane requires an Intelligence deployment that serves
+`GET /api/inspector/learning` with project API-key authentication. Updating the
+SDK alone does not add this platform endpoint.
+
+Enable both Runtime debug mode and the handler's Learning opt-in when inspecting
+your application locally:
+
+```ts title="Your CopilotKit runtime handler"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser,
+  debug: true,
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  inspectorLearning: true,
+});
+```
+
+Keep your application's authentication middleware on this handler. Both options
+default to off; they control Inspector access, not whether agent runs participate
+in Learning. The Express and Hono handler factories also accept
+`inspectorLearning: true`.
+
+After running the agent in a new Thread with `getLearningContainerId` configured,
+select that agent in Inspector. The platform discovers the container from the
+agent's saved Thread assignment; you do not need the deprecated `ɵlearning`
+option. With multiple containers and no saved assignment, Inspector may ask for
+a selection.
+
 ## Use published Skills
 
 From a directory connected to the same Intelligence project, download the container's published Skills:
@@ -114,6 +154,8 @@ The output contains a directory and `SKILL.md` for each published Skill. Configu
 
 | Problem | What to check |
 | --- | --- |
+| Inspector Learning is unavailable or the Runtime returns 404 | Enable both `debug: true` on `CopilotRuntime` and `inspectorLearning: true` on its handler. The Intelligence deployment must also support the Learning endpoint. |
+| The Runtime's Learning request returns 503 and the platform returns 401 | Check that the Intelligence deployment includes `/api/inspector/learning` and authenticates it with project API keys. Keep the project key on the server; a browser session token is not a replacement. |
 | A Thread never appears in the container | Confirm the callback returned an existing stable ID before the Thread's first run and that the run reached a terminal state. |
 | The Runtime reports a container conflict | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread. |
 | A run has no new evidence | Runs created before assignment, still in progress, or already included in an earlier Learning run are not new input. |
