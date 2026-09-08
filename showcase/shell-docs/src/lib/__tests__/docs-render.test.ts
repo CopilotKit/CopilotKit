@@ -393,6 +393,10 @@ describe("migration docs", () => {
     );
     expect(componentReference).toContain("`@copilotkit/react-core/v2`");
     expect(componentReference).not.toContain("not from the v2 subpackage");
+    expect(componentReference).toContain("createCopilotRuntimeHandler({");
+    expect(componentReference).not.toContain(
+      "copilotRuntimeNextJSAppRouterEndpoint",
+    );
   });
 
   it("does not recommend stale v2 package paths in authored docs", () => {
