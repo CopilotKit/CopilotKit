@@ -1,10 +1,14 @@
+import React from "react";
+import type { ReactElement, ReactNode } from "react";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compileMDX } from "next-mdx-remote/rsc";
+import { MDXRemote, compileMDX } from "next-mdx-remote/rsc";
 import { renderToStaticMarkup } from "react-dom/server";
 import remarkGfm from "remark-gfm";
 import { describe, expect, it } from "vitest";
+
+import { DocsPageView } from "@/components/docs-page-view";
 
 import { resolveCtaCardHrefs } from "../docs-link-rewrite";
 import { ctaIcons, docsComponents } from "../mdx-registry";
@@ -197,7 +201,9 @@ describe("CTACards through the MDX pipeline", () => {
 
     expect(markup).toContain("Flow-based");
     expect(markup).toContain("/human-in-the-loop/flow");
-    expect(markup).toContain("grid-cols-1");
+    // `grid-cols-1` alone would also match the two-column class, so the
+    // absence of the `sm:` variant is what proves `columns` arrived.
+    expect(markup).not.toContain("sm:grid-cols-2");
   });
 
   it.each(HITL_PAGES)("renders every card authored by %s", async (page) => {
@@ -211,9 +217,65 @@ describe("CTACards through the MDX pipeline", () => {
     const hrefs = [...block!.matchAll(/href:\s*"([^"]+)"/g)].map((m) => m[1]);
     const titles = [...block!.matchAll(/title:\s*"([^"]+)"/g)].map((m) => m[1]);
     expect(hrefs.length).toBeGreaterThan(0);
+    expect(titles.length).toBe(hrefs.length);
 
     const markup = await renderMdx(block!);
     for (const href of hrefs) expect(markup).toContain(`href="${href}"`);
     for (const title of titles) expect(markup).toContain(title);
+  });
+});
+
+// The two fixes above only reach a reader if the page wires them up:
+// `blockJS` has to be off in the page's own MDXRemote options, and the
+// page has to register the href-resolving `CTACards` override. Walk the
+// rendered tree the way `docs-page-view-angular-backend.test.tsx` does
+// and check both on the real page.
+describe("DocsPageView CTACards wiring", () => {
+  type MdxProps = {
+    children?: ReactNode;
+    components?: Record<string, React.ComponentType<Record<string, unknown>>>;
+    options?: { blockJS?: boolean };
+  };
+
+  function findMdxRemote(node: ReactNode): ReactElement<MdxProps> | undefined {
+    if (!React.isValidElement(node)) return undefined;
+
+    const element = node as ReactElement<MdxProps>;
+    if (element.type === MDXRemote) return element;
+
+    for (const child of React.Children.toArray(element.props.children)) {
+      const found = findMdxRemote(child);
+      if (found) return found;
+    }
+
+    return undefined;
+  }
+
+  it("keeps expression props and prefixes card hrefs with the framework", async () => {
+    const page = await DocsPageView({
+      slugPath: "human-in-the-loop",
+      contentSlugPath:
+        "integrations/microsoft-agent-framework/human-in-the-loop",
+      slugHrefPrefix: "/ms-agent-python",
+      frameworkOverride: "ms-agent-python",
+      navTree: [],
+    });
+
+    const mdx = findMdxRemote(page);
+    expect(mdx).toBeDefined();
+    expect(mdx!.props.options?.blockJS).toBe(false);
+
+    const Override = mdx!.props.components?.CTACards;
+    expect(Override).toBeDefined();
+
+    const markup = renderToStaticMarkup(
+      React.createElement(Override!, { cards, columns: 2 }),
+    );
+    expect(markup).toContain(
+      'href="/ms-agent-python/human-in-the-loop/interrupt-flow"',
+    );
+    expect(markup).toContain(
+      'href="/ms-agent-python/human-in-the-loop/tool-based"',
+    );
   });
 });

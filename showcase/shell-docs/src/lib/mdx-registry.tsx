@@ -701,8 +701,11 @@ export const docsComponents = {
     ) : null,
   // `<CTACards columns={2} cards={[...]} />` is the shape every
   // human-in-the-loop landing page authors. The previous stub accepted
-  // only `children`, so all four call sites rendered an empty grid and
-  // silently dropped their links. Same fallback contract as
+  // only `children`, so every call site rendered an empty grid and
+  // silently dropped its links. Four content files author the block and
+  // three of them are live pages: the pydantic-ai one is shadowed by the
+  // sibling `integrations/pydantic-ai/human-in-the-loop.mdx` leaf and
+  // renders nowhere. Same fallback contract as
   // `EcosystemTable` below: render from the prop when it is supplied,
   // otherwise wrap children so any legacy `<CTACards>...</CTACards>`
   // authoring keeps working.
