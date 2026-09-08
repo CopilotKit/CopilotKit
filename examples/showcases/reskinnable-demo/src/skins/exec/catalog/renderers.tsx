@@ -793,25 +793,35 @@ const InitiativeTable = () => {
                 still has all five.
               */}
               <td
-                className="py-1.5 pr-3 align-top text-ink"
+                className="py-1 pr-3 align-top text-ink"
                 title={initiative.note}
               >
-                <div className="leading-snug">{initiative.name}</div>
                 {/*
-                  CLAMPED, because note length is ledger data and nothing
-                  upstream bounds it. Two lines is enough for every seeded
-                  note; a longer one now costs the card no extra height
-                  instead of silently re-inflating the row it took two passes
-                  to shrink. The full text stays on the cell's `title`.
+                  OWNER RIDES THE NAME LINE. On its own row it cost every
+                  initiative a second line — including the three green ones,
+                  whose whole entry is then two lines to say a name and "on
+                  track". Inline, a green row is ONE line and the block stops
+                  being the tallest thing on the dashboard.
                 */}
-                <div className="line-clamp-2 text-[0.7rem] leading-snug text-ink-muted">
-                  {initiative.owner}
-                  {initiative.status === "green" ? null : (
-                    <> · {initiative.note}</>
-                  )}
+                <div className="leading-snug">
+                  {initiative.name}
+                  <span className="text-ink-muted"> · {initiative.owner}</span>
                 </div>
+                {/*
+                  The sub-line is now the note alone, and only for a row that
+                  is not green — a green row's prose only repeats what its
+                  pill already says. CLAMPED, because note length is ledger
+                  data and nothing upstream bounds it: a long one costs the
+                  card no extra height instead of silently re-inflating the
+                  row it took three passes to shrink. Full text on `title`.
+                */}
+                {initiative.status === "green" ? null : (
+                  <div className="line-clamp-2 text-[0.7rem] leading-snug text-ink-muted">
+                    {initiative.note}
+                  </div>
+                )}
               </td>
-              <td className="py-1.5 align-top">
+              <td className="py-1 align-top">
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[0.6rem] font-medium uppercase tracking-[0.1em]",
