@@ -1,5 +1,10 @@
 import path from "path";
-import { CONTENT_DIR, loadDoc, readMeta } from "./docs-render";
+import {
+  CONTENT_DIR,
+  docCandidateOrder,
+  loadDoc,
+  readMeta,
+} from "./docs-render";
 import type { FrontendId } from "./frontend-options";
 
 export type FrontendDocPolicy =
@@ -20,6 +25,15 @@ export type FrontendDocResolution =
       policy: FrontendDocPolicy;
     }
   | { status: "not-found" };
+
+// These framework-neutral pages are deliberately reused by the Vue docs even
+// though their root source predates frontend applicability metadata. Keep this
+// Vue-only so Angular and other frontend surfaces retain their own policy.
+const VUE_SHARED_ROOT_DOC_SLUGS = new Set([
+  "threads",
+  "threads-import",
+  "inspector",
+]);
 
 function slugSegments(slugPath: string): string[] | null {
   const segments = slugPath.split(/[\\/]+/).filter(Boolean);
@@ -93,6 +107,26 @@ export function hasFrontendVariant(
   return loadDoc(getFrontendVariantContentSlug(frontend, slugPath)) !== null;
 }
 
+/**
+ * Resolve framework-scoped MDX without losing an explicitly selected Vue
+ * variant. Vue variants take precedence only when the file exists; every
+ * other request keeps the normal authored/generated framework order.
+ */
+export function frontendAwareDocCandidateOrder(
+  frontend: Exclude<FrontendId, "react"> | null | undefined,
+  docsMode: "generated" | "authored" | "hidden",
+  docsFolder: string,
+  slugPath: string,
+): string[] {
+  const candidates = docCandidateOrder(docsMode, docsFolder, slugPath);
+  if (frontend !== "vue") return candidates;
+
+  const variantContentSlug = getFrontendVariantContentSlug(frontend, slugPath);
+  return loadDoc(variantContentSlug)
+    ? [variantContentSlug, ...candidates]
+    : candidates;
+}
+
 export function isFrontendFirstClassDoc(
   frontend: Exclude<FrontendId, "react">,
   slugPath: string,
@@ -140,6 +174,19 @@ export function resolveFrontendDocPage(
       canonicalPath: `/${frontend}/${slugPath}`,
       policy,
     };
+  }
+
+  if (frontend === "vue" && VUE_SHARED_ROOT_DOC_SLUGS.has(slugPath)) {
+    const sharedDoc = loadDoc(slugPath);
+    if (sharedDoc) {
+      return {
+        status: "found",
+        slugPath,
+        contentSlugPath: slugPath,
+        canonicalPath: `/${frontend}/${slugPath}`,
+        policy: { kind: "universal" },
+      };
+    }
   }
 
   if (variantDoc) {

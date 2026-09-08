@@ -80,7 +80,7 @@ interface FrontendSearchPage {
 }
 
 const FRONTEND_SEARCH_PAGES: readonly FrontendSearchPage[] = [
-  { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
+  { id: "vue", name: "Vue" },
   { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
   { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
   { id: "slack", name: "Slack" },
@@ -214,6 +214,16 @@ function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
             : `/${frontend}`,
     },
   ];
+}
+
+/** Keep the first entry for each destination after all URL rewrites. */
+function dedupeByHref(entries: SearchEntry[]): SearchEntry[] {
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    if (seen.has(entry.href)) return false;
+    seen.add(entry.href);
+    return true;
+  });
 }
 
 interface SearchablePagesPayload {
@@ -507,6 +517,8 @@ async function main() {
   entries.push(...angularFeatureEntries);
   console.log(`  Angular features: ${angularFeatureEntries.length} entries`);
 
+  const deduplicatedEntries = dedupeByHref(entries);
+
   // Fail loudly rather than shipping a nearly empty search. Keyed on the
   // content tree, not on whether the filter ran: an earlier version skipped
   // this check whenever the filter had been skipped, which is exactly the
@@ -528,8 +540,10 @@ async function main() {
   for (const { target, path: outputPath } of OUTPUTS) {
     const payload =
       target === "shell-docs"
-        ? entries.filter((entry) => !SHOWCASE_HOST_DESTINATIONS.has(entry.href))
-        : entries;
+        ? deduplicatedEntries.filter(
+            (entry) => !SHOWCASE_HOST_DESTINATIONS.has(entry.href),
+          )
+        : deduplicatedEntries;
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, JSON.stringify(payload, null, 2) + "\n");
     console.log(`\nSearch index: ${outputPath} (${payload.length} entries)`);
