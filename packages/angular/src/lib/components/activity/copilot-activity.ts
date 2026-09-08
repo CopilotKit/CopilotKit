@@ -4,22 +4,12 @@ import {
   computed,
   inject,
   input,
+  untracked,
 } from "@angular/core";
 import { NgComponentOutlet } from "@angular/common";
 import type { ActivityMessage } from "@ag-ui/core";
-import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKit } from "../../copilotkit";
 import type { RenderActivityMessageConfig } from "../../activity-renderer";
-
-interface ActivityRender {
-  component: RenderActivityMessageConfig["component"];
-  inputs: {
-    activityType: string;
-    content: unknown;
-    message: ActivityMessage;
-    agent: AbstractAgent | undefined;
-  };
-}
 
 /**
  * Renders a single activity message through the activity renderer registered
@@ -57,36 +47,39 @@ export class CopilotActivity {
   /** Agent scope used for renderer resolution and passed to the renderer. */
   readonly agentId = input<string | undefined>();
 
-  protected readonly render = computed<ActivityRender | undefined>(() => {
+  protected readonly render = computed(() => {
     const message = this.message();
     const agentId = this.agentId();
-    const renderer = this.pickActivityRenderer(
-      message.activityType,
-      agentId,
-      this.copilotKit.activityMessageRenderConfigs(),
-    );
-    if (!renderer) return undefined;
 
-    const parseResult = renderer.content.safeParse(message.content);
-    if (parseResult.success === false) {
-      if (ngDevMode) {
-        console.warn(
-          `Failed to parse content for activity message '${message.activityType}':`,
-          parseResult.error,
-        );
+    return untracked(() => {
+      const renderer = this.pickActivityRenderer(
+        message.activityType,
+        agentId,
+        this.copilotKit.activityMessageRenderConfigs(),
+      );
+      if (!renderer) return undefined;
+
+      const parseResult = renderer.content.safeParse(message.content);
+      if (parseResult.success === false) {
+        if (ngDevMode) {
+          console.warn(
+            `Failed to parse content for activity message '${message.activityType}':`,
+            parseResult.error,
+          );
+        }
+        return undefined;
       }
-      return undefined;
-    }
 
-    return {
-      component: renderer.component,
-      inputs: {
-        activityType: message.activityType,
-        content: parseResult.data,
-        message,
-        agent: agentId ? this.copilotKit.getAgent(agentId) : undefined,
-      },
-    };
+      return {
+        component: renderer.component,
+        inputs: {
+          activityType: message.activityType,
+          content: parseResult.data,
+          message,
+          agent: agentId ? this.copilotKit.getAgent(agentId) : undefined,
+        },
+      };
+    });
   });
 
   private pickActivityRenderer(
