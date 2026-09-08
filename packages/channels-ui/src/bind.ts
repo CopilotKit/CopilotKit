@@ -1,5 +1,5 @@
 import type { ClickHandler, InteractionContext } from "./types.js";
-const BOUND = Symbol.for("copilotkit.bot-ui.bound");
+const BOUND = Symbol.for("copilotkit.channels-ui.bound");
 interface BoundHandler {
   (...a: unknown[]): unknown;
   [BOUND]?: { handler: ClickHandler; args: unknown };

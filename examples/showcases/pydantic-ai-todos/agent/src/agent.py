@@ -6,7 +6,7 @@ The agent uses tools to create, read, update, and delete todos.
 """
 
 from pydantic_ai import Agent
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
 from dotenv import load_dotenv
 from models import TodoState

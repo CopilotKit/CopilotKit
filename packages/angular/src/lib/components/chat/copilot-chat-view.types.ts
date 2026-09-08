@@ -12,6 +12,9 @@ export interface CopilotChatViewProps {
   messageViewComponent?: Type<any>;
   messageViewTemplate?: TemplateRef<any>;
   messageViewClass?: string;
+  messageViewChildrenComponent?: Type<any>;
+  messageViewChildrenTemplate?: TemplateRef<any>;
+  messageViewChildrenClass?: string;
 
   scrollViewComponent?: Type<any>;
   scrollViewTemplate?: TemplateRef<any>;

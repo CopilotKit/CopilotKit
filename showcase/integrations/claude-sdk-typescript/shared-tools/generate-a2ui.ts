@@ -60,13 +60,33 @@ export function generateA2uiImpl(input: GenerateA2UIInput): GenerateA2UIResult {
   };
 }
 
-export interface A2UIOperation {
-  type: "create_surface" | "update_components" | "update_data_model";
-  surfaceId: string;
-  catalogId?: string;
-  components?: Array<Record<string, unknown>>;
-  data?: Record<string, unknown>;
-}
+/**
+ * A2UI v0.9 nested operation shape. A2UI consumers process operations by
+ * their nested `createSurface` / `updateComponents` / `updateDataModel`
+ * keys; the legacy flat shape (`{ type: "create_surface", surfaceId }`) is
+ * not processed as a valid nested operation, so the surface's schema and
+ * components are never applied. The operation ENVELOPE shape here mirrors
+ * Python's `build_a2ui_operations_from_tool_call` in
+ * showcase/shared/python/tools/generate_a2ui.py (TS does NOT yet replicate
+ * Python's component sanitization — that's a separate follow-up).
+ */
+export type A2UIOperation =
+  | { version: "v0.9"; createSurface: { surfaceId: string; catalogId: string } }
+  | {
+      version: "v0.9";
+      updateComponents: {
+        surfaceId: string;
+        components: Array<Record<string, unknown>>;
+      };
+    }
+  | {
+      version: "v0.9";
+      updateDataModel: {
+        surfaceId: string;
+        path: string;
+        value: Record<string, unknown>;
+      };
+    };
 
 export function buildA2uiOperationsFromToolCall(
   args: Record<string, unknown>,
@@ -77,6 +97,11 @@ export function buildA2uiOperationsFromToolCall(
   const catalogId = (args.catalogId as string) ?? CUSTOM_CATALOG_ID;
   const components = (args.components as Array<Record<string, unknown>>) ?? [];
   const data = args.data as Record<string, unknown> | undefined;
+  // Python uses `if data:` — an empty dict `{}` is falsy and emits no
+  // updateDataModel op. `{}` is truthy in JS, so guard on a non-empty object
+  // to keep parity with generate_a2ui.py.
+  const hasData =
+    data != null && typeof data === "object" && Object.keys(data).length > 0;
 
   if (components.length === 0) {
     console.warn(
@@ -86,12 +111,15 @@ export function buildA2uiOperationsFromToolCall(
   }
 
   const ops: A2UIOperation[] = [
-    { type: "create_surface", surfaceId, catalogId },
-    { type: "update_components", surfaceId, components },
+    { version: "v0.9", createSurface: { surfaceId, catalogId } },
+    { version: "v0.9", updateComponents: { surfaceId, components } },
   ];
 
-  if (data) {
-    ops.push({ type: "update_data_model", surfaceId, data });
+  if (hasData) {
+    ops.push({
+      version: "v0.9",
+      updateDataModel: { surfaceId, path: "/", value: data },
+    });
   }
 
   return { a2ui_operations: ops };

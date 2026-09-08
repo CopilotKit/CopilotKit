@@ -1,7 +1,7 @@
 ---
 name: copilotkit-debug
 description: "Use when diagnosing CopilotKit issues -- runtime connectivity failures, agent not responding, streaming errors, tool execution problems, transcription failures, version mismatches, and AG-UI event tracing."
-version: 1.0.0
+version: 1.0.1
 ---
 
 # CopilotKit Debugging Skill
@@ -24,9 +24,9 @@ Invoke this skill when:
 
 Before proposing any fix, collect:
 
-1. **Package versions** -- Run `npm ls @copilotkit/runtime @copilotkit/react @copilotkit/core @ag-ui/client` (or the v1 equivalents). Version mismatches between runtime and react packages are a common root cause.
+1. **Package versions** -- Run `npm ls @copilotkit/runtime @copilotkit/react-core @copilotkit/core @ag-ui/client` (or the v1 equivalents). Version mismatches between runtime and React packages are a common root cause.
 2. **Runtime mode** -- Is this SSE mode (`CopilotSseRuntime`) or Intelligence mode (`CopilotIntelligenceRuntime`)? Check the runtime constructor.
-3. **Transport configuration** -- What is `runtimeUrl` set to on the `CopilotKit` provider (from `@copilotkit/react-core/v2`)? Does it match the `basePath` in `createCopilotEndpoint`?
+3. **Transport configuration** -- What is `runtimeUrl` set to on the `CopilotKit` provider (from `@copilotkit/react-core/v2`)? Does it match the `basePath` in `createCopilotRuntimeHandler`?
 4. **Agent type** -- Is the agent a `BuiltInAgent`, `LangGraphAgent`, `A2AAgent`, or custom `AbstractAgent`?
 5. **Error messages** -- Collect the exact error from browser console and server logs. CopilotKit uses structured error codes (see `references/error-patterns.md`).
 6. **Browser network tab** -- Check the `/info` request (runtime discovery), the `/agent/:id/run` SSE stream, and any CORS preflight failures.
@@ -108,14 +108,14 @@ The official troubleshooting docs are at:
 
 ## Key File Locations in the CopilotKit Codebase
 
-| Component                    | Path                                                                 |
-| ---------------------------- | -------------------------------------------------------------------- |
-| V1 Error classes & codes     | `packages/v1/shared/src/utils/errors.ts`                             |
-| V2 Core error codes          | `packages/v2/core/src/core/core.ts` (`CopilotKitCoreErrorCode` enum) |
-| V2 Transcription errors      | `packages/v2/shared/src/transcription-errors.ts`                     |
-| Runtime SSE response         | `packages/v2/runtime/src/handlers/shared/sse-response.ts`            |
-| Runtime info endpoint        | `packages/v2/runtime/src/handlers/get-runtime-info.ts`               |
-| Runtime CORS config          | `packages/v2/runtime/src/endpoints/hono.ts`                          |
-| Intelligence platform client | `packages/v2/runtime/src/intelligence-platform/client.ts`            |
-| Agent package (BuiltInAgent) | `packages/v2/agent/src/index.ts`                                     |
-| Web Inspector                | `packages/v2/web-inspector/src/index.ts`                             |
+| Component                      | Path                                                              |
+| ------------------------------ | ----------------------------------------------------------------- |
+| Legacy error classes & codes   | `packages/shared/src/utils/errors.ts`                             |
+| V2 Core error codes            | `packages/core/src/core/core.ts` (`CopilotKitCoreErrorCode` enum) |
+| V2 Transcription errors        | `packages/shared/src/transcription-errors.ts`                     |
+| Runtime SSE response           | `packages/runtime/src/v2/runtime/handlers/shared/sse-response.ts` |
+| Runtime info endpoint          | `packages/runtime/src/v2/runtime/handlers/get-runtime-info.ts`    |
+| Runtime CORS config            | `packages/runtime/src/v2/runtime/core/fetch-cors.ts`              |
+| CopilotKit Intelligence client | `packages/runtime/src/v2/runtime/intelligence-platform/client.ts` |
+| BuiltInAgent                   | `packages/runtime/src/agent/index.ts`                             |
+| Web Inspector                  | `packages/web-inspector/src/index.ts`                             |

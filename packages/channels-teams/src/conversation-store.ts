@@ -4,7 +4,7 @@ import type {
   ConversationStore,
   AgentSession,
   ReplyTarget,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type { ThreadMessage, AgentContentPart } from "@copilotkit/channels-ui";
 
 interface StoredMessage {
@@ -51,6 +51,7 @@ function contentToText(content: string | AgentContentPart[]): string {
  * implement {@link ConversationStore} against a real datastore and pass it in.
  */
 export class TeamsConversationStore implements ConversationStore {
+  readonly seedsInboundTurn = true;
   private readonly history = new Map<string, StoredMessage[]>();
 
   /**

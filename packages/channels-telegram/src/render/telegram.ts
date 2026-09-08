@@ -1,4 +1,4 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { TelegramInlineButton, TelegramPayload } from "../types.js";
 import { telegramHtml, escapeHtml } from "../telegram-html.js";
 import {
@@ -35,7 +35,7 @@ interface LineEntry {
  * throwing. Telegram limits are enforced via {@link truncateText},
  * {@link clampArray}, and {@link byteLen}.
  */
-export function renderTelegram(ir: BotNode[]): TelegramPayload {
+export function renderTelegram(ir: ChannelNode[]): TelegramPayload {
   // Each entry holds the pre-HTML (raw) text and the corresponding HTML for a
   // line. Separating them lets us apply the character budget to SOURCE text
   // before HTML conversion, so the emitted HTML is always well-formed.
@@ -206,7 +206,7 @@ function sliceHtmlSafely(html: string, limit: number): string {
 
 /** Render a single IR node, appending to lineEntries/inlineKeyboard/photos. */
 function renderNode(
-  node: BotNode,
+  node: ChannelNode,
   lineEntries: LineEntry[],
   inlineKeyboard: TelegramInlineButton[][],
   photos: { url: string; caption?: string }[],
@@ -442,7 +442,7 @@ function appendButtons(
 }
 
 /** Render one button node for an inline keyboard. Returns null for non-renderable nodes. */
-function renderActionButton(node: BotNode): TelegramInlineButton | null {
+function renderActionButton(node: ChannelNode): TelegramInlineButton | null {
   if (typeof node.type !== "string") return null;
   if (node.type !== "button") return null;
 
@@ -478,22 +478,22 @@ function actionIdOf(props: Record<string, unknown>): string {
   return "action";
 }
 
-/** The expanded `children` of an IR node as a `BotNode[]` (empty if none). */
-function childNodes(node: BotNode): BotNode[] {
+/** The expanded `children` of an IR node as a `ChannelNode[]` (empty if none). */
+function childNodes(node: ChannelNode): ChannelNode[] {
   const children = node.props?.children;
-  if (Array.isArray(children)) return children as BotNode[];
+  if (Array.isArray(children)) return children as ChannelNode[];
   if (
     children &&
     typeof children === "object" &&
     "type" in (children as object)
   ) {
-    return [children as BotNode];
+    return [children as ChannelNode];
   }
   return [];
 }
 
 /** Concatenate the `value` of all descendant `text` nodes (depth-first). */
-function collectText(node: BotNode): string {
+function collectText(node: ChannelNode): string {
   if (typeof node.type === "string" && node.type === "text") {
     return String(node.props?.value ?? "");
   }

@@ -1,20 +1,11 @@
 /**
- * Shared timestamp formatter: converts an ISO 8601 UTC string into the
- * user's local timezone via `toLocaleString()`. Falls back to the raw
- * input if parsing fails so tooltips never render "Invalid Date".
+ * Thin re-export barrel — the canonical implementation now lives in the
+ * harness at `showcase/harness/src/shared/cell-model/format-ts.ts` so BOTH the
+ * dashboard and the harness monitor import ONE copy (zero duplication). The
+ * dashboard consumes it via relative path across the package boundary — the
+ * established precedent for this repo (see e.g.
+ * `d5-cadence-banner.redgreen.test.ts` importing `../../../harness/src/...`).
+ * This barrel keeps every existing `@/lib/format-ts` / relative import site
+ * resolving unchanged.
  */
-export function formatTs(ts: string): string {
-  try {
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return ts;
-    return d.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch {
-    return ts;
-  }
-}
+export * from "../../../harness/src/shared/cell-model/format-ts";

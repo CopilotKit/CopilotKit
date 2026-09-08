@@ -1,0 +1,294 @@
+---
+title: "Memories & Recall"
+description: "How long-term memory works in CopilotKit Intelligence: what a memory is, the three kinds, user and project scope, how activation is entitled, and how to read and write memories from React, Angular, REST, or MCP."
+icon: "lucide/Brain"
+doc_type: explanation
+---
+
+<IntelligenceOnboardingPrompt
+  feature="learning"
+  surface="docs_learn_memories"
+/>
+
+Threads remember a conversation. Memories remember a person. This page explains
+what a memory is, how recall selects them, and what has to be true of your
+deployment before the memory surfaces exist at all.
+
+If you are looking for the persistence architecture beneath a single
+conversation, read [Threads & Persistence Architecture](/intelligence/threads-explained)
+instead.
+
+## What is a memory?
+
+A memory is a short, durable statement about a user or a project, stored outside
+any single thread. "Prefers concise status updates" is a memory. The forty
+messages that revealed the preference are a thread.
+
+The distinction matters because the two have different lifetimes. A thread is
+finished when the conversation is. A memory is meant to outlive it, and to be
+recalled into a conversation that has not happened yet.
+
+Memories are stored as text plus a vector embedding, so recall is semantic
+rather than a keyword match. Asking for "how does this user like updates" can
+surface "prefers concise status updates" without sharing a word with it.
+
+## Key concepts
+
+### The three kinds
+
+Every memory is one of three kinds. The kind is supplied by whoever saves it and
+is never inferred.
+
+| Kind | What it holds |
+|------|---------------|
+| `topical` | A durable fact about the subject matter, independent of when it was learned. |
+| `episodic` | Something that happened, anchored to an occasion. |
+| `operational` | A preference or working instruction about how to behave. |
+
+The kind is not cosmetic. Deduplication and supersession are same-kind
+operations, so a `topical` fact and an `operational` preference with identical
+text are two memories, not one.
+
+### User and project scope
+
+A memory is scoped to a single user or shared across a project.
+
+- **`user`** is the platform default. Omit `scope` and you get it. This is the
+  only scope delivered over realtime today.
+- **`project`** is shared, and must be requested explicitly.
+
+Scope is enforced per request against the caller's grant, so a client holding
+read-only access to project scope cannot write to it.
+
+### Saving a near-duplicate absorbs it
+
+If you save content that closely matches a live memory in the same tenant,
+scope, and kind, the platform does not create a second row. It absorbs the new
+content into the existing memory, unions the source threads, and refreshes
+recency.
+
+The save still succeeds, and the result tells you which happened, so a UI or an
+agent can say "absorbed into an existing memory" rather than implying something
+new was written.
+
+### Updating is a full replacement, not a patch
+
+Updating a memory supersedes it: the old memory is retired and a new one is
+created with a new `id`. The change set you supply is the complete definition of
+the new memory.
+
+<Callout type="warn">
+Omitting `sourceThreadIds` on an update does not preserve the previous value, it
+resets the new memory's source threads to empty. Re-send `content`, `kind`, and
+any `sourceThreadIds` you want to keep.
+</Callout>
+
+### Removing is a retirement, not a delete
+
+Removing a memory retires it rather than erasing it. Retired memories are
+excluded from recall and from the default list, and can be surfaced again by
+asking for invalidated rows explicitly.
+
+## Activating memory
+
+<Callout type="info">
+Memory is not a feature flag. There is no `MEMORY_ENABLED` environment variable
+and no `memory.enabled` Helm value. Access is granted by entitlement, and the
+embedder is configured separately at startup.
+</Callout>
+
+Two independent things must be true before a caller can use memory:
+
+1. The deployment or organization is **entitled** to memory.
+2. app-api has valid **embedder configuration**.
+
+Entitlement resolution fails closed. An unresolved entitlement, an inactive one,
+or a dependency outage all deny memory rather than allowing it.
+
+### Self-hosted
+
+The signed deployment license is the authority. Memory is available when that
+license carries the `memory` feature, which today ships in the enterprise plan.
+If your license does not include it, no amount of configuration will mount the
+surfaces, and the correct next step is to talk to us about the license rather
+than to keep editing values files.
+
+The embedder is configured through these variables, which the chart templates
+for you:
+
+| Variable | Purpose |
+|----------|---------|
+| `MEMORY_EMBEDDINGS_URL` | Base URL of an OpenAI-compatible embeddings endpoint. Required. |
+| `MEMORY_EMBEDDING_MODEL` | Embedding model id sent to that endpoint. Required. |
+| `MEMORY_EMBEDDINGS_API_KEY` | Optional bearer token. Leave unset for the bundled in-cluster embedder. |
+| `MEMORY_EMBEDDINGS_DIMENSIONS` | Optional. Must be `1024`, because storage is a 1024-dimension half-precision vector. |
+
+Two consequences worth knowing before you deploy:
+
+- **app-api refuses to start** if a required variable is missing or invalid.
+  This is deliberate. Entitlements can change while the process is running, so
+  it must never come up with memory routes and no embedder behind them.
+- **pgvector must be installed on the database server.** The migration that
+  creates the memory table also creates the extension, and the migration job
+  fails without it.
+
+By default the chart deploys an in-cluster text-embeddings-inference workload
+and points app-api at it. To use a hosted provider instead, set an external
+embeddings URL and model, at which point the in-cluster workload is not
+rendered:
+
+```yaml title="values.yaml"
+embeddings:
+  external:
+    url: https://api.openai.com
+    model: text-embedding-3-small
+    dimensions: 1024
+    apiKey:
+      existingSecret: openai-embeddings
+      secretKey: api-key
+```
+
+<Callout type="warn">
+Changing the embedding model or provider changes the vector space. Existing
+memories were embedded in the old space and are not comparable in the new one,
+so recall quality degrades until they are re-embedded. Treat a model change as a
+migration, not a config tweak.
+</Callout>
+
+### Managed
+
+On the managed platform, memory is resolved per organization from that
+organization's effective entitlement, combining its plan features with any
+enterprise override. Nothing needs configuring on your side.
+
+## Reading and writing memories
+
+<FrontendOnly frontend="react">
+### React
+
+`useMemories()` returns the server-authoritative list for the current
+runtime-authenticated user. It hydrates from a REST snapshot and then stays
+current from realtime deltas.
+
+```tsx title="components/memory-list.tsx"
+import { useMemories } from "@copilotkit/react-core";
+
+export function MemoryList() {
+  const { memories, isLoading, isAvailable, removeMemory } = useMemories();
+
+  if (!isAvailable) return <p>Memory is not available for this runtime.</p>;
+  if (isLoading) return <p>Loading memories…</p>;
+
+  return (
+    <ul>
+      {memories.map((memory) => (
+        <li key={memory.id}>
+          {memory.content}
+          <button type="button" onClick={() => void removeMemory(memory.id)}>
+            Forget
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+Check `isAvailable` before rendering memory controls. It becomes `false` when
+the runtime does not expose the memory routes, which is what an unentitled
+deployment looks like from the client.
+
+`realtimeStatus` is separate from `isAvailable`, and reports the health of the
+live connection: `connecting` while the socket joins, `connected` once deltas
+are flowing, and `unavailable` once it has permanently given up. In that last
+state the list is a frozen snapshot, so use it to decide whether to show a live
+indicator rather than displaying one over stale data.
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+### Angular
+
+`injectMemories()` exposes the same surface as signals. See
+<a href="/angular/guides/threads-memory-attachments-headless">Threads, memory, attachments, and headless UI</a>
+for a worked component, and the
+<a href="/reference/angular/public-api">Angular public API</a>
+for the exported surface.
+</FrontendOnly>
+
+### REST
+
+The memory routes are available to any backend or script holding a runtime
+credential. Authentication is the runtime tuple: a project API key as a bearer
+token, plus the app user's id in a header.
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/memories` | List the caller's memories. Pass `includeInvalidated=true` to include retired ones. |
+| `POST /api/memories` | Save a memory. |
+| `POST /api/memories/recall` | Semantic recall against a query. |
+| `PATCH /api/memories/:id` | Supersede a memory with a full replacement. |
+| `DELETE /api/memories/:id` | Retire a memory. |
+| `POST /api/memories/subscribe` | Mint a realtime subscription for memory metadata. |
+
+A save takes the content, the kind, an optional scope, and optional provenance:
+
+```bash
+curl -X POST https://your-deployment/api/memories \
+  -H "Authorization: Bearer cpk-<project>_<short>_<long>" \
+  -H "X-Cpki-User-Id: <app-user-id>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Prefers concise status updates.",
+    "kind": "operational",
+    "sourceThreadIds": ["<thread-id>"]
+  }'
+```
+
+`content` is capped at 8192 characters and `sourceThreadIds` at 100 entries.
+Unknown fields are rejected rather than ignored, so a typo in a key is an error
+instead of a silent no-op.
+
+Recall takes a query and an optional result limit, which defaults to 5 and is
+capped at 20:
+
+```bash
+curl -X POST https://your-deployment/api/memories/recall \
+  -H "Authorization: Bearer cpk-<project>_<short>_<long>" \
+  -H "X-Cpki-User-Id: <app-user-id>" \
+  -H "Content-Type: application/json" \
+  -d '{ "query": "how does this user like updates", "limit": 5 }'
+```
+
+Every route returns memories in the same shape: `id`, `kind`, `scope`,
+`content`, and `sourceThreadIds`. Recall results additionally carry a `score`,
+and the list route carries `invalidatedAt` when retired rows are requested.
+
+### Agent tools over MCP
+
+Three tools let an agent manage its own memory: `save_memory`, `recall_memory`,
+and `forget_memory`.
+
+They register on the MCP server only when that surface is mounted, which is a
+prerequisite for MCP generally rather than a memory setting. Registration is
+still checked per request against the caller organization's memory entitlement,
+so mounting MCP does not grant memory.
+
+## How recall works
+
+Recall is hybrid. A query is embedded and compared against stored vectors, and
+the result is fused with other signals into a single score, which is what the
+`score` field on a recall result reports. Retired and superseded memories are
+excluded.
+
+This is why the embedding space matters so much. Comparability is a property of
+the space, not of the text, so memories written under one model cannot be
+meaningfully ranked against a query embedded under another.
+
+## Next steps
+
+- **Threads:** [Threads & Persistence Architecture](/intelligence/threads-explained), the
+  persistence model for a single conversation
+- **Platform:** [CopilotKit Intelligence](/intelligence/overview), where
+  memory sits among the other pillars
+- **Self-hosting:** [Self-hosting Intelligence](/intelligence/self-hosting),
+  chart values, dependencies, and deployment modes

@@ -99,12 +99,12 @@ def _make_client(*, raise_server_exceptions: bool = True) -> TestClient:
     async def happy_stream(request):
         ctx = getattr(request.state, "cvdiag", None)
         if ctx is not None:
-            emit_agent_enter(ctx, agent_name="showcase", model_id="gpt-4o-mini")
+            emit_agent_enter(ctx, agent_name="showcase", model_id="gpt-5.4")
 
         async def gen():
             if ctx is not None:
                 async with LlmCallScope(
-                    ctx, provider="openai", model="gpt-4o-mini", interval_s=0.02
+                    ctx, provider="openai", model="gpt-5.4", interval_s=0.02
                 ):
                     await asyncio.sleep(0.05)  # let the heartbeat tick once
                     yield b"data: hello\n\n"

@@ -10,6 +10,7 @@ import { z } from "zod";
 import { forwardingFetch } from "../header-forwarding";
 // @doc-as
 // @doc-end
+import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
 const CATALOG_ID = "copilotkit://flight-fixed-catalog";
 const SURFACE_ID = "flight-fixed-schema";
@@ -143,14 +144,15 @@ export function createA2UIFixedSchemaAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
         // @doc-replace
-        adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         // @doc-as
-        // adapter: openaiText("gpt-4o-mini"),
+        // adapter: openaiText("gpt-5.4"),
         // @doc-end
         messages,
         systemPrompts: [A2UI_FIXED_SCHEMA_SYSTEM_PROMPT, ...systemPrompts],
         tools: [displayFlightTool],
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
     },
   });

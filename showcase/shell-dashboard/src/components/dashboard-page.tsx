@@ -184,16 +184,39 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
         ctx.integration.not_supported_features?.includes(ctx.feature.id) ??
         false
       );
-      const model = buildCellModel(
-        ctx.liveStatus,
-        {
-          slug: ctx.integration.slug,
-          featureId: ctx.feature.id,
-          isSupported,
-          isWired: true, // renderCell only called when demo exists
-        },
-        now,
-      );
+      // §E per-cell fault isolation: `buildCellModel` throws in `keyFor` for a
+      // catalog featureId carrying `:`/`/` (the `""` normalization upstream only
+      // covers the empty string). During React render a single throw unwinds the
+      // WHOLE grid — one bad feature id would blank the entire dashboard. Guard
+      // the per-cell build so the one bad cell degrades to a gray error marker
+      // and every other cell still paints.
+      let model: ReturnType<typeof buildCellModel>;
+      try {
+        model = buildCellModel(
+          ctx.liveStatus,
+          {
+            slug: ctx.integration.slug,
+            featureId: ctx.feature.id,
+            isSupported,
+            isWired: true, // renderCell only called when demo exists
+          },
+          now,
+        );
+      } catch (err) {
+        console.error(
+          `buildCellModel failed for ${ctx.integration.slug}/${ctx.feature.id} — degrading this cell`,
+          err,
+        );
+        return (
+          <span
+            className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-base border border-slate-500/40 bg-slate-500/10 text-slate-400"
+            title={`Cell unavailable (invalid feature id): ${ctx.feature.id}`}
+            data-testid={`cell-error-${ctx.integration.slug}-${ctx.feature.id}`}
+          >
+            !
+          </span>
+        );
+      }
       return <UnifiedCell ctx={ctx} model={model} overlays={overlays} />;
     },
     [overlays, now],

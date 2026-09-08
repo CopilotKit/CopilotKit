@@ -134,9 +134,14 @@ const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
 
 const tools = [getWeather, searchFlights, getStockPrice, rollDice];
 
+// @doc-replace
 // Custom StateGraph rather than `createReactAgent` so the per-invocation
 // `config` (with `copilotkit_forwarded_headers`) reaches the `ChatOpenAI`
 // construction — required for `x-aimock-context` propagation.
+// @doc-as
+// // Custom StateGraph rather than `createReactAgent` so the per-invocation
+// // `config` reaches the `ChatOpenAI` construction.
+// @doc-end
 const AgentStateAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: messagesStateReducer,

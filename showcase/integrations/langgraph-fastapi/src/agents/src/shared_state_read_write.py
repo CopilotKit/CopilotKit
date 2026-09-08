@@ -141,6 +141,7 @@ class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
         )
 
 
+# @region[shared-state-setup]
 graph = create_agent(
     model=ChatOpenAI(model="gpt-4o-mini"),
     tools=[set_notes],
@@ -156,3 +157,4 @@ graph = create_agent(
         "FULL updated list of short note strings (existing notes + new)."
     ),
 )
+# @endregion[shared-state-setup]

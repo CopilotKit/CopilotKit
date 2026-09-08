@@ -1,4 +1,4 @@
-import type { InteractionEvent } from "@copilotkit/channels";
+import type { InteractionEvent } from "@copilotkit/channels-core";
 import type { InboundMessage, ReplyTarget } from "./types.js";
 
 /**
@@ -54,7 +54,15 @@ export function decodeInteraction(
     conversationKey: conversationKeyOf(msg.from),
     replyTarget,
     value,
-    user: { id: msg.from },
+    actor: { id: msg.from, kind: "human" },
+    identityContext: {
+      tenant: { id: replyTarget.phoneNumberId },
+      installation: { id: replyTarget.phoneNumberId },
+      conversation: { id: conversationKeyOf(msg.from), kind: "direct" },
+      trigger: "interaction",
+      event: { id: msg.id, occurredAt: msg.timestamp },
+      raw: msg,
+    },
     messageRef: {
       id: msg.id,
       to: replyTarget.to,

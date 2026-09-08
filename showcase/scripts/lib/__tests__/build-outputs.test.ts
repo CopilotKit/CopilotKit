@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildResultArtifactName,
+  cancelledSet,
   mergeBuildResultFiles,
   parseBuildOutputs,
   shouldRedeployStaging,
@@ -68,9 +69,77 @@ describe("build-outputs", () => {
     expect(successSet(allFailed)).toEqual([]);
   });
 
-  it("type BuildOutcome enumerates success|failure|skipped", () => {
-    const outcomes: BuildOutcome[] = ["success", "failure", "skipped"];
-    expect(outcomes).toHaveLength(3);
+  it("type BuildOutcome enumerates success|failure|cancelled|skipped", () => {
+    const outcomes: BuildOutcome[] = [
+      "success",
+      "failure",
+      "cancelled",
+      "skipped",
+    ];
+    expect(outcomes).toHaveLength(4);
+  });
+
+  // ── cancelled is a FIRST-CLASS outcome ────────────────────────────────
+  //
+  // Regression guard for the silent-partial-cancel hole (build run
+  // 30162773601): the build job used to normalize `job.status ==
+  // 'cancelled'` down to `skipped` before writing its per-slot result,
+  // which made a slot killed by `timeout-minutes` indistinguishable from
+  // a slot that was legitimately never built. With the distinction
+  // erased, no downstream signal could tell a partially-cancelled fleet
+  // build apart from a clean one, so no alert fired and staging shipped
+  // unverified. `cancelled` must survive parse/merge as itself.
+  it("accepts status 'cancelled' as a valid outcome", () => {
+    const json = JSON.stringify([{ service: "shell", status: "cancelled" }]);
+    expect(parseBuildOutputs(json)).toEqual([
+      { service: "shell", status: "cancelled" },
+    ]);
+  });
+
+  it("mergeBuildResultFiles preserves a 'cancelled' slot payload", () => {
+    const merged = mergeBuildResultFiles([
+      JSON.stringify({ service: "shell", status: "cancelled" }),
+      JSON.stringify({ service: "mastra", status: "success" }),
+    ]);
+    expect(merged).toEqual([
+      { service: "shell", status: "cancelled" },
+      { service: "mastra", status: "success" },
+    ]);
+  });
+
+  it("cancelledSet returns only services with status === 'cancelled'", () => {
+    const mixed: ServiceBuildResult[] = [
+      { service: "shell", status: "cancelled" },
+      { service: "shell-docs", status: "cancelled" },
+      { service: "mastra", status: "success" },
+      { service: "ag2", status: "failure" },
+      { service: "never-ran", status: "skipped" },
+    ];
+    expect(cancelledSet(mixed)).toEqual(["shell", "shell-docs"]);
+  });
+
+  it("cancelledSet returns empty on a clean build", () => {
+    expect(cancelledSet(sample)).toEqual([]);
+  });
+
+  // A cancelled slot pushed NO image, so it must never enter the redeploy
+  // success-set — otherwise Railway re-pulls its stale `:latest` and
+  // verify reports a fresh healthy deploy for an image that never built.
+  it("successSet excludes cancelled services", () => {
+    const mixed: ServiceBuildResult[] = [
+      { service: "shell", status: "cancelled" },
+      { service: "mastra", status: "success" },
+    ];
+    expect(successSet(mixed)).toEqual(["mastra"]);
+  });
+
+  it("shouldRedeployStaging is false when every slot was cancelled", () => {
+    expect(
+      shouldRedeployStaging([
+        { service: "shell", status: "cancelled" },
+        { service: "shell-docs", status: "cancelled" },
+      ]),
+    ).toBe(false);
   });
 });
 

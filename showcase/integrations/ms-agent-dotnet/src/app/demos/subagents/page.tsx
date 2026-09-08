@@ -34,6 +34,8 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
 
+  useSubagentsSuggestions();
+
   // @region[subagent-tool-renderers]
   // Per-tool renderers — one for each sub-agent tool the supervisor can
   // call. These surface "Researcher is running task Y" inline in the
@@ -93,8 +95,6 @@ function DemoContent() {
   const agentState = agent.state as SubagentsAgentState | undefined;
   const delegations = agentState?.delegations ?? [];
   const isRunning = agent.isRunning;
-  useSubagentsSuggestions(isRunning);
-
   const activeSubAgent = isRunning
     ? inferActiveSubAgent(delegations, agent.messages)
     : null;

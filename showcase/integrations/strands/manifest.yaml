@@ -332,6 +332,10 @@ demos:
     route: /demos/a2ui-fixed-schema
     animated_preview_url:
     highlight:
+      - src/agents/a2ui_generate.py
+      # Shared (symlinked) helper the tool above calls to build the
+      # `a2ui_operations` envelope — bundled so the guide shows it too.
+      - tools/generate_a2ui.py
       - src/agents/agent.py
       - src/app/demos/a2ui-fixed-schema/page.tsx
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts

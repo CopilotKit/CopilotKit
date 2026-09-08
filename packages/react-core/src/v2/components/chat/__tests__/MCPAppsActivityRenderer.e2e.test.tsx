@@ -1092,4 +1092,66 @@ describe("MCP Apps Activity Renderer E2E", () => {
       });
     });
   });
+
+  describe("Surface contract", () => {
+    // The shared harness probe
+    // (`showcase/harness/src/probes/scripts/d5-mcp-apps.ts`) settles the turn on
+    // `[data-testid="mcp-app-iframe"]` mounting, and Angular + Vue declare the
+    // same testid/title pair. Dropping it here silently reds the D5/D6 mcp-apps
+    // rows on every React integration while the demo still works by hand.
+    it("tags the sandbox iframe with the shared mcp-app-iframe testid", async () => {
+      const agent = new MockMCPProxyAgent();
+      const agentId = "mcp-test-agent";
+      agent.agentId = agentId;
+
+      agent.setRunAgentResponse("resources/read", {
+        contents: [
+          {
+            uri: "ui://test/testid",
+            mimeType: "text/html",
+            text: "<html><body>Testid Content</body></html>",
+          },
+        ],
+      });
+
+      renderWithCopilotKit({
+        agents: { [agentId]: agent },
+        agentId,
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Testid app" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Testid app")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        activitySnapshotEvent({
+          messageId: testId("mcp-activity"),
+          activityType: MCPAppsActivityType,
+          content: mcpAppsActivityContent({
+            resourceUri: "ui://test/testid",
+            serverHash: "testid-hash",
+          }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+
+      await waitFor(
+        () => {
+          const iframe = document.querySelector(
+            'iframe[data-testid="mcp-app-iframe"]',
+          );
+          expect(iframe).not.toBeNull();
+          expect(iframe?.getAttribute("title")).toBe(
+            "Interactive MCP application",
+          );
+        },
+        { timeout: 3000 },
+      );
+    });
+  });
 });

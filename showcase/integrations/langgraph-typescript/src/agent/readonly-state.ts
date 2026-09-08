@@ -36,13 +36,11 @@ const SYSTEM_PROMPT =
   "recent activity when it helps you answer. Keep responses short.";
 
 // @region[agent-context-setup]
-async function chatNode(state: AgentState, config: RunnableConfig) {
-  // @doc-replace
-  const model = makeChatOpenAI(config, { model: "gpt-5.4" });
-  // @doc-as
-  // const model = new ChatOpenAI({ model: "gpt-5.4" });
-  // @doc-end
-
+async function runChatNode(
+  state: AgentState,
+  config: RunnableConfig,
+  model: ChatOpenAI,
+) {
   // Inject read-only context from useAgentContext / useCopilotReadable.
   // Mirrors the `createAppContextBeforeAgent` logic in CopilotKitMiddleware:
   // context may be a string or an object — stringify it and prepend as a
@@ -74,10 +72,31 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
 
   return { messages: response };
 }
+
+export async function chatNode(state: AgentState, config: RunnableConfig) {
+  return runChatNode(state, config, new ChatOpenAI({ model: "gpt-5.4" }));
+}
 // @endregion[agent-context-setup]
 
+// @doc-replace
+// Keep the executable showcase graph on the header-forwarding model while the
+// extracted chat node above uses only the public ChatOpenAI constructor.
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
+  return runChatNode(
+    state,
+    config,
+    makeChatOpenAI(config, { model: "gpt-5.4" }),
+  );
+}
+// @doc-as
+// @doc-end
+
 const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
+  // @doc-replace
+  .addNode("chat_node", chatNodeWithHeaders)
+  // @doc-as
+  // .addNode("chat_node", chatNode)
+  // @doc-end
   .addEdge(START, "chat_node")
   .addEdge("chat_node", "__end__");
 

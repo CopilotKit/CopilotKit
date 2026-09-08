@@ -1,3 +1,9 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  provideZonelessChangeDetection,
+} from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { test, expect } from "vitest";
 import { Observable } from "rxjs";
@@ -10,6 +16,42 @@ import {
   provideCopilotChatConfiguration,
   type CopilotChatConfiguration,
 } from "../../../chat-configuration";
+
+@Component({
+  selector: "test-assistant-message",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <p data-testid="custom-assistant">{{ message().content }}</p>
+  `,
+})
+class TestAssistantMessage {
+  readonly message = input.required<{ content?: string }>();
+}
+
+@Component({
+  selector: "test-reasoning-message",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <p data-testid="custom-reasoning">{{ message().content }}</p>
+  `,
+})
+class TestReasoningMessage {
+  readonly message = input.required<{ content?: string }>();
+}
+
+@Component({
+  selector: "test-transcript-children",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <p data-testid="transcript-children">
+      {{ messages().length }} messages {{ state()["phase"] }}
+    </p>
+  `,
+})
+class TestTranscriptChildren {
+  readonly messages = input<unknown[]>([]);
+  readonly state = input<Record<string, unknown>>({});
+}
 
 /**
  * Minimal agent stub: `injectAgentStore` resolves it from the configured
@@ -44,6 +86,7 @@ function setup() {
   TestBed.configureTestingModule({
     imports: [CopilotChat],
     providers: [
+      provideZonelessChangeDetection(),
       provideCopilotKit({
         licenseKey: "ck_pub_00000000000000000000000000000000",
         agents: { default: new MockAgent("default") },
@@ -108,6 +151,7 @@ function setupAgentPrecedence({
   TestBed.configureTestingModule({
     imports: [CopilotChat],
     providers: [
+      provideZonelessChangeDetection(),
       provideCopilotKit({
         licenseKey: "ck_pub_00000000000000000000000000000000",
         agents,
@@ -193,6 +237,7 @@ test("clears the loading cursor once the ambient-config connect settles", async 
   TestBed.configureTestingModule({
     imports: [CopilotChat],
     providers: [
+      provideZonelessChangeDetection(),
       provideCopilotKit({
         licenseKey: "ck_pub_00000000000000000000000000000000",
         agents: { default: new CompletingAgent("default") },
@@ -211,20 +256,14 @@ test("clears the loading cursor once the ambient-config connect settles", async 
   config.setActiveThreadId("x", { explicit: true });
   TestBed.flushEffects();
 
-  // Let the connect promise (and its `.finally`) settle and clear the cursor,
-  // mirroring the standalone settle-then-clear. The connect resolution spans
-  // macrotasks (agent teardown), so poll across a few.
-  for (let i = 0; i < 10 && readShowCursor(fixture); i++) {
+  // The agent teardown crosses a macrotask boundary that Angular does not own.
+  // Poll the signal without forcing zone/effect ticks; this suite deliberately
+  // exercises the same zoneless mode as the shipped Angular demo.
+  for (let attempt = 0; attempt < 10 && readShowCursor(fixture); attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 0));
-    TestBed.flushEffects();
   }
 
   expect(readShowCursor(fixture)).toBe(false);
-
-  // Drain the directive's deferred initial-scroll timer so it does not fire
-  // after the test environment tears down (scrollTo is stubbed; this only
-  // settles the pending macrotask).
-  await new Promise((resolve) => setTimeout(resolve, 0));
 });
 
 test("shows the welcome screen while the configuration thread is non-explicit", () => {
@@ -293,4 +332,128 @@ test("a controlled config thread wins over the [threadId] input (input ignored)"
 
   expect(config.threadId()).toBe("cfg-thread");
   expect(agentThreadId()).toBe("cfg-thread");
+});
+
+test("forwards a custom assistant-message component through the prebuilt chat", async () => {
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+    configurable: true,
+    value: () => undefined,
+  });
+
+  const agent = new MockAgent("default");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [CopilotChat],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideCopilotKit({
+        licenseKey: "ck_pub_00000000000000000000000000000000",
+        agents: { default: agent },
+      }),
+      provideCopilotChatConfiguration(),
+    ],
+  });
+
+  const fixture = TestBed.createComponent(CopilotChat);
+  fixture.componentRef.setInput(
+    "assistantMessageComponent",
+    TestAssistantMessage,
+  );
+  fixture.detectChanges();
+  agent.setMessages([
+    {
+      id: "assistant-1",
+      role: "assistant",
+      content: "Rendered by the application",
+    },
+  ]);
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  fixture.detectChanges();
+
+  const customMessage = (
+    fixture.nativeElement as HTMLElement
+  ).querySelector<HTMLElement>('[data-testid="custom-assistant"]');
+
+  expect(customMessage?.textContent).toBe("Rendered by the application");
+});
+
+test("forwards a custom reasoning-message component through the prebuilt chat", async () => {
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+    configurable: true,
+    value: () => undefined,
+  });
+
+  const agent = new MockAgent("default");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [CopilotChat],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideCopilotKit({
+        licenseKey: "ck_pub_00000000000000000000000000000000",
+        agents: { default: agent },
+      }),
+      provideCopilotChatConfiguration(),
+    ],
+  });
+
+  const fixture = TestBed.createComponent(CopilotChat);
+  fixture.componentRef.setInput(
+    "reasoningMessageComponent",
+    TestReasoningMessage,
+  );
+  fixture.detectChanges();
+  agent.setMessages([
+    {
+      id: "reasoning-1",
+      role: "reasoning",
+      content: "Rendered reasoning",
+    },
+  ]);
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  fixture.detectChanges();
+
+  const customMessage = (
+    fixture.nativeElement as HTMLElement
+  ).querySelector<HTMLElement>('[data-testid="custom-reasoning"]');
+
+  expect(customMessage?.textContent).toBe("Rendered reasoning");
+});
+
+test("forwards transcript children through the prebuilt chat", async () => {
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+    configurable: true,
+    value: () => undefined,
+  });
+
+  const agent = new MockAgent("default");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [CopilotChat],
+    providers: [
+      provideZonelessChangeDetection(),
+      provideCopilotKit({
+        licenseKey: "ck_pub_00000000000000000000000000000000",
+        agents: { default: agent },
+      }),
+      provideCopilotChatConfiguration(),
+    ],
+  });
+
+  const fixture = TestBed.createComponent(CopilotChat);
+  fixture.componentRef.setInput(
+    "messageViewChildrenComponent",
+    TestTranscriptChildren,
+  );
+  fixture.detectChanges();
+  agent.setMessages([{ id: "user-1", role: "user", content: "Plan a launch" }]);
+  agent.setState({ phase: "streamed" });
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  fixture.detectChanges();
+
+  const children = (
+    fixture.nativeElement as HTMLElement
+  ).querySelector<HTMLElement>('[data-testid="transcript-children"]');
+  expect(children?.textContent).toContain("1 messages");
+  expect(children?.textContent).toContain("streamed");
 });

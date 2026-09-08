@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": []
+  },
+  "files": ["src/main.ts"],
+  "include": ["src/**/*.d.ts", ".staged-angular-package/src/**/*.ts"],
+  "exclude": [
+    "src/**/*.test.ts",
+    ".staged-angular-package/src/**/*.spec.ts",
+    ".staged-angular-package/src/**/*.test.ts",
+    ".staged-angular-package/src/test-setup.ts"
+  ]
+}

@@ -397,6 +397,10 @@ export interface BrowserPoolOptions {
    * setInterval (which would leak a timer past shutdown).
    */
   heartbeatMs?: number;
+  /** Whether pooled contexts receive `X-AIMock-Strict: true`. Defaults to
+   *  true, except when SHOWCASE_AIMOCK_STRICT=0 explicitly selects live
+   *  fixture capture. */
+  aimockStrict?: boolean;
 }
 
 /**
@@ -504,6 +508,7 @@ export class BrowserPool {
   // it never leaks a timer past shutdown.
   private readonly onSnapshot?: (snapshot: BrowserPoolSnapshot) => void;
   private readonly heartbeatMs: number;
+  private readonly aimockStrict: boolean;
   private heartbeatRunning = false;
   // True once the set has emptied and onDegraded fired; cleared when self-heal
   // succeeds. Guards against firing the degraded alarm / spawning a second
@@ -539,6 +544,8 @@ export class BrowserPool {
     this.injectedLaunchBrowser = options.launchBrowser;
     this.cgroupPidsReader =
       options.cgroupPidsReader ?? (() => readCgroupPids());
+    this.aimockStrict =
+      options.aimockStrict ?? process.env.SHOWCASE_AIMOCK_STRICT !== "0";
 
     const envBrowsers = process.env.BROWSER_POOL_BROWSERS
       ? parseInt(process.env.BROWSER_POOL_BROWSERS, 10)
@@ -1155,7 +1162,7 @@ export class BrowserPool {
     try {
       context = await browserBefore.newContext({
         extraHTTPHeaders: {
-          "X-AIMock-Strict": "true",
+          ...(this.aimockStrict ? { "X-AIMock-Strict": "true" } : {}),
           ...options?.extraHTTPHeaders,
         },
       });

@@ -1,175 +1,157 @@
-import type { Bot, StateStore } from "@copilotkit/channels";
-import type { DeliverySource, EgressSink } from "./transports.js";
-import { intelligenceAdapter } from "./intelligence-adapter.js";
+import type { Channel } from "@copilotkit/channels-core";
 
-/** Project/code identifier: starts with a letter, then letters/digits/underscore. */
-const BOT_NAME_RE = /^[A-Za-z][A-Za-z0-9_]*$/;
+/** Lowercase kebab-case Channel name, 3–64 characters. */
+const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const RESERVED_CHANNEL_NAME = "channels";
 
 /**
- * Validate the bots declared to a managed runtime: each needs a `name`, names
- * must be identifier-style, and they must be unique within the runtime. Fails
+ * Validate the framework Channels declared to a Channel runtime: each needs a
+ * `name`, names must be lowercase kebab-case Channel names, and they must be
+ * unique within the runtime. Fails
  * loudly — a misconfigured declaration should never start silently.
  */
-export function assertValidBotNames(bots: readonly Bot[]): void {
+export function assertValidChannelNames(channels: readonly Channel[]): void {
   const seen = new Set<string>();
-  for (const bot of bots) {
-    const name = bot.name;
+  for (const channel of channels) {
+    const name = channel.name;
     if (!name) {
       throw new Error(
-        "managed bot is missing a `name` — pass createBot({ name }) for Intelligence-delivered bots",
+        "Intelligence Channel is missing a `name` — pass createChannel({ name }) for an Intelligence Channel",
       );
     }
-    if (!BOT_NAME_RE.test(name)) {
+    if (name.length < 3 || name.length > 64 || !CHANNEL_NAME_RE.test(name)) {
       throw new Error(
-        `managed bot name "${name}" is invalid — use a project/code identifier ` +
-          "(letters, digits, underscore; starting with a letter)",
+        `Channel name "${name}" is invalid — use lowercase kebab-case, 3–64 characters`,
       );
     }
-    // Case-insensitive uniqueness: "Support" and "support" would resolve to the
-    // same delivery routing, so reject the collision rather than let both bots
-    // receive every delivery.
-    const key = name.toLowerCase();
-    if (seen.has(key)) {
+    if (name === RESERVED_CHANNEL_NAME) {
+      throw new Error(`Channel name "${name}" is reserved`);
+    }
+    if (seen.has(name)) {
       throw new Error(
-        `duplicate managed bot name "${name}" — each bot in a runtime must be unique (case-insensitive)`,
+        `duplicate Channel name "${name}" — each Channel runtime entry must be unique`,
       );
     }
-    seen.add(key);
+    seen.add(name);
   }
 }
 
 /** Runtime environment + version metadata sent to Intelligence on activation. */
-export interface ActivationEnv {
+export interface ChannelActivationEnv {
   runtimeInstanceId?: string;
   /** COPILOTKIT_RUNTIME_ENV override, else NODE_ENV, else "development". */
   runtimeEnv: string;
   nodeEnv?: string;
   nodeVersion?: string;
   runtimePackageVersion?: string;
-  botPackageVersion?: string;
+  channelsPackageVersion?: string;
 }
 
-export interface ActivationMetadata extends ActivationEnv {
-  declaredBotNames: string[];
-  /** Per-bot declarations: name + declared slash-command names. */
-  declaredBots: Array<{ name: string; commands: string[] }>;
+export interface ChannelActivationMetadata extends ChannelActivationEnv {
+  declaredChannelNames: string[];
+  /** Per-Channel declarations: name + declared slash-command names. */
+  declaredChannels: Array<{ channelName: string; commands: string[] }>;
 }
 
 /**
  * Gather the process-level runtime activation env — `COPILOTKIT_RUNTIME_ENV`
  * (override) → `NODE_ENV` → "development", and the Node version. Caller
  * `overrides` win and supply what only the runtime knows: package versions
- * (`runtimePackageVersion`/`botPackageVersion`) and a stable `runtimeInstanceId`.
+ * (`runtimePackageVersion`/`channelsPackageVersion`) and an activation-scoped
+ * `runtimeInstanceId` that is stable only across transport reconnects.
  */
-export function resolveActivationEnv(
-  overrides: Partial<ActivationEnv> = {},
-): ActivationEnv {
+export function resolveChannelActivationEnv(
+  overrides: Partial<ChannelActivationEnv> = {},
+): ChannelActivationEnv {
   // Guard against non-Node hosts (browser/edge) where `process` is absent.
   const env = typeof process !== "undefined" ? process.env : undefined;
-  const nodeEnv = env?.NODE_ENV;
+  const copilotRuntimeEnv = env?.COPILOTKIT_RUNTIME_ENV?.trim() || undefined;
+  const nodeEnv = env?.NODE_ENV?.trim() || undefined;
+  // Only defined overrides may clobber defaults (Partial can carry explicit undefined).
+  const definedOverrides = Object.fromEntries(
+    Object.entries(overrides).filter(([, value]) => value !== undefined),
+  ) as Partial<ChannelActivationEnv>;
   return {
-    runtimeEnv: env?.COPILOTKIT_RUNTIME_ENV ?? nodeEnv ?? "development",
+    runtimeEnv: copilotRuntimeEnv ?? nodeEnv ?? "development",
     nodeEnv,
     nodeVersion: typeof process !== "undefined" ? process.version : undefined,
-    ...overrides,
+    ...definedOverrides,
   };
 }
 
 /**
  * Build the activation metadata declared to Intelligence: the resolved
- * env/versions plus per-bot declarations (name + declared command names). Pure.
+ * env/versions plus per-Channel declarations (name + declared command names). Pure.
  *
- * Assumes every bot has a name — call {@link assertValidBotNames} first
- * (`startManagedBots` does). A nameless bot is a programming error and throws
+ * Assumes every Channel has a name — call {@link assertValidChannelNames} first
+ * (the managed launcher does). A nameless Channel is a programming error and throws
  * rather than being silently filtered out of the activation set.
  *
- * TODO(OSS-377): add richer per-bot capabilities once the bot exposes them.
+ * TODO (untracked): add richer per-Channel capabilities once the framework Channel
+ * exposes them. The original tracking ticket (OSS-377) was canceled 2026-07-01,
+ * superseded by OSS-401's consolidated realtime foundation — re-file before acting.
  */
-export function buildActivationMetadata(
-  bots: readonly Bot[],
-  env: ActivationEnv,
-): ActivationMetadata {
-  const names = bots.map((b) => {
-    if (!b.name) {
+export function buildChannelActivationMetadata(
+  channels: readonly Channel[],
+  env: ChannelActivationEnv,
+): ChannelActivationMetadata {
+  const names = channels.map((c) => {
+    if (!c.name) {
       throw new Error(
-        "buildActivationMetadata: bot is missing a `name` — validate with assertValidBotNames first",
+        "buildChannelActivationMetadata: Channel is missing a `name` — validate with assertValidChannelNames first",
       );
     }
-    return b.name;
+    return c.name;
   });
   return {
     ...env,
-    declaredBotNames: names,
-    declaredBots: bots.map((b, i) => ({
-      name: names[i]!,
-      commands: b.commandNames,
+    declaredChannelNames: names,
+    declaredChannels: channels.map((c, i) => ({
+      channelName: names[i]!,
+      commands: c.commandNames,
     })),
   };
 }
 
-/** Per-bot managed transport, resolved by the runtime (closed Gateway/Outbox). */
-export interface ManagedTransport {
-  source: DeliverySource;
-  egress: EgressSink;
-  store?: StateStore;
-}
-
-export interface StartManagedBotsOptions {
-  bots: Bot[];
-  /** Resolve the inbound/outbound transport for a declared bot name. */
-  resolveTransport: (botName: string) => ManagedTransport;
-  /** Activation env overrides; omitted fields are gathered from the process. */
-  env?: Partial<ActivationEnv>;
-}
-
-export interface ManagedBotsHandle {
-  metadata: ActivationMetadata;
+export interface ChannelsHandle {
+  metadata: ChannelActivationMetadata;
   stop(): Promise<void>;
-}
-
-/**
- * Start the managed listener lifecycle: validate the declared bots, build the
- * activation metadata, then attach an `intelligenceAdapter` to each bot (wired
- * to its resolved transport) and start it. Returns the metadata and a `stop`.
- *
- * The transports come from the caller (production: the Realtime Gateway +
- * Connector Outbox clients; tests: in-memory). This module owns no Slack
- * credentials, webhook ingress, or outbox persistence.
- */
-export async function startManagedBots(
-  opts: StartManagedBotsOptions,
-): Promise<ManagedBotsHandle> {
-  assertValidBotNames(opts.bots);
-  if (opts.bots.length === 0) {
-    console.warn(
-      "[bot-intelligence] startManagedBots called with no bots — nothing to start. " +
-        "Pass `bots: [createBot({ name })]` on the Intelligence runtime.",
-    );
-  }
-  const metadata = buildActivationMetadata(
-    opts.bots,
-    resolveActivationEnv(opts.env),
-  );
-  // Partial-start rollback: addAdapter/resolveTransport/start for bot N can
-  // throw AFTER bots 0..N-1 are already live. Without unwinding, those started
-  // bots leak (open listeners/connections) with no handle to stop them. Track
-  // what started and stop it before rethrowing.
-  const startedBots: Bot[] = [];
-  try {
-    for (const bot of opts.bots) {
-      const { source, egress, store } = opts.resolveTransport(bot.name!);
-      bot.addAdapter(intelligenceAdapter({ source, egress, store }));
-      await bot.start();
-      startedBots.push(bot);
-    }
-  } catch (err) {
-    await Promise.allSettled(startedBots.map((b) => b.stop()));
-    throw err;
-  }
-  return {
-    metadata,
-    async stop() {
-      await Promise.all(opts.bots.map((b) => b.stop()));
-    },
-  };
+  /**
+   * Optional drop breadcrumb when the managed session disconnects
+   * unexpectedly. Not used by `ChannelManager` for reconnect (Phoenix owns
+   * reconnect; status is driven by `onStateChange`). Not fired by the
+   * handle's own `stop()`. Present when the underlying session supports it
+   * (see `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
+   */
+  onClose?(cb: () => void): void;
+  /**
+   * Optional seam: register a connection-health observer so a supervising
+   * `ChannelManager`'s `status()` can reflect real connection health
+   * (`online` → sendable, `reconnecting` → dropped and retrying, `gave_up` →
+   * dead after the bounded reconnect window). Not fired by the handle's own
+   * `stop()`. Present when the underlying session supports it (see
+   * `ConnectedRealtimeGatewaySession.onStateChange` in `realtime-gateway.ts`).
+   */
+  onStateChange?(
+    cb: (
+      state: "online" | "reconnecting" | "gave_up",
+      detail?: { reason?: string; code?: string },
+    ) => void,
+  ): void;
+  /**
+   * Optional seam: managed provider attachment state per declared Channel, as
+   * reported on the newest gateway control join reply — so a supervising
+   * `ChannelManager` can tell "the control socket is up" from "a Slack/Teams app
+   * is actually bound to this Channel".
+   *
+   * A getter, not a snapshot: the gateway's join hooks re-fire on every Phoenix
+   * auto-rejoin, so a Channel provisioned while the runtime was disconnected is
+   * reflected on the next read.
+   *
+   * `undefined` means "not reported", NOT "no provider attached" — a gateway
+   * predating this contract and one whose lookup failed both omit it. Present
+   * when the underlying session supports it (see
+   * `ConnectedRealtimeGatewaySession.providerStates` in `realtime-gateway.ts`).
+   */
+  providerStates?(): Readonly<Record<string, string>> | undefined;
 }

@@ -47,6 +47,52 @@ The ID of the agent to retrieve. If not provided, defaults to `"default"`.
 const { agent } = useAgent({ agentId: "customer-support" });
 ```
 
+When you pass [`runtimeAgentId`](#runtimeagentid), `agentId` is required, and the hook registers an agent under that
+name instead of retrieving one. Pick a name that isn't taken — `"chat-1"`, `"chat-2"`.
+
+### threadId
+
+`string` **(optional)**
+
+The conversation thread this agent's runs belong to. Must be passed together with
+[`runtimeAgentId`](#runtimeagentid) — passing it alone is a type error.
+
+```tsx
+const { agent } = useAgent({
+  agentId: "chat-1",
+  runtimeAgentId: "assistant",
+  threadId: "thread-1",
+});
+```
+
+If you leave it out, the thread comes from the chat UI above the hook — the `threadId` you passed to
+[`CopilotChat`](/reference/copilot-chat) or to a
+[`CopilotChatConfigurationProvider`](/reference/copilot-chat-configuration-provider).
+
+### runtimeAgentId
+
+`string` **(optional)**
+
+The agent to talk to on the runtime, when `agentId` is a local name instead of a runtime one. Must be passed together
+with `threadId` and an explicit `agentId` — any two of the three without the other is a type error.
+
+Each `agentId` maps to a single agent instance, so two hooks using the same `agentId` also share a thread. Give each
+hook its own `agentId` and point both at the same `runtimeAgentId` to keep their threads apart:
+
+```tsx
+// Two independent threads, one agent on the runtime.
+useAgent({
+  agentId: "chat-1",
+  runtimeAgentId: "assistant",
+  threadId: "thread-1",
+});
+useAgent({
+  agentId: "chat-2",
+  runtimeAgentId: "assistant",
+  threadId: "thread-2",
+});
+```
+
 ### updates
 
 `UseAgentUpdate[]` **(optional)**

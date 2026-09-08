@@ -60,12 +60,36 @@ _SETUP_DONE = False
 # misconfiguration is detected so the backend keeps running with instrumentation
 # disabled rather than crashing at import.
 _ENABLED = False
+# Routing gate for stdout emission. Defaults ON so behavior is unchanged for
+# every integration; when explicitly turned OFF (``CVDIAG_LOG_STDOUT`` in
+# {"0", "false"}) the per-LLM-call breadcrumb and the ``emit_cvdiag`` ``CVDIAG``
+# line stop hitting stdout, WITHOUT dropping any data — the PocketBase sink
+# still receives every envelope at full fidelity. This exists to keep CVDIAG's
+# per-call breadcrumb volume off the shared Railway log stream (500 logs/sec
+# cap) so a D6 burst can't wedge the stdout pipe.
+_LOG_STDOUT = True
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 # The scoped handler we attach to the ``agents`` logger when ENABLED. Tracked so
 # the capture install is idempotent and ``reset_for_test`` can detach it,
 # leaving no residual host-logging mutation between tests.
 _AGENTS_LOG_NAME = "agents"
 _CAPTURE_HANDLER: Optional[logging.Handler] = None
+
+
+def _resolve_log_stdout(env: dict[str, str]) -> bool:
+    """Resolve whether CVDIAG should emit to stdout (default ON).
+
+    Only an explicit ``CVDIAG_LOG_STDOUT`` of ``"0"`` / ``"false"`` (case-
+    insensitive) turns stdout emission OFF; anything else — including unset —
+    leaves it ON so current behavior is preserved for every integration. This
+    is a ROUTING gate, not a volume-reduction-by-loss gate: turning it off does
+    not drop any CVDIAG data, it only stops the stdout copy (the PocketBase sink
+    still receives everything).
+    """
+    raw = env.get("CVDIAG_LOG_STDOUT")
+    if raw is None:
+        return True
+    return str(raw).strip().lower() not in ("0", "false")
 
 
 def _install_agents_log_capture() -> None:
@@ -151,13 +175,18 @@ def setup(env: Optional[dict[str, str]] = None) -> None:
         the TS emitter: it throws at construction, but the wrapper catches it
         so the host app survives.
     """
-    global _TIER, _PB_WRITER, _SETUP_DONE, _ENABLED
+    global _TIER, _PB_WRITER, _SETUP_DONE, _ENABLED, _LOG_STDOUT
 
     # (0) Idempotency guard — repeated setup() is a no-op (FIX-3).
     if _SETUP_DONE:
         return
 
     src = env if env is not None else dict(os.environ)
+
+    # Resolve the stdout routing gate (default ON). When OFF, CVDIAG breadcrumbs
+    # and envelopes stop hitting the shared stdout pipe; the PB sink still gets
+    # every envelope at full fidelity.
+    _LOG_STDOUT = _resolve_log_stdout(src)
 
     # (1) Resolve tier. ``_resolve_tier`` raises (fail-closed) on a forbidden
     # DEBUG request — catch it here so a misconfig DEGRADES (instrumentation
@@ -189,8 +218,12 @@ def setup(env: Optional[dict[str, str]] = None) -> None:
     # scoped ``agents`` logger capture. A disabled / degraded setup (the early
     # returns above) reaches neither this nor any other logging mutation, so
     # importing the bootstrap is fully inert when cvdiag is disabled — it never
-    # touches the host application's root-logger handlers.
-    _install_agents_log_capture()
+    # touches the host application's root-logger handlers. The capture handler
+    # is what routes the ``agents.*`` per-LLM-call breadcrumb to stdout, so we
+    # attach it ONLY when stdout emission is ON; with CVDIAG_LOG_STDOUT=0 the
+    # breadcrumb (and outbound-llm log) stops flooding the shared log stream.
+    if _LOG_STDOUT:
+        _install_agents_log_capture()
     logger.info(
         "CVDIAG bootstrap component=_shared tier=%s pb_enabled=%s",
         _TIER,
@@ -219,11 +252,12 @@ def reset_for_test() -> None:
     an unmutated logging tree (otherwise an enabled setup() would leave a
     handler attached across tests).
     """
-    global _TIER, _PB_WRITER, _SETUP_DONE, _ENABLED, _CAPTURE_HANDLER
+    global _TIER, _PB_WRITER, _SETUP_DONE, _ENABLED, _CAPTURE_HANDLER, _LOG_STDOUT
     _TIER = "default"
     _PB_WRITER = None
     _SETUP_DONE = False
     _ENABLED = False
+    _LOG_STDOUT = True
     if _CAPTURE_HANDLER is not None:
         logging.getLogger(_AGENTS_LOG_NAME).removeHandler(_CAPTURE_HANDLER)
         _CAPTURE_HANDLER = None
@@ -253,11 +287,21 @@ def emit_cvdiag(envelope: Union[CvdiagEnvelope, dict[str, Any]]) -> None:
             else CvdiagEnvelope.model_validate(envelope)
         )
         payload = model.model_dump(by_alias=True, exclude_none=False)
-        # One JSON line to stdout, ``CVDIAG`` tagged so the harness greps it.
-        sys.stdout.write("CVDIAG " + _dump_json(payload) + "\n")
-        sys.stdout.flush()
+        # Durable sink FIRST: enqueue is non-blocking (put_nowait) and is the
+        # authoritative record. The gated stdout write below can block or raise
+        # under log-stream backpressure (the exact wedge this routing gate
+        # guards against); doing it after the enqueue guarantees the PB sink
+        # keeps the payload even if the stdout copy never completes.
         if _PB_WRITER is not None:
             _PB_WRITER.enqueue(payload)
+        # One JSON line to stdout, ``CVDIAG`` tagged so the harness greps it.
+        # Gated behind the stdout routing flag (default ON). With
+        # CVDIAG_LOG_STDOUT=0 the line is suppressed to keep it off the shared
+        # Railway log stream — the PB enqueue above ALWAYS runs, so no data
+        # is lost.
+        if _LOG_STDOUT:
+            sys.stdout.write("CVDIAG " + _dump_json(payload) + "\n")
+            sys.stdout.flush()
     except Exception as err:  # noqa: BLE001 - instrumentation must not throw
         logger.warning("CVDIAG emit-failed error=%s", err)
 

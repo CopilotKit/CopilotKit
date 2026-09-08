@@ -39,6 +39,10 @@ __pycache__/
 
 docs/next-env.d.ts
 showcase/shell-docs/next-env.d.ts
+showcase/angular/public/demo-files/
+showcase/angular/public/mcp-apps-sandbox.html
+showcase/angular/src/app/generated/
+showcase/angular/.staged-angular-package/
 
 # Showcase: staged shared contexts for Docker builds (see showcase/scripts/dev-local.sh)
 showcase/integrations/*/shared_python/
@@ -63,6 +67,9 @@ lefthook-local.yml
 
 # Private agent instructions (not shared with the team)
 private-agents.md
+
+# Agent screenshots from the Inspector workbench skill. Session-only. Never commit.
+.inspector-workbench/
 
 # Release artifacts
 release-notes.md

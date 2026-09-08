@@ -11,6 +11,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { forwardingFetch } from "../header-forwarding";
 // @doc-as
 // @doc-end
+import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 const BYOC_HASHBROWN_SYSTEM_PROMPT = `\
 You are a sales analytics assistant that replies by emitting a single JSON
@@ -84,6 +85,9 @@ async function* convertStream(
     const raw = chunk as any;
     const type = raw.type as string;
 
+    // Fail loud on an upstream rejection — see ./demo-stream.
+    throwOnRunError(raw);
+
     // Skip RUN_FINISHED from TanStack's adapter — the Agent class emits
     // its own lifecycle events.
     if (type === "RUN_FINISHED") continue;
@@ -124,9 +128,9 @@ export function createByocHashbrownAgent() {
 
       const stream = chat({
         // @doc-replace
-        adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         // @doc-as
-        // adapter: openaiText("gpt-4o-mini"),
+        // adapter: openaiText("gpt-5.4"),
         // @doc-end
         messages,
         systemPrompts: [BYOC_HASHBROWN_SYSTEM_PROMPT, ...systemPrompts],
@@ -135,6 +139,7 @@ export function createByocHashbrownAgent() {
           temperature: 0.2,
         },
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
 
       return convertStream(stream, abortController.signal);

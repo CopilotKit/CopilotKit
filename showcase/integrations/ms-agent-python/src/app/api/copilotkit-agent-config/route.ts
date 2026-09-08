@@ -10,13 +10,14 @@
 // - src/agents/agent_config_agent.py (backend graph)
 // - src/app/demos/agent-config/page.tsx (provider properties source)
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -34,17 +35,17 @@ const agents: Record<string, AbstractAgent> = {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-agent-config",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in
         // MaybePromise<NonEmptyRecord<...>> which rejects plain Records;
         // fixed in source, pending release.
         agents,
       }),
+      basePath: "/api/copilotkit-agent-config",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const err = error as Error;
     return NextResponse.json(

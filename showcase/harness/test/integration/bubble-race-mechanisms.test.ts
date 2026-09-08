@@ -1,5 +1,6 @@
 import { describe, it, expect, afterAll } from "vitest";
-import { chromium, type Browser } from "playwright";
+import { chromium } from "playwright";
+import type { Browser } from "playwright";
 import { countAssistantMessages } from "../../src/probes/helpers/assistant-message-count.js";
 import { installPrePaintFromEnv } from "../../src/probes/helpers/init-scripts.js";
 import { runBubbleRaceRepro } from "./bubble-race-repro.js";
@@ -49,7 +50,7 @@ async function withEnv<T>(
  * Mechanism-GREEN retrofit for s1/s4/s5.
  *
  * s1 landed the conversation driver + production diagnostic log
- * `[conversation-runner] turn N/total — settled text { turnNum, text }`
+ * `[conversation-runner] turn N/total — settled metadata`
  * that the test harness parses out of subprocess stdout.
  *
  * s4 landed `installPrePaintFromEnv` — the Playwright `addInitScript`
@@ -77,12 +78,10 @@ describe("bubble-race mechanism — s1 driver production diagnostic log", () => 
       messages: ["good name for a goldfish"],
     });
     // The production log line the driver depends on:
-    //   [conversation-runner] turn N/total — settled text { turnNum: …, text: '…' }
-    // util.inspect renders the structured 2nd-arg with single-quoted
-    // string fields, so the regex looks for a `text: '…'` member with
-    // standard escape semantics.
+    //   [conversation-runner] turn N/total — settled metadata
+    //   { turnNum: …, bubbleIndex: …, textLength: … }
     const productionLineRe =
-      /\[conversation-runner\] turn (\d+)\/\d+ — settled text \{[^}]*text:\s*'(?:[^'\\]|\\.)*'/;
+      /\[conversation-runner\] turn (\d+)\/\d+ — settled metadata \{[^}]*textLength:\s*\d+/;
     expect(result.stdout).toMatch(productionLineRe);
     // And the driver actually parsed at least one turn out of stdout.
     expect(result.turns.length).toBeGreaterThanOrEqual(1);

@@ -21,6 +21,7 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { ReasoningBlock } from "./reasoning-block";
 import { useReasoningCustomSuggestions } from "./suggestions";
 
+// @region[reasoning-block-render]
 const AGENT_ID = "reasoning-custom";
 
 export default function ReasoningCustomDemo() {
@@ -36,9 +37,6 @@ export default function ReasoningCustomDemo() {
 }
 
 function Chat() {
-  // Hooks that consume CopilotKit context (suggestions, agent, etc.) must
-  // run INSIDE the <CopilotKit> provider — otherwise the context is null
-  // and `.subscribe(...)` blows up at mount.
   useReasoningCustomSuggestions();
   return (
     <CopilotChat
@@ -51,3 +49,4 @@ function Chat() {
     />
   );
 }
+// @endregion[reasoning-block-render]

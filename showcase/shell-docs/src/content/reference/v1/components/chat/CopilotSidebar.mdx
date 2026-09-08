@@ -277,3 +277,16 @@ A custom Button component to use instead of the default.
 A custom Header component to use instead of the default.
 </PropertyReference>
 
+<PropertyReference name="fullHeightChildren" type="boolean"  >
+Make the sidebar's content wrapper exactly one viewport tall, so children
+  can use `height: 100%` (or `flex: 1`) to fill the screen.
+
+  Off by default: the wrappers are auto-height, so page content flows
+  normally and percentage heights on children collapse to content height.
+
+  ```tsx
+  <CopilotSidebar fullHeightChildren>
+    <div style={{ height: "100%" }}>...</div>
+  </CopilotSidebar>
+  ```
+</PropertyReference>

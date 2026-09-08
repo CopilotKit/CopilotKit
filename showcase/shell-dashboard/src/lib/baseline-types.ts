@@ -296,7 +296,11 @@ export const BASELINE_PARTNERS: readonly { name: string; slug: string }[] = [
   { name: "Strands", slug: "strands" },
   { name: "Strands (TypeScript)", slug: "strands-typescript" },
   { name: "Mastra", slug: "mastra" },
-  { name: "CrewAI", slug: "crewai-crews" },
+  { name: "CrewAI Flows", slug: "crewai-crews" },
+  {
+    name: "CrewAI Conversational Flows",
+    slug: "crewai-conversational-flows",
+  },
   { name: "PydanticAI", slug: "pydantic-ai" },
   { name: "Claude Agents SDK (Python)", slug: "claude-sdk-python" },
   { name: "Claude Agents SDK (TS)", slug: "claude-sdk-typescript" },

@@ -21,7 +21,7 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // @doc-end
 
 const runtime = new CopilotRuntime({
-  agents: { default: createBuiltInAgent() },
+  agents: { "auth-demo": createBuiltInAgent() },
   runner: new InMemoryAgentRunner(),
 });
 

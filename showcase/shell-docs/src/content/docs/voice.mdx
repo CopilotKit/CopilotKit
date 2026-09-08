@@ -19,27 +19,35 @@ If you only need file uploads (audio, images, video, documents), use [Multimodal
 
 ## Frontend
 
-`<CopilotChat />` renders the mic button automatically when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. There's nothing to wire up on the chat surface itself:
+`<CopilotChat />` from `@copilotkit/react-core/v2` renders the mic button automatically when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. There's nothing to wire up on the chat surface itself:
 
 <Snippet region="voice-page" title="frontend/src/app/page.tsx — chat surface" />
 
-When the user clicks the mic, the chat captures audio, POSTs it to the runtime's `/transcribe` endpoint, drops the resulting transcript into the composer, and submits.
+The `runtimeUrl="/api/copilotkit-voice"` points the browser to your Next.js API route. When the user clicks the mic, the chat captures audio, POSTs it to that runtime route's `/transcribe` endpoint, drops the resulting transcript into the composer, and submits.
 
 ### Driving the demo without a mic
 
-For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that POSTs a bundled audio clip directly to the same `/transcribe` endpoint:
+For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that emits a canned sample phrase through an `onTranscribed` callback, bypassing the transcription endpoint entirely:
 
 <Snippet region="sample-audio-button" title="frontend/src/app/sample-audio-button.tsx" />
 
-The caller can drop the resulting text into the composer's textarea (matched via `data-testid="copilot-chat-textarea"`) using the native value setter and a synthetic `input` event so React's managed state updates correctly.
+The parent chat component can then drop that text into the composer's textarea (matched via `data-testid="copilot-chat-textarea"`) using the native value setter and a synthetic `input` event so React's managed state updates correctly.
 
 ## Backend
+
+### Next.js API route
+
+Create a dedicated API route at `app/api/copilotkit-voice/[[...slug]]/route.ts`. The `[[...slug]]` catch-all pattern lets the V2 runtime handle its internal URL routing (`/info`, `/agent/:id/run`, `/transcribe`, etc.) under the `/api/copilotkit-voice` base path.
 
 Wire up the V2 runtime with a `TranscriptionService`. The V1 wrapper drops the `transcriptionService` option, so use `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` directly:
 
 <Snippet region="voice-runtime" title="app/api/copilotkit-voice/[[...slug]]/route.ts" />
 
-With `transcriptionService` set, the runtime advertises `audioFileTranscriptionEnabled: true` on `/info` (which is what tells the chat to render the mic button) and routes `POST /transcribe` to the service.
+The `basePath: "/api/copilotkit-voice"` in `createCopilotRuntimeHandler` must match the API route's directory path. With `transcriptionService` set, the runtime advertises `audioFileTranscriptionEnabled: true` on `/info` (which is what tells the chat to render the mic button) and routes `POST /transcribe` to the service.
+
+<WhenFrameworkHas flag="voice_backend_pattern" equals="adk-fastapi-agent-path">
+For the Google ADK showcase, agent runs take one more hop: this Next.js route registers the `voice-demo` agent with an `HttpAgent` pointed at `${AGENT_URL}/voice`. The Python `agent_server.py` mounts registered ADK agents with `add_adk_fastapi_endpoint(app, ..., path=f"/{agent_name}")`, so the browser talks to `/api/copilotkit-voice` while the Next.js runtime forwards voice-demo agent runs to the backend `/voice` endpoint.
+</WhenFrameworkHas>
 
 ### Custom transcription backends
 

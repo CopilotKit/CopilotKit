@@ -4,9 +4,9 @@ import type { SlackConversationStore } from "./conversation-store.js";
 import type { IncomingTurn, ResolvedSlackRespondToOptions } from "./types.js";
 import { DEFAULT_SLACK_RESPOND_TO_OPTIONS, DM_SCOPE } from "./types.js";
 import {
-  stripMentions,
   deriveEventId,
-  isPlainUserMessage,
+  normalizeSlackEvent,
+  stripMentions,
 } from "./ingress-normalize.js";
 
 /**
@@ -49,6 +49,10 @@ export interface ListenerConfig {
   store: SlackConversationStore;
   /** Bot user id, used to filter out our own messages (loop guard). */
   botUserId: string | undefined;
+  /** Native bot id, used when Slack omits the bot user id on our own output. */
+  botId?: string;
+  /** Native app id, used when Slack identifies our own output by app only. */
+  appId?: string;
   /** Resolved response-routing policy for Slack ingress. */
   respondTo?: ResolvedSlackRespondToOptions;
   /** Where each accepted turn is dispatched. */
@@ -82,7 +86,7 @@ export interface ListenerConfig {
  *     (we recognise it by the presence of `<@botUserId>` in the text)
  */
 export function attachSlackListener(config: ListenerConfig): void {
-  const { app, store, onTurn, onCommand } = config;
+  const { app, onTurn, onCommand } = config;
   const respondTo = config.respondTo ?? DEFAULT_SLACK_RESPOND_TO_OPTIONS;
 
   // ── Slash commands ──────────────────────────────────────────────────
@@ -136,6 +140,12 @@ export function attachSlackListener(config: ListenerConfig): void {
             ? { channel: event.channel, threadTs }
             : { channel: event.channel },
         userText,
+        operation: {
+          kind: "created",
+          logicalMessageId: event.ts,
+          revisionId: event.event_ts ?? event.ts,
+          mentioned: true,
+        },
         senderUserId: event.user,
         eventId: deriveEventId(
           body,
@@ -148,14 +158,22 @@ export function attachSlackListener(config: ListenerConfig): void {
   });
 
   app.message(async ({ message, body, client }) => {
-    if (!isPlainUserMessage(message, config.botUserId)) return;
-
-    const text = (message.text ?? "").trim();
-    const hasFiles = Array.isArray(message.files) && message.files.length > 0;
-    // A bare file upload has empty text but is still a real turn.
-    if (!text && !hasFiles) return;
-
-    const isDM = message.channel_type === "im";
+    const normalized = normalizeSlackEvent(
+      {
+        event_id: (body as { event_id?: string } | undefined)?.event_id,
+        event: {
+          type: "message",
+          ...(message as unknown as Record<string, unknown>),
+        },
+      },
+      {
+        botUserId: config.botUserId,
+        botId: config.botId,
+        appId: config.appId,
+      },
+    );
+    if (!normalized || normalized.kind !== "turn") return;
+    const isDM = normalized.source === "direct_message";
 
     // Pane messages are threaded DMs owned by the Assistant middleware — skip
     // them here so each pane message becomes EXACTLY ONE turn. Gated per-THREAD
@@ -163,54 +181,49 @@ export function attachSlackListener(config: ListenerConfig): void {
     // threaded DMs in apps without the Agents toggle keep flowing.
     if (
       isDM &&
-      message.thread_ts &&
-      config.isAssistantThread?.(message.channel, message.thread_ts)
+      normalized.threadTs &&
+      config.isAssistantThread?.(normalized.channel, normalized.threadTs)
     )
       return;
 
-    if (!respondTo.directMessages) return;
-
     if (isDM) {
+      const dmScope = normalized.threadTs ?? DM_SCOPE;
       await onTurn(
         {
-          conversation: { channelId: message.channel, scope: DM_SCOPE },
+          conversation: { channelId: normalized.channel, scope: dmScope },
           // Flat DM reply (no threadTs); carry the inbound ts so the renderer
           // can anchor the native "is thinking…" status to a thread.
-          replyTarget: { channel: message.channel, statusTs: message.ts },
-          userText: text,
-          senderUserId: message.user,
-          eventId: deriveEventId(body, message, message.channel),
+          replyTarget: {
+            channel: normalized.channel,
+            ...(normalized.threadTs
+              ? { threadTs: normalized.threadTs }
+              : { statusTs: normalized.ts }),
+          },
+          userText: normalized.userText,
+          operation: normalized.operation,
+          senderUserId: normalized.senderUserId,
+          eventId: normalized.eventId,
         },
         client,
       );
       return;
     }
 
-    if (!message.thread_ts) return; // top-level channel chatter — ignore
-
-    // app_mention runs separately for these; skip the duplicate.
-    if (config.botUserId && text.includes(`<@${config.botUserId}>`)) return;
-
-    if (respondTo.threadReplies === "mentionsOnly") return;
-
-    // Only continue threads we already own. `has` consults Slack itself,
-    // so a restarted bridge naturally recognises threads it replied to
-    // before the restart.
-    if (
-      !(await store.has({
-        channelId: message.channel,
-        scope: message.thread_ts,
-      }))
-    )
-      return;
-
     await onTurn(
       {
-        conversation: { channelId: message.channel, scope: message.thread_ts },
-        replyTarget: { channel: message.channel, threadTs: message.thread_ts },
-        userText: stripMentions(text),
-        senderUserId: message.user,
-        eventId: deriveEventId(body, message, message.channel),
+        conversation: {
+          channelId: normalized.channel,
+          scope: normalized.threadTs ?? normalized.operation.logicalMessageId,
+        },
+        replyTarget: {
+          channel: normalized.channel,
+          threadTs:
+            normalized.threadTs ?? normalized.operation.logicalMessageId,
+        },
+        userText: normalized.userText,
+        operation: normalized.operation,
+        senderUserId: normalized.senderUserId,
+        eventId: normalized.eventId,
       },
       client,
     );

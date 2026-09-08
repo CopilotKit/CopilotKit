@@ -93,7 +93,7 @@ function createAgentConfigAgent() {
 }
 
 const runtime = new CopilotRuntime({
-  agents: { default: createAgentConfigAgent() },
+  agents: { "agent-config-demo": createAgentConfigAgent() },
   runner: new InMemoryAgentRunner(),
 });
 

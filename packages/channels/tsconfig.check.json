@@ -1,6 +1,13 @@
 {
   "extends": "@copilotkit/typescript-config/base.json",
-  "compilerOptions": { "noEmit": true, "lib": ["es2022"], "types": ["node"] },
-  "include": ["src/**/*.ts"],
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["es2022"],
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels",
+    "paths": { "@copilotkit/channels/jsx-runtime": ["./src/jsx-runtime.ts"] }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["dist", "node_modules"]
 }

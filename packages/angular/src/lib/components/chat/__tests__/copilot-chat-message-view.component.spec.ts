@@ -1,6 +1,7 @@
 import {
   Component,
   EnvironmentInjector,
+  input,
   runInInjectionContext,
   signal,
 } from "@angular/core";
@@ -10,8 +11,7 @@ import { CopilotChatMessageView } from "../copilot-chat-message-view";
 import type { ActivityMessage, Message, ReasoningMessage } from "@ag-ui/core";
 import { CopilotKit } from "../../../copilotkit";
 import { z } from "zod";
-import { DummyActivityRenderer } from "./dummy-activity-renderer.component";
-import { FallbackActivityRenderer } from "./fallback-activity-renderer.component";
+import { PrimaryActivityRenderer } from "../../activity/__tests__/activity-renderer-stubs";
 import type { RenderActivityMessageConfig } from "../../../activity-renderer";
 
 const assistantMessage: Message = {
@@ -33,6 +33,26 @@ const reasoningMessage: ReasoningMessage = {
 };
 
 @Component({
+  standalone: true,
+  template: `
+    <div data-testid="custom-reasoning">{{ message().content }}</div>
+  `,
+})
+class TestReasoningMessage {
+  readonly message = input.required<ReasoningMessage>();
+}
+
+@Component({
+  standalone: true,
+  template: `
+    <div data-testid="transcript-children">{{ messages().length }} messages</div>
+  `,
+})
+class TestTranscriptChildren {
+  readonly messages = input<Message[]>([]);
+}
+
+@Component({
   imports: [CopilotChatMessageView],
   template: `
     <copilot-chat-message-view
@@ -52,16 +72,21 @@ type MessageViewTestHarness = CopilotChatMessageView & {
   messages: () => Message[];
   isLoading: () => boolean;
   showCursor: () => boolean;
-  agentId: () => string | undefined;
-  resolveActivityRender: (message: ActivityMessage) =>
-    | {
-        component: unknown;
-        inputs: unknown;
-      }
-    | undefined;
 };
 
 describe("CopilotChatMessageView", () => {
+  it("renders transcript children after the message collection", () => {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", [userMessage]);
+    fixture.componentRef.setInput("childrenComponent", TestTranscriptChildren);
+    fixture.detectChanges();
+
+    const children = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLElement>('[data-testid="transcript-children"]');
+    expect(children?.textContent).toContain("1 messages");
+  });
+
   let injector: EnvironmentInjector;
   let component: CopilotChatMessageView;
   let harness: MessageViewTestHarness;
@@ -73,6 +98,7 @@ describe("CopilotChatMessageView", () => {
     renderers.set([]);
     getAgent.mockReset();
     TestBed.configureTestingModule({
+      imports: [MessageViewHostComponent],
       providers: [
         {
           provide: CopilotKit,
@@ -114,37 +140,22 @@ describe("CopilotChatMessageView", () => {
     expect(thumbsUpSpy).toHaveBeenCalledWith({ message: assistantMessage });
   });
 
-  it("resolves activity messages with registered renderers", () => {
-    const activityMessage: ActivityMessage = {
-      id: "activity-1",
-      role: "activity",
-      activityType: "a2ui-surface",
-      content: { operations: [] },
-    };
-    const agent = { agentId: "demo-button" };
-    renderers.set([
-      {
-        activityType: "a2ui-surface",
-        content: z.object({ operations: z.array(z.unknown()) }),
-        component: DummyActivityRenderer,
-      },
-    ]);
-    getAgent.mockReturnValue(agent);
-    harness.agentId = () => "demo-button";
+  it("renders canonical cross-frontend message markers", () => {
+    const fixture = TestBed.createComponent(MessageViewHostComponent);
+    fixture.componentInstance.messages = [userMessage, assistantMessage];
+    fixture.detectChanges();
 
-    const result = harness.resolveActivityRender(activityMessage);
-
-    expect(result?.component).toBe(DummyActivityRenderer);
-    expect(result?.inputs).toEqual({
-      activityType: "a2ui-surface",
-      content: { operations: [] },
-      message: activityMessage,
-      agent,
-    });
+    const assistant = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-assistant-message"]',
+    );
+    expect(assistant?.getAttribute("data-message-role")).toBe("assistant");
+    expect(
+      fixture.nativeElement.querySelector('[data-message-role="user"]'),
+    ).not.toBeNull();
   });
 
-  it("prefers agent-scoped activity renderers before fallback renderers", () => {
-    const activityMessage: ActivityMessage = {
+  it("renders activity messages through the activity component", () => {
+    const activity: ActivityMessage = {
       id: "activity-1",
       role: "activity",
       activityType: "a2ui-surface",
@@ -154,20 +165,19 @@ describe("CopilotChatMessageView", () => {
       {
         activityType: "a2ui-surface",
         content: z.object({}),
-        component: FallbackActivityRenderer,
-      },
-      {
-        activityType: "a2ui-surface",
-        agentId: "demo-button",
-        content: z.object({}),
-        component: DummyActivityRenderer,
+        component: PrimaryActivityRenderer,
       },
     ]);
-    harness.agentId = () => "demo-button";
 
-    const result = harness.resolveActivityRender(activityMessage);
+    const fixture = TestBed.createComponent(MessageViewHostComponent);
+    fixture.componentInstance.messages = [activity];
+    fixture.detectChanges();
 
-    expect(result?.component).toBe(DummyActivityRenderer);
+    const rendered = fixture.nativeElement.querySelector<HTMLElement>(
+      '[data-testid="primary-activity"]',
+    );
+    expect(rendered).not.toBeNull();
+    expect(rendered?.getAttribute("data-activity-type")).toBe("a2ui-surface");
   });
 
   it("renders streaming reasoning messages", () => {
@@ -208,6 +218,26 @@ describe("CopilotChatMessageView", () => {
     expect(header?.getAttribute("aria-expanded")).toBe("false");
     expect(panel?.style.gridTemplateRows).toBe("0fr");
     expect(chevron?.classList.contains("cpk:rotate-90")).toBe(false);
+  });
+
+  it("renders a custom reasoning-message component with the reasoning context", () => {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", [userMessage, reasoningMessage]);
+    fixture.componentRef.setInput(
+      "reasoningMessageComponent",
+      TestReasoningMessage,
+    );
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="custom-reasoning"]')
+        ?.textContent,
+    ).toContain("I should choose the right renderer.");
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-testid="copilot-chat-reasoning-message"]',
+      ),
+    ).toBeNull();
   });
 
   it("renders completed reasoning collapsed by default", () => {

@@ -94,10 +94,13 @@ app.use(express.json({ limit: "35mb" }));
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const PORT = parseInt(process.env.AGENT_PORT || "8000", 10);
 const CLAUDE_MODEL = normalizeAnthropicModel(
-  process.env.CLAUDE_MODEL ||
-    process.env.ANTHROPIC_MODEL ||
-    "claude-sonnet-4.6",
+  process.env.CLAUDE_MODEL || process.env.ANTHROPIC_MODEL || "claude-opus-4-8",
 );
+// Anthropic SDK 0.57's types predate adaptive thinking, but its transport
+// forwards this API-supported value unchanged.
+const ADAPTIVE_THINKING = {
+  type: "adaptive",
+} as unknown as Anthropic.Messages.ThinkingConfigParam;
 const CLAUDE_VISION_MODEL = normalizeAnthropicModel(
   process.env.CLAUDE_VISION_MODEL ||
     process.env.ANTHROPIC_VISION_MODEL ||
@@ -607,10 +610,9 @@ interface DemoConfig {
   /** Force vision-capable model regardless of attachment detection. */
   forceVisionModel?: boolean;
   /**
-   * Enable Anthropic extended thinking and forward `thinking_delta` events
+   * Enable Anthropic adaptive thinking and forward `thinking_delta` events
    * as AG-UI REASONING_MESSAGE_* events. Requires a model that supports
-   * extended thinking (Claude 3.7 Sonnet / Claude 4 family). Sets
-   * `thinking: { type: "enabled", budget_tokens }`.
+   * adaptive thinking. Sets `thinking: { type: "adaptive" }`.
    */
   enableThinking?: boolean;
   /** Override model used when `enableThinking` is set. */
@@ -1154,10 +1156,7 @@ function makeAgentHandler(config: DemoConfig = {}) {
         ...(tools.length > 0 ? { tools } : {}),
         ...(config.enableThinking
           ? {
-              thinking: {
-                type: "enabled" as const,
-                budget_tokens: 2048,
-              },
+              thinking: ADAPTIVE_THINKING,
             }
           : {}),
       };
@@ -1517,6 +1516,7 @@ async function executeBackendTool(
     };
   }
 
+  // @region[a2ui-fixed-schema-tool-execution]
   if (toolName === "display_flight") {
     const origin = typeof toolInput.origin === "string" ? toolInput.origin : "";
     const destination =
@@ -1535,6 +1535,7 @@ async function executeBackendTool(
       state: null,
     };
   }
+  // @endregion[a2ui-fixed-schema-tool-execution]
 
   if (toolName === "generate_a2ui") {
     const context =
@@ -1637,18 +1638,19 @@ async function executeBackendTool(
     };
   }
 
+  // @region[shared-state-set-notes-handler]
   if (toolName === "set_notes") {
     const notes = Array.isArray(toolInput.notes)
       ? (toolInput.notes as unknown[]).filter(
-          (n): n is string => typeof n === "string",
+          (note): note is string => typeof note === "string",
         )
       : [];
-    const next = { ...state, notes };
     return {
       resultText: JSON.stringify({ status: "ok", count: notes.length }),
-      state: next,
+      state: { ...state, notes },
     };
   }
+  // @endregion[shared-state-set-notes-handler]
 
   if (toolName === "write_document") {
     const document =
@@ -1821,6 +1823,7 @@ async function runAgenticLoop(
     contextString,
   );
 
+  // @region[claude-agent-sdk-agent-loop-dispatch]
   if (
     shouldUseClaudeAgentSdk({
       input,
@@ -1852,6 +1855,7 @@ async function runAgenticLoop(
     res.end();
     return;
   }
+  // @endregion[claude-agent-sdk-agent-loop-dispatch]
 
   try {
     emit({ type: EventType.RUN_STARTED, runId, threadId });
@@ -1930,10 +1934,7 @@ async function runAgenticLoop(
             ...(tools.length > 0 ? { tools } : {}),
             ...(config.enableThinking
               ? {
-                  thinking: {
-                    type: "enabled" as const,
-                    budget_tokens: 2048,
-                  },
+                  thinking: ADAPTIVE_THINKING,
                 }
               : {}),
           },
@@ -2445,6 +2446,7 @@ app.post(
 // the agent reads them out of input.state every turn and prepends them to
 // the system prompt; the backend `set_notes` tool writes notes back into
 // shared state, emitted via STATE_SNAPSHOT.
+// @region[shared-state-read-write-route]
 app.post(
   "/shared-state-read-write",
   async (req: Request, res: Response): Promise<void> => {
@@ -2464,6 +2466,7 @@ app.post(
     });
   },
 );
+// @endregion[shared-state-read-write-route]
 
 // @region[shared-state-streaming-route]
 // Shared State Streaming — copy Claude's streamed write_document argument
@@ -2537,6 +2540,7 @@ app.post(
 // The dedicated runtime route at `/api/copilotkit-a2ui-fixed-schema` runs
 // the A2UI middleware with `injectA2UITool: false` because this backend
 // owns the rendering tool itself.
+// @region[a2ui-fixed-schema-route]
 app.post(
   "/a2ui-fixed-schema",
   async (req: Request, res: Response): Promise<void> => {
@@ -2547,6 +2551,7 @@ app.post(
     });
   },
 );
+// @endregion[a2ui-fixed-schema-route]
 
 // Declarative Generative UI (A2UI Dynamic Schema) - backend owns
 // generate_a2ui, then uses a secondary Claude call to produce render_a2ui

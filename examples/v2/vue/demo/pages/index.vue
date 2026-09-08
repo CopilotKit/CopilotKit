@@ -7,8 +7,8 @@ import {
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/vue";
-import type { ToolsMenuItem } from "@copilotkit/vue";
+} from "@copilotkit/vue/v2";
+import type { ToolsMenuItem } from "@copilotkit/vue/v2";
 
 const selectedThreadId = ref<"thread---a" | "thread---b" | "thread---c">(
   "thread---a",
@@ -112,7 +112,7 @@ function threadButtonStyle(threadId: typeof selectedThreadId.value) {
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit" show-dev-console="auto">
+  <CopilotKitProvider runtime-url="/api/copilotkit">
     <div style="height: 100vh; margin: 0; padding: 0; overflow: hidden">
       <div
         style="

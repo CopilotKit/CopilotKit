@@ -412,6 +412,7 @@ export class MockSocket {
 
   private errorHandlers: Array<(error?: any) => void> = [];
   private openHandlers: Array<() => void> = [];
+  private closeHandlers: Array<(event?: { code?: number }) => void> = [];
 
   constructor(url: string = "", opts: Record<string, any> = {}) {
     this.url = url;
@@ -434,6 +435,10 @@ export class MockSocket {
     this.openHandlers.push(callback);
   }
 
+  onClose(callback: (event?: { code?: number }) => void): void {
+    this.closeHandlers.push(callback);
+  }
+
   channel(topic: string, params: Record<string, any> = {}): MockChannel {
     const ch = new MockChannel(topic, params);
     this.channels.push(ch);
@@ -448,5 +453,10 @@ export class MockSocket {
   /** Test helper — simulate a successful (re)connection. */
   triggerOpen(): void {
     for (const handler of this.openHandlers) handler();
+  }
+
+  /** Test helper — simulate the WebSocket transport closing. */
+  triggerClose(event?: { code?: number }): void {
+    for (const handler of this.closeHandlers) handler(event);
   }
 }

@@ -1,0 +1,91 @@
+---
+title: A2UI schemas, styling, and recovery
+description: Configure typed A2UI catalogs, Angular-owned styles, and incomplete-stream recovery.
+icon: "lucide/PanelsTopLeft"
+doc_type: how-to
+---
+
+A2UI renders declarative interface operations and snapshots inside Angular
+chat. Configure it with a catalog of allowed components; the renderer creates
+only components that the catalog defines.
+
+## What is A2UI?
+
+A2UI is CopilotKit's declarative generative UI path for Angular. Instead of
+asking an agent to emit arbitrary component code, you give it a typed catalog
+and render only the operations that match that catalog.
+
+## Choose a schema strategy
+
+Catalog component definitions use Zod schemas for their props. A broad catalog
+lets the agent compose several application primitives. A fixed catalog narrows
+the generated interface to a specific domain and set of shapes.
+
+The flight example keeps its component vocabulary deliberately small:
+
+<AngularSnippet region="a2ui-fixed-schema" />
+
+Give each catalog a stable `catalogId`, then select it in the `a2ui` option
+passed to `provideCopilotKit`. The Showcase chooses a general catalog, a fixed
+flight catalog, or the recovery variant from the active feature:
+
+<AngularSnippet region="a2ui-schema-and-recovery" />
+
+In an application config, pass the chosen catalog and lifecycle policy through
+the Angular provider:
+
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  a2ui: {
+    catalog: productCatalog,
+    recovery: { showAfterMs: 2_000, showAfterAttempts: 2 },
+  },
+});
+```
+
+By default, CopilotKit includes the catalog schema in agent context. Set
+`includeSchema: false` only when the server already supplies equivalent schema
+and generation instructions. Otherwise the agent cannot reliably know which
+components and props are valid.
+
+## Style rendered components
+
+Catalog renderers return web-component templates with application-owned class
+names. Style those classes in the global stylesheet so generated surfaces and
+their nested elements receive the same rules:
+
+<AngularSnippet region="a2ui-styling" />
+
+Keep semantic state in explicit classes such as `a2ui-status-success` rather
+than asking the model to invent colors. You can also pass an A2UI `theme`
+through `provideCopilotKit` for renderer-level theme values; catalog CSS
+remains the right place for product-specific layout and visual states.
+
+## Recover incomplete streams
+
+An interrupted stream can leave an A2UI surface without a terminal lifecycle
+event. Configure `recovery.showAfterMs` to avoid flashing recovery UI during a
+normal pause and `recovery.showAfterAttempts` to wait through transient retry
+attempts. The Showcase uses two seconds and two attempts, as shown in the
+catalog-selection snippet above.
+
+Use `recovery.debugExposure` only when users should see protocol diagnostics.
+Keep it hidden in consumer-facing chat, or choose a collapsed or verbose mode
+for internal debugging. Recovery thresholds affect client display; the server
+still owns activity lifecycle status and retry behavior.
+
+## Angular support boundaries
+
+- **Hashbrown is unsupported.** The stable Hashbrown Angular package does not support the Angular 22 policy.
+  Do not add it to an Angular integration; use A2UI with a typed catalog instead.
+- **JSON Renderer is not applicable.** JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.
+
+These are authoritative framework support states, not missing examples.
+
+## Next steps
+
+- [Dynamic catalog](/angular/features#declarative-gen-ui)
+- [Fixed schema](/angular/features#a2ui-fixed-schema)
+- [Recovery behavior](/angular/features#a2ui-recovery)
+- [Other generative UI paths](/angular/guides/frontend-tools-generative-ui)

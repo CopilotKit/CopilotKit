@@ -6,6 +6,7 @@ import { checkInternalLinks } from "./verify-shell-docs.js";
 import { checkImportPaths } from "./verify-shell-docs.js";
 import { checkComponentImports } from "./verify-shell-docs.js";
 import { checkClaudeQuickstarts } from "./verify-shell-docs.js";
+import { checkUnexpectedMultiFileRegionSources } from "./verify-shell-docs.js";
 
 describe("runBuildCheck", () => {
   it("returns a result with name, status, and messages", () => {
@@ -137,6 +138,37 @@ describe("checkSnippetRegions", () => {
   });
 });
 
+describe("checkUnexpectedMultiFileRegionSources", () => {
+  it("fails when a multi-file region is not explicitly allowlisted", () => {
+    const result = checkUnexpectedMultiFileRegionSources({
+      sources: [
+        {
+          demoKey: "claude-sdk-python::gen-ui-tool-based",
+          regionName: "bar-chart-renderer",
+          files: ["page.tsx", "bar-chart-renderer.snippet.tsx"],
+        },
+      ],
+    });
+
+    expect(result.status).toBe("fail");
+    expect(result.messages.join(" ")).toContain("bar-chart-renderer");
+  });
+
+  it("passes for the known intentional multi-file snippets", () => {
+    const result = checkUnexpectedMultiFileRegionSources({
+      sources: [
+        {
+          demoKey: "claude-sdk-python::open-gen-ui-advanced",
+          regionName: "sandbox-function-registration",
+          files: ["page.tsx", "sandbox-functions.ts"],
+        },
+      ],
+    });
+
+    expect(result.status).toBe("pass");
+  });
+});
+
 describe("checkInternalLinks", () => {
   it("fails when an internal link does not resolve to a known page", () => {
     const pages = [{ path: "a.mdx", body: "[link](/does-not-exist)" }];
@@ -237,7 +269,7 @@ describe("checkClaudeQuickstarts", () => {
     - \`src/agents/claude_agent_sdk_adapter.py\` - adapter
     - \`src/app/api/copilotkit/route.ts\` - runtime
     ANTHROPIC_API_KEY=your_anthropic_api_key
-    ANTHROPIC_MODEL=claude-sonnet-4-6
+    ANTHROPIC_MODEL=claude-opus-4-8
     AGENT_URL=http://localhost:8000
   </TailoredContentOption>
   <TailoredContentOption id="bring-your-own" title="Use an existing agent" description="byoa">
@@ -250,7 +282,7 @@ describe("checkClaudeQuickstarts", () => {
     from ag_ui.core import EventType, RunAgentInput, RunErrorEvent
     from ag_ui.encoder import EventEncoder
     from ag_ui_claude_sdk import ClaudeAgentAdapter
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI
     from fastapi.responses import StreamingResponse
 
     app = FastAPI()
@@ -258,9 +290,8 @@ describe("checkClaudeQuickstarts", () => {
     async def health():
         return {"status": "ok"}
     @app.post("/")
-    async def run_agent(request: Request):
-        input_data = RunAgentInput(**(await request.json()))
-        adapter = ClaudeAgentAdapter(model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"))
+    async def run_agent(input_data: RunAgentInput):
+        adapter = ClaudeAgentAdapter(model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"))
         async def event_stream():
             try:
                 async for event in adapter.run(input_data):
@@ -277,8 +308,10 @@ describe("checkClaudeQuickstarts", () => {
 
     \`\`\`ts title="app/api/copilotkit/route.ts"
     import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
     const runtime = new CopilotRuntime({ agents: { claude_agent: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
+    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
+    export const POST = (req: NextRequest) => handler(req);
     \`\`\`
 
     \`\`\`tsx title="app/layout.tsx"
@@ -305,7 +338,7 @@ describe("checkClaudeQuickstarts", () => {
     - \`src/app/api/copilotkit/route.ts\` - runtime
     - \`src/app/page.tsx\` - frontend
     ANTHROPIC_API_KEY=your_anthropic_api_key
-    CLAUDE_MODEL=claude-sonnet-4-6
+    CLAUDE_MODEL=claude-opus-4-8
     AGENT_URL=http://localhost:8000
   </TailoredContentOption>
   <TailoredContentOption id="bring-your-own" title="Use an existing agent" description="byoa">
@@ -341,8 +374,10 @@ describe("checkClaudeQuickstarts", () => {
 
     \`\`\`ts title="app/api/copilotkit/route.ts"
     import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
     const runtime = new CopilotRuntime({ agents: { claude_agent: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
+    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
+    export const POST = (req: NextRequest) => handler(req);
     \`\`\`
 
     \`\`\`tsx title="app/layout.tsx"
@@ -445,6 +480,20 @@ describe("checkClaudeQuickstarts", () => {
 
     expect(result.status).toBe("fail");
     expect(result.messages.join(" ")).toContain("main.py missing adapter run");
+  });
+
+  it("fails when the Python BYOA snippet does not type its request body as RunAgentInput", () => {
+    const result = runWith({
+      python: validPythonQuickstart.replace(
+        "async def run_agent(input_data: RunAgentInput):",
+        "async def run_agent(input_data):",
+      ),
+    });
+
+    expect(result.status).toBe("fail");
+    expect(result.messages.join(" ")).toContain(
+      "main.py missing typed RunAgentInput request body",
+    );
   });
 
   it("fails when the TypeScript BYOA server omits JSON body parsing", () => {

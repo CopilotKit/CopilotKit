@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
@@ -24,34 +25,37 @@ function makePage(reasoningPresent: boolean): Page {
 }
 
 describe("d5-reasoning-display script", () => {
-  it("registers under featureType 'reasoning-display'", () => {
-    const script = getD5Script("reasoning-display");
-    expect(script).toBeDefined();
-    expect(script?.featureTypes).toEqual(["reasoning-display"]);
-    expect(script?.fixtureFile).toBe("reasoning-display.json");
+  it("registers independent custom and default reasoning probes", () => {
+    const custom = getD5Script("reasoning-custom");
+    const builtIn = getD5Script("reasoning-default");
+    expect(custom).toBeDefined();
+    expect(builtIn).toBe(custom);
+    expect(custom?.featureTypes).toEqual([
+      "reasoning-custom",
+      "reasoning-default",
+    ]);
+    expect(custom?.fixtureFile).toBe("reasoning-display.json");
   });
 
   it("buildTurns input matches fixture", () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
-      featureType: "reasoning-display",
+      featureType: "reasoning-custom",
       baseUrl: "https://x.test",
     };
     expect(buildTurns(ctx)[0]!.input).toBe("show your reasoning step by step");
   });
 
-  it("preNavigateRoute defaults to /demos/reasoning-custom", () => {
-    expect(preNavigateRoute("reasoning-display")).toBe(
+  it("preNavigateRoute sends the custom probe to its own route", () => {
+    expect(preNavigateRoute("reasoning-custom")).toBe(
       "/demos/reasoning-custom",
     );
   });
 
-  it("preNavigateRoute prefers reasoning-default when only that demo is declared", () => {
-    expect(
-      preNavigateRoute("reasoning-display", {
-        demos: ["reasoning-default"],
-      }),
-    ).toBe("/demos/reasoning-default");
+  it("preNavigateRoute sends the default probe to its own route", () => {
+    expect(preNavigateRoute("reasoning-default")).toBe(
+      "/demos/reasoning-default",
+    );
   });
 
   it("REASONING_SELECTORS lists the four stable role/testid markers", () => {

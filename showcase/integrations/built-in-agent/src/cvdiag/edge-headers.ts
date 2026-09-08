@@ -14,8 +14,8 @@
  *     case-insensitive); both lists are stored lowercase.
  */
 
-import type { EdgeHeaders, EdgeHeaderKey } from "./schema.js";
-import { EDGE_HEADER_KEYS } from "./schema.js";
+import type { EdgeHeaders, EdgeHeaderKey } from "./schema";
+import { EDGE_HEADER_KEYS } from "./schema";
 
 // Secret/PII scrub primitives live in the leaf `scrub.ts` module so that
 // `schema.ts` can scrub metadata values without forming a `schema → edge-headers
@@ -30,7 +30,7 @@ export {
   SCRUB_REPLACEMENT,
   scrubSecrets,
   scrubDeep,
-} from "./scrub.js";
+} from "./scrub";
 
 /** The 9 allow-listed edge-header keys (spec §5). */
 export const EDGE_HEADER_ALLOWLIST: readonly string[] = EDGE_HEADER_KEYS;

@@ -26,7 +26,7 @@ const longString = (n: number) =>
   "lorem ipsum ".repeat(Math.ceil(n / 12)).slice(0, n);
 
 describe("ChunkedMessageStream", () => {
-  it("stays as a single message when buffer fits in one chunk", async () => {
+  it("seeds a single message with its buffered response", async () => {
     const slack = makeFakeSlack();
     const s = new ChunkedMessageStream({
       ...slack,
@@ -36,7 +36,7 @@ describe("ChunkedMessageStream", () => {
     s.append("short reply");
     await s.finish();
     expect(slack.posts).toHaveLength(1);
-    expect(slack.posts[0]!.text).toBe("_thinking…_");
+    expect(slack.posts[0]!.text).toBe("short reply");
     expect(slack.updates.at(-1)?.text).toBe("short reply");
   });
 
@@ -50,8 +50,10 @@ describe("ChunkedMessageStream", () => {
     s.append(longString(200));
     await s.finish();
     expect(slack.posts.length).toBeGreaterThanOrEqual(4);
-    // First placeholder = thinking, rest = continued
-    expect(slack.posts[0]!.text).toBe("_thinking…_");
+    // The first message is seeded with its actual response; only later chunks
+    // use the continuation placeholder.
+    const firstChunk = slack.updates.find((update) => update.ts === "1.0");
+    expect(slack.posts[0]!.text).toBe(firstChunk?.text);
     expect(slack.posts[1]!.text).toBe("_…(continued)_");
   });
 
@@ -131,6 +133,7 @@ describe("ChunkedMessageStream", () => {
     });
     s.append("hello world");
     await s.finish();
+    expect(slack.posts[0]?.text).toBe("HELLO WORLD");
     expect(slack.updates.at(-1)?.text).toBe("HELLO WORLD");
   });
 
@@ -210,9 +213,9 @@ describe("ChunkedMessageStream", () => {
     expect(slack.posts.length).toBeGreaterThan(1); // multiple messages
     // The text of each subsequent message (after applying our manual mrkdwn-free transform here)
     // is checked via slack.updates. Examine the SECOND chunk's last text:
-    const lastForSecondTs = [...slack.updates]
-      .reverse()
-      .find((u) => u.ts === "2.0");
+    const lastForSecondTs = slack.updates
+      .filter((update) => update.ts === "2.0")
+      .at(-1);
     expect(lastForSecondTs?.text.startsWith("```python\n")).toBe(true);
   });
 
@@ -227,7 +230,7 @@ describe("ChunkedMessageStream", () => {
     s.append(fullText);
     await s.finish();
     expect(slack.posts.length).toBeGreaterThan(1);
-    const second = [...slack.updates].reverse().find((u) => u.ts === "2.0");
+    const second = slack.updates.filter((update) => update.ts === "2.0").at(-1);
     expect(second?.text.startsWith("```\n")).toBe(true);
   });
 

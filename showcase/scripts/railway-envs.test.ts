@@ -107,9 +107,37 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains exactly 41 services (29 showcase/infra + 12 starter-*)", () => {
+  it("contains exactly 42 services (30 showcase/infra + 12 starter-*)", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(41);
+    expect(names.length).toBe(42);
+  });
+
+  it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
+    const name = "showcase-crewai-conversational-flows";
+    const entry = SERVICES[name];
+
+    expect(entry).toBeDefined();
+    expect(entry.serviceId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(entry.ciBuilt).toBe(true);
+    expect(entry.gateValidated).toBe(true);
+    expect(entry.gateIgnore).toBeUndefined();
+    expect(entry.dispatchName).toBe("crewai-conversational-flows");
+    expect(entry.probeDriver).toBe("agent");
+    expect(entry.runtimeDeps).toEqual(["aimock"]);
+    expect(entry.serviceRefs).toEqual([
+      { key: "OPENAI_BASE_URL", target: "aimock" },
+    ]);
+    expect(envsFor(name)).toEqual(["prod", "staging"]);
+    expect(domainFor(name, "prod")).toBe(
+      "showcase-crewai-conversational-flows-production.up.railway.app",
+    );
+    expect(healthcheckPathFor(name, "prod")).toBe("/api/health");
+    expect(probeEnabled(name, "prod")).toBe(true);
+    expect(domainFor(name, "staging")).toBe(
+      "showcase-crewai-conversational-flows-staging.up.railway.app",
+    );
+    expect(healthcheckPathFor(name, "staging")).toBe("/api/health");
+    expect(probeEnabled(name, "staging")).toBe(true);
   });
 
   it("contains the expected canonical services", () => {
@@ -224,12 +252,12 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 39 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 27 showcase/infra CI-built (incl. the staging-only
-    // showcase-strands-typescript) + 12 starter-<slug> (S2 brought them under
-    // the gate; they ARE built+pushed by showcase_build.yml's `build-starters`
-    // job to ghcr.io/copilotkit/starter-<slug>:latest).
-    expect(CI_BUILT_SERVICES.size).toBe(39);
+  it("CI_BUILT_SERVICES contains exactly 40 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 28 showcase/infra CI-built (including conversational flows) + 12
+    // starter-<slug> (S2 brought them under the gate; they ARE built+pushed by
+    // showcase_build.yml's `build-starters` job to
+    // ghcr.io/copilotkit/starter-<slug>:latest).
+    expect(CI_BUILT_SERVICES.size).toBe(40);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
@@ -237,6 +265,9 @@ describe("railway-envs SSOT", () => {
     expect(CI_BUILT_SERVICES.has("webhooks")).toBe(false);
     // Sample positives.
     expect(CI_BUILT_SERVICES.has("showcase-mastra")).toBe(true);
+    expect(CI_BUILT_SERVICES.has("showcase-crewai-conversational-flows")).toBe(
+      true,
+    );
     expect(CI_BUILT_SERVICES.has("aimock")).toBe(true);
     expect(CI_BUILT_SERVICES.has("dashboard")).toBe(true);
     // S2: starters are now CI-built.
@@ -1365,5 +1396,51 @@ describe("assertClosureValid", () => {
     expect(() => assertClosureValid(["harness"], allProdless)).toThrow(
       /empty|promote nothing/i,
     );
+  });
+});
+
+describe("autoUpdates deploy-consolidation policy (per-env, staging-first)", () => {
+  // Railway `source.autoUpdates.type = "minor"` is the ENABLED form (Railway
+  // watches the GHCR registry and auto-redeploys on a new push); the SSOT
+  // target is "disabled" so the ONLY deploy path is the CI-explicit redeploy.
+  // autoUpdates is now PER-ENV; the staging-first rollout has completed, so
+  // BOTH staging and prod are enforced "disabled" (prod was migrated off
+  // "unmanaged" once its live autoUpdates were flipped to disabled). The
+  // sibling drift gate ENFORCES the concrete-"disabled" envs for both.
+  it("every service declares staging 'disabled' and prod 'disabled'", () => {
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      const au = (entry as { autoUpdates?: Record<string, string> })
+        .autoUpdates;
+      expect(
+        au?.staging,
+        `${name}.autoUpdates.staging must be "disabled" (staging is under drift-gate management; CI-explicit redeploy only)`,
+      ).toBe("disabled");
+      expect(
+        au?.prod,
+        `${name}.autoUpdates.prod must be "disabled" (prod is now under drift-gate management; CI-explicit redeploy only)`,
+      ).toBe("disabled");
+    }
+  });
+
+  it("the generated JSON carries per-env autoUpdates (staging disabled, prod disabled)", () => {
+    const generated = JSON.parse(
+      readFileSync(resolve(__dirname, "./railway-envs.generated.json"), "utf8"),
+    ) as {
+      services: Array<{
+        name: string;
+        autoUpdates?: { staging?: string; prod?: string };
+      }>;
+    };
+    expect(generated.services.length).toBeGreaterThan(0);
+    for (const svc of generated.services) {
+      expect(
+        svc.autoUpdates?.staging,
+        `generated ${svc.name}.autoUpdates.staging must be "disabled"`,
+      ).toBe("disabled");
+      expect(
+        svc.autoUpdates?.prod,
+        `generated ${svc.name}.autoUpdates.prod must be "disabled"`,
+      ).toBe("disabled");
+    }
   });
 });

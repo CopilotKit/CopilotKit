@@ -9,39 +9,45 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import {
   rehypeCode,
   rehypeCodeDefaultOptions,
 } from "fumadocs-core/mdx-plugins";
-import {
-  DocsPage,
-  DocsBody,
-  DocsTitle,
-  DocsDescription,
-} from "fumadocs-ui/page";
+import { DocsPage, DocsBody } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { DocsContentHeader } from "@/components/docs-content-header";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
-import {
-  MarkdownCopyButton,
-  ViewOptionsPopover,
-} from "@/components/ai/page-actions";
+import { DocsPageTools } from "@/components/docs-page-tools";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
+import { WhenAngularBackend } from "@/components/when-angular-backend";
+import type { WhenAngularBackendProps } from "@/components/when-angular-backend";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
 import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
+import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import type { OpsPlatformCTAProps } from "@/components/react/ops-platform-cta";
+import { ChannelsStartPrompt } from "@/components/channels-start-prompt";
+import type { ChannelsStartPromptProps } from "@/components/channels-start-prompt";
+import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
+import { LearningSetupPrompt } from "@/components/learning-setup-prompt";
+import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
+import type { IntelligenceOnboardingPromptProps } from "@/components/intelligence-onboarding-prompt";
+import { QuickstartIntelligenceCta } from "@/components/quickstart-intelligence-cta";
+import { SignupLink } from "@/components/react/signup-link";
+import type { SignupLinkProps } from "@/components/react/signup-link";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveDocsHref } from "@/lib/docs-link-rewrite";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
+import type { FrontendId } from "@/lib/frontend-options";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import { tocHeadingsToFumadocs } from "@/lib/toc-bridge";
 import {
@@ -50,11 +56,16 @@ import {
   convertTablesInJSX,
   inlineSnippets,
   loadDoc,
+  navAncestorBreadcrumbsForSlug,
+  navSectionTitleForSlug,
+  visibleGuideBreadcrumbs,
   CONTENT_DIR,
 } from "@/lib/docs-render";
 import {
   childrenToText,
   extractHeadings,
+  filterAngularBackendScopedBlocks,
+  filterFrontendScopedBlocks,
   filterFrameworkScopedBlocks,
   slugify,
 } from "@/lib/toc";
@@ -77,6 +88,33 @@ export interface DocsPageViewProps {
   slugHrefPrefix: string;
   /** Optional framework slug to thread into <Snippet> as a default. */
   frameworkOverride?: string | null;
+  /**
+   * The agent framework whose docs this page is: `slug` is the docs registry
+   * slug, `name` its display name. Passing it is what puts the "Copy agent
+   * prompt" button in the page-tools row, and every docs route passes it: a
+   * `/<framework>/…` URL names that framework, while the root surface and the
+   * cookbook name the Built-in Agent, whose lens they are.
+   *
+   * Deliberately separate from `frameworkOverride`, which is a content
+   * concern (which framework's snippets and gated blocks to render). The two
+   * answer different questions and routinely differ — a page can name a
+   * framework in the prompt without resolving its content framework-scoped.
+   */
+  onboardingFramework?: { slug: string; name: string };
+  /**
+   * The frontend the page's URL selects: `id` is the docs frontend id, `name`
+   * its display name. Resolved from the pathname by `onboardingFrontendFor`,
+   * and named in the copied prompt right after the framework so the CLI's
+   * graph has to ask for neither selection.
+   *
+   * Deliberately separate from `frontendOverride` below, for the same reason
+   * `onboardingFramework` is separate from `frameworkOverride`: that one is a
+   * content concern (which frontend's snippets to render) and is legitimately
+   * absent on pages that still have a frontend selected in the URL.
+   */
+  onboardingFrontend?: { id: string; name: string };
+  /** Frontend selected by the URL. Defaults to React on the root surface. */
+  frontendOverride?: FrontendId;
   /** Pre-built nav tree. When omitted, defaults to the full docs tree. */
   navTree?: NavNode[];
   /** Banner slot rendered above the main content column. */
@@ -94,6 +132,16 @@ export interface DocsPageViewProps {
    * (or suppress them) based on its own state.
    */
   ContentWrapper?: React.ComponentType<{ children: React.ReactNode }>;
+}
+
+function IntelligenceOnboardingPromptMdx(
+  props: IntelligenceOnboardingPromptProps,
+): React.JSX.Element {
+  return (
+    <div className="mb-6">
+      <IntelligenceOnboardingPrompt {...props} />
+    </div>
+  );
 }
 
 /**
@@ -120,6 +168,9 @@ export async function DocsPageView({
   contentSlugPath,
   slugHrefPrefix,
   frameworkOverride,
+  onboardingFramework,
+  onboardingFrontend,
+  frontendOverride,
   navTree,
   bannerSlot,
   sidebarBannerSlot,
@@ -143,10 +194,24 @@ export async function DocsPageView({
 
   const rawContent = doc.source.replace(/^---[\s\S]*?---\n?/, "");
   const inlined = inlineSnippets(rawContent, slugPath);
-  const content = convertTablesInJSX(inlined);
-
   const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
+  const convertedContent = convertTablesInJSX(inlined);
+  // Select the Angular quickstart's standalone/backend branch before MDX
+  // compilation. RSC serialization does not preserve `selected={false}` on
+  // this custom MDX component reliably, which can make the backend branch
+  // render alongside the standalone BuiltInAgent instructions. The markdown
+  // endpoint already applies this same source-level filter.
+  const content =
+    frontendOverride === "angular"
+      ? filterAngularBackendScopedBlocks(convertedContent, defaultFramework)
+      : convertedContent;
+
   const defaultCell = doc.fm.defaultCell;
+  const docsFrontend = frontendOverride ?? "react";
+  const docsFromPath =
+    slugPath.length > 0
+      ? `${slugHrefPrefix.replace(/\/$/, "")}/${slugPath}`
+      : slugHrefPrefix;
 
   // Extract H2/H3 headings for the right-rail TOC. Run on the final
   // content (post-snippet-inlining) so a page like threads.mdx whose
@@ -157,7 +222,10 @@ export async function DocsPageView({
   // the body. Without this, framework-gated pages like `/auth` surface
   // every per-framework variant's headings simultaneously even though
   // only one variant's body renders.
-  const tocSource = filterFrameworkScopedBlocks(content, defaultFramework);
+  const tocSource = filterFrontendScopedBlocks(
+    filterFrameworkScopedBlocks(content, defaultFramework),
+    frontendOverride,
+  );
   const tocHeadings =
     hideBody || doc.fm.hideTOC ? [] : extractHeadings(tocSource);
 
@@ -174,6 +242,10 @@ export async function DocsPageView({
     rootHref: slugHrefPrefix || "/",
     slugHrefPrefix,
   });
+  const sectionTitle = navSectionTitleForSlug(tree, slugPath);
+  const ancestorBreadcrumbs =
+    navAncestorBreadcrumbsForSlug(tree, slugPath) ??
+    visibleGuideBreadcrumbs(breadcrumbs, sectionTitle);
 
   // Bridge shell-docs's NavNode tree + headings into Fumadocs's shapes
   // so DocsLayout (sidebar) and DocsPage (right-rail TOC) can render them.
@@ -193,88 +265,33 @@ export async function DocsPageView({
       }
     >
       <DocsPage
+        full={doc.fm.full}
         toc={fumadocsToc}
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
-        tableOfContentPopover={{ enabled: false }}
+        tableOfContentPopover={{ enabled: fumadocsToc.length > 0 }}
       >
         <MaybeEarlyAccessGate gate={doc.fm.earlyAccess}>
-          <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-            {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb,
-             * but tighter: this should read as quiet page chrome, not a
-             * second title row above the H1. */}
-            <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
-              {breadcrumbs.map((crumb, i) => {
-                const isLast = i === breadcrumbs.length - 1;
-                const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
-                return (
-                  <React.Fragment key={i}>
-                    {i > 0 && (
-                      <ChevronRight
-                        className="size-3 shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
-                    {crumb.href ? (
-                      <Link
-                        href={crumb.href}
-                        className={`${labelClass} transition-opacity hover:opacity-80`}
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className={labelClass}>{crumb.label}</span>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </nav>
-
-            <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
-              {doc.fm.title}
-            </DocsTitle>
-            {doc.fm.description && (
-              <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
-                {doc.fm.description}
-              </DocsDescription>
-            )}
-
-            {/* Page actions (Copy Markdown / Open in <LLM>) — fumadocs's
-              upstream LLM page-actions feature. `markdownUrl` resolves
-              through the `/:path*.mdx` rewrite to the route handler at
-              `app/llms-mdx/[[...slug]]/route.ts`, which serves the raw
-              MDX via the same `loadDoc()` the page uses. The GitHub URL
-              is computed from `doc.filePath` (absolute fs path) by
-              slicing from the `/showcase/` segment. */}
-            {(() => {
-              // Markdown URL = the canonical page URL with `.mdx` appended.
-              // The Next.js rewrite in `next.config.ts` routes this to
-              // `/llms-mdx/[[...slug]]`, which re-runs the same framework-
-              // aware content resolution the page uses. Using the page URL
-              // (rather than `contentSlugPath`) keeps the "View as Markdown"
-              // link the user opens in a new tab visually aligned with the
-              // page they're reading.
-              const base = `${slugHrefPrefix || ""}/${slugPath}`
-                .replace(/\/+/g, "/")
-                .replace(/^\/+/, "/");
-              const markdownUrl = `${base.replace(/\/$/, "")}.mdx`;
-              return (
-                <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
-                  <MarkdownCopyButton markdownUrl={markdownUrl} />
-                  <ViewOptionsPopover
-                    markdownUrl={markdownUrl}
-                    githubUrl={buildGitHubUrl(doc.filePath)}
-                  />
-                </div>
-              );
-            })()}
-
-            {/* Thin divider between the page-actions row and the page body
-              (banner / content). Visually separates the page metadata
-              chrome (title + page actions) from the page content
-              underneath. Uses the project's `--border` token so it tracks
-              the rest of the page chrome in light and dark modes. */}
-            <hr className="border-t border-[var(--border)] mt-2 mb-6" />
+          <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
+            <DocsContentHeader
+              ancestorBreadcrumbs={
+                doc.fm.hideBreadcrumb ? [] : ancestorBreadcrumbs
+              }
+              title={doc.fm.title}
+              description={doc.fm.description}
+              hideHeading={doc.fm.hideHeader}
+            >
+              {!doc.fm.hidePageActions && (
+                <DocsPageTools
+                  slugPath={slugPath}
+                  slugHrefPrefix={slugHrefPrefix}
+                  githubUrl={buildGitHubUrl(doc.filePath)}
+                  onboardingFramework={onboardingFramework}
+                  onboardingFrontend={onboardingFrontend}
+                  hideOnboardingPrompt={slugPath === "webmcp"}
+                />
+              )}
+            </DocsContentHeader>
 
             {bannerSlot}
 
@@ -286,6 +303,55 @@ export async function DocsPageView({
                       source={content}
                       components={{
                         ...docsComponents,
+                        Card: (
+                          props: React.ComponentProps<
+                            typeof docsComponents.Card
+                          >,
+                        ) => {
+                          const CardComp = docsComponents.Card;
+                          const href =
+                            typeof props.href === "string"
+                              ? resolveDocsHref(props.href, {
+                                  slugHrefPrefix,
+                                  frameworkOverride,
+                                  frontendOverride,
+                                })
+                              : props.href;
+                          return <CardComp {...props} href={href} />;
+                        },
+                        ChannelsStartPrompt: (
+                          props: ChannelsStartPromptProps,
+                        ) => (
+                          <ChannelsStartPrompt
+                            {...props}
+                            frontend={props.frontend ?? docsFrontend}
+                          />
+                        ),
+                        RichThreadsSetupPrompt,
+                        LearningSetupPrompt,
+                        QuickstartIntelligenceCta,
+                        IntelligenceOnboardingPrompt:
+                          IntelligenceOnboardingPromptMdx,
+                        OpsPlatformCTA: (props: OpsPlatformCTAProps) => (
+                          <OpsPlatformCTA
+                            {...props}
+                            frontend={props.frontend ?? docsFrontend}
+                            backend={
+                              props.backend ?? defaultFramework ?? undefined
+                            }
+                            fromPath={props.fromPath ?? docsFromPath}
+                          />
+                        ),
+                        SignupLink: (props: SignupLinkProps) => (
+                          <SignupLink
+                            {...props}
+                            frontend={props.frontend ?? docsFrontend}
+                            backend={
+                              props.backend ?? defaultFramework ?? undefined
+                            }
+                            fromPath={props.fromPath ?? docsFromPath}
+                          />
+                        ),
                         // Wrap MDX-rendered <pre> blocks (triple-fenced code)
                         // with the same figure chrome <Snippet> uses — copy
                         // button always visible, file-path caption when the
@@ -318,6 +384,26 @@ export async function DocsPageView({
                             defaultFramework={defaultFramework}
                           />
                         ),
+                        WhenAngularBackend: (
+                          props: WhenAngularBackendProps,
+                        ) => (
+                          <WhenAngularBackend
+                            {...props}
+                            currentFramework={
+                              frameworkOverride ?? props.currentFramework
+                            }
+                          />
+                        ),
+                        FrontendOnly: ({
+                          frontend,
+                          children,
+                        }: {
+                          frontend: FrontendId;
+                          children?: React.ReactNode;
+                        }) =>
+                          (frontendOverride ?? "react") === frontend ? (
+                            <>{children}</>
+                          ) : null,
                         // MDX pages author in-page variant selectors as
                         // `<Tabs groupId="language_langgraph_agent" default="Python">`.
                         // When the URL scope is a specific variant (e.g.
@@ -380,6 +466,7 @@ export async function DocsPageView({
                             currentFramework={
                               frameworkOverride ?? props.currentFramework
                             }
+                            hrefPrefix={slugHrefPrefix}
                           />
                         ),
                         // Same closure pattern: thread the URL framework
@@ -468,6 +555,7 @@ export async function DocsPageView({
                               resolveDocsHref(href, {
                                 slugHrefPrefix,
                                 frameworkOverride,
+                                frontendOverride,
                               }) ?? "#"
                             }
                             {...rest}

@@ -356,6 +356,22 @@ else
   echo "[entrypoint] No prior persistence state found — clean boot"
 fi
 
+# Disable @langchain/langgraph-api's FileSystemPersistence disk flush. Without
+# this, the inmem runtime serialises ALL accumulated thread/run/checkpoint
+# state to .langgraph_api on a 3-second timer; under D6 probe fan-out (36
+# parallel probes) the dir fills past the 200MB size-watchdog threshold in
+# ~90s, the watchdog kills the agent, and on rapid restart the D6 cron refills
+# it and re-trips — Railway crash-loop backoff then stops restarting the
+# container (the 2026-07-13 outage). Setting this env var is the TypeScript
+# equivalent of the langgraph-python fix in PR #5825 (which exported the same
+# LANGGRAPH_DISABLE_FILE_PERSISTENCE=true for its inmem runtime). Because the
+# TS package has no built-in switch, src/agent/disable-file-persistence.mjs —
+# preloaded via `node --import` in `npm start` — reads this var and no-ops the
+# .langgraph_api fs writes, leaving in-memory state (the actual runtime state)
+# intact. State is bounded by process memory and discarded on restart, so the
+# size-watchdog has nothing to fill and never trips under probe load.
+export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
+
 # Start LangGraph agent server in background.
 # `npm start` runs `node --import tsx liveness.mjs` (see src/agent/package.json).
 # liveness.mjs binds :8124/ok immediately using only node:http, then dynamic-

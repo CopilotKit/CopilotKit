@@ -7,15 +7,22 @@ import { CalendarDays, ChefHat } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import { ThemeSwitch } from "./theme-switch";
-import BookIcon from "./icons/book";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
+import { DocsMegaMenu } from "./docs-mega-menu";
+import { isDocsExplorePath } from "@/lib/docs-mega-menu";
+import {
+  DocsPublicAuthControl,
+  buildDocsAuthEntryHref,
+  useDocsAuthEntryHref,
+} from "./docs-public-auth-control";
 
-// Enterprise Intelligence sign-up CTA. UTM params let marketing
+// CopilotKit Intelligence sign-up CTA. UTM params let marketing
 // attribute navbar-driven sign-ups distinctly from in-content SignupLink
 // and OpsPlatformCTA clicks. Exported so MobileTopNav reuses the same URL.
 export const INTELLIGENCE_CTA_HREF =
   "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar";
+export { buildDocsAuthEntryHref };
 
 export const TALK_TO_ENGINEER_HREF =
   "https://copilotkit.ai/talk-to-an-engineer";
@@ -29,11 +36,6 @@ type LeftLink = {
 };
 
 const LEFT_LINKS: LeftLink[] = [
-  {
-    icon: <BookIcon className="text-current" />,
-    label: "Docs",
-    href: "/",
-  },
   {
     icon: <ConsoleIcon className="text-current" />,
     label: "Reference",
@@ -56,10 +58,10 @@ export interface BrandNavProps {
 export function BrandNav(_props: BrandNavProps = {}) {
   const pathname = usePathname();
   const posthog = usePostHog();
+  const authEntryHref = useDocsAuthEntryHref();
 
-  // Active-route detection: anything under /reference highlights Reference,
-  // anything under /cookbook highlights Cookbook, everything else (root,
-  // framework-scoped pages) highlights Docs.
+  // Active-route detection: Reference and Cookbook each own their prefix.
+  // Everything else highlights Docs.
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
   const activeRoute =
     firstSegment === "/reference"
@@ -79,7 +81,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   return (
     <nav className="shell-docs-brand-nav relative hidden h-16 bg-[var(--bg)] xl:mx-[22px] xl:block">
-      <div className="shell-docs-brand-nav-inner relative grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 bg-[var(--nav-surface)]">
+      <div className="shell-docs-brand-nav-inner relative grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-8 bg-[var(--nav-surface)]">
         <Link
           href="/"
           className="shell-docs-brand-link flex min-w-0 shrink-0 items-center gap-2 justify-self-start"
@@ -97,6 +99,15 @@ export function BrandNav(_props: BrandNavProps = {}) {
           </span>
         </Link>
         <ul className="hidden min-w-0 items-center gap-2 justify-self-center xl:flex">
+          <li className="relative h-full">
+            <DocsMegaMenu
+              triggerClassName={`shell-docs-radius-control h-10 px-4 text-sm font-medium whitespace-nowrap transition-colors duration-200 ${
+                isDocsExplorePath(pathname)
+                  ? "shell-docs-nav-link-active"
+                  : "shell-docs-nav-link-idle"
+              }`}
+            />
+          </li>
           {LEFT_LINKS.map((link) => {
             const isActive = activeRoute === link.href;
             return (
@@ -123,20 +134,24 @@ export function BrandNav(_props: BrandNavProps = {}) {
           })}
         </ul>
 
-        <div className="flex min-w-0 items-center gap-2 justify-self-end pl-2">
+        <div className="flex min-w-0 items-center gap-2 justify-self-end pl-4">
           <SearchTrigger iconOnly />
-          <Link
-            href={INTELLIGENCE_CTA_HREF}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={handleFreeDeveloperAccessClick}
-            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
-            aria-label="Get Enterprise Intelligence free"
-            suppressHydrationWarning
-          >
-            Get Enterprise Intelligence free
-            <ExternalLinkIcon className="text-current opacity-70" />
-          </Link>
+          <DocsPublicAuthControl
+            fallback={
+              <Link
+                href={authEntryHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleFreeDeveloperAccessClick}
+                className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
+                aria-label="Get CopilotKit Intelligence free"
+                suppressHydrationWarning
+              >
+                Get CopilotKit Intelligence free
+                <ExternalLinkIcon className="text-current opacity-70" />
+              </Link>
+            }
+          />
           {/* Talk to an engineer. Secondary in the docs nav so search can own
            * the far-right utility slot. */}
           <button

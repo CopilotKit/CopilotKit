@@ -51,13 +51,13 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       <Tab value="TypeScript">
         ```ts title="agent.ts"
         import { createMiddleware } from "langchain";
-        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
         import { z } from "zod";
 
         export const languageStateMiddleware = createMiddleware({
             name: "AgentState",
             stateSchema: z.object({
-                language: z.enum(["english", "spanish"]).default("english"),
+                language: zodState(z.enum(["english", "spanish"]).default("english")),
             }),
         });
 

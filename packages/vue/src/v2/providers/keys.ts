@@ -23,3 +23,18 @@ export const CopilotChatConfigurationKey: InjectionKey<
 export const SandboxFunctionsKey: InjectionKey<
   Ref<readonly SandboxFunction[]>
 > = Symbol("SandboxFunctions");
+
+export type VueInspectorOpenRequest = {
+  messageId: string;
+  threadId?: string;
+  agentId?: string;
+};
+
+export type VueInspectorContextValue = {
+  isInspectorEnabled: ComputedRef<boolean>;
+  openInspector: (request: VueInspectorOpenRequest) => void;
+};
+
+export const InspectorKey: InjectionKey<VueInspectorContextValue> = Symbol(
+  "CopilotKitInspector",
+);

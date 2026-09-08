@@ -10,6 +10,12 @@
  * Ported from `src/agents/interrupt_agent.py` in the langgraph-python package.
  */
 
+// @doc-replace
+import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// import { ChatOpenAI } from "@langchain/openai";
+// @doc-end
+
 // @region[backend-interrupt-tool]
 import { z } from "zod";
 import type { RunnableConfig } from "@langchain/core/runnables";
@@ -24,12 +30,6 @@ import {
   Annotation,
   interrupt,
 } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
-// @doc-replace
-import { makeChatOpenAI } from "./openai-headers";
-// @doc-as
-// @doc-end
-
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -142,9 +142,9 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     temperature: 0,
-  //     model: "gpt-4o-mini",
-  //   });
+  //   temperature: 0,
+  //   model: "gpt-4o-mini",
+  // });
   // @doc-end
 
   const modelWithTools = model.bindTools!([

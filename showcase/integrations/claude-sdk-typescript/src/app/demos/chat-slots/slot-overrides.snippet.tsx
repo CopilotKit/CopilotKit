@@ -14,15 +14,16 @@
 // @region[register-disclaimer-slot]
 // @region[register-assistant-message-slot]
 // @region[register-welcome-slot]
+import type { ComponentType } from "react";
 import type {
   CopilotChatAssistantMessage,
   CopilotChatInput,
   CopilotChatView,
 } from "@copilotkit/react-core/v2";
 
-declare const CustomWelcomeScreen: React.ComponentType;
-declare const CustomAssistantMessage: React.ComponentType;
-declare const CustomDisclaimer: React.ComponentType;
+declare const CustomWelcomeScreen: ComponentType;
+declare const CustomAssistantMessage: ComponentType;
+declare const CustomDisclaimer: ComponentType;
 
 export function ChatSlotsTeachingExtracts() {
   const welcomeScreen =

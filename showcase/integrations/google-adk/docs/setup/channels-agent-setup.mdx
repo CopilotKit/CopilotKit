@@ -1,0 +1,35 @@
+Follow the [Google ADK quickstart](/google-adk/quickstart) to configure the
+default ADK agent. For its **Use an existing agent** path, start `main.py`:
+
+```bash title="Agent application"
+uv run main.py
+```
+
+If you chose the CLI starter instead, keep its `npm run dev` process running.
+The two paths expose the default agent at different URLs:
+
+```dotenv title=".env"
+# Use an existing agent (`uv run main.py`)
+AGENT_URL=http://localhost:8000/
+
+# CLI starter (`npm run dev`)
+# AGENT_URL=http://localhost:8000/default
+```
+
+Install the HTTP adapter in the Channels process:
+
+```bash title="Terminal"
+npm install @ag-ui/client@0.0.57
+```
+
+Create a new HTTP adapter for every channel thread:
+
+```ts title="agent.ts"
+import { HttpAgent } from "@ag-ui/client";
+
+export function makeAgent(threadId: string) {
+  const agent = new HttpAgent({ url: process.env.AGENT_URL! });
+  agent.threadId = threadId;
+  return agent;
+}
+```

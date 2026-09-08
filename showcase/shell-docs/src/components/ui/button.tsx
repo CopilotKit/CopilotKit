@@ -3,7 +3,7 @@ import type { VariantProps } from "class-variance-authority";
 
 const variants = {
   primary:
-    "border border-[var(--accent)] bg-[var(--accent)] text-[var(--primary-foreground)] hover:bg-[var(--accent-strong)] disabled:border-[var(--border)] disabled:bg-[var(--bg-elevated)] disabled:text-[var(--text-muted)]",
+    "border border-[var(--accent-fill)] bg-[var(--accent-fill)] text-[var(--primary-foreground)] hover:bg-[var(--accent-strong)] disabled:border-[var(--border)] disabled:bg-[var(--bg-elevated)] disabled:text-[var(--text-muted)]",
   outline:
     "border border-[var(--border)] bg-transparent text-[var(--text-secondary)] hover:border-[var(--accent)] hover:bg-[var(--accent-dim)] hover:text-[var(--accent)]",
   ghost:

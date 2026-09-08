@@ -6,8 +6,6 @@ WORKDIR /src
 COPY *.csproj ./
 RUN dotnet restore
 COPY . .
-# Patch hardcoded endpoint to read from OPENAI_BASE_URL env var
-RUN sed -i 's|Endpoint = new Uri("https://models.inference.ai.azure.com")|Endpoint = new Uri(Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? "https://models.inference.ai.azure.com")|' Program.cs
 RUN dotnet publish -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0

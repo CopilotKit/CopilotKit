@@ -6,9 +6,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 // @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
@@ -55,13 +54,13 @@ export const POST = async (req: NextRequest) => {
     // @endregion[advanced-runtime-config]
     // @endregion[minimal-runtime-flag]
 
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-ogui",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-ogui",
+      mode: "single-route",
     });
 
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

@@ -88,6 +88,7 @@ You can use this when you want to provide user input or control to your agent's 
     ```tsx title="ui/app/page.tsx"
     "use client";
 
+    import { useEffect } from "react";
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
@@ -97,15 +98,20 @@ You can use this when you want to provide user input or control to your agent's 
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agent } = useAgent({ // [!code highlight]
+      const { agent, isReady } = useAgent({
         agentId: "my_agent",
-        initialState: { language: "english" }  // optionally provide an initial state
       });
+      const state = (agent.state ?? {}) as Partial<AgentState>;
+
+      useEffect(() => {
+        if (!isReady || state.language !== undefined) return;
+        agent.setState({ ...(agent.state ?? {}), language: "english" });
+      }, [agent, isReady, state.language]);
 
       // ...
 
       const toggleLanguage = () => {
-        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ ...(agent.state ?? {}), language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...

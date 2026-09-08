@@ -142,6 +142,59 @@ const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(
   </a>
 </p>
 
+## Trusted Inspector metadata
+
+`@copilotkit/shared` exports the versioned `InspectorMetadataV1` contract and
+`parseInspectorMetadataV1()` parser. A Copilot Runtime can use this contract to
+send project and license context to the Inspector:
+
+```ts
+interface InspectorMetadataV1 {
+  readonly schemaVersion: 1;
+  readonly identity?: {
+    readonly organizationName: string;
+    readonly projectName: string;
+  };
+  readonly plan?: { readonly code: string; readonly label: string };
+  readonly license?: {
+    readonly state: "valid" | "none" | "expired" | "unknown";
+  };
+  readonly action?:
+    | { readonly kind: "manage_plan"; readonly url: string }
+    | { readonly kind: "renew"; readonly url: string }
+    | { readonly kind: "enable_intelligence"; readonly url: string };
+  readonly usage?: {
+    readonly used: number;
+    readonly limit:
+      | { readonly kind: "finite"; readonly value: number }
+      | { readonly kind: "unlimited" }
+      | { readonly kind: "unknown" };
+    readonly expiringSoonCount?: number;
+  };
+}
+```
+
+Every optional module is independent. The parser drops an invalid `identity`,
+`plan`, `license`, `action`, or `usage` module without hiding valid sibling
+modules. It returns `undefined` when the top-level value is not a plain object
+with `schemaVersion: 1`.
+
+Action URLs are treated as trusted navigation only after parsing. They must use
+HTTPS, or HTTP on `localhost`, `127.0.0.1`, or `[::1]`; URLs with credentials, a
+query string, or a fragment are rejected. Consumers use the accepted URL as
+supplied and must not derive a destination from identity or plan values.
+
+The optional `usage.expiringSoonCount` field lets V1 producers report a known
+count. Older producers may omit it; absence remains valid V1 usage, while `0`
+is a known count and stays distinct from absence. The parser drops a malformed,
+inherited, or accessor-backed expiry leaf without removing `used`, `limit`, or
+valid sibling modules. Older V1 consumers ignore the additive field, so
+producers and consumers do not need a V2 schema or lock-step deployment.
+
+`RuntimeInfo.inspectorMetadata?: boolean` is the capability signal. Clients only
+request the optional metadata route when a runtime reports
+`inspectorMetadata: true` in its runtime-info response.
+
 # Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).

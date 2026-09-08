@@ -3,8 +3,8 @@ import {
   D5_REGISTRY,
   __clearD5RegistryForTesting,
   getD5Script,
-  type D5BuildContext,
 } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 
 let scriptModule: typeof import("./d5-mcp-apps.js");
@@ -50,6 +50,14 @@ describe("D5 mcp-apps script — buildTurns", () => {
     const turns = scriptModule.buildTurns(ctx);
     expect(turns).toHaveLength(1);
     expect(typeof turns[0]!.assertions).toBe("function");
+    // CF-1 REGRESSION: the settle gate must accept the FULL cascade, not the
+    // bare `mcp-app-iframe` testid. Gating on the testid alone red-lined D5/D6
+    // `mcp-apps` on every non-Angular integration (`reason=surface-missing`)
+    // while the demo rendered fine, because only Angular declared the testid.
+    expect(turns[0]!.completeOnMount).toEqual({
+      selectors: ['[data-testid="mcp-app-iframe"], iframe[sandbox]'],
+    });
+    expect(turns[0]!.completeOnMount?.testIds).toBeUndefined();
   });
 
   it("drives a real MCP-tool prompt (not the previous 'hello' no-op)", () => {
@@ -143,5 +151,12 @@ describe("D5 mcp-apps script — exported selector cascade", () => {
       '[data-testid="mcp-app-iframe"]',
     );
     expect(mod.MCP_APP_IFRAME_SELECTORS[1]).toBe("iframe[sandbox]");
+  });
+
+  it("joins the cascade into one CSS any-of selector for the settle gate", async () => {
+    const mod = await import("./d5-mcp-apps.js");
+    expect(mod.MCP_APP_IFRAME_SELECTOR_CASCADE).toBe(
+      '[data-testid="mcp-app-iframe"], iframe[sandbox]',
+    );
   });
 });

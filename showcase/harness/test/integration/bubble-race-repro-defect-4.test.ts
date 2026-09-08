@@ -19,6 +19,6 @@ describe("bubble-race repro (defect 4: boot-time baseline staleness)", () => {
     // implementation (the test must survive the deletion of
     // `waitForAssistantSettled` in Phase 5).
     expect(elapsedMs).toBeLessThan(30_000);
-    expect(result.turns[0].assistantText.trim().length).toBeGreaterThan(0);
+    expect(result.turns[0].assistantTextLength).toBeGreaterThan(0);
   }, 90_000);
 });

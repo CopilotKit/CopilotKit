@@ -5,11 +5,11 @@ description: "Angular standalone directive that shares application state with th
 
 ## Overview
 
-`CopilotKitAgentContext` is a standalone Angular directive that shares a piece of [context](https://docs.ag-ui.com/concepts/context) with the agent from your template. Apply it to any element. It adds the context when the element initializes, updates it when its inputs change, and removes it when the element is destroyed.
+`CopilotKitAgentContext` is a standalone Angular directive that shares a piece of [context](https://docs.ag-ui.com/concepts/context) with the agent from your template. Apply it to any element. It adds a complete context when the element initializes, updates an existing registration when its inputs change, and removes it when the element is destroyed.
 
 You can supply the context either as a single object via the directive selector input, or as separate `description` and `value` inputs. The context object takes precedence when both are provided.
 
-This is the template-based equivalent of the [`connectAgentContext`](/reference/angular/functions/connectAgentContext) function, which mirrors React's `useAgentContext()`.
+This is the template-based alternative to [`connectAgentContext`](/reference/angular/functions/connectAgentContext).
 
 ## Import
 
@@ -26,12 +26,13 @@ import { CopilotKitAgentContext } from "@copilotkit/angular";
   template: `
     <div copilotkitAgentContext
          description="User profile"
-         [value]="profile">
+         [value]="profileJson">
     </div>
   `,
 })
 export class ProfileComponent {
   profile = { name: "Ada", plan: "pro" };
+  profileJson = JSON.stringify(this.profile);
 }
 ```
 
@@ -54,7 +55,11 @@ It is an attribute directive, so apply it to any element.
 </PropertyReference>
 
 <PropertyReference name="value" type="any">
-  The context value. Used together with `description` to build the context object when the `copilotkitAgentContext` object input is not provided. The context is only registered when both `description` and `value` are set.
+  The value forwarded with `description` when the object input is not provided.
+  The directive currently declares this input as `any`, but the AG-UI `Context`
+  contract requires a string. Serialize objects before binding them. The context
+  is registered only when both `description` and `value` are set during
+  initialization.
 </PropertyReference>
 
 ## Usage
@@ -64,7 +69,7 @@ It is an attribute directive, so apply it to any element.
 ```html
 <div copilotkitAgentContext
      description="User preferences"
-     [value]="userSettings">
+     [value]="userSettingsJson">
 </div>
 ```
 
@@ -76,21 +81,29 @@ Pass a complete `{ description, value }` object through the selector input.
 <div [copilotkitAgentContext]="contextObject"></div>
 ```
 
-### Dynamic values
+### Updating a registered context
 
-The directive re-registers the context whenever its inputs change, so binding a dynamic value keeps the agent in sync.
+The directive re-registers a context when inputs change after a complete context
+was registered during initialization. Supply both fields at initialization.
 
 ```html
-<div copilotkitAgentContext
-     description="Form state"
-     [value]="formData$ | async">
-</div>
+<div [copilotkitAgentContext]="formContext"></div>
 ```
+
+If the initial object or separate value is missing, a later input change does
+not create the first registration. Render the directive only after the complete
+context is available, or use
+[`connectAgentContext`](/reference/angular/functions/connectAgentContext) for a
+reactive accessor.
 
 ## Behavior
 
 - **Adds on init.** The context is registered with the agent in `ngOnInit`.
-- **Updates on change.** When `copilotkitAgentContext`, `description`, or `value` change, the directive removes the previous context and adds the new one. The first change is handled by init, so it is not double-registered.
+- **Updates an existing registration.** When `copilotkitAgentContext`,
+  `description`, or `value` changes after initialization registered a context,
+  the directive removes the previous context and adds the new one.
+- **Does not add after an empty initialization.** If initialization has no
+  complete context, later input changes do not create the first registration.
 - **Removes on destroy.** The context is removed when the host element is destroyed.
 - **Object input precedence.** When the `copilotkitAgentContext` object input is set, it is used and the separate `description` and `value` inputs are ignored. Otherwise, the context is built from `description` and `value`, and is only registered when both are set.
 

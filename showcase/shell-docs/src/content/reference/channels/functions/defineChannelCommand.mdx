@@ -1,0 +1,72 @@
+---
+title: defineChannelCommand
+description: Define a normalized direct-adapter command and its free-text or structured arguments.
+---
+
+`defineChannelCommand` preserves a command definition and infers structured
+options when the provider supplies them.
+
+## Signature
+
+```ts
+function defineChannelCommand<Schema extends ObjectSchema>(
+  command: ChannelCommand<Schema>,
+): ChannelCommand<Schema>;
+```
+
+```ts
+interface ChannelCommand<Schema extends ObjectSchema> {
+  name: string;
+  description?: string;
+  options?: Schema;
+  handler(
+    context: CommandContext<InferSchemaOutput<Schema>>,
+  ): void | Promise<void>;
+}
+```
+
+## Example
+
+```ts title="commands.ts"
+import { defineChannelCommand } from "@copilotkit/channels";
+
+export const triage = defineChannelCommand({
+  name: "triage",
+  description: "Triage the current conversation.",
+  async handler({ thread, text, user, platform }) {
+    await thread.runAgent({
+      prompt: text || "Triage this conversation.",
+      context: [
+        { description: "Provider", value: platform },
+        {
+          description: "Invoking user",
+          value: user?.name ?? user?.id ?? "unknown",
+        },
+      ],
+    });
+  },
+});
+```
+
+Register it with `createChannel({ commands: [triage] })` or
+`channel.onCommand(triage)` before startup.
+
+Managed Slack and Teams do not dispatch commands: leading-slash content remains
+a normal message. This API applies when a developer-owned direct adapter emits
+an `IncomingCommand`.
+
+## CommandContext
+
+| Field       | Type                      | Notes                                                                                     |
+| ----------- | ------------------------- | ----------------------------------------------------------------------------------------- |
+| `thread`    | `Thread`                  | Conversation where the command was invoked.                                               |
+| `command`   | `string`                  | Normalized name: no leading slash, lowercase, hyphens and underscores route equivalently. |
+| `text`      | `string`                  | Raw argument text supplied by the direct adapter.                                         |
+| `options`   | `TOptions`                | Structured options when the adapter supplies them.                                        |
+| `user`      | `ApplicationUser \| null` | Application user selected by `identifyUser`.                                              |
+| `actor`     | `ProviderActor`           | Provider account that invoked the command.                                                |
+| `platform`  | `string`                  | Native provider reported by the direct adapter.                                           |
+| `openModal` | function or `undefined`   | Present only when the adapter supports modal opening.                                     |
+
+See [Commands and reactions](/slack/commands-and-reactions) for the managed
+provider boundary.

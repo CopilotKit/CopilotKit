@@ -76,9 +76,6 @@ class CopilotKitStub {
   readonly store: ɵMemoryStore;
 
   constructor(fetchMock: Mock) {
-    // rxjs `fromFetch` ultimately calls `globalThis.fetch`, so stub it with the
-    // same routed mock that is injected into the store (mirrors the React test).
-    vi.stubGlobal("fetch", fetchMock);
     this.store = ɵcreateMemoryStore({
       fetch: fetchMock as unknown as typeof fetch,
     });

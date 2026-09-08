@@ -38,6 +38,7 @@ interface RawFixtureEntry {
   match: {
     userMessage?: string;
     toolCallId?: string;
+    toolResultContains?: string;
     toolName?: string;
     model?: string;
     hasToolResult?: boolean;
@@ -49,6 +50,18 @@ interface RawFixtureEntry {
   };
   response: unknown;
   [key: string]: unknown;
+}
+
+function responseText(entry: RawFixtureEntry): string {
+  if (
+    typeof entry.response === "object" &&
+    entry.response !== null &&
+    "content" in entry.response &&
+    typeof entry.response.content === "string"
+  ) {
+    return entry.response.content;
+  }
+  return "";
 }
 
 /**
@@ -67,6 +80,8 @@ function matchKey(match: RawFixtureEntry["match"]): string {
     parts.push(`sequenceIndex=${match.sequenceIndex}`);
   if (match.toolCallId != null) parts.push(`toolCallId=${match.toolCallId}`);
   if (match.toolName != null) parts.push(`toolName=${match.toolName}`);
+  if (match.toolResultContains != null)
+    parts.push(`toolResultContains=${match.toolResultContains}`);
   if (match.turnIndex != null) parts.push(`turnIndex=${match.turnIndex}`);
   if (match.userMessage != null) parts.push(`userMessage=${match.userMessage}`);
   return parts.join("|");
@@ -96,10 +111,14 @@ function scopeOf(entry: RawFixtureEntry): string {
 }
 
 // ---------------------------------------------------------------------------
-// Deployment scopes — d4 and d6 fixtures never coexist at runtime, so
-// collision detection must check within each deployment's load set:
-//   d4 runtime loads: shared/ + d4/
-//   d6 runtime loads: shared/ + d6/
+// Logical deployment scopes used by the broad collision ratchets below:
+//   d4 validation scope: shared/ + d4/
+//   d6 validation scope: shared/ + d6/
+//
+// Some deployed AIMock bundles load the fixture root recursively, so targeted
+// cross-depth invariants must also account for D4 and D6 coexisting. Keep those
+// checks narrow: combining every fixture here would mix intentional aliases
+// that are selected by the active feature route.
 // ---------------------------------------------------------------------------
 const sharedFiles = globSync("showcase/aimock/shared/*.json", {
   cwd: REPO_ROOT,
@@ -191,10 +210,128 @@ describe("aimock fixtures across repo", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Multimodal fixture ownership and semantics
+//
+// AIMock recursively loads every JSON file under each configured directory in
+// lexical order. Each multimodal prompt therefore needs exactly one owner per
+// context across the entire D6 tree, not merely one owner inside
+// multimodal.json. D4 does not exercise attachments, so it must not retain
+// active aliases or fake `_d4_unused_*` tombstones for these turns.
+// ---------------------------------------------------------------------------
+describe("multimodal fixture routing", () => {
+  const IMAGE_PROMPT =
+    "can you tell me what is in this demo image I just attached";
+  const PDF_PROMPT = "can you tell me what is in this demo pdf I just attached";
+  const D4_TOMBSTONES = new Set([
+    "_d4_unused_multimodal_image",
+    "_d4_unused_multimodal_pdf",
+  ]);
+  const EXPECTED_PHRASE = new Map([
+    [IMAGE_PROMPT, "copilotkit logo"],
+    [PDF_PROMPT, "copilotkit quickstart"],
+  ]);
+  const FABRICATED_PHRASES = [
+    "small abstract test pattern",
+    "single test page",
+  ];
+
+  it("keeps one factual D6 owner per prompt and no D4 aliases", () => {
+    const violations: string[] = [];
+    const multimodalFiles = d6Files.filter(
+      (file) => path.basename(file) === "multimodal.json",
+    );
+
+    for (const file of multimodalFiles) {
+      const relative = path.relative(REPO_ROOT, file);
+      const context = path.basename(path.dirname(file));
+      const fixtures = loadRawFixtures(file);
+
+      if (fixtures.length !== 2) {
+        violations.push(
+          `${relative}: expected exactly 2 canonical fixtures, found ${fixtures.length}`,
+        );
+      }
+
+      fixtures.forEach((fixture, index) => {
+        if (fixture.match.turnIndex != null) {
+          violations.push(
+            `${relative}[${index}]: fixture is gated by turnIndex=${fixture.match.turnIndex}`,
+          );
+        }
+        if (scopeOf(fixture) !== context) {
+          violations.push(
+            `${relative}[${index}]: context "${scopeOf(fixture)}" does not match directory "${context}"`,
+          );
+        }
+      });
+
+      for (const [prompt, expectedPhrase] of EXPECTED_PHRASE) {
+        const promptFixtures = fixtures.filter(
+          (entry) => entry.match.userMessage === prompt,
+        );
+
+        if (promptFixtures.length !== 1) {
+          violations.push(
+            `${relative}: expected one canonical fixture for "${prompt}", found ${promptFixtures.length}`,
+          );
+          continue;
+        }
+
+        const fixture = promptFixtures[0]!;
+        const content = responseText(fixture).toLowerCase();
+        if (!content.includes(expectedPhrase)) {
+          violations.push(
+            `${relative}: response for "${prompt}" must contain factual phrase "${expectedPhrase}"`,
+          );
+        }
+        for (const fabricated of FABRICATED_PHRASES) {
+          if (content.includes(fabricated)) {
+            violations.push(
+              `${relative}: response for "${prompt}" retains fabricated phrase "${fabricated}"`,
+            );
+          }
+        }
+
+        const owners = d6Tagged.filter(
+          (candidate) =>
+            scopeOf(candidate.entry) === context &&
+            candidate.entry.match.userMessage === prompt,
+        );
+        if (owners.length !== 1 || owners[0]?.file !== relative) {
+          violations.push(
+            `${relative}: prompt "${prompt}" must be owned only by this file; found ${owners
+              .map((owner) => `${owner.file}[${owner.index}]`)
+              .join(", ")}`,
+          );
+        }
+      }
+    }
+
+    for (const fixture of d4Tagged) {
+      const userMessage = fixture.entry.match.userMessage;
+      if (
+        userMessage === IMAGE_PROMPT ||
+        userMessage === PDF_PROMPT ||
+        (userMessage !== undefined && D4_TOMBSTONES.has(userMessage))
+      ) {
+        violations.push(
+          `${fixture.file}[${fixture.index}]: obsolete D4 multimodal fixture "${userMessage}" must be deleted`,
+        );
+      }
+    }
+
+    expect(
+      violations,
+      `Multimodal prompts need one factual D6 owner and no D4 aliases:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Fixture collision detection
 //
-// Each test iterates over deployment scopes (d4, d6) independently because
-// d4 and d6 fixtures never coexist at runtime.
+// Each broad ratchet iterates over the logical D4 and D6 scopes independently.
+// Targeted cross-depth hazards are checked above.
 // ---------------------------------------------------------------------------
 describe("fixture collision detection", () => {
   it("no exact duplicate match keys within the same context scope", () => {
@@ -258,7 +395,53 @@ describe("fixture collision detection", () => {
     // (interrupt/gen-ui-interrupt, declarative/render_a2ui, and copied
     // LangGraph headless/feature-parity routes) that are disambiguated by
     // fixtureFile/demo route like the existing integration parity copies above.
-    const KNOWN_DUPLICATE_CEILING = 297;
+    // Bumped 297 → 300 (+3) porting agno/gen-ui-declarative to the OSS-136
+    // sales flow: agno's two-stage a2ui_dynamic_agent forces the INNER
+    // render_a2ui secondary call with a HARDCODED user message ("Generate a
+    // dynamic A2UI dashboard based on the conversation.") that is identical
+    // across all four pills, so the four inner fixtures cannot be keyed on
+    // userMessage — they discriminate on `systemMessage` (the per-pill
+    // context phrase the outer generate_a2ui injects as "Conversation
+    // context:\n<context>"). `matchKey` here does not encode systemMessage or
+    // context, so the four inner entries collapse to a single
+    // `toolName=render_a2ui` key → 3 exact-key collisions that aimock's router
+    // DOES disambiguate at runtime (verified live: the inner request's system
+    // text carried the pill's context phrase, matched the right surface).
+    //
+    // Bumped 300 → 304 (+4) by the Mastra Partner Refresh native-interrupt +
+    // cancel-path fixtures (merged from the Mastra branch):
+    //   +2 native-interrupt resume-loop fix — gen-ui-interrupt +
+    //      interrupt-headless suspend fixtures gained `hasToolResult:false` so
+    //      the resume falls through to the toolCallId confirmation fixture;
+    //      that aligns them with hitl-in-chat.json's schedule_meeting suspend
+    //      fixtures, so all three mastra cells share the same two suspend keys
+    //      ("intro call with the sales team" + "1:1 with Alice").
+    //   +2 cancel-path fix (aimock toolResultContains) — interrupt-headless
+    //      gained cancelled legs mirroring gen-ui-interrupt's, keyed
+    //      userMessage + toolCallId + toolResultContains:"cancelled"; each
+    //      headless cancelled leg shares its exact key + response text with the
+    //      gen-ui-interrupt one, so first-match-wins yields the same Denied
+    //      narration — one pair per pill.
+    // All runtime-disambiguated by route/fixtureFile like every alias above.
+    //
+    // Bumped 304 → 316 for CrewAI full D6 parity. The pre-change fixture set
+    // had already healed to 290 duplicates (14 below the stale ceiling), while
+    // the newly enabled CrewAI cells add 26 intentional cross-demo aliases:
+    //   +8 gen-ui-headless-complete/headless-complete
+    //   +7 open-gen-ui/gen-ui-tool-based
+    //   +4 net interrupt aliases after replacing the old prompt vocabulary
+    //   +2 gen-ui-custom/render-a2ui
+    //   +3 shared-state-streaming/tool-rendering
+    //   +2 custom-catchall/tool-rendering
+    // Each pair is scoped to crewai-crews and disambiguated at runtime by the
+    // active route/fixtureFile, so 290 + 26 = 316 and the net ceiling increase
+    // is 12 rather than 26.
+    // Bumped 316 → 364 for CrewAI Conversational Flows and the current merged
+    // baseline. Relative to origin/main's 295 duplicates, the complete CrewAI
+    // matrix adds 69 intentional aliases: 26 scoped to regular Flows, 36 scoped
+    // to Conversational Flows, and 7 shared-scope fixtures. Every alias is
+    // disambiguated at runtime by fixture context, route, or fixtureFile.
+    const KNOWN_DUPLICATE_CEILING = 364;
 
     const collisions: string[] = [];
 

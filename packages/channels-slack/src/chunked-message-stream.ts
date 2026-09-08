@@ -37,13 +37,18 @@ export interface ChunkedMessageStreamConfig {
   limit?: number;
   /** Throttle floor for each underlying stream's chat.update. */
   minIntervalMs?: number;
-  /** Posts a new Slack message with placeholder text; resolves with its `ts`. */
+  /**
+   * Posts a new Slack message. The first chunk is seeded with its transformed
+   * buffered response text; later chunks use the continuation placeholder.
+   * Resolves with the message's `ts`.
+   */
   postPlaceholder: (text: string) => Promise<string>;
   /** Updates the Slack message at `ts` with `text`. */
   updateAt: (ts: string, text: string) => Promise<void>;
   /**
-   * Optional transformer for the text *just before* it hits chat.update —
-   * e.g. markdown→mrkdwn translation. Applied per-chunk.
+   * Optional transformer for text just before it hits Slack — e.g.
+   * markdown→mrkdwn translation. Applied per chunk to the first post and
+   * every chat.update.
    */
   transform?: (text: string) => string;
 }
@@ -82,6 +87,9 @@ export class ChunkedMessageStream {
     this.setupPromise = this.setupPromise.then(() =>
       this.ensureStreamsAndDispatch(),
     );
+    // append() is synchronous, so observe rejection now. finish() still awaits
+    // the original promise and reports the same failure to the caller.
+    void this.setupPromise.catch(() => undefined);
   }
 
   async finish(): Promise<void> {
@@ -147,8 +155,11 @@ export class ChunkedMessageStream {
     const chunkCount = this.boundaries.length + 1;
     while (this.streams.length < chunkCount) {
       const i = this.streams.length;
-      const placeholder = i === 0 ? "_thinking…_" : "_…(continued)_";
-      const ts = await this.postPlaceholder(placeholder);
+      const initialText =
+        i === 0
+          ? this.transform(this.buffer.slice(0, this.boundaries[0])) || " "
+          : "_…(continued)_";
+      const ts = await this.postPlaceholder(initialText);
       this.streams.push(
         new MessageStream({
           update: (text) => this.updateAt(ts, this.transform(text) || " "),

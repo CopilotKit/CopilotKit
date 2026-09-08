@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -136,16 +137,16 @@ export const POST = async (req: NextRequest) => {
   }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
-        // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
+    const response = await copilotHandler(req);
     if (!response.ok) {
       console.log(`[copilotkit/route] Response status: ${response.status}`);
     } else if (ROUTE_DEBUG) {

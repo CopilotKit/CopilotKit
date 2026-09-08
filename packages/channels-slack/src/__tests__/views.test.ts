@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { decodeViewSubmission, decodeViewClosed } from "../interaction.js";
 import { SlackAdapter } from "../adapter.js";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 
 describe("decodeViewSubmission", () => {
   it("parses field values from a view_submission payload", () => {
@@ -27,13 +27,13 @@ describe("decodeViewSubmission", () => {
           },
         },
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt).toMatchObject({
       callbackId: "triage",
       privateMetadata: "meta",
       values: { summary: "boom", prio: "high", team: "core" },
-      user: { id: "U1" },
+      actor: { id: "U1", kind: "human" },
       platform: "slack",
     });
   });
@@ -48,7 +48,7 @@ describe("decodeViewSubmission", () => {
         }),
         state: { values: {} },
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.conversationKey).toBe("C123::1700.5");
     expect(evt.replyTarget).toEqual({ channel: "C123", threadTs: "1700.5" });
@@ -64,7 +64,7 @@ describe("decodeViewSubmission", () => {
         }),
         state: { values: {} },
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.conversationKey).toBe("D999::dm");
     expect(evt.replyTarget).toEqual({ channel: "D999" });
@@ -78,7 +78,7 @@ describe("decodeViewSubmission", () => {
         private_metadata: "just-a-string",
         state: { values: {} },
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.privateMetadata).toBe("just-a-string");
     expect(evt.conversationKey).toBeUndefined();
@@ -96,7 +96,7 @@ describe("decodeViewClosed", () => {
           pm: "authorMeta",
         }),
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.conversationKey).toBe("C123::1700.5");
     expect(evt.replyTarget).toEqual({ channel: "C123", threadTs: "1700.5" });
@@ -109,7 +109,7 @@ describe("decodeViewClosed", () => {
         callback_id: "triage",
         private_metadata: "plain",
       },
-      { id: "U1" },
+      { id: "U1", kind: "human" },
     );
     expect(evt.privateMetadata).toBe("plain");
     expect(evt.conversationKey).toBeUndefined();
@@ -118,7 +118,7 @@ describe("decodeViewClosed", () => {
 });
 
 describe("SlackAdapter.openModal", () => {
-  const modalIr: BotNode[] = [
+  const modalIr: ChannelNode[] = [
     {
       type: "modal",
       props: {
@@ -126,7 +126,7 @@ describe("SlackAdapter.openModal", () => {
         title: "File issue",
         children: [],
       },
-    } as unknown as BotNode,
+    } as unknown as ChannelNode,
   ];
 
   function makeAdapter() {
@@ -160,7 +160,7 @@ describe("SlackAdapter.openModal", () => {
 
   it("preserves an author-set private_metadata under pm", async () => {
     const { adapter, open } = makeAdapter();
-    const irWithMeta: BotNode[] = [
+    const irWithMeta: ChannelNode[] = [
       {
         type: "modal",
         props: {
@@ -169,7 +169,7 @@ describe("SlackAdapter.openModal", () => {
           privateMetadata: "authorMeta",
           children: [],
         },
-      } as unknown as BotNode,
+      } as unknown as ChannelNode,
     ];
     await adapter.openModal(
       { channel: "C123" } as never,

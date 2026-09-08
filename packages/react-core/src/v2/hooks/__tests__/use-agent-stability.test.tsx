@@ -5,7 +5,10 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../../context";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { useAgent } from "../use-agent";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  ProxiedCopilotRuntimeAgent,
+} from "@copilotkit/core";
 
 // Mock the CopilotKit context to control copilotkit state directly
 vi.mock("../../context", () => ({
@@ -27,6 +30,7 @@ describe("useAgent stability during runtime connection", () => {
     runtimeUrl: string | undefined;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
+    credentials: RequestCredentials | undefined;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
     applyHeadersToAgent: (agent: AbstractAgent) => void;
@@ -43,6 +47,7 @@ describe("useAgent stability during runtime connection", () => {
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",
+      credentials: undefined,
       headers: {},
       agents: {},
       // Additive stand-in for core's merge (core headers ON TOP of the
@@ -136,6 +141,38 @@ describe("useAgent stability during runtime connection", () => {
     // BUG: Current code creates a new agent on each re-render (agentInstances.length >= 3)
     // FIX: Should still be 1 (same provisional reused throughout connecting phase)
     expect(agentInstances.length).toBe(1);
+  });
+
+  it("should keep credentials current on the cached provisional agent", () => {
+    mockCopilotkit.credentials = "include";
+    const agentInstances: AbstractAgent[] = [];
+
+    function AgentTracker() {
+      const { agent } = useAgent({ agentId: "test-agent" });
+      if (
+        agentInstances.length === 0 ||
+        agentInstances[agentInstances.length - 1] !== agent
+      ) {
+        agentInstances.push(agent);
+      }
+      return null;
+    }
+
+    const { rerender } = render(<AgentTracker />);
+
+    expect(agentInstances).toHaveLength(1);
+    expect(agentInstances[0]).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    expect((agentInstances[0] as ProxiedCopilotRuntimeAgent).credentials).toBe(
+      "include",
+    );
+
+    mockCopilotkit.credentials = "omit";
+    rerender(<AgentTracker />);
+
+    expect(agentInstances).toHaveLength(1);
+    expect((agentInstances[0] as ProxiedCopilotRuntimeAgent).credentials).toBe(
+      "omit",
+    );
   });
 
   it("should keep the same agent instance across the full Disconnected→Connected lifecycle", () => {

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels-teams",
-  "version": "0.1.0",
+  "version": "0.9.2",
   "description": "Microsoft Teams platform adapter for CopilotKit JSX channels (@copilotkit/channels).",
   "license": "MIT",
   "repository": {
@@ -33,6 +33,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./render": {
+      "types": "./dist/render/index.d.ts",
+      "import": "./dist/render/index.js"
     }
   },
   "scripts": {
@@ -44,10 +48,10 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
-    "@copilotkit/channels": "workspace:~",
-    "@copilotkit/channels-ui": "workspace:~",
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
+    "@copilotkit/channels-core": "workspace:^",
+    "@copilotkit/channels-ui": "workspace:^",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^",
     "@microsoft/agents-activity": "^1.5.3",

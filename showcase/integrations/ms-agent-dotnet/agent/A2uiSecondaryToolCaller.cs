@@ -7,7 +7,6 @@ using Microsoft.Extensions.Logging;
 
 internal static class A2uiSecondaryToolCaller
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
     private const string DesignToolName = "_design_a2ui_surface";
 
     internal static async Task<string?> GetDesignToolArgumentsAsync(
@@ -20,25 +19,9 @@ internal static class A2uiSecondaryToolCaller
         ArgumentNullException.ThrowIfNull(systemPrompt);
         ArgumentNullException.ThrowIfNull(userContent);
 
-        var endpoint = (Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint).TrimEnd('/');
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration).TrimEnd('/');
 
-        // Fail loud if no credential resolves — matches the primary
-        // SalesAgentFactory, which throws when GitHubToken is absent. Previously
-        // this fell back to a bogus "sk-mock-local" key, which got sent verbatim
-        // to whatever real endpoint OPENAI_BASE_URL pointed at, producing a
-        // confusing 401 from upstream instead of a clear local configuration
-        // error. aimock-backed test runs still resolve a real key via the
-        // GitHubToken fallback (aimock is selected by OPENAI_BASE_URL + the
-        // forwarded x-aimock-context header, not by a sentinel key), so no
-        // mock-mode gate is needed here.
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
-            ?? configuration["OPENAI_API_KEY"]
-            ?? configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "No OpenAI credential found for the A2UI secondary tool caller. " +
-                "Set the OPENAI_API_KEY environment variable, or provide OPENAI_API_KEY / " +
-                "GitHubToken in configuration (e.g. dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token).");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
         using var httpClient = new HttpClient
         {

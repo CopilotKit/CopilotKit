@@ -11,6 +11,11 @@
  * the system prompt from three small rulebooks before invoking the model.
  */
 
+// @doc-replace
+import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
+
 // @region[agent-config-setup]
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { AIMessage } from "@langchain/core/messages";
@@ -22,11 +27,6 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-// @doc-replace
-import { makeChatOpenAI } from "./openai-headers";
-// @doc-as
-// @doc-end
-
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 type Tone = "professional" | "casual" | "enthusiastic";
@@ -153,18 +153,11 @@ function buildSystemPrompt(props: ResolvedProps): string {
   ].join("\n");
 }
 
-async function chatNode(state: AgentState, config: RunnableConfig) {
-  // @doc-replace
-  const model = makeChatOpenAI(config, {
-    model: "gpt-4o-mini",
-    temperature: 0.4,
-  });
-  // @doc-as
-  // const model = new ChatOpenAI({
-  //     model: "gpt-4o-mini",
-  //     temperature: 0.4,
-  //   });
-  // @doc-end
+async function runChatNode(
+  state: AgentState,
+  config: RunnableConfig,
+  model: ChatOpenAI,
+) {
   const props = readConfig(state, config);
   const systemPrompt = buildSystemPrompt(props);
 
@@ -176,12 +169,36 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   return { messages: response };
 }
 
-const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
-  .addEdge(START, "chat_node")
-  .addEdge("chat_node", "__end__");
+async function chatNode(state: AgentState, config: RunnableConfig) {
+  return runChatNode(
+    state,
+    config,
+    new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.4 }),
+  );
+}
 
-const memory = new MemorySaver();
+function compileGraph(node: typeof chatNode) {
+  return new StateGraph(AgentStateAnnotation)
+    .addNode("chat_node", node)
+    .addEdge(START, "chat_node")
+    .addEdge("chat_node", "__end__")
+    .compile({ checkpointer: new MemorySaver() });
+}
 
-export const graph = workflow.compile({ checkpointer: memory });
+export const graph = compileGraph(chatNode);
 // @endregion[agent-config-setup]
+
+// @doc-replace
+// The LangGraph CLI targets this export so showcase probes retain inbound
+// x-* header forwarding; the public `graph` above stays copy-pasteable.
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
+  return runChatNode(
+    state,
+    config,
+    makeChatOpenAI(config, { model: "gpt-4o-mini", temperature: 0.4 }),
+  );
+}
+
+export const showcaseGraph = compileGraph(chatNodeWithHeaders);
+// @doc-as
+// @doc-end

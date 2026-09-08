@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { SlackAdapter } from "./adapter.js";
-import type { BotNode } from "@copilotkit/channels-ui";
-import type { InteractionEvent, IngressSink } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels-ui";
+import type { InteractionEvent, IngressSink } from "@copilotkit/channels-core";
 
 /**
  * Build an adapter with a mock Slack client injected. Constructing the real
@@ -24,9 +24,17 @@ function makeAdapter() {
   return { adapter, chat };
 }
 
-const section = (text: string): BotNode => ({
+const section = (text: string): ChannelNode => ({
   type: "section",
   props: { children: [{ type: "text", props: { value: text } }] },
+});
+
+describe("SlackAdapter.conversationStore", () => {
+  it("declares that it seeds the inbound turn", () => {
+    const { adapter } = makeAdapter();
+
+    expect(adapter.conversationStore.seedsInboundTurn).toBe(true);
+  });
 });
 
 describe("SlackAdapter.post", () => {
@@ -56,7 +64,7 @@ describe("SlackAdapter.post", () => {
 
   it("renders a <Message accent> as a colored attachment with a short top-level text and NO fallback on the attachment", async () => {
     const { adapter, chat } = makeAdapter();
-    const header = (text: string): BotNode => ({
+    const header = (text: string): ChannelNode => ({
       type: "header",
       props: { children: [{ type: "text", props: { value: text } }] },
     });
@@ -104,7 +112,7 @@ describe("SlackAdapter.post", () => {
 
   it("uses the header as the short fallback summary — not a dump of the whole card", async () => {
     const { adapter, chat } = makeAdapter();
-    const header = (text: string): BotNode => ({
+    const header = (text: string): ChannelNode => ({
       type: "header",
       props: { children: [{ type: "text", props: { value: text } }] },
     });
@@ -144,7 +152,7 @@ describe("SlackAdapter.update / delete use the stashed channel", () => {
 
   it("update of an accent card sets a short top-level text and attachments with NO fallback", async () => {
     const { adapter, chat } = makeAdapter();
-    const header = (text: string): BotNode => ({
+    const header = (text: string): ChannelNode => ({
       type: "header",
       props: { children: [{ type: "text", props: { value: text } }] },
     });
@@ -227,7 +235,12 @@ describe("SlackAdapter.getMessages", () => {
       text: "hello",
       ts: "100.0",
       isBot: false,
-      user: { id: "U1", name: "Ana Smith", email: undefined },
+      user: {
+        id: "U1",
+        kind: "human",
+        name: "Ana Smith",
+        email: undefined,
+      },
     });
     expect(msgs[1]!.isBot).toBe(true);
     expect(msgs[1]!.text).toBe("bot reply");
@@ -348,7 +361,7 @@ describe("SlackAdapter.capabilities / ackDeadlineMs", () => {
 });
 
 describe("SlackAdapter.resolveUser", () => {
-  it("resolves a sender id to a richer PlatformUser (name + email) and caches it", async () => {
+  it("resolves a sender id to a richer ProviderActor (name + email) and caches it", async () => {
     const { adapter } = makeAdapter();
     const info = vi.fn(async (_arg: { user: string }) => ({
       user: {
@@ -365,6 +378,7 @@ describe("SlackAdapter.resolveUser", () => {
     const u = await adapter.resolveUser("U1");
     expect(u).toEqual({
       id: "U1",
+      kind: "human",
       name: "Ana Smith",
       email: "ana@example.com",
     });
@@ -385,7 +399,7 @@ describe("SlackAdapter.resolveUser", () => {
     };
 
     const u = await adapter.resolveUser("U2");
-    expect(u).toEqual({ id: "U2" });
+    expect(u).toEqual({ id: "U2", kind: "human" });
   });
 });
 
@@ -426,6 +440,7 @@ describe("SlackAdapter action wiring", () => {
       onInteraction: (evt) => {
         received.push(evt);
       },
+      onWelcome: vi.fn(),
       onCommand: vi.fn(),
       onThreadStarted: vi.fn(),
       onReaction: vi.fn(),

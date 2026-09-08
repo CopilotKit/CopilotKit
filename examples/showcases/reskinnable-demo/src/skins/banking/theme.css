@@ -1,0 +1,85 @@
+/* Northwind Finance (banking) theme — the "Aurora" premium fintech palette.
+   Re-values only the shared design tokens the shell defines in globals.css;
+   adds no new token names. Scoped under `.theme-banking` (applied by the shell
+   to the skin's theme root) and side-effect-imported from this skin's
+   layout.tsx. Values are banking's own, lifted out of the shell's globals.css:
+   the light block below is the former `:root` brand + `.light` values, and the
+   `.dark .theme-banking` block preserves the former `.dark` values (the theme
+   toggle adds `.dark` on <html>, an ancestor of this theme root). Distinct from
+   airline's jet teal: brand is a violet→indigo. */
+
+.theme-banking {
+  --radius: 1.375rem;
+
+  /* Dark capability, declared on the theme root. The shared `.dark` signal on
+     <html> is global, but only a skin that ships a dark palette (the
+     `.dark .theme-banking` block below) should react to it — otherwise a
+     light-only skin inherits a dark chat chrome and renders half-dark. The
+     shell's theme reconciler (useSkinThemeReconcile in hooks/use-theme.ts)
+     reads this inherited property and forces light for any skin that does NOT
+     set it. Opt-IN for the special case (dark support); light-only skins need
+     no defensive code. */
+  --nw-dark-capable: 1;
+
+  /* Brand: violet, deepening toward indigo. */
+  --brand: 252 83% 67%;
+  --brand-violet: 252 83% 67%;
+  --brand-indigo: 248 84% 60%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 252 90% 96%;
+
+  /* Surfaces: soft lavender canvas, white glass cards. */
+  --background: 255 60% 99%;
+  --foreground: 252 30% 14%;
+
+  --canvas: 255 60% 97%;
+  --surface: 0 0% 100%;
+  --surface-muted: 252 40% 98%;
+  --ink: 252 30% 14%;
+  --ink-muted: 250 12% 46%;
+  --hairline: 252 30% 92%;
+
+  --positive: 152 62% 40%;
+  --positive-soft: 152 70% 95%;
+  --negative: 349 78% 56%;
+  --negative-soft: 349 90% 96%;
+}
+
+/* DARK — deep indigo-tinted neutrals. `.dark` lands on <html> (an ancestor of
+   the `.theme-banking` root), so this descendant selector re-values only the
+   tokens that differ in dark mode; --brand*, --brand-foreground and --radius
+   inherit from the light block above. */
+.dark .theme-banking {
+  --background: 252 30% 7%;
+  --foreground: 250 30% 96%;
+  color-scheme: dark;
+
+  --canvas: 252 30% 7%;
+  --surface: 252 24% 11%;
+  --surface-muted: 252 22% 14%;
+  --ink: 250 30% 96%;
+  --ink-muted: 250 12% 66%;
+  --hairline: 252 20% 22%;
+
+  --brand-soft: 252 50% 18%;
+
+  --positive: 152 56% 50%;
+  --positive-soft: 152 40% 16%;
+  --negative: 349 80% 64%;
+  --negative-soft: 349 40% 18%;
+}
+
+/* ── Spacing between stacked chat action cards ──────────────────────────────
+   Banking-specific. HITL / tool-render cards (openPolicyException,
+   approveTransaction, the teach-loop cards, …) render as bordered blocks inside
+   assistant messages. CopilotKit lays the message list out as a flex column
+   with no row-gap and gives messages no margin, so a recall chain
+   (open → finalize → approve) renders several cards sharing an edge — both
+   across consecutive assistant messages and stacked within one. A uniform top
+   gap on every card separates them in both cases (the first card's gap is
+   harmless against the chat top). Lives here (side-effect-imported from
+   banking's layout) rather than the shell's globals.css because it targets
+   banking's own approval/policy cards. */
+.copilotKitMessages .rounded-2xl.border-hairline {
+  margin-top: 0.75rem;
+}

@@ -72,37 +72,66 @@ class PromoteU5EnvServiceRefTest < Minitest::Test
 
     # ── §5.2 service-ref assertion (REFUSE) ─────────────────────────────────
 
-    def test_serviceref_prod_pointing_at_staging_aimock_refuses
+    def test_serviceref_prod_pointing_at_public_aimock_host_refuses
         # showcase-ag2 carries serviceRefs:[{key:OPENAI_BASE_URL,target:aimock}].
-        # aimock prod host = showcase-aimock-production.up.railway.app.
+        # aimock now declares an env-scoped PRIVATE host
+        # (showcase-aimock.railway.internal), so `ssot_target_host` expects the
+        # INTERNAL host. A prod ref still pointing at the PUBLIC (billed-egress)
+        # aimock host is drift => REFUSE — this is the egress-leak class the
+        # private-networking migration closes.
         c = cmd
         c.instance_variable_set(:@gql, FakeGql.new(values: {
             ["ag2-prod", PROD_ENV] => {
-                # WRONG: prod points at the STAGING aimock host.
-                "OPENAI_BASE_URL" => "https://aimock-staging.up.railway.app",
+                # WRONG: prod points at the PUBLIC aimock host (billed egress).
+                "OPENAI_BASE_URL" => "https://showcase-aimock-production.up.railway.app/v1",
             },
         }))
         staging = { "services" => [{ "name" => "showcase-ag2", "service_id" => "ag2-stg" }] }
         prod    = { "services" => [{ "name" => "showcase-ag2", "service_id" => "ag2-prod" }] }
         findings = c.check_service_refs(staging, prod)
         assert(findings.any? { |f| f.start_with?("REFUSE") && f =~ /OPENAI_BASE_URL/ },
-               "expected REFUSE for prod serviceRef pointing at staging host, got #{findings.inspect}")
+               "expected REFUSE for prod serviceRef on the public egress host, got #{findings.inspect}")
         assert(c.instance_variable_get(:@gql).mutations.none? { |m| m[:kind] == :upsert },
                "service-ref check must ASSERT, never upsert")
     end
 
-    def test_serviceref_prod_pointing_at_prod_aimock_passes
+    def test_serviceref_prod_pointing_at_private_aimock_passes
+        # The private-networking target: prod OPENAI_BASE_URL points at the
+        # free env-scoped internal host with the /v1 suffix and port 4010.
+        # `ssot_target_host` prefers internalDomains, and check_service_refs
+        # compares on HOST substring, so the /v1 + :4010 form must PASS.
         c = cmd
         c.instance_variable_set(:@gql, FakeGql.new(values: {
             ["ag2-prod", PROD_ENV] => {
-                "OPENAI_BASE_URL" => "https://showcase-aimock-production.up.railway.app",
+                "OPENAI_BASE_URL" => "http://showcase-aimock.railway.internal:4010/v1",
             },
         }))
         staging = { "services" => [{ "name" => "showcase-ag2", "service_id" => "ag2-stg" }] }
         prod    = { "services" => [{ "name" => "showcase-ag2", "service_id" => "ag2-prod" }] }
         findings = c.check_service_refs(staging, prod)
         assert_empty findings.select { |f| f.start_with?("REFUSE") },
-                     "prod->prod aimock ref must not REFUSE, got #{findings.inspect}"
+                     "prod private aimock ref must not REFUSE, got #{findings.inspect}"
+    end
+
+    def test_ssot_target_host_prefers_internal_over_public
+        # Direct unit assertion on the resolver: aimock declares BOTH a public
+        # `domains` host and a private `internalDomains` host; the resolver must
+        # return the PRIVATE one for both envs so serviceRefs assert against the
+        # free path. A non-aimock target with no internalDomains falls back to
+        # its public host (unchanged behaviour).
+        c = cmd
+        assert_equal "showcase-aimock.railway.internal",
+                     c.ssot_target_host("aimock", "prod"),
+                     "aimock prod host must resolve to the private internal domain"
+        assert_equal "showcase-aimock.railway.internal",
+                     c.ssot_target_host("aimock", "staging"),
+                     "aimock staging host must resolve to the private internal domain"
+        # A target that declares no internalDomains keeps its public host.
+        refute_nil c.ssot_target_host("showcase-ag2", "prod"),
+                   "non-aimock target must still resolve to its public host"
+        refute_includes c.ssot_target_host("showcase-ag2", "prod").to_s,
+                        "railway.internal",
+                        "non-aimock target must NOT resolve to an internal host"
     end
 
     # ── §5.3.1 replicate-class env-write (NEW capability) ───────────────────

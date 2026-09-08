@@ -1,5 +1,5 @@
 {
   "title": "Human-in-the-Loop",
   "icon": "lucide/User",
-  "pages": ["index", "useInterrupt", "headless"]
+  "pages": ["index", "useInterrupt", "headless", "governed-actions"]
 }

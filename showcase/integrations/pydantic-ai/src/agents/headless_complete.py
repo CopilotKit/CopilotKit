@@ -25,7 +25,7 @@ from typing import Any
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
 
 

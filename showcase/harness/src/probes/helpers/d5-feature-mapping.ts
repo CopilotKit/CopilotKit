@@ -55,7 +55,7 @@ import type { D5FeatureType } from "./d5-registry.js";
  *     bundled with subagents, split in Phase 2A)
  *   - `subagents`              : 1 demo (split alongside mcp-apps)
  *   - other registry families (auth, multimodal, voice, frontend-tools,
- *     reasoning-display, gen-ui-*, byoc, beautiful-chat-*, …) follow
+ *     reasoning-*, gen-ui-*, byoc, beautiful-chat-*, …) follow
  *     the same `<registry-id>: [<d5-feature-types>]` shape and live
  *     directly in REGISTRY_TO_D5 below.
  */
@@ -169,11 +169,12 @@ export const REGISTRY_TO_D5: Readonly<
   // semantics differ from sync (settle assertions are not reusable).
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
+  "threadid-frontend-tool-roundtrip": ["threadid-frontend-tool-roundtrip"],
 
-  // Reasoning family — single `reasoning-display` literal covers both
-  // demo routes via preNavigateRoute.
-  "reasoning-custom": ["reasoning-display"],
-  "reasoning-default": ["reasoning-display"],
+  // Reasoning family — each route owns a probe identity so integrations
+  // declaring both demos execute and report both surfaces independently.
+  "reasoning-custom": ["reasoning-custom"],
+  "reasoning-default": ["reasoning-default"],
 
   // State family — `shared-state-read` registry feature owns the
   // recipe-editor demo at `/demos/shared-state-read` (probed by
@@ -222,6 +223,12 @@ export const REGISTRY_TO_D5: Readonly<
 
   // Voice family — voice input/output.
   voice: ["voice"],
+
+  // Mastra-only features use deterministic activity probes. Browser Use is a
+  // hydration smoke because live web navigation cannot be replayed safely.
+  "background-agents": ["background-agents"],
+  "observational-memory": ["observational-memory"],
+  "browser-use": ["browser-use-smoke"],
 };
 
 /**

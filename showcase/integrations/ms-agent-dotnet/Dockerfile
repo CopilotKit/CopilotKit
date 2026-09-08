@@ -43,6 +43,15 @@ COPY --chown=app:app --from=frontend /app/node_modules ./node_modules
 COPY --chown=app:app --from=frontend /app/package.json ./
 COPY --chown=app:app --from=frontend /app/public ./public
 
+# Manifest is read at runtime by `src/app/demos/layout.tsx` (`generateMetadata`
+# calls `headers()` for the `x-pathname` that `src/middleware.ts` sets, which
+# opts every `/demos/*` route into dynamic rendering, so Next can't bake the
+# demo titles into the build). Without this copy every demo page throws "An
+# error occurred in the Server Components render" (ENOENT on
+# /app/manifest.yaml) — the home page is unaffected because it has no dynamic
+# APIs and is statically prerendered at build time.
+COPY --chown=app:app manifest.yaml ./
+
 # .NET agent binary (from agent-build stage — no dotnet SDK at runtime)
 COPY --chown=app:app --from=agent-build /agent/publish /agent
 

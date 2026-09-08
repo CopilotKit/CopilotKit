@@ -3,7 +3,8 @@
     "description": "D6 fixtures for langgraph-fastapi / gen-ui-tool-based",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "_note": "turnIndex:0 stripped from leg-1 fixtures (caused turnIndex-relaxed re-match -> done-signal-missing loop); toolCallId terminals ordered first; chunkSize added so large generateSandboxedUi args JSON-parse in one chunk."
   },
   "fixtures": [
     {
@@ -19,9 +20,9 @@
     {
       "match": {
         "userMessage": "3D axis visualization (model airplane)",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -45,9 +46,9 @@
     {
       "match": {
         "userMessage": "How a neural network works",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -71,9 +72,9 @@
     {
       "match": {
         "userMessage": "Quicksort visualization",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -97,9 +98,9 @@
     {
       "match": {
         "userMessage": "Fourier: square wave from sines",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -123,9 +124,9 @@
     {
       "match": {
         "userMessage": "Calculator (calls evaluateExpression)",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -149,9 +150,9 @@
     {
       "match": {
         "userMessage": "Ping the host (calls notifyHost)",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -175,9 +176,9 @@
     {
       "match": {
         "userMessage": "Inline expression evaluator",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -191,7 +192,6 @@
     {
       "match": {
         "userMessage": "request the gen-ui interrupt",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
       "response": {
@@ -201,7 +201,6 @@
     {
       "match": {
         "userMessage": "confirm the gen-ui choice",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
       "response": {
@@ -211,7 +210,6 @@
     {
       "match": {
         "userMessage": "render an open gen-ui element",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
       "response": {
@@ -221,7 +219,6 @@
     {
       "match": {
         "userMessage": "continue the advanced gen-ui flow",
-        "turnIndex": 0,
         "context": "langgraph-fastapi"
       },
       "response": {

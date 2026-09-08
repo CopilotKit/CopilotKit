@@ -34,6 +34,7 @@ export interface AgentSession {
  * Slack lookup that already produces the answer.
  */
 export class SlackConversationStore {
+  readonly seedsInboundTurn = true;
   private readonly client: WebClient;
   private readonly botUserId: string;
   /** Bot token used to download uploaded files from their `url_private`. */

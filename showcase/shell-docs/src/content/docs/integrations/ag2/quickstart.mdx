@@ -5,6 +5,13 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+<IntelligenceOnboardingPrompt
+  feature="learning"
+  surface="docs_ag2_quickstart"
+/>
+
 ## Introduction
 
 This quickstart guide shows how to build a **Weather Agent** using AG2 and CopilotKit. In just minutes, you'll have a working application where users can ask for real-time weather conditions in any city worldwide — powered by AG2's `AGUIStream` over the AG-UI protocol and rendered with CopilotKit's chat UI.
@@ -23,14 +30,6 @@ npx copilotkit@latest init
 
 Follow the prompts to pick AG2 and the features you want, then run the install/start commands it prints.
 
-<OpsPlatformCTA
-  variant="card"
-  title="Ship AG2 to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_ag2_quickstart"
-/>
-
 ## Prerequisites
 
 Before you begin, you'll need the following:
@@ -47,7 +46,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Create a free account
 
-        <SignupLink surface="docs_ag2_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_ag2_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
     </Step>
 
     <Step>
@@ -116,6 +115,11 @@ Before you begin, you'll need the following:
             Asking "What's the weather here?" will use your browser's location if you allow it. If location access is denied, the agent will ask you for a city name instead.
         </Callout>
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
 
 </Steps>
 

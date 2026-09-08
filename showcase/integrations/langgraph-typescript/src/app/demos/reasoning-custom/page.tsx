@@ -1,12 +1,12 @@
 "use client";
 
-// Reasoning -- Custom
+// Reasoning — Custom
 //
 // Pairs with `reasoning-default` so users can compare default vs custom
 // reasoning rendering side by side. Both demos share the same backend
-// (`agentic-chat-reasoning` graph) and runtime URL (/api/copilotkit). This cell
+// (`reasoning_agent` graph) and runtime URL (/api/copilotkit). This cell
 // overrides the `reasoningMessage` slot on the `messageView` slot with
-// `ReasoningBlock` -- a tagged amber banner that emphasizes the agent's
+// `ReasoningBlock` — a tagged amber banner that emphasizes the agent's
 // thinking chain.
 //
 // Reasoning is a first-class message type in v2: see

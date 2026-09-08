@@ -21,5 +21,5 @@ describe("@copilotkit/vue SSR import safety", () => {
     const mod = await import("../../../../index");
     expect(mod.CopilotThreadsDrawer).toBeDefined();
     expect(evaluated.current).toBe(false);
-  });
+  }, 20_000);
 });

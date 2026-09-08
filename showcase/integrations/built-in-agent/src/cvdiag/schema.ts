@@ -39,7 +39,7 @@
  *     pipeline owned by a later slot — never by this module.
  */
 
-import { scrubDeep, scrubSecrets } from "./scrub.js";
+import { scrubDeep, scrubSecrets } from "./scrub";
 
 /** Current schema version. Bumps only on a breaking (rename/type) change. */
 export const SCHEMA_VERSION = 1 as const;

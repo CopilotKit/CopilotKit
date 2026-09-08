@@ -19,7 +19,11 @@
  * package.
  */
 
-// @region[supervisor-delegation-tools]
+// @doc-replace
+import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
+
 // @region[subagent-setup]
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -41,10 +45,6 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-// @doc-replace
-import { makeChatOpenAI } from "./openai-headers";
-// @doc-as
-// @doc-end
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -104,22 +104,18 @@ const SUB_AGENT_PROMPTS: Record<SubAgentName, string> = {
     "2-3 crisp, actionable critiques. No preamble.",
 };
 
+type ModelFactory = (config?: RunnableConfig) => ChatOpenAI;
+
+const defaultModelFactory: ModelFactory = () =>
+  new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+
 async function invokeSubAgent(
   agent: SubAgentName,
   task: string,
   config?: RunnableConfig,
+  modelFactory: ModelFactory = defaultModelFactory,
 ): Promise<string> {
-  // @doc-replace
-  const subModel = makeChatOpenAI(config, {
-    temperature: 0,
-    model: "gpt-4o-mini",
-  });
-  // @doc-as
-  // const subModel = new ChatOpenAI({
-  //     temperature: 0,
-  //     model: "gpt-4o-mini",
-  //   });
-  // @doc-end
+  const subModel = modelFactory(config);
   const result = await subModel.invoke([
     new SystemMessage({ content: SUB_AGENT_PROMPTS[agent] }),
     new HumanMessage({ content: task }),
@@ -141,6 +137,8 @@ async function invokeSubAgent(
   return String(content ?? "");
 }
 // @endregion[subagent-setup]
+
+// @region[supervisor-delegation-tools]
 
 // ---------------------------------------------------------------------------
 // 3. Helper — emit a single delegation entry plus a ToolMessage.
@@ -191,9 +189,10 @@ async function runSubAgentSafely(
   agent: SubAgentName,
   task: string,
   config?: RunnableConfig,
+  modelFactory: ModelFactory = defaultModelFactory,
 ): Promise<{ ok: true; result: string } | { ok: false; result: string }> {
   try {
-    const result = await invokeSubAgent(agent, task, config);
+    const result = await invokeSubAgent(agent, task, config, modelFactory);
     return { ok: true, result };
   } catch (err) {
     const errName = err instanceof Error ? err.constructor.name : typeof err;
@@ -228,89 +227,67 @@ function requireToolCallId(
 // ToolMessage the supervisor can read on its next step.
 // ---------------------------------------------------------------------------
 
-const researchAgentTool = tool(
-  async ({ task }, config: ToolRunnableConfig) => {
-    const toolCallId = requireToolCallId(config, "research_agent");
-    const outcome = await runSubAgentSafely("research_agent", task, config);
-    return delegationUpdate(
+function createSubAgentTool(
+  agent: SubAgentName,
+  description: string,
+  taskDescription: string,
+  modelFactory: ModelFactory = defaultModelFactory,
+) {
+  return tool(
+    async ({ task }, config: ToolRunnableConfig) => {
+      const toolCallId = requireToolCallId(config, agent);
+      const outcome = await runSubAgentSafely(
+        agent,
+        task,
+        config,
+        modelFactory,
+      );
+      return delegationUpdate(
+        agent,
+        task,
+        outcome.result,
+        toolCallId,
+        outcome.ok ? "completed" : "failed",
+      );
+    },
+    {
+      name: agent,
+      description,
+      schema: z.object({ task: z.string().describe(taskDescription) }),
+    },
+  );
+}
+
+function createSubAgentTools(modelFactory: ModelFactory = defaultModelFactory) {
+  return [
+    createSubAgentTool(
       "research_agent",
-      task,
-      outcome.result,
-      toolCallId,
-      outcome.ok ? "completed" : "failed",
-    );
-  },
-  {
-    name: "research_agent",
-    description:
       "Delegate a research task to the research sub-agent. " +
-      "Use for: gathering facts, background, definitions, statistics. " +
-      "Returns a bulleted list of key facts.",
-    schema: z.object({
-      task: z
-        .string()
-        .describe("The research question or topic to investigate."),
-    }),
-  },
-);
-
-const writingAgentTool = tool(
-  async ({ task }, config: ToolRunnableConfig) => {
-    const toolCallId = requireToolCallId(config, "writing_agent");
-    const outcome = await runSubAgentSafely("writing_agent", task, config);
-    return delegationUpdate(
+        "Use for: gathering facts, background, definitions, statistics. " +
+        "Returns a bulleted list of key facts.",
+      "The research question or topic to investigate.",
+      modelFactory,
+    ),
+    createSubAgentTool(
       "writing_agent",
-      task,
-      outcome.result,
-      toolCallId,
-      outcome.ok ? "completed" : "failed",
-    );
-  },
-  {
-    name: "writing_agent",
-    description:
       "Delegate a drafting task to the writing sub-agent. " +
-      "Use for: producing a polished paragraph, draft, or summary. Pass " +
-      "relevant facts from prior research inside `task`.",
-    schema: z.object({
-      task: z
-        .string()
-        .describe(
-          "Brief + optional source facts. The sub-agent returns a 1-paragraph draft.",
-        ),
-    }),
-  },
-);
-
-const critiqueAgentTool = tool(
-  async ({ task }, config: ToolRunnableConfig) => {
-    const toolCallId = requireToolCallId(config, "critique_agent");
-    const outcome = await runSubAgentSafely("critique_agent", task, config);
-    return delegationUpdate(
+        "Use for: producing a polished paragraph, draft, or summary. Pass " +
+        "relevant facts from prior research inside `task`.",
+      "Brief + optional source facts. The sub-agent returns a 1-paragraph draft.",
+      modelFactory,
+    ),
+    createSubAgentTool(
       "critique_agent",
-      task,
-      outcome.result,
-      toolCallId,
-      outcome.ok ? "completed" : "failed",
-    );
-  },
-  {
-    name: "critique_agent",
-    description:
       "Delegate a critique task to the critique sub-agent. " +
-      "Use for: reviewing a draft and suggesting concrete improvements.",
-    schema: z.object({
-      task: z
-        .string()
-        .describe(
-          "The draft to critique. The sub-agent returns 2-3 critiques.",
-        ),
-    }),
-  },
-);
-// @endregion[supervisor-delegation-tools]
+        "Use for: reviewing a draft and suggesting concrete improvements.",
+      "The draft to critique. The sub-agent returns 2-3 critiques.",
+      modelFactory,
+    ),
+  ];
+}
 
-const tools = [researchAgentTool, writingAgentTool, critiqueAgentTool];
+const tools = createSubAgentTools();
+// @endregion[supervisor-delegation-tools]
 
 // ---------------------------------------------------------------------------
 // 5. Supervisor chat node.
@@ -330,35 +307,6 @@ const SUPERVISOR_SYSTEM_PROMPT =
   "a concise summary once done. The UI shows the user a live log " +
   "of every sub-agent delegation.";
 
-async function chatNode(state: AgentState, config: RunnableConfig) {
-  // @doc-replace
-  const model = makeChatOpenAI(config, {
-    temperature: 0,
-    model: "gpt-4o-mini",
-  });
-  // @doc-as
-  // const model = new ChatOpenAI({
-  //     temperature: 0,
-  //     model: "gpt-4o-mini",
-  //   });
-  // @doc-end
-
-  const modelWithTools = model.bindTools!([
-    ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
-    ...tools,
-  ]);
-
-  const response = await modelWithTools.invoke(
-    [
-      new SystemMessage({ content: SUPERVISOR_SYSTEM_PROMPT }),
-      ...state.messages,
-    ],
-    config,
-  );
-
-  return { messages: response };
-}
-
 function shouldContinue({ messages, copilotkit }: AgentState) {
   const lastMessage = messages[messages.length - 1] as AIMessage;
 
@@ -374,15 +322,50 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
   return "__end__";
 }
 
-const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
-  .addNode("tool_node", new ToolNode(tools))
-  .addEdge(START, "chat_node")
-  .addEdge("tool_node", "chat_node")
-  .addConditionalEdges("chat_node", shouldContinue as any);
+function createGraph(
+  modelFactory: ModelFactory = defaultModelFactory,
+  graphTools = tools,
+) {
+  async function chatNode(state: AgentState, config: RunnableConfig) {
+    const model = modelFactory(config);
+    const modelWithTools = model.bindTools!([
+      ...convertActionsToDynamicStructuredTools(
+        state.copilotkit?.actions ?? [],
+      ),
+      ...graphTools,
+    ]);
 
-const memory = new MemorySaver();
+    const response = await modelWithTools.invoke(
+      [
+        new SystemMessage({ content: SUPERVISOR_SYSTEM_PROMPT }),
+        ...state.messages,
+      ],
+      config,
+    );
 
-export const graph = workflow.compile({
-  checkpointer: memory,
-});
+    return { messages: response };
+  }
+
+  return new StateGraph(AgentStateAnnotation)
+    .addNode("chat_node", chatNode)
+    .addNode("tool_node", new ToolNode(graphTools))
+    .addEdge(START, "chat_node")
+    .addEdge("tool_node", "chat_node")
+    .addConditionalEdges("chat_node", shouldContinue as any)
+    .compile({ checkpointer: new MemorySaver() });
+}
+
+export const graph = createGraph();
+
+// @doc-replace
+// The LangGraph CLI targets this export so both the supervisor and delegated
+// model calls retain inbound x-* headers during showcase probes.
+const showcaseModelFactory: ModelFactory = (config) =>
+  makeChatOpenAI(config, { temperature: 0, model: "gpt-4o-mini" });
+
+export const showcaseGraph = createGraph(
+  showcaseModelFactory,
+  createSubAgentTools(showcaseModelFactory),
+);
+// @doc-as
+// @doc-end

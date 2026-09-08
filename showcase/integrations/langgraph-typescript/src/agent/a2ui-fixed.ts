@@ -9,6 +9,12 @@
  * Ported from `src/agents/a2ui_fixed.py`.
  */
 
+// @doc-replace
+import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// import { ChatOpenAI } from "@langchain/openai";
+// @doc-end
+
 // @region[backend-render-operations]
 // @region[backend-schema-json-load]
 import { readFileSync } from "fs";
@@ -27,12 +33,6 @@ import {
   StateGraph,
   Annotation,
 } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
-// @doc-replace
-import { makeChatOpenAI } from "./openai-headers";
-// @doc-as
-// @doc-end
-
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -140,9 +140,9 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     temperature: 0,
-  //     model: "gpt-4o-mini",
-  //   });
+  //   temperature: 0,
+  //   model: "gpt-4o-mini",
+  // });
   // @doc-end
 
   const modelWithTools = model.bindTools!([

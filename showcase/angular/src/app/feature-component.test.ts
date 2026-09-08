@@ -1,0 +1,138 @@
+import { describe, expect, it } from "vitest";
+
+import { resolveFeatureComponentKey, routes } from "./app.routes";
+import { suggestionsConfigForFeature } from "./feature-suggestions";
+import frontendRegistryData from "./generated/frontend-registry.json";
+
+describe("Angular showcase feature routing", () => {
+  it.each([
+    ["prebuilt-popup", "popup"],
+    ["prebuilt-sidebar", "sidebar"],
+    ["chat-slots", "chat-slots"],
+    ["chat-customization-css", "chat-css"],
+    ["headless-simple", "headless-simple"],
+    ["headless-complete", "headless-complete"],
+    ["gen-ui-tool-based", "tools"],
+    ["tool-rendering-default-catchall", "tools"],
+    ["tool-rendering-custom-catchall", "tools"],
+    ["tool-rendering", "tools"],
+    ["tool-rendering-reasoning-chain", "tools"],
+    ["frontend-tools", "tools"],
+    ["frontend-tools-async", "tools"],
+    ["threadid-frontend-tool-roundtrip", "tools"],
+    ["hitl-in-chat", "tools"],
+    ["hitl-in-app", "tools"],
+    ["gen-ui-interrupt", "interrupt"],
+    ["interrupt-headless", "interrupt"],
+    ["declarative-gen-ui", "a2ui"],
+    ["a2ui-fixed-schema", "a2ui"],
+    ["a2ui-recovery", "a2ui"],
+    ["mcp-apps", "mcp-apps"],
+    ["open-gen-ui", "generated-ui"],
+    ["open-gen-ui-advanced", "generated-ui"],
+    ["shared-state-read-write", "state"],
+    ["shared-state-read", "state"],
+    ["shared-state-streaming", "state"],
+    ["readonly-state-agent-context", "state"],
+    ["reasoning-default", "reasoning"],
+    ["reasoning-custom", "reasoning"],
+    ["gen-ui-agent", "agent-state"],
+    ["subagents", "agent-state"],
+    ["background-agents", "mastra"],
+    ["observational-memory", "mastra"],
+    ["browser-use", "mastra"],
+    ["auth", "app-settings"],
+    ["agent-config", "app-settings"],
+    ["voice", "media"],
+    ["multimodal", "media"],
+    ["beautiful-chat", "beautiful-chat"],
+    ["agentic-chat", "chat"],
+  ])("maps %s to the %s implementation", (feature, expected) => {
+    expect(resolveFeatureComponentKey(feature)).toBe(expected);
+  });
+
+  it("rejects undeclared features instead of silently loading generic chat", () => {
+    expect(() => resolveFeatureComponentKey("misspelled-feature")).toThrow(
+      /does not have an Angular implementation/,
+    );
+  });
+
+  it("resolves every registry-supported Angular feature explicitly", () => {
+    const support = frontendRegistryData.feature_support as Record<
+      string,
+      { angular?: { state?: string } }
+    >;
+    const supported = Object.entries(support)
+      .filter(([, declaration]) => declaration.angular?.state === "supported")
+      .map(([feature]) => feature);
+
+    expect(supported).toHaveLength(41);
+    expect(() => supported.map(resolveFeatureComponentKey)).not.toThrow();
+  });
+
+  it("publishes all 41 supported features as browser routes", () => {
+    const featureRoutes = routes
+      .map((route) => route.data?.["feature"])
+      .filter((feature): feature is string => typeof feature === "string");
+
+    expect(featureRoutes).toHaveLength(41);
+    expect(new Set(featureRoutes).size).toBe(41);
+  });
+});
+
+describe("Angular showcase static suggestions", () => {
+  it("pins state-demo suggestions to their canonical prompts", () => {
+    expect(
+      suggestionsConfigForFeature("shared-state-streaming")[0]?.suggestions,
+    ).toContainEqual({
+      title: "Write a short poem",
+      message: "Write a short poem about autumn leaves.",
+    });
+    expect(
+      suggestionsConfigForFeature("readonly-state-agent-context")[0]
+        ?.suggestions,
+    ).toContainEqual({
+      title: "Who am I?",
+      message: "What do you know about me from my context?",
+    });
+  });
+
+  it("does not add feature-specific suggestions to unrelated routes", () => {
+    expect(suggestionsConfigForFeature("agentic-chat")).toEqual([]);
+  });
+
+  it("exposes the canonical Mastra prompts on Angular routes", () => {
+    expect(
+      suggestionsConfigForFeature("background-agents")[0]?.suggestions,
+    ).toContainEqual({
+      title: "Research AI agent frameworks",
+      message:
+        "Kick off deep research on the current landscape of AI agent frameworks.",
+    });
+    expect(
+      suggestionsConfigForFeature("observational-memory")[0]?.suggestions[0]
+        ?.message,
+    ).toContain("Northwind Insights");
+    expect(
+      suggestionsConfigForFeature("browser-use")[0]?.suggestions,
+    ).toContainEqual({
+      title: "Show me the top Hacker News stories",
+      message: "Show me the top Hacker News stories right now.",
+    });
+  });
+
+  it("exposes every flagship Beautiful Chat capability as a suggestion", () => {
+    const suggestions = suggestionsConfigForFeature("beautiful-chat")[0];
+    expect(suggestions?.consumerAgentId).toBe("beautiful-chat");
+    expect(suggestions?.suggestions).toHaveLength(9);
+    expect(suggestions?.suggestions).toContainEqual({
+      title: "Toggle Theme (Frontend Tools)",
+      message: "Toggle the app theme using the toggleTheme tool.",
+    });
+    expect(suggestions?.suggestions).toContainEqual({
+      title: "Task Manager (Shared State)",
+      message:
+        "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+    });
+  });
+});

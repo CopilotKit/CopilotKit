@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://copilotkit.ai/schemas/public-api-manifest/v1",
+  "title": "CopilotKit public API manifest v1",
+  "description": "Versioned schema for mechanically proven public npm packages, import paths, compatibility ranges, runtime adapters and factories, configuration keys, and explicit deprecation replacements. Package facts come from package.json and release.config.json; source API facts come from exported TypeScript declarations. Consumers must reject unknown schemaVersion values.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "selection",
+    "packages",
+    "runtime",
+    "deprecations"
+  ],
+  "properties": {
+    "$schema": { "const": "./manifest.schema.v1.json" },
+    "schemaVersion": {
+      "const": 1,
+      "description": "Breaking changes to this document shape require a new schema and manifest version."
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "provenance"],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "description": "Deterministic rule used to select public packages."
+        },
+        "provenance": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/provenance" },
+          "minItems": 1
+        }
+      }
+    },
+    "packages": {
+      "type": "array",
+      "description": "All release-scoped, non-private @copilotkit/* packages, sorted by package name.",
+      "items": { "$ref": "#/$defs/package" }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serviceAdapters", "hostFactories", "agentFactoryModes"],
+      "properties": {
+        "serviceAdapters": {
+          "type": "array",
+          "description": "Legacy CopilotServiceAdapter classes exported from @copilotkit/runtime.",
+          "items": { "$ref": "#/$defs/sourceApiEntry" }
+        },
+        "hostFactories": {
+          "type": "array",
+          "description": "Canonical v2 Fetch, Express, Hono, and Node host factories.",
+          "items": { "$ref": "#/$defs/sourceApiEntry" }
+        },
+        "agentFactoryModes": {
+          "type": "array",
+          "description": "Discriminated BuiltInAgent factory modes extracted from BuiltInAgentFactoryConfig.",
+          "items": { "$ref": "#/$defs/agentFactoryMode" }
+        }
+      }
+    },
+    "deprecations": {
+      "type": "array",
+      "description": "Only exported declarations whose @deprecated tag names a concrete replacement.",
+      "items": { "$ref": "#/$defs/deprecation" }
+    }
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "selector"],
+      "properties": {
+        "kind": {
+          "enum": ["package-json", "release-config", "typescript-ast"]
+        },
+        "path": {
+          "type": "string",
+          "description": "Repository-relative source path or deterministic glob."
+        },
+        "selector": {
+          "type": "string",
+          "description": "Field or declaration selector within path."
+        }
+      }
+    },
+    "entrypoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "importPath",
+        "exportKey",
+        "kind",
+        "conditions",
+        "provenance"
+      ],
+      "properties": {
+        "importPath": { "type": "string" },
+        "exportKey": { "type": "string" },
+        "kind": { "enum": ["code", "metadata", "style"] },
+        "conditions": {
+          "description": "The package.json exports value, preserved without interpretation."
+        },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provenance"],
+      "properties": {
+        "engines": { "type": "object" },
+        "peerDependencies": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "optionalPeerDependencies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "provenance": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/provenance" }
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "sourceDirectory",
+        "entrypoints",
+        "compatibility",
+        "provenance"
+      ],
+      "properties": {
+        "name": { "type": "string", "pattern": "^@copilotkit/" },
+        "version": { "type": "string" },
+        "sourceDirectory": { "type": "string", "pattern": "^packages/" },
+        "entrypoints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entrypoint" },
+          "minItems": 1
+        },
+        "compatibility": { "$ref": "#/$defs/compatibility" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version", "releaseScope"],
+          "properties": {
+            "name": { "$ref": "#/$defs/provenance" },
+            "version": { "$ref": "#/$defs/provenance" },
+            "releaseScope": { "$ref": "#/$defs/provenance" }
+          }
+        }
+      }
+    },
+    "sourceApiEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["importPath", "symbol", "configurationKeys", "provenance"],
+      "properties": {
+        "importPath": { "type": "string" },
+        "symbol": { "type": "string" },
+        "configurationType": { "type": "string" },
+        "configurationKeys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["importPath", "symbol", "configurationKeys"],
+          "properties": {
+            "importPath": { "$ref": "#/$defs/provenance" },
+            "symbol": { "$ref": "#/$defs/provenance" },
+            "configurationType": { "$ref": "#/$defs/provenance" },
+            "configurationKeys": { "$ref": "#/$defs/provenance" }
+          }
+        }
+      }
+    },
+    "agentFactoryMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "configurationKeys", "provenance"],
+      "properties": {
+        "type": { "type": "string" },
+        "configurationKeys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "configurationKeys"],
+          "properties": {
+            "type": { "$ref": "#/$defs/provenance" },
+            "configurationKeys": { "$ref": "#/$defs/provenance" }
+          }
+        }
+      }
+    },
+    "replacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["importPath", "symbol"],
+      "properties": {
+        "importPath": { "type": "string" },
+        "symbol": { "type": "string" }
+      }
+    },
+    "deprecation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "importPath",
+        "symbol",
+        "replacement",
+        "sourceMessage",
+        "provenance"
+      ],
+      "properties": {
+        "importPath": { "type": "string" },
+        "symbol": { "type": "string" },
+        "replacement": { "$ref": "#/$defs/replacement" },
+        "sourceMessage": { "type": "string", "minLength": 1 },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["importPath", "symbol", "replacement", "sourceMessage"],
+          "properties": {
+            "importPath": { "$ref": "#/$defs/provenance" },
+            "symbol": { "$ref": "#/$defs/provenance" },
+            "replacement": { "$ref": "#/$defs/provenance" },
+            "sourceMessage": { "$ref": "#/$defs/provenance" }
+          }
+        }
+      }
+    }
+  }
+}

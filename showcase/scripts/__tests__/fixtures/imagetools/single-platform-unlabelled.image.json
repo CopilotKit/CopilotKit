@@ -1,0 +1,170 @@
+{
+  "created": "2026-07-27T04:21:20.192027127Z",
+  "architecture": "amd64",
+  "os": "linux",
+  "config": {
+    "ExposedPorts": {
+      "10000/tcp": {}
+    },
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "NODE_VERSION=20.20.2",
+      "YARN_VERSION=1.22.22",
+      "NODE_ENV=production",
+      "PORT=10000",
+      "NEXT_PUBLIC_COMMIT_SHA=3ff7a5160655e4fd1d59b541da1b83887d50307f",
+      "NEXT_PUBLIC_BRANCH=main"
+    ],
+    "Entrypoint": [
+      "docker-entrypoint.sh"
+    ],
+    "Cmd": [
+      "npx",
+      "next",
+      "start",
+      "-p",
+      "10000"
+    ],
+    "WorkingDir": "/app",
+    "ArgsEscaped": true
+  },
+  "rootfs": {
+    "type": "layers",
+    "diff_ids": [
+      "sha256:0da811fd3ed46c38cea69079fa395a3d715dbdbdd5c8177107c450bf6332bbfa",
+      "sha256:4337a9b79b842bfe58037ff8e3040c28e8e3366009befe7bc70694869e6ad9a1",
+      "sha256:631e9f799a80c48d29ea547226d4c97b5c4e4698baadbae796fbcb67b1cbdcba",
+      "sha256:f991bccee0f1f8f692280d0e1f83f48001576c08d33c53d6a1463d5062a6ff18",
+      "sha256:d592f6b23cfaeb0a7d534376e0d4a3a32255df78a9feda01e3a6a015bada66d5",
+      "sha256:1152a1e07df04d67c37ee6b857cd7aa34df5060b87576c7b21d7aa3b86cc871c",
+      "sha256:f3b7c61e22e079f7d9b083a711a09f07d2bcb03894e087a7a871724fa577a1fa",
+      "sha256:7ff8693151ceaf6d2a0ffbb2795b5cdbc952409a81c86e7cea975c748ebc470a",
+      "sha256:6fb4a3d4ecfa1d89db7e6f65a94b3e4da4f6021ac9a22d1fcbe8eba55dbed447",
+      "sha256:0ce803600ab849ac5eb1d7bcb898dfac0e28e586d20940dca5d038a0f5ad83a6"
+    ]
+  },
+  "history": [
+    {
+      "created": "2026-04-21T00:00:00Z",
+      "created_by": "# debian.sh --arch 'amd64' out/ 'bookworm' '@1776729600'",
+      "comment": "debuerreotype 0.17"
+    },
+    {
+      "created": "2026-04-22T01:44:27.502328279Z",
+      "created_by": "RUN /bin/sh -c groupadd --gid 1000 node   \u0026\u0026 useradd --uid 1000 --gid node --shell /bin/bash --create-home node # buildkit",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-04-22T01:45:39.130182563Z",
+      "created_by": "ENV NODE_VERSION=20.20.2",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-04-22T01:45:39.130182563Z",
+      "created_by": "RUN /bin/sh -c ARCH= OPENSSL_ARCH= \u0026\u0026 dpkgArch=\"$(dpkg --print-architecture)\"     \u0026\u0026 case \"${dpkgArch##*-}\" in       amd64) ARCH='x64' OPENSSL_ARCH='linux-x86_64';;       ppc64el) ARCH='ppc64le' OPENSSL_ARCH='linux-ppc64le';;       s390x) ARCH='s390x' OPENSSL_ARCH='linux*-s390x';;       arm64) ARCH='arm64' OPENSSL_ARCH='linux-aarch64';;       armhf) ARCH='armv7l' OPENSSL_ARCH='linux-armv4';;       i386) ARCH='x86' OPENSSL_ARCH='linux-elf';;       *) echo \"unsupported architecture\"; exit 1 ;;     esac     \u0026\u0026 set -ex     \u0026\u0026 apt-get update \u0026\u0026 apt-get install -y ca-certificates curl wget gnupg dirmngr xz-utils libatomic1 --no-install-recommends     \u0026\u0026 rm -rf /var/lib/apt/lists/*     \u0026\u0026 export GNUPGHOME=\"$(mktemp -d)\"     \u0026\u0026 for key in       5BE8A3F6C8A5C01D106C0AD820B1A390B168D356       DD792F5973C6DE52C432CBDAC77ABFA00DDBF2B7       CC68F5A3106FF448322E48ED27F5E38D5B0A215F       8FCCA13FEF1D0C2E91008E09770F7A9A5AE15600       890C08DB8579162FEE0DF9DB8BEAB4DFCF555EF4       C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C       108F52B48DB57BB0CC439B2997B01419BD92F80A       A363A499291CBBC940DD62E41F10027AF002F8B0     ; do       { gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \"$key\" \u0026\u0026 gpg --batch --fingerprint \"$key\"; } ||       { gpg --batch --keyserver keyserver.ubuntu.com --recv-keys \"$key\" \u0026\u0026 gpg --batch --fingerprint \"$key\"; } ;     done     \u0026\u0026 curl -fsSLO --compressed \"https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$ARCH.tar.xz\"     \u0026\u0026 curl -fsSLO --compressed \"https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc\"     \u0026\u0026 gpg --batch --decrypt --output SHASUMS256.txt SHASUMS256.txt.asc     \u0026\u0026 gpgconf --kill all     \u0026\u0026 rm -rf \"$GNUPGHOME\"     \u0026\u0026 grep \" node-v$NODE_VERSION-linux-$ARCH.tar.xz\\$\" SHASUMS256.txt | sha256sum -c -     \u0026\u0026 tar -xJf \"node-v$NODE_VERSION-linux-$ARCH.tar.xz\" -C /usr/local --strip-components=1 --no-same-owner     \u0026\u0026 rm \"node-v$NODE_VERSION-linux-$ARCH.tar.xz\" SHASUMS256.txt.asc SHASUMS256.txt     \u0026\u0026 find /usr/local/include/node/openssl/archs -mindepth 1 -maxdepth 1 ! -name \"$OPENSSL_ARCH\" -exec rm -rf {} \\;     \u0026\u0026 apt-mark auto '.*' \u003e /dev/null     \u0026\u0026 find /usr/local -type f -executable -exec ldd '{}' ';'       | awk '/=\u003e/ { so = $(NF-1); if (index(so, \"/usr/local/\") == 1) { next }; gsub(\"^/(usr/)?\", \"\", so); print so }'       | sort -u       | xargs -r dpkg-query --search       | cut -d: -f1       | sort -u       | xargs -r apt-mark manual     \u0026\u0026 apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false     \u0026\u0026 ln -s /usr/local/bin/node /usr/local/bin/nodejs     \u0026\u0026 node --version     \u0026\u0026 npm --version     \u0026\u0026 rm -rf /tmp/* # buildkit",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-04-22T01:45:39.130182563Z",
+      "created_by": "ENV YARN_VERSION=1.22.22",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-04-22T01:45:50.819364643Z",
+      "created_by": "RUN /bin/sh -c set -ex   \u0026\u0026 savedAptMark=\"$(apt-mark showmanual)\"   \u0026\u0026 apt-get update \u0026\u0026 apt-get install -y ca-certificates curl wget gnupg dirmngr --no-install-recommends   \u0026\u0026 rm -rf /var/lib/apt/lists/*   \u0026\u0026 export GNUPGHOME=\"$(mktemp -d)\"   \u0026\u0026 for key in     6A010C5166006599AA17F08146C2130DFD2497F5   ; do     { gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \"$key\" \u0026\u0026 gpg --batch --fingerprint \"$key\"; } ||     { gpg --batch --keyserver keyserver.ubuntu.com --recv-keys \"$key\" \u0026\u0026 gpg --batch --fingerprint \"$key\"; } ;   done   \u0026\u0026 curl -fsSLO --compressed \"https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz\"   \u0026\u0026 curl -fsSLO --compressed \"https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz.asc\"   \u0026\u0026 gpg --batch --verify yarn-v$YARN_VERSION.tar.gz.asc yarn-v$YARN_VERSION.tar.gz   \u0026\u0026 gpgconf --kill all   \u0026\u0026 rm -rf \"$GNUPGHOME\"   \u0026\u0026 mkdir -p /opt   \u0026\u0026 tar -xzf yarn-v$YARN_VERSION.tar.gz -C /opt/   \u0026\u0026 ln -s /opt/yarn-v$YARN_VERSION/bin/yarn /usr/local/bin/yarn   \u0026\u0026 ln -s /opt/yarn-v$YARN_VERSION/bin/yarnpkg /usr/local/bin/yarnpkg   \u0026\u0026 rm yarn-v$YARN_VERSION.tar.gz.asc yarn-v$YARN_VERSION.tar.gz   \u0026\u0026 apt-mark auto '.*' \u003e /dev/null   \u0026\u0026 { [ -z \"$savedAptMark\" ] || apt-mark manual $savedAptMark \u003e /dev/null; }   \u0026\u0026 find /usr/local -type f -executable -exec ldd '{}' ';'     | awk '/=\u003e/ { so = $(NF-1); if (index(so, \"/usr/local/\") == 1) { next }; gsub(\"^/(usr/)?\", \"\", so); print so }'     | sort -u     | xargs -r dpkg-query --search     | cut -d: -f1     | sort -u     | xargs -r apt-mark manual   \u0026\u0026 apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false   \u0026\u0026 yarn --version   \u0026\u0026 rm -rf /tmp/* # buildkit",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-04-22T01:45:50.871696016Z",
+      "created_by": "COPY docker-entrypoint.sh /usr/local/bin/ # buildkit",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-04-22T01:45:50.871696016Z",
+      "created_by": "ENTRYPOINT [\"docker-entrypoint.sh\"]",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-04-22T01:45:50.871696016Z",
+      "created_by": "CMD [\"node\"]",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-24T18:27:30.435031724Z",
+      "created_by": "WORKDIR /app",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-07-27T04:21:13.585080642Z",
+      "created_by": "ARG COMMIT_SHA=unknown",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-27T04:21:13.585080642Z",
+      "created_by": "ARG BRANCH=unknown",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-27T04:21:13.585080642Z",
+      "created_by": "ENV NODE_ENV=production",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-27T04:21:13.585080642Z",
+      "created_by": "ENV PORT=10000",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-27T04:21:13.585080642Z",
+      "created_by": "ENV NEXT_PUBLIC_COMMIT_SHA=3ff7a5160655e4fd1d59b541da1b83887d50307f",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-27T04:21:13.585080642Z",
+      "created_by": "ENV NEXT_PUBLIC_BRANCH=main",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-27T04:21:13.585080642Z",
+      "created_by": "COPY /app/shell/.next ./.next # buildkit",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-07-27T04:21:19.828479668Z",
+      "created_by": "COPY /app/shell/node_modules ./node_modules # buildkit",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-07-27T04:21:20.132767152Z",
+      "created_by": "COPY /app/shell/package.json ./ # buildkit",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-07-27T04:21:20.192027127Z",
+      "created_by": "COPY /app/shell/public ./public # buildkit",
+      "comment": "buildkit.dockerfile.v0"
+    },
+    {
+      "created": "2026-07-27T04:21:20.192027127Z",
+      "created_by": "EXPOSE map[10000/tcp:{}]",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-27T04:21:20.192027127Z",
+      "created_by": "CMD [\"npx\" \"next\" \"start\" \"-p\" \"10000\"]",
+      "comment": "buildkit.dockerfile.v0",
+      "empty_layer": true
+    }
+  ]
+}

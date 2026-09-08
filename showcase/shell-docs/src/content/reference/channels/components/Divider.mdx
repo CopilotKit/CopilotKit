@@ -1,37 +1,20 @@
 ---
-title: "Divider"
-description: "Horizontal rule separating blocks in a bot message."
+title: Divider
+description: Add a portable visual separator to a rich Channels message.
 ---
 
-## Overview
-
-`Divider` renders a horizontal rule between blocks.
-
-## Import
+`Divider` takes no props or children.
 
 ```tsx
-import { Divider } from "@copilotkit/channels-ui";
-```
+import { Divider, Message, Section } from "@copilotkit/channels/ui";
 
-## Props
-
-`Divider` takes no props and no children — `<Divider />` is the entire usage. (Passing children is a compile-time error.)
-
-## Usage
-
-```tsx
 <Message>
-  <Section>Open issues</Section>
+  <Section>Summary</Section>
   <Divider />
-  <Section>Closed issues</Section>
-</Message>
+  <Section>Next action</Section>
+</Message>;
 ```
 
-## On Slack
-
-Renders as a `divider` block.
-
-## Related
-
-- [Message](/reference/channels/components/Message) — the containing message
-- [Context](/reference/channels/components/Context) — muted secondary text
+Managed Slack renders a divider block. Adaptive Cards have no standalone rule
+element, so managed Teams renders an empty separated text block to create the
+visual boundary.

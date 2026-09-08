@@ -1,0 +1,29 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / observational-memory. Covers the two suggestion pills (large multi-paragraph messages sized to trip Mastra's Observational Memory token threshold). NOTE: these fixtures drive the ACTOR turn only. The `mastra-observational-memory` activity card is produced by @mastra/memory's OM processor on the run's fullStream (data-om-* chunks) + an out-of-band Observer LLM call — NOT by the mocked chat-completion response. aimock has no lever to force those chunks deterministically, so the e2e asserts only the deterministic subset (page + pills + a completing run). See qa/observational-memory.md and tests/e2e/observational-memory.spec.ts.",
+    "sourceFile": "authored",
+    "created": "2026-07-02"
+  },
+  "fixtures": [
+    {
+      "_comment": "Pill #1 (\"Brief my analytics project\"). Distinctive substring \"Northwind Insights\" scopes to this pill without colliding with feature-parity.json. Actor turn: a concise product-risk summary.",
+      "match": {
+        "userMessage": "Northwind Insights",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Here are the top three product risks for Northwind Insights:\n\n1. Query latency on large date ranges. Slow ClickHouse queries directly threaten your north-star (weekly active dashboards). Mitigation: add pre-aggregated rollup tables for common date grains and cache hot funnel/cohort queries.\n\n2. Onboarding friction driving small-account churn. Heavy setup is pushing out exactly the segment you monetize on volume. Mitigation: ship a guided, template-based funnel builder so a new account sees value in the first session.\n\n3. No alerting when metrics move. Customers can't act on shifts they don't see. Mitigation: bring the roadmap's anomaly detection forward and pair it with simple threshold alerts as a fast first cut."
+      }
+    },
+    {
+      "_comment": "Pill #2 (\"Plan a two-week trip\"). Distinctive substring \"Dolomites\" scopes to this pill. Actor turn: a rough itinerary.",
+      "match": {
+        "userMessage": "Dolomites",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Here's a rough two-week outline for late September in the Dolomites (with an easy Slovenia add-on):\n\nDays 1-4: Base in Ortisei (Val Gardena). Acclimatize with day hikes, then a 2-day hut-to-hut around the Puez-Odle. Family-run guesthouses are easy to find and many kitchens do vegetarian well.\n\nDays 5-8: Base in Cortina d'Ampezzo. Scenic drives over the passes (Giau, Falzarego) plus the Tre Cime loop. Build in one rest day.\n\nDays 9-11: Base in Bolzano. Lower-intensity walks among the vineyards and a thermal-bath rest day at Merano.\n\nDays 12-14: Cross to Lake Bled, Slovenia. A gentler finish with the Vintgar Gorge walk and lake-town food. Fly home from Ljubljana.\n\nShellfish is easy to avoid inland, and vegetarian options are strong throughout."
+      }
+    }
+  ]
+}

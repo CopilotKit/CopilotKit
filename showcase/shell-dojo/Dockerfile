@@ -20,6 +20,17 @@ COPY showcase/shell-dojo/ ./shell-dojo/
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
+# generate-registry.ts imports the catalog cross-join/flatten fold from
+# ../harness/src/shared/catalog/catalog-flatten.js. That file is ESM (relies on
+# the harness package.json's `"type": "module"`) and does `import yaml from
+# "js-yaml"`, resolved by walking up from the harness tree. Stage the fold + the
+# harness package.json for the ESM scope, then point harness/node_modules at the
+# already-installed scripts node_modules so js-yaml (+ its argparse dep) resolve
+# — no second install of the harness package.
+COPY showcase/harness/src/shared/catalog/ ./harness/src/shared/catalog/
+COPY showcase/harness/package.json ./harness/package.json
+RUN ln -s ../scripts/node_modules harness/node_modules
+
 # Generate registry + content, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \

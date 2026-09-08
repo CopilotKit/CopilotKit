@@ -1,35 +1,50 @@
 ---
 title: "CopilotChatView"
-description: "Angular standalone component that renders the chat layout (message feed and input) without agent wiring, the @copilotkit/angular equivalent of React's CopilotChatView"
+description: "Angular standalone component that renders the chat layout without agent wiring"
 ---
 
 ## Overview
 
 `CopilotChatView` is the layout-only chat view. It renders the message feed, the input container, the feather effect, the disclaimer, the suggestion pills, and a welcome screen when there are no messages. It does not wire an agent on its own. You pass it `messages` and read interaction handlers from the surrounding `ChatState`.
 
-This is the Angular equivalent of React's `<CopilotChatView>`. Contrast it with [`CopilotChat`](/reference/angular/components/CopilotChat): `CopilotChat` wires the agent (resolving messages, running state, suggestions, and submission) and renders `CopilotChatView` underneath, while `CopilotChatView` is presentational. Use it directly when you manage messages and handlers yourself, or when you need deep control over the layout and its slots.
+[`CopilotChat`](/reference/angular/components/CopilotChat) wires the agent, messages, running state, suggestions, and submission, then renders `CopilotChatView`. Use `CopilotChatView` directly when you manage those values and handlers, or when you need full control over the layout and its slots.
 
-Almost every visual piece is a slot. Each slot accepts either a component class (`*Component`) or an Angular template (`*Template`), plus an optional class string (`*Class`).
+The active slot inputs accept a component class (`*Component`) or an Angular template (`*Template`). The template takes precedence when both are set.
 
 ## Usage
 
-`CopilotChatView` is a standalone component with the selector `copilot-chat-view`. Import the class into your component's `imports` array and use the element in the template.
+`CopilotChatView` is a standalone component with the selector `copilot-chat-view`. Its default input needs a `ChatState` provider. The example below supplies one.
 
 ```ts title="src/app/chat.component.ts"
-import { Component, signal } from "@angular/core";
-import { CopilotChatView } from "@copilotkit/angular";
+import { Component, forwardRef, signal } from "@angular/core";
+import { ChatState, CopilotChatView } from "@copilotkit/angular";
 import type { Message } from "@ag-ui/client";
 
 @Component({
   selector: "app-chat",
   standalone: true,
   imports: [CopilotChatView],
+  providers: [
+    {
+      provide: ChatState,
+      useExisting: forwardRef(() => ChatComponent),
+    },
+  ],
   template: `
     <copilot-chat-view [messages]="messages()" [autoScroll]="true" />
   `,
 })
-export class ChatComponent {
-  messages = signal<Message[]>([]);
+export class ChatComponent extends ChatState {
+  readonly messages = signal<Message[]>([]);
+  readonly inputValue = signal("");
+
+  submitInput(value: string) {
+    // Send the message through your chat state owner.
+  }
+
+  changeInput(value: string) {
+    this.inputValue.set(value);
+  }
 }
 ```
 
@@ -39,6 +54,10 @@ export class ChatComponent {
 
 <PropertyReference name="messages" type="Message[]" default="[]">
   The messages to render in the feed. When empty (and no explicit thread is selected), the welcome screen is shown instead.
+</PropertyReference>
+
+<PropertyReference name="state" type="unknown" default="{}">
+  Current agent state passed to message-list child content.
 </PropertyReference>
 
 <PropertyReference name="agentId" type="string">
@@ -59,7 +78,7 @@ export class ChatComponent {
 
 ### Slot inputs
 
-Each visual region exposes a component override, a template override, and a class. The template takes precedence over the component when both are set.
+The view forwards message, input, scroll-button, input-container, feather, and disclaimer slots.
 
 <PropertyReference name="messageViewComponent" type="Type<any>">
   Component class to render the message list. Pair with `messageViewClass` to style it, or use `messageViewTemplate` for a template.
@@ -73,16 +92,44 @@ Each visual region exposes a component override, a template override, and a clas
   Class applied to the message list.
 </PropertyReference>
 
-<PropertyReference name="scrollViewComponent" type="Type<any>">
-  Component class for the scrolling container around the message list.
+<Callout type="warn">
+  The current release declares `scrollViewComponent`, `scrollViewTemplate`, and `scrollViewClass`, but the default layout always uses its built-in scroll view. Use `customLayout` when you need to replace it.
+</Callout>
+
+<PropertyReference name="assistantMessageComponent" type="Type<any>">
+  Component class used for assistant messages.
 </PropertyReference>
 
-<PropertyReference name="scrollViewTemplate" type="TemplateRef<any>">
-  Template for the scrolling container.
+<PropertyReference name="assistantMessageTemplate" type="TemplateRef<any>">
+  Template used for assistant messages. Takes precedence over `assistantMessageComponent`.
 </PropertyReference>
 
-<PropertyReference name="scrollViewClass" type="string">
-  Class applied to the scrolling container.
+<PropertyReference name="assistantMessageClass" type="string">
+  CSS classes forwarded to assistant messages.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageComponent" type="Type<any>">
+  Component class used for reasoning messages.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageTemplate" type="TemplateRef<any>">
+  Template used for reasoning messages. Takes precedence over `reasoningMessageComponent`.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageClass" type="string">
+  CSS classes forwarded to reasoning messages.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenComponent" type="Type<any>">
+  Component rendered after the message list and before the cursor.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenTemplate" type="TemplateRef<any>">
+  Template rendered after the message list. Takes precedence over `messageViewChildrenComponent`.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenClass" type="string">
+  CSS classes forwarded to the message-list children slot.
 </PropertyReference>
 
 <PropertyReference name="scrollToBottomButtonComponent" type="Type<any>">
@@ -125,9 +172,9 @@ Each visual region exposes a component override, a template override, and a clas
   Template for the feather effect.
 </PropertyReference>
 
-<PropertyReference name="featherClass" type="string">
-  Class applied to the feather effect.
-</PropertyReference>
+<Callout type="warn">
+  `featherClass` is declared but the current release does not pass its string value to the feather slot. Use a feather component or template to style that region.
+</Callout>
 
 <PropertyReference name="disclaimerComponent" type="Type<any>">
   Component class for the disclaimer shown beneath the input.
@@ -147,7 +194,7 @@ Each visual region exposes a component override, a template override, and a clas
 
 ## Outputs
 
-`CopilotChatView` bubbles message-level interaction events from the message feed. Each payload is an object with the relevant `message`.
+`CopilotChatView` bubbles assistant-message actions from the message feed. Each payload is an object with the relevant `message`.
 
 <PropertyReference name="assistantMessageThumbsUp" type="{ message: Message }">
   Emitted when the thumbs-up action is triggered on an assistant message.
@@ -165,82 +212,66 @@ Each visual region exposes a component override, a template override, and a clas
   Emitted when the regenerate action is triggered on an assistant message.
 </PropertyReference>
 
-<PropertyReference name="userMessageCopy" type="{ message: Message }">
-  Emitted when the copy action is triggered on a user message.
-</PropertyReference>
-
-<PropertyReference name="userMessageEdit" type="{ message: Message }">
-  Emitted when the edit action is triggered on a user message.
-</PropertyReference>
+<Callout type="warn">
+  The current release declares `userMessageCopy` and `userMessageEdit`, but the default message view does not emit them.
+</Callout>
 
 ## Content projection
 
-Beyond the slot inputs, `CopilotChatView` reads named templates from content projection (via `@ContentChild`) for deep customization. Provide them as `<ng-template>` elements with the matching reference variable inside `<copilot-chat-view>`.
+`CopilotChatView` supports one active projected template named `customLayout`.
 
 <PropertyReference name="customLayout" type="TemplateRef<CopilotChatViewLayoutContext>">
-  Replaces the entire default layout (render-prop pattern). Receives a context object with the resolved slots: `messageView`, `input`, `scrollView`, `scrollToBottomButton`, `feather`, `inputContainer`, and `disclaimer`.
+  Replaces the entire default layout. The template has named context values for the configured `messageView`, `input`, `scrollView`, `scrollToBottomButton`, `feather`, `inputContainer`, and `disclaimer` slots. A value can be undefined when you did not configure that slot.
 </PropertyReference>
 
-<PropertyReference name="sendButton" type="TemplateRef<any>">
-  Custom send button passed down to the input.
-</PropertyReference>
-
-<PropertyReference name="toolbar" type="TemplateRef<any>">
-  Custom input toolbar.
-</PropertyReference>
-
-<PropertyReference name="textArea" type="TemplateRef<any>">
-  Custom textarea for the input.
-</PropertyReference>
-
-<PropertyReference name="audioRecorder" type="TemplateRef<any>">
-  Custom audio recorder for transcription mode.
-</PropertyReference>
-
-<PropertyReference name="assistantMessageMarkdownRenderer" type="TemplateRef<any>">
-  Custom markdown renderer for assistant messages.
-</PropertyReference>
-
-<PropertyReference name="thumbsUpButton" type="TemplateRef<any>">
-  Custom thumbs-up button on assistant messages.
-</PropertyReference>
-
-<PropertyReference name="thumbsDownButton" type="TemplateRef<any>">
-  Custom thumbs-down button on assistant messages.
-</PropertyReference>
-
-<PropertyReference name="readAloudButton" type="TemplateRef<any>">
-  Custom read-aloud button on assistant messages.
-</PropertyReference>
-
-<PropertyReference name="regenerateButton" type="TemplateRef<any>">
-  Custom regenerate button on assistant messages.
-</PropertyReference>
+<Callout type="warn">
+  The class declares projected templates for input buttons and assistant-message parts, but the current release does not forward them. Configure those parts through `inputComponent`, the message slot inputs, or a custom layout.
+</Callout>
 
 ### Custom layout example
 
 ```ts title="src/app/chat.component.ts"
-import { Component, signal } from "@angular/core";
-import { CopilotChatView } from "@copilotkit/angular";
+import { Component, forwardRef, signal } from "@angular/core";
+import {
+  ChatState,
+  CopilotChatInput,
+  CopilotChatMessageView,
+  CopilotChatView,
+} from "@copilotkit/angular";
 import type { Message } from "@ag-ui/client";
 
 @Component({
   selector: "app-chat",
   standalone: true,
-  imports: [CopilotChatView],
+  imports: [CopilotChatInput, CopilotChatMessageView, CopilotChatView],
+  providers: [
+    {
+      provide: ChatState,
+      useExisting: forwardRef(() => ChatComponent),
+    },
+  ],
   template: `
     <copilot-chat-view [messages]="messages()">
-      <ng-template #customLayout let-ctx>
+      <ng-template #customLayout>
         <div class="my-layout">
-          <ng-container [ngTemplateOutlet]="ctx.messageView" />
-          <ng-container [ngTemplateOutlet]="ctx.input" />
+          <copilot-chat-message-view [messages]="messages()" />
+          <copilot-chat-input />
         </div>
       </ng-template>
     </copilot-chat-view>
   `,
 })
-export class ChatComponent {
-  messages = signal<Message[]>([]);
+export class ChatComponent extends ChatState {
+  readonly messages = signal<Message[]>([]);
+  readonly inputValue = signal("");
+
+  submitInput(value: string) {
+    // Send the message through your chat state owner.
+  }
+
+  changeInput(value: string) {
+    this.inputValue.set(value);
+  }
 }
 ```
 

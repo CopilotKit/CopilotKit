@@ -1,6 +1,6 @@
 /**
  * Standalone verification of the app-only Graph channel-file chain — the exact
- * sequence `@copilotkit/channels-teams` runs in a channel, WITHOUT the bot, a tunnel,
+ * sequence the CopilotKit Channels Teams integration runs in a channel, WITHOUT the bot, a tunnel,
  * an Azure Bot resource, or Chromium. Use it to prove the permission model in a
  * tenant where YOU are the admin (e.g. a free Microsoft 365 Developer sandbox)
  * before asking your real org's admin to consent.

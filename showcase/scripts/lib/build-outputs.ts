@@ -3,7 +3,7 @@
  * emitted by `showcase_build.yml`. Each matrix slot in the build job
  * uploads a per-slot artifact named `build-result-<dispatch_name>`
  * containing a single `result.json` payload of the shape
- * `{service: "<dispatch_name>", status: "success"|"failure"|"skipped"}`.
+ * `{service: "<dispatch_name>", status: "success"|"failure"|"cancelled"|"skipped"}`.
  * The aggregate-build-results job downloads every `build-result-*`
  * artifact and merges the payloads via `mergeBuildResultFiles` below;
  * the resulting array is uploaded as the canonical `build-results`
@@ -23,7 +23,23 @@
 // Since `BuildOutcome` is derived from this tuple there is no separate
 // union that could drift out of sync — no redundant exhaustiveness
 // assertion is needed.
-const BUILD_OUTCOMES = ["success", "failure", "skipped"] as const;
+//
+// `cancelled` is DISTINCT from `skipped` on purpose. `job.status` for a
+// matrix slot is one of success|failure|cancelled, and the build job used
+// to normalize cancelled→skipped before writing its per-slot result.
+// That laundering is what made build run 30162773601 ship silently: five
+// slots were killed by `timeout-minutes` (GitHub reports a timeout kill
+// as conclusion `cancelled`), the rest built and were redeployed to
+// staging, and nothing downstream could tell that from a clean build.
+// GitHub's own status functions cannot recover the distinction either —
+// `cancelled()` is documented as "returns true if the workflow was
+// canceled" (workflow-scoped; empirically FALSE for leg-only cancels)
+// and a cancelled ancestor is not a FAILED ancestor so `failure()` is
+// false too. So the per-slot status is the ONLY place the signal exists,
+// and it must not be thrown away here. `skipped` is retained in the
+// union for forward/backward compatibility with any `build-results`
+// artifact written before this change.
+const BUILD_OUTCOMES = ["success", "failure", "cancelled", "skipped"] as const;
 
 export type BuildOutcome = (typeof BUILD_OUTCOMES)[number];
 
@@ -74,7 +90,7 @@ function validateServiceBuildResult(
     !VALID_STATUSES.has(status as BuildOutcome)
   ) {
     throw new Error(
-      `${contextLabel}: invalid "status" (must be success|failure|skipped): ${JSON.stringify(raw)}`,
+      `${contextLabel}: invalid "status" (must be ${BUILD_OUTCOMES.join("|")}): ${JSON.stringify(raw)}`,
     );
   }
   return { service: trimmedService, status: status as BuildOutcome };
@@ -105,6 +121,23 @@ export function successSet(results: ServiceBuildResult[]): string[] {
 }
 
 /**
+ * Services whose build slot was CANCELLED — in practice a slot killed by
+ * its `timeout-minutes` budget (GitHub reports a timeout kill as job
+ * conclusion `cancelled`, and Depot surfaces it as "Step canceled by
+ * GitHub"), or a slot caught in a run-level cancellation.
+ *
+ * This is the signal that makes a partially-cancelled fleet build
+ * distinguishable from a clean one. A cancelled slot pushed NO image, so
+ * it is correctly absent from `successSet` and never enters the redeploy
+ * CSV — but its absence there is silent, which is exactly how run
+ * 30162773601 redeployed 23 services to staging with 5 slots dead and
+ * emitted no alert. Consumers use this to alert and to red the run.
+ */
+export function cancelledSet(results: ServiceBuildResult[]): string[] {
+  return results.filter((r) => r.status === "cancelled").map((r) => r.service);
+}
+
+/**
  * Canonical artifact-name convention for the per-slot build-result
  * handoff. Each matrix slot in showcase_build.yml uploads exactly one
  * artifact named `build-result-<dispatch_name>` containing a single
@@ -127,7 +160,7 @@ export function buildResultArtifactName(service: string): string {
  * Merge a list of per-slot result.json payloads (raw strings, one per
  * matrix slot's uploaded artifact) into a single ServiceBuildResult[].
  * Each payload MUST be a JSON object with `service: string` and
- * `status: success|failure|skipped`. The merge is order-preserving so
+ * `status: success|failure|cancelled|skipped`. The merge is order-preserving so
  * downstream consumers can rely on stable iteration.
  *
  * Fails loud on duplicate `service` names across slots: a duplicate

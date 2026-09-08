@@ -5,7 +5,7 @@ description: "Angular standalone component that renders a single assistant messa
 
 ## Overview
 
-`CopilotChatAssistantMessage` renders one assistant message. It shows the message content through a markdown renderer, renders any tool calls attached to the message, and shows a toolbar with copy, thumbs up/down, read-aloud, and regenerate actions. It mirrors React's `CopilotChatAssistantMessage`.
+`CopilotChatAssistantMessage` renders one assistant message. It shows the message content through a markdown renderer, renders attached tool calls, and shows a toolbar with copy, thumbs up/down, read-aloud, and regenerate actions.
 
 The toolbar appears only when the message has non-empty text content. The copy button always renders; the thumbs up and thumbs down buttons render when you provide a custom slot for them or when a thumbs handler is available from a surrounding [`CopilotChatView`](/reference/angular/components/CopilotChatView). The read-aloud and regenerate buttons render only when you provide a custom slot for them.
 
@@ -25,11 +25,7 @@ import type { AssistantMessage } from "@ag-ui/client";
   standalone: true,
   imports: [CopilotChatAssistantMessage],
   template: `
-    <copilot-chat-assistant-message
-      [message]="message()"
-      (thumbsUp)="onThumbsUp($event)"
-      (regenerate)="onRegenerate($event)"
-    />
+    <copilot-chat-assistant-message [message]="message()" />
   `,
 })
 export class AssistantComponent {
@@ -38,14 +34,6 @@ export class AssistantComponent {
     role: "assistant",
     content: "Hello, how can I help?",
   });
-
-  onThumbsUp(event: { message: AssistantMessage }) {
-    console.log("liked", event.message.id);
-  }
-
-  onRegenerate(event: { message: AssistantMessage }) {
-    console.log("regenerate", event.message.id);
-  }
 }
 ```
 
@@ -75,13 +63,9 @@ export class AssistantComponent {
   A template appended to the end of the default toolbar, after the built-in buttons.
 </PropertyReference>
 
-<PropertyReference name="inputClass" type="string">
-  Extra CSS classes merged onto the message container.
-</PropertyReference>
-
 ### Slot class inputs
 
-Each of these passes extra CSS classes to the corresponding default sub-component.
+The current release applies `markdownRendererClass`, `toolbarClass`, and `copyButtonClass` to their default parts.
 
 <PropertyReference name="markdownRendererClass" type="string">
   Classes for the default markdown renderer.
@@ -95,25 +79,9 @@ Each of these passes extra CSS classes to the corresponding default sub-componen
   Classes for the default copy button.
 </PropertyReference>
 
-<PropertyReference name="thumbsUpButtonClass" type="string">
-  Classes for the default thumbs-up button.
-</PropertyReference>
-
-<PropertyReference name="thumbsDownButtonClass" type="string">
-  Classes for the default thumbs-down button.
-</PropertyReference>
-
-<PropertyReference name="readAloudButtonClass" type="string">
-  Classes for the default read-aloud button.
-</PropertyReference>
-
-<PropertyReference name="regenerateButtonClass" type="string">
-  Classes for the default regenerate button.
-</PropertyReference>
-
-<PropertyReference name="toolCallsViewClass" type="string">
-  Classes for the default tool calls view.
-</PropertyReference>
+<Callout type="warn">
+  `inputClass`, the thumbs, read-aloud, regenerate class inputs, and `toolCallsViewClass` are declared but do not affect rendering in the current release. Use component or template overrides for those parts.
+</Callout>
 
 ### Slot component inputs
 
@@ -154,19 +122,19 @@ Each of these replaces the corresponding default sub-component with a component 
 ## Outputs
 
 <PropertyReference name="thumbsUp" type="CopilotChatAssistantMessageOnThumbsUpProps">
-  Emitted when the thumbs-up button is clicked. The payload is `{ message: AssistantMessage }`.
+  Emitted when a configured thumbs-up component or template is clicked. The payload is `{ message: AssistantMessage }`.
 </PropertyReference>
 
 <PropertyReference name="thumbsDown" type="CopilotChatAssistantMessageOnThumbsDownProps">
-  Emitted when the thumbs-down button is clicked. The payload is `{ message: AssistantMessage }`.
+  Emitted when a configured thumbs-down component or template is clicked. The payload is `{ message: AssistantMessage }`.
 </PropertyReference>
 
 <PropertyReference name="readAloud" type="CopilotChatAssistantMessageOnReadAloudProps">
-  Emitted when the read-aloud button is clicked. The payload is `{ message: AssistantMessage }`.
+  Emitted when a configured read-aloud component or template is clicked. The payload is `{ message: AssistantMessage }`.
 </PropertyReference>
 
 <PropertyReference name="regenerate" type="CopilotChatAssistantMessageOnRegenerateProps">
-  Emitted when the regenerate button is clicked. The payload is `{ message: AssistantMessage }`.
+  Emitted when a configured regenerate component or template is clicked. The payload is `{ message: AssistantMessage }`.
 </PropertyReference>
 
 ## Slots and content projection

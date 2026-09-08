@@ -1,7 +1,31 @@
 export * from "./types";
 export * from "./utils";
 export * from "./constants";
-export * from "./telemetry";
+// Telemetry is split deliberately. `TelemetryClient` imports
+// `@segment/analytics-node`, which imports `node-fetch`, which imports the
+// Node built-ins `stream`, `http`, `https` and `zlib`. Browser bundlers
+// resolve the whole module graph before they tree-shake, so re-exporting
+// that module here made every browser build of a dependent package print
+// "Module ... has been externalized for browser compatibility" warnings,
+// even when the consumer never touched telemetry (#4151). Only the
+// browser-safe telemetry surface is re-exported from this entry. Server
+// code that needs the client imports it from `@copilotkit/shared/telemetry`.
+// This mirrors the license-verifier note below.
+export { isTelemetryDisabled } from "./telemetry/telemetry-disabled";
+export * from "./telemetry/sampling";
+export {
+  firstNonBlankTelemetryId,
+  lambdaClient,
+  parseTelemetryIdFromLicense,
+  parseAndWarnTelemetryId,
+} from "./telemetry/lambda-client";
+export type { LambdaSendOptions } from "./telemetry/lambda-client";
+// Types only: erased at build time, so they add no runtime edge to
+// `telemetry-client.ts` and therefore none to @segment/analytics-node.
+export type {
+  TelemetryCapture,
+  TelemetryIdentity,
+} from "./telemetry/telemetry-client";
 export * from "./debug";
 export * from "./standard-schema";
 export * from "./attachments";
@@ -33,7 +57,10 @@ export type {
 } from "@copilotkit/license-verifier";
 
 import type { LicensePayload } from "@copilotkit/license-verifier";
-import type { RuntimeLicenseStatus } from "./utils/types";
+import type {
+  RuntimeEntitlementResponse,
+  RuntimeLicenseStatus,
+} from "./utils/types";
 
 // LicenseContextValue was dropped from license-verifier's public API in
 // 0.3.0, so it is defined here. The context shape is owned by this package
@@ -44,40 +71,94 @@ import type { RuntimeLicenseStatus } from "./utils/types";
  * Frontend providers create their own context using this shape.
  */
 export interface LicenseContextValue {
-  /** Server-reported license status from the runtime's /info endpoint. Null until known. */
+  /** Effective license status after structured entitlement precedence. Null until known. */
   status: RuntimeLicenseStatus | null;
   /** The license payload if available. Always null on the client; the payload stays server-side. */
   license: LicensePayload | null;
-  /** Whether a specific feature is licensed. Returns true if no licensing is active (no token). */
+  /** Whether a feature is licensed. Ready entitlements override legacy status behavior. */
   checkFeature: (feature: string) => boolean;
-  /** Get a numeric feature limit. Returns null if not applicable. */
+  /** Get a numeric feature limit. Zero means unlimited; null means not applicable. */
   getLimit: (feature: string) => number | null;
 }
 
+/** Read a record value without traversing its prototype chain. */
+function getOwnRecordValue<Value>(
+  record: Readonly<Record<string, Value>>,
+  key: string,
+): Value | undefined {
+  return Object.prototype.hasOwnProperty.call(record, key)
+    ? record[key]
+    : undefined;
+}
+
+/** Legacy UI surfaces that remain available for every active entitlement. */
+function isLegacyUiFeature(feature: string): boolean {
+  return feature === "chat" || feature === "popup" || feature === "sidebar";
+}
+
 /**
- * Client-safe license context factory, driven by the license status the
+ * Client-safe license context factory, driven by the license authority the
  * runtime reports via /info.
  *
- * Features are enabled unless the runtime definitively reports the license
- * as "expired" or "invalid". A null/"none"/"unknown" status fails open
- * (unlicensed = unrestricted, with branding), and "expiring" keeps features
- * on while the provider surfaces a warning banner. Per-feature data is not
- * in /info yet, so checkFeature is uniform across features and getLimit has
- * no limits to report. This is inlined here to avoid importing the full
- * license-verifier bundle (which depends on Node's `crypto`) into browser
- * bundles.
+ * A ready managed entitlement is authoritative in both directions. A ready
+ * active self-hosted entitlement is also authoritative, while an inactive
+ * self-hosted response preserves the legacy signed-license fallback. Active
+ * entitlements supply feature grants and limits; authoritative inactive
+ * entitlements deny every feature and limit. Older runtimes that report only a
+ * status retain the legacy behavior: features are enabled unless the status is
+ * "expired" or "invalid", and no limits are reported. This is inlined here to
+ * avoid importing the full license-verifier bundle (which depends on Node's
+ * `crypto`) into browser bundles.
  */
 export function createLicenseContextValue(
   status: RuntimeLicenseStatus | null | undefined,
+  runtimeEntitlements?: RuntimeEntitlementResponse,
 ): LicenseContextValue {
-  const resolvedStatus = status ?? null;
+  const readyEntitlement =
+    runtimeEntitlements?.status === "ready"
+      ? runtimeEntitlements.entitlement
+      : null;
+  const hasUsableSelfHostedLegacyFallback =
+    readyEntitlement &&
+    !readyEntitlement.active &&
+    readyEntitlement.source === "selfHostedDeploymentLicense" &&
+    (status === "valid" || status === "expiring");
+  const featureAuthority =
+    readyEntitlement && !hasUsableSelfHostedLegacyFallback
+      ? readyEntitlement
+      : null;
+  const activeEntitlement = featureAuthority?.active ? featureAuthority : null;
+  const resolvedStatus = activeEntitlement
+    ? "valid"
+    : readyEntitlement?.source === "managedOrgSubscription" ||
+        readyEntitlement?.source === "awsMarketplaceDeploymentLicense"
+      ? "none"
+      : featureAuthority
+        ? (status ?? "none")
+        : (status ?? null);
   const featuresEnabled =
     resolvedStatus !== "expired" && resolvedStatus !== "invalid";
+
   return {
     status: resolvedStatus,
     license: null,
-    checkFeature: () => featuresEnabled,
-    getLimit: () => null,
+    checkFeature: (feature) =>
+      featureAuthority
+        ? activeEntitlement
+          ? feature === "threads" &&
+            Object.prototype.hasOwnProperty.call(
+              activeEntitlement.limits,
+              "threads.max_count",
+            )
+            ? true
+            : (getOwnRecordValue(activeEntitlement.features, feature) ??
+              isLegacyUiFeature(feature))
+          : false
+        : featuresEnabled,
+    getLimit: (feature) =>
+      activeEntitlement
+        ? (getOwnRecordValue(activeEntitlement.limits, feature) ?? null)
+        : null,
   };
 }
 

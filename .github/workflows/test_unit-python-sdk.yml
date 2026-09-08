@@ -32,18 +32,34 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        # The declared floor and the newest release, across every supported
+        # Python. Covering the floor in CI is what lets the runtime floor stay
+        # at 0.0.42: raising it for test coverage alone would also raise the
+        # effective LangGraph floor from >=0.3.25 to >=0.6.0 for every
+        # consumer.
+        ag-ui-langgraph-version: ["0.0.42", "0.0.44"]
+        # 0.0.43 is the one still-supported version whose clone() forwards
+        # its behavior flags unconditionally, so it is the only leg that
+        # reproduces the default-construction 500 this shim fixes. 0.0.44's
+        # clone() is signature-aware and omits default-valued flags, which
+        # means the clone tests pass there even without the passthrough. One
+        # representative Python is enough for a regression leg; the flag
+        # forwarding it exercises is not version-specific.
+        include:
+          - python-version: "3.12"
+            ag-ui-langgraph-version: "0.0.43"
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install Poetry
-        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a # v1.4.1
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
         with:
           version: latest
           virtualenvs-create: true
@@ -52,6 +68,15 @@ jobs:
       - name: Install dependencies
         working-directory: sdk-python
         run: poetry lock && poetry install --with dev
+
+      - name: Pin ag-ui-langgraph for this matrix leg
+        working-directory: sdk-python
+        # Installed after the lock resolve rather than by editing pyproject, so
+        # the declared floor stays untouched and only the installed version
+        # varies across legs.
+        run: |
+          poetry run pip install "ag-ui-langgraph[fastapi]==${{ matrix.ag-ui-langgraph-version }}"
+          poetry run python -c "import importlib.metadata as m; print('ag-ui-langgraph', m.version('ag-ui-langgraph'))"
 
       - name: Run tests
         working-directory: sdk-python

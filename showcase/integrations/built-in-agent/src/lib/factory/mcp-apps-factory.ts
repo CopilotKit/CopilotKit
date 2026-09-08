@@ -1,5 +1,5 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
-import { chat } from "@tanstack/ai";
+import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 // @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
@@ -9,6 +9,8 @@ import { openaiText } from "@tanstack/ai-openai";
 import { forwardingFetch } from "../header-forwarding";
 // @doc-as
 // @doc-end
+import { jsonSchemaToZod } from "./tanstack-factory";
+import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
 const MCP_APPS_SYSTEM_PROMPT = `\
 You draw simple diagrams in Excalidraw via the MCP \`create_view\` tool.
@@ -33,25 +35,40 @@ make multiple \`create_view\` calls, do NOT iterate or refine.`;
 /**
  * Built-in agent for the MCP Apps demo.
  *
- * No bespoke tools — the runtime's `mcpApps.servers` config auto-applies the
- * MCP Apps middleware which exposes the remote MCP server's tools at
- * request time.
+ * The runtime's `mcpApps.servers` config makes `MCPAppsMiddleware` fetch the
+ * remote MCP server's tools and merge them into `input.tools` at request
+ * time. We MUST declare those tools to `chat()`, or the model never sees
+ * `create_view` and replies with plain text instead of rendering the
+ * Excalidraw view.
+ *
+ * Tools are declared via `toolDefinition()` (same pattern as
+ * `tanstack-factory.ts`) rather than reusing `convertInputToTanStackAI`'s
+ * `tools`, because that field only exists in @copilotkit/runtime >= 1.61.0
+ * and this app pins 1.60.2.
  */
 export function createMcpAppsAgent() {
   return new BuiltInAgent({
     type: "tanstack",
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
+      const tools = (input.tools ?? []).map((t) =>
+        toolDefinition({
+          name: t.name,
+          description: t.description ?? "",
+          inputSchema: jsonSchemaToZod(t.parameters),
+        }),
+      );
       return chat({
         // @doc-replace
-        adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         // @doc-as
-        // adapter: openaiText("gpt-4o-mini"),
+        // adapter: openaiText("gpt-5.4"),
         // @doc-end
         messages,
         systemPrompts: [MCP_APPS_SYSTEM_PROMPT, ...systemPrompts],
-        tools: [],
+        tools,
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
     },
   });

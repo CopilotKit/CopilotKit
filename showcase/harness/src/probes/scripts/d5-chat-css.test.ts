@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
@@ -7,8 +8,8 @@ import {
   validateChatCss,
   USER_BUBBLE_SELECTOR,
   ASSISTANT_BUBBLE_SELECTOR,
-  type ChatCssProbeResult,
 } from "./d5-chat-css.js";
+import type { ChatCssProbeResult } from "./d5-chat-css.js";
 
 function makePage(probe: unknown, opts: { throwOnWait?: boolean } = {}): Page {
   return {
@@ -73,6 +74,9 @@ describe("d5-chat-css script", () => {
     const turns = buildTurns(ctx);
     expect(turns).toHaveLength(1);
     expect(turns[0]!.input).toBe("verify the css theme rendering");
+    expect(turns[0]!.completeOnMount).toEqual({
+      testIds: ["copilot-assistant-message"],
+    });
   });
 
   it("exposes the bubble selectors", () => {

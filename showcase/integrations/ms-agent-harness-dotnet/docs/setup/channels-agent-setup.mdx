@@ -1,0 +1,29 @@
+Follow the
+[Microsoft Agent Harness .NET quickstart](/ms-agent-harness-dotnet/quickstart)
+to configure your agent. Keep its AG-UI server running on
+`http://localhost:8000`: the CLI starter's `agent` project or the
+**Use an existing agent** path's `AGUIServer` project.
+
+The shared Microsoft agent is mapped at the server root:
+
+```dotenv title=".env"
+AGENT_URL=http://localhost:8000/
+```
+
+Install the HTTP adapter in the Channels process:
+
+```bash title="Terminal"
+npm install @ag-ui/client@0.0.57
+```
+
+Create a new HTTP adapter for every channel thread:
+
+```ts title="agent.ts"
+import { HttpAgent } from "@ag-ui/client";
+
+export function makeAgent(threadId: string) {
+  const agent = new HttpAgent({ url: process.env.AGENT_URL! });
+  agent.threadId = threadId;
+  return agent;
+}
+```

@@ -1,0 +1,78 @@
+Follow the [Mastra quickstart](/mastra/quickstart) and keep that application
+running with its existing command:
+
+```bash title="Mastra application"
+npm run dev
+```
+
+Mastra's current Next.js example exposes CopilotKit's single-route protocol,
+not a URL that `HttpAgent` can call directly. Add this one multi-route bridge
+beside the existing route. It reuses the quickstart's registered `myAgent` while
+creating a request-scoped adapter for each incoming thread:
+
+```ts title="src/app/api/copilotkit/[...path]/route.ts"
+import { getLocalAgent } from "@ag-ui/mastra";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { mastra } from "@/mastra";
+
+const runtime = new CopilotRuntime({
+  agents: async ({ request }) => {
+    const input =
+      request.method === "POST"
+        ? await request
+            .clone()
+            .json()
+            .catch(() => ({}) as { threadId?: string })
+        : ({} as { threadId?: string });
+    const threadId =
+      typeof input.threadId === "string" ? input.threadId : "channels-info";
+
+    return {
+      myAgent: getLocalAgent({
+        mastra,
+        agentId: "myAgent",
+        resourceId: threadId,
+      }),
+    };
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+export const GET = handler;
+export const POST = handler;
+export const OPTIONS = handler;
+```
+
+The standalone Channels runner calls the bridge's concrete agent-run route:
+
+```dotenv title=".env"
+AGENT_URL=http://localhost:3000/api/copilotkit/agent/myAgent/run
+```
+
+If you registered a different Mastra agent id, replace `myAgent` in both the
+bridge and URL with that exact id.
+
+Install the HTTP adapter in the Channels runner and create a fresh client for
+each channel thread:
+
+```bash title="Channels runner"
+npm install @ag-ui/client@0.0.57
+```
+
+```ts title="agent.ts"
+import { HttpAgent } from "@ag-ui/client";
+
+export function makeAgent(threadId: string) {
+  const agent = new HttpAgent({ url: process.env.AGENT_URL! });
+  agent.threadId = threadId;
+  return agent;
+}
+```

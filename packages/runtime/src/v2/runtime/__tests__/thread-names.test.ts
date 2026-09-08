@@ -161,6 +161,17 @@ describe("buildThreadTitlePrompt", () => {
     expect(result).toContain("assistant: It is sunny today.");
   });
 
+  it("places the title task after the transcript", () => {
+    const result = buildThreadTitlePrompt([
+      msg("user", "Explain gravity in one short sentence."),
+    ])!;
+
+    expect(result.indexOf("user: Explain gravity")).toBeLessThan(
+      result.indexOf("Generate a short title"),
+    );
+    expect(result).toContain("Do not answer the conversation");
+  });
+
   it("filters out tool role messages", () => {
     const messages = [
       msg("user", "Search for cats"),

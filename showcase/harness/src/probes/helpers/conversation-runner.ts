@@ -28,6 +28,8 @@
  */
 
 import type { Page as PlaywrightPage } from "playwright";
+
+import { conversationFailureSummary } from "./privacy-safe-diagnostics.js";
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
   ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
@@ -391,6 +393,13 @@ export interface ConversationTurn {
    */
   responseTimeoutMs?: number;
   /**
+   * Lifecycle signal used to settle this turn. `"auto"` trusts the chat
+   * surface's DOM run lifecycle when available. `"sse"` is an explicit
+   * opt-in for suspend/resume turns whose interrupt boundary does not advance
+   * that DOM generation; it requires a new SSE RUN_FINISHED after send.
+   */
+  completionSignal?: "auto" | "sse";
+  /**
    * Surface-mount completion criterion (OPT-IN). When set, this turn is
    * considered complete on `run-finished + a new assistant bubble + the
    * named render-surface testids mounting` — INSTEAD OF requiring the
@@ -414,11 +423,19 @@ export interface ConversationTurn {
    *
    *   - `testIds`: every render-surface testid that MUST be present in the
    *     DOM for the surface to count as mounted (conjunctive — `every`).
-   *   - `minNewMounts`: minimum number of testids (from `testIds`) that must
-   *     be NEWLY mounted vs. the pre-send baseline (default 1). The runner
-   *     snapshots each testid's count BEFORE sending the turn so a leftover
-   *     surface from a prior turn cannot satisfy completion on its own — at
-   *     least `minNewMounts` of the expected testids must have grown.
+   *   - `selectors`: additional raw CSS selectors that must ALSO be present,
+   *     for surfaces whose contract is not a single testid. A selector may be
+   *     a comma-separated any-of cascade (`'[data-testid="x"], iframe[sandbox]'`)
+   *     — CSS `querySelectorAll` already unions those, so one entry expresses
+   *     "any conforming form of this surface" while the conjunctive semantics
+   *     across ENTRIES stay unchanged. `testIds: ["x"]` is exactly sugar for
+   *     `selectors: ['[data-testid="x"]']`; a spec may set either or both, and
+   *     the two lists are concatenated into one conjunctive surface list.
+   *   - `minNewMounts`: minimum number of surface entries (testids + selectors)
+   *     that must be NEWLY mounted vs. the pre-send baseline (default 1). The
+   *     runner snapshots each entry's count BEFORE sending the turn so a
+   *     leftover surface from a prior turn cannot satisfy completion on its own
+   *     — at least `minNewMounts` of the expected entries must have grown.
    *
    * Turns that DO NOT set `completeOnMount` are unaffected: the third
    * conjunct remains text-stability exactly as before (text-based demos —
@@ -426,7 +443,8 @@ export interface ConversationTurn {
    * semantics). This is a per-turn opt-in, not a global mode change.
    */
   completeOnMount?: {
-    testIds: readonly string[];
+    testIds?: readonly string[];
+    selectors?: readonly string[];
     minNewMounts?: number;
   };
 }
@@ -571,12 +589,37 @@ export async function runConversation(
     console.debug(
       `[conversation-runner] turn ${turnNum}/${total} — sending message`,
       {
-        input: turn.input,
+        inputLength: turn.input.length,
         timeoutMs: turnTimeoutMs,
       },
     );
 
     try {
+      // skipSend baseline hoist: on a `skipSend` turn, `preFill` ITSELF issues
+      // the run (it clicks a sample button that dispatches
+      // `agent.addMessage` + `copilotkit.runAgent`), so the run-start / bubble
+      // baselines MUST be snapshotted BEFORE preFill. A fast in-process runtime
+      // (e.g. built-in-agent) fires RUN_STARTED synchronously during preFill;
+      // capturing `baselineRunStartCount` AFTER preFill (the normal position)
+      // then observes an already-incremented count, making the primary
+      // done-signal gate `runStartCount > baselineRunStartCount` impossible to
+      // satisfy → a healthy turn false-reds with `done-signal-missing`. Slower
+      // runtimes never hit this (RUN_STARTED lands after the capture), so the
+      // pre-preFill snapshot is strictly correct for every runtime. Non-skipSend
+      // turns are unaffected: their `preFill` never starts a run, so the
+      // original post-preFill capture below still reflects only prior-turn runs.
+      let skipSendBaselineCount: number | null = null;
+      let skipSendBaselineRunStartCount: number | null = null;
+      let skipSendBaselineRunsFinished: number | null = null;
+      if (turn.skipSend) {
+        skipSendBaselineCount = await countAssistantMessages(
+          page as unknown as PlaywrightPage,
+        );
+        skipSendBaselineRunStartCount = (await readCopilotRunning(page))
+          .runStartCount;
+        skipSendBaselineRunsFinished = await readRunsFinished(page);
+      }
+
       if (turn.preFill) {
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — running preFill hook`,
@@ -642,9 +685,9 @@ export async function runConversation(
       // sendTurnMessage so the assistant can't have started streaming yet
       // (the user message hasn't been submitted), guaranteeing the
       // snapshot reflects only prior-turn bubbles.
-      const baselineCount = await countAssistantMessages(
-        page as unknown as PlaywrightPage,
-      );
+      const baselineCount =
+        skipSendBaselineCount ??
+        (await countAssistantMessages(page as unknown as PlaywrightPage));
 
       // Multi-step run-start baseline for the PRIMARY DOM done-signal. Snapshot
       // the page-side `runStartCount` BEFORE `sendTurnMessage` — SAME ordering
@@ -656,8 +699,11 @@ export async function runConversation(
       // fast agent fires RUN_STARTED before the settle wait begins (capturing
       // it inside `waitForTurnComplete`, which runs AFTER the send, would be
       // racy and could kill the PRIMARY signal on fast turns).
-      const baselineRunStartCount = (await readCopilotRunning(page))
-        .runStartCount;
+      const baselineRunStartCount =
+        skipSendBaselineRunStartCount ??
+        (await readCopilotRunning(page)).runStartCount;
+      const baselineRunsFinished =
+        skipSendBaselineRunsFinished ?? (await readRunsFinished(page));
 
       // Surface-mount completion (opt-in via `turn.completeOnMount`): snapshot
       // the pre-send testid counts so the settle gate can detect a NEW render
@@ -668,17 +714,21 @@ export async function runConversation(
       // text-stability (unchanged for every text-based demo).
       let surfaceReady: ((page: Page) => Promise<boolean>) | null = null;
       if (turn.completeOnMount) {
-        const baselineTestIds = await readTestIdCounts(
+        const baselineSurfaces = await readSurfaceCounts(
           page,
-          turn.completeOnMount.testIds,
+          surfaceMountEntries(turn.completeOnMount),
         );
-        surfaceReady = buildSurfaceReady(turn.completeOnMount, baselineTestIds);
+        surfaceReady = buildSurfaceReady(
+          turn.completeOnMount,
+          baselineSurfaces,
+        );
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — surface-mount completion armed`,
           {
             testIds: turn.completeOnMount.testIds,
+            selectors: turn.completeOnMount.selectors,
             minNewMounts: turn.completeOnMount.minNewMounts ?? 1,
-            baselineTestIds,
+            baselineSurfaces,
           },
         );
       }
@@ -748,6 +798,8 @@ export async function runConversation(
           baselineBannerText,
           baselineCount,
           baselineRunStartCount,
+          baselineRunsFinished,
+          completionSignal: turn.completionSignal,
           surfaceReady,
         });
       } catch (settleErr) {
@@ -811,7 +863,11 @@ export async function runConversation(
           coldStartRetries++;
           console.warn(
             `[conversation-runner] turn ${turnNum}/${total} — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail`,
-            { error: errorMessage(translatedErr) },
+            {
+              errorCategory: conversationFailureSummary(
+                errorMessage(translatedErr),
+              ),
+            },
           );
           // Reload to clear the transient cold-start banner. Safe on turn 1 —
           // no conversation state exists yet — and the plain-fill re-send below
@@ -861,6 +917,7 @@ export async function runConversation(
           // baseline forward.
           const retryBaselineRunStartCount = (await readCopilotRunning(page))
             .runStartCount;
+          const retryBaselineRunsFinished = await readRunsFinished(page);
           // Re-arm surface-mount completion against the post-reload baseline.
           // page.reload() tore down the DOM, so any prior-turn surface is gone
           // — re-snapshot so the retry's delta gate measures growth from the
@@ -868,13 +925,13 @@ export async function runConversation(
           let retrySurfaceReady: ((page: Page) => Promise<boolean>) | null =
             null;
           if (turn.completeOnMount) {
-            const retryBaselineTestIds = await readTestIdCounts(
+            const retryBaselineSurfaces = await readSurfaceCounts(
               page,
-              turn.completeOnMount.testIds,
+              surfaceMountEntries(turn.completeOnMount),
             );
             retrySurfaceReady = buildSurfaceReady(
               turn.completeOnMount,
-              retryBaselineTestIds,
+              retryBaselineSurfaces,
             );
           }
           await fillAndVerifySend(page, chatInputSelector, turn.input);
@@ -912,6 +969,8 @@ export async function runConversation(
               baselineBannerText: retryBaselineBannerText,
               baselineCount: retryBaselineCount,
               baselineRunStartCount: retryBaselineRunStartCount,
+              baselineRunsFinished: retryBaselineRunsFinished,
+              completionSignal: turn.completionSignal,
               surfaceReady: retrySurfaceReady,
             });
           } catch (retryErr) {
@@ -956,16 +1015,15 @@ export async function runConversation(
           hasAssertions: !!turn.assertions,
         },
       );
-      // Preserve the runner's diagnostic log contract — Phase 0 Task 0.3
-      // / Phase 5 Task 5.1 Step 6 / OPEN ISSUE #4: the bubble-race repro
-      // driver parses `[conversation-runner] turn N/total — settled text
-      // { turnNum, text: '…' }` out of verbose stdout. The settled-text
-      // value is now sourced from `waitForTurnComplete`'s return value
-      // (turn-scoped, cascade-consistent, defect-2 safe) instead of a
-      // separate post-settle `page.evaluate` read.
+      // Emit structural turn metadata only. Prompts and generated response
+      // content are intentionally excluded from CI logs.
       console.debug(
-        `[conversation-runner] turn ${turnNum}/${total} — settled text`,
-        { turnNum, text: settleResult.text.slice(0, 200) },
+        `[conversation-runner] turn ${turnNum}/${total} — settled metadata`,
+        {
+          turnNum,
+          bubbleIndex: settleResult.bubbleIndex,
+          textLength: settleResult.text.length,
+        },
       );
 
       if (turn.assertions) {
@@ -1002,13 +1060,16 @@ export async function runConversation(
               querySelector(s: string): unknown;
             };
           };
-          const bodyText =
-            win.document.body?.innerText?.slice(0, 500) ?? "(no body)";
+          const bodyText = win.document.body?.innerText ?? "";
           const hasTextarea = !!win.document.querySelector("textarea");
           const hasErrorBoundary =
             bodyText.includes("Application error") ||
             bodyText.includes("Internal Server Error");
-          return { bodyText, hasTextarea, hasErrorBoundary };
+          return {
+            bodyTextLength: bodyText.length,
+            hasTextarea,
+            hasErrorBoundary,
+          };
         });
       } catch (diagErr) {
         /* diagnostics are best-effort */
@@ -1026,7 +1087,7 @@ export async function runConversation(
         );
       }
       console.warn(`[conversation-runner] turn ${turnNum}/${total} — FAILED`, {
-        error: errorMessage(err),
+        errorCategory: conversationFailureSummary(errorMessage(err)),
         turnsCompleted: idx,
         elapsedMs: Date.now() - startedAt,
         ...failureDiagnostics,
@@ -1104,43 +1165,72 @@ export async function readUserMessageCount(page: Page): Promise<number> {
 }
 
 /**
- * Read the current DOM count of each `[data-testid="<id>"]` selector in
- * ONE browser-side round-trip. Used by the surface-mount completion path
+ * One entry of the conjunctive surface list: the CSS `selector` actually
+ * counted in the DOM, and the `key` it is reported under (a testid entry keeps
+ * its bare testid as the key so debug logs and baselines stay readable).
+ */
+export interface SurfaceMountEntry {
+  key: string;
+  selector: string;
+}
+
+/**
+ * Flatten a `completeOnMount` spec into the ONE conjunctive entry list the
+ * surface-mount gate measures: each `testIds` entry as `[data-testid="<id>"]`,
+ * followed by each raw `selectors` entry verbatim. Both the baseline snapshot
+ * and the poll predicate derive their list from here, so the two can never
+ * measure different surfaces.
+ */
+export function surfaceMountEntries(spec: {
+  testIds?: readonly string[];
+  selectors?: readonly string[];
+}): SurfaceMountEntry[] {
+  return [
+    ...(spec.testIds ?? []).map((key) => ({
+      key,
+      selector: `[data-testid="${key}"]`,
+    })),
+    ...(spec.selectors ?? []).map((selector) => ({ key: selector, selector })),
+  ];
+}
+
+/**
+ * Read the current DOM count of each surface entry in ONE browser-side
+ * round-trip. Used by the surface-mount completion path
  * (`ConversationTurn.completeOnMount`) to snapshot the pre-send baseline
  * and to poll whether the expected render surface has mounted.
  *
- * Returns a `{ [testId]: count }` map. On any read error every requested
- * testid maps to 0 (same resilience strategy as `countAssistantMessages`
+ * Returns a `{ [entry.key]: count }` map. On any read error every requested
+ * entry maps to 0 (same resilience strategy as `countAssistantMessages`
  * / `readUserMessageCount`) so a transient `page.evaluate` hiccup reads as
  * "surface not mounted yet" rather than throwing out of the settle loop.
  *
- * The selectors are passed as an arg into the browser closure (the real
- * Playwright `Page.evaluate` is variadic — the runner's structural `Page`
- * threads the second arg through `arguments`), so the reader stays generic
- * and the caller (a probe script) owns which testids constitute its
- * surface.
+ * Selectors go verbatim to `querySelectorAll`, so a comma-separated entry
+ * counts the UNION of its branches — that is how a probe expresses "any
+ * conforming form of this surface" as a single conjunctive entry.
  */
-export async function readTestIdCounts(
+export async function readSurfaceCounts(
   page: Page,
-  testIds: readonly string[],
+  entries: readonly SurfaceMountEntry[],
 ): Promise<Record<string, number>> {
-  const ids = [...testIds];
+  const ids = entries.map((e) => e.key);
+  const pairs = entries.map((e) => [e.key, e.selector]);
   try {
     // The selector list is BAKED INTO the closure source via JSON.stringify
     // rather than passed as a `page.evaluate(fn, arg)` argument. The harness
     // worker's `page.evaluate` arg-passing does NOT reliably round-trip the
     // second argument to the browser side (the arg arrives `undefined`), so a
     // captured-arg closure silently reads an empty selector list and reports
-    // every testid as absent — exactly the `baselineTestIds: {}` failure that
+    // every selector as absent — exactly the `baselineTestIds: {}` failure that
     // made the A2UI-declarative surface look unmounted. Inlining the literals
     // matches the established zero-arg convention (`_genuine-shared.ts`'s
     // `clickByJs`, `d5-gen-ui-declarative.ts`'s `readDeclarativeTestIds`).
     const code = `
       (() => {
-        const ids = ${JSON.stringify(ids)};
+        const pairs = ${JSON.stringify(pairs)};
         const out = {};
-        for (const id of ids) {
-          out[id] = document.querySelectorAll('[data-testid="' + id + '"]').length;
+        for (const [key, selector] of pairs) {
+          out[key] = document.querySelectorAll(selector).length;
         }
         return out;
       })()
@@ -1151,7 +1241,7 @@ export async function readTestIdCounts(
     >;
     return await page.evaluate(fn);
   } catch (readErr) {
-    // CVDIAG: surface the previously-silent testid read error. Polled in
+    // CVDIAG: surface the previously-silent surface read error. Polled in
     // the settle loop, so routed through console.debug (still greppable)
     // to avoid flooding warn-level logs on a transient per-poll hiccup.
     // Control flow is unchanged — the caller reads "all zero" and keeps
@@ -1161,7 +1251,7 @@ export async function readTestIdCounts(
         component: "conversation-runner",
         boundary: "inbound",
         status: "error",
-        error: `testid-count read failed: ${errorMessage(readErr).slice(0, 120)}`,
+        error: `surface-count read failed: ${errorMessage(readErr).slice(0, 120)}`,
       }),
     );
     const zero: Record<string, number> = {};
@@ -1172,28 +1262,42 @@ export async function readTestIdCounts(
 
 /**
  * Build a surface-mount completion predicate from a turn's
- * `completeOnMount` spec and the pre-send baseline testid counts. The
- * returned predicate resolves `true` once ALL `testIds` are present in the
- * DOM AND at least `minNewMounts` of them have grown vs. the baseline.
+ * `completeOnMount` spec and the pre-send baseline surface counts. The
+ * returned predicate resolves `true` once EVERY surface entry (testids +
+ * selectors) is present in the DOM AND at least `minNewMounts` of them have
+ * grown vs. the baseline.
  *
  * The "newly mounted" delta gate mirrors the declarative assertion's own
  * leftover guard: A2UI render nodes accumulate across turns, so an
  * absolute-presence check would let a turn complete on a prior turn's
- * leftover surface. Requiring `minNewMounts` of the expected testids to
+ * leftover surface. Requiring `minNewMounts` of the expected entries to
  * grow guarantees THIS turn actually painted something.
  */
 function buildSurfaceReady(
-  spec: { testIds: readonly string[]; minNewMounts?: number },
+  spec: {
+    testIds?: readonly string[];
+    selectors?: readonly string[];
+    minNewMounts?: number;
+  },
   baseline: Record<string, number>,
 ): (page: Page) => Promise<boolean> {
-  const ids = [...spec.testIds];
+  const entries = surfaceMountEntries(spec);
+  // Fail loud: an EMPTY surface list can never satisfy the delta gate, so the
+  // turn would silently burn its whole budget and red as `surface-missing`
+  // with nothing to triage. A spec that names no surface is a probe-authoring
+  // bug — surface it as one, before the turn is even sent.
+  if (entries.length === 0) {
+    throw new Error(
+      "completeOnMount: spec names no surface — set at least one `testIds` or `selectors` entry",
+    );
+  }
   const minNewMounts = spec.minNewMounts ?? 1;
   return async (page: Page): Promise<boolean> => {
-    const current = await readTestIdCounts(page, ids);
-    const allPresent = ids.every((id) => (current[id] ?? 0) > 0);
+    const current = await readSurfaceCounts(page, entries);
+    const allPresent = entries.every((e) => (current[e.key] ?? 0) > 0);
     if (!allPresent) return false;
-    const newlyMounted = ids.filter(
-      (id) => (current[id] ?? 0) > (baseline[id] ?? 0),
+    const newlyMounted = entries.filter(
+      (e) => (current[e.key] ?? 0) > (baseline[e.key] ?? 0),
     ).length;
     return newlyMounted >= minNewMounts;
   };
@@ -1227,7 +1331,7 @@ export async function fillAndVerifySend(
 
   const baseline = await readUserMessageCount(page);
   console.debug("[conversation-runner] fillAndVerifySend — start", {
-    input: input.slice(0, 100),
+    inputLength: input.length,
     selector: chatInputSelector,
     userMessageBaseline: baseline,
     maxAttempts,
@@ -1666,6 +1770,10 @@ export interface WaitForTurnCompleteOpts {
    * the legacy behaviour — so no existing caller breaks.
    */
   baselineRunStartCount?: number;
+  /** Pre-send SSE RUN_FINISHED counter used by `completionSignal: "sse"`. */
+  baselineRunsFinished?: number;
+  /** Lifecycle signal selection; defaults to the DOM-first `"auto"` mode. */
+  completionSignal?: "auto" | "sse";
   /**
    * Surface-mount completion predicate (OPT-IN — set only by the runner
    * when the turn carries `completeOnMount`). When provided, the third
@@ -1905,6 +2013,9 @@ export async function waitForTurnComplete(
   const baselineRunStartCount =
     opts.baselineRunStartCount ??
     (await readCopilotRunning(page)).runStartCount;
+  const baselineRunsFinished =
+    opts.baselineRunsFinished ?? (await readRunsFinished(page));
+  const completionSignal = opts.completionSignal ?? "auto";
   // STAYED-STOPPED quiescence tracking (the temporal guard the comments
   // promise and the gate must actually enforce). A bare `runningNow === false`
   // edge (`sawStopThisTurn`) is INSTANTANEOUS — true at ANY stop edge,
@@ -1952,7 +2063,10 @@ export async function waitForTurnComplete(
     // false-red. Retained as the FALLBACK done-signal for HEADLESS demos
     // (which never render `CopilotChatView`, so `data-copilot-running` is
     // absent), and as a SECONDARY confirmation alongside the DOM signal.
-    const sseOk = runsFinished >= turnIndex;
+    const sseOk =
+      completionSignal === "sse"
+        ? runsFinished > baselineRunsFinished
+        : runsFinished >= turnIndex;
     // PRIMARY done-signal edge — the `data-copilot-running` true→false
     // TRANSITION. Trustworthy ONLY when the attribute is present
     // (`attrPresent`); it is driven directly by the agent run lifecycle
@@ -2017,7 +2131,12 @@ export async function waitForTurnComplete(
     // absent) — never an OR-trigger alongside a present DOM signal. (The SSE
     // counter is monotonic per turn and the headless path has no run-start
     // generations to distinguish, so it carries no transient-edge hazard.)
-    const doneSignalOk = domSignalAvailable ? stopQuiescent : sseOk;
+    const doneSignalOk =
+      completionSignal === "sse"
+        ? sseOk
+        : domSignalAvailable
+          ? stopQuiescent
+          : sseOk;
     // Defect-2 protection: a new bubble has appeared for THIS turn — not
     // just "any bubble exists". `count > baselineCount` rejects a leftover
     // bubble from a prior turn while accepting multi-step turns where >1
@@ -2207,9 +2326,16 @@ export async function waitForTurnComplete(
     runningFinal.sawRunningTrue &&
     runningFinal.runStartCount > baselineRunStartCount &&
     runningFinal.runningNow === false;
-  const doneSignalOkFinal = runningFinal.attrPresent
-    ? sawStopFinal
-    : runsFinishedFinal >= turnIndex;
+  const sseOkFinal =
+    completionSignal === "sse"
+      ? runsFinishedFinal > baselineRunsFinished
+      : runsFinishedFinal >= turnIndex;
+  const doneSignalOkFinal =
+    completionSignal === "sse"
+      ? sseOkFinal
+      : runningFinal.attrPresent
+        ? sawStopFinal
+        : sseOkFinal;
   const domOkFinal = countFinal > baselineCount;
   // Precedence: blame the earliest signal that hadn't arrived. The blamed
   // reason differs by whether the trustworthy DOM run-signal was available.
@@ -2237,11 +2363,11 @@ export async function waitForTurnComplete(
   //   3. The done-signal DID confirm but the third conjunct never settled →
   //      `surface-missing` (surface-mount mode) / `text-unstable`.
   const reason: TurnNotCompleteError["reason"] = !domOkFinal
-    ? !runningFinal.attrPresent && runsFinishedFinal < turnIndex
+    ? (completionSignal === "sse" || !runningFinal.attrPresent) && !sseOkFinal
       ? "sse-missing"
       : "dom-missing"
     : !doneSignalOkFinal
-      ? runningFinal.attrPresent
+      ? runningFinal.attrPresent && completionSignal !== "sse"
         ? "done-signal-missing"
         : "sse-missing"
       : surfaceReady !== null

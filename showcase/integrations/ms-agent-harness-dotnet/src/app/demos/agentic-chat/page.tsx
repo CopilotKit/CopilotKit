@@ -14,11 +14,9 @@ export default function AgenticChatDemo() {
   );
 }
 
-// @region[chat-component]
 function Chat() {
   useAgenticChatSuggestions();
   // @region[render-chat]
   return <CopilotChat agentId="agentic_chat" />;
   // @endregion[render-chat]
 }
-// @endregion[chat-component]

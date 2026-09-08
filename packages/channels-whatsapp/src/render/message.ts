@@ -1,4 +1,4 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { markdownToWhatsApp } from "../markdown-to-wa.js";
 import { WA_LIMITS, truncateText, clampArray } from "./budget.js";
 
@@ -51,7 +51,7 @@ interface Action {
 const VALUE_ONLY_ID = "wa:choice";
 
 /**
- * Lower `BotNode[]` IR to Cloud API payload(s).
+ * Lower `ChannelNode[]` IR to Cloud API payload(s).
  *
  * Strategy: collect (a) the prose text from text/section/header/markdown/
  * fields/table/context/divider nodes, and (b) actionable controls from
@@ -62,7 +62,7 @@ const VALUE_ONLY_ID = "wa:choice";
  *   - >10 actions           → numbered text menu (degraded).
  * Image nodes always emit their own image payload.
  */
-export function renderWhatsAppMessage(ir: BotNode[]): WhatsAppOutbound[] {
+export function renderWhatsAppMessage(ir: ChannelNode[]): WhatsAppOutbound[] {
   const out: WhatsAppOutbound[] = [];
   const prose: string[] = [];
   const actions: Action[] = [];
@@ -88,11 +88,11 @@ export function renderWhatsAppMessage(ir: BotNode[]): WhatsAppOutbound[] {
       return;
     }
     if (typeof children === "object" && "type" in (children as object)) {
-      visitNode(children as BotNode);
+      visitNode(children as ChannelNode);
     }
   };
 
-  const visitNode = (n: BotNode): void => {
+  const visitNode = (n: ChannelNode): void => {
     const t = typeof n.type === "string" ? n.type : "";
     switch (t) {
       case "text": {
@@ -284,7 +284,7 @@ function textOf(children: unknown): string {
   if (typeof children === "string") return children;
   if (typeof children === "number") return String(children);
   if (Array.isArray(children)) return children.map(textOf).join("");
-  const node = children as BotNode;
+  const node = children as ChannelNode;
   if (node && typeof node === "object" && "props" in node) {
     const props = node.props as Record<string, unknown>;
     if (

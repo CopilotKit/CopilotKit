@@ -13,9 +13,6 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod4/v4";
 import type { ZodTypeAny } from "zod4/v4";
 
-const COPILOTKIT_MCP_SERVER_NAME = "copilotkit";
-const COPILOTKIT_TOOL_PREFIX = `mcp__${COPILOTKIT_MCP_SERVER_NAME}__`;
-
 type Emit = (event: BaseEvent | object) => void;
 
 type ExecuteToolResult = {
@@ -30,6 +27,7 @@ type ExecuteTool = (
   emit: Emit,
 ) => Promise<ExecuteToolResult>;
 
+// @region[claude-agent-sdk-request-selection]
 export function shouldUseClaudeAgentSdk({
   input,
   forwardedHeaders,
@@ -41,6 +39,7 @@ export function shouldUseClaudeAgentSdk({
   runtimeToolCount: number;
   enableThinking?: boolean;
 }): boolean {
+  // @doc-replace
   if ((process.env.ANTHROPIC_BASE_URL ?? "").includes("aimock")) {
     return false;
   }
@@ -49,6 +48,8 @@ export function shouldUseClaudeAgentSdk({
   if (hasHeader(forwardedHeaders, "x-aimock-context")) {
     return false;
   }
+  // @doc-as
+  // @doc-end
   if (enableThinking) {
     return false;
   }
@@ -62,8 +63,48 @@ export function shouldUseClaudeAgentSdk({
   }
   return true;
 }
+// @endregion[claude-agent-sdk-request-selection]
 
 // @region[claude-agent-sdk-typescript-adapter]
+// @region[claude-agent-sdk-mcp-adapter-wiring]
+function createClaudeAgentAdapter({
+  toolSchemas,
+  emit,
+  getState,
+  setState,
+  executeTool,
+  model,
+  systemPrompt,
+}: {
+  toolSchemas: Anthropic.Tool[];
+  emit: Emit;
+  getState: () => Record<string, unknown>;
+  setState: (state: Record<string, unknown>) => void;
+  executeTool: ExecuteTool;
+  model: string;
+  systemPrompt: string;
+}) {
+  const backendToolServer = buildBackendToolServer({
+    toolSchemas,
+    emit,
+    getState,
+    setState,
+    executeTool,
+  });
+
+  return new ClaudeAgentAdapter({
+    agentId: "claude-sdk-typescript",
+    model: normalizeClaudeAgentSdkModel(model),
+    systemPrompt,
+    tools: [],
+    mcpServers: backendToolServer.mcpServers,
+    allowedTools: backendToolServer.allowedTools,
+    permissionMode: "dontAsk",
+    maxTurns: 10,
+  });
+}
+// @endregion[claude-agent-sdk-mcp-adapter-wiring]
+
 // @region[claude-agent-sdk-agent-setup]
 export async function runWithClaudeAgentSdk({
   input,
@@ -90,7 +131,7 @@ export async function runWithClaudeAgentSdk({
 }): Promise<void> {
   let state = { ...initialState };
   const pendingStateSnapshots: Record<string, unknown>[] = [];
-  const backendToolServer = buildBackendToolServer({
+  const adapter = createClaudeAgentAdapter({
     toolSchemas,
     emit,
     getState: () => state,
@@ -99,17 +140,8 @@ export async function runWithClaudeAgentSdk({
       pendingStateSnapshots.push(state);
     },
     executeTool,
-  });
-
-  const adapter = new ClaudeAgentAdapter({
-    agentId: "claude-sdk-typescript",
-    model: normalizeClaudeAgentSdkModel(model),
     systemPrompt,
-    tools: [],
-    mcpServers: backendToolServer.mcpServers,
-    allowedTools: backendToolServer.allowedTools,
-    permissionMode: "dontAsk",
-    maxTurns: 10,
+    model,
   });
 
   if (forwardedHeaders && Object.keys(forwardedHeaders).length > 0) {
@@ -145,6 +177,10 @@ export async function runWithClaudeAgentSdk({
   });
 }
 // @endregion[claude-agent-sdk-agent-setup]
+
+// @region[claude-agent-sdk-mcp-server-registration]
+const COPILOTKIT_MCP_SERVER_NAME = "copilotkit";
+const COPILOTKIT_TOOL_PREFIX = `mcp__${COPILOTKIT_MCP_SERVER_NAME}__`;
 
 function buildBackendToolServer({
   toolSchemas,
@@ -210,6 +246,7 @@ function buildBackendToolServer({
     ),
   };
 }
+// @endregion[claude-agent-sdk-mcp-server-registration]
 
 function zodShapeFromJsonSchema(
   schema: Anthropic.Tool.InputSchema,

@@ -1,87 +1,75 @@
 "use client";
 
+import React from "react";
 import {
-  CopilotKitProvider,
   CopilotChat,
+  CopilotKit,
   useAgent,
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
+import type { Step } from "./InlineAgentStateCard";
+import { MessageListWithState } from "./message-list-with-state";
+import { useSuggestions } from "./suggestions";
 
-type Step = {
-  title: string;
-  status?: "pending" | "in_progress" | "done";
-};
-
-export default function GenUiAgent() {
+/**
+ * Agentic Generative UI — In-Chat State Rendering
+ *
+ * The deep agent on the backend defines its own state schema
+ * (`steps: list[Step]`) and exposes a custom `set_steps` tool that the model
+ * calls to mutate that state. Every `set_steps` call streams the updated
+ * `steps` to the client.
+ *
+ * On the client we subscribe to that live state via `useAgent` (v2) and
+ * render a single `InlineAgentStateCard` inside the chat transcript via
+ * `messageView.children`. The card re-renders in place as state arrives —
+ * no per-message claims, no duplicate cards.
+ *
+ * This mirrors the pattern used by every other integration's gen-ui-agent
+ * demo (mastra, strands, ag2, agno, crewai-crews, langgraph-typescript,
+ * pydantic-ai, ...) and replaces the earlier `useCoAgentStateRender`
+ * approach which produced one card per state-changing message.
+ */
+export default function GenUiAgentDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
-      <Demo />
-    </CopilotKitProvider>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-agent">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
+    </CopilotKit>
   );
 }
 
-function Demo() {
+type AgentState = {
+  steps?: Step[];
+};
+
+function Chat() {
   const { agent } = useAgent({
-    agentId: "default",
+    agentId: "gen-ui-agent",
     updates: [UseAgentUpdate.OnStateChanged],
   });
 
-  const steps = (agent.state as { steps?: Step[] }).steps ?? [];
+  useSuggestions();
+
+  const steps = (agent.state as AgentState | undefined)?.steps ?? [];
+  const status = agent.isRunning ? "inProgress" : "complete";
 
   return (
-    <main className="p-8 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-8">
-      <div>
-        <h1 className="text-2xl font-semibold mb-4">Agentic Generative UI</h1>
-        <p className="text-sm opacity-70 mb-4">
-          The agent emits a live plan via <code>AGUISendStateDelta</code> (
-          <code>{`{ op: "replace", path: "/steps", value: [...] }`}</code>
-          ). Each tick re-renders the panel below. Try: &ldquo;Plan a 4-step
-          morning routine and execute it; emit the plan to state.&rdquo;
-        </p>
-        <StepsPanel steps={steps} />
-      </div>
-      <div data-testid="copilot-message-list">
-        <CopilotChat />
-      </div>
-    </main>
-  );
-}
-
-function StepsPanel({ steps }: { steps: Step[] }) {
-  if (!steps.length) {
-    return (
-      <div className="border rounded p-3 text-sm opacity-40 italic">
-        No plan yet. The agent will fill this panel as it works.
-      </div>
-    );
-  }
-  return (
-    <div data-testid="agent-state-card" className="border rounded p-3">
-      <div className="font-medium mb-2">Plan</div>
-      <ol className="space-y-1 text-sm">
-        {steps.map((s, i) => (
-          <li
-            key={i}
-            data-testid="agent-step"
-            className="flex items-center gap-2"
-          >
-            <span className="w-4">
-              {s.status === "done"
-                ? "✓"
-                : s.status === "in_progress"
-                  ? "•"
-                  : "○"}
-            </span>
-            <span
-              className={
-                s.status === "done" ? "line-through opacity-60" : undefined
-              }
-            >
-              {s.title}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
+    <CopilotChat
+      agentId="gen-ui-agent"
+      className="h-full rounded-2xl"
+      messageView={{
+        children: ({ messageElements, interruptElement }) => (
+          <MessageListWithState
+            messageElements={messageElements}
+            interruptElement={interruptElement}
+            steps={steps}
+            status={status}
+          />
+        ),
+      }}
+    />
   );
 }

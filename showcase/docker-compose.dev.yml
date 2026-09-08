@@ -79,6 +79,12 @@ services:
       - ./integrations/crewai-crews/src:/app/src
       - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
 
+  crewai-conversational-flows:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/crewai-conversational-flows/src:/app/src
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
   pydantic-ai:
     <<: *dev-overrides
     volumes:

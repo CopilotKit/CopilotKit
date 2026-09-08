@@ -7,10 +7,8 @@
  * the rationale on per-pill scripts and the assertion implementation.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn } from "../helpers/conversation-runner.js";
 import {
   assertToggleTheme,
@@ -22,6 +20,9 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     {
       input: "d5 beautiful-chat probe: toggle the theme",
       assertions: assertToggleTheme,
+      completeOnMount: {
+        testIds: ["copilot-assistant-message"],
+      },
     },
   ];
 }

@@ -14,7 +14,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -27,12 +27,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Check for binary and build artifacts
+      - name: Check for binary artifacts and files that don't belong
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
@@ -70,6 +70,20 @@ jobs:
             VIOLATIONS=1
           fi
 
+          # Check for Changesets files. This repo migrated off @changesets/* to
+          # conventional-commit-driven releases: scripts/release/ reads commit
+          # subjects, so .changeset/*.md files are inert. Filter on added/modified
+          # only, so a PR that *deletes* stale changesets still passes.
+          CHANGESET_FILES=$(git diff --name-only --diff-filter=AM "origin/${BASE_REF}...HEAD" -- '.changeset' || true)
+          if [ -n "$CHANGESET_FILES" ]; then
+            echo "::error::Changeset files detected in PR:"
+            echo "$CHANGESET_FILES"
+            echo "This repo no longer uses Changesets — releases are driven by conventional commit subjects (see scripts/release/)."
+            echo "Nothing reads .changeset/*.md. Delete these files and describe the change in your commit subject instead."
+            echo "See the 'Changelogs and releases' section of CONTRIBUTING.md."
+            VIOLATIONS=1
+          fi
+
           # Check for large files (>1MB) among changed files
           # Exclude known large files: lockfiles, assets, bundled actions
           LARGE_FILES=""
@@ -96,7 +110,7 @@ jobs:
 
           if [ "$VIOLATIONS" -eq 1 ]; then
             echo ""
-            echo "This PR contains binary artifacts, build outputs, or oversized files."
+            echo "This PR contains files that should not be committed (see the errors above)."
             echo "Please remove them and update your .gitignore if needed."
             exit 1
           fi

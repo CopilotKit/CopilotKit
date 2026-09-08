@@ -309,7 +309,7 @@ interface Thread {
 }
 ```
 
-Lists and manages Intelligence platform threads. Thread operations are scoped to the runtime-authenticated user (no `userId` input) and the given `agentId`. Uses a realtime WebSocket subscription when available.
+Lists and manages CopilotKit Intelligence threads. Thread operations are scoped to the runtime-authenticated user (no `userId` input) and the given `agentId`. Uses a realtime WebSocket subscription when available.
 
 ---
 

@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / render-a2ui",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -491,5 +490,8 @@
         ]
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

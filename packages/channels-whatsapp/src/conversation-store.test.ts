@@ -7,6 +7,14 @@ function fakeAgent(threadId: string) {
 }
 
 describe("WhatsAppConversationStore", () => {
+  it("declares that it seeds the inbound turn", () => {
+    const store = new WhatsAppConversationStore({
+      historyStore: new InMemoryHistoryStore(),
+    });
+
+    expect(store.seedsInboundTurn).toBe(true);
+  });
+
   it("replays stored history into agent.messages with a fresh threadId", async () => {
     const history = new InMemoryHistoryStore();
     await history.append("whatsapp:111", {

@@ -9,6 +9,7 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  InspectorMetadataV1,
   ThreadEndpointRuntimeInfo,
 } from "../types";
 import type {
@@ -26,10 +27,15 @@ import type {
   CopilotKitCoreGetToolParams,
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
+  CopilotKitCoreCatalogComponent,
 } from "./run-handler";
 import { RunHandler } from "./run-handler";
-import type { DebugConfig } from "@copilotkit/shared";
+import type {
+  DebugConfig,
+  RuntimeEntitlementResponse,
+} from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
@@ -41,6 +47,15 @@ export interface CopilotKitCoreConfig {
   runtimeUrl?: string;
   /** Transport style for CopilotRuntime endpoints. Defaults to REST. */
   runtimeTransport?: CopilotRuntimeTransport;
+  /**
+   * When true, the constructor sets the runtime config but does NOT start the
+   * `/info` connection. Call {@link CopilotKitCore.connect} to start it —
+   * typically from a host's commit-phase effect. This prevents a burst of
+   * duplicate `/info` requests when a host constructs (and discards) the core
+   * during render, e.g. React concurrent rendering / Suspense / StrictMode.
+   * See https://github.com/CopilotKit/CopilotKit/issues/5801.
+   */
+  deferInitialConnection?: boolean;
   /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   /**
@@ -72,6 +87,7 @@ export type {
   CopilotKitCoreGetToolParams,
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
+  CopilotKitCoreCatalogComponent,
 };
 
 export interface CopilotKitCoreStopAgentParams {
@@ -157,6 +173,15 @@ export interface CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCore;
     context: Readonly<Record<string, Context>>;
   }) => void | Promise<void>;
+  /**
+   * Fired when the A2UI catalog component list changes (registration) or when
+   * a component is enabled/disabled. Consumers (the provider, the inspector)
+   * re-derive the filtered catalog from this event.
+   */
+  onCatalogComponentsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    catalogComponents: ReadonlyArray<CopilotKitCoreCatalogComponent>;
+  }) => void | Promise<void>;
   onSuggestionsConfigChanged?: (event: {
     copilotkit: CopilotKitCore;
     suggestionsConfig: Readonly<Record<string, SuggestionsConfig>>;
@@ -181,6 +206,10 @@ export interface CopilotKitCoreSubscriber {
   onHeadersChanged?: (event: {
     copilotkit: CopilotKitCore;
     headers: Readonly<Record<string, string>>;
+  }) => void | Promise<void>;
+  onInspectorMetadataChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    inspectorMetadata: InspectorMetadataV1 | undefined;
   }) => void | Promise<void>;
   onError?: (event: {
     copilotkit: CopilotKitCore;
@@ -345,6 +374,13 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
+
+  readonly stateManager: {
+    markNextRunAsContinuation(
+      agent: AbstractAgent,
+      expectedRunId?: string,
+    ): CopilotKitCoreContinuationHandoff;
+  };
 }
 
 /**
@@ -397,6 +433,7 @@ export class CopilotKitCore {
   constructor({
     runtimeUrl,
     runtimeTransport = "auto",
+    deferInitialConnection = false,
     headers = {},
     credentials,
     properties = {},
@@ -425,7 +462,9 @@ export class CopilotKitCore {
     this.stateManager.initialize();
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
-    this.agentRegistry.setRuntimeUrl(runtimeUrl);
+    this.agentRegistry.setRuntimeUrl(runtimeUrl, {
+      deferConnection: deferInitialConnection,
+    });
 
     // Seed the previous-agents snapshot from the constructor-supplied agents.
     // `agentRegistry.initialize` does not emit `onAgentsChanged`, so the
@@ -583,12 +622,29 @@ export class CopilotKitCore {
     return this.runHandler.tools;
   }
 
+  get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
+    return this.runHandler.catalogComponents;
+  }
+
   get runtimeUrl(): string | undefined {
     return this.agentRegistry.runtimeUrl;
   }
 
   setRuntimeUrl(runtimeUrl: string | undefined): void {
     this.agentRegistry.setRuntimeUrl(runtimeUrl);
+  }
+
+  /**
+   * Start the runtime `/info` connection if it has not been started yet.
+   *
+   * Intended to be driven from a host's commit-phase effect when the core was
+   * constructed with {@link CopilotKitCoreConfig.deferInitialConnection}. Safe
+   * to call repeatedly — it is a no-op once a connection is in progress or
+   * settled, so a double-invoked mount effect (React StrictMode) collapses to a
+   * single request. See #5801.
+   */
+  connect(): void {
+    this.agentRegistry.connectRuntime();
   }
 
   get runtimeTransport(): CopilotRuntimeTransport {
@@ -661,6 +717,10 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  get ɵruntimeFetch(): typeof fetch {
+    return this.agentRegistry.createRuntimeFetch();
+  }
+
   get audioFileTranscriptionEnabled(): boolean {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }
@@ -681,6 +741,21 @@ export class CopilotKitCore {
     return this.agentRegistry.suggestions;
   }
 
+  /** Whether the connected Runtime exposes debug-authorized Learning data. */
+  get inspectorLearning(): boolean {
+    return this.agentRegistry.inspectorLearning;
+  }
+
+  /** Trusted, optional metadata advertised by the connected runtime. */
+  get inspectorMetadata(): InspectorMetadataV1 | undefined {
+    return this.agentRegistry.inspectorMetadata;
+  }
+
+  /** Refresh trusted inspector metadata without reconnecting runtime agents. */
+  async refreshInspectorMetadata(): Promise<void> {
+    await this.agentRegistry.refreshInspectorMetadata();
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
   }
@@ -699,6 +774,16 @@ export class CopilotKitCore {
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.agentRegistry.licenseStatus;
+  }
+
+  /** Structured Runtime entitlement authority advertised by `/info`. */
+  get runtimeEntitlements(): RuntimeEntitlementResponse | undefined {
+    return this.agentRegistry.runtimeEntitlements;
+  }
+
+  /** Whether Core still has a bounded Runtime entitlement retry to settle. */
+  get runtimeEntitlementRetryPending(): boolean {
+    return this.agentRegistry.runtimeEntitlementRetryPending;
   }
 
   get telemetryDisabled(): boolean {
@@ -743,6 +828,7 @@ export class CopilotKitCore {
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    this.agentRegistry.handleHeadersChanged();
     void this.notifySubscribers(
       (subscriber) =>
         subscriber.onHeadersChanged?.({
@@ -758,6 +844,7 @@ export class CopilotKitCore {
     this.agentRegistry.applyCredentialsToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    this.agentRegistry.handleCredentialsChanged();
   }
 
   setProperties(properties: Record<string, unknown>): void {
@@ -888,13 +975,13 @@ export class CopilotKitCore {
   /**
    * Lazily creates, starts, and context-syncs the core-owned memory store on
    * first access, then returns it. Subsequent calls return the existing store.
-   * The store is constructed with a bound `globalThis.fetch` and immediately
-   * has its runtime context synced from the current connection state.
+   * The store uses the Core Runtime fetch so REST and single-route transports
+   * share the same resource behavior. Its Runtime context is synced at once.
    */
   private ensureMemoryStore(): ɵMemoryStore {
     if (!this._memoryStore) {
       this._memoryStore = ɵcreateMemoryStore({
-        fetch: globalThis.fetch.bind(globalThis),
+        fetch: this.ɵruntimeFetch,
       });
       this._memoryStore.start();
       this.syncMemoryContext();
@@ -969,6 +1056,53 @@ export class CopilotKitCore {
 
   setTools(tools: FrontendTool<any>[]): void {
     this.runHandler.setTools(tools);
+  }
+
+  /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it (Inspector "Capabilities" tool). A disabled tool is omitted from the
+   * tool list sent to the agent on the next run. The override is keyed by name
+   * (+ optional agentId) and survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    this.runHandler.setToolEnabled(name, enabled, agentId);
+  }
+
+  /** Whether a registered tool is currently enabled (defaults true). */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return this.runHandler.isToolEnabled(name, agentId);
+  }
+
+  /**
+   * A2UI catalog component management (delegated to RunHandler).
+   * Registers the full component list and controls per-component enablement.
+   */
+  setCatalogComponents(components: CopilotKitCoreCatalogComponent[]): void {
+    this.runHandler.setCatalogComponents(components);
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onCatalogComponentsChanged?.({
+          copilotkit: this,
+          catalogComponents: this.runHandler.catalogComponents,
+        }),
+      "Subscriber onCatalogComponentsChanged error:",
+    );
+  }
+
+  setCatalogComponentEnabled(name: string, enabled: boolean): void {
+    this.runHandler.setCatalogComponentEnabled(name, enabled);
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onCatalogComponentsChanged?.({
+          copilotkit: this,
+          catalogComponents: this.runHandler.catalogComponents,
+        }),
+      "Subscriber onCatalogComponentsChanged error:",
+    );
+  }
+
+  isCatalogComponentEnabled(name: string): boolean {
+    return this.runHandler.isCatalogComponentEnabled(name);
   }
 
   /**
@@ -1238,6 +1372,18 @@ export class CopilotKitCore {
     messageId: string,
   ): string | undefined {
     return this.stateManager.getRunIdForMessage(agentId, threadId, messageId);
+  }
+
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    return this.stateManager.getRawEventForMessage(
+      agentId,
+      threadId,
+      messageId,
+    );
   }
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {

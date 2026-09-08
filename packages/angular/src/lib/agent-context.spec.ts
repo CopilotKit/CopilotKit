@@ -1,4 +1,4 @@
-import { Component, signal } from "@angular/core";
+import { ApplicationRef, Component, Injector, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Context } from "@ag-ui/client";
@@ -77,5 +77,18 @@ describe("connectAgentContext", () => {
     expect(() =>
       connectAgentContext({ description: "missing", value: "0" }),
     ).toThrow(/NG0203/);
+  });
+
+  it("uses an explicit injector outside an injection context", async () => {
+    connectAgentContext(
+      { description: "explicit", value: "1" },
+      { injector: TestBed.inject(Injector) },
+    );
+    await TestBed.inject(Injector).get(ApplicationRef).whenStable();
+
+    expect(core.addContext).toHaveBeenCalledWith({
+      description: "explicit",
+      value: "1",
+    });
   });
 });

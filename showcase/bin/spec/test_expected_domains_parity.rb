@@ -24,12 +24,12 @@ class ExpectedDomainsParityTest < Minitest::Test
 
         expected_prod = data.fetch("services")
                             .map { |s| s.fetch("domains").fetch("prod") }
-                            .reject { |h| h.end_with?(".up.railway.app") }
+                            .reject { |h| h.empty? || h.end_with?(".up.railway.app") }
                             .sort
                             .uniq
         expected_staging = data.fetch("services")
                                .map { |s| s.fetch("domains").fetch("staging") }
-                               .reject { |h| h.end_with?(".up.railway.app") }
+                               .reject { |h| h.empty? || h.end_with?(".up.railway.app") }
                                .sort
                                .uniq
 
@@ -49,5 +49,11 @@ class ExpectedDomainsParityTest < Minitest::Test
     def test_expected_domains_keys_are_only_prod_and_staging_env_ids
         keys = Railway::EXPECTED_DOMAINS.keys.sort
         assert_equal [Railway::PRODUCTION_ENV_ID, Railway::STAGING_ENV_ID].sort, keys
+    end
+
+    def test_expected_domains_never_include_blank_hosts
+        Railway::EXPECTED_DOMAINS.each do |env_id, hosts|
+            refute_includes hosts, "", "EXPECTED_DOMAINS[#{env_id}] contains a blank host"
+        end
     end
 end
