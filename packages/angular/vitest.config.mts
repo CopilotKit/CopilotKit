@@ -27,7 +27,6 @@ export default defineConfig(({ mode }) => ({
     environment: "jsdom",
     setupFiles: [r("src/test-setup.ts")], // Use absolute path
     include: ["src/**/*.{spec,test}.{ts,tsx}"],
-    exclude: ["src/**/*.browser.spec.ts"],
     pool: "threads",
     poolOptions: { threads: { singleThread: true } },
     reporters: [["default", { summary: false }]],

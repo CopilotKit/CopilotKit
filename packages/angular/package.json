@@ -50,7 +50,6 @@
     "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./src/styles/generated.css --watch",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
-    "test:browser": "vitest run --config vitest.browser.config.mts",
     "test:watch": "vitest --watch",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
@@ -74,15 +73,6 @@
     "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.5"
   },
-  "nx": {
-    "targets": {
-      "test:browser": {
-        "dependsOn": ["^build"],
-        "inputs": ["test", "{projectRoot}/vitest.browser.config.mts"],
-        "cache": true
-      }
-    }
-  },
   "devDependencies": {
     "@analogjs/vite-plugin-angular": "2.7.0",
     "@analogjs/vitest-angular": "2.7.0",
@@ -100,7 +90,6 @@
     "@tailwindcss/typography": "^0.5.16",
     "@types/katex": "^0.16.7",
     "@types/node": "^22.5.1",
-    "@vitest/browser": "3.2.4",
     "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.16",
     "axe-core": "4.11.1",
@@ -109,7 +98,6 @@
     "jsdom": "^24.0.0",
     "ng-packagr": "22.0.0",
     "postcss": "^8.4.31",
-    "playwright": "^1.59.1",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
     "rxjs": "^7.8.1",
