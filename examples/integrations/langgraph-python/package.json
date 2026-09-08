@@ -45,5 +45,11 @@
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
+    "@ag-ui/encoder": "0.0.59",
+    "@ag-ui/proto": "0.0.59"
   }
 }
