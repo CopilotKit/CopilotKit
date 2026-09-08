@@ -163,6 +163,18 @@ describe("Content Bundler", () => {
     });
     expect(stateFile.content).toContain("makeSubagentStateFromResult");
     expect(stateFile.content).toContain("Promise<StatePayload | null>");
+    expect(stateFile.content).not.toContain("@region[");
+
+    const stateFromResult = demo.regions["subagent-state-from-result"];
+    expect(stateFromResult).toMatchObject({
+      file: "src/agent/state.ts",
+      language: "typescript",
+    });
+    expect(stateFromResult.code).toContain(
+      "export function makeSubagentStateFromResult",
+    );
+    expect(stateFromResult.code).toContain("function readSubagentTask");
+    expect(stateFromResult.code).toContain("StateSnapshotEvent");
 
     const setup = demo.regions["subagent-setup"];
     expect(setup).toMatchObject({
