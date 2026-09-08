@@ -445,9 +445,7 @@ function redirectForUnsupported(
     );
   } else {
     sentences.push(
-      `Call render_metric_block again without ${unsupported
-        .map((p) => `"${p}"`)
-        .join(" or ")}, or with the kind named above.`,
+      `Render that kind instead if the part it draws is the part that matters.`,
     );
   }
   return sentences.join(" ");
@@ -518,30 +516,36 @@ export const renderMetricBlockTool = defineTool({
       };
     }
 
-    // ── THE SAME ERROR-RESULT PATTERN, FOR THE PROPS THAT USED TO VANISH ──
-    // See `supportedBlockProps` above. Refused rather than stripped: a
-    // strip is the same silence with extra steps — the block still comes back
-    // green, and the model has no way to learn that what is on screen is not
-    // what it asked for. Named as a RESULT, one retry corrects it.
+    // ── AN IGNORABLE EXTRA IS DISCLOSED, NOT REFUSED ──
+    // These props do not make the block WRONG, only narrower than asked: a
+    // trendLine handed `compare` still draws the right metric over the right
+    // window, it just draws no plan line. Refusing returned NOTHING at all —
+    // and because `compare` lives on metricTile while `months` lives on
+    // trendLine, "revenue vs plan this quarter" had no kind to fall back to.
+    // The model swapped kinds, was refused on the other prop, and gave up with
+    // an empty screen. That is a worse answer than the block it could have had.
+    //
+    // So: drop them from the spec BEFORE anything is built or stored (the
+    // original objection to stripping was a phantom prop reaching
+    // `createDraftBlock` and the ledger route rebuilding ops from it — which
+    // cannot happen when the strip precedes both), render, and hand the model
+    // a `note` naming exactly what was not drawn. Silence was the problem, not
+    // the strip.
+    //
+    // Genuinely unrenderable specs are still refused below: no metricId on a
+    // metric-bound kind, an id off the catalog, a nonsense window, a
+    // per-department view of a company-wide metric. Those draw a blank or a
+    // lie, not a narrower truth.
     const supported = new Set<string>(supportedBlockProps(spec.kind));
-    const unsupported = BLOCK_QUERY_PROPS.filter(
-      (prop) => spec[prop] !== undefined && !supported.has(prop),
+    // Captured BEFORE the strip: "is there a kind that carries all of this?"
+    // is a question about what was ASKED for, not about what is left over. Ask
+    // it of the leftovers alone and `months` looks re-homeable to a trendLine,
+    // which is exactly the swap that then loses `compare`.
+    const requested = BLOCK_QUERY_PROPS.filter(
+      (prop) => spec[prop] !== undefined,
     );
-    if (unsupported.length > 0) {
-      const named = unsupported.map((p) => `"${p}"`).join(" or ");
-      return {
-        error: "UNSUPPORTED_BLOCK_PROP",
-        message:
-          `A "${spec.kind}" block does not render ${named}, so nothing was ` +
-          `rendered rather than a block quietly ignoring it. ` +
-          `${describeSupportedProps(spec.kind)} ` +
-          `${redirectForUnsupported(
-            spec.kind,
-            unsupported,
-            BLOCK_QUERY_PROPS.filter((prop) => spec[prop] !== undefined),
-          )}`,
-      };
-    }
+    const ignored = requested.filter((prop) => !supported.has(prop));
+    for (const prop of ignored) delete spec[prop];
 
     const badMonths = monthsRefusal(
       spec.months,
@@ -588,6 +592,19 @@ export const renderMetricBlockTool = defineTool({
       return {
         [A2UI_OPERATIONS_KEY]: buildBlockOps(spec, block.id),
         blockId: block.id,
+        // Present ONLY when something was asked for and not drawn. The block
+        // on screen is real either way; this is the half the sentence owes
+        // the room.
+        ...(ignored.length > 0
+          ? {
+              note:
+                `Rendered, but a "${spec.kind}" draws no ` +
+                `${ignored.map((p) => `"${p}"`).join(" or ")}, so that part ` +
+                `is not on screen. ${describeSupportedProps(spec.kind)} ` +
+                `${redirectForUnsupported(spec.kind, ignored, requested)} Say ` +
+                `what the block does not show in your sentence.`,
+            }
+          : {}),
       };
     } catch (error) {
       return thrownAsResult(error, "render_metric_block");

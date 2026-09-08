@@ -412,9 +412,16 @@ describe("render_metric_block", () => {
    * drew all four departments while the agent said, truthfully as far as it
    * knew, that it had scoped the block to Distribution.
    *
-   * Refused as a RESULT rather than stripped: a strip is the same silence with
-   * extra steps, and the model has no way to learn that the block it is
-   * looking at is not the block it asked for.
+   * An IGNORABLE extra is now dropped and DISCLOSED rather than refused. The
+   * block is still the right metric on the right scope — only narrower than
+   * asked. Refusing returned nothing at all, and since `compare` lives on
+   * metricTile while `months` lives on trendLine, a request for both ("revenue
+   * vs plan this quarter") had no kind to fall back to: the model swapped
+   * kinds, hit the other refusal, and gave up with an empty screen.
+   *
+   * The strip is safe because it happens BEFORE `createDraftBlock`, so the
+   * phantom prop never reaches the spec the ledger route rebuilds ops from —
+   * which was the original objection. The `note` is what makes it honest.
    */
   it.each([
     ["trendLine", "compare", { compare: "plan" }],
@@ -422,7 +429,7 @@ describe("render_metric_block", () => {
     ["varianceBar", "department", { department: "distribution" }],
     ["varianceBar", "compare", { compare: "forecast" }],
   ] as const)(
-    "refuses %s + %s as a READABLE RESULT instead of dropping the prop",
+    "renders %s despite %s, and discloses that it drew none",
     async (kind, prop, extra) => {
       const result = (await renderMetricBlockTool.execute!({
         kind,
@@ -431,27 +438,29 @@ describe("render_metric_block", () => {
         ...extra,
       })) as Record<string, unknown>;
 
-      expect(result.error).toBe("UNSUPPORTED_BLOCK_PROP");
-      expect(String(result.message)).toContain(kind);
-      expect(String(result.message)).toContain(prop);
+      // A block, not a dead end.
+      expect(result.error).toBeUndefined();
+      expect(result[A2UI_OPERATIONS_KEY]).toBeDefined();
+      expect(typeof result.blockId).toBe("string");
 
-      // Nothing rendered and nothing stored — a dropped prop must not reach
-      // the spec the ledger route rebuilds ops from on every read.
-      expect(result[A2UI_OPERATIONS_KEY]).toBeUndefined();
-      expect(result.blockId).toBeUndefined();
+      // And the model is told, by name, what is not on screen.
+      expect(String(result.note)).toContain(prop);
+      expect(String(result.note)).toContain(kind);
     },
   );
 
-  it("refuses a metricId on the self-binding kinds, which bind their own rows", async () => {
+  it("renders a self-binding kind despite a metricId, and says it bound its own rows", async () => {
     const result = (await renderMetricBlockTool.execute!({
       kind: "exceptionList",
       title: "Open exceptions",
       metricId: "opex",
     })) as Record<string, unknown>;
 
-    expect(result.error).toBe("UNSUPPORTED_BLOCK_PROP");
-    expect(String(result.message)).toContain("metricId");
-    expect(result.blockId).toBeUndefined();
+    // An exceptionList binds its own rows; a metricId means nothing to it, but
+    // that is no reason to withhold the list the operator asked to see.
+    expect(result.error).toBeUndefined();
+    expect(typeof result.blockId).toBe("string");
+    expect(String(result.note)).toContain("metricId");
   });
 
   it("still renders every prop each kind actually honours", async () => {
@@ -544,9 +553,11 @@ describe("render_metric_block", () => {
           ),
           [prop]: PROP_FIXTURES[prop],
         })) as Record<string, unknown>;
-        expect(refused.error).toBe("UNSUPPORTED_BLOCK_PROP");
-        expect(String(refused.message)).toContain(prop);
-        expect(refused.blockId).toBeUndefined();
+        // An extra this kind ignores does not withhold the block; it is
+        // disclosed in `note` so the sentence can own the gap.
+        expect(refused.error).toBeUndefined();
+        expect(typeof refused.blockId).toBe("string");
+        expect(String(refused.note)).toContain(prop);
       }
     },
   );
@@ -1180,11 +1191,12 @@ describe("render_metric_block — props that live on different kinds", () => {
       title: "Revenue vs plan",
       compare: "plan",
     })) as Record<string, unknown>;
-    expect(result.error).toBe("UNSUPPORTED_BLOCK_PROP");
-    expect(String(result.message)).toContain('"compare"');
-    // The model cannot act on "pick the kind that does honour it" unless the
-    // refusal says WHICH kind that is.
-    expect(String(result.message)).toContain("metricTile");
+    // It RENDERS — the quarter trend is exactly what a trendLine is for.
+    expect(result.error).toBeUndefined();
+    expect(typeof result.blockId).toBe("string");
+    expect(String(result.note)).toContain('"compare"');
+    // And it names the kind that WOULD have drawn the comparison.
+    expect(String(result.note)).toContain("metricTile");
   });
 
   it("tells the model no single block carries a window AND a comparison", async () => {
@@ -1195,12 +1207,14 @@ describe("render_metric_block — props that live on different kinds", () => {
       compare: "plan",
       months: 3,
     })) as Record<string, unknown>;
-    expect(result.error).toBe("UNSUPPORTED_BLOCK_PROP");
-    expect(String(result.message)).toContain('"months"');
-    expect(String(result.message)).toContain("trendLine");
-    // The load-bearing half: without this the model swaps kinds and is
-    // refused on `compare` instead, which is exactly the observed loop.
-    expect(String(result.message)).toMatch(
+    // Renders the metricTile against plan; the quarter is what it drops.
+    expect(result.error).toBeUndefined();
+    expect(typeof result.blockId).toBe("string");
+    expect(String(result.note)).toContain('"months"');
+    expect(String(result.note)).toContain("trendLine");
+    // The load-bearing half: the model must be told no one block carries both,
+    // or it swaps kinds and loses `compare` instead — the observed loop.
+    expect(String(result.note)).toMatch(
       /no single block|one block cannot|choose one/i,
     );
   });
