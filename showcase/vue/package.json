@@ -1,0 +1,28 @@
+{
+  "name": "@copilotkit/showcase-vue-host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "pnpm --dir ../scripts generate-registry && node scripts/stage-generated-data.mjs",
+    "build:dependencies": "pnpm --filter @copilotkit/shared --filter @copilotkit/core --filter @copilotkit/web-components --filter @copilotkit/web-inspector --filter @copilotkit/vue --workspace-concurrency=1 run build",
+    "build": "pnpm run build:dependencies && pnpm run generate && vite build",
+    "test": "pnpm run build:dependencies && pnpm run generate && vitest run",
+    "consumer-check-types": "pnpm run build:dependencies && pnpm run generate && vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@copilotkit/vue": "workspace:*",
+    "vue": "^3.5.28"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/compiler-sfc": "^3.5.14",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^26.1.0",
+    "typescript": "5.8.2",
+    "vite": "^7.3.2",
+    "vitest": "^4.1.3",
+    "vue-tsc": "^2.1.10"
+  }
+}
