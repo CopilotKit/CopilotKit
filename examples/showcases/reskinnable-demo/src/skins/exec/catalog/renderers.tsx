@@ -775,51 +775,38 @@ const InitiativeTable = () => {
           {snapshot.initiatives.map((initiative) => (
             <tr key={initiative.id} className="border-t border-hairline">
               {/*
-                THE NOTE EARNS ITS LINES ONLY WHEN THE STATUS IS NOT GREEN.
-                Every row carrying a wrapped two-to-three-line note made this
-                the tallest thing on the dashboard by a factor of six — 667px
-                of content beside a 112px metric tile — and because the grid
-                stretches a row to its tallest card, it padded its neighbour
-                out with ~600px of dead space. A green row's prose is the
-                least informative text on the densest card: the pill already
-                says "on track", and the note only repeats it. The rows that
-                keep their explanation are exactly the ones a reader has to
-                act on, which is the same rule the eyebrow above counts by.
+                NO NOTE ON THE CARD — ONE LINE PER INITIATIVE.
+                Each row used to carry its note as a wrapped sub-line, which
+                made this block 757px of content beside a 112px metric tile;
+                because the grid stretches a row to its tallest card, it also
+                padded its neighbour out with ~600px of dead space. Trimming
+                the note to off-track rows only got it to 311px, still the
+                outlier on the page. A pinned dashboard card answers "what is
+                the state of things" — five names, five owners, five statuses
+                — and the prose behind any one of them is a follow-up
+                question, not a thing to read five of at a glance.
 
-                Nothing is lost for the green rows — the full note stays on
-                the cell's `title`, and the page readable
-                (`../pages/ceo-dashboard.tsx`) publishes every note verbatim
-                off the ledger, so an assistant asked to read the block out
-                still has all five.
+                THE NOTE IS NOT GONE, ONLY UNPRINTED. It stays on the cell's
+                `title` for a hover, and `../pages/ceo-dashboard.tsx`'s page
+                readable still publishes all five verbatim off the ledger — so
+                "what am I looking at?" can still read out every explanation.
+                Deleting it from the DOM would break that second promise
+                silently, which is why the test asserts the `title` survives.
               */}
               <td
                 className="py-1 pr-3 align-top text-ink"
                 title={initiative.note}
               >
                 {/*
-                  OWNER RIDES THE NAME LINE. On its own row it cost every
-                  initiative a second line — including the three green ones,
-                  whose whole entry is then two lines to say a name and "on
-                  track". Inline, a green row is ONE line and the block stops
-                  being the tallest thing on the dashboard.
+                  OWNER RIDES THE NAME LINE rather than taking a column or a
+                  sub-line of its own: as a column it squeezed Initiative to
+                  120px and wrapped every name, and as a sub-line it cost all
+                  five rows a second line to print one short name.
                 */}
                 <div className="leading-snug">
                   {initiative.name}
                   <span className="text-ink-muted"> · {initiative.owner}</span>
                 </div>
-                {/*
-                  The sub-line is now the note alone, and only for a row that
-                  is not green — a green row's prose only repeats what its
-                  pill already says. CLAMPED, because note length is ledger
-                  data and nothing upstream bounds it: a long one costs the
-                  card no extra height instead of silently re-inflating the
-                  row it took three passes to shrink. Full text on `title`.
-                */}
-                {initiative.status === "green" ? null : (
-                  <div className="line-clamp-2 text-[0.7rem] leading-snug text-ink-muted">
-                    {initiative.note}
-                  </div>
-                )}
               </td>
               <td className="py-1 align-top">
                 <span

@@ -736,35 +736,38 @@ describe("exec catalog InitiativeTable renderer", () => {
   });
 
   /**
-   * THE NOTE IS PRINTED ONLY FOR A ROW THAT IS NOT GREEN.
+   * THE CARD PRINTS NO NOTE AT ALL — one line per initiative.
    *
-   * Printing all five seeded notes made this block 667px of content beside a
-   * 112px metric tile, and the grid stretches a row to its tallest card — so
-   * one block's prose padded its neighbour out with ~600px of dead space. A
-   * green row's note only repeats what its pill already says.
+   * Printing them made this block 757px of content beside a 112px metric
+   * tile, and the grid stretches a row to its tallest card, so one block's
+   * prose padded its neighbour out with ~600px of dead space. Restricting
+   * notes to off-track rows only got it to 311px, still the outlier.
    *
-   * Asserted as a RULE in both directions, because "shorter" is satisfiable
-   * by dropping every note and that would be a different, worse block: the
-   * off-track explanation is the one a reader has to act on.
+   * Asserted against the OWNER also being present, so the test fails for the
+   * two different reasons it should: a note creeping back in, and the row
+   * being stripped down so far it no longer says who owns the initiative.
    */
-  it("prints the note for an off-track initiative and withholds it for a green one", () => {
+  it("prints one line per initiative — name and owner, and no note", () => {
     const { container } = renderInitiativeTable(
       makeBlockData({ snapshot: makeSnapshot({ initiatives: INITIATIVES }) }),
     );
     const text = container.textContent ?? "";
 
-    const [red, green] = INITIATIVES;
-    expect(text).toContain(red.note);
-    expect(text).not.toContain(green.note);
+    for (const initiative of INITIATIVES) {
+      expect(text).toContain(initiative.name);
+      expect(text).toContain(initiative.owner);
+      expect(text).not.toContain(initiative.note);
+    }
   });
 
   /**
-   * Withheld from the RENDER is not withheld from the READER: the green row's
-   * note stays reachable on the cell's `title`, so hiding it costs nothing but
-   * the vertical space it was taking. Without this, "hide it" and "delete it"
-   * are indistinguishable to the suite.
+   * Withheld from the RENDER is not withheld from the READER: every note stays
+   * reachable on the cell's `title`, so not printing it costs nothing but the
+   * vertical space it was taking. Without this, "stop printing it" and "drop
+   * it from the DOM" are indistinguishable to the suite — and the second one
+   * would quietly break the hover on a card whose rows are now name-only.
    */
-  it("keeps every note reachable on the row, including the green one it does not print", () => {
+  it("keeps every note reachable on the row even though it prints none of them", () => {
     const { container } = renderInitiativeTable(
       makeBlockData({ snapshot: makeSnapshot({ initiatives: INITIATIVES }) }),
     );
