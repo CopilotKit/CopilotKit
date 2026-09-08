@@ -5,11 +5,9 @@
 - Demo reachable at `/demos/declarative-json-render`
 - `agent_server.py` running and healthy; it mounts the crew at
   `/conversational_flows/byoc-json-render`
-- A Next.js runtime route at `/api/copilotkit-declarative-json-render` —
-  the page mounts that URL, but only
-  `src/app/api/copilotkit-byoc-json-render/route.ts` exists today, so the
-  demo 404s on its runtime URL until that is reconciled (see Integration
-  notes)
+- `src/app/api/copilotkit-declarative-json-render/route.ts` proxies to
+  `${AGENT_URL}/conversational_flows/byoc-json-render` (`AGENT_URL` defaults to
+  `http://localhost:8000`)
 - `OPENAI_API_KEY` set for the agent backend
 - `@json-render/core` + `@json-render/react` present in `package.json`
   (pinned to `0.18.0`)
@@ -67,11 +65,10 @@
 
 - The flat-spec prompt lives in `src/agents/byoc_json_render_agent.py`; the
   `byoc_` prefix on the backend module is deliberate and stays.
-- **Known break (pre-existing, not a QA regression):** the demo page is the
-  north-star copy and mounts
-  `runtimeUrl="/api/copilotkit-declarative-json-render"`, but this package
-  only ships `src/app/api/copilotkit-byoc-json-render/route.ts`. Until the
-  API route is renamed (or an alias added), every step below fails at the
-  network layer. File that as its own fix, not as a QA finding.
+- The demo page is the north-star copy and mounts
+  `runtimeUrl="/api/copilotkit-declarative-json-render"`; the API route
+  directory carries that exact name and its `basePath` names the same path.
+  All three have to move together -- renaming one alone makes the page 404
+  on its runtime URL with nothing in the UI to explain why.
 - There is no `byoc-json-render-root` test id and no `/demos/byoc-json-render`
   route — assert `data-testid="json-render-root"` on the canonical route only.

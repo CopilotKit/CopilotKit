@@ -1,12 +1,17 @@
 /**
- * Dedicated runtime for the BYOC json-render demo.
+ * Dedicated runtime for the declarative-json-render demo.
  *
  * Splitting into its own endpoint keeps the `byoc_json_render` crew
  * isolated from the default multi-agent `/api/copilotkit` runtime. The
- * frontend's demo page points `<CopilotKit runtimeUrl>` here.
+ * frontend's demo page (src/app/demos/declarative-json-render/page.tsx)
+ * points `<CopilotKit runtimeUrl>` here, so this directory name has to
+ * match that URL -- Next.js maps src/app/api/<name>/route.ts to
+ * /api/<name>, and `basePath` below must name the same path.
  *
  * Agent URL targets the dedicated `/byoc-json-render` FastAPI endpoint
- * mounted by `agent_server.py`.
+ * mounted by `agent_server.py`. The Python module, the crew, and the
+ * `byoc_json_render` agent ID retain the legacy `byoc` name; only the
+ * user-facing slug, route, and frontend folder were renamed.
  */
 
 import type { NextRequest } from "next/server";
@@ -40,7 +45,7 @@ export const POST = async (req: NextRequest) => {
   try {
     const copilotHandler = createCopilotRuntimeHandler({
       runtime,
-      basePath: "/api/copilotkit-byoc-json-render",
+      basePath: "/api/copilotkit-declarative-json-render",
       mode: "single-route",
     });
     return await copilotHandler(req);
