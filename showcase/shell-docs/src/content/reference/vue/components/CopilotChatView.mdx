@@ -18,10 +18,9 @@ import { CopilotChatView } from "@copilotkit/vue/v2";
 ```
 
 <Callout type="info">
-  `CopilotChatView` is a controlled, presentational component. It does not own
-  the messages, agent state, or input value. When you use it standalone you must
-  supply `messages`, react to its emitted events, and (optionally) drive the
-  input value yourself.
+  `CopilotChatView` is a presentational component. You supply messages and agent
+  state and handle its emitted events. Input can be controlled with `inputValue`;
+  when that prop is omitted, the component manages the input value locally.
 </Callout>
 
 ## Example
