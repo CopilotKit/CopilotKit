@@ -719,7 +719,7 @@ const INITIATIVES: Initiative[] = [
 ];
 
 describe("exec catalog InitiativeTable renderer", () => {
-  it("renders one row per initiative, with owner, status and note", () => {
+  it("renders one row per initiative, with owner and status", () => {
     const data = makeBlockData({
       snapshot: makeSnapshot({ initiatives: INITIATIVES }),
     });
@@ -732,7 +732,48 @@ describe("exec catalog InitiativeTable renderer", () => {
       expect(text).toContain(initiative.name);
       expect(text).toContain(initiative.owner);
       expect(text).toContain(initiative.status);
-      expect(text).toContain(initiative.note);
+    }
+  });
+
+  /**
+   * THE NOTE IS PRINTED ONLY FOR A ROW THAT IS NOT GREEN.
+   *
+   * Printing all five seeded notes made this block 667px of content beside a
+   * 112px metric tile, and the grid stretches a row to its tallest card — so
+   * one block's prose padded its neighbour out with ~600px of dead space. A
+   * green row's note only repeats what its pill already says.
+   *
+   * Asserted as a RULE in both directions, because "shorter" is satisfiable
+   * by dropping every note and that would be a different, worse block: the
+   * off-track explanation is the one a reader has to act on.
+   */
+  it("prints the note for an off-track initiative and withholds it for a green one", () => {
+    const { container } = renderInitiativeTable(
+      makeBlockData({ snapshot: makeSnapshot({ initiatives: INITIATIVES }) }),
+    );
+    const text = container.textContent ?? "";
+
+    const [red, green] = INITIATIVES;
+    expect(text).toContain(red.note);
+    expect(text).not.toContain(green.note);
+  });
+
+  /**
+   * Withheld from the RENDER is not withheld from the READER: the green row's
+   * note stays reachable on the cell's `title`, so hiding it costs nothing but
+   * the vertical space it was taking. Without this, "hide it" and "delete it"
+   * are indistinguishable to the suite.
+   */
+  it("keeps every note reachable on the row, including the green one it does not print", () => {
+    const { container } = renderInitiativeTable(
+      makeBlockData({ snapshot: makeSnapshot({ initiatives: INITIATIVES }) }),
+    );
+    const titles = [...container.querySelectorAll("tbody tr td[title]")].map(
+      (cell) => cell.getAttribute("title"),
+    );
+
+    for (const initiative of INITIATIVES) {
+      expect(titles).toContain(initiative.note);
     }
   });
 

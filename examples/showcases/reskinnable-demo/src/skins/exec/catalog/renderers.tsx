@@ -753,25 +753,65 @@ const InitiativeTable = () => {
 
   return (
     <Tile label={label}>
-      <table className="w-full border-collapse text-sm">
+      {/*
+        TWO COLUMNS, NOT THREE, AND FIXED. This block is read with the
+        assistant open, which is the demo's normal state — that leaves the card
+        286px wide and the table 239px. Split three ways by content, the
+        Initiative column got 120px while Owner and Status took the other half
+        for a person's name and a three-letter code, so EVERY initiative name
+        wrapped and the block became the tallest thing on the dashboard.
+        Owner moves down to the sub-line, where it shares a row with the note
+        and costs no width, and `table-fixed` stops the widest owner name from
+        renegotiating the split.
+      */}
+      <table className="w-full table-fixed border-collapse text-sm">
         <thead>
           <tr className="text-left text-[0.65rem] uppercase tracking-[0.12em] text-ink-muted">
-            <th className="pb-2 font-medium">Initiative</th>
-            <th className="pb-2 font-medium">Owner</th>
+            <th className="w-[78%] pb-2 font-medium">Initiative</th>
             <th className="pb-2 font-medium">Status</th>
           </tr>
         </thead>
         <tbody>
           {snapshot.initiatives.map((initiative) => (
             <tr key={initiative.id} className="border-t border-hairline">
-              <td className="py-2 pr-3 align-top text-ink">
-                <div>{initiative.name}</div>
-                <div className="text-xs text-ink-muted">{initiative.note}</div>
+              {/*
+                THE NOTE EARNS ITS LINES ONLY WHEN THE STATUS IS NOT GREEN.
+                Every row carrying a wrapped two-to-three-line note made this
+                the tallest thing on the dashboard by a factor of six — 667px
+                of content beside a 112px metric tile — and because the grid
+                stretches a row to its tallest card, it padded its neighbour
+                out with ~600px of dead space. A green row's prose is the
+                least informative text on the densest card: the pill already
+                says "on track", and the note only repeats it. The rows that
+                keep their explanation are exactly the ones a reader has to
+                act on, which is the same rule the eyebrow above counts by.
+
+                Nothing is lost for the green rows — the full note stays on
+                the cell's `title`, and the page readable
+                (`../pages/ceo-dashboard.tsx`) publishes every note verbatim
+                off the ledger, so an assistant asked to read the block out
+                still has all five.
+              */}
+              <td
+                className="py-1.5 pr-3 align-top text-ink"
+                title={initiative.note}
+              >
+                <div className="leading-snug">{initiative.name}</div>
+                {/*
+                  CLAMPED, because note length is ledger data and nothing
+                  upstream bounds it. Two lines is enough for every seeded
+                  note; a longer one now costs the card no extra height
+                  instead of silently re-inflating the row it took two passes
+                  to shrink. The full text stays on the cell's `title`.
+                */}
+                <div className="line-clamp-2 text-[0.7rem] leading-snug text-ink-muted">
+                  {initiative.owner}
+                  {initiative.status === "green" ? null : (
+                    <> · {initiative.note}</>
+                  )}
+                </div>
               </td>
-              <td className="py-2 pr-3 align-top text-ink-muted">
-                {initiative.owner}
-              </td>
-              <td className="py-2 align-top">
+              <td className="py-1.5 align-top">
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[0.6rem] font-medium uppercase tracking-[0.1em]",
