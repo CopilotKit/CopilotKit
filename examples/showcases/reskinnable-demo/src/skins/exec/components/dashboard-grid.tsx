@@ -47,7 +47,7 @@ export function DashboardGrid({ dashboardId }: { dashboardId: DashboardId }) {
   const dashboard: ExecLedgerDashboard = snapshot.dashboards[dashboardId];
 
   return (
-    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {dashboard.blocks.length === 0 ? (
         <EmptyState />
       ) : (
@@ -166,9 +166,14 @@ function BlockCard({
   const iconButtonClass =
     "rounded-full border border-hairline bg-surface p-1.5 text-ink-muted transition hover:bg-surface-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
 
+  // `h-full` + a column flex: the grid stretches every item to its row's
+  // height (the default `items-stretch`), and this makes the card actually USE
+  // that height instead of leaving the taller neighbour's slack outside its
+  // border. The header keeps its intrinsic height; the body takes the rest, so
+  // two cards side by side line up top AND bottom.
   return (
-    <div className="rounded-2xl border border-hairline bg-surface shadow-soft">
-      <div className="flex items-center justify-between gap-2 border-b border-hairline px-3 py-2">
+    <div className="flex h-full flex-col rounded-2xl border border-hairline bg-surface shadow-soft">
+      <div className="flex flex-none items-center justify-between gap-2 border-b border-hairline px-3 py-2">
         <span className="min-w-0 truncate text-xs font-medium uppercase tracking-[0.1em] text-ink-muted">
           {title}
         </span>
@@ -202,7 +207,7 @@ function BlockCard({
           </button>
         </div>
       </div>
-      <div className="p-4 md:p-6">
+      <div className="flex-1 p-4 md:p-6">
         {error !== null && (
           <p role="alert" className="mb-3 text-xs text-negative">
             {title}: {error}
