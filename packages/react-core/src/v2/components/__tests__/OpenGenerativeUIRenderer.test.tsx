@@ -31,6 +31,7 @@ interface SandboxCreateOptions {
 const mockCreate = vi.fn(
   (_localApi: SandboxLocalApi, _options: SandboxCreateOptions) => {
     mockIframe = document.createElement("iframe");
+    _options.frameContainer.appendChild(mockIframe);
     return {
       iframe: mockIframe,
       promise: mockPromise,
@@ -73,6 +74,123 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("rejects invalid resize heights and coalesces a burst into one frame", async () => {
+    const { container } = renderRenderer({
+      html: ["<body>Ready</body>"],
+      htmlComplete: true,
+      generating: false,
+    });
+    await flushImport();
+    const callbacks: FrameRequestCallback[] = [];
+    const raf = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callbacks.push(callback);
+        return callbacks.length;
+      });
+    try {
+      for (const height of [Infinity, NaN, -1, 0, 100_001, "900"]) {
+        act(() => {
+          window.dispatchEvent(
+            new MessageEvent("message", {
+              source: mockIframe.contentWindow,
+              data: { type: "__ck_resize", height },
+            }),
+          );
+        });
+      }
+      expect(raf).not.toHaveBeenCalled();
+      expect((container.firstElementChild as HTMLElement).style.height).toBe(
+        "200px",
+      );
+      for (const height of [300, 450, 620]) {
+        act(() => {
+          window.dispatchEvent(
+            new MessageEvent("message", {
+              source: mockIframe.contentWindow,
+              data: { type: "__ck_resize", height },
+            }),
+          );
+        });
+      }
+      expect(raf).toHaveBeenCalledOnce();
+      expect((container.firstElementChild as HTMLElement).style.height).toBe(
+        "200px",
+      );
+      act(() => {
+        callbacks[0](0);
+      });
+      expect((container.firstElementChild as HTMLElement).style.height).toBe(
+        "620px",
+      );
+    } finally {
+      raf.mockRestore();
+    }
+  });
+
+  it("drops pending resize work from an iframe that was replaced", async () => {
+    const first = { html: ["<body>First</body>"], htmlComplete: true };
+    const { container, rerender, unmount } = renderRenderer(first);
+    await flushImport();
+    const callbacks: FrameRequestCallback[] = [];
+    const raf = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callbacks.push(callback);
+        return callbacks.length;
+      });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame");
+    try {
+      const oldWindow = mockIframe.contentWindow;
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            source: oldWindow,
+            data: { type: "__ck_resize", height: 900 },
+          }),
+        );
+      });
+      expect(callbacks).toHaveLength(1);
+      rerender(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{ html: ["<body>Second</body>"], htmlComplete: true }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+      act(() => {
+        callbacks[0](0);
+      });
+      expect((container.firstElementChild as HTMLElement).style.height).toBe(
+        "200px",
+      );
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            source: oldWindow,
+            data: { type: "__ck_resize", height: 950 },
+          }),
+        );
+      });
+      expect(raf).toHaveBeenCalledOnce();
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            source: mockIframe.contentWindow,
+            data: { type: "__ck_resize", height: 400 },
+          }),
+        );
+      });
+      unmount();
+      expect(cancel).toHaveBeenCalledWith(2);
+    } finally {
+      raf.mockRestore();
+      cancel.mockRestore();
+    }
   });
 
   it("renders placeholder when no html", async () => {
