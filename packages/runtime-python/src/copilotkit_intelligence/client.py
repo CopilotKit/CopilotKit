@@ -5,7 +5,9 @@ import json
 import logging
 import math
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass
+from time import monotonic as _entitlement_now
 from types import TracebackType
 from typing import Any, Literal, Self
 from urllib.parse import quote, unquote, urlsplit
@@ -13,6 +15,7 @@ from uuid import uuid4
 
 import httpx
 
+from .entitlements import RuntimeEntitlementResponse, normalize_runtime_entitlements
 from .inspector import InspectorMetadata, parse_inspector_metadata
 
 Json = dict[str, Any]
@@ -28,6 +31,14 @@ class IntelligenceError(Exception):
     def __init__(self, status: int, message: str) -> None:
         super().__init__(message)
         self.status = status
+
+
+class RuntimeEntitlementError(IntelligenceError):
+    """A safe entitlement request failure with HTTP status and retry guidance."""
+
+    def __init__(self, status: int, message: str, retryable: bool) -> None:
+        super().__init__(status, message)
+        self.retryable = retryable
 
 
 @dataclass(frozen=True)
@@ -57,7 +68,7 @@ def segment(value: str) -> str:
 class Intelligence:
     """Call Intelligence from scripts, workers, or a Runtime with one pooled client.
 
-    The client has no ASGI dependency, background task, or agent requirement.
+    The client has no ASGI dependency or agent requirement.
     Its async context manager closes only an HTTP client that it created.
     Writes are never retried automatically. Cancellation propagates to httpx.
     """
@@ -97,6 +108,11 @@ class Intelligence:
         self.request_timeout = request_timeout
         self.http_client = http_client or httpx.AsyncClient()
         self._owns_http_client = http_client is None
+        self._entitlements_task: asyncio.Task[RuntimeEntitlementResponse] | None = None
+        self._entitlements_waiters = 0
+        self._entitlements_cache: (
+            tuple[float, RuntimeEntitlementResponse | RuntimeEntitlementError] | None
+        ) = None
         self._listeners: dict[str, list[ThreadListener]] = {
             "created": [],
             "updated": [],
@@ -173,6 +189,11 @@ class Intelligence:
 
     async def aclose(self) -> None:
         """Close the owned HTTP client; a supplied client stays usable."""
+        task = self._entitlements_task
+        if task is not None and not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        self._entitlements_cache = None
         if self._owns_http_client:
             await self.http_client.aclose()
 
@@ -273,6 +294,85 @@ class Intelligence:
             raise TimeoutError("Inspector metadata request timed out") from None
         except httpx.HTTPError:
             raise IntelligenceError(502, "Intelligence connection failed") from None
+
+    async def get_runtime_entitlements(self) -> RuntimeEntitlementResponse:
+        """Share concurrent lookups and return copies of fresh cached results."""
+        cached = self._entitlements_cache
+        if cached is not None and _entitlement_now() < cached[0]:
+            value = cached[1]
+            if isinstance(value, RuntimeEntitlementError):
+                raise RuntimeEntitlementError(value.status, str(value), value.retryable) from None
+            return deepcopy(value)
+        task = self._entitlements_task
+        if task is None:
+            task = asyncio.create_task(self._load_runtime_entitlements())
+            self._entitlements_task = task
+        self._entitlements_waiters += 1
+        try:
+            return deepcopy(await asyncio.shield(task))
+        except RuntimeEntitlementError as error:
+            raise RuntimeEntitlementError(error.status, str(error), error.retryable) from None
+        finally:
+            self._entitlements_waiters -= 1
+            if self._entitlements_task is task and (task.done() or self._entitlements_waiters == 0):
+                self._entitlements_task = None
+                if not task.done():
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+
+    async def _load_runtime_entitlements(self) -> RuntimeEntitlementResponse:
+        """Cache completed lookups without extending expired Runtime authority."""
+        try:
+            response = await self._fetch_runtime_entitlements()
+        except RuntimeEntitlementError as error:
+            self._entitlements_cache = (_entitlement_now() + 5, error)
+            raise
+        active = response["status"] == "ready" and response["entitlement"]["active"]
+        self._entitlements_cache = (_entitlement_now() + (30 if active else 5), response)
+        return response
+
+    async def _fetch_runtime_entitlements(self) -> RuntimeEntitlementResponse:
+        """Make one bounded entitlement request without redirects or retries."""
+        deadline = min(self.request_timeout, 1.5)
+        try:
+            async with asyncio.timeout(deadline):
+                async with self.http_client.stream(
+                    "GET",
+                    self.api_url + "/api/entitlements/runtime",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=deadline,
+                    follow_redirects=False,
+                ) as response:
+                    status = response.status_code
+                    if not 200 <= status < 300:
+                        raise RuntimeEntitlementError(
+                            status,
+                            "Runtime entitlement request rejected",
+                            status in (408, 425, 429) or status >= 500,
+                        )
+                    await response.aread()
+                    try:
+                        normalized = normalize_runtime_entitlements(response.json())
+                    except ValueError:
+                        normalized = None
+                    if normalized is None:
+                        raise RuntimeEntitlementError(
+                            502, "Invalid Runtime entitlement response", False
+                        )
+                    return normalized
+        except (TimeoutError, httpx.TimeoutException):
+            raise RuntimeEntitlementError(
+                504, "Runtime entitlement request timed out", True
+            ) from None
+        except RuntimeEntitlementError:
+            raise
+        except Exception:
+            raise RuntimeEntitlementError(
+                502, "Runtime entitlement connection failed", True
+            ) from None
 
     async def list_memories(
         self,

@@ -19,7 +19,11 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
-from copilotkit_intelligence import Intelligence
+from copilotkit_intelligence import (
+    Intelligence,
+    RuntimeEntitlementError,
+    RuntimeEntitlementResponse,
+)
 from copilotkit_intelligence.inspector import parse_inspector_metadata
 
 from .a2ui import A2UIConfig, A2UIMiddleware
@@ -350,21 +354,28 @@ class IntelligenceRuntime:
         raise RuntimeErrorResponse(404, "Route not found")
 
     async def _info(self) -> Response:
-        """Advertise only configured capabilities and live platform entitlements."""
+        """Advertise configured capabilities and normalized, fresh SDK entitlements."""
+        entitlement: RuntimeEntitlementResponse
         try:
-            entitlement = await self.platform.request("GET", "/api/entitlements/runtime")
-        except PlatformError:
+            entitlement = await self.intelligence.get_runtime_entitlements()
+        except Exception as error:
+            retryable = not isinstance(error, RuntimeEntitlementError) or error.retryable
             entitlement = {
-                "status": "unavailable",
+                "status": "unavailable" if retryable else "misconfigured",
                 "error": {
-                    "code": "runtime_entitlements_unavailable",
-                    "message": "Runtime entitlement lookup failed",
-                    "retryable": True,
+                    "code": "runtime_entitlements_unavailable"
+                    if retryable
+                    else "runtime_entitlements_misconfigured",
+                    "message": "Runtime entitlement lookup failed"
+                    if retryable
+                    else "Runtime entitlement lookup is misconfigured",
+                    "retryable": retryable,
                 },
             }
-        active = entitlement.get("status") == "ready" and entitlement.get("entitlement", {}).get(
-            "active"
-        )
+        if entitlement["status"] == "ready":
+            license_status = "valid" if entitlement["entitlement"]["active"] else "none"
+        else:
+            license_status = "unknown" if entitlement["error"]["retryable"] else "none"
         return JSONResponse(
             {
                 "version": "0.1.0",
@@ -385,7 +396,7 @@ class IntelligenceRuntime:
                     "realtimeMetadata": True,
                 },
                 "runtimeEntitlements": entitlement,
-                "licenseStatus": "valid" if active else "none",
+                "licenseStatus": license_status,
                 "telemetryDisabled": not self.telemetry.enabled,
                 "a2uiEnabled": bool(self.a2ui and self.a2ui.enabled),
                 **(

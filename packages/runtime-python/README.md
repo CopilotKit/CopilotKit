@@ -99,6 +99,41 @@ It never forwards browser credentials to Intelligence.
 Responses use `Cache-Control: no-store, private`. Provider errors produce an empty 204 response.
 The `/info` response advertises this route through `inspectorMetadata: true`.
 
+## Read Runtime entitlements
+
+Read the Runtime grant from a script, worker, or application:
+
+```python
+from copilotkit_intelligence import RuntimeEntitlementResponse
+
+result: RuntimeEntitlementResponse = await intelligence.get_runtime_entitlements()
+if result["status"] == "ready":
+    print(result["entitlement"]["active"])
+else:
+    print(result["error"]["code"])
+```
+
+A ready result contains the grant, features, and limits. Its `active` value determines Runtime access.
+Other results have status `degraded`, `misconfigured`, or `unavailable` and contain a structured error.
+The SDK accepts both current responses and legacy flat responses.
+
+Concurrent calls share one HTTP request. Each caller receives a separate copy.
+Active grants remain in the cache for 30 seconds. Other results and request errors remain for five seconds.
+After expiry, the SDK requests a fresh result. A failed request does not return an expired grant.
+
+The request deadline is 1.5 seconds, including the response body.
+A shorter `request_timeout` also applies.
+`RuntimeEntitlementError` extends `IntelligenceError` with a `retryable` flag.
+Invalid responses use status 502 with `retryable=False`. Timeouts use status 504 with `retryable=True`.
+
+Caller cancellation does not interrupt other callers that await the same request.
+When the last caller cancels, the SDK cancels the HTTP request.
+SDK shutdown also cancels an active entitlement request and preserves a supplied HTTP client.
+
+The Runtime uses this SDK method and cache for `/info`.
+Configuration errors produce a non-retryable `misconfigured` result.
+Retryable failures produce an `unavailable` result and an `unknown` compatibility license status.
+
 ## Install and start
 
 1. From the repository root, install the package and an ASGI server:
