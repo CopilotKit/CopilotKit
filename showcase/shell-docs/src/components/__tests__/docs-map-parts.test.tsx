@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   CapabilityTile,
+  MAP_TILE_GRID_CLASS,
   MapBlock,
   MapConnector,
   PickGrid,
@@ -52,6 +53,7 @@ describe("MapBlock", () => {
     expect(markup).toContain('href="/somewhere"');
     expect(markup).toContain("<p>child</p>");
     expect(markup).toContain('id="block-id"');
+    expect(markup).toContain("not-prose");
   });
 
   // The three treatments are the only thing carrying the page's hierarchy, so
@@ -70,10 +72,16 @@ describe("MapBlock", () => {
     expect(markup).toContain("shadow-[var(--shadow-panel)]");
   });
 
-  it("gives the plus variant the accent border", () => {
+  // Asserting on `var(--accent)` alone would pass even if `plus`'s block
+  // class were made byte-identical to `core`'s: the action `<Link>` that the
+  // shared `render` helper always passes carries `text-[var(--accent)]` in
+  // every variant, so that token appears in the markup regardless. Assert on
+  // the border colour and fill unique to `plus`'s block class instead.
+  it("gives the plus variant an accent border and accent-tinted fill", () => {
     const markup = render("plus");
 
-    expect(markup).toContain("var(--accent)");
+    expect(markup).toContain("border-[var(--accent)]");
+    expect(markup).toContain("bg-[var(--accent-dim)]");
     expect(markup).not.toContain("border-dashed");
   });
 
@@ -89,6 +97,52 @@ describe("MapBlock", () => {
 
   it("uses design tokens instead of hard-coded colours", () => {
     expect(render("plus")).not.toMatch(NO_HARD_COLOUR);
+  });
+
+  it("sizes the name from nameSize instead of a fixed size", () => {
+    const small = renderToStaticMarkup(
+      <MapBlock
+        variant="core"
+        kicker="K"
+        name="N"
+        nameSize="sm"
+        description="D"
+      >
+        <span />
+      </MapBlock>,
+    );
+    const large = renderToStaticMarkup(
+      <MapBlock variant="core" kicker="K" name="N" description="D">
+        <span />
+      </MapBlock>,
+    );
+
+    expect(small).toContain("text-base");
+    expect(small).not.toContain("text-xl");
+    expect(large).toContain("text-xl");
+    expect(large).not.toContain("text-base");
+  });
+
+  it("renders the badge text when a badge is given, and omits it otherwise", () => {
+    const withBadge = renderToStaticMarkup(
+      <MapBlock
+        variant="core"
+        kicker="K"
+        name="N"
+        description="D"
+        badge="Free to start · cloud or self-hosted"
+      >
+        <span />
+      </MapBlock>,
+    );
+    const withoutBadge = renderToStaticMarkup(
+      <MapBlock variant="core" kicker="K" name="N" description="D">
+        <span />
+      </MapBlock>,
+    );
+
+    expect(withBadge).toContain("Free to start · cloud or self-hosted");
+    expect(withoutBadge).not.toContain("Free to start · cloud or self-hosted");
   });
 });
 
@@ -108,8 +162,10 @@ describe("MapConnector", () => {
     expect(markup).toContain("AG-UI");
   });
 
-  // "+ adds" is the only thing left saying Intelligence is attached rather
-  // than merely next, now that the blocks are stacked.
+  // "+ adds" is one of the things saying Intelligence is attached rather
+  // than merely next to the stacked blocks — Block 3's own description line
+  // says as much too, so this connector reinforces rather than carries it
+  // alone.
   it("tints the accent variant so the added layer reads as attached", () => {
     const markup = renderToStaticMarkup(
       <MapConnector variant="accent" label="+ adds" />,
@@ -200,5 +256,15 @@ describe("PickGrid", () => {
     );
 
     expect(markup).toContain("grid-cols-1");
+  });
+});
+
+describe("MAP_TILE_GRID_CLASS", () => {
+  // Shared verbatim by the server-rendered Intelligence grid and the
+  // client-rendered CopilotKit grid (wave 3). It must stack to one column at
+  // the 375px breakpoint and expand to three on large screens.
+  it("stacks to one column narrow and three columns wide", () => {
+    expect(MAP_TILE_GRID_CLASS).toContain("grid-cols-1");
+    expect(MAP_TILE_GRID_CLASS).toContain("lg:grid-cols-3");
   });
 });
