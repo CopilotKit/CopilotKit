@@ -45,9 +45,10 @@ function DemoChart({
     >
       <strong style={{ fontSize: "1rem" }}>{title}</strong>
       <div style={{ display: "flex", height: 160, gap: 16, alignItems: "end" }}>
-        {bars.map((bar) => (
+        {/* Bar slots stay in order while labels stream in or repeat. */}
+        {bars.map((bar, index) => (
           <div
-            key={bar.label}
+            key={index}
             style={{ display: "grid", flex: 1, gap: 6, textAlign: "center" }}
           >
             <strong style={{ fontSize: "0.85rem" }}>{bar.value}</strong>
