@@ -59,6 +59,16 @@ interface OpenGenerativeUIActivityRendererProps {
 }
 
 const THROTTLE_MS = 1000;
+// Allow long generated documents while bounding iframe-controlled layout size.
+const MAX_FRAME_HEIGHT = 100_000;
+function isFrameHeight(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    value <= MAX_FRAME_HEIGHT
+  );
+}
 
 /**
  * Returns true when the inner component should re-render immediately
@@ -211,7 +221,9 @@ function injectCssIntoHtml(html: string, css: string): string {
 
 const OpenGenerativeUIActivityRendererInner = React.memo(
   function OpenGenerativeUIActivityRendererInner({ content }: InnerProps) {
-    const initialHeight = content.initialHeight ?? 200;
+    const initialHeight = isFrameHeight(content.initialHeight)
+      ? content.initialHeight
+      : 200;
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
     const sandboxFunctions = useSandboxFunctions();
 
@@ -473,20 +485,41 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Listen before the asynchronous sandbox creation. The observer starts after
     // sandbox readiness and follows late content and host-width changes.
     useEffect(() => {
+      let frame: number | null = null;
+      let pending: {
+        source: MessageEventSource | null;
+        height: number;
+      } | null = null;
       const onMessage = (e: MessageEvent) => {
         const sandbox = sandboxRef.current;
         if (
-          sandbox &&
-          e.source === sandbox.iframe.contentWindow &&
-          e.data?.type === "__ck_resize" &&
-          typeof e.data.height === "number" &&
-          e.data.height > 0
+          !sandbox ||
+          e.source !== sandbox.iframe.contentWindow ||
+          e.data?.type !== "__ck_resize" ||
+          !isFrameHeight(e.data.height)
         )
-          setAutoHeight(e.data.height);
+          return;
+        pending = { source: e.source, height: e.data.height };
+        if (frame !== null) return;
+        frame = requestAnimationFrame(() => {
+          frame = null;
+          const resize = pending;
+          pending = null;
+          if (
+            resize &&
+            sandboxRef.current?.iframe.contentWindow === resize.source
+          ) {
+            setAutoHeight(resize.height);
+          }
+        });
       };
       window.addEventListener("message", onMessage);
-      return () => window.removeEventListener("message", onMessage);
-    }, []);
+      return () => {
+        window.removeEventListener("message", onMessage);
+        if (frame !== null) cancelAnimationFrame(frame);
+        pending = null;
+      };
+    }, [fullHtml, css, localApi]);
 
     const height = autoHeight ?? initialHeight;
 
