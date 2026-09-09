@@ -15,6 +15,8 @@ internal static class RunnerTests
 {
     public static async Task RunAsync()
     {
+        await Task.WhenAll(ProjectOnlyMemoryMutationAsync("PATCH"), ProjectOnlyMemoryMutationAsync("DELETE"));
+        await Task.WhenAll(StopAliasAsync(), StopAgentScopeAsync(), MalformedStopAsync(), InvalidMemoryPolicyAsync(), ProjectOnlyMemoryReadAsync(), MemoryCallbackFailureAsync());
         foreach (var mode in new[] { "error", "cancel-throws", "cancel-eof" }) await BeforeFirstYieldAsync(mode);
         await LeaseFailureBeforeDispatchAsync();
         await Task.WhenAll(StartupLeaseAsync(), StartupDisposeAsync());
@@ -24,6 +26,78 @@ internal static class RunnerTests
         await IdleReconnectAsync();
         await BoundedShutdownAsync();
         await StopWithoutBodyAsync();
+    }
+
+    private static async Task ProjectOnlyMemoryMutationAsync(string method)
+    {
+        await using var fixture = await Fixture.CreateAsync(new TestAgent(false));
+        fixture.MemoryGrant = new JsonObject { ["user"] = "none", ["project"] = "read-write" };
+        var response = await fixture.MutateMemoryAsync(method);
+        Check(response.IsSuccessStatusCode && fixture.Platform.MemoryCalls == 1 && fixture.Platform.ReceivedGrant == fixture.MemoryGrant.ToJsonString(), method + " existing memory delegates unknown scope with trusted project-only write grant");
+        fixture.Platform.MemoryStatus = System.Net.HttpStatusCode.Forbidden;
+        response = await fixture.MutateMemoryAsync(method);
+        Check((int)response.StatusCode == 403 && fixture.Platform.MemoryCalls == 2, method + " preserves platform denial for the stored memory scope");
+        fixture.MemoryGrant = new JsonObject { ["user"] = "read", ["project"] = "read" };
+        response = await fixture.MutateMemoryAsync(method);
+        Check((int)response.StatusCode == 403 && fixture.Platform.MemoryCalls == 2, method + " rejects grants with no write access before platform");
+    }
+
+    private static async Task StopAliasAsync()
+    {
+        var agent = new TestAgent(true);
+        await using var fixture = await Fixture.CreateAsync(agent);
+        await fixture.StartRunAsync();
+        var response = await fixture.StopAsync("alias", new { runId = "run" });
+        var body = await response.Content.ReadFromJsonAsync<JsonObject>();
+        Check(response.IsSuccessStatusCode && body?["stopped"]?.GetValue<bool>() == true, "stop uses the platform canonical thread ID for an alias");
+        await agent.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    private static async Task StopAgentScopeAsync()
+    {
+        var agent = new TestAgent(true);
+        await using var fixture = await Fixture.CreateAsync(agent);
+        await fixture.StartRunAsync();
+        fixture.Platform.ThreadAgent = "another-agent";
+        var response = await fixture.StopAsync("thread", new { runId = "run" });
+        Check((int)response.StatusCode == 403 && !agent.Cancelled.Task.IsCompleted, "stop denies a thread owned by another agent before cancellation");
+    }
+
+    private static async Task MalformedStopAsync()
+    {
+        foreach (var runId in new object?[] { null, 123, "", "  " })
+        {
+            await using var fixture = await Fixture.CreateAsync(new TestAgent(false));
+            var response = await fixture.StopAsync("thread", new { runId });
+            Check((int)response.StatusCode == 400 && fixture.Platform.ThreadReads == 0, "malformed stop runId fails before platform access: " + (runId ?? "null"));
+        }
+    }
+
+    private static async Task InvalidMemoryPolicyAsync()
+    {
+        foreach (var (json, status) in new[] { ("{\"user\":\"invalid\",\"project\":\"read\"}", 500), ("{\"project\":\"read\"}", 500), ("{\"user\":\"read\",\"project\":42}", 500), ("{\"user\":\"none\",\"project\":\"none\"}", 403) })
+        {
+            await using var fixture = await Fixture.CreateAsync(new TestAgent(false));
+            fixture.MemoryGrant = JsonNode.Parse(json)!.AsObject();
+            var response = await fixture.ListMemoriesAsync();
+            Check((int)response.StatusCode == status && fixture.Platform.MemoryCalls == 0, "invalid or denied memory grant fails before platform access: " + json);
+        }
+    }
+
+    private static async Task ProjectOnlyMemoryReadAsync()
+    {
+        await using var fixture = await Fixture.CreateAsync(new TestAgent(false));
+        fixture.MemoryGrant = new JsonObject { ["user"] = "none", ["project"] = "read" };
+        var response = await fixture.ListMemoriesAsync();
+        Check(response.IsSuccessStatusCode && fixture.Platform.MemoryCalls == 1 && fixture.Platform.ReceivedGrant == fixture.MemoryGrant.ToJsonString(), "unscoped read forwards the trusted project-only grant instead of browser headers");
+    }
+
+    private static async Task MemoryCallbackFailureAsync()
+    {
+        await using var fixture = await Fixture.CreateAsync(new TestAgent(false));
+        fixture.FailMemoryPolicy = true;
+        var response = await fixture.ListMemoriesAsync();
+        Check((int)response.StatusCode == 500 && fixture.Platform.MemoryCalls == 0 && !(await response.Content.ReadAsStringAsync()).Contains("PRIVATE_POLICY_ERROR", StringComparison.Ordinal), "memory callback failure returns safe500 before platform access");
     }
 
     private static async Task BeforeFirstYieldAsync(string mode)
@@ -195,11 +269,16 @@ internal static class RunnerTests
     {
         public bool FailRenewal; public int Renewals; public bool Deleted; public bool HoldDelete;
         public string History = "{\"messages\":[]}";
+        public string ThreadAgent = "default"; public int ThreadReads; public int MemoryCalls;
+        public string? ReceivedGrant;
+        public System.Net.HttpStatusCode MemoryStatus = System.Net.HttpStatusCode.OK;
         public TaskCompletionSource DeleteEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReleaseDelete { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
+            if (path.StartsWith("/api/memories", StringComparison.Ordinal)) { Interlocked.Increment(ref MemoryCalls); ReceivedGrant = request.Headers.GetValues("x-cpki-memory-grant").Single(); return new HttpResponseMessage(MemoryStatus) { Content = new StringContent("{\"memories\":[]}") }; }
+            if (request.Method == HttpMethod.Get && !path.EndsWith("/messages", StringComparison.Ordinal)) { Interlocked.Increment(ref ThreadReads); return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new { thread = new { id = "thread", agentId = ThreadAgent } }) }; }
             if (request.Method == HttpMethod.Patch) { Interlocked.Increment(ref Renewals); if (FailRenewal) return new HttpResponseMessage(System.Net.HttpStatusCode.Conflict); }
             if (request.Method == HttpMethod.Delete) { DeleteEntered.TrySetResult(); if (HoldDelete) await ReleaseDelete.Task.WaitAsync(cancellationToken); Deleted = true; }
             var value = path.EndsWith("/messages", StringComparison.Ordinal) ? History : "{\"threadId\":\"thread\",\"runId\":\"run\",\"joinToken\":\"token\"}";
@@ -217,6 +296,8 @@ internal static class RunnerTests
         public bool HoldJoin;
         public TaskCompletionSource JoinEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public RuntimeOptions Options { get; private set; } = null!;
+        public JsonObject? MemoryGrant { get; set; } = new() { ["user"] = "read-write", ["project"] = "read-write" };
+        public bool FailMemoryPolicy;
         public static async Task<Fixture> CreateAsync(IRuntimeAgent agent)
         {
             var fixture = new Fixture();
@@ -250,7 +331,7 @@ internal static class RunnerTests
             });
             await fixture.app.StartAsync();
             var address = fixture.app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
-            fixture.Options = new RuntimeOptions { ApiUrl = new Uri(address), RunnerUrl = new Uri(address + "/runner"), ClientUrl = new Uri(address), ApiKey = "test", Agents = new Dictionary<string, IRuntimeAgent> { ["default"] = agent }, IdentifyUser = (_, _) => ValueTask.FromResult<RuntimeUser?>(new RuntimeUser("user")), TelemetryDisabled = true, RequestTimeout = TimeSpan.FromMilliseconds(300), LockHeartbeatInterval = TimeSpan.FromMilliseconds(30) };
+            fixture.Options = new RuntimeOptions { ApiUrl = new Uri(address), RunnerUrl = new Uri(address + "/runner"), ClientUrl = new Uri(address), ApiKey = "test", Agents = new Dictionary<string, IRuntimeAgent> { ["default"] = agent }, IdentifyUser = (_, _) => ValueTask.FromResult<RuntimeUser?>(new RuntimeUser("user")), MemoryGrant = (_, _, _) => fixture.FailMemoryPolicy ? throw new InvalidOperationException("PRIVATE_POLICY_ERROR") : ValueTask.FromResult(fixture.MemoryGrant), TelemetryDisabled = true, RequestTimeout = TimeSpan.FromMilliseconds(300), LockHeartbeatInterval = TimeSpan.FromMilliseconds(30) };
             fixture.platformHttp = new HttpClient(fixture.Platform); fixture.runtime = new IntelligenceRuntime(fixture.Options, fixture.platformHttp);
             var hostBuilder = WebApplication.CreateBuilder(); hostBuilder.Logging.ClearProviders(); hostBuilder.WebHost.UseUrls("http://127.0.0.1:0");
             fixture.host = hostBuilder.Build(); fixture.runtime.Map(fixture.host); await fixture.host.StartAsync();
@@ -265,6 +346,20 @@ internal static class RunnerTests
         public Task<HttpResponseMessage> StartRequestAsync(object[]? messages = null) => browser.PostAsJsonAsync("/copilotkit/agent/default/run", new { threadId = "thread", runId = "run", messages = messages ?? Array.Empty<object>(), tools = Array.Empty<object>(), context = Array.Empty<object>(), state = new { }, forwardedProps = new { } });
         public Task StopRuntimeAsync() => runtime.DisposeAsync().AsTask();
         public async Task<bool> StopWithoutBodyAsync() => (await browser.PostAsync("/copilotkit/agent/default/stop/thread", null)).IsSuccessStatusCode;
+        public Task<HttpResponseMessage> StopAsync(string thread, object body) => browser.PostAsJsonAsync("/copilotkit/agent/default/stop/" + thread, body);
+        public Task<HttpResponseMessage> ListMemoriesAsync()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/copilotkit/memories");
+            request.Headers.TryAddWithoutValidation("x-cpki-memory-grant", "{\"user\":\"read-write\",\"project\":\"read-write\"}");
+            return browser.SendAsync(request);
+        }
+        public Task<HttpResponseMessage> MutateMemoryAsync(string method)
+        {
+            var request = new HttpRequestMessage(new HttpMethod(method), "/copilotkit/memories/existing");
+            if (method == "PATCH") request.Content = JsonContent.Create(new { content = "replacement", kind = "topical" });
+            request.Headers.TryAddWithoutValidation("x-cpki-memory-grant", "{\"user\":\"read-write\",\"project\":\"read-write\"}");
+            return browser.SendAsync(request);
+        }
         public async ValueTask DisposeAsync() { await runtime.DisposeAsync(); browser.Dispose(); platformHttp.Dispose(); await host.StopAsync(); await host.DisposeAsync(); await app.StopAsync(); await app.DisposeAsync(); }
     }
 }

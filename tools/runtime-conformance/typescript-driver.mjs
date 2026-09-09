@@ -29,6 +29,9 @@ const runtime = new CopilotIntelligenceRuntime({
   }),
   generateThreadNames: false,
   exposeMemoryRoutes: true,
+  ...(Object.hasOwn(configuration, "memoryGrant")
+    ? { memory: { access: () => configuration.memoryGrant } }
+    : {}),
   telemetryId: configuration.telemetryId,
   a2ui: configuration.a2ui,
   mcpApps: configuration.mcpApps,

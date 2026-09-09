@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { WebSocketServer } from "ws";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
+import { createClientGateway } from "./client-gateway.mjs";
 
 /** Read bounded JSON from an actual request, preserving empty bodies. */
 async function readBody(request) {
@@ -314,14 +315,16 @@ export async function startPlatform() {
         return;
       }
       if (!checkOwner(thread, userId, response)) return;
-      if (operation === "connect")
+      if (operation === "connect") {
+        clientGateway.registerToken(`connect-token-${id}`, id, userId);
         json(response, 200, { threadId: id, joinToken: `connect-token-${id}` });
-      else if (operation === "lock") {
+      } else if (operation === "lock") {
         if (locks.has(id)) {
           json(response, 409, { error: "Thread locked" });
           return;
         }
         locks.set(id, { runId: body.runId, userId, agentId: body.agentId });
+        clientGateway.registerToken(`run-token-${body.runId}`, id, userId);
         json(response, 200, {
           threadId: id,
           runId: body.runId,
@@ -408,7 +411,28 @@ export async function startPlatform() {
     handleProtocols: (protocols) =>
       protocols.has("phoenix") ? "phoenix" : false,
   });
+  /** Relay a client stop through the same authenticated runner sockets. */
+  function stopRun(runId) {
+    for (const socket of gateway.clients) {
+      if (socket.readyState === 1)
+        socket.send(
+          JSON.stringify([
+            null,
+            null,
+            `ingestion:${runId}`,
+            "ag-ui",
+            { type: "CUSTOM", name: "stop" },
+          ]),
+        );
+    }
+  }
+  const clientGateway = createClientGateway({
+    events,
+    locks,
+    stopRun: (_threadId, runId) => stopRun(runId),
+  });
   server.on("upgrade", (request, socket, head) => {
+    if (clientGateway.handleUpgrade(request, socket, head)) return;
     const protocols = (request.headers["sec-websocket-protocol"] ?? "").split(
       /,\s*/,
     );
@@ -533,6 +557,7 @@ export async function startPlatform() {
           events.push(structuredClone(event));
           if (["RUN_FINISHED", "RUN_ERROR"].includes(event.type))
             locks.delete(scope.thread_id);
+          clientGateway.onPersist(event);
         }
       }
       if (faults.plannedCloseAfterPersist > 0) {
@@ -584,21 +609,9 @@ export async function startPlatform() {
     mcp,
     mcpUrl: `${url}/mcp`,
     mcpCalls,
+    clientFrames: clientGateway.frames,
     /** Send the gateway's authoritative stop message through actual sockets. */
-    stopRun(runId) {
-      for (const socket of gateway.clients) {
-        if (socket.readyState === 1)
-          socket.send(
-            JSON.stringify([
-              null,
-              null,
-              `ingestion:${runId}`,
-              "ag-ui",
-              { type: "CUSTOM", name: "stop" },
-            ]),
-          );
-      }
-    },
+    stopRun,
     /** Release durable confirmations without changing the persisted journal. */
     releaseAcknowledgements() {
       faults.holdFinalAcks = false;
@@ -616,6 +629,7 @@ export async function startPlatform() {
     },
     /** Terminate fixture-owned connections and release its listening sockets. */
     async close() {
+      await clientGateway.close();
       for (const socket of gateway.clients) socket.terminate();
       gateway.close();
       server.closeAllConnections();

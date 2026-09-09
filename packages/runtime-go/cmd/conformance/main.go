@@ -29,6 +29,7 @@ func main() {
 		TelemetryID         string                 `json:"telemetryId"`
 		A2UI                *runtime.A2UIConfig    `json:"a2ui"`
 		MCPApps             *runtime.MCPAppsConfig `json:"mcpApps"`
+		MemoryGrant         json.RawMessage        `json:"memoryGrant"`
 	}
 	if err := json.Unmarshal([]byte(os.Getenv("CPK_CONFIG")), &c); err != nil {
 		log.Fatal(err)
@@ -43,6 +44,13 @@ func main() {
 		}
 		return runtime.User{ID: id, Name: name}, nil
 	}, MemoryAccess: func(*http.Request, runtime.User) (runtime.MemoryGrant, error) {
+		if len(c.MemoryGrant) != 0 {
+			var grant runtime.MemoryGrant
+			if err := json.Unmarshal(c.MemoryGrant, &grant); err != nil {
+				return runtime.MemoryGrant{}, nil
+			}
+			return grant, nil
+		}
 		return runtime.MemoryGrant{User: "read-write", Project: "read-write"}, nil
 	}})
 	if err != nil {

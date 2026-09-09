@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { uiCases } from "./ui-cases.mjs";
 import { telemetryCases } from "./telemetry-cases.mjs";
 import { runnerCases } from "./runner-cases.mjs";
+import { clientCases } from "./client-cases.mjs";
+import { accessCases } from "./access-cases.mjs";
 
 /** A complete AG-UI input accepted by the reference RunAgentInput schema. */
 export function runInput(overrides = {}) {
@@ -20,6 +22,8 @@ export function runInput(overrides = {}) {
 
 /** Inspect both the browser response and platform effects for every case. */
 export const cases = [
+  ...accessCases,
+  ...clientCases,
   ...runnerCases,
   ...uiCases,
   ...telemetryCases,

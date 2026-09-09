@@ -365,6 +365,9 @@ func (r *Runtime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		body, e := decode(req)
+		if parts[2] == "stop" && errors.Is(e, io.EOF) {
+			body, e = map[string]any{}, nil
+		}
 		if e != nil {
 			bad(w, 400, "Invalid JSON input")
 			return
@@ -382,14 +385,38 @@ func (r *Runtime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if len(parts) != 4 {
 				break
 			}
-			if _, err := r.platform(req.Context(), "GET", "/api/threads/"+url.PathEscape(parts[3])+"?userId="+url.QueryEscape(user.ID), nil, nil); err != nil {
-				bad(w, statusOf(err), "Thread access denied")
+			runID := ""
+			if value, present := body["runId"]; present {
+				var valid bool
+				runID, valid = value.(string)
+				if !valid || strings.TrimSpace(runID) == "" {
+					bad(w, 400, "Invalid runId")
+					return
+				}
+			}
+			thread, err := r.platform(req.Context(), "GET", "/api/threads/"+url.PathEscape(parts[3])+"?userId="+url.QueryEscape(user.ID), nil, nil)
+			if err != nil {
+				status := statusOf(err)
+				if status < 400 || status >= 500 {
+					status = 502
+				}
+				bad(w, status, "Thread access denied")
+				return
+			}
+			threadSummary := object(object(thread)["thread"])
+			canonicalThread := str(threadSummary["id"])
+			if strings.TrimSpace(canonicalThread) == "" {
+				bad(w, 502, "Invalid thread response")
+				return
+			}
+			if agentID, present := threadSummary["agentId"]; present && agentID != parts[1] {
+				bad(w, 403, "Thread access denied")
 				return
 			}
 			r.mu.Lock()
-			active, ok := r.active[parts[3]]
+			active, ok := r.active[canonicalThread]
 			r.mu.Unlock()
-			stopped := ok && (str(body["runId"]) == "" || str(body["runId"]) == active.runID)
+			stopped := ok && (runID == "" || runID == active.runID)
 			if stopped {
 				active.cancel()
 			}

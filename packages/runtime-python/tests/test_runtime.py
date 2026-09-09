@@ -369,3 +369,92 @@ async def test_immediate_agent_error_persists_input_before_finalization():
     assert [event["type"] for event in events] == ["RUN_STARTED", "RUN_ERROR"]
     assert events[0]["input"]["messages"] == fresh
     await app.aclose()
+
+
+@pytest.mark.parametrize(
+    "grant,status",
+    [
+        ({"user": "none", "project": "none"}, 403),
+        (None, 403),
+        ({"user": "invalid", "project": "none"}, 500),
+        ([], 500),
+    ],
+)
+async def test_denied_or_invalid_memory_policy_never_contacts_platform(grant, status):
+    calls = []
+    app = runtime(
+        lambda request: calls.append(request) or httpx.Response(200, json={"memories": []}),
+        memory_policy=lambda *_: grant,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://runtime"
+    ) as client:
+        response = await client.get("/copilotkit/memories")
+    assert response.status_code == status
+    assert not calls
+    await app.aclose()
+
+
+@pytest.mark.parametrize(
+    "scenario,status,stopped",
+    [
+        ("malformed", 400, False),
+        ("revoked", 403, False),
+        ("alias", 200, True),
+        ("transferred", 200, True),
+        ("different_agent", 403, False),
+    ],
+)
+async def test_stop_uses_current_scoped_canonical_ownership(scenario, status, stopped):
+    from copilotkit_runtime import HttpAgent
+    from copilotkit_runtime.gateway import Gateway
+
+    calls = []
+
+    def platform(request):
+        calls.append(request)
+        return (
+            httpx.Response(403)
+            if scenario == "revoked"
+            else httpx.Response(
+                200,
+                json={
+                    "thread": {
+                        "id": "canonical",
+                        "agentId": "other" if scenario == "different_agent" else "default",
+                    }
+                },
+            )
+        )
+
+    app = runtime(platform)
+    app.agents["default"] = HttpAgent("http://agent")
+    task = asyncio.create_task(asyncio.Event().wait())
+    gateway = Gateway(app.config, "canonical", "run", app.telemetry)
+    app._runs["canonical"] = (
+        task,
+        "previous-owner" if scenario == "transferred" else "trusted-user",
+        "default",
+    )
+    app._gateways["canonical"] = gateway
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://runtime"
+        ) as client:
+            response = await client.post(
+                "/copilotkit/agent/default/stop/"
+                + ("alias" if scenario == "alias" else "canonical"),
+                json={"runId": False if scenario == "malformed" else "run"},
+            )
+        assert response.status_code == status
+        assert gateway.stop_requested.is_set() == stopped
+        if scenario == "malformed":
+            assert not calls
+        else:
+            assert calls[0].url.params["userId"] == "trusted-user"
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        app._runs.clear()
+        app._gateways.clear()
+        await app.aclose()

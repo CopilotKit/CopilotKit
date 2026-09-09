@@ -36,6 +36,9 @@ async def main():
             client_url=config["clientUrl"],
         ),
         agents={"default": HttpAgent(config["agentUrl"])},
+        memory_policy=lambda *_: config.get(
+            "memoryGrant", {"user": "read-write", "project": "read-write"}
+        ),
         identify_user=identify,
         telemetry=Telemetry(
             enabled=not config.get("telemetryDisabled", False),

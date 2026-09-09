@@ -29,7 +29,7 @@ from .platform import Platform, segment
 from .telemetry import Telemetry
 
 IdentifyUser = Callable[[Request], Awaitable[User | None] | User | None]
-MemoryPolicy = Callable[[User, Request], Awaitable[Json] | Json]
+MemoryPolicy = Callable[[User, Request], Awaitable[Json | None] | Json | None]
 LearningSelector = Callable[[User, str, Json], Awaitable[str | None] | str | None]
 ErrorHandler = Callable[[Exception, str], Awaitable[None]]
 
@@ -251,12 +251,29 @@ class IntelligenceRuntime:
                     headers={"Cache-Control": "no-cache"},
                 )
             if path[2] == "stop" and len(path) == 4 and method == "POST":
-                entry = self._runs.get(path[3])
-                if entry and entry[1] != user.id:
+                requested_run = required(body, "runId") if "runId" in body else None
+                try:
+                    result = await self.platform.request(
+                        "GET", "/api/threads/" + segment(path[3]), query={"userId": user.id}
+                    )
+                except PlatformError as error:
+                    raise RuntimeErrorResponse(
+                        error.status if 400 <= error.status < 500 else 502,
+                        "Thread access denied",
+                    ) from error
+                thread = result.get("thread") if isinstance(result, dict) else None
+                if (
+                    not isinstance(thread, dict)
+                    or not isinstance(thread.get("id"), str)
+                    or not thread["id"].strip()
+                ):
+                    raise PlatformError(502, "Invalid thread response")
+                if "agentId" in thread and thread["agentId"] != agent_id:
                     raise RuntimeErrorResponse(403, "Thread access denied")
-                stopped = entry is not None and entry[1:] == (user.id, agent_id)
-                gateway = self._gateways.get(path[3])
-                if body.get("runId") and (not gateway or body["runId"] != gateway.run_id):
+                entry = self._runs.get(thread["id"])
+                stopped = entry is not None and entry[2] == agent_id
+                gateway = self._gateways.get(thread["id"])
+                if requested_run is not None and (not gateway or requested_run != gateway.run_id):
                     stopped = False
                 if stopped and gateway:
                     gateway.stop_requested.set()
@@ -724,10 +741,14 @@ class IntelligenceRuntime:
         if self.memory_policy:
             selected = self.memory_policy(user, request)
             grant = await selected if inspect.isawaitable(selected) else selected
-            if any(
+            if grant is None:
+                raise RuntimeErrorResponse(403, "Memory access denied")
+            if not isinstance(grant, dict) or any(
                 grant.get(key) not in ("none", "read", "read-write") for key in ("user", "project")
             ):
                 raise RuntimeErrorResponse(500, "Invalid memory grant")
+            if grant["user"] == "none" and grant["project"] == "none":
+                raise RuntimeErrorResponse(403, "Memory access denied")
             headers["x-cpki-memory-grant"] = json.dumps(
                 {key: grant[key] for key in ("user", "project")}
             )

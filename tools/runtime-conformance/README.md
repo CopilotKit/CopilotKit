@@ -57,12 +57,15 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Current coverage limit
 
-The suite has 53 cases: 16 initial cases, 16 UI cases, 11 additional analytics cases, and ten runner cases.
+The suite has 60 cases: 16 initial cases, 16 UI cases, 11 additional analytics cases, ten runner cases, six access cases, and one frontend-client case.
 The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
 Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
 Runner cases cover batches, draining joins, planned restarts, final acknowledgments, and stop boundaries.
 They also require input persistence before early stop or error and reject incomplete streams as successful runs.
-They do not yet prove browser replay, all cancellation paths, shutdown, or full recovery deadlines.
+The frontend-client case uses the public core package and real Phoenix sockets to run an agent and replay its history.
+It runs in Node, not an actual browser. It does not prove browser layout or every recovery path.
+Native tests cover additional cancellation, shutdown, and lease failures beyond the shared cases.
+Access cases require current ownership, canonical stop IDs, valid stop input, agent scope, and memory denial before upstream access.
 The fixture's event journal is test evidence, not an implementation of the Intelligence database.
 The wider requirements and remaining release gates live in [PLAN.md](PLAN.md).
 

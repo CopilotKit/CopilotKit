@@ -86,4 +86,89 @@ class RuntimeTest < Minitest::Test
     runtime.instance_variable_set(:@platform, platform)
     assert_equal 403, request(runtime, 'POST', '/agent/default/stop/private', 'runId' => 'r').first
   end
+
+  def test_invalid_memory_grant_is_a_server_error_without_upstream_access
+    calls = []
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { 'id' => 'alice' } },
+      memory_access: ->(_, _) { { 'user' => 'invalid', 'project' => 'none' } })
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*args| calls << args; {} }
+    runtime.instance_variable_set(:@platform, platform)
+    assert_equal 500, request(runtime, 'GET', '/memories').first
+    assert_empty calls
+  ensure
+    runtime&.close
+  end
+
+  def test_null_memory_grant_denies_without_upstream_access
+    calls = []
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { 'id' => 'alice' } }, memory_access: ->(_, _) { nil })
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*args| calls << args; {} }
+    runtime.instance_variable_set(:@platform, platform)
+    assert_equal 403, request(runtime, 'GET', '/memories').first
+    assert_empty calls
+  ensure
+    runtime&.close
+  end
+
+  def test_explicit_none_memory_grants_deny_without_upstream_access
+    calls = []
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { 'id' => 'alice' } },
+      memory_access: ->(_, _) { { 'user' => 'none', 'project' => 'none' } })
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*args| calls << args; {} }
+    runtime.instance_variable_set(:@platform, platform)
+    assert_equal 403, request(runtime, 'GET', '/memories').first
+    assert_empty calls
+  ensure
+    runtime&.close
+  end
+
+  def stop_fixture(&lookup)
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { 'id' => 'alice' } }, agents: { 'default' => CopilotKit::Agent.new })
+    calls, stops = [], []
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*args| calls << args; lookup.call }
+    active = Struct.new(:thread_id, :run_id).new('canonical', 'active-run')
+    active.define_singleton_method(:request_stop) { stops << true; true }
+    runtime.instance_variable_set(:@platform, platform)
+    runtime.instance_variable_set(:@runs, { 'active-run' => active })
+    [runtime, calls, stops]
+  end
+
+  def test_stop_false_run_id_is_invalid_before_lookup
+    runtime, calls, stops = stop_fixture { { 'thread' => { 'id' => 'canonical', 'agentId' => 'default' } } }
+    assert_equal 400, request(runtime, 'POST', '/agent/default/stop/alias', 'runId' => false).first
+    assert_empty calls
+    assert_empty stops
+  end
+
+  def test_stop_alias_uses_canonical_thread_and_current_user_lookup
+    runtime, calls, stops = stop_fixture { { 'thread' => { 'id' => 'canonical', 'agentId' => 'default' } } }
+    status, result = request(runtime, 'POST', '/agent/default/stop/alias', 'runId' => 'active-run')
+    assert_equal 200, status
+    assert_equal true, result['stopped']
+    assert_equal 1, stops.length
+    assert_equal ['GET', '/api/threads/alias?userId=alice'], calls.first
+  end
+
+  def test_stop_revoked_ownership_does_not_cancel_existing_local_run
+    runtime, calls, stops = stop_fixture { raise CopilotKit::Error.new(403, 'Revoked') }
+    assert_equal 403, request(runtime, 'POST', '/agent/default/stop/alias').first
+    assert_equal 1, calls.length
+    assert_empty stops
+  end
+
+  def test_stop_wrong_agent_does_not_cancel_existing_local_run
+    runtime, _calls, stops = stop_fixture { { 'thread' => { 'id' => 'canonical', 'agentId' => 'other' } } }
+    assert_equal 403, request(runtime, 'POST', '/agent/default/stop/alias').first
+    assert_empty stops
+  end
+
+  def test_stop_invalid_canonical_id_does_not_cancel_existing_local_run
+    runtime, _calls, stops = stop_fixture { { 'thread' => { 'id' => ' ', 'agentId' => 'default' } } }
+    assert_equal 502, request(runtime, 'POST', '/agent/default/stop/alias').first
+    assert_empty stops
+  end
 end

@@ -7,6 +7,7 @@
   "dependencies": {
     "@ag-ui/client": "0.0.59",
     "@copilotkit/aimock": "1.10.0",
+    "@copilotkit/core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "ws": "8.18.3"
   }

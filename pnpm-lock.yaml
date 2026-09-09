@@ -4036,6 +4036,9 @@ importers:
       '@copilotkit/aimock':
         specifier: 1.10.0
         version: 1.10.0
+      '@copilotkit/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime

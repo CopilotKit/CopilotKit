@@ -152,7 +152,7 @@ export async function runSuite(command, { cwd = root, filter = "" } = {}) {
           headers: response.headers,
         };
       };
-      await spec.run({ request, platform });
+      await spec.run({ request, platform, runtimeUrl: driver.url });
       results.push({
         id: spec.id,
         status: "passed",

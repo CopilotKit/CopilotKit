@@ -223,7 +223,8 @@ module CopilotKit
     def memories(method, path, query, body, user, env)
       raise Error.new(404, 'Route not found') unless path.match?(%r{\A/memories(?:/[^/]+)?\z})
       grant = @memory_access.call(user, env)
-      raise Error.new(403, 'Invalid memory grant') unless grant.is_a?(Hash) && grant.keys.sort == %w[project user] && grant.values.all? { |value| %w[none read read-write].include?(value) }
+      raise Error.new(403, 'Memory access is not granted') if grant.nil?
+      raise Error.new(500, 'Invalid memory grant') unless grant.is_a?(Hash) && grant.keys.sort == %w[project user] && grant.values.all? { |value| %w[none read read-write].include?(value) }
       raise Error.new(403, 'Memory access is not granted') unless grant.is_a?(Hash) && grant.values.any? { |value| %w[read read-write].include?(value) }
       raise Error.new(403, 'Memory write access is not granted') if %w[POST PATCH DELETE].include?(method) && !%w[/memories/subscribe /memories/recall].include?(path) && !grant.values.include?('read-write')
       if path == '/memories' && method == 'POST'
@@ -244,10 +245,12 @@ module CopilotKit
       end
       target = '/api' + path
       target += '?' + URI.encode_www_form(query.slice('scope', 'kind', 'limit', 'cursor')) if method == 'GET' && !query.empty?
-      result = @platform.request(method, target, method == 'GET' || method == 'DELETE' || path == '/memories/subscribe' ? nil : payload, headers)
+      begin
+        result = @platform.request(method, target, method == 'GET' || method == 'DELETE' || path == '/memories/subscribe' ? nil : payload, headers)
+      rescue Error => error
+        raise Error.new(error.status >= 500 ? 502 : error.status, error.message)
+      end
       [method == 'DELETE' ? 204 : (method == 'POST' && path == '/memories' ? 201 : 200), result]
-    rescue Error => error
-      raise Error.new(error.status >= 500 ? 502 : error.status, error.message)
     end
 
     def run(input, user, agent_id)

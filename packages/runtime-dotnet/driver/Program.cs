@@ -16,6 +16,7 @@ await using var runtime = new IntelligenceRuntime(new RuntimeOptions
     A2UI = config["a2ui"] is JsonObject a2ui ? A2UIOptions.FromJson(a2ui) : null,
     McpAppsServers = (config["mcpApps"]?["servers"] as JsonArray ?? []).Select(server => McpAppServer.FromJson(server!.AsObject())).ToList(),
     IdentifyUser = (context, _) => ValueTask.FromResult<RuntimeUser?>(new RuntimeUser(context.Request.Headers["x-test-user-id"].FirstOrDefault() ?? "test-user", context.Request.Headers["x-test-user-name"].FirstOrDefault() ?? "Test User")),
+    MemoryGrant = config.AsObject().ContainsKey("memoryGrant") ? (_, _, _) => ValueTask.FromResult(config["memoryGrant"]?.DeepClone() as JsonObject) : null,
     TelemetryDisabled = config["telemetryDisabled"]?.GetValue<bool>() ?? false,
     TelemetrySampleRate = config["telemetrySampleRate"]?.GetValue<double>() ?? 0.05,
     TelemetryId = config["telemetryId"]?.GetValue<string>(),

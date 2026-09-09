@@ -19,6 +19,7 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
     private readonly CancellationTokenSource stopping = new();
     private readonly ConcurrentDictionary<string, ActiveRun> runs = new();
     private int disposed;
+    private sealed class MemoryPolicyException(string message, Exception? innerException = null) : Exception(message, innerException);
     private sealed class ActiveRun(CancellationTokenSource cancellation, string runId, string agentId)
     {
         internal CancellationTokenSource Cancellation { get; } = cancellation;
@@ -81,10 +82,13 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
                 if (context.Request.Method != "POST") throw new RuntimeRequestException(405, "Method not allowed");
                 if (segments[2] == "stop" && segments.Length == 4)
                 {
-                    await PlatformAsync("GET", ThreadPath(segments[3]) + "?userId=" + Escape(user.Id), null, user, ct);
                     var stopBody = await ReadBodyAsync(context, ct, allowEmpty: true);
-                    var requestedRun = stopBody["runId"]?.GetValue<string>();
-                    var stopped = runs.TryGetValue(segments[3], out var active) && active.AgentId == segments[1] && (requestedRun is null || requestedRun == active.RunId);
+                    var requestedRun = stopBody.ContainsKey("runId") ? RuntimeValidation.RequiredString(stopBody, "runId") : null;
+                    var lookup = await PlatformAsync("GET", ThreadPath(segments[3]) + "?userId=" + Escape(user.Id), null, user, ct);
+                    var thread = lookup?["thread"] as JsonObject ?? throw new RuntimeRequestException(502, "Invalid thread response");
+                    var canonicalThread = RequiredPlatformString(thread, "id");
+                    if (thread.ContainsKey("agentId") && (thread["agentId"] is not JsonValue owner || !owner.TryGetValue<string>(out var ownerId) || ownerId != segments[1])) throw new RuntimeRequestException(403, "Thread access denied");
+                    var stopped = runs.TryGetValue(canonicalThread, out var active) && active.AgentId == segments[1] && (requestedRun is null || requestedRun == active.RunId);
                     if (stopped) await active!.Cancellation.CancelAsync();
                     await WriteAsync(context, new JsonObject { ["stopped"] = stopped }, ct); return;
                 }
@@ -117,6 +121,7 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
             }
             throw new RuntimeRequestException(404, "Route not found");
         }
+        catch (MemoryPolicyException error) { ReportError(operation, "INVALID_MEMORY_GRANT", error); context.Response.StatusCode = 500; await WriteAsync(context, new JsonObject { ["error"] = error.Message }, CancellationToken.None); }
         catch (RuntimeRequestException error) { if (error.StatusCode >= 500) ReportError(operation, "REQUEST_FAILED", error); context.Response.StatusCode = error.StatusCode >= 500 && operation is "memories" or "annotate" ? 502 : error.StatusCode; await WriteAsync(context, new JsonObject { ["error"] = error.Message }, CancellationToken.None); }
         catch (Exception error) when (error is JsonException or InvalidOperationException or FormatException) { context.Response.StatusCode = 400; await WriteAsync(context, new JsonObject { ["error"] = "Invalid request body" }, CancellationToken.None); }
         catch (Exception error) { ReportError(operation, "REQUEST_FAILED", error); context.Response.StatusCode = 502; await WriteAsync(context, new JsonObject { ["error"] = "Runtime dependency failed" }, CancellationToken.None); }
@@ -393,14 +398,28 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         }
         else throw new RuntimeRequestException(404, "Route not found");
         if (body?["scope"] is not null && body["scope"]!.GetValue<string>() is not ("user" or "project")) throw new RuntimeRequestException(400, "Invalid memory scope");
-        var grant = options.MemoryGrant is null ? null : await options.MemoryGrant(context, user, ct);
+        JsonObject? grant;
+        try { grant = options.MemoryGrant is null ? null : await options.MemoryGrant(context, user, ct); }
+        catch (Exception error) { throw new MemoryPolicyException("Memory policy failed", error); }
         if (options.MemoryGrant is not null && grant is null) throw new RuntimeRequestException(403, "Memory access denied");
         if (grant is not null)
         {
+            foreach (var name in new[] { "user", "project" })
+                if (grant[name] is not JsonValue value || !value.TryGetValue<string>(out var level) || level is not ("none" or "read" or "read-write")) throw new MemoryPolicyException("Memory policy returned an invalid grant");
+            grant = Pick(grant, "user", "project");
+            if (grant["user"]!.GetValue<string>() == "none" && grant["project"]!.GetValue<string>() == "none") throw new RuntimeRequestException(403, "Memory access denied");
             var write = method is "PATCH" or "DELETE" || method == "POST" && id is null;
-            var scope = body?["scope"]?.GetValue<string>() ?? "user";
-            var access = grant[scope]?.GetValue<string>() ?? "none";
-            if (access == "none" || write && access != "read-write") throw new RuntimeRequestException(403, "Memory access denied");
+            var scope = body?["scope"]?.GetValue<string>();
+            if (scope is null && id is not null && (method is "PATCH" or "DELETE"))
+            {
+                // The platform resolves the existing memory's scope and enforces this grant.
+                if (grant["user"]!.GetValue<string>() != "read-write" && grant["project"]!.GetValue<string>() != "read-write") throw new RuntimeRequestException(403, "Memory access denied");
+            }
+            else if (write || scope is not null)
+            {
+                var access = grant[scope ?? "user"]!.GetValue<string>();
+                if (access == "none" || write && access != "read-write") throw new RuntimeRequestException(403, "Memory access denied");
+            }
         }
         var result = await PlatformAsync(method, path, body, user, ct, grant);
         if (method == "DELETE") { context.Response.StatusCode = 204; return; }
