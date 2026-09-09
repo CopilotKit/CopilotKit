@@ -135,4 +135,5 @@ BuiltInAgent shallow-merges capabilities at the category level — providing
 `tools: {...}` replaces the whole category, not just the specified fields.
 The client then sees exactly what was declared.
 
-Source: `packages/runtime/src/agent/index.ts:821-829,883-887`
+Source: `packages/runtime/src/agent/index.ts:940-947` (the prop, documented as
+shallow-merged at the category level); `:999-1012` (the merge)

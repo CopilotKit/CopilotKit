@@ -119,7 +119,8 @@ Wrong:
 
 ```tsx
 // app/layout.tsx
-const { threadId } = useThreadSelection();
+// `activeId` here comes from your own selection state, not a CopilotKit hook.
+const threadId = activeId;
 
 return (
   <CopilotKitProvider runtimeUrl="/api/copilotkit">

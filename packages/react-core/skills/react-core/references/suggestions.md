@@ -83,7 +83,8 @@ export function RefreshButton() {
 ### Feature-flag the suggestions config
 
 ```tsx
-const enabled = useFeatureFlag("suggestions");
+// `useMyFeatureFlag` is your own flag hook — CopilotKit exports no such hook.
+const enabled = useMyFeatureFlag("suggestions");
 useConfigureSuggestions(
   enabled ? { instructions: "Suggest 3 follow-ups" } : null,
 );
@@ -115,7 +116,8 @@ useConfigureSuggestions({
 Correct:
 
 ```tsx
-const enabled = useFeatureFlag("suggestions");
+// `useMyFeatureFlag` is your own flag hook — CopilotKit exports no such hook.
+const enabled = useMyFeatureFlag("suggestions");
 useConfigureSuggestions(
   enabled ? { instructions: "Suggest 3 follow-ups" } : null,
 );

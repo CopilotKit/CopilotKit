@@ -318,12 +318,17 @@ Correct:
 <CopilotKit publicLicenseKey="ck_pub_..." />
 ```
 
-`publicApiKey` still works as a deprecated alias, but `publicLicenseKey`
-is the canonical name. The `CopilotKit` provider resolves
-`publicLicenseKey || publicApiKey`. Always write the canonical form in
-new code.
+`publicApiKey` still works as a deprecated alias, but `publicLicenseKey` is
+the canonical name. Always write the canonical form in new code.
 
-Source: `packages/react-core/src/v1-deprecated/components/copilot-provider/copilotkit.tsx:172`
+Do not set both. Precedence is not consistent across the code paths — three
+sites prefer `publicApiKey` and one prefers `publicLicenseKey` — so which one
+wins depends on which path runs.
+
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:487`
+(`publicApiKey ?? publicLicenseKey`);
+`packages/react-core/src/v1-deprecated/components/copilot-provider/copilotkit.tsx:111,217,883`
+(the three disagreeing sites)
 
 ### MEDIUM — Putting the provider below a layout that uses CopilotKit
 

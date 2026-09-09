@@ -197,7 +197,7 @@ result. Two independent renderers returning JSX for the same
 `(message, position)` pair will have only one fire. Compose them into a
 single renderer if you want both to appear.
 
-Source: `packages/react-core/src/v2/hooks/use-render-custom-messages.tsx:73-95`
+Source: `packages/react-core/src/v2/hooks/use-render-custom-messages.tsx:68-91`
 
 ### MEDIUM — Memoization miss on `renderCustomMessages` array
 
