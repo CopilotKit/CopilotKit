@@ -148,7 +148,13 @@ func (r *Runtime) rest(w http.ResponseWriter, req *http.Request, u User, parts [
 	if query := q.Encode(); query != "" {
 		path += "?" + query
 	}
-	value, e := r.platform(req.Context(), method, path, body, headers)
+	// A typed nil map inside an interface is non-nil and encodes as JSON null.
+	// Read requests have no payload; keep the interface itself nil in that case.
+	var payload any
+	if body != nil {
+		payload = body
+	}
+	value, e := r.platform(req.Context(), method, path, payload, headers)
 	if e != nil {
 		status := statusOf(e)
 		if group == "memories" && status >= 500 {
