@@ -328,7 +328,7 @@ export function useRenderTool(
   useEffect(() => {
     if (route === frozenRoute) return;
     warnOnce(
-      `${config.name} route-drift`,
+      `${config.name}:route-drift`,
       `[CopilotKit] \`useRenderTool({ name: "${config.name}" })\` from ` +
         `@copilotkit/react-native changed shape between renders: it now routes ` +
         `to \`${route}\` but was registered through \`${frozenRoute}\` and stays ` +
