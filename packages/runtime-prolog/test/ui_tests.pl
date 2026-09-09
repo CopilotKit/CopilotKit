@@ -21,4 +21,14 @@ test(mcp_rejects_untrusted_server_without_transport) :-
       _{serverId:"other",method:"resources/read"},Result),assertion(get_dict(error,Result,_)).
 test(mcp_duplicate_tools_throw, [throws(error(runtime(502,_),_))]) :-
     cpki_mcp:unique_tools(["same"-_{},"same"-_{}]).
+test(completed_outer_tool_does_not_own_later_surface) :-
+    a2ui_prepare(_{},_{},_,State),
+    a2ui_accept(State,_{type:"TOOL_CALL_START",toolCallId:"outer",toolCallName:"other"},ignore_event),
+    a2ui_accept(State,_{type:"TOOL_CALL_RESULT",toolCallId:"outer",content:"done"},ignore_event),
+    a2ui_accept(State,_{type:"TOOL_CALL_START",toolCallId:"later",toolCallName:"render_a2ui"},assert_later_surface).
+ignore_event(_).
+assert_later_surface(Event) :- assertion(Event.messageId=="a2ui-surface-later").
+test(mcp_hash_uses_canonical_json_without_writer_whitespace) :-
+    server_hash(_{type:"http",url:"http://localhost/mcp"},Hash),
+    assertion(Hash=="b686603fe454775ec3a87896f67f5b14").
 :- end_tests(ui_contracts).

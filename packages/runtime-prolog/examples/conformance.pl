@@ -8,7 +8,8 @@ identify(Request, _{id:ID,name:Name}) :-
     (memberchk(x_test_user_id(A),Request)->atom_string(A,ID);ID="test-user"),
     (memberchk(x_test_user_name(B),Request)->atom_string(B,Name);Name="Test User").
 memory_policy(Config,_,_,Grant) :- value(Config,memoryGrant,_{user:"read-write",project:"read-write"},Grant).
-main :- getenv('CPK_CONFIG',Raw),atom_json_dict(Raw,C,[]),
+% The harness clears locale variables; SWI 9 needs UTF-8 for environment text.
+main :- setlocale(ctype,_,'C.UTF-8'),getenv('CPK_CONFIG',Raw),atom_json_dict(Raw,C,[]),
     Options=_{api_key:C.apiKey,api_url:C.apiUrl,runner_url:C.runnerUrl,client_url:C.clientUrl,
       identify_user:user:identify,agents:_{default:_{url:C.agentUrl,description:"Conformance agent"}}},
     (get_dict(omitMemoryPolicy,C,true)->Configured=Options;put_dict(memory_access,Options,user:memory_policy(C),Configured)),

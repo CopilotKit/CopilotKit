@@ -25,7 +25,15 @@ text(Raw,Text) :- string(Raw),
 safe_url(Raw,URL) :- text(Raw,URL),\+re_match('[?#\\\\\\x00-\\x20]',URL),
     catch((uri_components(URL,C),uri_data(scheme,C,Scheme),memberchk(Scheme,[http,https]),
       uri_data(authority,C,Authority),atom(Authority),Authority\=='',\+sub_atom(Authority,_,_,_,'@'),
-      uri_authority_components(Authority,A),uri_authority_data(host,A,Host),Host\=='',
-      \+re_match('[%#/<>?@\\\\^|]',Host),uri_authority_data(port,A,Port),
+      authority_host_port(Authority,Host,Port),Host\=='',
+      \+re_match('[%#/<>?@\\\\^|]',Host),
       (var(Port)->true;integer(Port),between(0,65535,Port)),
       (Scheme==https->true;downcase_atom(Host,Lower),memberchk(Lower,[localhost,'127.0.0.1','::1','[::1]']))),_,fail).
+
+% SWI 9.0 URI authority parsing predates bracketed IPv6 host support.
+authority_host_port(Authority,Host,Port) :-
+    (sub_atom(Authority,0,1,_,'[')->
+      re_matchsub('^\\[([0-9a-fA-F:]+)\\](?::([0-9]+))?$',Authority,Parts,[]),
+      atom_string(Host,Parts.1),
+      (get_dict(2,Parts,PortText),PortText\==""->number_string(Port,PortText);true)
+    ;uri_authority_components(Authority,A),uri_authority_data(host,A,Host),uri_authority_data(port,A,Port)).

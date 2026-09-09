@@ -34,4 +34,8 @@ test(explicit_telemetry_disable_is_boolean) :-
 test(path_segments_cannot_inject_routes) :-
     path([api,threads,"one/two?userId=other"],P),
     assertion(P=='/api/threads/one%2Ftwo%3FuserId=other').
+test(gateway_stop_checks_topic_and_event_type) :-
+    assertion(cpki_runner:stop_frame(["1","2","ingestion:run","ag-ui",_{type:"CUSTOM",name:"stop"}],"run")),
+    assertion(\+cpki_runner:stop_frame(["1","2","ingestion:other","ag-ui",_{type:"CUSTOM",name:"stop"}],"run")),
+    assertion(\+cpki_runner:stop_frame(["1","2","ingestion:run","ag-ui",_{type:"TEXT_MESSAGE_CONTENT",name:"stop"}],"run")).
 :- end_tests(hosting_contracts).

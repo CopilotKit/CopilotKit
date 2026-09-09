@@ -1,7 +1,6 @@
 :- module(cpki_mcp,[mcp_prepare/4,mcp_accept/2,mcp_finish/2,mcp_proxy/3,scoped_servers/3,server_hash/2]).
 :- use_module(cpki_http).
-:- use_module(library(http/http_open)).
-:- use_module(library(http/http_json)).
+:- use_module(library(http/json)).
 :- use_module(library(md5)).
 :- meta_predicate mcp_finish(+,1), with_client(+,1).
 
@@ -9,7 +8,9 @@
 %  MCP URLs and headers come only from trusted server configuration.
 scoped_servers(C,A,Servers) :- value(C,mcp_apps,_{},MCP),value(MCP,servers,[],All),include(in_scope(A),All,Servers).
 in_scope(A,Server) :- (get_dict(agentId,Server,ID)->atom_string(A,ID);true).
-server_hash(S,Hash) :- json_text(_{type:S.type,url:S.url},Text),md5_hash(Text,A,[encoding(utf8)]),atom_string(A,Hash).
+server_hash(S,Hash) :- json_text(S.type,Type),json_text(S.url,URL),
+    format(string(Text),'{"type":~s,"url":~s}',[Type,URL]),
+    md5_hash(Text,A,[encoding(utf8)]),atom_string(A,Hash).
 
 with_client(Server,Goal) :-
     Client=client(Server,none,"2025-03-26",0),
@@ -40,14 +41,14 @@ transport(Client,Method,Body,ID,Result) :-
     append([[method(Method),timeout(10),redirect(false),status_code(Status),
        header(content_type,Type),header(mcp_session_id,NewSession),
        request_header('Accept'='application/json, text/event-stream'),request_header('MCP-Protocol-Version'=Version)],Trusted,SessionHeader,Post],Options),
-    setup_call_cleanup(http_open(Server.url,S,Options),
-      ((between(200,299,Status)->true;runtime_error(502,"MCP transport failed")),
+    with_response(Server.url,Options,S,
+      ((set_stream(S,encoding(utf8)),between(200,299,Status)->true;runtime_error(502,"MCP transport failed")),
        (atom(NewSession),NewSession\==''->nb_setarg(2,Client,NewSession);true),
        (ID==none->Result=null
        ;sub_atom(Type,0,_,_,'text/event-stream')->
           catch((sse_events(S,rpc_event(ID)),runtime_error(502,"Missing MCP response")),mcp_response(Result),true)
        ;read_string(S,4194305,Raw),string_length(Raw,Size),
-        (Size=<4194304->atom_json_dict(Raw,Result,[]);runtime_error(502,"MCP response exceeded size limit")))),close(S)).
+        (Size=<4194304->atom_json_dict(Raw,Result,[]);runtime_error(502,"MCP response exceeded size limit"))))).
 header(K-V,request_header(K=V)).
 rpc_event(ID,Event) :- (is_dict(Event),get_dict(id,Event,ID)->throw(mcp_response(Event));true).
 
@@ -57,7 +58,7 @@ mcp_proxy(Servers,Request,Result) :-
     catch((is_dict(Request),get_dict(method,Request,Method),
       memberchk(Method,["tools/call","resources/read","notifications/message","ping"]),
       member(Server,Servers),matches_server(Request,Server),!,value(Request,params,none,Params),
-      with_client(Server,proxy_call(Method,Params,Result))),_,fail),!.
+      with_client(Server,proxy_call(Method,Params,Result))),Error,cancel_or_fail(Error)),!.
 mcp_proxy(_,_,_{error:"MCP proxy request rejected or failed"}).
 matches_server(R,S) :- (get_dict(serverId,R,ID),get_dict(serverId,S,ID)->true;get_dict(serverHash,R,H),server_hash(S,H)).
 proxy_call(Method,Params,Result,Client) :- rpc(Client,Method,Params,Result).
@@ -65,7 +66,7 @@ proxy_call(Method,Params,Result,Client) :- rpc(Client,Method,Params,Result).
 %! mcp_prepare(+Servers,+Input,-Prepared,-State) is det.
 %  Advertise UI tools only and retain prior tool results to prevent duplicate calls.
 mcp_prepare(Servers,Input,Prepared,State) :-
-    findall(Entries,(member(Server,Servers),with_client(Server,list_tools(Server,Entries))),Groups),append(Groups,Tools),
+    findall(Entries,(member(Server,Servers),catch(with_client(Server,list_tools(Server,Entries)),Error,cancel_or_fail(Error))),Groups),append(Groups,Tools),
     unique_tools(Tools),findall(Name,member(Name-_,Tools),Names),
     value(Input,tools,[],Original),exclude(tool_named(Names),Original,Other),
     findall(T,(member(_-Info,Tools),T=Info.tool),Public),append(Other,Public,Combined),
@@ -103,7 +104,10 @@ finish_call(ID,Call,Info,Emit) :-
       server_hash(Info.server,Hash),Base=_{result:Result,resourceUri:Info.resource,serverHash:Hash,toolInput:Args},
       (get_dict(serverId,Info.server,ServerID)->put_dict(serverId,Base,ServerID,Activity);Activity=Base),
       new_id(A),call(Emit,_{type:"ACTIVITY_SNAPSHOT",messageId:A,activityType:"mcp-apps",content:Activity,replace:true})),
-    _,(new_id(M),json_text(_{error:"MCP tool execution failed"},Text),call(Emit,_{type:"TOOL_CALL_RESULT",messageId:M,toolCallId:ID,content:Text}))).
+    Error,(Error==cpki_cancelled->throw(Error);new_id(M),json_text(_{error:"MCP tool execution failed"},Text),call(Emit,_{type:"TOOL_CALL_RESULT",messageId:M,toolCallId:ID,content:Text}))).
 
 unique_tools(Tools) :- findall(Name,member(Name-_,Tools),Names),sort(Names,Unique),
     length(Names,N),length(Unique,M),(N=:=M->true;runtime_error(502,"Duplicate MCP UI tool name")).
+
+% Cancellation controls the producer lifecycle and must cross MCP fallbacks.
+cancel_or_fail(Error) :- (Error==cpki_cancelled->throw(Error);fail).

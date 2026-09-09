@@ -4,8 +4,6 @@
 :- use_module(cpki_ui).
 :- use_module(library(http/websocket)).
 :- use_module(library(base64)).
-:- use_module(library(http/http_open)).
-:- use_module(library(http/http_json)).
 :- use_module(library(time)).
 :- dynamic active/6, cancelled/3, worker/2, closing/1.
 
@@ -87,8 +85,8 @@ run_agent(Agent,Input,Emit) :-
 http_agent(Agent,Input,Emit) :- json_text(Input,Text),
     value(Agent,headers,_{},Headers),dict_pairs(Headers,_,Pairs),maplist(request_header,Pairs,Options),
     append([post(string('application/json',Text)),request_header('Accept'='text/event-stream'),timeout(120),status_code(Status),redirect(false)],Options,Opts),
-    setup_call_cleanup(http_open(Agent.url,S,Opts),
-      (between(200,299,Status)->sse_events(S,validated_event(Emit));runtime_error(502,"Agent request failed")),close(S)).
+    with_response(Agent.url,Opts,S,
+      (between(200,299,Status)->sse_events(S,validated_event(Emit));runtime_error(502,"Agent request failed"))).
 validated_event(Emit,E) :-
     (is_dict(E),get_dict(type,E,Type),string(Type)->call(Emit,E);runtime_error(502,"Malformed AG-UI event")).
 request_header(K-V,request_header(K=V)).
@@ -145,7 +143,7 @@ receive_gateway(WS,Q,R,Run) :-
 receive_loop(WS,Q,R,Run) :-
     ws_receive(WS,Message,[format(json)]),
     (Message.opcode==close->thread_send_message(Q,closed)
-    ;Message.data=[_,_,_,"ag-ui",Payload],is_dict(Payload),get_dict(name,Payload,"stop")->
+    ;stop_frame(Message.data,Run)->
        cancel_run(R,Run,"STOPPED",_),receive_loop(WS,Q,R,Run)
     ;thread_send_message(Q,Message.data,[timeout(0)]),receive_loop(WS,Q,R,Run)).
 gateway_close(G) :-
@@ -208,3 +206,7 @@ reap_workers(R) :- forall((worker(R,T),thread_property(T,status(Status)),Status\
 canonical_or_requested(Lock,Input,IDs) :-
     (is_dict(Lock),get_dict(threadId,Lock,T),string(T),T\==""->Thread=T;Thread=Input.threadId),
     (is_dict(Lock),get_dict(runId,Lock,R),string(R),R\==""->Run=R;Run=Input.runId),IDs=_{threadId:Thread,runId:Run}.
+
+stop_frame([_,_,Topic,"ag-ui",Payload],Run) :-
+    string_concat("ingestion:",Run,Topic),is_dict(Payload),
+    get_dict(type,Payload,"CUSTOM"),get_dict(name,Payload,"stop").

@@ -5,10 +5,11 @@ import { createInterface } from "node:readline";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
+import { createServer } from "node:http";
 import { startPlatform } from "../../../tools/runtime-conformance/platform.mjs";
 
 /** Start the public SWI host with the same composition-only shared driver. */
-async function setup(t, configure = () => {}) {
+async function setup(t, configure = () => {}, overrides = {}) {
   const platform = await startPlatform();
   configure(platform);
   const child = spawn(
@@ -25,6 +26,9 @@ async function setup(t, configure = () => {}) {
           agentUrl: `${platform.url}/agent`,
           telemetryUrl: `${platform.url}/telemetry`,
           telemetrySampleRate: 1,
+          ...(typeof overrides === "function"
+            ? overrides(platform)
+            : overrides),
         }),
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -200,4 +204,127 @@ test("Inspector metadata uses project authentication and private caching", async
   const unavailable = await request("GET", "/inspector-metadata");
   assert.equal(unavailable.status, 204);
   assert.equal(unavailable.body, undefined);
+});
+
+test("UTF-8 agent text and trusted input survive native HTTP and Phoenix", async (t) => {
+  const text = "你好 café 😀";
+  const { platform, request } = await setup(t, (p) => {
+    p.faults.agentEvents = [
+      { type: "TEXT_MESSAGE_START", messageId: "unicode", role: "assistant" },
+      { type: "TEXT_MESSAGE_CONTENT", messageId: "unicode", delta: text },
+      { type: "TEXT_MESSAGE_END", messageId: "unicode" },
+      { type: "RUN_FINISHED" },
+    ];
+  });
+  const body = input();
+  body.messages = [{ id: "user-message", role: "user", content: text }];
+  assert.equal((await request("POST", "/agent/default/run", body)).status, 200);
+  await platform.waitFor(() =>
+    platform.events.some((e) => e.type === "RUN_FINISHED"),
+  );
+  assert.equal(platform.agentInputs[0].messages[0].content, text);
+  assert.equal(
+    platform.events.find((e) => e.type === "TEXT_MESSAGE_CONTENT").delta,
+    text,
+  );
+  platform.faults.http.set("GET /api/inspector/metadata", {
+    status: 200,
+    body: {
+      schemaVersion: 1,
+      identity: { organizationName: text, projectName: text },
+    },
+  });
+  assert.equal(
+    (await request("GET", "/inspector-metadata")).body.identity.projectName,
+    text,
+  );
+});
+
+test(
+  "oversized unterminated SSE frames fail before the agent closes",
+  { timeout: 10000 },
+  async (t) => {
+    const agent = createServer((_request, response) => {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.write("data: " + " ".repeat(1048577));
+    });
+    await new Promise((resolve) => agent.listen(0, "127.0.0.1", resolve));
+    t.after(() => {
+      agent.closeAllConnections();
+      agent.close();
+    });
+    const { platform, request } = await setup(t, () => {}, {
+      agentUrl: `http://127.0.0.1:${agent.address().port}/agent`,
+    });
+    assert.equal(
+      (await request("POST", "/agent/default/run", input())).status,
+      200,
+    );
+    await platform.waitFor(
+      () => platform.events.some((event) => event.type === "RUN_ERROR"),
+      3000,
+    );
+    assert.equal(
+      platform.events.some((event) => event.type === "RUN_FINISHED"),
+      false,
+    );
+  },
+);
+
+test("MCP discovery continues after an unavailable server", async (t) => {
+  const { platform, request } = await setup(
+    t,
+    (fixture) => {
+      fixture.faults.agentEvents = [{ type: "RUN_FINISHED" }];
+    },
+    (fixture) => ({
+      mcpApps: {
+        servers: [
+          { type: "http", url: `${fixture.url}/missing-mcp` },
+          {
+            type: "http",
+            url: fixture.mcpUrl,
+            headers: { "x-fixture-auth": "mcp-fixture-token" },
+          },
+        ],
+      },
+    }),
+  );
+  assert.equal(
+    (await request("POST", "/agent/default/run", input())).status,
+    200,
+  );
+  await platform.waitFor(() => platform.agentInputs.length === 1);
+  assert.ok(
+    platform.agentInputs[0].tools.some((tool) => tool.name === "show_card"),
+  );
+});
+
+test("MCP tool cancellation reaches its caller without a fallback result", async (t) => {
+  const platform = await startPlatform();
+  t.after(() => platform.close());
+  const goal = `use_module(prolog/cpki_mcp),
+    getenv('CPK_MCP_URL',Raw),atom_string(Raw,URL),
+    nb_setval(emitted,0),
+    assertz((emit_cancel(_):-nb_getval(emitted,N),Next is N+1,nb_setval(emitted,Next),throw(cpki_cancelled))),
+    Server=_{type:"http",url:URL,headers:_{'x-fixture-auth':"mcp-fixture-token"}},
+    catch(cpki_mcp:finish_call("call",_{name:"show_card",args:"{}"},
+      _{server:Server,resource:"ui://fixture/card"},user:emit_cancel),cpki_cancelled,true),
+    nb_getval(emitted,Count),(Count=:=1->halt(0);halt(1))`;
+  const child = spawn("swipl", ["-q", "-g", goal], {
+    env: { PATH: process.env.PATH, CPK_MCP_URL: platform.mcpUrl },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  let logs = "";
+  child.stderr.on("data", (data) => {
+    logs += data;
+  });
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  const [code] = await once(child, "close", {
+    signal: AbortSignal.timeout(15000),
+  });
+  assert.equal(code, 0, logs);
+  assert.equal(platform.mcpCalls.length, 1);
 });

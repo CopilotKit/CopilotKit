@@ -1,3 +1,4 @@
+:- encoding(utf8).
 :- module(cpki_a2ui,[a2ui_prepare/4,a2ui_accept/3,a2ui_finish/2,a2ui_enabled/2,
                     validate_components/3,json_field/3,partial_array/3]).
 :- use_module(cpki_http).
@@ -64,7 +65,8 @@ a2ui_accept(State,E,Emit) :-
     ;E.type=="TOOL_CALL_RESULT" ->
        arg(3,State,Calls),
        (select(E.toolCallId-Call,Calls,Rest)->put_dict(resolved,Call,true,Updated),nb_setarg(3,State,[E.toolCallId-Updated|Rest]);true),
-       result_activities(State,E,Emit)
+       result_activities(State,E,Emit),
+       (arg(5,State,E.toolCallId)->nb_setarg(5,State,none);true)
     ;true).
 result_activities(State,E,Emit) :-
     (catch(atom_json_dict(E.content,Parsed0,[]),_,fail)->
