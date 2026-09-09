@@ -1,5 +1,4 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
-import { AbstractAgent } from "@ag-ui/client";
 import { logger } from "@copilotkit/shared";
 import { randomUUID } from "node:crypto";
 import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
@@ -88,7 +87,10 @@ export async function generateThreadNameForNewThread({
     threadId: thread.id,
     userId,
     agentId,
-    updates: { name: generatedTitle ?? FALLBACK_THREAD_TITLE },
+    updates: {
+      name:
+        generatedTitle ?? deriveFallbackTitleFromMessages(sourceInput.messages),
+    },
   });
 }
 
@@ -214,12 +216,7 @@ function normalizeGeneratedTitle(rawTitle: string): string | null {
     }
   }
 
-  candidate = candidate
-    .replace(/^["'`]+|["'`]+$/g, "")
-    .replace(/[*_#[\]()!~>|]+/g, "")
-    .replace(/[.!?,;:]+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  candidate = cleanupTitleText(candidate);
 
   if (!candidate) {
     return null;
@@ -234,6 +231,43 @@ function normalizeGeneratedTitle(rawTitle: string): string | null {
   }
 
   return candidate;
+}
+
+function cleanupTitleText(text: string): string {
+  return text
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/[*_#[\]()!~>|]+/g, "")
+    .replace(/[.!?,;:]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function deriveFallbackTitleFromMessages(
+  messages: Message[] | undefined,
+): string {
+  const firstUserMessage = (messages ?? []).find(
+    (message) =>
+      message.role === "user" &&
+      stringifyMessageContent(message.content).length > 0,
+  );
+
+  if (!firstUserMessage) {
+    return FALLBACK_THREAD_TITLE;
+  }
+
+  const cleaned = cleanupTitleText(
+    stringifyMessageContent(firstUserMessage.content),
+  );
+  if (!cleaned) {
+    return FALLBACK_THREAD_TITLE;
+  }
+
+  let title = cleaned.split(/\s+/).slice(0, MAX_TITLE_WORDS).join(" ");
+  if (title.length > MAX_TITLE_LENGTH) {
+    title = title.slice(0, MAX_TITLE_LENGTH).trim();
+  }
+
+  return title || FALLBACK_THREAD_TITLE;
 }
 
 function selectGeneratedTitleFromMessages(messages: Message[]): string | null {
