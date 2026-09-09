@@ -290,7 +290,7 @@ unmounts mid-`executing`, the pending Promise is abandoned and the run
 hangs. Either lift the HITL UI to a layout-level component, or abort the
 run on unmount.
 
-Source: `packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx:76-80`
+Source: `packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx:136-140`
 
 ### MEDIUM — Using hyphenated `"in-progress"` status
 

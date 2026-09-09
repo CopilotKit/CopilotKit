@@ -364,7 +364,7 @@ destructures only `{ description, value }` — any `agentId` passed is
 silently dropped. Treat context as "state of the world" that every agent
 sees.
 
-Source: `packages/react-core/src/v2/hooks/use-agent-context.tsx` (no `agentId` parameter); `packages/core/src/core/context-store.ts:26-31`
+Source: `packages/react-core/src/v2/hooks/use-agent-context.tsx` (no `agentId` parameter); `packages/core/src/core/context-store.ts:33-42`
 
 ### MEDIUM — Scoping a thread with `agentId` and `threadId` alone
 

@@ -200,7 +200,7 @@ const onSubmit = () => {
 queue. If you submit without calling it, attachments stay in state and
 accompany every subsequent message.
 
-Source: `packages/react-core/src/v2/hooks/use-attachments.tsx:40-46`
+Source: `packages/react-core/src/v2/hooks/use-attachments.tsx:72-76`
 
 ### HIGH — Passing `maxSize` in KB or MB
 
@@ -223,7 +223,7 @@ useAttachments({
 small number without the multiplier silently rejects every file via
 `onUploadFailed({ reason: "file-too-large" })`.
 
-Source: `packages/react-core/src/v2/hooks/use-attachments.tsx:73-74`
+Source: `packages/react-core/src/v2/hooks/use-attachments.tsx:189-192`
 
 ### HIGH — Missing `containerRef` on the paste-scope element
 
@@ -255,7 +255,7 @@ Clipboard paste is scoped to the element `containerRef` points at. Without
 attaching the ref, `Ctrl+V` / `Cmd+V` never reaches the paste handler and
 users silently can't paste images from screenshots.
 
-Source: `packages/react-core/src/v2/hooks/use-attachments.tsx:207-239`
+Source: `packages/react-core/src/v2/hooks/use-attachments.tsx:54-57`
 
 ### MEDIUM — Using `imageUploadsEnabled` on `<CopilotChat>`
 
