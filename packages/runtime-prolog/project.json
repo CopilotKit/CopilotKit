@@ -1,0 +1,34 @@
+{
+  "name": "runtime-prolog",
+  "projectType": "library",
+  "root": "packages/runtime-prolog",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "swipl --on-error=status --on-warning=status -q -s test/runtime_tests.pl",
+        "cwd": "packages/runtime-prolog"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "swipl --on-error=status --on-warning=status -q -g \"load_files(prolog/copilotkit_runtime,[silent(false)]),list_undefined,halt\"",
+        "cwd": "packages/runtime-prolog"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "swipl --on-error=status --on-warning=status -q -g \"qcompile(prolog/copilotkit_runtime),halt\"",
+        "cwd": "packages/runtime-prolog"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  }
+}

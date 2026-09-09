@@ -3401,6 +3401,8 @@ importers:
 
   packages/runtime-go: {}
 
+  packages/runtime-prolog: {}
+
   packages/runtime-python: {}
 
   packages/runtime-ruby: {}
