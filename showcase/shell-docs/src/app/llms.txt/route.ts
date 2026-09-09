@@ -17,14 +17,21 @@
 // separate per-response CDN/browser hint.
 
 import { NextResponse } from "next/server";
-import { CURATED_LLM_PAGES } from "@/lib/curated-llm-pages";
+import {
+  CURATED_FRAMEWORK_PAGES,
+  CURATED_LLM_PAGES,
+} from "@/lib/curated-llm-pages";
 import { renderLlmsIndex } from "@/lib/llm-text";
 import { getBaseUrl } from "@/lib/sitemap-helpers";
 
 export const revalidate = false;
 
 export function GET(): NextResponse {
-  const body = renderLlmsIndex(CURATED_LLM_PAGES, getBaseUrl());
+  const body = renderLlmsIndex(
+    CURATED_LLM_PAGES,
+    getBaseUrl(),
+    CURATED_FRAMEWORK_PAGES,
+  );
   return new NextResponse(body, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",

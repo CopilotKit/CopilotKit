@@ -1,6 +1,27 @@
 import type { LlmPage } from "./llm-text";
+import { getDocsMode, getIntegrations } from "./registry";
 
 export type CuratedLlmPage = Pick<LlmPage, "url" | "title" | "description">;
+
+// Every visible external backend gets the same entry points. Registry order
+// follows the docs framework selector; hidden integrations are not advertised.
+export const CURATED_FRAMEWORK_PAGES: readonly CuratedLlmPage[] =
+  getIntegrations()
+    .filter(
+      ({ slug }) => slug !== "built-in-agent" && getDocsMode(slug) !== "hidden",
+    )
+    .flatMap(({ slug, name }) => [
+      {
+        url: slug,
+        title: `${name} Integration`,
+        description: `Explore ${name}-specific capabilities, examples, and guides for connecting your existing agent to CopilotKit.`,
+      },
+      {
+        url: `${slug}/quickstart`,
+        title: `${name} Quickstart`,
+        description: `Connect your ${name} backend to CopilotKit using the setup instructions for this framework.`,
+      },
+    ]);
 
 /**
  * The default machine index is deliberately a small, ordered decision path.
@@ -11,7 +32,8 @@ export type CuratedLlmPage = Pick<LlmPage, "url" | "title" | "description">;
  * - include Slack and Microsoft Teams as first-class Channels entry points;
  * - keep one canonical route when several framework or channel variants share
  *   the same source; and
- * - finish with high-signal selection guides and current quickstarts.
+ * - publish every visible external framework's overview and quickstart in a
+ *   separate leading section, before these shared and built-in agent guides.
  *
  * Contributor docs, migrations, legacy reference, troubleshooting, release
  * notes, generated API pages, narrow recipes, and repeated framework/channel
@@ -91,7 +113,7 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "quickstart",
-    title: "CopilotKit Quickstart",
+    title: "Built-in Agent Quickstart",
     description:
       "Build a working agent chat with CopilotKit's built-in agent in a few focused steps.",
   },
@@ -151,7 +173,7 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "model-selection",
-    title: "Model Selection",
+    title: "Built-in Agent Model Selection",
     description:
       "Select and configure the model provider used by CopilotKit's built-in agent.",
   },
@@ -175,7 +197,7 @@ export const CURATED_LLM_PAGES = [
   },
   {
     url: "server-tools",
-    title: "Server Tools",
+    title: "Built-in Agent Server Tools",
     description:
       "Define backend actions that the built-in agent can execute securely on the server.",
   },
@@ -238,41 +260,5 @@ export const CURATED_LLM_PAGES = [
     title: "Vue Frontend",
     description:
       "Connect a Vue application to Copilot Runtime with CopilotKit's Vue integration.",
-  },
-  {
-    url: "langgraph-python/quickstart",
-    title: "LangGraph Python Quickstart",
-    description:
-      "Connect a Python LangGraph agent to a CopilotKit application through AG-UI.",
-  },
-  {
-    url: "google-adk/quickstart",
-    title: "Google ADK Quickstart",
-    description:
-      "Connect a Google ADK agent to a CopilotKit application through AG-UI.",
-  },
-  {
-    url: "mastra/quickstart",
-    title: "Mastra Quickstart",
-    description:
-      "Connect a Mastra agent to a CopilotKit application through AG-UI.",
-  },
-  {
-    url: "pydantic-ai/quickstart",
-    title: "Pydantic AI Quickstart",
-    description:
-      "Connect a Pydantic AI agent to a CopilotKit application through AG-UI.",
-  },
-  {
-    url: "crewai-crews/quickstart",
-    title: "CrewAI Quickstart",
-    description:
-      "Connect a CrewAI Flow to a CopilotKit application through AG-UI.",
-  },
-  {
-    url: "agno/quickstart",
-    title: "Agno Quickstart",
-    description:
-      "Connect an Agno agent to a CopilotKit application through AG-UI.",
   },
 ] as const satisfies readonly CuratedLlmPage[];

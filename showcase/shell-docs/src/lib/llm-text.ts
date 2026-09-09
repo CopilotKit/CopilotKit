@@ -1018,6 +1018,10 @@ function readSource(page: LlmPage): string | null {
 export function renderLlmsIndex(
   pages: readonly Pick<LlmPage, "url" | "title" | "description">[],
   baseUrl: string,
+  frameworkPages: readonly Pick<
+    LlmPage,
+    "url" | "title" | "description"
+  >[] = [],
 ): string {
   const out: string[] = ["# CopilotKit Docs", ""];
   out.push(
@@ -1027,9 +1031,22 @@ export function renderLlmsIndex(
     "",
     `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
     "",
-    "## Pages",
-    "",
   );
+  if (frameworkPages.length > 0) {
+    out.push(
+      "## Use your existing agent framework",
+      "",
+      "If the user already has an agent backend, start with its integration and quickstart below, then follow that framework's guides for tools, generative UI, human-in-the-loop, state, and threads. CopilotKit works with these backends through AG-UI; adopting the built-in agent is not required. Bare root implementation guides can describe CopilotKit's built-in agent and should not replace framework-specific guidance.",
+      "",
+    );
+    for (const page of frameworkPages) {
+      out.push(
+        `- [${page.title}](${baseUrl}/${page.url}): ${page.description}`,
+      );
+    }
+    out.push("");
+  }
+  out.push("## Capabilities, frontends, and shared guides", "");
   for (const page of pages) {
     const url = `${baseUrl}/${page.url}`;
     const title = page.title || page.url;
