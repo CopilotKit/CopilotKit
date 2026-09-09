@@ -133,10 +133,26 @@ export type {
 // RN used to export a LOCAL `useRenderTool` whose whole body forwarded to
 // `useFrontendTool` — core's other hook, wearing this one's name. The visible
 // cost was `name: "*"`: it registered a frontend tool literally called `*`,
-// with no description and no schema, and offered it to the model. Do not
-// reintroduce a local hook under either name; the identity of this re-export is
-// asserted in src/__tests__/headless-entry-surface.test.ts.
-export { useRenderTool } from "@copilotkit/react-core/v2/headless";
+// with no description and no schema, and offered it to the model.
+//
+// `useRenderTool` below is a TEMPORARY COMPATIBILITY SHIM over BOTH core hooks,
+// deprecated and scheduled for removal in the next minor, after which this line
+// goes back to `export { useRenderTool } from "@copilotkit/react-core/v2/headless"`.
+// It exists because this break ships in a MINOR (this package is in the
+// 16-package lockstep `monorepo` release scope), so the compiler is the only
+// signal most consumers get — and a hoisted config object, a spread, or an
+// untyped call site is invisible to it. The shim routes those calls the way the
+// old hook did and warns, instead of letting the tool silently stop being
+// registered while the screen paints unchanged. Routing rules and reasoning:
+// src/hooks/useRenderTool.ts.
+//
+// It registers NOTHING itself: every path delegates to a react-core hook, which
+// is what keeps `CopilotKitCoreReact` the single registry. Do not grow a local
+// registry here — src/__tests__/headless-entry-surface.test.ts fails the build
+// if any module in this entry's graph writes to a registry of its own, and
+// src/hooks/__tests__/useRenderTool.test.tsx asserts each route against core's
+// own observable state.
+export { useRenderTool } from "./hooks/useRenderTool";
 export type { RenderToolProps } from "@copilotkit/react-core/v2/headless";
 
 // Render tool consumption. react-core's hook is platform-agnostic — it pulls no
