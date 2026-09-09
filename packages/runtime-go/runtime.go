@@ -2,7 +2,6 @@
 package runtime
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/CopilotKit/CopilotKit/packages/runtime-go/intelligence"
 )
 
 // User is a trusted application identity, resolved by the host application.
@@ -44,6 +45,7 @@ type MemoryGrant struct {
 
 // Config contains host-controlled credentials, transports, agents and policies.
 type Config struct {
+	Intelligence                                   *intelligence.Client
 	APIKey, APIURL, RunnerURL, ClientURL, BasePath string
 	IdentifyUser                                   func(*http.Request) (User, error)
 	Agents                                         map[string]Agent
@@ -68,19 +70,42 @@ type activeRun struct {
 
 // Runtime implements http.Handler. Close drains its background work.
 type Runtime struct {
-	config    Config
-	client    *http.Client
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
-	active    map[string]activeRun
-	wg        sync.WaitGroup
-	telemetry *telemetryExporter
-	closed    bool
+	intelligence      *intelligence.Client
+	ownedIntelligence bool
+	config            Config
+	ctx               context.Context
+	cancel            context.CancelFunc
+	mu                sync.Mutex
+	active            map[string]activeRun
+	wg                sync.WaitGroup
+	telemetry         *telemetryExporter
+	closed            bool
 }
 
 // New validates configuration before accepting requests.
 func New(c Config) (*Runtime, error) {
+	if c.Intelligence != nil {
+		sdkConfig := c.Intelligence.Configuration()
+		if c.APIURL != "" {
+			c.APIURL = strings.TrimRight(c.APIURL, "/")
+		}
+		for _, pair := range []struct {
+			target *string
+			value  string
+		}{
+			{&c.APIKey, sdkConfig.APIKey}, {&c.APIURL, sdkConfig.APIURL},
+			{&c.RunnerURL, sdkConfig.RunnerURL}, {&c.ClientURL, sdkConfig.ClientURL},
+		} {
+			if *pair.target != "" && *pair.target != pair.value {
+				return nil, errors.New("Runtime transport configuration must match Intelligence")
+			}
+			*pair.target = pair.value
+		}
+		if c.HTTPClient != nil && c.HTTPClient != sdkConfig.HTTPClient {
+			return nil, errors.New("configure the HTTP client on Intelligence")
+		}
+		c.HTTPClient = sdkConfig.HTTPClient
+	}
 	if strings.TrimSpace(c.APIKey) == "" || c.IdentifyUser == nil {
 		return nil, errors.New("APIKey and IdentifyUser are required")
 	}
@@ -111,9 +136,13 @@ func New(c Config) (*Runtime, error) {
 	if c.HeartbeatInterval >= c.LockTTL || c.HeartbeatInterval <= 0 {
 		return nil, errors.New("heartbeat interval must be positive and shorter than lock TTL")
 	}
-	client := c.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	sdk := c.Intelligence
+	if sdk == nil {
+		var err error
+		sdk, err = intelligence.New(intelligence.Config{APIKey: c.APIKey, APIURL: c.APIURL, RunnerURL: c.RunnerURL, ClientURL: c.ClientURL, HTTPClient: c.HTTPClient})
+		if err != nil {
+			return nil, err
+		}
 	}
 	c.Agents = cloneAgents(c.Agents)
 	if c.A2UI != nil {
@@ -162,7 +191,7 @@ func New(c Config) (*Runtime, error) {
 		cancel()
 		return nil, err
 	}
-	r := &Runtime{config: c, client: client, ctx: ctx, cancel: cancel, active: map[string]activeRun{}, telemetry: exporter}
+	r := &Runtime{config: c, intelligence: sdk, ownedIntelligence: c.Intelligence == nil, ctx: ctx, cancel: cancel, active: map[string]activeRun{}, telemetry: exporter}
 	r.capture("oss.runtime.instance_created", map[string]any{"actionsAmount": 0, "endpointTypes": []string{}, "endpointsAmount": 0, "agentsAmount": len(c.Agents), "cloud.api_key_provided": false})
 	return r, nil
 }
@@ -184,6 +213,9 @@ func (r *Runtime) Close() error {
 // CloseContext cancels running agents and bounds draining by the caller's context.
 // An agent that ignores cancellation may outlive the deadline.
 func (r *Runtime) CloseContext(ctx context.Context) error {
+	if r.ownedIntelligence {
+		defer r.intelligence.Close()
+	}
 	r.mu.Lock()
 	r.closed = true
 	r.cancel()
@@ -218,32 +250,7 @@ type platformError struct{ status int }
 
 func (e platformError) Error() string { return "Intelligence platform request failed" }
 func (r *Runtime) platform(ctx context.Context, method, path string, body any, headers map[string]string) (any, error) {
-	var reader io.Reader
-	if body != nil {
-		b, e := json.Marshal(body)
-		if e != nil {
-			return nil, e
-		}
-		reader = bytes.NewReader(b)
-	}
-	req, e := http.NewRequestWithContext(ctx, method, strings.TrimRight(r.config.APIURL, "/")+path, reader)
-	if e != nil {
-		return nil, e
-	}
-	req.Header.Set("Authorization", "Bearer "+r.config.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	res, e := r.client.Do(req)
-	if e != nil {
-		return nil, e
-	}
-	defer res.Body.Close()
-	if res.StatusCode >= 300 {
-		return nil, platformError{res.StatusCode}
-	}
-	b, e := io.ReadAll(io.LimitReader(res.Body, 16<<20))
+	b, e := r.intelligence.Request(ctx, method, path, body, headers)
 	if e != nil {
 		return nil, e
 	}
@@ -255,6 +262,10 @@ func (r *Runtime) platform(ctx context.Context, method, path string, body any, h
 	return result, e
 }
 func statusOf(e error) int {
+	var sdkError *intelligence.Error
+	if errors.As(e, &sdkError) {
+		return sdkError.Status
+	}
 	var p platformError
 	if errors.As(e, &p) {
 		return p.status

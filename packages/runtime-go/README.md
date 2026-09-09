@@ -8,6 +8,70 @@ go mod edit -replace=github.com/CopilotKit/CopilotKit/packages/runtime-go=/path/
 go get github.com/CopilotKit/CopilotKit/packages/runtime-go
 ```
 
+## Use Intelligence without a server
+
+The `intelligence` package is separate from the Runtime package.
+Use its client from a script, job, or service without an agent or mounted HTTP routes.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "os"
+
+    "github.com/CopilotKit/CopilotKit/packages/runtime-go/intelligence"
+)
+
+func main() {
+    client, err := intelligence.New(intelligence.Config{
+        APIKey: os.Getenv("CPK_INTELLIGENCE_API_KEY"),
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
+
+    ctx := context.Background()
+    thread, created, err := client.GetOrCreateThread(ctx, intelligence.CreateThreadParams{
+        ThreadID: "9dcc02ea-695d-4635-8efc-649c1b94ab90", UserID: "customer-42", AgentID: "support",
+        LearningContainerID: "support-quality",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    memories, err := client.RecallMemories(ctx, intelligence.RecallMemoriesParams{
+        UserID: "customer-42", Query: "support preferences", Limit: 5,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println(thread.ID, created, memories.Memories)
+}
+```
+
+`LearningContainerID` assigns a new thread to an existing Learning Container.
+Intelligence owns the binding and rejects attempts to move a bound thread.
+
+Thread methods include `ListThreads`, `GetThread`, `CreateThread`, `UpdateThread`, and `ArchiveThread`.
+Read persisted data with `GetThreadMessages`, `GetThreadEvents`, and `GetThreadState`.
+`DeleteThread` permanently deletes a thread and its history.
+
+Memory methods include `ListMemories`, `CreateMemory`, `UpdateMemory`, `RemoveMemory`, and `RecallMemories`.
+Use `MemoryGrant{User: intelligence.ReadWrite, Project: intelligence.Read}` to apply explicit limits.
+Without a grant, Intelligence applies its policy. Each Memory call requires the bare application user ID.
+
+`Annotate` records an annotation. Reuse `ClientEventID` when retrying the same annotation.
+Platform failures return `*intelligence.Error` with a status but no private response body.
+Cancellation remains available through `errors.Is(err, context.Canceled)`.
+Requests have a 20-second timeout by default and a 16 MiB response limit.
+The client does not follow redirects. `Close` releases only owned idle connections.
+
+Pass this client as `runtime.Config{Intelligence: client, IdentifyUser: identifyUser, Agents: agents}` to mount Runtime routes.
+The Runtime borrows the client. Existing `APIKey` constructors remain valid.
+
 Replace `/path/to/CopilotKit` with your checkout path. Run these commands from
 an application directory with a `go.mod` file.
 

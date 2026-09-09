@@ -14,7 +14,7 @@ require 'copilotkit/intelligence'
 
 intelligence = CopilotKit::Intelligence.new(api_key: ENV.fetch('CPK_INTELLIGENCE_API_KEY'))
 thread = intelligence.get_or_create_thread(
-  thread_id: 'support-123', user_id: 'customer-42', agent_id: 'support',
+  thread_id: '9dcc02ea-695d-4635-8efc-649c1b94ab90', user_id: 'customer-42', agent_id: 'support',
   learning_container_id: 'support-quality'
 )
 memories = intelligence.recall_memories(user_id: 'customer-42', query: 'support preferences', limit: 5)
