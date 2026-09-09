@@ -168,7 +168,7 @@ Unscoped renderers apply to every agent. When two agents have a tool with
 the same name and only one has a renderer, the unscoped renderer wins
 globally and the other agent never gets its intended renderer.
 
-Source: `packages/react-core/src/v2/hooks/use-render-tool-call.tsx:145-154`
+Source: `packages/react-core/src/v2/hooks/use-render-tool-call.tsx:200-206`
 
 ### MEDIUM — Tools registered without `agentId` leak across panels
 

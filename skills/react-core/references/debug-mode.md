@@ -76,7 +76,7 @@ Correct:
 `showDevConsole` no longer controls Inspector visibility. Omit it. The
 Inspector is on in development and off in production.
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:301-321`
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:197-200`
 
 ### MEDIUM — Expecting `debug: true` to log full payloads
 

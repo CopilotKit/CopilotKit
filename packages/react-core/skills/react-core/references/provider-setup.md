@@ -241,7 +241,7 @@ Correct:
 Both props are aliases for the same dev-only mechanism and ship any embedded
 credentials to the browser bundle. Never use either for production agents.
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:136-138,393`
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:156,497`
 
 ### HIGH — Inline object props rebuilt every render
 
@@ -276,7 +276,7 @@ internal state and may thrash tool/renderer registration. `useStableArrayProp`
 also logs a `console.error` when array-prop shape changes without
 memoization.
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:324-340,399-410`
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:278-296,387,399-410`
 
 ### HIGH — Missing `onError` leaves users stuck in "connecting..."
 
@@ -302,7 +302,7 @@ the provider in a provisional state with `ProxiedCopilotRuntimeAgent`
 instances that never resolve. The chat UI keeps showing "connecting..."
 forever and users never see the actual error.
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:638-660`
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:214,863-866`
 
 ### HIGH — Writing `publicApiKey` in new code
 

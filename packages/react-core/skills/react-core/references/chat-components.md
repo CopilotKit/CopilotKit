@@ -180,7 +180,7 @@ Correct:
 them is a TypeScript error, and `<CopilotChat>` always reads from its
 internal `useAgent` call.
 
-Source: `packages/react-core/src/v2/components/chat/CopilotChat.tsx:37-52`
+Source: `packages/react-core/src/v2/components/chat/CopilotChat.tsx:55-63`
 
 ### MEDIUM — Two `<CopilotChat>` with the same `agentId` + `threadId`
 

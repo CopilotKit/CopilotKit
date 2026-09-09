@@ -106,7 +106,7 @@ return <div>Max tokens: {caps?.maxOutputTokens ?? "unknown"}</div>;
 `AgentCapabilities` is a partial declaration. Agents opt in to each
 capability, so every field is optional. Narrow before deref.
 
-Source: `packages/react-core/src/v2/hooks/use-capabilities.tsx:20-22`
+Source: `packages/react-core/src/v2/hooks/use-capabilities.tsx:19-23`
 
 ### MEDIUM — Expecting deep merge from server-side `capabilities`
 

@@ -151,7 +151,7 @@ custom chat surfaces. Passing config to it does nothing. `useRenderTool` is
 the registration hook.
 
 Source: `packages/react-core/src/v2/hooks/index.ts:2,7`;
-`packages/react-core/src/v2/hooks/use-render-tool.tsx:37-40`
+`packages/react-core/src/v2/hooks/use-render-tool-call.tsx:159`
 
 ### CRITICAL — Using hyphenated `"in-progress"` status
 

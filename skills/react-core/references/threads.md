@@ -211,7 +211,7 @@ primitives only.
 Thread routes only exist in Intelligence mode. In plain SSE the list fetch
 fails and mutations reject.
 
-Source: `packages/react-core/src/v2/hooks/use-threads.tsx:207-213,229`
+Source: `packages/react-core/src/v2/hooks/use-threads.tsx:282-289`
 
 ### HIGH — Expecting `deleteThread` to be recoverable
 
@@ -238,7 +238,7 @@ const { threads: archived } = useThreads({
 `archiveThread` for user-facing delete UX and only call `deleteThread` for
 genuine "permanently erase" flows.
 
-Source: `packages/react-core/src/v2/hooks/use-threads.tsx:101-105`
+Source: `packages/react-core/src/v2/hooks/use-threads.tsx:170`
 
 ### MEDIUM — Assuming archived threads appear by default
 
@@ -262,7 +262,7 @@ const { threads: archivedThreads } = useThreads({
 `includeArchived` defaults to `false`. Archived threads are filtered out of
 the default list; opt in explicitly for an archived-view tab.
 
-Source: `packages/react-core/src/v2/hooks/use-threads.tsx:60-62`
+Source: `packages/react-core/src/v2/hooks/use-threads.tsx:54`
 
 ### MEDIUM — Not handling `error`
 
@@ -287,4 +287,4 @@ return <ul>{threads.map(...)}</ul>;
 successful fetch clears it. Surface it or you'll miss Intelligence-mode
 mis-configuration.
 
-Source: `packages/react-core/src/v2/hooks/use-threads.tsx:70-74`
+Source: `packages/react-core/src/v2/hooks/use-threads.tsx:98`
