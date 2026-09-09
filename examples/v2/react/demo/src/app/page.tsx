@@ -14,7 +14,7 @@ import {
   useHumanInTheLoop,
   useThreads,
 } from "@copilotkit/react-core/v2";
-import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core/v2";
+import type { ToolsMenuItem } from "@copilotkit/react-core/v2";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 import { DEMO_RUNTIME_URL } from "./runtime-url";
@@ -112,35 +112,10 @@ export default function Home() {
     ),
   });
 
-  const handleSetTheme = useCallback(
-    async (args: { mode: "light" | "dark" }) => {
-      setTheme(args.mode);
-      return `Theme set to ${args.mode}`;
-    },
-    [],
-  );
-
-  const sandboxFunctions = useMemo<SandboxFunction[]>(
-    () => [
-      {
-        name: "setTheme",
-        description:
-          "Switch the host application theme between light and dark mode. " +
-          "Call this when the user asks to change the theme or when generating UI with a theme toggle.",
-        parameters: z.object({
-          mode: z.enum(["light", "dark"]).describe("The theme mode to set"),
-        }),
-        handler: handleSetTheme,
-      },
-    ],
-    [handleSetTheme],
-  );
-
   return (
     <CopilotKitProvider
       runtimeUrl={DEMO_RUNTIME_URL}
       renderToolCalls={[wildcardRenderer]}
-      openGenerativeUI={{ sandboxFunctions }}
     >
       <div
         style={{
