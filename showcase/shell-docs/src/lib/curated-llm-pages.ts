@@ -8,6 +8,7 @@ export type CuratedLlmPage = Pick<LlmPage, "url" | "title" | "description">;
  * Selection policy:
  * - lead with product orientation, core interaction surfaces, and the
  *   persistence capabilities most applications need before production;
+ * - include Slack and Microsoft Teams as first-class Channels entry points;
  * - keep one canonical route when several framework or channel variants share
  *   the same source; and
  * - finish with high-signal selection guides and current quickstarts.
@@ -63,6 +64,18 @@ export const CURATED_LLM_PAGES = [
     title: "CopilotKit Intelligence",
     description:
       "Evaluate the durability, memory, learning, inspection, and operations layer for production agents.",
+  },
+  {
+    url: "slack",
+    title: "Channels for Slack",
+    description:
+      "Bring an AG-UI agent into Slack with native messages and approvals through Channels and managed Intelligence connections.",
+  },
+  {
+    url: "teams",
+    title: "Channels for Microsoft Teams",
+    description:
+      "Build agents with native Microsoft Teams messages and approvals through Channels; review the managed integration availability and direct SDK options.",
   },
   {
     url: "langgraph-python/threads-import",

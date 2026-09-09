@@ -1023,9 +1023,9 @@ export function renderLlmsIndex(
   out.push(
     "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
     "",
-    "> This curated index prioritizes product decisions, core interaction surfaces, persistent threads, and current getting-started paths.",
+    "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Automatic Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
     "",
-    `> For exhaustive retrieval—including reference, migration, contributor, framework variant, and channel pages—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
+    `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
     "",
     "## Pages",
     "",

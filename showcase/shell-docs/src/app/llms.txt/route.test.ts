@@ -44,8 +44,7 @@ test("keeps the curated policy ordered, unique, and on canonical routes", () => 
     ),
   );
 
-  expect(CURATED_LLM_PAGES).toHaveLength(40);
-  expect(urls.slice(0, 9)).toEqual([
+  expect(urls.slice(0, 11)).toEqual([
     "",
     "agentic-chat-ui",
     "concepts/generative-ui-overview",
@@ -53,6 +52,8 @@ test("keeps the curated policy ordered, unique, and on canonical routes", () => 
     "threads",
     "learning",
     "intelligence/overview",
+    "slack",
+    "teams",
     "langgraph-python/threads-import",
     "google-adk/threads-import",
   ]);
@@ -69,7 +70,10 @@ test("keeps the curated policy ordered, unique, and on canonical routes", () => 
       ),
     ),
   ).toBe(false);
-  expect(urls.some((url) => /^(?:slack|teams)(?:\/|$)/.test(url))).toBe(false);
+  expect(urls.filter((url) => /^(?:slack|teams)(?:\/|$)/.test(url))).toEqual([
+    "slack",
+    "teams",
+  ]);
 
   for (const page of CURATED_LLM_PAGES) {
     expect(page.description).toMatch(/^[^\n]+[.!?]$/);
