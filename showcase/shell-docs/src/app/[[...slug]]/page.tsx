@@ -5,14 +5,9 @@
 // and `/<slug>` URLs resolve BIA-authored pages first (see
 // UnscopedDocsPage). Other frameworks remain at `/<framework>/<slug>`.
 
-import React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DocsBuildWith } from "@/components/docs-build-with";
-import { DocsIntelligenceAdds } from "@/components/docs-intelligence-adds";
-import { DocsLandingNext } from "@/components/docs-landing-next";
-import { DocsLayerDiagram } from "@/components/docs-layer-diagram";
-import { DocsStart, DOCS_START_SECTION_ID } from "@/components/docs-start";
+import { DocsProductMap } from "@/components/docs-product-map";
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
 import { HeroStartActions } from "@/components/hero-start-commands";
@@ -50,9 +45,10 @@ export const dynamic = "force-dynamic";
 const HOME_DEFAULT_FRAMEWORK = ROOT_FRAMEWORK;
 
 // The three starting points a visitor recognises themselves in. They are
-// labels, not routes: every one of them links to the same Start section,
-// because one prompt covers all three (the CLI classifies the starting state).
-const HERO_PATH_ANCHORS = [
+// reassurance, not navigation: one prompt serves all three, because the CLI
+// classifies the starting state itself. The Start section they used to link
+// at duplicated the hero and has been removed.
+const HERO_STARTING_POINTS = [
   "New project",
   "Existing app or agent",
   "Already on CopilotKit → add Intelligence",
@@ -185,32 +181,16 @@ function DocsOverview() {
                 }
               />
             </div>
-            {/* Quiet path anchors. All three point at the same section
-                because the CLI classifies the starting state itself — see
-                `onboarding-classification.ts` in the Intelligence repo, which
-                has five starting states. Three separate buttons here would be
-                a fake choice; naming the paths is what the reader needs. */}
+            {/* Quiet reassurance, not navigation — see the constant above for
+                why these are plain text rather than links. */}
             <p className="mt-4 text-xs leading-relaxed text-[var(--text-muted)]">
-              {HERO_PATH_ANCHORS.map((label, index) => (
-                <React.Fragment key={label}>
-                  {index > 0 ? <span aria-hidden="true"> · </span> : null}
-                  <Link
-                    href={`#${DOCS_START_SECTION_ID}`}
-                    className="text-[var(--text-muted)] underline decoration-[var(--border)] underline-offset-2 hover:text-[var(--accent)] hover:decoration-[var(--accent)]"
-                  >
-                    {label}
-                  </Link>
-                </React.Fragment>
-              ))}
+              {HERO_STARTING_POINTS.join(" · ")}
             </p>
           </div>
         </section>
 
-        <div className="space-y-12 pt-8">
-          <DocsBuildWith />
-          <DocsIntelligenceAdds diagram={<DocsLayerDiagram />} />
-          <DocsStart />
-          <DocsLandingNext />
+        <div className="pt-8">
+          <DocsProductMap />
         </div>
       </div>
     </ShellDocsLayout>
