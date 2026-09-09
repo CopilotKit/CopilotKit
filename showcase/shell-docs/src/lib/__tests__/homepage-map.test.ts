@@ -79,6 +79,21 @@ describe("homepage map data", () => {
     }
   });
 
+  // The tile is named for the pattern the docs page is named for. "Approvals"
+  // described only one of the things `/human-in-the-loop` covers.
+  it("names the human-in-the-loop capability after its own docs page", () => {
+    const titles = COPILOTKIT_CAPABILITIES.map((cap) => cap.title);
+
+    expect(titles).toContain("Human in the loop");
+    expect(titles).not.toContain("Approvals");
+
+    const hitl = COPILOTKIT_CAPABILITIES.find(
+      (cap) => cap.title === "Human in the loop",
+    );
+    expect(hitl?.href).toBe("/human-in-the-loop");
+    expect(hitl?.icon).toBe("User");
+  });
+
   it("lists exactly the documented frontends, with React pointing at the quickstart", () => {
     const picks = frontendPicks();
     expect(picks.map((p) => p.id)).toEqual(FRONTEND_OPTIONS.map((o) => o.id));
@@ -116,6 +131,33 @@ describe("homepage map data", () => {
     for (const pick of picks) {
       expect(pick.href).toMatch(/^\//);
       expect(pick.name.length).toBeGreaterThan(0);
+    }
+  });
+
+  // Each pick carries what its logo needs, so `PickGrid` can render one
+  // without knowing anything about frontends or the registry.
+  it("gives every frontend pick the icon its registry entry declares", () => {
+    const picks = frontendPicks();
+
+    for (const option of FRONTEND_OPTIONS) {
+      const pick = picks.find((candidate) => candidate.id === option.id);
+      expect(pick?.logo, option.id).toEqual({
+        kind: "frontend",
+        icon: option.icon,
+      });
+    }
+  });
+
+  it("gives every agent pick its registry slug and logo fallback", () => {
+    const bySlug = new Map(
+      getIntegrations().map((integration) => [integration.slug, integration]),
+    );
+
+    for (const pick of agentPicks()) {
+      expect(pick.logo.kind, pick.id).toBe("framework");
+      if (pick.logo.kind !== "framework") continue;
+      expect(pick.logo.slug).toBe(pick.id);
+      expect(pick.logo.fallbackSrc).toBe(bySlug.get(pick.id)?.logo);
     }
   });
 

@@ -1,6 +1,16 @@
 // DocsProductMap — the server-rendered shell of the docs homepage product
-// map. Composes the four blocks (Frontend, CopilotKit, Intelligence, Agent)
-// and their three connectors from `./docs-map-parts` and `@/lib/homepage-map`.
+// map. Composes the intro, the four blocks (Frontend, CopilotKit,
+// Intelligence, Agent) and the three connectors from `./docs-map-parts` and
+// `@/lib/homepage-map`.
+//
+// The arrangement is not a stack. A stack reads Frontend → CopilotKit →
+// Intelligence → Agent, which says the agent talks to Intelligence; it does
+// not. The agent talks to the runtime over AG-UI, and Intelligence attaches
+// to that runtime as a side branch — so Intelligence is inset to the right,
+// the `+ adds` elbow reaches into it from CopilotKit, and the AG-UI axis
+// runs down the left, past Intelligence, to the Agent block. The grid that
+// does this lives in `./docs-map-parts`; see that file's header for the row
+// map.
 //
 // This must stay a plain, synchronous server component with no `"use client"`
 // directive and no hook: it calls `visibleIntegrations()`/`agentPicks()` from
@@ -17,12 +27,18 @@ import React from "react";
 
 import {
   CapabilityTile,
+  MAP_GRID_CLASS,
   MAP_TILE_GRID_CLASS,
+  MapAxis,
   MapBlock,
   MapConnector,
+  MapElbow,
+  MapGap,
+  MapIntro,
   PickGrid,
 } from "./docs-map-parts";
 import { ScopedCapabilities } from "./docs-map-scoped-capabilities";
+import { IntelligenceKiteIcon } from "./intelligence-kite-icon";
 import {
   COPILOTKIT_CAPABILITIES,
   INTELLIGENCE_CAPABILITIES,
@@ -33,8 +49,7 @@ import {
 } from "@/lib/homepage-map";
 
 /**
- * Anchor id for the Agent block, the destination of "Change framework" in
- * `ScopedCapabilities`. Exported from here (rather than from
+ * Anchor id for the Agent block. Exported from here (rather than from
  * `docs-map-parts` or `homepage-map`) because the route imports
  * `DocsProductMap` from this file and has no other reason to reach into the
  * map's internals.
@@ -64,15 +79,17 @@ export function DocsProductMap(): React.JSX.Element {
   const frameworks = Object.fromEntries(
     visibleIntegrations().map((integration) => [
       integration.slug,
-      {
-        name: integration.name,
-        hrefPrefix: scopedHref("", integration.slug),
-      },
+      { hrefPrefix: scopedHref("", integration.slug) },
     ]),
   );
 
   return (
-    <>
+    <div className={MAP_GRID_CLASS}>
+      <MapIntro
+        heading="How CopilotKit fits together"
+        body="Your frontend and your agent are yours to choose. CopilotKit sits between them — the SDK in your app, the runtime on your server. CopilotKit Intelligence attaches to that runtime when you take it to production."
+      />
+
       <MapBlock
         variant="choice"
         nameSize="sm"
@@ -83,7 +100,7 @@ export function DocsProductMap(): React.JSX.Element {
         <PickGrid picks={frontendPicks()} />
       </MapBlock>
 
-      <MapConnector variant="plain" />
+      <MapConnector />
 
       <MapBlock
         variant="core"
@@ -97,20 +114,20 @@ export function DocsProductMap(): React.JSX.Element {
       >
         <ScopedCapabilities
           capabilities={COPILOTKIT_CAPABILITIES}
-          anchorId={DOCS_MAP_FRAMEWORKS_ANCHOR}
           frameworks={frameworks}
         />
       </MapBlock>
 
-      <MapConnector variant="accent" label="+ adds" />
+      <MapElbow label="+ adds" />
 
       <MapBlock
         variant="plus"
+        placement="inset"
         id="intelligence"
         kicker="When real users arrive"
         name="CopilotKit Intelligence"
+        icon={<IntelligenceKiteIcon />}
         description="The platform your runtime talks to. Remembers, learns, and shows you what happened — without changing your frontend or your agent framework."
-        badge="Free to start · cloud or self-hosted"
         action={{
           label: "Connect in 5 minutes",
           href: "/intelligence/quickstart",
@@ -132,7 +149,9 @@ export function DocsProductMap(): React.JSX.Element {
         </div>
       </MapBlock>
 
-      <MapConnector variant="plain" label="AG-UI" />
+      <MapAxis label="AG-UI" href="/ag-ui/agentic-protocols" />
+
+      <MapGap />
 
       <MapBlock
         variant="choice"
@@ -144,6 +163,6 @@ export function DocsProductMap(): React.JSX.Element {
       >
         <PickGrid picks={agentPicks()} />
       </MapBlock>
-    </>
+    </div>
   );
 }

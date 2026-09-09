@@ -8,26 +8,23 @@
 // otherwise server-rendered; this is the only piece that needs a hook
 // (`useFramework`) to read the remembered framework, so it is the map's
 // single client boundary. `frameworks` is the server-supplied replacement
-// for `getIntegration()` — a slug→{name, hrefPrefix} record — so this
-// module can resolve both the display name and the href prefix without
-// importing any registry code. `MapCapability` is imported with
-// `import type` only: a runtime import of `@/lib/homepage-map` would pull
-// `@/lib/registry` in behind it and defeat the whole split.
+// for `getIntegration()` — a slug→{hrefPrefix} record — so this module can
+// resolve the href prefix without importing any registry code.
+// `MapCapability` is imported with `import type` only: a runtime import of
+// `@/lib/homepage-map` would pull `@/lib/registry` in behind it and defeat
+// the whole split.
 
 import React from "react";
-import Link from "next/link";
 import { useFramework } from "./framework-provider";
 import { CapabilityTile, MAP_TILE_GRID_CLASS } from "./docs-map-parts";
 import type { MapCapability } from "@/lib/homepage-map";
 
 export function ScopedCapabilities({
   capabilities,
-  anchorId,
   frameworks,
 }: {
   capabilities: readonly MapCapability[];
-  anchorId: string;
-  frameworks: Readonly<Record<string, { name: string; hrefPrefix: string }>>;
+  frameworks: Readonly<Record<string, { hrefPrefix: string }>>;
 }): React.JSX.Element {
   const { framework, storedFramework, effectiveFramework } = useFramework();
 
@@ -42,49 +39,41 @@ export function ScopedCapabilities({
   // `storedFramework` is advisory and unvalidated on read (an older build,
   // or a hand-edited localStorage, could hold a slug this docs site no
   // longer serves), so it only counts when it is a key in `frameworks` —
-  // otherwise the displayed name and the hrefs would disagree.
+  // otherwise the tiles would point at pages that 404.
   const remembered =
     storedFramework && Object.hasOwn(frameworks, storedFramework)
       ? storedFramework
       : null;
   const scope = framework ?? remembered ?? effectiveFramework;
-  // The `{ name: scope, hrefPrefix: "" }` fallback is defensive only: from
+  // The `{ hrefPrefix: "" }` fallback is defensive only: from
   // `DocsProductMap`'s own composition, `scope` is always a key in
   // `frameworks` (either the URL framework, always null on `/`, or
   // `effectiveFramework` — always `ROOT_FRAMEWORK`, which the filtered
   // record always contains), so this branch is unreachable there. It stays
   // because this component takes `frameworks` as a prop and must not crash
-  // for a caller that passes a narrower record.
-  const { name, hrefPrefix } = Object.hasOwn(frameworks, scope)
+  // for a caller that passes a narrower record. `Object.hasOwn` rather than
+  // `in`: a record built with `Object.fromEntries` answers bare `in` for
+  // inherited `Object.prototype` members, so a stored "constructor" would
+  // read `Object.hrefPrefix` — undefined — and prefix every tile with the
+  // literal string "undefined".
+  const { hrefPrefix } = Object.hasOwn(frameworks, scope)
     ? frameworks[scope]
-    : { name: scope, hrefPrefix: "" };
+    : { hrefPrefix: "" };
 
   return (
-    <>
-      <div className={MAP_TILE_GRID_CLASS}>
-        {capabilities.map((capability) => (
-          <CapabilityTile
-            key={capability.href}
-            capability={capability}
-            href={
-              capability.href.startsWith("/")
-                ? `${hrefPrefix}${capability.href}`
-                : capability.href
-            }
-            tone="core"
-          />
-        ))}
-      </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">
-        Scoped to {name}.{" "}
-        <Link
-          href={`#${anchorId}`}
-          className="text-[var(--accent)] underline-offset-2 hover:underline"
-        >
-          Change framework
-        </Link>
-      </p>
-    </>
+    <div className={MAP_TILE_GRID_CLASS}>
+      {capabilities.map((capability) => (
+        <CapabilityTile
+          key={capability.href}
+          capability={capability}
+          href={
+            capability.href.startsWith("/")
+              ? `${hrefPrefix}${capability.href}`
+              : capability.href
+          }
+          tone="core"
+        />
+      ))}
+    </div>
   );
 }

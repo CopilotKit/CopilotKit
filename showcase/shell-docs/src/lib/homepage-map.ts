@@ -12,6 +12,7 @@ import { ROOT_FRAMEWORK, getDocsMode, getIntegrations } from "@/lib/registry";
 import type { Integration } from "@/lib/registry";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
+import type { FrontendIcon } from "@/lib/frontend-options";
 
 /** Icon names used by the map. Every one is a real `lucide-react` export. */
 export type LucideIconName =
@@ -36,10 +37,27 @@ export interface MapCapability {
   readonly icon: LucideIconName;
 }
 
+/**
+ * What a pick needs to draw its logo. Discriminated by `kind` so `PickGrid`
+ * stays dumb: it forwards the payload to the matching logo component and
+ * never decides which logo a pick gets. Frontends are identified by their
+ * `FrontendIcon` id, agents by their registry slug plus the registry's own
+ * `logo` URL, which `FrameworkLogo` falls back to when no bundled mark
+ * matches the slug.
+ */
+export type MapPickLogo =
+  | { readonly kind: "frontend"; readonly icon: FrontendIcon }
+  | {
+      readonly kind: "framework";
+      readonly slug: string;
+      readonly fallbackSrc?: string;
+    };
+
 export interface MapPick {
   readonly id: string;
   readonly name: string;
   readonly href: string;
+  readonly logo: MapPickLogo;
   /** Shown as a small qualifier when the choice carries a condition. */
   readonly note?: string;
 }
@@ -60,7 +78,7 @@ export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
     icon: "Paintbrush",
   },
   {
-    title: "Approvals",
+    title: "Human in the loop",
     body: "Pause for the user's decision at the steps that matter.",
     href: "/human-in-the-loop",
     icon: "User",
@@ -159,6 +177,7 @@ export function frontendPicks(): MapPick[] {
     id: option.id,
     name: option.name,
     href: option.id === "react" ? "/quickstart" : `/${option.id}`,
+    logo: { kind: "frontend", icon: option.icon },
     ...(INTELLIGENCE_ONLY_FRONTENDS.has(option.id)
       ? { note: "needs Intelligence" }
       : {}),
@@ -197,5 +216,10 @@ export function agentPicks(): MapPick[] {
         integration.slug === ROOT_FRAMEWORK
           ? "/quickstart"
           : `/${integration.slug}`,
+      logo: {
+        kind: "framework",
+        slug: integration.slug,
+        fallbackSrc: integration.logo,
+      },
     }));
 }

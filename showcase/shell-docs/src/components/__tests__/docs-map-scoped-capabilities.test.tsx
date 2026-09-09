@@ -29,8 +29,8 @@ const NO_HARD_COLOUR =
   /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-zA-Z-])|\brgb\(|\bhsl\(/;
 
 const FRAMEWORKS = {
-  "built-in-agent": { name: "CopilotKit's Built-in Agent", hrefPrefix: "" },
-  mastra: { name: "Mastra", hrefPrefix: "/mastra" },
+  "built-in-agent": { hrefPrefix: "" },
+  mastra: { hrefPrefix: "/mastra" },
 } as const;
 
 function setFramework(overrides: {
@@ -46,11 +46,10 @@ function setFramework(overrides: {
   });
 }
 
-function render(props?: { anchorId?: string; frameworks?: typeof FRAMEWORKS }) {
+function render(props?: { frameworks?: typeof FRAMEWORKS }) {
   return renderToStaticMarkup(
     <ScopedCapabilities
       capabilities={COPILOTKIT_CAPABILITIES}
-      anchorId={props?.anchorId ?? "frameworks"}
       frameworks={props?.frameworks ?? FRAMEWORKS}
     />,
   );
@@ -74,25 +73,61 @@ describe("ScopedCapabilities", () => {
     expect(markup).not.toContain('href="/mastra/generative-ui"');
   });
 
-  it("scopes hrefs and prints the display name for a remembered framework", () => {
+  it("scopes hrefs to a remembered framework", () => {
     setFramework({ storedFramework: "mastra" });
     const markup = render();
 
     expect(markup).toContain('href="/mastra/generative-ui"');
-    expect(markup).toContain("Scoped to Mastra.");
   });
 
-  it("ignores a prototype-inherited key as a remembered framework", () => {
-    // `frameworks` is built with `Object.fromEntries`, so bare `in`/bracket
-    // access on it is satisfied by inherited `Object.prototype` members —
-    // "constructor", "toString", "valueOf", "__proto__" all read as
-    // truthy even though `Object.keys(frameworks)` doesn't contain them.
-    // The validation must be `Object.hasOwn`, prototype-safe like the old
-    // `knownFrameworks.includes(storedFramework)` array check it replaced.
-    setFramework({ storedFramework: "constructor" });
+  // The scoping is now the whole of what the remembered framework does here:
+  // the tiles' hrefs move, and nothing announces the scope in prose or
+  // offers to change it.
+  it("says nothing about the scope in prose", () => {
+    setFramework({ storedFramework: "mastra" });
     const markup = render();
 
-    expect(markup).not.toContain("Scoped to Object.");
+    expect(markup).not.toContain("Scoped to");
+    expect(markup).not.toContain("Change framework");
+  });
+
+  // `frameworks` is built with `Object.fromEntries`, so bare `in`/bracket
+  // access on it is satisfied by inherited `Object.prototype` members —
+  // "constructor", "toString", "valueOf", "__proto__" all read as truthy
+  // even though `Object.keys(frameworks)` doesn't contain them. Both lookups
+  // in the component must be `Object.hasOwn`, prototype-safe like the old
+  // `knownFrameworks.includes(storedFramework)` array check they replaced.
+  //
+  // There are two of them, and one case cannot exercise both: the remembered
+  // check gates the scope check, so a prototype key in localStorage never
+  // reaches the second lookup, and a prototype key in the URL never reaches
+  // the first. Hence one test each — an assertion that only fails when both
+  // lookups are broken at once is an assertion that catches neither.
+  it("ignores a prototype-inherited key as a remembered framework", () => {
+    // `effectiveFramework` is a prefixed framework here so that ignoring the
+    // bogus remembered slug is visible in the markup: the fallback must be
+    // the effective framework's prefix, not the empty prefix a
+    // prototype-inherited hit would resolve to.
+    setFramework({
+      storedFramework: "constructor",
+      effectiveFramework: "mastra",
+    });
+    const markup = render();
+
+    expect(markup).toContain('href="/mastra/generative-ui"');
+  });
+
+  it("ignores a prototype-inherited key as the resolved scope", () => {
+    // The URL framework is passed through unvalidated by design (the route
+    // only serves known slugs), so it is the one input that reaches the
+    // second lookup directly. Under a bare bracket lookup,
+    // `frameworks["constructor"]` is the `Object` function, whose
+    // `hrefPrefix` is undefined — every tile would link at
+    // "undefined/generative-ui".
+    setFramework({ framework: "constructor" });
+    const markup = render();
+
+    expect(markup).toContain('href="/generative-ui"');
     expect(markup).not.toMatch(/href="[^"]*undefined[^"]*"/);
   });
 
@@ -111,15 +146,6 @@ describe("ScopedCapabilities", () => {
 
     expect(markup).toContain('href="/generative-ui"');
     expect(markup).not.toContain('href="/mastra/generative-ui"');
-    expect(markup).toContain("Scoped to CopilotKit&#x27;s Built-in Agent.");
-  });
-
-  it("points Change framework at the given anchorId", () => {
-    setFramework({});
-    const markup = render({ anchorId: "pick-a-framework" });
-
-    expect(markup).toContain('href="#pick-a-framework"');
-    expect(markup).toContain("Change framework");
   });
 
   it("passes an absolute capability href through unprefixed", () => {
@@ -135,7 +161,6 @@ describe("ScopedCapabilities", () => {
     const markup = renderToStaticMarkup(
       <ScopedCapabilities
         capabilities={absoluteCapabilities}
-        anchorId="frameworks"
         frameworks={FRAMEWORKS}
       />,
     );

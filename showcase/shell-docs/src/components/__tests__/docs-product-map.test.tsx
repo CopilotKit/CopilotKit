@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COPILOTKIT_CAPABILITIES,
   INTELLIGENCE_CAPABILITIES,
+  agentPicks,
+  frontendPicks,
 } from "@/lib/homepage-map";
 import { getDocsMode, getIntegrations } from "@/lib/registry";
 
@@ -45,6 +47,25 @@ function render() {
   return renderToStaticMarkup(<DocsProductMap />);
 }
 
+/**
+ * Brand marks carry brand colours by definition — Vue's green, Slack's four
+ * — and `FrontendLogo`/`FrameworkLogo` are shared components this map only
+ * consumes. Strip the marks so the token check still covers every class and
+ * inline style the map itself writes.
+ */
+function withoutBrandMarks(markup: string): string {
+  return markup.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<img[^>]*>/g, "");
+}
+
+/** Every pick link, identified by the class `PickGrid` gives them. */
+function pickAnchors(markup: string): string[] {
+  return Array.from(
+    markup.matchAll(
+      /<a [^>]*class="shell-docs-radius-control flex items-center[^"]*"[\s\S]*?<\/a>/g,
+    ),
+  ).map((match) => match[0]);
+}
+
 describe("DocsProductMap", () => {
   beforeEach(() => {
     useFrameworkMock.mockReturnValue({
@@ -55,7 +76,19 @@ describe("DocsProductMap", () => {
     });
   });
 
-  it("renders the four block names in story order", () => {
+  it("frames the map with the intro heading and paragraph", () => {
+    const markup = render();
+
+    expect(markup).toContain("How CopilotKit fits together");
+    // Verbatim, em dash included: this paragraph is what states the
+    // relationship in words, and it is the only thing carrying it on a
+    // narrow screen where the map collapses to one column.
+    expect(markup).toContain(
+      "Your frontend and your agent are yours to choose. CopilotKit sits between them — the SDK in your app, the runtime on your server. CopilotKit Intelligence attaches to that runtime when you take it to production.",
+    );
+  });
+
+  it("renders the intro and the four block names in story order", () => {
     const markup = render();
 
     // Match on the `<h2>` heading markup `MapBlock` renders for `name`,
@@ -71,6 +104,7 @@ describe("DocsProductMap", () => {
     );
 
     expect(headings).toEqual([
+      "How CopilotKit fits together",
       "Frontend",
       "CopilotKit",
       "CopilotKit Intelligence",
@@ -109,17 +143,27 @@ describe("DocsProductMap", () => {
     expect(intelligence?.classes).toContain("bg-[var(--accent-dim)]");
   });
 
-  it("gives the + adds connector the accent treatment and AG-UI the plain one", () => {
+  it("gives the + adds elbow the accent treatment and the AG-UI axis the plain one", () => {
     const markup = render();
 
     const adds = markup.match(/<span class="([^"]*)">\+ adds<\/span>/);
-    const agUi = markup.match(/<span class="([^"]*)">AG-UI<\/span>/);
+    const agUi = markup.match(/<a href="[^"]*" class="([^"]*)">AG-UI<\/a>/);
 
     expect(adds?.[1]).toContain("border-[var(--accent)]");
     expect(adds?.[1]).toContain("bg-[var(--accent-dim)]");
 
     expect(agUi?.[1]).toContain("border-dashed");
     expect(agUi?.[1]).not.toContain("bg-[var(--accent-dim)]");
+  });
+
+  // The protocol between the agent and the runtime is a documented thing, so
+  // the pill that names it must be reachable rather than decoration.
+  it("links the AG-UI pill at the agentic-protocols page", () => {
+    const markup = render();
+
+    expect(markup).toMatch(
+      /<a href="\/ag-ui\/agentic-protocols"[^>]*>AG-UI<\/a>/,
+    );
   });
 
   it("scopes a CopilotKit capability href to exactly /mastra/generative-ui for the remembered framework", () => {
@@ -147,15 +191,32 @@ describe("DocsProductMap", () => {
     expect(render()).toContain("+ adds");
   });
 
-  it("renders the AG-UI connector label", () => {
+  it("renders the AG-UI axis label", () => {
     expect(render()).toContain("AG-UI");
   });
 
-  it("renders the Intelligence badge exactly, with no premium language anywhere", () => {
+  // The Intelligence block used to wear a "free to start" badge. It said
+  // nothing about how the pieces fit and read as pricing on a page whose job
+  // is orientation.
+  it("carries no badge and no premium language anywhere", () => {
     const markup = render();
 
-    expect(markup).toContain("Free to start · cloud or self-hosted");
+    expect(markup).not.toContain("Free to start");
+    expect(markup).not.toContain("cloud or self-hosted");
     expect(markup.toLowerCase()).not.toContain("premium");
+  });
+
+  // Scoping still follows the remembered agent backend — it just does so
+  // silently, in the tiles' hrefs.
+  it("never announces the scope in prose", () => {
+    const markup = render();
+
+    expect(markup).not.toContain("Scoped to");
+    expect(markup).not.toContain("Change framework");
+  });
+
+  it("renders the four blocks' kickers, descriptions and actions verbatim", () => {
+    const markup = render();
 
     // The four blocks' kickers. Frontend and Agent deliberately share the
     // same kicker text.
@@ -217,6 +278,31 @@ describe("DocsProductMap", () => {
     },
   );
 
+  // The kite is Intelligence's mark; this viewBox is unique to
+  // `IntelligenceKiteIcon`, so it identifies the icon rather than any other
+  // svg in the map.
+  it("puts the Intelligence kite beside the Intelligence name", () => {
+    const markup = render();
+
+    const intelligenceBlock = markup.slice(markup.indexOf('id="intelligence"'));
+    expect(intelligenceBlock).toContain('viewBox="10 0 71 76"');
+    expect(intelligenceBlock.indexOf('viewBox="10 0 71 76"')).toBeLessThan(
+      intelligenceBlock.indexOf("CopilotKit Intelligence"),
+    );
+  });
+
+  it("draws a visible logo on every frontend and agent pick", () => {
+    const markup = render();
+    const anchors = pickAnchors(markup);
+
+    expect(anchors).toHaveLength(frontendPicks().length + agentPicks().length);
+    for (const anchor of anchors) {
+      // A slug with no bundled mark and no registry logo would render an
+      // empty spacer span, which is what this catches.
+      expect(anchor, anchor).toMatch(/<svg|<img/);
+    }
+  });
+
   it("carries the frameworks anchor and the intelligence anchor", () => {
     const markup = render();
 
@@ -245,7 +331,7 @@ describe("DocsProductMap", () => {
   });
 
   it("uses design tokens only — no hex, rgb() or hsl() colours", () => {
-    expect(render()).not.toMatch(NO_HARD_COLOUR);
+    expect(withoutBrandMarks(render())).not.toMatch(NO_HARD_COLOUR);
   });
 
   // The regression this file exists to prevent: this must stay a server
