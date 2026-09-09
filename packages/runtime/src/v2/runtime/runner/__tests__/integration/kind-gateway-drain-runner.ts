@@ -15,6 +15,12 @@ class ObservedWebSocket extends NativeWebSocket {
   constructor(address: string | URL, protocols?: string | string[]) {
     super(address, protocols);
     interruptTransport = () => this.close(1000, "test transport interruption");
+    this.addEventListener("open", () =>
+      process.stdout.write("CPKI_KIND_SOCKET open\n"),
+    );
+    this.addEventListener("error", () =>
+      process.stderr.write("CPKI_KIND_SOCKET error\n"),
+    );
     this.addEventListener("close", (event) => closeCodes.push(event.code));
   }
 }
@@ -87,8 +93,31 @@ class SlowLifecycleAgent extends AbstractAgent {
 
 async function main(): Promise<void> {
   const { IntelligenceAgentRunner } = await import("../../intelligence");
+  const gatewayUrl =
+    process.env.CPKI_KIND_GATEWAY_URL ?? "ws://127.0.0.1:4401/runner";
+  const healthUrl = new URL("/health/ready", gatewayUrl.replace(/^ws/, "http"));
+  // Pod readiness can precede service routing in a fresh Kind cluster. Keep
+  // setup separate from the runner interruption under test.
+  let reachable = false;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      const health = await fetch(healthUrl, {
+        signal: AbortSignal.timeout(3_000),
+      });
+      await health.arrayBuffer();
+      if (health.ok) {
+        reachable = true;
+        break;
+      }
+    } catch {
+      process.stdout.write(`CPKI_KIND_WAIT_GATEWAY ${attempt + 1}\n`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!reachable)
+    throw new Error("gateway was not reachable before the runner test");
   const runner = new IntelligenceAgentRunner({
-    url: process.env.CPKI_KIND_GATEWAY_URL ?? "ws://127.0.0.1:4401/runner",
+    url: gatewayUrl,
     authToken: "ck_test_longsecret",
     maxReconnectMs: 500,
     maxRejoinMs: 500,
