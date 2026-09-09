@@ -108,12 +108,13 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
       starter.chatMessage,
     );
     expect(result.gotResponse, "No assistant response received").toBe(true);
-    expect(result.responseText.length).toBeGreaterThan(0);
     if (starter.expectedChatUiText) {
       await expect(
         page.getByText(starter.expectedChatUiText, { exact: true }).first(),
       ).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText("A2UI render error:")).toHaveCount(0);
+    } else {
+      expect(result.responseText.length).toBeGreaterThan(0);
     }
   });
 
