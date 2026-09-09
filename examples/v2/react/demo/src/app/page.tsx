@@ -3,11 +3,14 @@
 import {
   CopilotChat,
   CopilotChatAssistantMessage,
+  CopilotChatConfigurationProvider,
   CopilotKitProvider,
   defineToolCallRenderer,
   useAgentContext,
+  useCopilotChatConfiguration,
   useConfigureSuggestions,
   useFrontendTool,
+  useThreads,
 } from "@copilotkit/react-core/v2";
 import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core/v2";
 import { useCallback, useMemo, useState } from "react";
@@ -122,25 +125,56 @@ function Chat({
   theme: Theme;
   onToggleTheme: () => void;
 }) {
+  return (
+    <CopilotChatConfigurationProvider>
+      <ChatContent theme={theme} onToggleTheme={onToggleTheme} />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function ChatContent({
+  theme,
+  onToggleTheme,
+}: {
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
   const colors = themeColors[theme];
-  const [selectedThreadId, setSelectedThreadId] = useState<string>();
   const [isThreadsMenuOpen, setIsThreadsMenuOpen] = useState(false);
+  const [draftThreadId, setDraftThreadId] = useState<string>();
+  const configuration = useCopilotChatConfiguration();
+  const { threads } = useThreads({ agentId: configuration?.agentId });
+  const hasInspectorPreview = configuration?.threadId?.startsWith("thread---");
   const pastThreads = [
-    { id: "thread---a", label: "Thread A" },
-    { id: "thread---b", label: "Thread B" },
-    { id: "thread---c", label: "Thread C" },
+    ...(draftThreadId && !threads.some((thread) => thread.id === draftThreadId)
+      ? [{ id: draftThreadId, label: "New thread", isDraft: true }]
+      : []),
+    ...threads.map((thread) => ({
+      id: thread.id,
+      label:
+        thread.name ??
+        (thread.id === draftThreadId ? "New thread" : "Untitled thread"),
+      isDraft: thread.id === draftThreadId,
+    })),
   ];
-  const hasInspectorPreview = selectedThreadId?.startsWith("thread---");
 
   const startNewThread = useCallback(() => {
-    setSelectedThreadId(undefined);
-    setIsThreadsMenuOpen(false);
-  }, []);
+    if (!configuration) return;
 
-  const selectThread = useCallback((threadId: string) => {
-    setSelectedThreadId(threadId);
+    const id = crypto.randomUUID();
+    configuration.setActiveThreadId(id, { explicit: false });
+    setDraftThreadId(id);
     setIsThreadsMenuOpen(false);
-  }, []);
+  }, [configuration]);
+
+  const selectThread = useCallback(
+    (threadId: string, isDraft: boolean) => {
+      configuration?.setActiveThreadId(threadId, { explicit: !isDraft });
+      setDraftThreadId(isDraft ? threadId : undefined);
+      setIsThreadsMenuOpen(false);
+    },
+    [configuration],
+  );
 
   useConfigureSuggestions({
     instructions: "Suggest follow-up tasks based on the current page content",
@@ -149,7 +183,7 @@ function Chat({
 
   useAgentContext({
     description: "The current Thread ID is:",
-    value: selectedThreadId ?? "stateless",
+    value: configuration?.threadId ?? "stateless",
   });
 
   //useConfigureSuggestions({
@@ -368,19 +402,21 @@ function Chat({
               >
                 Past threads
               </div>
-              {pastThreads.map(({ id, label }) => (
+              {pastThreads.map(({ id, label, isDraft }) => (
                 <button
                   key={id}
                   type="button"
                   role="menuitem"
-                  onClick={() => selectThread(id)}
+                  onClick={() => selectThread(id, isDraft)}
                   style={{
                     width: "100%",
                     padding: "9px 10px",
                     border: 0,
                     borderRadius: 8,
                     backgroundColor:
-                      id === selectedThreadId ? colors.muted : "transparent",
+                      id === configuration?.threadId
+                        ? colors.muted
+                        : "transparent",
                     color: colors.text,
                     textAlign: "left",
                     cursor: "pointer",
@@ -435,8 +471,6 @@ function Chat({
                 }
               : undefined
           }
-          threadId={selectedThreadId}
-          key={selectedThreadId ?? "stateless"}
         />
       </div>
     </div>
