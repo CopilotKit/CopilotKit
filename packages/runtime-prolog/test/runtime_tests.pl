@@ -19,4 +19,5 @@ identity(_, _{id:"user"}).
 :- end_tests(runtime_contracts).
 :- ensure_loaded('ui_tests.pl').
 :- ensure_loaded('hosting_tests.pl').
+:- ensure_loaded('inspector_tests.pl').
 :- initialization((run_tests -> halt(0); halt(1)), main).

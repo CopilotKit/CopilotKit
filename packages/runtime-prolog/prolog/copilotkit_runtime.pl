@@ -4,6 +4,7 @@
 :- use_module(cpki_runner).
 :- use_module(cpki_telemetry).
 :- use_module(cpki_a2ui).
+:- use_module(cpki_inspector).
 :- use_module(library(http/thread_httpd)).
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_json)).
@@ -62,6 +63,9 @@ public_error(_,502,_{error:"Runtime dependency failed"}).
 %! runtime_dispatch(+Runtime,+Method,+Segments,+Query,+Body,+Request,-Status,-Reply) is det.
 %  Dispatch already-decoded requests. Identity always comes from the callback.
 runtime_dispatch(_,options,_,_,_,_,204,null) :- !.
+runtime_dispatch(R,M,['inspector-metadata'],_,_,_,Status,Metadata) :- !,
+    method(M,get),configuration(R,C),
+    (catch((platform(C,get,'/api/inspector/metadata',none,Raw),inspector_metadata(Raw,Metadata)),_,fail)->Status=200;Status=204,Metadata=null).
 runtime_dispatch(R,M,[info],_,_,_,200,Info) :- !,
     method(M,get),configuration(R,C),runtime_info(C,Info).
 runtime_dispatch(R,M,Segments,Q,B,Request,S,Reply) :-
@@ -77,7 +81,7 @@ runtime_info(C,Info) :-
     dict_pairs(C.agents,_,Agents),maplist(agent_info,Agents,Pairs),dict_pairs(Map,_,Pairs),
     telemetry_disabled(C.telemetry,Disabled),
     Base=_{version:"0.1.0",mode:"intelligence",agents:Map,intelligence:_{wsUrl:C.client_url},
-       runtimeEntitlements:Ent,threadEndpoints:_{list:true,inspect:true,mutations:true,realtimeMetadata:true},
+       runtimeEntitlements:Ent,inspectorMetadata:true,threadEndpoints:_{list:true,inspect:true,mutations:true,realtimeMetadata:true},
        a2uiEnabled:Enabled,openGenerativeUIEnabled:false,audioFileTranscriptionEnabled:false,suggestions:false,telemetryDisabled:Disabled},
     (a2ui_enabled(C,_)->Enabled=true,select_keys(C.a2ui,[agents],Scope),put_dict(enabled,Scope,true,A2UI),put_dict(a2ui,Base,A2UI,Info);Enabled=false,Info=Base).
 agent_info(ID-Agent,ID-Info) :- atom_string(ID,Name),value(Agent,description,"",D),Info=_{name:Name,description:D,className:"PrologAgent"}.
@@ -170,6 +174,9 @@ valid_url(URL,Schemes) :-
     uri_components(URL,Parts),uri_data(scheme,Parts,Scheme),uri_data(authority,Parts,Authority),
     (memberchk(Scheme,Schemes),nonvar(Authority),Authority\=='',\+sub_atom(Authority,_,_,_,'@')->true;throw(error(domain_error(transport_url,URL),_))).
 response_headers(R,Request) :-
-    format('Cache-Control: no-store\r\n'),
+    (memberchk(path(Path),Request),sub_atom(Path,_,_,0,'/inspector-metadata')->
+      format('Cache-Control: no-store, private\r\n'),
+      (memberchk(method(get),Request)->true;format('Allow: GET\r\n'))
+    ;format('Cache-Control: no-store\r\n')),
     (configuration(R,C),memberchk(origin(A),Request),atom_string(A,Origin),memberchk(Origin,C.cors_origins)->
        format('Access-Control-Allow-Origin: ~s\r\nVary: Origin\r\nAccess-Control-Allow-Credentials: true\r\nAccess-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type, Authorization\r\n',[Origin]);true).
