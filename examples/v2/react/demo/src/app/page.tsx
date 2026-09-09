@@ -302,6 +302,7 @@ function ChatContent({
 
   useHumanInTheLoop({
     name: "requestDemoApproval",
+    followUp: false,
     description:
       "Ask for the user's approval before completing an action. Use it when the user asks for an approval or human-in-the-loop demo.",
     parameters: z.object({
