@@ -47,14 +47,17 @@ function BackendGrid() {
     });
 
   return (
-    <section id="backends" className="not-prose">
-      <div className="mb-5 max-w-2xl">
-        <h2 className="text-xl font-semibold tracking-tight text-[var(--text)] sm:text-2xl">
-          Build with any agent backend
+    // `frameworks` is the anchor <DocsBuildWith> points at when it offers to
+    // change the framework its links are scoped to. This grid is the single
+    // place the choice is made, so the id names the choice, not the layer.
+    <section id="frameworks" className="not-prose">
+      <div className="mb-4 max-w-2xl">
+        <h2 className="text-lg font-semibold tracking-tight text-[var(--text)]">
+          Every agent framework
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-          Start with CopilotKit's default agent or open the docs for a partner
-          framework.
+        <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">
+          {integrations.length} frameworks are supported. Pick one to scope the
+          whole page to it.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] sm:gap-3">
@@ -62,21 +65,21 @@ function BackendGrid() {
           <Link
             key={i.slug}
             href={i.slug === "built-in-agent" ? "/quickstart" : `/${i.slug}`}
-            className="shell-docs-radius-surface group relative flex min-h-[84px] items-start gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[96px]"
+            className="shell-docs-radius-surface group relative flex min-h-[72px] items-start gap-2.5 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[78px]"
           >
             <span
               aria-hidden="true"
-              className="shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
+              className="shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
             >
               <FrameworkLogo
                 slug={i.slug}
                 fallbackSrc={i.logo}
-                size={17}
+                size={15}
                 className="text-[var(--accent)]"
               />
             </span>
             <span className="min-w-0 flex-1 sm:pr-2">
-              <span className="block text-sm font-semibold leading-snug text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
+              <span className="block text-[0.8125rem] font-semibold leading-snug text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
                 {i.name}
               </span>
               <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-[var(--text-muted)]">
