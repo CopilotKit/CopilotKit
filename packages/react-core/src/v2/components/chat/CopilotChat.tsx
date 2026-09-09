@@ -30,7 +30,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useCopilotKit, useLicenseContext } from "../../context";
+import {
+  useCopilotKit,
+  useDefaultAgentId,
+  useLicenseContext,
+} from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
@@ -105,8 +109,9 @@ export function CopilotChat({
   const existingConfig = useCopilotChatConfiguration();
 
   // Apply priority: props > existing config > defaults
+  const providerAgentId = useDefaultAgentId();
   const resolvedAgentId =
-    agentId ?? existingConfig?.agentId ?? DEFAULT_AGENT_ID;
+    agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
   const baseThreadId = useMemo(
     () => providedThreadId ?? randomUUID(),

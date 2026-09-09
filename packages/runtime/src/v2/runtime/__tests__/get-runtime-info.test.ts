@@ -607,51 +607,21 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.intelligence).toEqual({
       wsUrl: "wss://runtime.example/client",
     });
-    expect(data).not.toHaveProperty("inspectorLearning");
+    expect(data.inspectorLearning).not.toBe(true);
   });
 
-  it("advertises Inspector Learning only for a debug Intelligence runtime with explicit opt-in", async () => {
-    const runtime = createIntelligenceRuntimeLike({
-      debug: {
-        enabled: true,
-        events: false,
-        lifecycle: false,
-        verbose: false,
-      },
-    });
-
-    const enabledResponse = await handleGetRuntimeInfo({
-      runtime,
-      request: mockRequest,
-      threadEndpointsEnabled: false,
-      inspectorLearningEnabled: true,
-    });
-    const disabledResponse = await handleGetRuntimeInfo({
-      runtime,
-      request: mockRequest,
-      threadEndpointsEnabled: true,
-      inspectorLearningEnabled: false,
-    });
-
-    expect(enabledResponse.status).toBe(200);
-    expect(await enabledResponse.json()).toHaveProperty(
-      "inspectorLearning",
-      true,
+  it("advertises configured Learning without debug mode or an opt-in and does not invoke the selector", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+    const selector = vi.fn(() => "support");
+    vi.spyOn(runtime.intelligence, "ɵgetLearningContainerId").mockReturnValue(
+      selector,
     );
-    expect(disabledResponse.status).toBe(200);
-    expect(await disabledResponse.json()).not.toHaveProperty(
-      "inspectorLearning",
-    );
-  });
-
-  it("does not advertise Inspector Learning when debug mode is off", async () => {
     const response = await handleGetRuntimeInfo({
-      runtime: createIntelligenceRuntimeLike(),
+      runtime,
       request: mockRequest,
-      inspectorLearningEnabled: true,
     });
-
-    expect(await response.json()).not.toHaveProperty("inspectorLearning");
+    expect(await response.json()).toHaveProperty("inspectorLearning", true);
+    expect(selector).not.toHaveBeenCalled();
   });
 
   it("should return a2uiEnabled: true when runtime has a2ui configured", async () => {

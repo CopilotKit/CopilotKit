@@ -30,31 +30,31 @@ const snapshot = {
 function learningRuntime(): CopilotRuntimeLike {
   return {
     mode: "intelligence",
-    debug: { enabled: true, events: false, lifecycle: false, verbose: false },
     identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "Ada" }),
-    intelligence: { getInspectorLearning: vi.fn().mockResolvedValue(snapshot) },
+    intelligence: {
+      getInspectorLearning: vi.fn().mockResolvedValue(snapshot),
+      ɵgetLearningContainerId: () => () => "container-1",
+    },
   } as unknown as CopilotRuntimeLike;
 }
 
 describe("Inspector Learning endpoint wrappers", () => {
-  it("forwards the Learning opt-in through Express", async () => {
+  it("serves Learning without extra flags through Express", async () => {
     const app = express();
     app.use(
       createCopilotExpressHandler({
         runtime: learningRuntime(),
         basePath: "/",
-        inspectorLearning: true,
       }),
     );
 
     expect((await request(app).get("/inspector-learning")).status).toBe(200);
   });
 
-  it("forwards the Learning opt-in through Hono", async () => {
+  it("serves Learning without extra flags through Hono", async () => {
     const app = createCopilotHonoHandler({
       runtime: learningRuntime(),
       basePath: "/",
-      inspectorLearning: true,
     });
 
     expect(

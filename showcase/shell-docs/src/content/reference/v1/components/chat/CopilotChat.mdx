@@ -41,10 +41,9 @@ import "@copilotkit/react-ui/styles.css";
 ### With Observability Hooks
  
 To monitor user interactions, provide the `observabilityHooks` prop.
-Note: This requires a `publicApiKey` in the `<CopilotKit>` provider.
  
 ```tsx
-<CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+<CopilotKit>
   <CopilotChat
     observabilityHooks={{
       onMessageSent: (message) => {
@@ -125,12 +124,18 @@ A callback function to regenerate the assistant's response
 A callback function when the message is copied
 </PropertyReference>
 
-<PropertyReference name="onThumbsUp" type="(message: Message) => void"  > 
-A callback function for thumbs up feedback
+<PropertyReference name="onThumbsUp" type="(message: Message, isActive?: boolean) => void"  > 
+A callback function for thumbs up feedback.
+ 
+  `isActive` reports the feedback state the click is transitioning to:
+  `true` when thumbs up is being applied, `false` when it is being
+  retracted. It is optional so existing one-argument handlers keep working.
 </PropertyReference>
 
-<PropertyReference name="onThumbsDown" type="(message: Message) => void"  > 
-A callback function for thumbs down feedback
+<PropertyReference name="onThumbsDown" type="(message: Message, isActive?: boolean) => void"  > 
+A callback function for thumbs down feedback.
+ 
+  See `onThumbsUp` for the meaning of `isActive`.
 </PropertyReference>
 
 <PropertyReference name="markdownTagRenderers" type="ComponentsMap"  > 
@@ -150,16 +155,19 @@ Labels can be used to set custom labels for the chat window.
 Configuration for file attachments in the chat input.
   Enables users to attach images, audio, video, and documents.
  
+  Supports images, audio, video, and documents. Omit `accept` to allow all
+  file types (default: `"\"`), or restrict with a MIME filter.
+ 
   @example
   ```tsx
   <CopilotChat
     attachments={{
       enabled: true,
-      accept: "image,application/pdf",
+      accept: "image,audio,video,application/pdf",
       maxSize: 10  1024  1024, // 10MB
       onUpload: async (file) => {
         const url = await uploadToS3(file);
-        return { url, mimeType: file.type };
+        return { type: "url", value: url, mimeType: file.type };
       },
     }}
   />
@@ -224,7 +232,6 @@ Children to render.
 
 <PropertyReference name="observabilityHooks" type="CopilotObservabilityHooks"  > 
 Event hooks for CopilotKit chat events.
-  These hooks only work when publicApiKey is provided.
 </PropertyReference>
 
 <PropertyReference name="renderError" type="(error: { message: string; operation?: string; timestamp: number; onDismiss: () => void; onRetry?: () => void; }) => React.ReactNode"  > 
