@@ -30,12 +30,22 @@ import { __resetRenderToolShimWarnings } from "../useRenderTool";
  * the model, callable by it) alongside its renderer, while `useRenderTool`
  * registers a RENDERER ONLY. Under the alias, `name: "*"` — the documented way
  * to spell "decorate every tool call that has no renderer of its own" —
- * registered a frontend tool literally named `*` and offered it to the model.
+ * registered a frontend tool literally named `*`.
+ *
+ * Core never OFFERED that tool to the model: `buildFrontendTools` filters the
+ * name out of the list it hands the agent. What the registration did instead is
+ * claim core's catch-all HANDLER slot. When a tool call has no matching
+ * frontend tool and no result yet, core reaches for the `*` tool and runs
+ * `executeWildcardTool`, whose tool-result splice and follow-up return sit
+ * OUTSIDE its `if (wildcardTool?.handler)` guard. So a display-only wildcard —
+ * the thing the old hook's users were writing — auto-answered every
+ * otherwise-unanswered tool call with an EMPTY tool result and asked for
+ * another turn.
  *
  * So the assertions below are about which core hook a given call shape reaches,
- * and about the two properties that would silently regress if a local
- * implementation ever re-grew under this name: the wildcard registers no tool,
- * and a render-only registration advertises nothing.
+ * and about the property that would silently regress if a local implementation
+ * ever re-grew under this name: the wildcard must register no TOOL, only a
+ * renderer.
  *
  * ─── Why nothing here is mocked ──────────────────────────────────────────────
  *
@@ -132,9 +142,10 @@ describe("the wildcard renderer, registered through RN's entry", () => {
 
   it("registers NO frontend tool named `*`", async () => {
     // The defect this exists for. RN's deleted hook forwarded to
-    // `useFrontendTool`, so `name: "*"` became a real frontend tool called `*`:
-    // core advertised it on every run, and a model that took the offer would
-    // call a tool whose name is a glob and whose schema is nothing.
+    // `useFrontendTool`, so `name: "*"` became a real frontend tool called `*` —
+    // which is core's catch-all HANDLER name. Core never advertised it, but the
+    // registration made core auto-answer every otherwise-unanswered tool call
+    // with an empty tool result and request a follow-up turn.
     const coreRef: { current: Core | null } = { current: null };
     const agent = new ToolListRecordingAgent();
 
@@ -152,11 +163,17 @@ describe("the wildcard renderer, registered through RN's entry", () => {
       expect(core.renderToolCalls.map((r) => r.name)).toContain("*"),
     );
 
+    // THESE TWO are the discriminating assertions: the tool REGISTRY is what
+    // the old hook actually polluted, so they are what fails if this route
+    // ever forwards to `useFrontendTool` again, the way the alias did.
     expect(core.getTool({ toolName: "*" })).toBeUndefined();
     expect(core.tools.map((t) => t.name)).not.toContain("*");
 
-    // …and the same thing observed one layer out, where it would actually hurt:
-    // the tool list core hands the agent for a real run.
+    // The advertisement check below is a FORWARD GUARD, not a regression test.
+    // It cannot fail for the old defect: core's `buildFrontendTools` already
+    // filters `*` out of the advertised list, so `origin/main`'s hook — which
+    // did register the tool — recorded `[[]]` here too. What this pins is that
+    // nobody later makes `*` advertisable.
     await act(async () => {
       await core.runAgent({ agent });
     });
@@ -342,8 +359,9 @@ function LegacyWildcardProbe({ paints }: { paints: string }) {
 describe('rule 1: `name: "*"` wins unconditionally', () => {
   it("paints as a fallback renderer and registers NO tool named `*`", async () => {
     // The regression rule 1 exists to prevent. Under the old hook this exact
-    // call shape registered a frontend tool literally named `*` and advertised
-    // it on every run.
+    // call shape registered a frontend tool literally named `*` — claiming
+    // core's catch-all HANDLER slot, so every otherwise-unanswered tool call
+    // got auto-answered with an empty tool result plus a follow-up turn.
     const coreRef: { current: Core | null } = { current: null };
     const agent = new ToolListRecordingAgent();
 
@@ -364,9 +382,15 @@ describe('rule 1: `name: "*"` wins unconditionally', () => {
     );
     expect(core.renderToolCalls.map((r) => r.name)).toContain("*");
 
-    // Half two: nothing named `*` is a tool, in the registry or on the wire.
+    // Half two: nothing named `*` is a TOOL. These two are the discriminating
+    // assertions — the tool registry is the thing rule 1 keeps clean, and
+    // mutating rule 1 kills exactly this pair.
     expect(core.getTool({ toolName: "*" })).toBeUndefined();
     expect(core.tools.map((t) => t.name)).not.toContain("*");
+
+    // Forward guard only, as in the sibling test above: `buildFrontendTools`
+    // already withholds `*`, so this recorded `[[]]` on `origin/main` too and
+    // cannot fail for the old defect. It pins that `*` stays unadvertisable.
     await act(async () => {
       await core.runAgent({ agent });
     });
@@ -512,6 +536,23 @@ function WarningProbe({ name }: { name: string }) {
 }
 
 /**
+ * The renderer-only call with NO legacy fields at all: `{ name, parameters,
+ * render }`. Simultaneously the correct new spelling and the one old-JS shape
+ * the shim cannot tell apart from it, so the warning carries it.
+ */
+function RendererOnlyProbe({ name }: { name: string }) {
+  useRenderTool(
+    {
+      name,
+      parameters: z.object({ x: z.string() }),
+      render: () => null,
+    },
+    [],
+  );
+  return null;
+}
+
+/**
  * A call whose SHAPE changes between renders — `handler`/`description` appear
  * only once `legacy` is true, which is what a `handler: enabled ? fn : undefined`
  * call site looks like from the shim's side.
@@ -609,6 +650,105 @@ describe("the shim's deprecation warning", () => {
     }
   });
 
+  it("warns on the renderer-only route even with NO legacy fields to name", async () => {
+    // The one shape routing cannot discriminate, and therefore the one the
+    // warning has to carry alone.
+    //
+    // `{ name, parameters, render }` is BOTH the correct new renderer-only
+    // spelling AND — for an untyped JS caller, the population this shim exists
+    // for — a call that on `origin/main` registered and ADVERTISED a real tool.
+    // (`description` was required by the old hook's types, so TypeScript
+    // callers could not reach this shape; `FrontendTool.handler` is optional
+    // and `buildFrontendTools` does not filter on it, so the registration and
+    // the advertisement both happened without either field.) Measured against
+    // a vendored copy of the old hook, this call went from advertising
+    // `["rendererOnlyNoLegacyFields"]` to advertising nothing — so silence
+    // here would be the exact failure the shim exists to prevent.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const coreRef: { current: Core | null } = { current: null };
+      render(
+        <TestCopilotKit messages={[]}>
+          <CaptureCore into={coreRef} />
+          <RendererOnlyProbe name="rendererOnlyNoLegacyFields" />
+        </TestCopilotKit>,
+      );
+
+      // Wait on the REGISTRATION, not on the warning: a hook that did nothing
+      // at all could satisfy a warning-only assertion.
+      await waitFor(() =>
+        expect(coreRef.current!.renderToolCalls.map((r) => r.name)).toContain(
+          "rendererOnlyNoLegacyFields",
+        ),
+      );
+      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+
+      const message = String(warn.mock.calls[0]![0]);
+      expect(message).toContain("rendererOnlyNoLegacyFields");
+      expect(message).toContain("RENDERER ONLY");
+      // The actionable half: what was lost, and what to use if it was wanted.
+      expect(message).toContain("advertised");
+      expect(message).toContain("`useFrontendTool`");
+
+      // And the registration really is renderer-only.
+      expect(
+        coreRef.current!.getTool({ toolName: "rendererOnlyNoLegacyFields" }),
+      ).toBeUndefined();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("dedups the renderer-only warning per tool name, and stays silent in production", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { rerender, unmount } = render(
+        <TestCopilotKit messages={[]}>
+          <RendererOnlyProbe name="rendererOnlyDedup" />
+        </TestCopilotKit>,
+      );
+      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+
+      rerender(
+        <TestCopilotKit messages={[]}>
+          <RendererOnlyProbe name="rendererOnlyDedup" />
+        </TestCopilotKit>,
+      );
+      unmount();
+      render(
+        <TestCopilotKit messages={[]}>
+          <RendererOnlyProbe name="rendererOnlyDedup" />
+        </TestCopilotKit>,
+      );
+      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+    } finally {
+      warn.mockRestore();
+    }
+
+    // Same route, production gate on: nothing at all.
+    const prodWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const coreRef: { current: Core | null } = { current: null };
+      render(
+        <TestCopilotKit messages={[]}>
+          <CaptureCore into={coreRef} />
+          <RendererOnlyProbe name="rendererOnlyProdSilent" />
+        </TestCopilotKit>,
+      );
+      await waitFor(() =>
+        expect(coreRef.current!.renderToolCalls.map((r) => r.name)).toContain(
+          "rendererOnlyProdSilent",
+        ),
+      );
+      expect(prodWarn).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previous;
+      prodWarn.mockRestore();
+    }
+  });
+
   it("reports, rather than silently acts on, a config that changes shape mid-life", async () => {
     // The route is frozen at first render because a hook cannot be called
     // conditionally unless the condition is stable for the component's
@@ -630,8 +770,11 @@ describe("the shim's deprecation warning", () => {
           "shapeShifter",
         ),
       );
-      // Rule 3 on the first render: nothing was supplied, nothing is warned.
-      expect(warn).not.toHaveBeenCalled();
+      // Rule 3 on the first render. This warns too — the renderer-only route
+      // is never silent, because on the old hook this same shape registered
+      // and advertised a tool (see the dedicated test below).
+      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+      expect(String(warn.mock.calls[0]![0])).toContain("RENDERER ONLY");
 
       rerender(
         <TestCopilotKit messages={[]}>
@@ -640,11 +783,15 @@ describe("the shim's deprecation warning", () => {
         </TestCopilotKit>,
       );
 
-      await waitFor(() => expect(warn).toHaveBeenCalled());
-      const messages = warn.mock.calls.map((call) => String(call[0]));
-      expect(
-        messages.some((m) => m.includes("changed shape between renders")),
-      ).toBe(true);
+      // Wait for the DRIFT message specifically: the renderer-only notice
+      // above has already been emitted, so a bare `toHaveBeenCalled()` would
+      // be satisfied by it and never observe the drift warning at all.
+      await waitFor(() => {
+        const messages = warn.mock.calls.map((call) => String(call[0]));
+        expect(
+          messages.some((m) => m.includes("changed shape between renders")),
+        ).toBe(true);
+      });
       // And the frozen route is the observable consequence: still no tool.
       expect(
         coreRef.current!.getTool({ toolName: "shapeShifter" }),

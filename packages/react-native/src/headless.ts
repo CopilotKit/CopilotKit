@@ -129,7 +129,10 @@ export type {
 // DO NOT reintroduce a LOCAL hook under either name. RN's old `useRenderTool`
 // forwarded its whole body to `useFrontendTool` — core's OTHER hook, wearing
 // this one's name — so `name: "*"` registered a frontend tool literally called
-// `*` and advertised it to the model. The shim registers nothing itself: every
+// `*`. Core never advertised it (`buildFrontendTools` filters that name out),
+// but `*` IS core's catch-all handler name: a display-only wildcard therefore
+// auto-answered every otherwise-unanswered tool call with an empty tool result
+// and asked for a follow-up turn. The shim registers nothing itself: every
 // path delegates to a react-core hook, and
 // src/__tests__/headless-entry-surface.test.ts fails the build if any module in
 // this entry's graph grows a registry of its own.

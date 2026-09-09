@@ -627,7 +627,11 @@ describe("@copilotkit/react-native/headless entry", () => {
       // and callable by it; `useRenderTool` registers a renderer only. Under the
       // alias, `name: "*"` — the documented spelling of "render every tool call
       // nothing else claims" — registered a frontend tool literally named `*`,
-      // schema-less and description-less, and offered it to the model
+      // schema-less and description-less. Core never OFFERED that one to the
+      // model (`buildFrontendTools` filters the name out), but `*` is core's
+      // catch-all HANDLER name, so the registration made a display-only wildcard
+      // auto-answer every otherwise-unanswered tool call with an empty tool
+      // result and request a follow-up turn
       // (src/hooks/__tests__/useRenderTool.test.tsx pins the behaviour; this pins
       // the wiring).
       //

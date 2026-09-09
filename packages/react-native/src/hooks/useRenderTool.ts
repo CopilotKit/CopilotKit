@@ -23,7 +23,35 @@ import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
  * callable by it) *and* its renderer through `addTool`, while `useRenderTool`
  * registers a RENDERER ONLY through `addHookRenderToolCall` and special-cases
  * `name: "*"` into a schema-less fallback. Under the alias, `name: "*"`
- * registered a frontend tool literally named `*` and offered it to the model.
+ * registered a frontend tool literally named `*`.
+ *
+ * ─── What a tool named `*` actually does ─────────────────────────────────────
+ *
+ * NOT "gets advertised to the model": core has never offered it. `*` is core's
+ * catch-all HANDLER name, and `buildFrontendTools` filters it out of the list
+ * it hands the agent (`core/src/core/run-handler.ts`, at the
+ * `tool.name !== WILDCARD_TOOL_NAME` clause) precisely so the model is not
+ * offered a tool whose name is a glob.
+ *
+ * What it does instead is worse for the affected caller. When a tool call has
+ * no matching frontend tool and no result yet, core reaches for
+ * `getWildcardTool()` and runs `executeWildcardTool`. Inside it, the parse /
+ * handler / subscriber work is guarded by `if (wildcardTool?.handler)` — but
+ * the tool-result splice and the follow-up return sit OUTSIDE that guard, and
+ * `toolCallResult` is initialised to `""`. So a handler-less wildcard tool —
+ * exactly what a caller who wanted a display-only fallback wrote — still
+ * splices an EMPTY tool result for the call and still asks for another turn.
+ *
+ * Driving one turn through it (an assistant message calling a tool nobody
+ * registered) shows the difference directly: through the old hook, two turns
+ * and a spliced `{ toolCallId, content: "" }`; through core's `useRenderTool`,
+ * one turn and no tool result. So an RN app whose author wanted a display-only
+ * fallback was also auto-answering every otherwise-unanswered tool call with an
+ * empty result and paying for a follow-up turn.
+ *
+ * The scope of that is bounded: it only bites a tool call with no exact-name
+ * frontend tool AND no result yet, so a server-side tool call whose result has
+ * already arrived never reaches the branch.
  *
  * The convergence deleted RN's hook and re-exported core's two instead. That is
  * a break, and this package ships in the `monorepo` release scope — 16 packages
@@ -162,6 +190,16 @@ type ShimConfig = {
  * `useFrontendTool`.
  *
  * Rule 3 — otherwise, `useRenderTool`, i.e. core's hook, unchanged.
+ *
+ * One consequence worth knowing about the renderer-only routes (1 and 3): they
+ * change the EFFECT PHASE the registration lands in. `useFrontendTool`
+ * registers in a `useLayoutEffect`, core's `useRenderTool` in a `useEffect`, so
+ * a call that used to register during the layout phase now registers one phase
+ * later. Only untyped-JS callers can be affected (a typed old call site had to
+ * supply the required `description`, which routes to `useFrontendTool` and
+ * keeps the layout phase), and the later phase is what core's `useRenderTool`
+ * has always done on the web, so this is documented rather than compensated
+ * for.
  */
 function routeFor(config: {
   name: string;
@@ -220,13 +258,57 @@ function warnOnce(name: string, message: string): void {
 /**
  * Says what was received, which hook the call was routed to, and what to change
  * the call to. Dev-only and once per distinct tool name.
+ *
+ * EVERY route warns — including the renderer-only route that supplied no legacy
+ * fields at all. That route looks like a no-op and is not. `description` was
+ * REQUIRED on the old hook, so a TypeScript caller could never reach
+ * `{ name, parameters, render }` — but an untyped JS caller could, and untyped
+ * JS is the whole population this shim exists for. `FrontendTool.handler` is
+ * optional (`core/src/types.ts`) and `buildFrontendTools` does not filter on
+ * it, so on the old hook that same call DID register AND advertise a real tool.
+ * Routing cannot recover the intent, because `{ name, parameters, render }` is
+ * equally the correct NEW renderer-only spelling — so the warning has to carry
+ * it, or this one shape stays silent while losing registration.
  */
 function warnRouted(
   name: string,
   route: Route,
   legacyFields: readonly string[],
 ): void {
-  if (legacyFields.length === 0) return;
+  if (legacyFields.length === 0) {
+    // Guarded on the ROUTE, not just on the absence of legacy fields: a config
+    // that HAD them on its first render and then dropped them keeps its frozen
+    // `useFrontendTool` route, and calling that "renderer only" would be false.
+    // That case already warned on the first render (and gets the drift warning
+    // besides), so there is nothing to add here.
+    if (route !== "useRenderTool") return;
+
+    const registersRendererOnly =
+      `[CopilotKit] \`useRenderTool({ name: "${name}" })\` from ` +
+      `@copilotkit/react-native registers a RENDERER ONLY: it supplies UI for a ` +
+      `tool call and registers no tool of its own. `;
+
+    warnOnce(
+      name,
+      name === "*"
+        ? registersRendererOnly +
+            `That is the right behaviour for a wildcard, and it is NOT what the ` +
+            `old React Native \`useRenderTool\` did: that registered a tool ` +
+            `literally named "*", which is core's catch-all HANDLER name, so it ` +
+            `auto-answered every otherwise-unanswered tool call with an empty ` +
+            `tool result and asked for a follow-up turn. ${SHIM_NOTICE} Switch ` +
+            `to \`useRenderTool\` from \`@copilotkit/react-core\`.`
+        : registersRendererOnly +
+            `On the old React Native hook this SAME call also registered and ` +
+            `advertised a tool named "${name}" to the model, so if you relied on ` +
+            `that, this call has quietly stopped doing it — use ` +
+            `\`useFrontendTool\` instead. If you only ever wanted to supply UI ` +
+            `for a tool somebody else owns, this call is already correct: switch ` +
+            `it to \`useRenderTool\` from \`@copilotkit/react-core\`. ` +
+            `${SHIM_NOTICE}`,
+    );
+    return;
+  }
 
   const received =
     `[CopilotKit] \`useRenderTool({ name: "${name}" })\` from ` +
@@ -246,14 +328,23 @@ function warnRouted(
     return;
   }
 
+  // Reached with legacy fields present but the renderer-only route in force.
+  // Normally that is the wildcard (rule 1); it is also what a frozen route
+  // looks like if a config grew legacy fields after its first render.
   warnOnce(
     name,
     received +
-      `A wildcard renderer cannot use them, so they were IGNORED and this call ` +
-      `was routed to react-core's \`useRenderTool\`, which registers a fallback ` +
-      `RENDERER ONLY. No tool named "*" is registered or advertised to the model ` +
-      `— the old React Native \`useRenderTool\` did register one, and that was ` +
-      `the bug. ${SHIM_NOTICE} Remove ${quoteList(legacyFields)} from this call. ` +
+      `This call registers a RENDERER ONLY through react-core's ` +
+      `\`useRenderTool\`, which cannot use them, so they were IGNORED. ` +
+      (name === "*"
+        ? `No tool named "*" is registered — the old React Native ` +
+          `\`useRenderTool\` did register one, and that was the bug: "*" is ` +
+          `core's catch-all HANDLER name, so it auto-answered every ` +
+          `otherwise-unanswered tool call with an empty tool result and asked ` +
+          `for a follow-up turn. `
+        : `The route was fixed at this component's first render and cannot ` +
+          `change for its lifetime. `) +
+      `${SHIM_NOTICE} Remove ${quoteList(legacyFields)} from this call. ` +
       `If you meant to register a real frontend tool, give it a real name and ` +
       `use \`useFrontendTool\`.`,
   );
@@ -384,10 +475,7 @@ export function useRenderTool(
  */
 function toFrontendTool(config: ShimConfig): ReactFrontendTool {
   const render: ReactFrontendTool["render"] = (props) => {
-    // Branch per status rather than spreading the union once, so the
-    // discriminated union stays correlated when `args` is re-exposed as
-    // `parameters` — and spread `...props` (rather than picking fields) is what
-    // keeps an old `render: ({ args }) => …` painting unchanged at runtime.
+    // Three byte-identical branches, deliberately: see the note above.
     if (props.status === ToolCallStatus.InProgress) {
       return config.render({ ...props, parameters: props.args });
     }
