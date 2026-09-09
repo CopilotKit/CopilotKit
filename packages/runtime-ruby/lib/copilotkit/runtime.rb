@@ -65,6 +65,10 @@ module CopilotKit
     ensure
       if response
         response[1].delete('content-type') if response[0] == 204
+        if path == '/inspector-metadata'
+          response[1]['cache-control'] = 'no-store, private'
+          response[1]['allow'] = 'GET' if response[0] == 405
+        end
         origin = env['HTTP_ORIGIN']
         if origin && @cors_origins.include?(origin)
           response[1].merge!('access-control-allow-origin' => origin, 'vary' => 'Origin',
@@ -95,6 +99,10 @@ module CopilotKit
       if path == '/info'
         raise Error.new(405, 'Method not allowed') unless method == 'GET'
         return [200, info]
+      end
+      if path == '/inspector-metadata'
+        raise Error.new(405, 'Method not allowed') unless method == 'GET'
+        return inspector_metadata
       end
       user = normalize_callback_keys(@identify_user.call(env), %w[id name])
       raise Error.new(401, 'Authenticated application user is required') unless user.is_a?(Hash) && user['id'].is_a?(String) && !user['id'].strip.empty?
@@ -174,6 +182,15 @@ module CopilotKit
       URI.encode_www_form_component(value).gsub('+', '%20')
     end
 
+    # Return project display data without forwarding browser credentials or provider failures.
+    def inspector_metadata
+      metadata = InspectorMetadata.parse(@intelligence.get_inspector_metadata)
+      metadata ? [200, metadata] : [204, nil]
+    rescue StandardError => error
+      report_error(error)
+      [204, nil]
+    end
+
     def info
       entitlement = begin
         @platform.request('GET', '/api/entitlements/runtime')
@@ -187,6 +204,7 @@ module CopilotKit
         'audioFileTranscriptionEnabled' => false, 'a2uiEnabled' => !!@a2ui && @a2ui['enabled'] != false, 'openGenerativeUIEnabled' => false,
         'suggestions' => false, 'telemetryDisabled' => @telemetry.disabled? }
       result['a2ui'] = { 'enabled' => true }.merge(@a2ui.slice('agents')) if result['a2uiEnabled']
+      result['inspectorMetadata'] = true
       result
     end
 

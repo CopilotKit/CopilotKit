@@ -4,6 +4,8 @@ require 'net/http'
 require 'uri'
 require 'securerandom'
 require 'thread'
+require 'timeout'
+require_relative 'inspector_metadata'
 
 module CopilotKit
   # Safe platform error. Response bodies and credentials are not included.
@@ -46,6 +48,7 @@ module CopilotKit
       request.body = JSON.generate(payload) unless payload.nil?
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https', open_timeout: 5, read_timeout: 15) do |http|
         http.max_retries = 0
+        return inspector_response(http, request) if method == 'GET' && path == '/api/inspector/metadata'
         http.request(request)
       end
       raise Error.new(response.code.to_i, 'Intelligence platform request failed') unless response.code.to_i.between?(200, 299)
@@ -55,6 +58,19 @@ module CopilotKit
     rescue IOError, SystemCallError, Timeout::Error, SocketError
       raise Error.new(502, 'Intelligence platform is unreachable')
     end
+
+    # Skip absent/error bodies while the SDK bounds the full connection lifetime.
+    def inspector_response(http, request)
+      http.request(request) do |response|
+        status = response.code.to_i
+        return nil if [204, 404].include?(status)
+        raise Error.new(status, 'Inspector metadata request failed') unless status.between?(200, 299)
+        body = response.body
+        raise Error.new(502, 'Invalid Inspector metadata response') if body.nil? || body.empty?
+        return JSON.parse(body)
+      end
+    end
+    private :inspector_response
   end
 
   # Programmatic Intelligence SDK. Requiring this file does not load Runtime or Rack.
@@ -82,6 +98,21 @@ module CopilotKit
       result = @transport.request(method, path, payload, headers)
       notify_thread_mutation(method, path, payload, result)
       result
+    end
+
+    # Read sanitized project metadata within five seconds, including the response body.
+    # @return [Hash, nil] Supported V1 fields, or nil for 204, 404, or an unsupported schema.
+    def get_inspector_metadata
+      Timeout.timeout(5) do
+        InspectorMetadata.parse(request('GET', '/api/inspector/metadata'))
+      end
+    rescue Timeout::Error
+      raise Timeout::Error, 'Inspector metadata request timed out', cause: nil
+    rescue Error => error
+      return nil if error.status == 404
+      raise Error.new(error.status, 'Inspector metadata request failed'), cause: nil
+    rescue StandardError
+      raise Error.new(502, 'Inspector metadata request failed'), cause: nil
     end
 
     # Register a creation listener; the returned Proc removes it.

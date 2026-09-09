@@ -201,6 +201,11 @@ func (c *Client) Close() {
 
 // Request is the shared authenticated platform transport used by Runtime adapters.
 func (c *Client) Request(ctx context.Context, method, path string, body any, headers map[string]string) (json.RawMessage, error) {
+	return c.request(ctx, method, path, body, headers)
+}
+
+// request closes explicitly absent responses before reading their bodies.
+func (c *Client) request(ctx context.Context, method, path string, body any, headers map[string]string, absentStatuses ...int) (json.RawMessage, error) {
 	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") {
 		return nil, &Error{Status: 400}
 	}
@@ -228,6 +233,11 @@ func (c *Client) Request(ctx context.Context, method, path string, body any, hea
 		return nil, &Error{Status: 502, cause: err}
 	}
 	defer response.Body.Close()
+	for _, status := range absentStatuses {
+		if response.StatusCode == status {
+			return nil, nil
+		}
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil, &Error{Status: response.StatusCode}
 	}

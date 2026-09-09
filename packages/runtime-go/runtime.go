@@ -362,6 +362,15 @@ func (r *Runtime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		r.info(w, req)
 		return
 	}
+	if path == "/inspector-metadata" {
+		if req.Method != http.MethodGet {
+			w.Header().Set("Allow", "GET")
+			bad(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+		r.inspectorMetadata(w, req)
+		return
+	}
 	user, e := r.config.IdentifyUser(req)
 	if e != nil {
 		r.reportError(RuntimeError{Operation: "identify_user", Err: e})
@@ -460,6 +469,7 @@ func (r *Runtime) info(w http.ResponseWriter, req *http.Request) {
 	}
 	info := map[string]any{"version": "0.1.0", "mode": "intelligence", "agents": agents, "intelligence": map[string]any{"wsUrl": r.config.ClientURL}, "runtimeEntitlements": ent, "threadEndpoints": map[string]any{"list": true, "inspect": true, "mutations": true, "realtimeMetadata": true}, "a2uiEnabled": r.config.A2UI != nil && (r.config.A2UI.Enabled == nil || *r.config.A2UI.Enabled), "audioFileTranscriptionEnabled": false, "openGenerativeUIEnabled": false, "telemetryDisabled": r.config.TelemetryDisabled}
 	info["telemetryDisabled"] = r.telemetry.disabled
+	info["inspectorMetadata"] = true
 	if info["a2uiEnabled"] == true {
 		a2ui := map[string]any{"enabled": true}
 		if len(r.config.A2UI.Agents) > 0 {
@@ -469,6 +479,23 @@ func (r *Runtime) info(w http.ResponseWriter, req *http.Request) {
 	}
 	reply(w, 200, info)
 }
+
+// inspectorMetadata exposes project display data, never browser credentials or shared cache entries.
+func (r *Runtime) inspectorMetadata(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Cache-Control", "no-store, private")
+	metadata, err := r.intelligence.GetInspectorMetadata(req.Context())
+	if err != nil {
+		r.reportError(RuntimeError{Operation: "inspector.metadata", Err: err})
+	}
+	if err != nil || metadata == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(metadata)
+}
+
 func (r *Runtime) connect(w http.ResponseWriter, req *http.Request, u User, id string, b map[string]any) {
 	thread := str(b["threadId"])
 	if !identifier(thread) {
