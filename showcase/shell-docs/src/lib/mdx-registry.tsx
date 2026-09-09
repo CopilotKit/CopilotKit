@@ -34,6 +34,7 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
+import { ApiKeyHint } from "@/components/api-key-hint";
 import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 import { DemoSource } from "@/components/demo-source";
 import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
@@ -304,6 +305,7 @@ export const docsComponents = {
   PropertyReference,
   OpsPlatformCTA,
   SignupLink,
+  ApiKeyHint,
   DocsTrackedCopy,
   DocsTrackedLink,
   WebMCPSetupPrompt,
