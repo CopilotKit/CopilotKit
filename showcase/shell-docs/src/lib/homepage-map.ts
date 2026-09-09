@@ -9,6 +9,7 @@
 // concept the docs already illustrate is how a design drifts.
 
 import { ROOT_FRAMEWORK, getDocsMode, getIntegrations } from "@/lib/registry";
+import type { Integration } from "@/lib/registry";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
 
@@ -165,13 +166,25 @@ export function frontendPicks(): MapPick[] {
 }
 
 /**
- * Every integration that has docs, built-in agent first. `docs_mode: hidden`
- * integrations are dropped because linking them lands on a 404 — the same
- * filter the v1 framework grid used.
+ * Every integration that has a docs surface on this site. `docs_mode:
+ * hidden` integrations are dropped because linking them lands on a 404 —
+ * the same filter the v1 framework grid used. This is the single source of
+ * truth for that rule: the homepage path has three call sites that need
+ * exactly this set (this module's own `agentPicks`, the product map's
+ * per-slug validation record, and the hero's quickstart framework picker),
+ * and they must all agree on which integrations exist.
+ */
+export function visibleIntegrations(): Integration[] {
+  return getIntegrations().filter(
+    (integration) => getDocsMode(integration.slug) !== "hidden",
+  );
+}
+
+/**
+ * Every integration that has docs, built-in agent first.
  */
 export function agentPicks(): MapPick[] {
-  return getIntegrations()
-    .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+  return visibleIntegrations()
     .sort((a, b) => {
       if (a.slug === ROOT_FRAMEWORK) return -1;
       if (b.slug === ROOT_FRAMEWORK) return 1;

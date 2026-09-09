@@ -8,6 +8,7 @@ import {
   COPILOTKIT_CAPABILITIES,
   INTELLIGENCE_CAPABILITIES,
 } from "@/lib/homepage-map";
+import { getDocsMode, getIntegrations } from "@/lib/registry";
 
 // Same shape as docs-map-parts.test.tsx's `next/link` mock. Typing the rest
 // parameter `never` fails `tsc` under `strict` (TS2700): a rest element
@@ -183,27 +184,38 @@ describe("DocsProductMap", () => {
     expect(markup).toContain("Connect in 5 minutes");
   });
 
-  it("falls back to an unprefixed scope when the remembered slug is docs_mode: hidden", () => {
-    // "spring-ai" is one of today's `docs_mode: "hidden"` integrations (see
-    // the comment above the `frameworks` record in docs-product-map.tsx).
-    // `DocsProductMap` builds `frameworks` from the real registry, so this
-    // exercises the actual filter rather than a hand-built stand-in: with
-    // the filter in place, "spring-ai" is missing from the record,
-    // `remembered` resolves to null, and the scope falls back to
-    // `effectiveFramework` ("built-in-agent", the root framework) —
-    // unprefixed links, not a scope pointed at pages that 404.
-    useFrameworkMock.mockReturnValue({
-      framework: null,
-      storedFramework: "spring-ai",
-      effectiveFramework: "built-in-agent",
-      knownFrameworks: ["built-in-agent", "spring-ai"],
-    });
+  // Derived rather than hardcoded: a literal slug like "spring-ai" stops
+  // exercising this filter the moment that integration is removed from the
+  // registry (plausible for a deprecated one) — both assertions would keep
+  // passing for an unrelated reason, and the test would stop catching a
+  // regression in the filter itself.
+  const hiddenIntegration = getIntegrations().find(
+    (integration) => getDocsMode(integration.slug) === "hidden",
+  );
 
-    const markup = render();
+  (hiddenIntegration ? it : it.skip)(
+    "falls back to an unprefixed scope when the remembered slug is docs_mode: hidden",
+    () => {
+      // `DocsProductMap` builds `frameworks` from the real registry, so this
+      // exercises the actual filter rather than a hand-built stand-in: with
+      // the filter in place, the hidden slug is missing from the record,
+      // `remembered` resolves to null, and the scope falls back to
+      // `effectiveFramework` ("built-in-agent", the root framework) —
+      // unprefixed links, not a scope pointed at pages that 404.
+      const hiddenSlug = hiddenIntegration!.slug;
+      useFrameworkMock.mockReturnValue({
+        framework: null,
+        storedFramework: hiddenSlug,
+        effectiveFramework: "built-in-agent",
+        knownFrameworks: ["built-in-agent", hiddenSlug],
+      });
 
-    expect(markup).toContain('href="/generative-ui"');
-    expect(markup).not.toContain('href="/spring-ai/generative-ui"');
-  });
+      const markup = render();
+
+      expect(markup).toContain('href="/generative-ui"');
+      expect(markup).not.toContain(`href="/${hiddenSlug}/generative-ui"`);
+    },
+  );
 
   it("carries the frameworks anchor and the intelligence anchor", () => {
     const markup = render();

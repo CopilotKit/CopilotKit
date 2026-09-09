@@ -3,8 +3,9 @@
 // and their three connectors from `./docs-map-parts` and `@/lib/homepage-map`.
 //
 // This must stay a plain, synchronous server component with no `"use client"`
-// directive and no hook: it imports `getIntegrations` from `@/lib/registry`,
-// which pulls in `src/data/registry.json` (~646 KB, see registry.ts lines
+// directive and no hook: it calls `visibleIntegrations()`/`agentPicks()` from
+// `@/lib/homepage-map`, which pull in `getIntegrations` from `@/lib/registry`
+// and, behind that, `src/data/registry.json` (~646 KB, see registry.ts lines
 // 137-146) — a cost client bundles must never pay. The only piece of this
 // page that needs a hook is the six CopilotKit tiles scoped to the reader's
 // remembered framework, and that already lives in the client leaf
@@ -28,8 +29,8 @@ import {
   agentPicks,
   frontendPicks,
   scopedHref,
+  visibleIntegrations,
 } from "@/lib/homepage-map";
-import { getDocsMode, getIntegrations } from "@/lib/registry";
 
 /**
  * Anchor id for the Agent block, the destination of "Change framework" in
@@ -56,18 +57,18 @@ export function DocsProductMap(): React.JSX.Element {
   // falling back to `effectiveFramework` — the same rescue `agentPicks()`
   // already performs in `homepage-map.ts`. `scopedHref("", slug)` yields
   // exactly that framework's href prefix (`""` for the root framework,
-  // `/<slug>` otherwise), so the URL rule itself stays owned by
-  // `homepage-map.ts` alone.
+  // `/<slug>` otherwise). The visibility rule itself (`docs_mode !==
+  // "hidden"`) is owned by `visibleIntegrations()` in `homepage-map.ts`
+  // alone — this and every other homepage call site delegate to it rather
+  // than re-checking `docs_mode` locally.
   const frameworks = Object.fromEntries(
-    getIntegrations()
-      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
-      .map((integration) => [
-        integration.slug,
-        {
-          name: integration.name,
-          hrefPrefix: scopedHref("", integration.slug),
-        },
-      ]),
+    visibleIntegrations().map((integration) => [
+      integration.slug,
+      {
+        name: integration.name,
+        hrefPrefix: scopedHref("", integration.slug),
+      },
+    ]),
   );
 
   return (
