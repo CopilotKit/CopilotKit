@@ -201,11 +201,15 @@ Correct:
 // ...or mount only one <CopilotChat> instance per agent/thread.
 ```
 
-Both components resolve to the same per-thread clone (cached in a
-module-level WeakMap) and submit duplicate messages. See `agent-access` for
-the clone semantics.
+Both components resolve the same shared agent. `CopilotChat` binds with
+`useAgent({ agentId })` — the shared-instance shape — and then writes
+`agent.threadId` onto it, so two instances naming one `(agentId, threadId)`
+pair drive a single agent on a single thread and both submit. There is no
+per-thread clone. See `agent-access` for the two shapes `useAgent` admits and
+which one owns a private instance.
 
-Source: `packages/react-core/src/v2/hooks/use-agent.tsx:78-119`
+Source: `packages/react-core/src/v2/components/chat/CopilotChat.tsx:138-141`
+(the shared bind); `:395` (the threadId write)
 
 ### MEDIUM — Missing the v2 CSS import
 
