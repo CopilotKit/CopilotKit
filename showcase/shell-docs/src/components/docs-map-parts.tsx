@@ -1,57 +1,69 @@
-// docs-map-parts.tsx — the presentational pieces of the homepage product map.
+// docs-map-parts.tsx — the presentational pieces of the homepage setup
+// wizard.
 //
-// These components hold no data. All copy, destinations and icon choices
-// live in `@/lib/homepage-map` or in the composer `./docs-product-map`;
-// everything here is layout and treatment.
+// These components hold no data and no wizard state. All copy, options and
+// icon choices live in `@/lib/homepage-map` or in the wizard component that
+// drives this module (`./setup-wizard`); the wizard also owns the "which step
+// is reached", "what is selected so far" bookkeeping and simply hands each of
+// these components the slice it needs. Everything here is layout, treatment
+// and DOM semantics.
 //
-// The three block variants are the whole of the page's visual hierarchy:
+// The wizard has four steps: pick a frontend, pick zero or more features,
+// pick an agent backend, copy a prompt carrying all three answers. A step is
+// always in exactly one of three states (`StepState`):
 //
-//   choice → dashed border, near-transparent fill, no shadow. "This is your
-//            pick, not our product." Used by the Frontend and Agent blocks.
-//   core   → solid border, elevated surface, panel shadow. The product.
-//   plus   → solid accent border and accent-tinted fill, carrying the same
-//            panel shadow as core. The added, hosted layer.
+//   locked → dashed border, near-transparent fill, at reduced opacity. "You
+//            cannot act here yet." Every option inside is disabled — not
+//            just dimmed, since a disabled step's options must not take a
+//            click and must not be reachable by Tab. A step that looked
+//            locked but still answered a click would let someone answer
+//            step 3 before step 1.
+//   active → solid border, elevated surface, panel shadow, plus an accent
+//            ring. "Act here." The one step whose options are live.
+//   done    → the same dashed-border, near-transparent treatment as locked,
+//            but at full opacity. "You already answered this, and you can
+//            still see and change it" — a completed step stays open rather
+//            than collapsing, so the page shows the path taken instead of
+//            hiding it.
 //
-// Layout: the wide arrangement is one four-column grid (25% per column),
-// because a plain vertical stack claims something untrue — that the agent
-// talks to Intelligence. It does not: the agent connects to the runtime over
-// AG-UI, and Intelligence hangs off that runtime as a side branch. So
-// Frontend, CopilotKit and Agent take all four columns, Intelligence takes
-// the right three (`inset`), the `+ adds` elbow reaches into it from
-// CopilotKit's underside, and the AG-UI axis runs down column 1 from
-// CopilotKit's bottom edge, past Intelligence, to the Agent block.
+// The option grids are buttons, not links: there are no destinations left on
+// this page, only choices that feed a prompt assembled in step 4. `PickGrid`
+// is single-choice (frontend, agent backend) and expresses its selection
+// purely through the accent border and fill — a radio-like control doesn't
+// need to also announce itself with a checkmark. `CapabilityGrid` is
+// multi-choice (features) and does render a checkmark on each selected
+// option, because a toggle needs to show its own state independently of the
+// accent treatment. Both grids express selection through `aria-pressed`
+// (deliberately the same attribute for single- and multiple-choice, so
+// there is one thing to assert instead of two) and never through an
+// `aria-label` that would shadow the option's own visible text.
 //
-// Rows, in document order:
-//   1 intro   2 Frontend   3 rule   4 CopilotKit
-//   5 + adds elbow (inset)   6 Intelligence (inset)   7 gap (inset)
-//   8 Agent
-// Only `MapAxis` is placed explicitly (column 1, rows 5-7): it is the one
-// item that spans rows, and auto-placement would drop it into rows 6-8.
-// Everything else auto-flows from document order.
+// `CapabilityGrid` also carries each capability's one-line `body` beneath its
+// title — the six feature names are bare phrases ("Shared state", "Frontend
+// tools") that nobody could choose between without their explanation, and an
+// earlier draft that hid the body from assistive technology to keep the
+// accessible name equal to the title only made things worse: adjacent labels
+// ran together for screen-reader users. So the body stays visible and
+// un-hidden, and the button's accessible name is simply its full text content
+// — title followed by body — same as any ordinary toggle button carrying a
+// heading and a description. `PickGrid` has no second line, so its
+// accessible name is exactly `pick.name`.
 //
-// Below the `md` breakpoint the whole map collapses to a single column and
-// the elbow and the axis degrade to ordinary vertical connectors. There is
-// deliberately no second arrangement for narrow screens — the intro
-// paragraph states the relationship in words, and that is what carries it
-// there.
-//
-// Nothing here animates. An earlier draft ran dots along the connectors; on a
-// page whose job is orientation, permanent motion pulls the eye off the text.
+// Layout is a single vertical stack — `StepConnector` between steps, lit
+// with `--accent` once the step below it has been reached, `--text-muted`
+// otherwise (the `--border` token is near-invisible against this page's
+// ground, which is why the connector reaches for the muted text token
+// instead). There is no side-by-side arrangement any more: CopilotKit
+// Intelligence does not appear on this page, so there is no side branch for
+// a layout to carve out room for.
 
 import React from "react";
-import Link from "next/link";
 import {
-  ArrowRight,
-  BarChart3,
-  Brain,
+  Check,
   MessageSquare,
-  MessageSquareMore,
   Paintbrush,
   Repeat,
-  SearchCheck,
-  Server,
   Settings,
-  Sparkles,
   User,
   Wrench,
 } from "lucide-react";
@@ -66,6 +78,8 @@ import type {
   MapPickLogo,
 } from "@/lib/homepage-map";
 
+export type StepState = "locked" | "active" | "done";
+
 // Named imports in an explicit record, never `import * as icons` with a
 // dynamic index: a namespace object indexed at runtime forces the bundler to
 // retain every lucide export, and Next's optimizePackageImports cannot
@@ -77,49 +91,47 @@ const CAPABILITY_ICONS: Record<LucideIconName, LucideIcon> = {
   Settings,
   Repeat,
   Wrench,
-  MessageSquareMore,
-  Brain,
-  Sparkles,
-  SearchCheck,
-  BarChart3,
-  Server,
 };
 
 /**
- * Shared by the map's server-rendered Intelligence grid and its client-rendered
- * CopilotKit grid. It lives in this boundary-neutral module on purpose: a
- * `"use client"` module's named exports are replaced by client references in
- * the server layer, so exporting it from the client child would hand the
- * server a throwing function instead of a class string.
+ * Shared by the wizard's feature grid. It lives in this boundary-neutral
+ * module on purpose: a `"use client"` module's named exports are replaced by
+ * client references in the server layer, so exporting it from a client
+ * child would hand the server a throwing function instead of a class
+ * string.
  */
 export const MAP_TILE_GRID_CLASS =
   "grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3";
 
-/** The grid the whole map lives in. See this file's header for the row map. */
+/** The grid the whole wizard lives in — a single full-width column on every
+ *  step, four columns wide on `md` so `MAP_SLOT.full` below has something to
+ *  span. */
 export const MAP_GRID_CLASS = "grid grid-cols-1 md:grid-cols-4";
 
-/**
- * Column placement in that grid. Percentages are expressed as column spans
- * rather than widths so nothing depends on a measured pixel value: `inset`
- * is three of four columns — 75%, right-aligned, because it starts at
- * column 2.
- */
+/** Every step and the intro spans the whole width. There used to be a
+ *  second slot (`inset`) for a side branch that no longer exists on this
+ *  page — see this file's header comment. */
 const MAP_SLOT = {
   full: "md:col-start-1 md:col-span-4",
-  inset: "md:col-start-2 md:col-span-3",
 } as const;
 
-type BlockVariant = "choice" | "core" | "plus";
-
-const BLOCK_VARIANT_CLASS: Record<BlockVariant, string> = {
+/** The two treatments a step can be built from — `active` layers an accent
+ *  ring on top of `core`; `done` and `locked` differ only in opacity. */
+const STEP_TREATMENT_CLASS = {
+  core: "border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]",
   choice:
     "border border-dashed border-[var(--border)] bg-[var(--bg-elevated)]/10",
-  core: "border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]",
-  plus: "border border-[var(--accent)] bg-[var(--accent-dim)] shadow-[var(--shadow-panel)]",
+} as const;
+
+const STEP_STATE_CLASS: Record<StepState, string> = {
+  active: `${STEP_TREATMENT_CLASS.core} ring-1 ring-[var(--accent)]`,
+  done: `${STEP_TREATMENT_CLASS.choice} opacity-100`,
+  locked: `${STEP_TREATMENT_CLASS.choice} opacity-40`,
 };
 
-/** The heading and paragraph that frame the map. One step up from a block's
- *  own heading, so it reads as their parent rather than a fifth block. */
+/** The heading and paragraph that frame the wizard. One step up from a
+ *  step's own heading, so it reads as their parent rather than a fifth
+ *  step. */
 export function MapIntro({
   heading,
   body,
@@ -139,231 +151,66 @@ export function MapIntro({
   );
 }
 
-export function MapBlock({
-  variant,
-  kicker,
+/** The plain rule between two stacked steps. Lit with `--accent` once the
+ *  step below has been reached, `--text-muted` otherwise — see this file's
+ *  header comment for why `--text-muted` and not `--border`. */
+export function StepConnector({ lit }: { lit: boolean }): React.JSX.Element {
+  return (
+    <div aria-hidden="true" className={`flex justify-center ${MAP_SLOT.full}`}>
+      <span
+        className={`h-10 w-px md:h-14 ${
+          lit ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"
+        }`}
+      />
+    </div>
+  );
+}
+
+export function StepBlock({
+  state,
+  step,
   name,
-  nameSize = "lg",
-  icon,
   description,
-  action,
-  placement = "full",
+  hint,
   id,
   children,
 }: {
-  variant: BlockVariant;
-  kicker: string;
+  state: StepState;
+  /** 1-based. Rendered as the kicker, e.g. "STEP 1". */
+  step: number;
   name: string;
-  nameSize?: "lg" | "sm";
-  /** Rendered beside the name, never inside the heading — a heading's text
-   *  is what a screen reader and the docs' own tooling read. */
-  icon?: React.ReactNode;
   description: string;
-  action?: { label: string; href: string };
-  placement?: keyof typeof MAP_SLOT;
+  /**
+   * The right-hand hint. Locked: the prerequisite ("Choose your frontend
+   * first"). Done: the chosen value. Active: usually absent.
+   */
+  hint?: string;
   id?: string;
   children: React.ReactNode;
 }): React.JSX.Element {
-  const isPlus = variant === "plus";
-
   return (
     <section
       id={id}
-      className={`shell-docs-radius-surface not-prose p-5 sm:p-6 ${MAP_SLOT[placement]} ${BLOCK_VARIANT_CLASS[variant]}`}
+      className={`shell-docs-radius-surface not-prose p-5 sm:p-6 ${MAP_SLOT.full} ${STEP_STATE_CLASS[state]}`}
     >
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start sm:gap-6">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-baseline sm:gap-6">
         <div className="min-w-0">
-          <p
-            className={`text-[10px] font-bold uppercase tracking-[0.12em] ${
-              isPlus ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
-            }`}
-          >
-            {kicker}
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            {`STEP ${step}`}
           </p>
-          <div className="mt-1 flex items-center gap-2">
-            {icon ? (
-              <span
-                aria-hidden="true"
-                className="shrink-0 text-xl leading-none text-[var(--accent)]"
-              >
-                {icon}
-              </span>
-            ) : null}
-            <h2
-              className={`font-semibold tracking-[-0.02em] text-[var(--text)] ${
-                nameSize === "lg" ? "text-xl sm:text-[1.375rem]" : "text-base"
-              }`}
-            >
-              {name}
-            </h2>
-          </div>
-          <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
-            {description}
-          </p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.375rem]">
+            {name}
+          </h2>
         </div>
-        {action ? (
-          <Link
-            href={action.href}
-            className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-[var(--accent)] no-underline hover:brightness-110"
-          >
-            {action.label}
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
+        {hint ? (
+          <p className="shrink-0 text-xs text-[var(--text-muted)]">{hint}</p>
         ) : null}
       </div>
+      <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+        {description}
+      </p>
       <div className="mt-4">{children}</div>
     </section>
-  );
-}
-
-/** Shared by the elbow and the axis: a pill needs enough weight to be read
- *  as a label on a line rather than a stray word. */
-const PILL_BASE =
-  "shell-docs-radius-control shrink-0 border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.05em]";
-
-/** The plain rule between two stacked full-width blocks. `--text-muted`, not
- *  `--border`: the border token is near-invisible against this page's ground,
- *  which made the connectors read as absent rather than as quiet. */
-export function MapConnector(): React.JSX.Element {
-  return (
-    <div aria-hidden="true" className={`flex justify-center ${MAP_SLOT.full}`}>
-      <span className="h-10 w-px bg-[var(--text-muted)] md:h-14" />
-    </div>
-  );
-}
-
-/**
- * The `+ adds` connector from CopilotKit down and rightwards into
- * Intelligence's top edge. A right-angled elbow built from a stretched flex
- * item and two flex-grown rules — no SVG and no offsets, so it survives the
- * Intelligence block growing taller or the map changing width.
- */
-export function MapElbow({ label }: { label: string }): React.JSX.Element {
-  return (
-    <div
-      aria-hidden="true"
-      className={`flex flex-col items-center md:h-20 md:flex-row md:items-end ${MAP_SLOT.inset}`}
-    >
-      {/* The vertical stub, at Intelligence's left edge. Hidden in the
-          stacked layout, where the two runs already form one straight
-          connector and a stub would read as a stray tick. */}
-      <span className="hidden w-px bg-[var(--accent)] md:block md:self-stretch" />
-      <MapElbowRun />
-      <span
-        className={`${PILL_BASE} border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]`}
-      >
-        {label}
-      </span>
-      <MapElbowRun />
-    </div>
-  );
-}
-
-/** Vertical when the map is stacked, horizontal when it is wide. One element
- *  switching axis rather than two mutually hidden ones, so the elbow's label
- *  appears exactly once in the document. */
-function MapElbowRun(): React.JSX.Element {
-  return (
-    <span className="h-6 w-px bg-[var(--accent)] md:h-px md:w-auto md:flex-1" />
-  );
-}
-
-/**
- * The AG-UI axis: the agent's connection to the runtime, not to Intelligence.
- * In the wide layout it occupies column 1 across the elbow row, the
- * Intelligence row and the gap row, so it visibly starts at CopilotKit's
- * bottom edge, passes Intelligence, and ends at the Agent block.
- *
- * The pill is a link, so the container cannot be `aria-hidden` — a link
- * hidden from assistive technology is a link that does not exist. The two
- * rules carry it individually instead.
- */
-export function MapAxis({
-  label,
-  href,
-}: {
-  label: string;
-  href: string;
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col items-center md:col-start-1 md:row-start-5 md:row-span-3">
-      <MapAxisRule />
-      <Link
-        href={href}
-        className={`${PILL_BASE} my-1.5 border-dashed border-[var(--text-muted)] font-mono text-[var(--text-secondary)] no-underline hover:border-[var(--accent)] hover:text-[var(--accent)]`}
-      >
-        {label}
-      </Link>
-      <MapAxisRule />
-    </div>
-  );
-}
-
-function MapAxisRule(): React.JSX.Element {
-  return (
-    <span
-      aria-hidden="true"
-      className="min-h-6 w-px flex-1 bg-[var(--text-muted)]"
-    />
-  );
-}
-
-/**
- * The gap between Intelligence and the Agent block, in the wide layout only.
- * `MapAxis` spans this row; without an item to give the row a height it
- * would collapse and the axis would stop at Intelligence's bottom edge —
- * saying "Intelligence feeds the agent", the exact error this layout exists
- * to fix. Stacked, the axis is an ordinary connector and spaces itself, so
- * this renders nothing.
- */
-export function MapGap(): React.JSX.Element {
-  return (
-    <div
-      aria-hidden="true"
-      className={`hidden md:block md:h-20 ${MAP_SLOT.inset}`}
-    />
-  );
-}
-
-export function CapabilityTile({
-  capability,
-  href,
-  tone,
-}: {
-  capability: MapCapability;
-  /** Already scoped by the caller — this component does no path maths. */
-  href: string;
-  tone: "core" | "plus";
-}): React.JSX.Element {
-  const Icon = CAPABILITY_ICONS[capability.icon];
-
-  const plus = tone === "plus";
-
-  return (
-    <Link
-      href={href}
-      className={`shell-docs-radius-surface group block border p-3.5 no-underline transition-colors ${
-        plus
-          ? "border-[var(--accent)]/40 bg-[var(--bg-surface)]/60 hover:border-[var(--accent)]"
-          : "border-[var(--border)] bg-[var(--bg-elevated)]/30 hover:border-[var(--accent)]"
-      }`}
-    >
-      <span
-        className={`shell-docs-radius-icon flex h-7 w-7 items-center justify-center border ${
-          plus
-            ? "border-[var(--accent)]/40 bg-[var(--accent-dim)] text-[var(--accent)]"
-            : "border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]"
-        }`}
-      >
-        <Icon className="h-3.5 w-3.5" aria-hidden={true} />
-      </span>
-      <span className="mt-2.5 block text-sm font-semibold leading-snug text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
-        {capability.title}
-      </span>
-      <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
-        {capability.body}
-      </span>
-    </Link>
   );
 }
 
@@ -384,30 +231,102 @@ function PickLogo({ logo }: { logo: MapPickLogo }): React.JSX.Element {
   );
 }
 
+/** Shared border/fill treatment for an option button in either grid — the
+ *  accent ring-and-fill when selected doubles as the only selection signal
+ *  `PickGrid` gives, since it renders no checkmark. */
+function optionToneClass(selected: boolean): string {
+  return selected
+    ? "border-[var(--accent)] bg-[var(--accent-dim)]"
+    : "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)]";
+}
+
 export function PickGrid({
   picks,
+  selectedId,
+  disabled,
+  onSelect,
 }: {
   picks: readonly MapPick[];
+  selectedId?: string;
+  disabled: boolean;
+  onSelect: (id: string) => void;
 }): React.JSX.Element {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))]">
-      {picks.map((pick) => (
-        <Link
-          key={pick.id}
-          href={pick.href}
-          className="shell-docs-radius-control flex items-center gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 py-2 no-underline transition-colors hover:border-[var(--accent)]"
-        >
-          <PickLogo logo={pick.logo} />
-          <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
-            {pick.name}
-          </span>
-          {pick.note ? (
-            <span className="ml-auto shrink-0 text-[10px] text-[var(--text-muted)]">
-              {pick.note}
+      {picks.map((pick) => {
+        const selected = pick.id === selectedId;
+        return (
+          <button
+            key={pick.id}
+            type="button"
+            disabled={disabled}
+            aria-pressed={selected}
+            onClick={() => onSelect(pick.id)}
+            className={`shell-docs-radius-control flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${optionToneClass(
+              selected,
+            )}`}
+          >
+            <PickLogo logo={pick.logo} />
+            <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
+              {pick.name}
             </span>
-          ) : null}
-        </Link>
-      ))}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function CapabilityGrid({
+  capabilities,
+  selectedIds,
+  disabled,
+  onToggle,
+}: {
+  capabilities: readonly MapCapability[];
+  selectedIds: readonly string[];
+  disabled: boolean;
+  onToggle: (id: string) => void;
+}): React.JSX.Element {
+  return (
+    <div className={MAP_TILE_GRID_CLASS}>
+      {capabilities.map((capability) => {
+        const Icon = CAPABILITY_ICONS[capability.icon];
+        const selected = selectedIds.includes(capability.id);
+        return (
+          <button
+            key={capability.id}
+            type="button"
+            disabled={disabled}
+            aria-pressed={selected}
+            onClick={() => onToggle(capability.id)}
+            className={`shell-docs-radius-surface block w-full border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${optionToneClass(
+              selected,
+            )}`}
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span
+                aria-hidden="true"
+                className="shell-docs-radius-icon flex h-7 w-7 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]"
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </span>
+              {selected ? (
+                <Check
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 text-[var(--accent)]"
+                />
+              ) : null}
+            </span>
+            <span className="mt-2.5 block text-sm font-semibold leading-snug text-[var(--text)]">
+              {capability.title}
+            </span>
+            <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
+              {capability.body}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

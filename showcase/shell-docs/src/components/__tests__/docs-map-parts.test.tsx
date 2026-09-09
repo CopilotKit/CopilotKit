@@ -1,423 +1,450 @@
-import type { ComponentProps } from "react";
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  CapabilityTile,
-  MapAxis,
-  MapBlock,
-  MapConnector,
-  MapElbow,
-  MapGap,
+  CapabilityGrid,
   MapIntro,
   PickGrid,
+  StepBlock,
+  StepConnector,
 } from "../docs-map-parts";
+import type { MapCapability, MapPick } from "@/lib/homepage-map";
 
-// The plan's verbatim mock typed this parameter `never`, which cannot
-// type-check under `strict`: a rest element requires an object type, and
-// `never` isn't one (TS2700). `ComponentProps<"a">` is the annotation this
-// suite's other `next/link` mocks already use for the identical shape.
-vi.mock("next/link", () => ({
-  default: ({ href, children, ...rest }: ComponentProps<"a">) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
-}));
+afterEach(() => {
+  cleanup();
+});
 
-const NO_HARD_COLOUR =
-  /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-zA-Z-])|\brgb\(|\bhsl\(/;
-
-// Hoisted out of the `describe` block (oxlint's `consistent-function-scoping`):
-// it captures nothing from an enclosing scope, so it need not be recreated
-// per suite run.
-function render(variant: "choice" | "core" | "plus") {
-  return renderToStaticMarkup(
-    <MapBlock
-      variant={variant}
-      kicker="Kicker text"
-      name="Block name"
-      description="What this block is."
-      action={{ label: "Go there", href: "/somewhere" }}
-      id="block-id"
-    >
-      <p>child</p>
-    </MapBlock>,
-  );
+// `CapabilityGrid`'s accessible name is title-followed-by-body, not the
+// title alone (see the component's header comment), so a query by exact
+// title would no longer match. Anchor on the title instead of matching it
+// exactly.
+function startsWithTitle(title: string): RegExp {
+  return new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
 }
+
+const PICKS: readonly MapPick[] = [
+  { id: "vue", name: "Vue", logo: { kind: "frontend", icon: "vue" } },
+  { id: "react", name: "React", logo: { kind: "frontend", icon: "react" } },
+];
+
+const CAPABILITIES: readonly MapCapability[] = [
+  {
+    id: "chat",
+    title: "Chat surface",
+    body: "Drop in a ready-made chat, sidebar, or popup.",
+    icon: "MessageSquare",
+  },
+  {
+    id: "gen-ui",
+    title: "Generative UI",
+    body: "Your agent returns real React components, not just text.",
+    icon: "Paintbrush",
+  },
+];
 
 describe("MapIntro", () => {
   it("renders the framing heading and paragraph", () => {
     const markup = renderToStaticMarkup(
-      <MapIntro heading="How CopilotKit fits together" body="One paragraph." />,
+      <MapIntro heading="Set up CopilotKit" body="One paragraph." />,
     );
 
-    expect(markup).toMatch(/<h2[^>]*>How CopilotKit fits together<\/h2>/);
+    expect(markup).toMatch(/<h2[^>]*>Set up CopilotKit<\/h2>/);
     expect(markup).toContain("One paragraph.");
-    expect(markup).toContain("not-prose");
-  });
-
-  // It frames the four blocks, so it must not read as a fifth one: a block's
-  // `lg` name is `text-xl`, and this is the step above it.
-  it("sets the heading a step above a block heading", () => {
-    const markup = renderToStaticMarkup(<MapIntro heading="H" body="B" />);
-
-    expect(markup).toContain("text-2xl");
-    expect(markup).not.toContain("text-xl");
   });
 });
 
-describe("MapBlock", () => {
-  it("renders kicker, name, description, action and children", () => {
-    const markup = render("core");
+describe("StepBlock", () => {
+  // The three states are the whole of the step's visual hierarchy, so a
+  // change that made two of them look alike must fail here. Each assertion
+  // below checks the specific declarations that are unique to that state —
+  // never a substring (like `var(--accent)`) that also shows up in another
+  // state's markup for an unrelated reason.
+  it("gives the active state a solid surface, the panel shadow and an accent ring", () => {
+    const markup = renderToStaticMarkup(
+      <StepBlock state="active" step={1} name="N" description="D">
+        <span />
+      </StepBlock>,
+    );
 
-    expect(markup).toContain("Kicker text");
-    expect(markup).toContain("Block name");
-    expect(markup).toContain("What this block is.");
-    expect(markup).toContain('href="/somewhere"');
-    expect(markup).toContain("<p>child</p>");
-    expect(markup).toContain('id="block-id"');
-    expect(markup).toContain("not-prose");
+    expect(markup).toContain("shadow-[var(--shadow-panel)]");
+    expect(markup).toContain("ring-[var(--accent)]");
+    expect(markup).not.toContain("border-dashed");
+    expect(markup).not.toContain("opacity-40");
   });
 
-  // The three treatments are the only thing carrying the page's hierarchy, so
-  // a change that made them look alike must fail here rather than in review.
-  it("gives the choice variant a dashed border and no shadow", () => {
-    const markup = render("choice");
+  it("gives the done state the dashed, near-transparent treatment at full opacity", () => {
+    const markup = renderToStaticMarkup(
+      <StepBlock state="done" step={1} name="N" description="D">
+        <span />
+      </StepBlock>,
+    );
 
     expect(markup).toContain("border-dashed");
+    expect(markup).toContain("opacity-100");
+    expect(markup).not.toContain("opacity-40");
     expect(markup).not.toContain("shadow-[var(--shadow-panel)]");
+    expect(markup).not.toContain("ring-[var(--accent)]");
   });
 
-  it("gives the core variant a solid surface with the panel shadow", () => {
-    const markup = render("core");
-
-    expect(markup).not.toContain("border-dashed");
-    expect(markup).toContain("shadow-[var(--shadow-panel)]");
-  });
-
-  // Asserting on `var(--accent)` alone would pass even if `plus`'s block
-  // class were made byte-identical to `core`'s: the action `<Link>` that the
-  // shared `render` helper always passes carries `text-[var(--accent)]` in
-  // every variant, so that token appears in the markup regardless. Assert on
-  // the border colour and fill unique to `plus`'s block class instead.
-  it("gives the plus variant an accent border, accent-tinted fill and the panel shadow", () => {
-    const markup = render("plus");
-
-    expect(markup).toContain("border-[var(--accent)]");
-    expect(markup).toContain("bg-[var(--accent-dim)]");
-    expect(markup).not.toContain("border-dashed");
-    expect(markup).toContain("shadow-[var(--shadow-panel)]");
-  });
-
-  it("omits the action element when no action is given", () => {
+  it("gives the locked state the same dashed treatment at reduced opacity", () => {
     const markup = renderToStaticMarkup(
-      <MapBlock variant="choice" kicker="K" name="N" description="D">
+      <StepBlock state="locked" step={1} name="N" description="D">
         <span />
-      </MapBlock>,
+      </StepBlock>,
     );
 
-    expect(markup).not.toContain("<a");
+    expect(markup).toContain("border-dashed");
+    expect(markup).toContain("opacity-40");
+    expect(markup).not.toContain("opacity-100");
+    expect(markup).not.toContain("shadow-[var(--shadow-panel)]");
+    expect(markup).not.toContain("ring-[var(--accent)]");
   });
 
-  it("uses design tokens instead of hard-coded colours", () => {
-    expect(render("plus")).not.toMatch(NO_HARD_COLOUR);
+  // `locked` and `done` share the dashed/near-transparent treatment but must
+  // never share opacity — that is the only thing telling them apart, and a
+  // mutation that collapsed the two must fail this exact comparison.
+  it("distinguishes locked from done only by opacity", () => {
+    const done = renderToStaticMarkup(
+      <StepBlock state="done" step={1} name="N" description="D">
+        <span />
+      </StepBlock>,
+    );
+    const locked = renderToStaticMarkup(
+      <StepBlock state="locked" step={1} name="N" description="D">
+        <span />
+      </StepBlock>,
+    );
+
+    expect(done).toContain("opacity-100");
+    expect(locked).toContain("opacity-40");
+    expect(done).not.toContain("opacity-40");
+    expect(locked).not.toContain("opacity-100");
   });
 
-  it("sizes the name from nameSize instead of a fixed size", () => {
-    const small = renderToStaticMarkup(
-      <MapBlock
-        variant="core"
-        kicker="K"
+  it("renders a section whose h2 text is exactly the name, with the step number in the kicker", () => {
+    render(
+      <StepBlock
+        state="active"
+        step={2}
+        name="What you want to build"
+        description="D"
+      >
+        <span />
+      </StepBlock>,
+    );
+
+    const heading = screen.getByRole("heading", { level: 2 });
+    expect(heading.textContent).toBe("What you want to build");
+    expect(screen.getByText("STEP 2")).not.toBeNull();
+  });
+
+  it("renders children below the description", () => {
+    const markup = renderToStaticMarkup(
+      <StepBlock
+        state="active"
+        step={1}
         name="N"
-        nameSize="sm"
-        description="D"
+        description="The description text"
       >
-        <span />
-      </MapBlock>,
-    );
-    const large = renderToStaticMarkup(
-      <MapBlock variant="core" kicker="K" name="N" description="D">
-        <span />
-      </MapBlock>,
+        <p>the child</p>
+      </StepBlock>,
     );
 
-    expect(small).toContain("text-base");
-    expect(small).not.toContain("text-xl");
-    expect(large).toContain("text-xl");
-    expect(large).not.toContain("text-base");
+    const descriptionIndex = markup.indexOf("The description text");
+    const childIndex = markup.indexOf("the child");
+    expect(descriptionIndex).toBeGreaterThan(-1);
+    expect(childIndex).toBeGreaterThan(descriptionIndex);
   });
 
-  // Beside the name, never inside the `<h2>`: a heading whose text is
-  // interrupted by markup is worse for assistive technology, and the map's
-  // story-order guard reads the heading's text content.
-  it("renders an icon beside the name and keeps the heading plain text", () => {
-    const markup = renderToStaticMarkup(
-      <MapBlock
-        variant="plus"
-        kicker="K"
-        name="CopilotKit Intelligence"
-        description="D"
-        icon={<svg viewBox="0 0 1 1" />}
-      >
+  it("renders the hint as text when given", () => {
+    render(
+      <StepBlock state="done" step={1} name="N" description="D" hint="Vue">
         <span />
-      </MapBlock>,
+      </StepBlock>,
     );
 
-    expect(markup).toContain("<svg");
-    expect(markup).toMatch(/<h2[^>]*>CopilotKit Intelligence<\/h2>/);
+    expect(screen.getByText("Vue")).not.toBeNull();
   });
 
-  // Intelligence is a side branch off the runtime, not another step in the
-  // stack, and the inset is how the picture says so: three of the grid's
-  // four columns, starting at column 2 — 75%, flush right.
-  it("insets a block to the right three of four columns on request", () => {
-    const inset = renderToStaticMarkup(
-      <MapBlock
-        variant="plus"
-        placement="inset"
-        kicker="K"
-        name="N"
-        description="D"
-      >
+  it("renders no hint element when none is given", () => {
+    const { container } = render(
+      <StepBlock state="active" step={1} name="N" description="D">
         <span />
-      </MapBlock>,
+      </StepBlock>,
     );
 
-    expect(render("core")).toContain("md:col-start-1");
-    expect(render("core")).toContain("md:col-span-4");
-    expect(inset).toContain("md:col-start-2");
-    expect(inset).toContain("md:col-span-3");
+    expect(container.querySelector(".shrink-0.text-xs")).toBeNull();
   });
 });
 
-describe("MapConnector", () => {
-  it("renders one decorative rule in a colour that is actually visible", () => {
-    const markup = renderToStaticMarkup(<MapConnector />);
+describe("StepConnector", () => {
+  it("lights up with --accent when lit", () => {
+    const markup = renderToStaticMarkup(<StepConnector lit={true} />);
 
-    expect(markup).toContain('aria-hidden="true"');
-    // `--border` sits at a fraction of an opacity against this page's
-    // near-black ground, which made the connectors read as missing rather
-    // than as quiet. The muted text token is the visible one.
+    expect(markup).toContain("bg-[var(--accent)]");
+    expect(markup).not.toContain("bg-[var(--text-muted)]");
+  });
+
+  it("falls back to --text-muted when not lit", () => {
+    const markup = renderToStaticMarkup(<StepConnector lit={false} />);
+
     expect(markup).toContain("bg-[var(--text-muted)]");
-    expect(markup).not.toContain("bg-[var(--border)]");
-  });
-});
-
-describe("MapElbow", () => {
-  it("draws a right-angled elbow with the label on its horizontal run", () => {
-    const markup = renderToStaticMarkup(<MapElbow label="+ adds" />);
-
-    expect(markup).toContain("+ adds");
-    expect(markup).toContain("var(--accent)");
-    // A stretched stub down from CopilotKit's underside (`md:self-stretch`),
-    // then runs that turn horizontal (`md:h-px`) and land on Intelligence's
-    // top edge (`md:items-end`). No SVG and no offsets, so the elbow cannot
-    // drift when the Intelligence block grows taller.
-    expect(markup).toContain("md:self-stretch");
-    expect(markup).toContain("md:h-px");
-    expect(markup).toContain("md:items-end");
-    expect(markup).not.toContain("<svg");
-  });
-
-  it("is decorative throughout, so it carries no link", () => {
-    const markup = renderToStaticMarkup(<MapElbow label="+ adds" />);
-
-    expect(markup).toContain('aria-hidden="true"');
-    expect(markup).not.toContain("<a");
-  });
-});
-
-describe("MapAxis", () => {
-  it("makes the label a real link and hides only the decorative rules", () => {
-    const markup = renderToStaticMarkup(
-      <MapAxis label="AG-UI" href="/ag-ui/agentic-protocols" />,
-    );
-
-    expect(markup).toContain('href="/ag-ui/agentic-protocols"');
-    expect(markup).toContain("AG-UI");
-    // A link inside an `aria-hidden` subtree is a link that does not exist,
-    // so the container must not carry the attribute — only the two rules do.
-    const container = markup.slice(0, markup.indexOf(">") + 1);
-    expect(container).not.toContain("aria-hidden");
-    expect(markup.match(/aria-hidden="true"/g)).toHaveLength(2);
-  });
-
-  // The load-bearing claim of the whole layout: the axis starts at
-  // CopilotKit's bottom edge and runs past Intelligence to the Agent block.
-  // It does that by spanning the elbow row, the Intelligence row and the gap
-  // row in the grid's first column.
-  it("spans the elbow, Intelligence and gap rows in the first column", () => {
-    const markup = renderToStaticMarkup(<MapAxis label="AG-UI" href="/x" />);
-
-    expect(markup).toContain("md:col-start-1");
-    expect(markup).toContain("md:row-start-5");
-    expect(markup).toContain("md:row-span-3");
-    expect(markup).toContain("bg-[var(--text-muted)]");
-  });
-});
-
-describe("MapGap", () => {
-  // Without a sized item in that row the grid collapses it and the axis
-  // stops at Intelligence's bottom edge — the "Intelligence feeds the agent"
-  // reading this layout exists to remove.
-  it("holds the wide layout's gap row open and disappears when stacked", () => {
-    const markup = renderToStaticMarkup(<MapGap />);
-
-    expect(markup).toContain('aria-hidden="true"');
-    expect(markup).toContain("hidden");
-    expect(markup).toContain("md:block");
-    expect(markup).toContain("md:h-20");
-  });
-});
-
-describe("CapabilityTile", () => {
-  const capability = {
-    title: "Generative UI",
-    body: "Your agent returns real React components, not just text.",
-    href: "/generative-ui",
-    icon: "Paintbrush",
-  } as const;
-
-  it("renders the icon, title, body and the scoped href it was given", () => {
-    const markup = renderToStaticMarkup(
-      <CapabilityTile
-        capability={capability}
-        href="/mastra/generative-ui"
-        tone="core"
-      />,
-    );
-
-    expect(markup).toContain("Generative UI");
-    expect(markup).toContain("real React components");
-    expect(markup).toContain('href="/mastra/generative-ui"');
-    expect(markup).toContain("<svg");
-  });
-
-  it("marks the icon decorative, since the title already names the tile", () => {
-    const markup = renderToStaticMarkup(
-      <CapabilityTile capability={capability} href="/x" tone="core" />,
-    );
-
-    expect(markup).toContain('aria-hidden="true"');
-  });
-
-  it("tints the plus tone so the Intelligence block stays consistent inside", () => {
-    const core = renderToStaticMarkup(
-      <CapabilityTile capability={capability} href="/x" tone="core" />,
-    );
-    const plus = renderToStaticMarkup(
-      <CapabilityTile capability={capability} href="/x" tone="plus" />,
-    );
-
-    expect(plus).not.toBe(core);
-    expect(plus).toContain("var(--accent");
-  });
-
-  it("uses design tokens instead of hard-coded colours", () => {
-    const markup = renderToStaticMarkup(
-      <CapabilityTile capability={capability} href="/x" tone="plus" />,
-    );
-
-    expect(markup).not.toMatch(NO_HARD_COLOUR);
+    expect(markup).not.toContain("bg-[var(--accent)]");
   });
 });
 
 describe("PickGrid", () => {
-  it("links every pick and renders its qualifier when it has one", () => {
-    const markup = renderToStaticMarkup(
-      <PickGrid
-        picks={[
-          {
-            id: "vue",
-            name: "Vue",
-            href: "/vue",
-            logo: { kind: "frontend", icon: "vue" },
-          },
-          {
-            id: "slack",
-            name: "Slack",
-            href: "/slack",
-            note: "needs Intelligence",
-            logo: { kind: "frontend", icon: "slack" },
-          },
-        ]}
-      />,
-    );
+  it("renders every option as a real, enabled button", () => {
+    render(<PickGrid picks={PICKS} disabled={false} onSelect={vi.fn()} />);
 
-    expect(markup).toContain('href="/vue"');
-    expect(markup).toContain("Vue");
-    expect(markup).toContain('href="/slack"');
-    expect(markup).toContain("needs Intelligence");
-  });
-
-  it("stacks to one column on a narrow viewport", () => {
-    const markup = renderToStaticMarkup(
-      <PickGrid
-        picks={[
-          {
-            id: "vue",
-            name: "Vue",
-            href: "/vue",
-            logo: { kind: "frontend", icon: "vue" },
-          },
-        ]}
-      />,
-    );
-
-    expect(markup).toContain("grid-cols-1");
-  });
-
-  // The grid draws whichever logo the pick's data named and decides nothing
-  // itself, so both kinds must come out of the same dumb loop.
-  it("draws a logo for every pick, of either kind", () => {
-    const markup = renderToStaticMarkup(
-      <PickGrid
-        picks={[
-          {
-            id: "vue",
-            name: "Vue",
-            href: "/vue",
-            logo: { kind: "frontend", icon: "vue" },
-          },
-          {
-            id: "mastra",
-            name: "Mastra",
-            href: "/mastra",
-            logo: { kind: "framework", slug: "mastra" },
-          },
-        ]}
-      />,
-    );
-
-    const anchors = Array.from(markup.matchAll(/<a [\s\S]*?<\/a>/g)).map(
-      (match) => match[0],
-    );
-
-    expect(anchors).toHaveLength(2);
-    for (const anchor of anchors) {
-      expect(anchor).toMatch(/<svg|<img/);
+    for (const pick of PICKS) {
+      const button = screen.getByRole("button", {
+        name: pick.name,
+      }) as HTMLButtonElement;
+      expect(button.tagName).toBe("BUTTON");
+      expect(button.getAttribute("type")).toBe("button");
+      expect(button.disabled).toBe(false);
     }
   });
 
-  it("uses the registry logo when no bundled mark matches the slug", () => {
-    const markup = renderToStaticMarkup(
+  // Dimming alone would leave a locked step's options clickable and
+  // reachable by Tab — the real `disabled` attribute is what takes them out
+  // of the interaction entirely. Guards against dropping the attribute
+  // while keeping only a dimming class.
+  it("puts the real disabled attribute on every option when disabled", () => {
+    render(<PickGrid picks={PICKS} disabled={true} onSelect={vi.fn()} />);
+
+    for (const pick of PICKS) {
+      const button = screen.getByRole("button", {
+        name: pick.name,
+      }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+      expect(button.hasAttribute("disabled")).toBe(true);
+    }
+  });
+
+  it("marks exactly the selected option aria-pressed=true and every other false", () => {
+    render(
       <PickGrid
-        picks={[
-          {
-            id: "unknown",
-            name: "Unknown",
-            href: "/unknown",
-            logo: {
-              kind: "framework",
-              slug: "no-such-framework",
-              fallbackSrc: "https://example.com/logo.svg",
-            },
-          },
-        ]}
+        picks={PICKS}
+        selectedId="vue"
+        disabled={false}
+        onSelect={vi.fn()}
       />,
     );
 
-    expect(markup).toContain('src="https://example.com/logo.svg"');
+    expect(
+      screen.getByRole("button", { name: "Vue" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByRole("button", { name: "React" })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
+  // A single choice does not need to also announce itself with a checkmark
+  // — the accent ring and fill already carry it. Guards against a mutation
+  // that added one anyway.
+  it("renders no checkmark on a selected option", () => {
+    render(
+      <PickGrid
+        picks={PICKS}
+        selectedId="vue"
+        disabled={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Vue" });
+    expect(button.querySelector("svg.lucide-check")).toBeNull();
+  });
+
+  it("calls onSelect with the clicked pick's id", () => {
+    const onSelect = vi.fn();
+    render(<PickGrid picks={PICKS} disabled={false} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith("react");
+  });
+
+  it("does not call onSelect when the grid is disabled", () => {
+    const onSelect = vi.fn();
+    render(<PickGrid picks={PICKS} disabled={true} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("gives each option its visible name as its accessible name, with no shadowing aria-label", () => {
+    render(<PickGrid picks={PICKS} disabled={false} onSelect={vi.fn()} />);
+
+    const button = screen.getByRole("button", { name: "Vue" });
+    expect(button.hasAttribute("aria-label")).toBe(false);
+  });
+});
+
+describe("CapabilityGrid", () => {
+  it("renders every option as a real, enabled button", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    for (const capability of CAPABILITIES) {
+      const button = screen.getByRole("button", {
+        name: startsWithTitle(capability.title),
+      }) as HTMLButtonElement;
+      expect(button.tagName).toBe("BUTTON");
+      expect(button.getAttribute("type")).toBe("button");
+    }
+  });
+
+  it("puts the real disabled attribute on every option when disabled", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={true}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    for (const capability of CAPABILITIES) {
+      const button = screen.getByRole("button", {
+        name: startsWithTitle(capability.title),
+      }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+      expect(button.hasAttribute("disabled")).toBe(true);
+    }
+  });
+
+  it("marks every id in selectedIds and no others", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={["chat"]}
+        disabled={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen
+        .getByRole("button", { name: startsWithTitle("Chat surface") })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByRole("button", { name: startsWithTitle("Generative UI") })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
+  // A toggle needs to show its own state — the checkmark is the thing that
+  // distinguishes this grid from `PickGrid`'s bare accent treatment. Guards
+  // against a mutation that removed it, or added it unconditionally.
+  it("renders a checkmark on a selected option and not on an unselected one", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={["chat"]}
+        disabled={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    const selected = screen.getByRole("button", {
+      name: startsWithTitle("Chat surface"),
+    });
+    const unselected = screen.getByRole("button", {
+      name: startsWithTitle("Generative UI"),
+    });
+    expect(selected.querySelector("svg.lucide-check")).not.toBeNull();
+    expect(unselected.querySelector("svg.lucide-check")).toBeNull();
+  });
+
+  it("calls onToggle with the clicked option's id", () => {
+    const onToggle = vi.fn();
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={false}
+        onToggle={onToggle}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: startsWithTitle("Generative UI") }),
+    );
+
+    expect(onToggle).toHaveBeenCalledExactlyOnceWith("gen-ui");
+  });
+
+  it("does not call onToggle when the grid is disabled", () => {
+    const onToggle = vi.fn();
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={true}
+        onToggle={onToggle}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: startsWithTitle("Generative UI") }),
+    );
+
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  // The contract's own item 4 is amended here: this grid's accessible name
+  // must *contain* the title (never be shadowed by an aria-label that
+  // replaces it), but need not equal the title exactly — the body is part
+  // of the button's visible text too, same as any toggle carrying a
+  // heading and a description.
+  it("gives each option an accessible name containing its title, with no shadowing aria-label", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: startsWithTitle("Chat surface"),
+    });
+    expect(button.hasAttribute("aria-label")).toBe(false);
+  });
+
+  // The body is the whole reason these tiles are readable — the six titles
+  // alone are bare phrases nobody could choose between. A future change
+  // that silently dropped it must fail here.
+  it("renders each capability's body text", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    for (const capability of CAPABILITIES) {
+      expect(screen.getByText(capability.body)).not.toBeNull();
+    }
   });
 });
