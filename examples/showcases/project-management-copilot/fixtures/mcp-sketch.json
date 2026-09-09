@@ -1,0 +1,24 @@
+{
+  "name": "mcp-sketch",
+  "description": "Open an Excalidraw sketch via the MCP App tile.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "open a sketch for the checkout redesign" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "excalidraw__create_scene",
+            "arguments": "{\"prompt\":\"Wireframe a guest-checkout flow with an upsell modal. Show: 1) cart page, 2) guest-or-account choice, 3) shipping form, 4) payment, 5) upsell modal, 6) confirmation.\"}",
+            "id": "call_excalidraw_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_excalidraw_001" },
+      "response": {
+        "content": "Sketched the checkout flow in Excalidraw — you can edit it inline above. The upsell modal is positioned right after payment so we don't block conversion."
+      }
+    }
+  ]
+}

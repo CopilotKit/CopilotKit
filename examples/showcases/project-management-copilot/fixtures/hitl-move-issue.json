@@ -1,0 +1,36 @@
+{
+  "name": "hitl-move-issue",
+  "description": "Single-issue mutation through the HITL approval card.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "Move ISS-101 to Done" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "propose_issue_change",
+            "arguments": "{\"issue_id\":\"ISS-101\",\"changes\":{\"status\":\"Done\"}}",
+            "id": "call_propose_iss101_done"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_propose_iss101_done" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "proposeIssueMutation",
+            "arguments": "{\"issueId\":\"ISS-101\",\"changes\":{\"status\":\"Done\"}}",
+            "id": "call_hitl_iss101_done"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_hitl_iss101_done" },
+      "response": {
+        "content": "Done — ISS-101 is now in the Done column. The Safari payment fix shipped earlier today."
+      }
+    }
+  ]
+}

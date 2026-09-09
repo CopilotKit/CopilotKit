@@ -1,0 +1,293 @@
+/* CopilotKit UI theme — design tokens copied verbatim from
+ * /Users/jerel-cpk/.claude/skills/copilotkit-ui-theme/references/design-tokens.md
+ * Fonts are loaded via <link> in apps/app/index.html (Tailwind v4 rejects
+ * @import url() of Google Fonts).
+ */
+
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* CopilotKit surface palette (LIGHT / lavender) */
+  --surface-main: #dedee9;
+  --surface-background: #dbdbe5;
+  --surface-container: #ffffff;
+  --surface-container-hovered: #fafcfa;
+
+  --border-default: #ffffff;
+  --border-container: #dbdbe5;
+
+  --text-primary: #010507;
+  --text-secondary: #57575b;
+  --text-disabled: #838389;
+  --text-invert: #ffffff;
+
+  --white-50: rgba(255, 255, 255, 0.5);
+  --white-65: rgba(255, 255, 255, 0.65);
+  --white-70: rgba(255, 255, 255, 0.7);
+
+  /* Legacy variable names — keep so existing shadcn-style components keep
+   * working. They now point at the CopilotKit values. */
+  --background: var(--surface-main);
+  --foreground: var(--text-primary);
+  --card: var(--surface-container);
+  --card-foreground: var(--text-primary);
+  --primary: var(--text-primary);
+  --primary-foreground: var(--text-invert);
+  --secondary: var(--white-50);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--white-50);
+  --muted-foreground: var(--text-secondary);
+  --accent: #eee6fe;
+  --accent-foreground: var(--text-primary);
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: var(--border-container);
+  --input: var(--border-container);
+  --ring: #bec2ff;
+
+  /* Charts */
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: var(--border-container);
+  --chart-axis: var(--text-secondary);
+
+  /* Radius — CopilotKit token scale */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  --radius: var(--radius-sm);
+
+  /* Override CopilotKit chat font */
+  --cpk-default-font-family: var(--font-body);
+
+  /* Fonts */
+  --font-body:
+    "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-code:
+    "Spline Sans Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace;
+
+  /* Brand accent colors (kept for chart palette etc.) */
+  --cpk-mint-400: #85ecce;
+  --cpk-mint-800: #189370;
+  --cpk-lilac-400: #bec2ff;
+  --cpk-orange-400: #ffac4d;
+  --cpk-yellow-400: #fff388;
+  --cpk-ambient-gradient: linear-gradient(
+    90deg,
+    #bec2ff 0%,
+    #85ecce 45.673%,
+    #ffac4d 100%
+  );
+
+  /* Elevation */
+  --elevation-sm: 0px 1px 3px 0px rgba(1, 5, 7, 0.08);
+  --elevation-md: 0px 6px 6px -2px rgba(1, 5, 7, 0.08);
+  --elevation-lg: 0px 16px 24px -8px rgba(1, 5, 7, 0.12);
+  --elevation-xl: 0px 24px 32px -12px rgba(1, 5, 7, 0.16);
+}
+
+/* "Frosted" mode — invoked by the toggleTheme frontend tool. Same lavender
+ * background, denser glass: lower translucency, less white border, used as a
+ * visual variant rather than light/dark. */
+:root.dark,
+.dark {
+  --surface-main: #c9c9da;
+  --surface-background: #b8b8c8;
+  --surface-container: rgba(255, 255, 255, 0.55);
+  --white-50: rgba(255, 255, 255, 0.35);
+  --white-65: rgba(255, 255, 255, 0.5);
+  --white-70: rgba(255, 255, 255, 0.6);
+  --border-default: rgba(255, 255, 255, 0.7);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-main);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+body,
+html {
+  height: 100%;
+}
+
+/* CopilotKit's globals.css applies
+ *   [data-copilotkit] { background-color: var(--background); }
+ * to every data-copilotkit element — not just the chat root, but every
+ * assistant message, suggestion container, suggestion pill, etc. With
+ * --background = oklch(1 0 0) inside [data-copilotkit], the entire chat
+ * panel reads as a stack of hard-white cards instead of the translucent
+ * glass we wrap it in.
+ *
+ * Strip background-color from every chat-internal data-copilotkit
+ * surface. Popovers, dropdowns, and tooltips are rendered in portals
+ * mounted to document.body (Radix Portal), so they sit OUTSIDE
+ * [data-testid="copilot-chat"] and keep their bg-popover surface. */
+[data-testid="copilot-chat"],
+[data-testid="copilot-chat"] [data-copilotkit] {
+  background-color: transparent !important;
+}
+
+/* Re-apply a subtle glass surface to elements that should still read as
+ * distinct cards on top of the panel:
+ *   - suggestion pills: their cpk:bg-background utility just got nuked
+ *     by the rule above
+ *   - input pill: doesn't carry data-copilotkit, hardcodes cpk:bg-white
+ *     in CopilotChatInput.tsx — needs its own override */
+[data-testid="copilot-suggestion"],
+[data-testid="copilot-chat-input"] {
+  background-color: rgba(255, 255, 255, 0.65) !important;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* Auto-hide scrollbars on every scrollable element inside the chat panel
+ * — both our outer wrapper and CopilotChat's internal message-list scroll
+ * container. The `.is-scrolling` class is added to whichever element fired
+ * the scroll event (capture-phase listener in ExampleLayout) and removed
+ * 1s later. Firefox uses `scrollbar-color`; WebKit uses the pseudo. */
+.chat-panel *,
+.chat-panel {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 200ms ease;
+}
+.chat-panel .is-scrolling,
+.chat-panel.is-scrolling {
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+.chat-panel *::-webkit-scrollbar,
+.chat-panel::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+.chat-panel *::-webkit-scrollbar-track,
+.chat-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-panel *::-webkit-scrollbar-thumb,
+.chat-panel::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 4px;
+  transition: background-color 200ms ease;
+}
+.chat-panel .is-scrolling::-webkit-scrollbar-thumb,
+.chat-panel.is-scrolling::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+/* MCP App tile — the iframe-based MCP activity (Excalidraw etc.). Frame it
+ * as a glass card so it fits in the chat scroll alongside our other
+ * generative-ui cards. */
+[data-mcp-apps-activity],
+.copilotkit-mcp-apps,
+.cpk-mcp-apps {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0px 1px 3px 0px rgba(1, 5, 7, 0.08);
+}
+
+[data-mcp-apps-activity] iframe,
+.copilotkit-mcp-apps iframe,
+.cpk-mcp-apps iframe {
+  display: block;
+  width: 100%;
+  min-height: 380px;
+  max-height: 540px;
+  border: 0;
+  background: #ffffff;
+  border-radius: 6px;
+}
+
+/* Staggered entrance for kanban cards. Cards opt in via .issue-enter and an
+ * inline animationDelay derived from their global index — see IssueBoard's
+ * seenIdsRef gating so the animation only runs on first appearance, not on
+ * column-to-column moves. Mirrors the AG-UI dojo "stagger by 60ms on entrance"
+ * demo. */
+@keyframes issue-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.issue-enter {
+  animation: issue-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .issue-enter {
+    animation: none;
+  }
+}
+
+/* User-message attachment chip entrance. <CopilotChatUserMessage> renders the
+ * attachment row as the first child of the message div with `cpk:flex-row`
+ * (Tailwind v4 prefixed). The selector is class-scoped so plain text messages
+ * — whose first child is the bubble, not the attachment row — are unaffected. */
+[data-testid="copilot-user-message"] > .cpk\:flex-row:first-child {
+  animation: attachment-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes attachment-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="copilot-user-message"] > .cpk\:flex-row:first-child {
+    animation: none;
+  }
+}
+
+/* Inline generative-UI entrance. Used by chart and table components that
+ * surface as assistant message attachments (BarChart, PieChart, IssueTable,
+ * IssueList) so the panel fades + slides in instead of popping into place
+ * — same easing curve as the kanban issue-enter so the visual language
+ * matches across the demo. */
+@keyframes gen-ui-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.gen-ui-enter {
+  animation: gen-ui-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gen-ui-enter {
+    animation: none;
+  }
+}
