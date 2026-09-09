@@ -12,6 +12,10 @@ import type { RunAgentInput } from "@ag-ui/client";
 import { handle } from "hono/vercel";
 import OpenAI from "openai";
 import { Observable } from "rxjs";
+import {
+  isCodeChartRequest,
+  streamCodeThenChart,
+} from "../../../../lib/code-chart-flow";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -53,7 +57,7 @@ class DemoAgent extends BuiltInAgent {
     this.demoConfig = demoConfig;
   }
 
-  override run(input: RunAgentInput) {
+  override run(input: RunAgentInput): ReturnType<BuiltInAgent["run"]> {
     const latestUserMessage = [...input.messages]
       .toReversed()
       .find((message) => message.role === "user");
@@ -71,6 +75,26 @@ class DemoAgent extends BuiltInAgent {
         });
         subscriber.error(new Error("Intentional agent error for the demo."));
       });
+    }
+
+    if (isCodeChartRequest(input)) {
+      return streamCodeThenChart(
+        input,
+        (codeInput) =>
+          new BuiltInAgent({
+            ...this.demoConfig,
+            toolChoice: "none",
+            prompt:
+              "You are a helpful assistant. Write the requested complete Python linear regression example in a fenced Markdown code block with the python language tag. Only generate the code and a brief explanation. A separate step will produce the keyword chart; do not promise or describe that chart here.",
+          }).run(codeInput),
+        (chartInput) =>
+          new BuiltInAgent({
+            ...this.demoConfig,
+            toolChoice: { type: "tool", toolName: "showDemoChart" },
+            prompt:
+              "You are a helpful assistant. Call showDemoChart using the Python code in the last assistant message. Count exact standalone Python keyword tokens, excluding comments, strings, and substrings of identifiers. For example, 'from x import y' has one from, one import, and zero as; only an explicit alias uses as. Check each occurrence against the code. Show the three or four most frequent keywords present, with occurrence counts, titled Top Python keywords (occurrences). Do not generate new code or use sample chart data.",
+          }).run(chartInput),
+      );
     }
 
     return super.run(input);
