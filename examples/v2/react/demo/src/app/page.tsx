@@ -189,6 +189,9 @@ function ChatContent({
   const colors = themeColors[theme];
   const [isThreadsMenuOpen, setIsThreadsMenuOpen] = useState(false);
   const [draftThreadId, setDraftThreadId] = useState<string>();
+  const [approvalResponses, setApprovalResponses] = useState<
+    Record<string, boolean>
+  >({});
   const configuration = useCopilotChatConfiguration();
   const { threads } = useThreads({ agentId: configuration?.agentId });
   const hasInspectorPreview = configuration?.threadId?.startsWith("thread---");
@@ -333,27 +336,99 @@ function ChatContent({
     parameters: z.object({
       action: z.string().describe("The action that needs approval"),
     }),
-    render: ({ args, respond }: any) => (
-      <div
-        style={{
-          padding: 14,
-          border: "1px solid #bfdbfe",
-          borderRadius: 10,
-          backgroundColor: "#eff6ff",
-        }}
-      >
-        <strong>Approve this action?</strong>
-        <div style={{ marginTop: 4 }}>{args.action}</div>
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <button type="button" onClick={() => respond?.({ approved: true })}>
-            Approve
-          </button>
-          <button type="button" onClick={() => respond?.({ approved: false })}>
-            Decline
-          </button>
+    render: ({ args, result, respond, toolCallId }: any) => {
+      const responseFromResult =
+        typeof result === "object" && result !== null
+          ? result.approved
+          : undefined;
+      const storageKey = `demo-approval:${toolCallId}`;
+      const storedApproval =
+        typeof window === "undefined"
+          ? null
+          : window.sessionStorage.getItem(storageKey);
+      const hasStoredResponse = Object.hasOwn(approvalResponses, toolCallId);
+      const approved = hasStoredResponse
+        ? approvalResponses[toolCallId]
+        : storedApproval === null
+          ? responseFromResult
+          : storedApproval === "true";
+      const hasResponded = typeof approved === "boolean";
+      const accent = approved ? "#15803d" : "#b91c1c";
+      const choose = (approved: boolean) => {
+        setApprovalResponses((responses) => ({
+          ...responses,
+          [toolCallId]: approved,
+        }));
+        window.sessionStorage.setItem(storageKey, String(approved));
+        respond?.({ approved });
+      };
+
+      return (
+        <div
+          style={{
+            padding: 14,
+            border: `1px solid ${hasResponded ? accent : "#bfdbfe"}`,
+            borderRadius: 10,
+            backgroundColor: hasResponded
+              ? approved
+                ? "#f0fdf4"
+                : "#fef2f2"
+              : "#eff6ff",
+          }}
+        >
+          <strong>
+            {hasResponded
+              ? approved
+                ? "Approved"
+                : "Declined"
+              : "Approve this action?"}
+          </strong>
+          <div style={{ marginTop: 4 }}>{args.action}</div>
+          {hasResponded ? (
+            <div style={{ marginTop: 12, color: accent, fontWeight: 600 }}>
+              {approved
+                ? "You approved this action."
+                : "You declined this action."}
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button
+                type="button"
+                disabled={!respond}
+                onClick={() => choose(true)}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #15803d",
+                  borderRadius: 6,
+                  backgroundColor: "#15803d",
+                  color: "white",
+                  cursor: respond ? "pointer" : "not-allowed",
+                  fontWeight: 600,
+                }}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={!respond}
+                onClick={() => choose(false)}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  backgroundColor: "white",
+                  color: "#374151",
+                  cursor: respond ? "pointer" : "not-allowed",
+                  fontWeight: 600,
+                }}
+              >
+                Decline
+              </button>
+            </div>
+          )}
         </div>
-      </div>
-    ),
+      );
+    },
   });
   const toolsMenu = useMemo<(ToolsMenuItem | "-")[]>(
     () => [
