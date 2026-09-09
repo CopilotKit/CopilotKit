@@ -38,7 +38,7 @@ Use the drawer when you want:
 - A mobile-ready off-canvas drawer with its own launcher
 
 It requires CopilotKit Intelligence (threads are stored and synced
-server-side). <SignupLink surface="docs_drawer">Get a free developer account</SignupLink> to set that up.
+server-side). <SignupLink surface="docs_drawer">Start managed onboarding</SignupLink> to create or select a project.
 
 For multi-user applications, configure the Runtime to
 [scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
@@ -46,7 +46,7 @@ For multi-user applications, configure the Runtime to
 <OpsPlatformCTA
   variant="inline"
   title="Threads run in CopilotKit Intelligence"
-  body="Get persistent threads and realtime sync on the free Developer tier."
+  body="Connect a managed project to get persistent threads and realtime sync."
   surface="docs_drawer"
 />
 
@@ -72,7 +72,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 export default function Page() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
       <CopilotChatConfigurationProvider>
         <div style={{ display: "flex", height: "100dvh" }}>
           <CopilotThreadsDrawer />
@@ -123,10 +123,12 @@ Three bounded escape hatches pierce the boundary:
 - **Per-row content**: the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the per-row kebab menu (Archive/Delete).
 - **CSS parts + variable tokens**: restyle structural `::part()`s or override `--cpk-drawer-*` tokens. The full list is in the [reference](/reference/components/CopilotThreadsDrawer#customization).
 
-## License
+## Intelligence access
 
-Threads require CopilotKit Intelligence. Without a license key, the drawer shows
-a locked view in place of the list.
+Threads require CopilotKit Intelligence. If the runtime reports that Threads are
+not available, the drawer shows a locked view in place of the list. Managed
+projects use a server-side `CPK_INTELLIGENCE_API_KEY`; licensed self-hosted
+deployments use `COPILOTKIT_LICENSE_TOKEN` on the server.
 
 ## Related
 

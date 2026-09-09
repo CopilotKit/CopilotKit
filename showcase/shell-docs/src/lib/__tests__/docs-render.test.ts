@@ -887,7 +887,7 @@ describe("framework nav", () => {
       "If your project was created from a CopilotKit CLI starter",
     );
     expect(drawer).toContain("add it to an existing CopilotKit application");
-    expect(drawer).toContain("Get a free developer account");
+    expect(drawer).toContain("Start managed onboarding");
     expect(drawer).toContain("## Set up the Threads Drawer");
     expect(drawer).not.toContain(
       "Start with the [Rich Threads overview](/threads)",

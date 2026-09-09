@@ -203,6 +203,84 @@ test("never names a license key as the value of the project API key", () => {
   expect(offenders).toEqual([]);
 });
 
+test("managed quickstarts provision a project API key instead of a license key", () => {
+  const quickstarts = mdxFilesIn(path.join(CONTENT_DIR, "docs")).filter(
+    (file) =>
+      file.endsWith("quickstart.mdx") &&
+      fs.readFileSync(file, "utf8").includes("<IntelligenceOnboardingPrompt"),
+  );
+
+  expect(quickstarts.length).toBeGreaterThan(0);
+
+  for (const file of quickstarts) {
+    const rawSource = fs.readFileSync(file, "utf8");
+    const source = rawSource.replace(/\s+/g, " ");
+
+    expect(source).not.toMatch(/license key/i);
+    expect(source).not.toMatch(/free developer account/i);
+
+    if (source.includes("`CPK_INTELLIGENCE_API_KEY`")) {
+      expect(source).toContain("project API key");
+      expect(source).toMatch(
+        /npx copilotkit@latest (?:project select|init(?:\s|`))/,
+      );
+
+      for (const match of rawSource.matchAll(
+        /npx copilotkit@latest project select/g,
+      )) {
+        const precedingSource = rawSource.slice(0, match.index);
+        const branchStart = precedingSource.lastIndexOf(
+          "<TailoredContentOption",
+        );
+        const previousBranchEnd = precedingSource.lastIndexOf(
+          "</TailoredContentOption>",
+        );
+        const currentBranchStart =
+          branchStart > previousBranchEnd ? branchStart : 0;
+        const currentBranchBeforeSelection =
+          precedingSource.slice(currentBranchStart);
+
+        expect(currentBranchBeforeSelection).toMatch(
+          /(?:git clone |npx create-next-app@latest |npx copilotkit@latest (?:create|init))/,
+        );
+      }
+    }
+  }
+});
+
+test("managed Threads Drawer setup relies on runtime authority", () => {
+  const [source] = readSources([
+    "snippets/shared/basics/copilot-threads-drawer.mdx",
+  ]);
+
+  expect(source).toContain('runtimeUrl="/api/copilotkit"');
+  expect(source).not.toContain("publicLicenseKey");
+});
+
+test("managed Inspector examples keep credentials on the runtime server", () => {
+  const sources = readSources([
+    "docs/inspector.mdx",
+    "snippets/shared/intelligence/inspector.mdx",
+  ]);
+
+  for (const source of sources) {
+    expect(source).toContain('runtimeUrl="/api/copilotkit"');
+    expect(source).not.toContain("NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY");
+  }
+});
+
+test("managed telemetry docs distinguish the project key from self-hosted tokens", () => {
+  const [source] = readSources(["snippets/shared/telemetry/anonymous.mdx"]);
+
+  expect(source).toContain(
+    "Managed Intelligence starters use `CPK_INTELLIGENCE_API_KEY` for platform access",
+  );
+  expect(source).toContain("do not receive `COPILOTKIT_LICENSE_TOKEN`");
+  expect(source).not.toContain(
+    "Current managed Threads starters receive `COPILOTKIT_LICENSE_TOKEN`",
+  );
+});
+
 /** Every MDX page under `dir`, recursively. */
 function mdxFilesIn(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
