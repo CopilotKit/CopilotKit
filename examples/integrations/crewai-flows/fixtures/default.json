@@ -3,7 +3,7 @@
     {
       "match": { "userMessage": "Hello" },
       "response": {
-        "content": "Hello! I'm the CrewAI Flows assistant. How can I help you?"
+        "content": "The CrewAI Flows assistant is ready. How can I help you?"
       }
     },
     {

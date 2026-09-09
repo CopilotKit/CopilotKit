@@ -26,7 +26,7 @@ if (!response.ok) {
 const events = await response.text();
 for (const expected of [
   '"type":"TEXT_MESSAGE_CONTENT"',
-  "Hello! I'm the CrewAI Flows assistant.",
+  "The CrewAI Flows assistant is ready.",
   '"type":"RUN_FINISHED"',
 ]) {
   if (!events.includes(expected)) {
