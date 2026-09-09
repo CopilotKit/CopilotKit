@@ -14,7 +14,8 @@
 //     docs-render (same map used at page render time)
 //   - resolves `<Snippet />` tags to fenced code blocks by reading the
 //     same `demo-content.json` that the runtime <Snippet> component does
-//   - strips `<InlineDemo />` (no body content — it's a live iframe demo)
+//   - strips `<InlineDemo />` (no body content — it's a live iframe demo),
+//     optionally preserving an explicitly selected `llmRegion` source excerpt
 //   - keeps every other JSX tag verbatim (Tabs / Callout / Card render
 //     visually but their inner Markdown is still readable as prose)
 //
@@ -779,18 +780,34 @@ function expandLearningSetupPrompts(body: string): string {
 }
 
 /**
- * Drop `<InlineDemo ... />` tags — these mount live iframes in the
- * browser; in plain markdown they're noise. Leave a short note so the
- * LLM still knows a demo exists at that point in the page.
+ * Drop `<InlineDemo ... />` tags — these mount live iframes in the browser;
+ * in plain markdown they're noise. Leave a short note so the LLM still knows
+ * a demo exists at that point in the page. Authors may select one bundled
+ * `llmRegion` when the interactive Code tab contains essential implementation
+ * detail that would otherwise disappear from the raw Markdown route.
  */
-function stripInlineDemos(body: string): string {
+function expandInlineDemos(
+  body: string,
+  framework: string | undefined,
+): string {
   return body.replace(
     /<InlineDemo\b([\s\S]*?)\/>/g,
     (_match, inner: string) => {
       const demoAttr = /demo\s*=\s*["']([^"']+)["']/.exec(inner);
-      return demoAttr
+      const note = demoAttr
         ? `\n<!-- interactive demo: ${demoAttr[1]} -->\n`
         : "\n<!-- interactive demo -->\n";
+      const llmRegion = /llmRegion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      if (!demoAttr || !llmRegion) return note;
+
+      const snippet = resolveSnippet(
+        { cell: demoAttr[1], region: llmRegion },
+        framework,
+        demoAttr[1],
+      );
+      return snippet.startsWith("<!-- snippet skipped:")
+        ? note
+        : `${note}\n${snippet}\n`;
     },
   );
 }
@@ -957,8 +974,8 @@ export function renderPageToLlmText(
   // 4) Resolve regions from the canonical Angular Showcase app.
   body = expandAngularSnippets(body);
 
-  // 5) Drop `<InlineDemo />`.
-  body = stripInlineDemos(body);
+  // 5) Drop `<InlineDemo />`, preserving any explicitly selected LLM source.
+  body = expandInlineDemos(body, framework);
 
   // 6) Keep raw Markdown links in the same frontend/framework surface as the
   // live page. Store the effective axes so explicit render overrides retain
