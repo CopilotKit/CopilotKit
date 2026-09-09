@@ -91,8 +91,8 @@ export function createRunEventFinalizer({
       }
       case EventType.TOOL_CALL_START: {
         const toolCallId = (event as { toolCallId?: string }).toolCallId;
-        if (toolCallId) {
-          if (!openToolCalls.has(toolCallId)) reserveLifecycle();
+        if (toolCallId && !openToolCalls.has(toolCallId)) {
+          reserveLifecycle();
           openToolCalls.set(toolCallId, { hasEnd: false, hasResult: false });
         }
         break;

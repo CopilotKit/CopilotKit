@@ -15,6 +15,25 @@ import {
 const event = (value: Record<string, unknown>): BaseEvent => value as BaseEvent;
 
 describe("createRunEventFinalizer", () => {
+  it.each([
+    [EventType.TOOL_CALL_END, EventType.TOOL_CALL_RESULT],
+    [EventType.TOOL_CALL_RESULT, EventType.TOOL_CALL_END],
+  ])("preserves %s across a repeated start before %s", (first, last) => {
+    const finalizer = createRunEventFinalizer({ maxOpenLifecycles: 1 });
+    for (const type of [
+      EventType.TOOL_CALL_START,
+      first,
+      EventType.TOOL_CALL_START,
+      last,
+    ]) {
+      finalizer.observe(event({ type, toolCallId: "tool-1" }));
+    }
+
+    expect(finalizer.finalize().map(({ type }) => type)).toEqual([
+      EventType.RUN_ERROR,
+    ]);
+  });
+
   it("preserves stop, broken-stream, and existing-terminal finalization contracts", () => {
     const source = [
       event({ type: EventType.TEXT_MESSAGE_START, messageId: "message-1" }),
@@ -156,8 +175,12 @@ describe("createRunEventFinalizer", () => {
 
   it("ignores start events without an id so finalize never emits an empty id", () => {
     const finalizer = createRunEventFinalizer({ maxOpenLifecycles: 1 });
-    finalizer.observe(event({ type: EventType.TEXT_MESSAGE_START, messageId: "" }));
-    finalizer.observe(event({ type: EventType.TOOL_CALL_START, toolCallId: "" }));
+    finalizer.observe(
+      event({ type: EventType.TEXT_MESSAGE_START, messageId: "" }),
+    );
+    finalizer.observe(
+      event({ type: EventType.TOOL_CALL_START, toolCallId: "" }),
+    );
     finalizer.observe(event({ type: EventType.TOOL_CALL_START }));
 
     expect(finalizer.snapshot()).toEqual({
@@ -165,7 +188,9 @@ describe("createRunEventFinalizer", () => {
       openTextMessageIds: [],
       openToolCalls: [],
     });
-    expect(finalizer.finalize().map((e) => e.type)).toEqual([EventType.RUN_ERROR]);
+    expect(finalizer.finalize().map((e) => e.type)).toEqual([
+      EventType.RUN_ERROR,
+    ]);
   });
 });
 
