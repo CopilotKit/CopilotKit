@@ -2,6 +2,11 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, act, waitFor } from "@testing-library/react";
 import React, { useState } from "react";
 import type { Theme } from "@copilotkit/a2ui-renderer";
+import {
+  createA2UIMessageRenderer,
+  runA2UIAction,
+  warnAboutUnresolvedRoot,
+} from "../a2ui/A2UIMessageRenderer.js";
 
 vi.mock("../providers", () => ({
   useCopilotKit: vi.fn(() => ({
@@ -15,8 +20,6 @@ vi.mock("../providers", () => ({
 
 describe("A2UIMessageRenderer rendering integration", () => {
   it("should render A2UI surface content via React renderer", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -62,8 +65,6 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 
   it("should update surface when operations change", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -146,8 +147,6 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 
   it("should return null when no operations are provided", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -163,8 +162,6 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 
   it("should render multiple surfaces independently", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -248,7 +245,6 @@ describe("runA2UIAction onAction interceptor", () => {
   };
 
   it("does NOT run the agent when onAction returns null", async () => {
-    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
     const copilotkit = makeCopilotkit();
     const onAction = vi.fn().mockReturnValue(null);
 
@@ -261,7 +257,6 @@ describe("runA2UIAction onAction interceptor", () => {
   });
 
   it("forwards the modified action when onAction returns one", async () => {
-    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
     const copilotkit = makeCopilotkit();
     const modified = { ...message.userAction, name: "navigate_handled" };
     const onAction = vi.fn().mockReturnValue(modified);
@@ -277,7 +272,6 @@ describe("runA2UIAction onAction interceptor", () => {
   });
 
   it("forwards the original message unchanged when no onAction is supplied", async () => {
-    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
     const copilotkit = makeCopilotkit();
 
     await runA2UIAction({ message, agent: "my-agent", copilotkit });
@@ -288,7 +282,6 @@ describe("runA2UIAction onAction interceptor", () => {
   });
 
   it("forwards unchanged when onAction returns undefined", async () => {
-    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
     const copilotkit = makeCopilotkit();
     const onAction = vi.fn().mockReturnValue(undefined);
 
@@ -317,8 +310,6 @@ describe("A2UIMessageRenderer — reporting a card that renders nothing", () => 
   });
 
   async function loadRenderer() {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     return createA2UIMessageRenderer({ theme: {} as Theme })
       .render as React.FC<any>;
   }
@@ -519,8 +510,6 @@ describe("A2UIMessageRenderer — reporting a card that renders nothing", () => 
   // A root that WAS sent and still is not in the model is a different fault with
   // a different fix, so the report says which of the two it is.
   it("distinguishes a root that was sent from one that was never named", async () => {
-    const { warnAboutUnresolvedRoot } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const operations = [
@@ -763,8 +752,6 @@ describe("A2UIMessageRenderer — resolving which surface an operation addresses
   });
 
   it("groups by the nested surface id, not a top-level one", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const RenderComponent = createA2UIMessageRenderer({ theme: {} as Theme })
       .render as React.FC<any>;
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
