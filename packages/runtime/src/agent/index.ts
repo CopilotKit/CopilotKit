@@ -692,6 +692,7 @@ function toLanguageModelSchema(schema: z.ZodSchema): Schema<any> {
   return schema as unknown as Schema<any>;
 }
 
+/** Preserve AG-UI tool schemas when passing them to the model provider. */
 export function convertToolsToVercelAITools(
   tools: RunAgentInput["tools"],
 ): ToolSet {
@@ -702,10 +703,14 @@ export function convertToolsToVercelAITools(
     if (!isJsonSchema(tool.parameters)) {
       throw new Error(`Invalid JSON schema for tool ${tool.name}`);
     }
-    const zodSchema = convertJsonSchemaToZodSchema(tool.parameters, true);
     result[tool.name] = createVercelAISDKTool({
       description: tool.description,
-      inputSchema: toLanguageModelSchema(zodSchema),
+      // AG-UI already supplies JSON Schema. A Zod round trip loses open object
+      // fields (including A2UI components), references, and other constraints.
+      inputSchema: aiJsonSchema(tool.parameters),
+      // These schemas need not satisfy OpenAI's stricter closed-object subset.
+      // Without an explicit false, Responses can normalize open objects shut.
+      strict: false,
     });
   }
 

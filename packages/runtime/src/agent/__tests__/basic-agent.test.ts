@@ -9,6 +9,7 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import { streamText } from "ai";
+import type * as AISDK from "ai";
 import {
   mockStreamTextResponse,
   textStart,
@@ -27,7 +28,8 @@ import {
 } from "./test-helpers";
 
 // Mock the ai module
-vi.mock("ai", () => ({
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof AISDK>()),
   streamText: vi.fn(),
   tool: vi.fn((config) => config),
 }));
