@@ -27,6 +27,7 @@ interface Starter {
   healthPaths: string[];
   agentPath: string;
   chatMessage: string;
+  expectedChatUiText?: string;
   /** Whether the starter has Chat/App mode toggle */
   hasAppMode: boolean;
 }
@@ -44,13 +45,21 @@ const STARTERS: Starter[] = [
   { ...DEFAULT_STARTER, slug: "mastra" },
   { ...DEFAULT_STARTER, slug: "langgraph-js", hasAppMode: true },
   { ...DEFAULT_STARTER, slug: "crewai-crews" },
+  { ...DEFAULT_STARTER, slug: "crewai-flows" },
   { ...DEFAULT_STARTER, slug: "pydantic-ai" },
   { ...DEFAULT_STARTER, slug: "adk" },
   { ...DEFAULT_STARTER, slug: "agno" },
   { ...DEFAULT_STARTER, slug: "llamaindex" },
   { ...DEFAULT_STARTER, slug: "langgraph-fastapi", hasAppMode: true },
   { ...DEFAULT_STARTER, slug: "strands-python", hasAppMode: true },
-  { ...DEFAULT_STARTER, slug: "strands-typescript", hasAppMode: true },
+  {
+    ...DEFAULT_STARTER,
+    slug: "strands-typescript",
+    chatMessage:
+      "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+    expectedChatUiText: "Total Revenue",
+    hasAppMode: true,
+  },
   { ...DEFAULT_STARTER, slug: "ms-agent-framework-python" },
   { ...DEFAULT_STARTER, slug: "ms-agent-framework-dotnet" },
 ];
@@ -100,7 +109,14 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
       starter.chatMessage,
     );
     expect(result.gotResponse, "No assistant response received").toBe(true);
-    expect(result.responseText.length).toBeGreaterThan(0);
+    if (starter.expectedChatUiText) {
+      await expect(
+        page.getByText(starter.expectedChatUiText, { exact: true }).first(),
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText("A2UI render error:")).toHaveCount(0);
+    } else {
+      expect(result.responseText.length).toBeGreaterThan(0);
+    }
   });
 
   test(`@interaction ${STARTER_SLUG} — UI interactions work`, async ({
