@@ -2,6 +2,7 @@ import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+import { IntelligenceMCPAppsMiddleware } from "../../middleware/mcp-apps";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import {
@@ -124,7 +125,15 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  if (runtime.mcpApps?.servers?.length) {
+  if (isIntelligenceRuntime(runtime) && typeof agent.use === "function") {
+    // Keep the proxy guard even when agent scoping selects zero servers. Otherwise
+    // an iframe request for another agent's server would fall through to the model.
+    const mcpServers = resolveMcpAppsServers(
+      runtime.mcpApps?.servers ?? [],
+      agentId,
+    );
+    agent.use(new IntelligenceMCPAppsMiddleware({ mcpServers }));
+  } else if (runtime.mcpApps?.servers?.length) {
     const mcpServers = resolveMcpAppsServers(runtime.mcpApps.servers, agentId);
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {

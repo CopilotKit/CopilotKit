@@ -57,9 +57,10 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Current coverage limit
 
-The suite has 43 cases: 16 initial cases, 16 UI cases, and 11 additional analytics cases.
+The suite has 50 cases: 16 initial cases, 16 UI cases, 11 additional analytics cases, and seven runner cases.
 The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
 Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
+Runner cases cover batches, draining joins, planned restarts, final acknowledgements, and stop boundaries.
 They do not yet prove browser replay, all cancellation paths, shutdown, or full recovery deadlines.
 The fixture's event journal is test evidence, not an implementation of the Intelligence database.
 The wider requirements and remaining release gates live in [PLAN.md](PLAN.md).

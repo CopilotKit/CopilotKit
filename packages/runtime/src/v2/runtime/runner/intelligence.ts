@@ -511,6 +511,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
         this.createRunnerEventPayload(canonicalEvent, request, state),
         state,
       );
+      // Notify the request handler without publishing the persisted error twice.
+      // An agent may emit RUN_ERROR and complete normally instead of throwing.
+      if (canonicalEvent.type === EventType.RUN_ERROR) {
+        onRunError(canonicalEvent);
+      }
     };
 
     const getPersistedInputMessages = () =>
@@ -568,15 +573,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
       const existingError = currentEvents.find(
         (event) => event.type === EventType.RUN_ERROR,
       );
-      if (existingError) {
-        onRunError(existingError);
-      } else {
+      if (!existingError) {
         const errorEvent = {
           type: EventType.RUN_ERROR,
           message: error instanceof Error ? error.message : String(error),
         } as BaseEvent;
         pushCanonicalEvent(errorEvent);
-        onRunError(errorEvent);
       }
     } finally {
       if (!this.isCurrentThreadState(threadId, state)) {

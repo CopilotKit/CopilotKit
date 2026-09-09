@@ -47,7 +47,7 @@ export function matchRoute(
     remainder = pathname;
   }
 
-  return matchSegments(remainder);
+  return matchSegments(remainder, !basePath);
 }
 
 function safeDecodeURIComponent(value: string): string | null {
@@ -58,29 +58,32 @@ function safeDecodeURIComponent(value: string): string | null {
   }
 }
 
-function matchSegments(path: string): RouteInfo | null {
+function matchSegments(path: string, allowPrefix: boolean): RouteInfo | null {
   const segments = path.split("/").filter(Boolean);
   const len = segments.length;
 
-  // Try suffix matching — scan from the end for known patterns
+  const matchesLength = (expected: number): boolean =>
+    allowPrefix ? len >= expected : len === expected;
+
+  // Match the full remainder for explicit mounts, or a known suffix otherwise.
 
   // /info (1 segment)
-  if (len >= 1 && segments[len - 1] === "info") {
+  if (matchesLength(1) && segments[len - 1] === "info") {
     return { method: "info" };
   }
 
   // /inspector-metadata (1 segment)
-  if (len >= 1 && segments[len - 1] === "inspector-metadata") {
+  if (matchesLength(1) && segments[len - 1] === "inspector-metadata") {
     return { method: "inspector/metadata" };
   }
 
   // /inspector-learning (1 segment)
-  if (len >= 1 && segments[len - 1] === "inspector-learning") {
+  if (matchesLength(1) && segments[len - 1] === "inspector-learning") {
     return { method: "inspector/learning" };
   }
 
   // /transcribe (1 segment)
-  if (len >= 1 && segments[len - 1] === "transcribe") {
+  if (matchesLength(1) && segments[len - 1] === "transcribe") {
     return { method: "transcribe" };
   }
 
@@ -91,13 +94,13 @@ function matchSegments(path: string): RouteInfo | null {
   // `cpk-debug-events` segment would never fall through to one —
   // the prefix is the real guard, not this branch's position).
   // Handler returns 404 in production.
-  if (len >= 1 && segments[len - 1] === "cpk-debug-events") {
+  if (matchesLength(1) && segments[len - 1] === "cpk-debug-events") {
     return { method: "cpk-debug-events" };
   }
 
   // /agent/:agentId/run (3 segments)
   if (
-    len >= 3 &&
+    matchesLength(3) &&
     segments[len - 3] === "agent" &&
     segments[len - 1] === "run"
   ) {
@@ -108,7 +111,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /agent/:agentId/suggest (3 segments)
   if (
-    len >= 3 &&
+    matchesLength(3) &&
     segments[len - 3] === "agent" &&
     segments[len - 1] === "suggest"
   ) {
@@ -119,7 +122,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /agent/:agentId/connect (3 segments)
   if (
-    len >= 3 &&
+    matchesLength(3) &&
     segments[len - 3] === "agent" &&
     segments[len - 1] === "connect"
   ) {
@@ -130,7 +133,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /agent/:agentId/stop/:threadId (4 segments)
   if (
-    len >= 4 &&
+    matchesLength(4) &&
     segments[len - 4] === "agent" &&
     segments[len - 2] === "stop"
   ) {
@@ -142,7 +145,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /threads/subscribe (2 segments)
   if (
-    len >= 2 &&
+    matchesLength(2) &&
     segments[len - 2] === "threads" &&
     segments[len - 1] === "subscribe"
   ) {
@@ -151,7 +154,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /threads/:threadId/messages (3 segments)
   if (
-    len >= 3 &&
+    matchesLength(3) &&
     segments[len - 3] === "threads" &&
     segments[len - 1] === "messages"
   ) {
@@ -162,7 +165,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /threads/:threadId/events (3 segments)
   if (
-    len >= 3 &&
+    matchesLength(3) &&
     segments[len - 3] === "threads" &&
     segments[len - 1] === "events"
   ) {
@@ -173,7 +176,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /threads/:threadId/state (3 segments)
   if (
-    len >= 3 &&
+    matchesLength(3) &&
     segments[len - 3] === "threads" &&
     segments[len - 1] === "state"
   ) {
@@ -184,7 +187,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /threads/:threadId/archive (3 segments)
   if (
-    len >= 3 &&
+    matchesLength(3) &&
     segments[len - 3] === "threads" &&
     segments[len - 1] === "archive"
   ) {
@@ -195,7 +198,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /threads/clear (2 segments) — wipe in-memory thread history
   if (
-    len >= 2 &&
+    matchesLength(2) &&
     segments[len - 2] === "threads" &&
     segments[len - 1] === "clear"
   ) {
@@ -204,7 +207,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /threads/:threadId (2 segments) — update or delete
   if (
-    len >= 2 &&
+    matchesLength(2) &&
     segments[len - 2] === "threads" &&
     segments[len - 1] !== "subscribe" &&
     segments[len - 1] !== "clear"
@@ -216,14 +219,14 @@ function matchSegments(path: string): RouteInfo | null {
   }
 
   // /threads (1 segment) — list
-  if (len >= 1 && segments[len - 1] === "threads") {
+  if (matchesLength(1) && segments[len - 1] === "threads") {
     return { method: "threads/list" };
   }
 
   // /memories/recall (2 segments) — semantic recall (POST). Must precede the
   // /memories/:id mutate rule below, which would otherwise capture "recall".
   if (
-    len >= 2 &&
+    matchesLength(2) &&
     segments[len - 2] === "memories" &&
     segments[len - 1] === "recall"
   ) {
@@ -232,7 +235,7 @@ function matchSegments(path: string): RouteInfo | null {
 
   // /memories/subscribe (2 segments) — mint memory-realtime join credentials.
   if (
-    len >= 2 &&
+    matchesLength(2) &&
     segments[len - 2] === "memories" &&
     segments[len - 1] === "subscribe"
   ) {
@@ -242,7 +245,7 @@ function matchSegments(path: string): RouteInfo | null {
   // /memories/:id (2 segments) — supersede (PATCH) or retire (DELETE).
   // Disambiguated by HTTP method in the handler.
   if (
-    len >= 2 &&
+    matchesLength(2) &&
     segments[len - 2] === "memories" &&
     segments[len - 1] !== "subscribe"
   ) {
@@ -252,12 +255,12 @@ function matchSegments(path: string): RouteInfo | null {
   }
 
   // /memories (1 segment) — GET lists; POST creates.
-  if (len >= 1 && segments[len - 1] === "memories") {
+  if (matchesLength(1) && segments[len - 1] === "memories") {
     return { method: "memories/list" };
   }
 
   // /annotate (1 segment) — annotate a thread event
-  if (len >= 1 && segments[len - 1] === "annotate") {
+  if (matchesLength(1) && segments[len - 1] === "annotate") {
     return { method: "annotate" };
   }
 

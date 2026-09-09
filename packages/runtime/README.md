@@ -125,6 +125,29 @@ routes and does not attach Memory tools.
 `CopilotKitIntelligence({ enableEnterpriseLearning: true })` remain for one
 compatibility window. New code should use `memory.access`.
 
+## Intelligence MCP Apps
+
+An Intelligence runtime accepts trusted HTTP headers on each `mcpApps.servers`
+entry through `headers: Record<string, string>`. Configure these values on the
+server. Do not copy browser headers into this configuration.
+
+The Intelligence middleware supports Streamable HTTP and the existing SSE
+transport. It rejects unknown servers, cross-agent access, and unsupported iframe
+methods before it connects. Browser request fields cannot replace a configured
+server URL or its headers. HTTP redirects and cross-origin transport changes fail.
+
+The middleware closes each session after its operation. For Streamable HTTP,
+it also requests session deletion. Only tools with a `ui/resourceUri` entry in
+their `_meta` object enter the agent tool list. Tool results and UI activities
+use the Intelligence event stream.
+
+This HTTP-header support applies only to Intelligence mode. The existing OSS
+middleware remains unchanged. Both modes retain their existing SSE support.
+
+Intelligence error analytics contain the fixed code `AGENT_EXECUTION_FAILED`,
+not agent error messages. The application-owned `onError` callback still receives
+the original diagnostic. Applications must protect their own diagnostic logs.
+
 ## Analytics & Privacy
 
 CopilotKit uses [Scarf](https://scarf.sh) for anonymous usage analytics to help improve the product. Scarf handles all privacy compliance and does not store raw IP addresses. This helps us understand how CopilotKit is being used and prioritize improvements.

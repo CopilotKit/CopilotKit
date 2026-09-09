@@ -1,5 +1,28 @@
 # Runtime checkpoint: 2026-09-08
 
+## TypeScript and runner checkpoint
+
+The TypeScript implementation passes all 50 shared cases after its MCP, telemetry, stop, and routing fixes.
+The parent also ran all runtime tests: 160 files and 2,319 tests passed.
+Runtime typecheck passed. The focused build passed before the shared run used the public package output.
+The explicit mount now rejects extra internal path prefixes. Suffix matching without a mount remains unchanged.
+
+The seven new runner cases cover negotiated batches, retryable joins, planned gateway restarts,
+final acknowledgement gating, gateway stop, cross-user stop, and stale-run stop.
+All seven passed against TypeScript before native runner changes.
+Four failed against the old Go driver, proving gaps in batching, draining joins, gateway stop, and stale-stop responses.
+
+Python reports all 50 shared cases and 37 native tests passing after its runner changes.
+Ruby reports all seven runner cases through both Rack and an actual Rails application.
+Its full 50-case suites are still in progress. Go and C# runner changes are also in progress.
+These native runner edits need parent review, fresh validation, and separate commits.
+
+The UI and analytics checkpoint is commit `7ebf4209ac`.
+The stop-ownership fix is commit `60adc94b7a`.
+Both commits are pushed. No PR or public site exists yet.
+The current website draft includes five languages and the simple-english revisions.
+It still needs detailed setup, API, security, telemetry, and test-evidence chapters before publication.
+
 ## UI and analytics checkpoint
 
 The goal remains active. TypeScript is the fifth supported implementation.

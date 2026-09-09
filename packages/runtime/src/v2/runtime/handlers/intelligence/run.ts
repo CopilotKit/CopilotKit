@@ -299,6 +299,11 @@ export async function handleIntelligenceRun({
   const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
     if (agentErrorReported) return;
     agentErrorReported = true;
+    // Analytics describes the outcome; only the application-owned reporter
+    // receives diagnostics that may contain customer or upstream content.
+    runtimeTelemetry.capture("oss.runtime.agent_execution_stream_errored", {
+      error: "AGENT_EXECUTION_FAILED",
+    });
     runtimeErrorReporter?.report({
       request,
       error,
@@ -357,17 +362,16 @@ export async function handleIntelligenceRun({
         } else {
           cleanupLock("runner-error");
         }
-        runtimeTelemetry.capture("oss.runtime.agent_execution_stream_errored", {
-          error: error instanceof Error ? error.message : String(error),
-        });
         logger.error("Error running agent:", error);
       },
       complete: () => {
         clearHeartbeat();
-        runtimeTelemetry.capture(
-          "oss.runtime.agent_execution_stream_ended",
-          {},
-        );
+        if (!agentErrorReported) {
+          runtimeTelemetry.capture(
+            "oss.runtime.agent_execution_stream_ended",
+            {},
+          );
+        }
       },
     });
 

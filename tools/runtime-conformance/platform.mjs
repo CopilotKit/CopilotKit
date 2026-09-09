@@ -37,6 +37,9 @@ export async function startPlatform() {
   const joins = [];
   const telemetry = [];
   const agentInputs = [];
+  const agentDisconnects = [];
+  const frames = [];
+  const heldAcknowledgements = [];
   const faults = {
     dropAcks: 0,
     disconnectAfterPersist: 0,
@@ -46,6 +49,11 @@ export async function startPlatform() {
     agentDelayMs: 0,
     agentEvents: null,
     agentChunkDelayMs: 0,
+    agentKeepOpen: false,
+    batchCapability: false,
+    joinDrain: 0,
+    plannedCloseAfterPersist: 0,
+    holdFinalAcks: false,
   };
   const apiKey = "cpki_fixture_key_never_a_real_secret";
   const mock = new LLMock({ port: 0 });
@@ -163,6 +171,9 @@ export async function startPlatform() {
     }
     if (url.pathname === "/agent") {
       agentInputs.push(body);
+      response.once("close", () => {
+        if (!response.writableEnded) agentDisconnects.push(body.runId);
+      });
       const agentFault = faults.http.get(`${request.method} /agent`);
       if (agentFault) {
         json(response, agentFault.status, agentFault.body);
@@ -182,7 +193,7 @@ export async function startPlatform() {
           response.write(`data: ${JSON.stringify(event)}\n\n`);
           if (faults.agentChunkDelayMs) await delay(faults.agentChunkDelayMs);
         }
-        response.end();
+        if (!faults.agentKeepOpen) response.end();
         return;
       }
       const completion = await fetch(`${mock.url}/v1/chat/completions`, {
@@ -423,6 +434,7 @@ export async function startPlatform() {
       const frame = JSON.parse(String(raw));
       assert.ok(Array.isArray(frame) && frame.length === 5);
       const [joinRef, ref, topic, name, payload] = frame;
+      frames.push({ topic, name, payload: structuredClone(payload) });
       const reply = (status, response = {}) => {
         if (socket.readyState === 1)
           socket.send(
@@ -446,6 +458,11 @@ export async function startPlatform() {
       }
       if (name === "phx_join") {
         if (faults.joinDelayMs) await delay(faults.joinDelayMs);
+        if (faults.joinDrain > 0) {
+          faults.joinDrain--;
+          reply("error", { retryable: true, reason: "gateway_draining" });
+          return;
+        }
         const lock = locks.get(payload.thread_id);
         // An ACK-lost terminal replay can rejoin after gateway lock release.
         const replay = events.some(
@@ -464,7 +481,12 @@ export async function startPlatform() {
         }
         joined.set(topic, payload);
         joins.push({ ...payload, at: Date.now() });
-        reply("ok");
+        reply(
+          "ok",
+          faults.batchCapability
+            ? { capabilities: ["runner_event_batch_v1"] }
+            : {},
+        );
         return;
       }
       if (!joined.has(topic) || !["event", "events"].includes(name)) {
@@ -472,6 +494,7 @@ export async function startPlatform() {
         return;
       }
       const batch = name === "events" ? payload.events : [payload];
+      assert.ok(Array.isArray(batch) && batch.length > 0 && batch.length <= 32);
       for (const event of batch) {
         attempts.push(structuredClone(event));
         const scope = joined.get(topic);
@@ -512,6 +535,11 @@ export async function startPlatform() {
             locks.delete(scope.thread_id);
         }
       }
+      if (faults.plannedCloseAfterPersist > 0) {
+        faults.plannedCloseAfterPersist--;
+        socket.close(1012, "gateway_draining");
+        return;
+      }
       if (faults.disconnectAfterPersist > 0) {
         faults.disconnectAfterPersist--;
         socket.terminate();
@@ -519,6 +547,15 @@ export async function startPlatform() {
       }
       if (faults.dropAcks > 0) {
         faults.dropAcks--;
+        return;
+      }
+      if (
+        faults.holdFinalAcks &&
+        batch.some((event) =>
+          ["RUN_FINISHED", "RUN_ERROR"].includes(event.type),
+        )
+      ) {
+        heldAcknowledgements.push(() => reply("ok"));
         return;
       }
       reply("ok");
@@ -540,11 +577,33 @@ export async function startPlatform() {
     joins,
     telemetry,
     agentInputs,
+    agentDisconnects,
+    frames,
     faults,
     mock,
     mcp,
     mcpUrl: `${url}/mcp`,
     mcpCalls,
+    /** Send the gateway's authoritative stop message through actual sockets. */
+    stopRun(runId) {
+      for (const socket of gateway.clients) {
+        if (socket.readyState === 1)
+          socket.send(
+            JSON.stringify([
+              null,
+              null,
+              `ingestion:${runId}`,
+              "ag-ui",
+              { type: "CUSTOM", name: "stop" },
+            ]),
+          );
+      }
+    },
+    /** Release durable confirmations without changing the persisted journal. */
+    releaseAcknowledgements() {
+      faults.holdFinalAcks = false;
+      for (const acknowledge of heldAcknowledgements.splice(0)) acknowledge();
+    },
     seedThread,
     /** Await an observable protocol condition with a bounded diagnostic timeout. */
     async waitFor(predicate, timeoutMs = 5000) {
