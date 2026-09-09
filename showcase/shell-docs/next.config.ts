@@ -827,12 +827,13 @@ const nextConfig: NextConfig = {
       },
       // The v1 Python SDK class was renamed upstream (langgraph_agent.py ->
       // langgraph_agui_agent.py, LangGraphAgent -> LangGraphAGUIAgent), so the
-      // generated reference page moved with it.
-      {
-        source: "/reference/v1/sdk/python/LangGraphAgent",
-        destination: "/reference/v1/sdk/python/LangGraphAGUIAgent",
-        permanent: true,
-      },
+      // generated reference page moved with it. Carry the .md/.mdx suffixes
+      // too: a raw Markdown request reaches redirects before the .md/.mdx
+      // rewrite, so a bare-path-only rule would 404 the LLM routes.
+      ...permanentRedirectsWithSuffixes(
+        "/reference/v1/sdk/python/LangGraphAgent",
+        "/reference/v1/sdk/python/LangGraphAGUIAgent",
+      ),
       // AI-slop placeholder pulled from nav until properly authored;
       // file stays on disk for rewrite.
       {
