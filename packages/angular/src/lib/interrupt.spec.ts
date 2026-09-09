@@ -64,20 +64,28 @@ function finalizeStandard(
   agent: FakeAgent,
   interrupts: Interrupt[],
   runId = "run-id",
+  // The run the event names. On the connect path this differs from the run id
+  // of the request that opened the stream.
+  eventRunId = runId,
 ): void {
   agent.subscriber?.onRunFinishedEvent?.({
     outcome: "interrupt",
     interrupts,
     input: { runId },
+    event: { runId: eventRunId },
   } as never);
   agent.subscriber?.onRunFinalized?.({ input: { runId } } as never);
 }
 
-function finalizeLegacy(agent: FakeAgent, value: unknown): void {
+function finalizeLegacy(
+  agent: FakeAgent,
+  value: unknown,
+  runId = "run-id",
+): void {
   agent.subscriber?.onCustomEvent?.({
     event: { name: "on_interrupt", value },
   } as never);
-  agent.subscriber?.onRunFinalized?.({} as never);
+  agent.subscriber?.onRunFinalized?.({ input: { runId } } as never);
 }
 
 describe("InterruptController", () => {
@@ -90,6 +98,7 @@ describe("InterruptController", () => {
       outcome: "interrupt",
       interrupts: [makeInterrupt("one"), makeInterrupt("two")],
       input: { runId: "run-id" },
+      event: { runId: "run-id" },
     } as never);
     agent.subscriber?.onRunFinalized?.({
       input: { runId: "run-id" },
@@ -165,6 +174,7 @@ describe("InterruptController", () => {
       outcome: "interrupt",
       interrupts: [makeInterrupt("approve-refund")],
       input: { runId: interruptedRunId },
+      event: { runId: interruptedRunId },
     } as never);
     interruptControllerSubscriber.onRunFinalized?.({
       input: { runId: interruptedRunId },
@@ -210,6 +220,7 @@ describe("InterruptController", () => {
 
     const resumePromise = controller.resolve({ approved: true });
     expect(run).toHaveBeenCalledWith(agent, {
+      runId: "run-id",
       forwardedProps: {
         command: {
           resume: { approved: true },
@@ -353,6 +364,7 @@ describe("InterruptController", () => {
         outcome: "interrupt",
         interrupts: [makeInterrupt("replayed")],
         input: { runId: "run-id" },
+        event: { runId: "run-id" },
       } as never);
 
       expect(controller.interrupt()?.id).toBe("replayed");
@@ -367,6 +379,7 @@ describe("InterruptController", () => {
       agent.subscriber?.onRunFinishedEvent?.({
         outcome: "success",
         input: { runId: "run-id" },
+        event: { runId: "run-id" },
       } as never);
 
       expect(controller.event()).toEqual({
@@ -397,6 +410,72 @@ describe("InterruptController", () => {
       next.connect(agent as unknown as AbstractAgent);
 
       expect(next.hasInterrupt()).toBe(false);
+    });
+    it("resumes the replayed run, not the connection that replayed it", async () => {
+      // A reconnect opens one long-lived request and replays the run that
+      // paused. `input.runId` names the connection; only the event names the
+      // run the backend is waiting on.
+      const { agent, controller, run, startResume } = setup();
+      finalizeStandard(
+        agent,
+        [makeInterrupt("approve-refund")],
+        "connection-123",
+        "original-run",
+      );
+
+      const resumePromise = controller.resolve({ approved: true });
+      expect(run).toHaveBeenCalledWith(
+        agent,
+        expect.objectContaining({ runId: "original-run" }),
+      );
+      startResume();
+      await resumePromise;
+    });
+
+    it("resumes a legacy gate with the run that raised it", async () => {
+      const { agent, controller, run, startResume } = setup();
+      finalizeLegacy(agent, "approve?", "gated-run");
+
+      const resumePromise = controller.resolve({ approved: true });
+      expect(run).toHaveBeenCalledWith(
+        agent,
+        expect.objectContaining({ runId: "gated-run" }),
+      );
+      startResume();
+      await resumePromise;
+    });
+
+    it("does not restore thread A's legacy gate inside thread B", () => {
+      // One agent instance serves every conversation. A's approval prompt must
+      // not surface while the app shows B, because answering it there would
+      // resume A.
+      const { agent } = setup();
+      finalizeLegacy(agent, "approve A?");
+
+      agent.threadId = "thread-b";
+      const next = new InterruptController(vi.fn());
+      next.connect(agent as unknown as AbstractAgent);
+
+      expect(next.hasInterrupt()).toBe(false);
+    });
+
+    it("restores thread A's legacy gate when the app returns to thread A", () => {
+      const { agent } = setup();
+      finalizeLegacy(agent, "approve A?");
+
+      agent.threadId = "thread-b";
+      const inOther = new InterruptController(vi.fn());
+      inOther.connect(agent as unknown as AbstractAgent);
+      expect(inOther.hasInterrupt()).toBe(false);
+
+      agent.threadId = "thread-a";
+      const back = new InterruptController(vi.fn());
+      back.connect(agent as unknown as AbstractAgent);
+
+      expect(back.event()).toEqual({
+        name: "on_interrupt",
+        value: "approve A?",
+      });
     });
   });
 });

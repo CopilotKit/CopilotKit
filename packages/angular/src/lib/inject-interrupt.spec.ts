@@ -39,6 +39,7 @@ class FakeAgent {
       outcome: "interrupt",
       interrupts,
       input: { runId },
+      event: { runId },
     } as never);
     this.subscriber?.onRunFinalized?.({ input: { runId } } as never);
   }

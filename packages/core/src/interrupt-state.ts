@@ -50,11 +50,17 @@ function toolResultContent(response: ResumeResponse): string {
 }
 
 /**
- * @internal A legacy interrupt a thread is still waiting on, plus the run that
- * raised it. Application authors must not depend on this contract.
+ * @internal A legacy interrupt a thread is still waiting on, plus the thread
+ * and the run that raised it. Application authors must not depend on this
+ * contract.
  */
 export interface ɵLegacyInterruptRecord<TValue = unknown> {
   event: ɵInterruptEvent<TValue>;
+  /**
+   * The conversation that raised the interrupt. One agent instance serves
+   * every conversation an app opens, so the record has to name its own.
+   */
+  threadId: string;
   runId?: string;
 }
 
@@ -82,17 +88,24 @@ export function ɵrecordLegacyInterrupt<TValue>(
 }
 
 /**
- * @internal Read the legacy interrupt an agent is waiting on, if any.
+ * @internal Read the legacy interrupt an agent is waiting on in one thread.
+ *
+ * A record raised in another thread stays stored but does not surface here.
+ * The agent survives a thread switch, so returning that record would show one
+ * conversation's approval prompt inside another, and answering it would resume
+ * the wrong conversation.
+ *
  * Application authors must not depend on this API.
  */
 export function ɵreadLegacyInterrupt<TValue = unknown>(
   agent: object,
+  threadId: string,
 ): ɵLegacyInterruptRecord<TValue> | null {
-  return (
-    (legacyInterrupts.get(agent) as
-      | ɵLegacyInterruptRecord<TValue>
-      | undefined) ?? null
-  );
+  const record = legacyInterrupts.get(agent) as
+    | ɵLegacyInterruptRecord<TValue>
+    | undefined;
+  if (!record) return null;
+  return record.threadId === threadId ? record : null;
 }
 
 /**
