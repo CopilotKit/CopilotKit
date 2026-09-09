@@ -326,7 +326,8 @@ module CopilotKit
         history = @platform.request('GET', "/api/threads/#{escaped(lock['threadId'])}/messages?userId=#{escaped(user['id'])}").fetch('messages')
         prior_ids = history.map { |message| message['id'] }
         fresh = input['messages'].reject { |message| prior_ids.include?(message['id']) }
-        canonical['messages'] = history + fresh
+        # Stored messages are projection DTOs, not AG-UI model input. Use their
+        # IDs only to avoid persisting messages twice; preserve the client input.
         runner.prepare_input(canonical, fresh)
         runner.join_gateway
         @mutex.synchronize do

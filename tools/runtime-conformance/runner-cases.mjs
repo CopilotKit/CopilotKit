@@ -41,6 +41,57 @@ function idleAgent(platform) {
 
 export const runnerCases = [
   {
+    id: "runner.client-tool-history-is-preserved",
+    async run(context) {
+      const body = input();
+      const prior = {
+        id: "prior-assistant",
+        role: "assistant",
+        toolCalls: [
+          {
+            id: "prior-call",
+            type: "function",
+            function: { name: "render_a2ui", arguments: "{}" },
+          },
+        ],
+      };
+      const result = {
+        id: "prior-result",
+        role: "tool",
+        toolCallId: "prior-call",
+        content: "rendered",
+      };
+      const fresh = body.messages[0];
+      body.messages = [prior, result, fresh];
+      context.platform.seedThread(body.threadId, "test-user", {
+        messages: [
+          {
+            ...prior,
+            toolCalls: [{ id: "prior-call", name: "render_a2ui", args: "{}" }],
+          },
+          result,
+        ],
+      });
+
+      assert.equal(
+        (await context.request("POST", "/agent/default/run", body)).status,
+        200,
+      );
+      await context.platform.waitFor(
+        () => context.platform.agentInputs.length === 1,
+      );
+
+      assert.deepEqual(context.platform.agentInputs[0].messages, body.messages);
+      await context.platform.waitFor(() =>
+        context.platform.events.some((event) => event.type === "RUN_FINISHED"),
+      );
+      const started = context.platform.events.find(
+        (event) => event.type === "RUN_STARTED",
+      );
+      assert.deepEqual(started.input.messages, [fresh]);
+    },
+  },
+  {
     id: "runner.idle-stop-preserves-input",
     async run(context) {
       const { platform } = context;

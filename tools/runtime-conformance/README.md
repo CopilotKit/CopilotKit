@@ -58,13 +58,14 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Current coverage limit
 
-The suite has 70 cases. These include 16 initial cases, 16 UI cases, and 18 additional analytics cases.
-Ten runner cases, nine access cases, and one frontend-client case cover the remaining requirements.
+The suite has 71 cases. These include 16 initial cases, 16 UI cases, and 18 additional analytics cases.
+Eleven runner cases, nine access cases, and one frontend-client case cover the remaining requirements.
 The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
 Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
 Seven cases cover legacy license identity, environment fallback, whitespace rules, standalone identity precedence, malformed tokens, and opt-out precedence.
 Runner cases cover batches, draining joins, planned restarts, final acknowledgments, and stop boundaries.
 They also require input persistence before early stop or error and reject incomplete streams as successful runs.
+Agent input retains AG-UI tool calls when stored history uses the platform's projection format.
 The frontend-client case uses the public core package and real Phoenix sockets to run an agent and replay its history.
 It runs in Node, not an actual browser. It does not prove browser layout or every recovery path.
 Native tests cover additional cancellation, shutdown, and lease failures beyond the shared cases.
