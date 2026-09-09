@@ -125,20 +125,15 @@ function Chat({
   const colors = themeColors[theme];
   const [selectedThreadId, setSelectedThreadId] = useState<string>();
   const [isThreadsMenuOpen, setIsThreadsMenuOpen] = useState(false);
-  const [pastThreads, setPastThreads] = useState([
+  const pastThreads = [
     { id: "thread---a", label: "Thread A" },
     { id: "thread---b", label: "Thread B" },
     { id: "thread---c", label: "Thread C" },
-  ]);
+  ];
   const hasInspectorPreview = selectedThreadId?.startsWith("thread---");
 
   const startNewThread = useCallback(() => {
-    const id = `thread-${crypto.randomUUID()}`;
-    setPastThreads((threads) => [
-      { id, label: `New thread ${threads.length + 1}` },
-      ...threads,
-    ]);
-    setSelectedThreadId(id);
+    setSelectedThreadId(undefined);
     setIsThreadsMenuOpen(false);
   }, []);
 
