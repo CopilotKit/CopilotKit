@@ -44,6 +44,7 @@ const STARTERS: Starter[] = [
   { ...DEFAULT_STARTER, slug: "mastra" },
   { ...DEFAULT_STARTER, slug: "langgraph-js", hasAppMode: true },
   { ...DEFAULT_STARTER, slug: "crewai-crews" },
+  { ...DEFAULT_STARTER, slug: "crewai-flows" },
   { ...DEFAULT_STARTER, slug: "pydantic-ai" },
   { ...DEFAULT_STARTER, slug: "adk" },
   { ...DEFAULT_STARTER, slug: "agno" },
