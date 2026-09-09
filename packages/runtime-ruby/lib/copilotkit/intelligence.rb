@@ -1,0 +1,214 @@
+# frozen_string_literal: true
+require 'json'
+require 'net/http'
+require 'uri'
+require 'securerandom'
+
+module CopilotKit
+  # Safe platform error. Response bodies and credentials are not included.
+  class Error < StandardError
+    attr_reader :status
+    def initialize(status, message)
+      @status = status
+      super(message)
+    end
+  end
+
+  # Trusted per-call permissions for user and project memories.
+  class MemoryGrant
+    VALUES = { none: 'none', read: 'read', read_write: 'read-write' }.freeze
+    attr_reader :user, :project
+
+    def initialize(user:, project:)
+      @user = VALUES.fetch(user, user)
+      @project = VALUES.fetch(project, project)
+      raise ArgumentError, 'Invalid memory grant' unless VALUES.value?(@user) && VALUES.value?(@project)
+      freeze
+    end
+
+    def to_h
+      { 'user' => user, 'project' => project }
+    end
+  end
+
+  # Native HTTP transport. Each call closes its connection and never follows redirects.
+  class Platform
+    def initialize(url, key)
+      @url, @key = url.sub(%r{/$}, ''), key
+      uri = URI(@url)
+      raise ArgumentError, 'HTTP(S) URL is required' unless uri.is_a?(URI::HTTP) && uri.host && !uri.userinfo && !uri.query && !uri.fragment
+    end
+
+    def request(method, path, payload = nil, headers = {})
+      uri = URI(@url + path)
+      request = Net::HTTPGenericRequest.new(method, !payload.nil?, true, uri.request_uri, headers.merge('authorization' => "Bearer #{@key}", 'content-type' => 'application/json'))
+      request.body = JSON.generate(payload) unless payload.nil?
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https', open_timeout: 5, read_timeout: 15) do |http|
+        http.max_retries = 0
+        http.request(request)
+      end
+      raise Error.new(response.code.to_i, 'Intelligence platform request failed') unless response.code.to_i.between?(200, 299)
+      response.body.nil? || response.body.empty? ? nil : JSON.parse(response.body)
+    rescue JSON::ParserError
+      raise Error.new(502, 'Invalid platform response')
+    rescue IOError, SystemCallError, Timeout::Error, SocketError
+      raise Error.new(502, 'Intelligence platform is unreachable')
+    end
+  end
+
+  # Programmatic Intelligence SDK. Requiring this file does not load Runtime or Rack.
+  class Intelligence
+    API_URL = 'https://api.intelligence.copilotkit.ai'
+    RUNNER_URL = 'wss://realtime.intelligence.copilotkit.ai/runner'
+    CLIENT_URL = 'wss://realtime.intelligence.copilotkit.ai/client'
+    attr_reader :api_key, :api_url, :runner_url, :client_url
+
+    def initialize(api_key:, api_url: API_URL, runner_url: RUNNER_URL, client_url: CLIENT_URL, transport: nil)
+      raise ArgumentError, 'api_key is required' unless api_key.is_a?(String) && !api_key.strip.empty?
+      [[api_url, %w[http https]], [runner_url, %w[ws wss]], [client_url, %w[ws wss]]].each do |endpoint, schemes|
+        uri = URI(endpoint)
+        raise ArgumentError, 'Invalid Intelligence endpoint URL' unless schemes.include?(uri.scheme) && uri.host && !uri.userinfo && !uri.query && !uri.fragment
+      end
+      @api_key, @api_url = api_key.dup.freeze, api_url.sub(%r{/$}, '').freeze
+      @runner_url, @client_url = runner_url.dup.freeze, client_url.dup.freeze
+      @transport = transport || Platform.new(@api_url, api_key)
+    end
+
+    # Shared SDK transport used by Runtime. Credentials always come from this client.
+    def request(method, path, payload = nil, headers = {})
+      @transport.request(method, path, payload, headers)
+    end
+
+    # List a user's threads for one agent, retaining the platform pagination cursor.
+    def list_threads(user_id:, agent_id:, include_archived: false, limit: nil, cursor: nil)
+      query = { userId: user_id, agentId: agent_id, limit: limit, cursor: cursor }.compact
+      query[:includeArchived] = 'true' if include_archived
+      object('GET', '/api/threads?' + URI.encode_www_form(query))
+    end
+
+    def get_thread(thread_id:, user_id:)
+      thread('GET', '/api/threads/' + segment(thread_id) + '?' + URI.encode_www_form(userId: user_id))
+    end
+
+    # Assign a new thread to an existing Learning Container through its stable ID.
+    def create_thread(thread_id:, user_id:, agent_id:, name: nil, learning_container_id: nil)
+      body = { 'threadId' => thread_id, 'userId' => user_id, 'agentId' => agent_id }
+      body['name'] = name unless name.nil?
+      body['learningContainerId'] = learning_container_id unless learning_container_id.nil?
+      thread('POST', '/api/threads', body)
+    end
+
+    # Resolve concurrent creation only after a 404 read followed by a 409 create.
+    def get_or_create_thread(thread_id:, user_id:, agent_id:, name: nil, learning_container_id: nil)
+      begin
+        return { 'thread' => get_thread(thread_id: thread_id, user_id: user_id), 'created' => false }
+      rescue Error => error
+        raise unless error.status == 404
+      end
+      begin
+        value = create_thread(thread_id: thread_id, user_id: user_id, agent_id: agent_id, name: name, learning_container_id: learning_container_id)
+        { 'thread' => value, 'created' => true }
+      rescue Error => error
+        raise unless error.status == 409
+        { 'thread' => get_thread(thread_id: thread_id, user_id: user_id), 'created' => false }
+      end
+    end
+
+    def update_thread(thread_id:, user_id:, agent_id:, updates:)
+      body = updates.transform_keys(&:to_s).merge('userId' => user_id, 'agentId' => agent_id)
+      thread('PATCH', '/api/threads/' + segment(thread_id), body)
+    end
+
+    def archive_thread(thread_id:, user_id:, agent_id:)
+      update_thread(thread_id: thread_id, user_id: user_id, agent_id: agent_id, updates: { archived: true })
+      nil
+    end
+
+    # Permanently delete a thread and its history.
+    def delete_thread(thread_id:, user_id:, agent_id:)
+      request('DELETE', '/api/threads/' + segment(thread_id), {
+        'userId' => user_id, 'agentId' => agent_id,
+        'reason' => "Deleted via CopilotKit SDK (userId=#{user_id}, agentId=#{agent_id})"
+      })
+      nil
+    end
+
+    def get_thread_messages(thread_id:, user_id:)
+      object('GET', '/api/threads/' + segment(thread_id) + '/messages?' + URI.encode_www_form(userId: user_id))
+    end
+
+    def get_thread_events(thread_id:)
+      object('GET', '/api/_inspect/threads/' + segment(thread_id) + '/events')
+    end
+
+    def get_thread_state(thread_id:)
+      object('GET', '/api/_inspect/threads/' + segment(thread_id) + '/state')
+    end
+
+    def list_memories(user_id:, include_invalidated: false, memory_grant: nil)
+      path = '/api/memories' + (include_invalidated ? '?includeInvalidated=true' : '')
+      object('GET', path, nil, memory_headers(user_id, memory_grant))
+    end
+
+    def create_memory(user_id:, content:, kind:, scope: nil, source_thread_ids: [], memory_grant: nil)
+      body = { 'content' => content, 'kind' => kind, 'sourceThreadIds' => source_thread_ids }
+      body['scope'] = scope unless scope.nil?
+      object('POST', '/api/memories', body, memory_headers(user_id, memory_grant))
+    end
+
+    # Supersede a memory and retain the platform's retiredId marker.
+    def update_memory(user_id:, memory_id:, content:, kind:, scope: nil, source_thread_ids: [], memory_grant: nil)
+      body = { 'content' => content, 'kind' => kind, 'sourceThreadIds' => source_thread_ids }
+      body['scope'] = scope unless scope.nil?
+      object('PATCH', '/api/memories/' + segment(memory_id), body, memory_headers(user_id, memory_grant))
+    end
+
+    # Retire a memory without deleting its history.
+    def remove_memory(user_id:, memory_id:, memory_grant: nil)
+      request('DELETE', '/api/memories/' + segment(memory_id), nil, memory_headers(user_id, memory_grant))
+      nil
+    end
+
+    def recall_memories(user_id:, query:, limit: nil, scope: nil, memory_grant: nil)
+      body = { 'query' => query, 'limit' => limit, 'scope' => scope }.compact
+      object('POST', '/api/memories/recall', body, memory_headers(user_id, memory_grant))
+    end
+
+    # Reuse client_event_id when retrying the same annotation.
+    def annotate(user_id:, thread_id:, type:, client_event_id: nil, payload: nil, occurred_at: nil)
+      body = { 'userId' => user_id, 'threadId' => thread_id, 'type' => type }
+      body['payload'] = payload unless payload.nil?
+      body['occurredAt'] = occurred_at unless occurred_at.nil?
+      object('PUT', '/connector/annotate/' + segment(client_event_id || SecureRandom.uuid), body)
+    end
+
+    private
+
+    def segment(value)
+      raise ArgumentError, 'A nonempty identifier is required' unless value.is_a?(String) && !value.strip.empty?
+      URI.encode_www_form_component(value).gsub('+', '%20')
+    end
+
+    def object(method, path, payload = nil, headers = {})
+      value = request(method, path, payload, headers)
+      raise Error.new(502, 'Invalid Intelligence response') unless value.is_a?(Hash)
+      value
+    end
+
+    def thread(method, path, payload = nil)
+      value = object(method, path, payload)['thread']
+      raise Error.new(502, 'Invalid thread response') unless value.is_a?(Hash) && value['id'].is_a?(String) && !value['id'].strip.empty?
+      value
+    end
+
+    def memory_headers(user_id, grant)
+      segment(user_id)
+      headers = { 'x-cpki-user-id' => user_id }
+      unless grant.nil?
+        raise ArgumentError, 'memory_grant must be a MemoryGrant' unless grant.is_a?(MemoryGrant)
+        headers['x-cpki-memory-grant'] = JSON.generate(grant.to_h)
+      end
+      headers
+    end
+  end
+end

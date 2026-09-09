@@ -5,28 +5,29 @@ require 'uri'
 require 'securerandom'
 require 'thread'
 require_relative 'telemetry'
+require_relative 'intelligence'
 
 module CopilotKit
-  # Public error with a safe message and the platform's HTTP status.
-  class Error < StandardError
-    attr_reader :status
-    def initialize(status, message)
-      @status = status
-      super(message)
-    end
-  end
-
   # Rack endpoint. Mount directly in Rails routes with `mount runtime => '/copilotkit'`.
   class Runtime
-    def initialize(api_key:, identify_user:, api_url: 'https://api.intelligence.copilotkit.ai',
-                   runner_url: 'wss://realtime.intelligence.copilotkit.ai/runner',
-                   client_url: 'wss://realtime.intelligence.copilotkit.ai/client', agents: {},
+    attr_reader :intelligence
+
+    def initialize(api_key: nil, identify_user:, intelligence: nil, api_url: nil,
+                   runner_url: nil, client_url: nil, agents: {},
                    base_path: '', memory_access: nil, telemetry: nil, cors_origins: [],
                    learning_container: nil, a2ui: nil, mcp_apps: nil, on_error: nil,
                    lock_heartbeat_interval: 15, lock_ttl: 20, license_token: nil)
+      api_key ||= intelligence&.api_key
+      api_url ||= intelligence&.api_url || Intelligence::API_URL
+      runner_url ||= intelligence&.runner_url || Intelligence::RUNNER_URL
+      client_url ||= intelligence&.client_url || Intelligence::CLIENT_URL
+      if intelligence && [api_key, api_url.sub(%r{/$}, ''), runner_url, client_url] != [intelligence.api_key, intelligence.api_url, intelligence.runner_url, intelligence.client_url]
+        raise ArgumentError, 'Runtime transport configuration must match intelligence'
+      end
       raise ArgumentError, 'api_key is required' if api_key.to_s.strip.empty?
       raise ArgumentError, 'identify_user must be callable' unless identify_user.respond_to?(:call)
-      @platform = Platform.new(api_url, api_key)
+      @intelligence = intelligence || Intelligence.new(api_key: api_key, api_url: api_url, runner_url: runner_url, client_url: client_url)
+      @platform = @intelligence
       @api_key = api_key
       @identify_user, @agents, @base_path = identify_user, agents, base_path.sub(%r{/$}, '')
       @a2ui = a2ui == true ? {} : a2ui
@@ -347,27 +348,6 @@ module CopilotKit
           end
         end
       end
-    end
-  end
-
-  # Small injectable REST transport with timeouts and no secret-bearing error bodies.
-  class Platform
-    def initialize(url, key)
-      @url, @key = url.sub(%r{/$}, ''), key
-      raise ArgumentError, 'HTTP(S) URL is required' unless URI(@url).is_a?(URI::HTTP)
-    end
-
-    def request(method, path, payload = nil, headers = {})
-      uri = URI(@url + path)
-      request = Net::HTTPGenericRequest.new(method, !payload.nil?, true, uri.request_uri, { 'authorization' => "Bearer #{@key}", 'content-type' => 'application/json' }.merge(headers))
-      request.body = JSON.generate(payload) unless payload.nil?
-      response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https', open_timeout: 5, read_timeout: 15) { |http| http.request(request) }
-      raise Error.new(response.code.to_i, 'Intelligence platform request failed') unless response.code.to_i.between?(200, 299)
-      response.body.nil? || response.body.empty? ? nil : JSON.parse(response.body)
-    rescue JSON::ParserError
-      raise Error.new(502, 'Invalid platform response')
-    rescue IOError, SystemCallError, Timeout::Error, SocketError
-      raise Error.new(502, 'Intelligence platform is unreachable')
     end
   end
 

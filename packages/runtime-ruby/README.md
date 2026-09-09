@@ -4,6 +4,43 @@ Connect a Rails or Rack application to CopilotKit Intelligence with native Ruby
 agents or an AG-UI HTTP agent. The runtime uses the Intelligence Runner.
 It does not start a Node process.
 
+## Use Intelligence without Rack or Rails
+
+The gem also includes a standalone SDK. `require 'copilotkit/intelligence'` does not load Runtime or Rack.
+Use the SDK from a script, job, or service without mounting HTTP routes.
+
+```ruby
+require 'copilotkit/intelligence'
+
+intelligence = CopilotKit::Intelligence.new(api_key: ENV.fetch('CPK_INTELLIGENCE_API_KEY'))
+thread = intelligence.get_or_create_thread(
+  thread_id: 'support-123', user_id: 'customer-42', agent_id: 'support',
+  learning_container_id: 'support-quality'
+)
+memories = intelligence.recall_memories(user_id: 'customer-42', query: 'support preferences', limit: 5)
+puts thread.fetch('thread').fetch('id')
+puts memories.fetch('memories')
+```
+
+`learning_container_id` assigns a new thread to an existing Learning Container.
+Intelligence owns the binding and rejects attempts to move a bound thread.
+
+Thread methods include `list_threads`, `get_thread`, `create_thread`, `update_thread`, and `archive_thread`.
+Read persisted data with `get_thread_messages`, `get_thread_events`, and `get_thread_state`.
+`delete_thread` permanently deletes a thread and its history.
+
+Memory methods include `list_memories`, `create_memory`, `update_memory`, `remove_memory`, and `recall_memories`.
+Pass `CopilotKit::MemoryGrant.new(user: :read_write, project: :read)` as `memory_grant` to apply explicit limits.
+Without a grant, Intelligence applies its policy. Each Memory call requires the bare application user ID.
+
+`annotate` records an annotation. Reuse `client_event_id` when retrying the same annotation.
+`CopilotKit::Error` contains the HTTP status but no private response body.
+The default transport uses a five-second connection timeout and a 15-second read timeout.
+It closes each connection after the call, does not retry requests, and does not follow redirects.
+
+Pass the same SDK client to `CopilotKit::Runtime.new(intelligence: intelligence, identify_user: identify_user, agents: agents)` to mount Runtime routes.
+The Runtime borrows the SDK. Existing `api_key:` constructors remain valid.
+
 ## Install
 
 1. Add the gem from your checkout to your application's `Gemfile`:
