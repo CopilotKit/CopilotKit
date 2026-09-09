@@ -3,9 +3,8 @@ import { render } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import type { ToolMessage } from "@ag-ui/client";
-import { useRenderTool } from "../useRenderTool";
-import type { RenderToolProps } from "../render-tool-types";
-import { useComponent, useRenderToolCall } from "../../headless";
+import { useComponent, useRenderTool, useRenderToolCall } from "../../headless";
+import type { RenderToolProps } from "../../headless";
 import { TestCopilotKit } from "../../__mocks__/test-copilotkit";
 import { toolMessage } from "../../__mocks__/tool-fixtures";
 
@@ -15,8 +14,12 @@ import { toolMessage } from "../../__mocks__/tool-fixtures";
  * CopilotKitCoreReact registry, so they also prove the convergence itself.
  */
 
-/** Args the probe's tool declares, so its render props are typed rather than `any`. */
-type AboutArgs = { dataId: string };
+/**
+ * The schema the probe's renderer declares, so its render props are typed rather
+ * than `any`. react-core's `RenderToolProps` is generic over the SCHEMA (not
+ * over the parsed arguments), so the type is read back off this value.
+ */
+const aboutSchema = z.object({ dataId: z.string() });
 
 /**
  * Renders one tool call and reports the props the registered renderer saw.
@@ -31,16 +34,15 @@ type AboutArgs = { dataId: string };
 function renderCall(
   args: string | undefined,
   resultMessage?: ToolMessage,
-): RenderToolProps<AboutArgs> {
+): RenderToolProps<typeof aboutSchema> {
   // A mutable box rather than a `let`, so the captured value keeps its declared
   // type after `render()` instead of being narrowed to the `null` initializer.
-  const seen: { props?: RenderToolProps<AboutArgs> } = {};
+  const seen: { props?: RenderToolProps<typeof aboutSchema> } = {};
 
   function Probe() {
-    useRenderTool<AboutArgs>({
+    useRenderTool({
       name: "showAbout",
-      description: "Show about",
-      parameters: z.object({ dataId: z.string() }),
+      parameters: aboutSchema,
       render: (props) => {
         seen.props = props;
         return null;
@@ -81,19 +83,19 @@ describe("useRenderToolCall on React Native", () => {
     // `renderCall` throws if the renderer never ran, so reaching this line is
     // itself the "it rendered" assertion.
     const props = renderCall('{"dataId":"zosch"}');
-    expect(props.args).toEqual({ dataId: "zosch" });
+    expect(props.parameters).toEqual({ dataId: "zosch" });
   });
 
-  it("exposes PARTIAL args with status inProgress while arguments are incomplete", () => {
+  it("exposes PARTIAL parameters with status inProgress while arguments are incomplete", () => {
     const props = renderCall('{"dataId":"neues-mus');
     expect(props.status).toBe("inProgress");
-    expect(props.args).toEqual({ dataId: "neues-mus" });
+    expect(props.parameters).toEqual({ dataId: "neues-mus" });
   });
 
   it("does not throw on a fragment with no complete key yet", () => {
     const props = renderCall('{"places":[{"title":"Roof');
     expect(props.status).toBe("inProgress");
-    expect(props.args).toBeTypeOf("object");
+    expect(props.parameters).toBeTypeOf("object");
   });
 
   it("reports complete and passes the result through when a tool message exists", () => {
@@ -113,7 +115,7 @@ describe("useRenderToolCall on React Native", () => {
 
   it("treats absent arguments as an empty object, not a crash", () => {
     const props = renderCall(undefined);
-    expect(props.args).toEqual({});
+    expect(props.parameters).toEqual({});
   });
 
   it("returns null for a tool with no registered renderer", () => {

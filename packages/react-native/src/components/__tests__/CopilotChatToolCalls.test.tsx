@@ -34,40 +34,44 @@ vi.mock("react-native", async () => {
 });
 
 import { CopilotChat } from "../CopilotChat";
-import { useRenderTool } from "../../hooks/useRenderTool";
+import { useRenderTool } from "../../headless";
 import { TestCopilotKit } from "../../__mocks__/test-copilotkit";
 import { assistantToolCall, toolMessage } from "../../__mocks__/tool-fixtures";
 
-// Reports status + args only. Assertions about the RESULT must NOT use this one:
-// its output cannot distinguish "the correlated result reached the renderer" from
-// "status flipped for some other reason", which is how a corrupted tool-message
-// content passed unnoticed. Use `ReportRegistrar` below for those.
+// Every registrar in this file uses `useRenderTool`, i.e. react-core's
+// RENDERER-ONLY hook (RN re-exports it and owns no hook of its own). None of them
+// registers a callable tool, which is exactly right here: the chat's job is to
+// paint a tool call, and whether the tool is the frontend's or the server's makes
+// no difference to that.
+//
+// Reports status + parameters only. Assertions about the RESULT must NOT use this
+// one: its output cannot distinguish "the correlated result reached the renderer"
+// from "status flipped for some other reason", which is how a corrupted
+// tool-message content passed unnoticed. Use `ReportRegistrar` below for those.
 function Registrar() {
   useRenderTool({
     name: "showPlaces",
-    description: "Show places",
     parameters: z.object({ title: z.string() }),
-    // Tolerates partial props — that is the contract while streaming.
-    render: ({ args, status }) => (
-      <div data-testid="places">{`${status}:${(args as { title?: string }).title ?? ""}`}</div>
+    // Tolerates partial parameters — that is the contract while streaming.
+    render: ({ parameters, status }) => (
+      <div data-testid="places">{`${status}:${parameters.title ?? ""}`}</div>
     ),
   });
   return null;
 }
 
-// Reports status, args AND result together, so one assertion observes the whole
-// output of the `toolCallId -> ToolMessage` correlation: the status it derived,
-// the args it parsed, and the result content it actually handed the renderer.
-// `undefined` is spelled out rather than stringified, so an absent result stays
-// distinguishable from an empty-string one.
+// Reports status, parameters AND result together, so one assertion observes the
+// whole output of the `toolCallId -> ToolMessage` correlation: the status it
+// derived, the parameters it parsed, and the result content it actually handed
+// the renderer. `undefined` is spelled out rather than stringified, so an absent
+// result stays distinguishable from an empty-string one.
 function ReportRegistrar() {
   useRenderTool({
     name: "reportPlaces",
-    description: "Report places",
     parameters: z.object({ title: z.string() }),
-    render: ({ args, status, result }) => (
+    render: ({ parameters, status, result }) => (
       <div data-testid="report">
-        {`${status}:${(args as { title?: string }).title ?? ""}|${
+        {`${status}:${parameters.title ?? ""}|${
           result === undefined ? "<no result>" : result
         }`}
       </div>
@@ -76,14 +80,15 @@ function ReportRegistrar() {
   return null;
 }
 
-// Renders the raw args object it receives, so tests can assert exactly what the
-// renderer got for degenerate argument strings (empty / unparseable).
+// Renders the raw parameters object it receives, so tests can assert exactly what
+// the renderer got for degenerate argument strings (empty / unparseable).
 function ArgsRegistrar() {
   useRenderTool({
     name: "echoArgs",
-    description: "Echo args",
     parameters: z.object({}),
-    render: ({ args }) => <div data-testid="args">{JSON.stringify(args)}</div>,
+    render: ({ parameters }) => (
+      <div data-testid="args">{JSON.stringify(parameters)}</div>
+    ),
   });
   return null;
 }
@@ -94,7 +99,6 @@ function ArgsRegistrar() {
 function ResultRegistrar() {
   useRenderTool({
     name: "echoResult",
-    description: "Echo result",
     parameters: z.object({}),
     render: ({ status, result }) => (
       <div data-testid="result">{`${status}|${String(result)}`}</div>
