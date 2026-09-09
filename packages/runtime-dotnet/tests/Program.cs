@@ -93,6 +93,7 @@ await TelemetryTests.RunAsync();
 await RunnerTests.RunAsync();
 await SdkInjectionTests.RunAsync();
 await SdkLifecycleTests.RunAsync();
+await InspectorRuntimeTests.RunAsync();
 
 sealed class CaptureAgent : IRuntimeAgent
 {
