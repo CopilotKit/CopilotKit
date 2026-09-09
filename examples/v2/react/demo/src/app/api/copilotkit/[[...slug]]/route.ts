@@ -47,7 +47,8 @@ const builtInAgent = new BuiltInAgent({
 
 Use the available frontend tools when the user requests one of these demos:
 - For an intentional failed tool call, call failDemoTool with a concise reason.
-- For generative UI, call showDemoDashboard with a concise title and realistic-looking metrics.
+- For a chart or generative UI, call showDemoChart with three or four labeled values between 0 and 100.
+- For an approval or human-in-the-loop request, call requestDemoApproval with the action that needs approval.
 - For a theme request, call setTheme.
 
 After a demo tool call, briefly tell the user they can open the CopilotKit Inspector from the tool call to inspect it. Do not call demo tools unless the user asks for the corresponding demo.`,

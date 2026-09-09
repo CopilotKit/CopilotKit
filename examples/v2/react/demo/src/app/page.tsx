@@ -11,6 +11,7 @@ import {
   useCopilotChatConfiguration,
   useConfigureSuggestions,
   useFrontendTool,
+  useHumanInTheLoop,
   useThreads,
 } from "@copilotkit/react-core/v2";
 import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core/v2";
@@ -23,15 +24,15 @@ export const dynamic = "force-dynamic";
 
 type Theme = "light" | "dark";
 
-function DemoDashboard({
+function DemoChart({
   title,
-  primaryMetric,
-  secondaryMetric,
+  bars = [],
 }: {
   title: string;
-  primaryMetric: string;
-  secondaryMetric: string;
+  bars?: Array<{ label: string; value: number }>;
 }) {
+  const maxValue = Math.max(...bars.map((bar) => bar.value), 1);
+
   return (
     <section
       style={{
@@ -44,19 +45,25 @@ function DemoDashboard({
       }}
     >
       <strong style={{ fontSize: "1rem" }}>{title}</strong>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div style={{ padding: 12, borderRadius: 8, backgroundColor: "white" }}>
-          <div style={{ color: "#64748b", fontSize: "0.8rem" }}>Pipeline</div>
-          <div style={{ fontSize: "1.35rem", fontWeight: 700 }}>
-            {primaryMetric}
+      <div style={{ display: "flex", height: 160, gap: 16, alignItems: "end" }}>
+        {bars.map((bar) => (
+          <div
+            key={bar.label}
+            style={{ display: "grid", flex: 1, gap: 6, textAlign: "center" }}
+          >
+            <strong style={{ fontSize: "0.85rem" }}>{bar.value}</strong>
+            <div
+              style={{
+                height: `${Math.max((bar.value / maxValue) * 110, 8)}px`,
+                borderRadius: "6px 6px 2px 2px",
+                backgroundColor: "#2563eb",
+              }}
+            />
+            <span style={{ color: "#64748b", fontSize: "0.75rem" }}>
+              {bar.label}
+            </span>
           </div>
-        </div>
-        <div style={{ padding: 12, borderRadius: 8, backgroundColor: "white" }}>
-          <div style={{ color: "#64748b", fontSize: "0.8rem" }}>Completion</div>
-          <div style={{ fontSize: "1.35rem", fontWeight: 700 }}>
-            {secondaryMetric}
-          </div>
-        </div>
+        ))}
       </div>
     </section>
   );
@@ -221,16 +228,16 @@ function ChatContent({
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Fail a tool call",
-        message: "Run the intentional failing tool demo.",
+        title: "Show me the tool",
+        message: "Show me a tool that fails.",
       },
       {
-        title: "Show generative UI",
-        message: "Show me the generative UI dashboard demo.",
+        title: "Show me a chart",
+        message: "Show me a chart.",
       },
       {
-        title: "Inspect this thread",
-        message: "Explain how to inspect and replay this thread in my app.",
+        title: "Ask for approval",
+        message: "Ask for my approval before completing an action.",
       },
     ],
     available: "always",
@@ -300,15 +307,53 @@ function ChatContent({
   });
 
   useComponent({
-    name: "showDemoDashboard",
+    name: "showDemoChart",
     description:
-      "Show a compact generative UI dashboard. Use it when the user asks to demo generative UI, render a dashboard, or inspect rendered UI.",
+      "Show a compact generative UI bar chart. Use it when the user asks to see a chart, demo generative UI, or render visual data.",
     parameters: z.object({
-      title: z.string().describe("A short dashboard title"),
-      primaryMetric: z.string().describe("A pipeline metric"),
-      secondaryMetric: z.string().describe("A completion metric"),
+      title: z.string().describe("A short chart title"),
+      bars: z
+        .array(
+          z.object({
+            label: z.string().describe("A short bar label"),
+            value: z.number().min(0).max(100).describe("A value from 0 to 100"),
+          }),
+        )
+        .min(3)
+        .max(4)
+        .describe("Three or four chart bars"),
     }),
-    render: DemoDashboard,
+    render: DemoChart,
+  });
+
+  useHumanInTheLoop({
+    name: "requestDemoApproval",
+    description:
+      "Ask for the user's approval before completing an action. Use it when the user asks for an approval or human-in-the-loop demo.",
+    parameters: z.object({
+      action: z.string().describe("The action that needs approval"),
+    }),
+    render: ({ args, respond }: any) => (
+      <div
+        style={{
+          padding: 14,
+          border: "1px solid #bfdbfe",
+          borderRadius: 10,
+          backgroundColor: "#eff6ff",
+        }}
+      >
+        <strong>Approve this action?</strong>
+        <div style={{ marginTop: 4 }}>{args.action}</div>
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button type="button" onClick={() => respond?.({ approved: true })}>
+            Approve
+          </button>
+          <button type="button" onClick={() => respond?.({ approved: false })}>
+            Decline
+          </button>
+        </div>
+      </div>
+    ),
   });
   const toolsMenu = useMemo<(ToolsMenuItem | "-")[]>(
     () => [
