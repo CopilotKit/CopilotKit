@@ -1,5 +1,6 @@
 """Runtime-independent, asynchronous Intelligence API client."""
 
+import asyncio
 import json
 import logging
 import math
@@ -12,10 +13,13 @@ from uuid import uuid4
 
 import httpx
 
+from .inspector import InspectorMetadata, parse_inspector_metadata
+
 Json = dict[str, Any]
 Access = Literal["none", "read", "read-write"]
 ThreadListener = Callable[[Json], None]
 logger = logging.getLogger(__name__)
+_INSPECTOR_METADATA_TIMEOUT = 5.0
 
 
 class IntelligenceError(Exception):
@@ -234,6 +238,41 @@ class Intelligence:
                 {"user": grant.user, "project": grant.project}, separators=(",", ":")
             )
         return headers
+
+    async def get_inspector_metadata(self) -> InspectorMetadata | None:
+        """Read sanitized project metadata within five seconds, or a shorter client deadline.
+
+        A 204, 404, or unsupported schema returns None. Other provider failures
+        raise IntelligenceError. Cancellation propagates and a deadline raises TimeoutError.
+        """
+        deadline = min(self.request_timeout, _INSPECTOR_METADATA_TIMEOUT)
+        try:
+            async with asyncio.timeout(deadline):
+                async with self.http_client.stream(
+                    "GET",
+                    self.api_url + "/api/inspector/metadata",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    timeout=deadline,
+                    follow_redirects=False,
+                ) as response:
+                    if response.status_code in (204, 404):
+                        return None
+                    if not 200 <= response.status_code < 300:
+                        raise IntelligenceError(
+                            response.status_code, "Intelligence request rejected"
+                        )
+                    await response.aread()
+                    try:
+                        decoded = response.json()
+                    except ValueError:
+                        raise IntelligenceError(
+                            502, "Invalid Inspector metadata response"
+                        ) from None
+                    return parse_inspector_metadata(decoded)
+        except (TimeoutError, httpx.TimeoutException):
+            raise TimeoutError("Inspector metadata request timed out") from None
+        except httpx.HTTPError:
+            raise IntelligenceError(502, "Intelligence connection failed") from None
 
     async def list_memories(
         self,

@@ -72,6 +72,33 @@ Failed requests and concurrent-create conflicts emit no success event.
 Listener exceptions do not stop other listeners or replace a successful platform response.
 The SDK reports these exceptions through the standard Python logging module.
 
+## Read Inspector metadata
+
+Read project display metadata from application code:
+
+```python
+from copilotkit_intelligence import InspectorMetadata
+
+metadata: InspectorMetadata | None = await intelligence.get_inspector_metadata()
+if metadata is not None and "plan" in metadata:
+    print(metadata["plan"]["label"])
+```
+
+The typed result contains supported identity, plan, license, action, and usage fields.
+Each module is optional. The SDK removes unknown fields and unsafe action URLs.
+Metadata describes the project. It does not grant access to a feature or resource.
+
+The request uses the server API key and a five-second deadline, including the response body.
+A shorter `request_timeout` also applies. Deadline expiry raises `TimeoutError`.
+A 204, 404, or unsupported schema returns `None`.
+Other provider errors raise `IntelligenceError` with the HTTP status. Invalid JSON uses status 502.
+
+The Runtime exposes the same data at `GET /copilotkit/inspector-metadata`.
+Like `/info`, this display endpoint does not require an application-user identity.
+It never forwards browser credentials to Intelligence.
+Responses use `Cache-Control: no-store, private`. Provider errors produce an empty 204 response.
+The `/info` response advertises this route through `inspectorMetadata: true`.
+
 ## Install and start
 
 1. From the repository root, install the package and an ASGI server:

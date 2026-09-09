@@ -20,6 +20,7 @@ from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
 from copilotkit_intelligence import Intelligence
+from copilotkit_intelligence.inspector import parse_inspector_metadata
 
 from .a2ui import A2UIConfig, A2UIMiddleware
 from .agents import Agent
@@ -259,6 +260,12 @@ class IntelligenceRuntime:
             if method != "GET":
                 raise RuntimeErrorResponse(405, "Method not allowed")
             return await self._info()
+        if path == ["inspector-metadata"]:
+            if method != "GET":
+                return JSONResponse(
+                    {"error": "Method not allowed"}, status_code=405, headers={"Allow": "GET"}
+                )
+            return await self._inspector_metadata()
         user = await self._user(request)
         body = await self._body(request) if method != "GET" else {}
         if path[0] == "agent" and len(path) >= 3:
@@ -398,9 +405,24 @@ class IntelligenceRuntime:
                 "openGenerativeUIEnabled": False,
                 "audioFileTranscriptionEnabled": False,
                 "suggestions": False,
-                "inspectorMetadata": False,
+                "inspectorMetadata": True,
             }
         )
+
+    async def _inspector_metadata(self) -> Response:
+        """Serve project display metadata without browser credentials or shared caching."""
+        headers = {"Cache-Control": "no-store, private"}
+        try:
+            metadata = parse_inspector_metadata(await self.intelligence.get_inspector_metadata())
+        except Exception as error:
+            logging.getLogger(__name__).warning(
+                "Inspector metadata request failed",
+                extra={"operation": "inspector.metadata", "error_type": type(error).__name__},
+            )
+            metadata = None
+        if metadata is None:
+            return Response(status_code=204, headers=headers)
+        return JSONResponse(metadata, headers=headers)
 
     def _realtime(self, thread_id: str) -> Json:
         """Build browser connection metadata using the distinct client endpoint."""
