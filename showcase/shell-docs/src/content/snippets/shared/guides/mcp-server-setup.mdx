@@ -32,8 +32,9 @@ development environment, it enables AI assistants to:
             "CopilotKit MCP": {
               "command": "npx",
               "args": [
+                "-y",
                 "mcp-remote",
-                "https://mcp.copilotkit.ai"
+                "https://mcp.copilotkit.ai/mcp"
               ]
             }
           }
@@ -200,7 +201,7 @@ development environment, it enables AI assistants to:
             {
               "mcpServers": {
                 "CopilotKit MCP": {
-                  "url": "https://mcp.copilotkit.ai",
+                  "url": "https://mcp.copilotkit.ai/mcp",
                   "disabled": false,
                   "timeout": 30
                 }
@@ -227,7 +228,7 @@ development environment, it enables AI assistants to:
               "mcpServers": {
                 "CopilotKit MCP": {
                   "command": "npx",
-                  "args": ["mcp-remote", "https://mcp.copilotkit.ai"]
+                  "args": ["-y", "mcp-remote", "https://mcp.copilotkit.ai/mcp"]
                 }
               }
             }
@@ -418,34 +419,44 @@ development environment, it enables AI assistants to:
 
 ### Codex
 
-[Codex](https://developers.openai.com/codex) is OpenAI's coding agent. Its CLI reads MCP servers from `~/.codex/config.toml`, where each server is defined under an `[mcp_servers.<name>]` table.
+[Codex](https://developers.openai.com/codex/mcp) supports Streamable HTTP MCP servers directly.
 
 <Steps>
   <Step>
     ### Add MCP Server to Codex
-    Add CopilotKit MCP to `~/.codex/config.toml`. Codex launches command-based (stdio) servers, so bridge the remote server with `mcp-remote`:
+    Run this command:
+
+    ```bash
+    codex mcp add copilotkit --url https://mcp.copilotkit.ai/mcp
+    ```
+
+    Alternatively, add this table to `~/.codex/config.toml`:
 
     ```toml title="~/.codex/config.toml"
     [mcp_servers.copilotkit]
-    command = "npx"
-    args = ["mcp-remote", "https://mcp.copilotkit.ai"]
+    url = "https://mcp.copilotkit.ai/mcp"
     ```
 
-    Or add it from the terminal with the Codex CLI:
-
-    ```bash
-    codex mcp add copilotkit -- npx mcp-remote https://mcp.copilotkit.ai
-    ```
+    If you used the previous `mcp-remote` configuration, replace its `command` and `args` entries with `url`.
+    Use `/mcp` for Streamable HTTP. The root URL (`https://mcp.copilotkit.ai`) returns 404.
   </Step>
   <Step>
     ### Verify Connection
-    List the configured MCP servers to confirm CopilotKit is registered:
+    List the configured MCP servers:
 
     ```bash
     codex mcp list
     ```
 
-    Once configured, the CopilotKit MCP tools are available to Codex and are used automatically when relevant to your CopilotKit development tasks.
+    This command verifies registration only. Start a new Codex session and run `/mcp` to check the connection and available tools.
+
+    Ask Codex to test a documentation search:
+
+    ```text
+    Use CopilotKit's search-docs tool to find documentation for useFrontendTool.
+    ```
+
+    A successful tool call returns documentation results. If the server fails to connect, verify that its URL ends with `/mcp`.
   </Step>
 </Steps>
 
@@ -469,7 +480,7 @@ Most MCP-compatible applications support one or both of these connection methods
     ```json
     {
       "command": "npx",
-      "args": ["mcp-remote", "https://mcp.copilotkit.ai"]
+      "args": ["-y", "mcp-remote", "https://mcp.copilotkit.ai/mcp"]
     }
     ```
   </Tab>
