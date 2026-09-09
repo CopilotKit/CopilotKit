@@ -4,7 +4,7 @@ import {
   findExactCrossScopePins,
   findSupersededPublishedPins,
 } from "./cross-scope-pins.js";
-import type { ScopedManifest } from "./cross-scope-pins.js";
+import type { PublishedManifest, ScopedManifest } from "./cross-scope-pins.js";
 import type { ReleaseConfig } from "./config.js";
 
 /**
@@ -45,6 +45,13 @@ function manifest(
   extra: Partial<ScopedManifest> = {},
 ): ScopedManifest {
   return { dependencies, name, version: "1.0.0", ...extra };
+}
+
+/** What one package declares on the registry, keyed by dependency field. */
+function published(
+  fields: Partial<Record<string, Record<string, string>>>,
+): PublishedManifest {
+  return fields as PublishedManifest;
 }
 
 describe("crossScopeEdges", () => {
@@ -177,7 +184,9 @@ describe("findSupersededPublishedPins", () => {
     const problems = findSupersededPublishedPins({
       config: CONFIG,
       publishedDependencies: {
-        "@copilotkit/angular": { "@copilotkit/core": "1.69.3" },
+        "@copilotkit/angular": {
+          dependencies: { "@copilotkit/core": "1.69.3" },
+        },
       },
       scope: "monorepo",
       version: "1.70.0",
@@ -199,7 +208,9 @@ describe("findSupersededPublishedPins", () => {
       findSupersededPublishedPins({
         config: CONFIG,
         publishedDependencies: {
-          "@copilotkit/angular": { "@copilotkit/core": "^1.70.0" },
+          "@copilotkit/angular": {
+            dependencies: { "@copilotkit/core": "^1.70.0" },
+          },
         },
         scope: "monorepo",
         version: "1.71.0",
@@ -218,7 +229,9 @@ describe("findSupersededPublishedPins", () => {
       findSupersededPublishedPins({
         config: CONFIG,
         publishedDependencies: {
-          "@copilotkit/angular": { "@copilotkit/core": "^1.70.0" },
+          "@copilotkit/angular": {
+            dependencies: { "@copilotkit/core": "^1.70.0" },
+          },
         },
         scope: "monorepo",
         version: "2.0.0",
@@ -256,7 +269,9 @@ describe("findSupersededPublishedPins", () => {
       findSupersededPublishedPins({
         config: CONFIG,
         publishedDependencies: {
-          "@copilotkit/runtime": { "@copilotkit/core": "1.69.3" },
+          "@copilotkit/runtime": {
+            dependencies: { "@copilotkit/core": "1.69.3" },
+          },
         },
         scope: "monorepo",
         version: "1.70.0",
@@ -278,7 +293,9 @@ describe("findSupersededPublishedPins", () => {
       findSupersededPublishedPins({
         config: CONFIG,
         publishedDependencies: {
-          "@copilotkit/angular": { "@copilotkit/core": "1.69.3" },
+          "@copilotkit/angular": {
+            dependencies: { "@copilotkit/core": "1.69.3" },
+          },
         },
         scope: "monorepo",
         version: "1.70.0",
@@ -290,5 +307,182 @@ describe("findSupersededPublishedPins", () => {
         ],
       }),
     ).toHaveLength(1);
+  });
+});
+
+describe("exact-pin classification by semver semantics", () => {
+  /** One workspace where angular declares core with the given range. */
+  function angularDeclaring(range: string): readonly ScopedManifest[] {
+    return [
+      manifest("@copilotkit/angular", { "@copilotkit/core": range }),
+      manifest("@copilotkit/core"),
+    ];
+  }
+
+  it.each([
+    ["workspace:*", "packs as the exact version in the tree"],
+    ["1.69.3", "the literal OSS-1107 shipped"],
+    ["=1.69.3", "the same pin, spelled with an operator"],
+    ["1.69.3+build.7", "build metadata does not widen a range"],
+    ["1.69.3 - 1.69.3", "a range that admits exactly one version"],
+  ])('rejects "%s", which %s', (range) => {
+    expect(
+      findExactCrossScopePins(angularDeclaring(range), CONFIG),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    ["workspace:^", "packs as a caret range"],
+    ["workspace:~", "packs as a tilde range"],
+    ["workspace:^1.70.0", "packs as the caret range it carries"],
+    ["workspace:~1.70.0", "packs as the tilde range it carries"],
+    ["workspace:>=1.70.0", "packs as the floor it carries"],
+    [">=1.70.0", "admits every later release"],
+    ["^1.70.0", "admits every later minor"],
+    ["1.x", "admits every later 1.x"],
+  ])('accepts "%s", which %s', (range) => {
+    expect(findExactCrossScopePins(angularDeclaring(range), CONFIG)).toEqual(
+      [],
+    );
+  });
+
+  it("leaves a non-semver protocol alone, which is not this rule's business", () => {
+    expect(
+      findExactCrossScopePins(angularDeclaring("file:../core"), CONFIG),
+    ).toEqual([]);
+  });
+});
+
+describe("optionalDependencies", () => {
+  it("reads an optional cross-scope dependency, which npm still resolves", () => {
+    // npm installs an optional dependency unless the consumer opts out, so an
+    // exact one splits the installed graph like any other.
+    const edges = crossScopeEdges(
+      [
+        manifest(
+          "@copilotkit/angular",
+          {},
+          { optionalDependencies: { "@copilotkit/core": "workspace:*" } },
+        ),
+        manifest("@copilotkit/core"),
+      ],
+      CONFIG,
+    );
+
+    expect(edges).toHaveLength(1);
+    expect(edges[0]?.field).toBe("optionalDependencies");
+  });
+
+  it("rejects an exact optional cross-scope pin", () => {
+    expect(
+      findExactCrossScopePins(
+        [
+          manifest(
+            "@copilotkit/angular",
+            {},
+            { optionalDependencies: { "@copilotkit/core": "1.69.3" } },
+          ),
+          manifest("@copilotkit/core"),
+        ],
+        CONFIG,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("refuses a release a published optional range has stopped admitting", () => {
+    expect(
+      findSupersededPublishedPins({
+        config: CONFIG,
+        publishedDependencies: {
+          "@copilotkit/angular": published({
+            optionalDependencies: { "@copilotkit/core": "1.69.3" },
+          }),
+        },
+        scope: "monorepo",
+        version: "1.70.0",
+        workspace: [
+          manifest(
+            "@copilotkit/angular",
+            {},
+            { optionalDependencies: { "@copilotkit/core": "workspace:^" } },
+          ),
+          manifest("@copilotkit/core"),
+        ],
+      }),
+    ).toHaveLength(1);
+  });
+});
+
+describe("published peer and optional ranges reach the registry check", () => {
+  it("refuses a release a published peer range has stopped admitting", () => {
+    // The edge is declared as a peer dependency. Reading only the published
+    // `dependencies` map skipped it and let the release through.
+    const problems = findSupersededPublishedPins({
+      config: CONFIG,
+      publishedDependencies: {
+        "@copilotkit/angular": published({
+          peerDependencies: { "@copilotkit/core": "1.69.3" },
+        }),
+      },
+      scope: "monorepo",
+      version: "1.70.0",
+      workspace: [
+        manifest(
+          "@copilotkit/angular",
+          {},
+          { peerDependencies: { "@copilotkit/core": "workspace:^" } },
+        ),
+        manifest("@copilotkit/core"),
+      ],
+    });
+
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("peerDependencies");
+  });
+});
+
+describe("published edges the workspace no longer declares", () => {
+  it("refuses a release stranded by a dependency dropped from the tree", () => {
+    // The cross-scope dependency was deleted from the workspace before the
+    // angular scope republished. The published manifest still carries the old
+    // range, and every consumer still resolves it, so the gate has to see it.
+    const problems = findSupersededPublishedPins({
+      config: CONFIG,
+      publishedDependencies: {
+        "@copilotkit/angular": published({
+          dependencies: { "@copilotkit/core": "1.69.3" },
+        }),
+      },
+      scope: "monorepo",
+      version: "1.70.0",
+      workspace: [
+        // No `@copilotkit/core` entry at all any more.
+        manifest("@copilotkit/angular"),
+        manifest("@copilotkit/core"),
+      ],
+    });
+
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("@copilotkit/angular");
+    expect(problems[0]).toContain("no longer declares");
+  });
+
+  it("ignores a published dependency that no release scope publishes", () => {
+    expect(
+      findSupersededPublishedPins({
+        config: CONFIG,
+        publishedDependencies: {
+          "@copilotkit/angular": published({
+            dependencies: { react: "18.0.0" },
+          }),
+        },
+        scope: "monorepo",
+        version: "1.70.0",
+        workspace: [
+          manifest("@copilotkit/angular"),
+          manifest("@copilotkit/core"),
+        ],
+      }),
+    ).toEqual([]);
   });
 });
