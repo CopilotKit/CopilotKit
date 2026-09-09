@@ -292,6 +292,7 @@ function ChatContent({
 
   useComponent({
     name: "showDemoChart",
+    followUp: false,
     description:
       "Show a compact generative UI bar chart. Use it when the user asks to see a chart, demo generative UI, or render visual data.",
     parameters: z.object({
