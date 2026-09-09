@@ -6,6 +6,9 @@ UI. The demo researches three related live markets, renders one sourced
 `MarketSnapshot`, and handles its Acknowledge button through a normal Channel
 interaction callback.
 
+See [Architecture](ARCHITECTURE.md) for the integration flow, ownership boundaries,
+and future challenges.
+
 ## Configure
 
 The ADK agent requires Python 3.12 or newer and
