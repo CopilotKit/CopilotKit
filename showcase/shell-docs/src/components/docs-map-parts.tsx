@@ -5,11 +5,11 @@
 //
 // The three block variants are the whole of the page's visual hierarchy:
 //
-//   choice → dashed, flat, near-transparent. "This is your pick, not our
-//            product." Used by the Frontend and Agent blocks.
+//   choice → dashed border, near-transparent fill, no shadow. "This is your
+//            pick, not our product." Used by the Frontend and Agent blocks.
 //   core   → solid border, elevated surface, panel shadow. The product.
-//   plus   → flat accent border and accent-tinted fill. The added, hosted
-//            layer.
+//   plus   → solid accent border and accent-tinted fill, carrying the same
+//            panel shadow as core. The added, hosted layer.
 //
 // Nothing here animates. An earlier draft ran dots along the connectors; on a
 // page whose job is orientation, permanent motion pulls the eye off the text.

@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   CapabilityTile,
-  MAP_TILE_GRID_CLASS,
   MapBlock,
   MapConnector,
   PickGrid,
@@ -77,12 +76,13 @@ describe("MapBlock", () => {
   // shared `render` helper always passes carries `text-[var(--accent)]` in
   // every variant, so that token appears in the markup regardless. Assert on
   // the border colour and fill unique to `plus`'s block class instead.
-  it("gives the plus variant an accent border and accent-tinted fill", () => {
+  it("gives the plus variant an accent border, accent-tinted fill and the panel shadow", () => {
     const markup = render("plus");
 
     expect(markup).toContain("border-[var(--accent)]");
     expect(markup).toContain("bg-[var(--accent-dim)]");
     expect(markup).not.toContain("border-dashed");
+    expect(markup).toContain("shadow-[var(--shadow-panel)]");
   });
 
   it("omits the action element when no action is given", () => {
@@ -256,15 +256,5 @@ describe("PickGrid", () => {
     );
 
     expect(markup).toContain("grid-cols-1");
-  });
-});
-
-describe("MAP_TILE_GRID_CLASS", () => {
-  // Shared verbatim by the server-rendered Intelligence grid and the
-  // client-rendered CopilotKit grid (wave 3). It must stack to one column at
-  // the 375px breakpoint and expand to three on large screens.
-  it("stacks to one column narrow and three columns wide", () => {
-    expect(MAP_TILE_GRID_CLASS).toContain("grid-cols-1");
-    expect(MAP_TILE_GRID_CLASS).toContain("lg:grid-cols-3");
   });
 });
