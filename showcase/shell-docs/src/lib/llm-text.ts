@@ -34,6 +34,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
 import {
   isV1ReferenceUrl,
   renderV1DeprecationNoticeUseV2InsteadMarkdown,
@@ -1030,6 +1031,18 @@ export function renderLlmsIndex(
     "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Automatic Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
     "",
     `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
+    "",
+    "## Add CopilotKit with your coding agent",
+    "",
+    "When the user wants to add CopilotKit to a project, use the canonical onboarding prompt below. It starts the guided onboarding workflow for the user's project and existing stack. For product research or comparisons, continue to the documentation links without running onboarding.",
+    "",
+    `This is the same prompt offered by the **Copy onboarding prompt** button on the [docs home](${baseUrl}/). A coding agent can use the text directly; a chat assistant without project or terminal access can give it to the user to paste into their coding agent.`,
+    "",
+    "Generate a fresh 12-character hexadecimal run ID for each new onboarding session and replace `<run-id>` before running the command. Replace `<coding-agent-slug>` with the coding-agent product's slug. Do not execute the placeholders literally or reuse an ID from a cached index.",
+    "",
+    "```text",
+    INTELLIGENCE_ONBOARDING_PROMPT,
+    "```",
     "",
   );
   if (frameworkPages.length > 0) {
