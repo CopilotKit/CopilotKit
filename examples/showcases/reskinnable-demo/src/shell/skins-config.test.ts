@@ -45,9 +45,27 @@ describe("the LOCK_SKIN lint guard", () => {
     expect(LINTED_SKIN_IDS).toEqual([...skinIds]);
   });
 
+  const linter = new Linter();
+  const lint = (code: string) =>
+    linter.verify(code, {
+      rules: {
+        "no-restricted-syntax": restrictedSyntax as Linter.RuleEntry,
+      },
+      languageOptions: { ecmaVersion: "latest", sourceType: "module" },
+    });
+  /**
+   * Did `no-restricted-syntax` ITSELF report? Scoped to the rule id on purpose.
+   * The predicate this replaced was `lint(code).length === 0`, which counts ANY
+   * message as "guarded" — including ESLint's `ruleId: null` fatal parse error.
+   * A typo in the synthetic snippets below would therefore have made this test
+   * pass by failing to parse, which is the one way a guard test can be green and
+   * prove nothing. Pinned by "does not mistake a PARSE ERROR…" below.
+   */
+  const flaggedByRestrictedSyntax = (code: string) =>
+    lint(code).some((msg) => msg.ruleId === "no-restricted-syntax");
+
   it("reports a hardcoded skin route prefix in every registered skin", () => {
     expect(Array.isArray(restrictedSyntax)).toBe(true);
-    const linter = new Linter();
     // Both hardcoding shapes the selectors are meant to catch: a bare literal and
     // a template whose first quasi opens with the prefix. Plain JS on purpose —
     // the selectors match shape, not types, so the default parser suffices.
@@ -55,17 +73,24 @@ describe("the LOCK_SKIN lint guard", () => {
       [
         `router.push("/${id}/orders");`,
         `router.push(\`/${id}/orders/\${orderId}\`);`,
-      ].filter(
-        (code) =>
-          linter.verify(code, {
-            rules: {
-              "no-restricted-syntax": restrictedSyntax as Linter.RuleEntry,
-            },
-            languageOptions: { ecmaVersion: "latest", sourceType: "module" },
-          }).length === 0,
-      ),
+      ].filter((code) => !flaggedByRestrictedSyntax(code)),
     );
     expect(unguarded).toEqual([]);
+  });
+
+  it("does not mistake a PARSE ERROR for a caught violation", () => {
+    // Red-green fixture for the predicate above. This snippet is unparseable
+    // (unbalanced parenthesis), so `lint()` returns a fatal message with no
+    // `ruleId` — and under the old `.length === 0` predicate that is
+    // indistinguishable from the selector firing, so a broken snippet would have
+    // been silently scored as GUARDED.
+    const unparseable = `router.push("/${skinIds[0]}/orders";`;
+    const messages = lint(unparseable);
+    expect(messages.length).toBeGreaterThan(0);
+    expect(messages.every((msg) => msg.ruleId !== "no-restricted-syntax")).toBe(
+      true,
+    );
+    expect(flaggedByRestrictedSyntax(unparseable)).toBe(false);
   });
 });
 
@@ -130,9 +155,9 @@ describe("the resolved no-restricted-syntax selectors", () => {
         "statusKeyedTerminalRender",
       ],
     ],
-    // The other two skins shipping a withheld gate vocabulary. Both carry beat 2
-    // AND beat 6, so both agent-facing files resolve to the full five, exactly as
-    // logistics does.
+    // Airline and keel ship the same withheld gate vocabulary shape as logistics.
+    // Both carry beat 2 AND beat 6, so both agent-facing files of each resolve to
+    // the full five, exactly as logistics does.
     [
       "src/skins/airline/tools.tsx",
       [
@@ -173,6 +198,57 @@ describe("the resolved no-restricted-syntax selectors", () => {
         "statusKeyedTerminalRender",
       ],
     ],
+    // exec (Vantage) also ships a withheld gate vocabulary (narrative codes), so
+    // both agent-facing files carry beat 6 — AND exec is the one skin inside the
+    // untrusted-key rule's glob, so both resolve to six.
+    [
+      "src/skins/exec/tools.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+        "untrustedKeyLookup",
+      ],
+    ],
+    [
+      "src/skins/exec/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+        "untrustedKeyLookup",
+      ],
+    ],
+    // Any other exec .tsx — same shape as the logistics row above (beat 2 but
+    // not beat 6 outside the two agent-facing files), plus the untrusted-key
+    // selector, which covers the whole exec skin.
+    [
+      "src/skins/exec/catalog/renderers.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+        "untrustedKeyLookup",
+      ],
+    ],
+    // An exec `.ts` (not `.tsx`): the untrusted-key block matches both
+    // extensions, which also widens `statusKeyedTerminalRender` onto exec's
+    // non-JSX modules. This row is what pins that widening.
+    [
+      "src/skins/exec/data/store.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+        "untrustedKeyLookup",
+      ],
+    ],
     // The human filing FORMS are deliberately OUTSIDE the beat-6 block: each one
     // legitimately imports its skin's label map, because the operator reads it and
     // the agent learns the code by WATCHING them choose one. A withheld catalogue
@@ -197,11 +273,17 @@ describe("the resolved no-restricted-syntax selectors", () => {
     ],
     // A skin the beat-2 glob has NOT reached: it must not gain the selector
     // before it is verified clean, or the tree goes red on a skin nobody has
-    // checked.
+    // checked. It must not gain `untrustedKeyLookup` either — every sibling skin
+    // still carries the plain-object-lookup shape, so a glob that reached them
+    // would turn the tree red on work this change does not do.
     [
       "src/skins/banking/tools.tsx",
       ["literalSkinPrefix", "templateLeadingPrefix", "interpolationThenSlash"],
     ],
+    // The SHELL is matched by none of the `src/skins/**` blocks, so it resolves
+    // to the untrusted-key selector alone. `registry.ts` is the file whose
+    // `getSkin` carried the original prototype-key 500.
+    ["src/shell/registry.ts", ["untrustedKeyLookup"]],
     // The REST/data layer legitimately drops the builder-concat selector.
     [
       "src/skins/logistics/actions.ts",
@@ -219,6 +301,94 @@ describe("the resolved no-restricted-syntax selectors", () => {
       );
     },
   );
+
+  /**
+   * The two DELIBERATE exemptions from the untrusted-key rule, asserted as
+   * exemptions rather than left to a reader's trust. `src/shell/documents/**`
+   * is out because `pdf.ts`'s `ASCII_FOLD[ch] ?? "?"` is indexed by a character
+   * the surrounding regex class already closed — a shape match that is not a
+   * defect, and not this change's to rework. If a later change removes that
+   * exemption, this row fails and says so, instead of the exemption quietly
+   * outliving its reason.
+   */
+  it("leaves src/shell/documents outside the untrusted-key rule", async () => {
+    const resolved = await new ESLint().calculateConfigForFile(
+      "src/shell/documents/pdf.ts",
+    );
+    expect(resolved.rules?.["no-restricted-syntax"]).toBeUndefined();
+  });
+});
+
+/**
+ * THE UNTRUSTED-KEY SELECTOR ITSELF — does it fire, and does it stay quiet?
+ *
+ * The table above proves each file RESOLVES to the selector; it proves nothing
+ * about what the selector matches. Both halves matter here and pull opposite
+ * ways: a selector that never fires is a rule that silently guards nothing, and
+ * a selector that fires on `DEPARTMENT_LABEL[row.department]` — a lookup closed
+ * by its own type, of which the exec skin has a couple of dozen — turns the tree
+ * red on correct code and gets deleted within a week.
+ *
+ * The discriminator is the GUARD, not the lookup: only a result wrapped in a
+ * truthiness test is matched. These fixtures pin both sides of that line.
+ */
+describe("the untrusted-key lookup selector", () => {
+  const linter = new Linter();
+  /**
+   * Reports whether the SELECTOR fired — and refuses to answer at all for a
+   * snippet that did not parse. Without that second half a typo (or a top-level
+   * `return`, which `sourceType: "module"` rejects) yields a fatal message with
+   * no `ruleId`, which reads as "did not fire" and scores every negative
+   * fixture green for the wrong reason. Same trap, same guard, as the LOCK_SKIN
+   * suite's `flaggedByRestrictedSyntax` above.
+   */
+  const flags = (code: string) => {
+    const messages = linter.verify(code, {
+      rules: {
+        "no-restricted-syntax": [
+          "error",
+          NAMED_SELECTORS.untrustedKeyLookup,
+        ] as Linter.RuleEntry,
+      },
+      languageOptions: { ecmaVersion: "latest", sourceType: "module" },
+    });
+    const fatal = messages.find((msg) => msg.fatal);
+    if (fatal) throw new Error(`fixture does not parse: ${fatal.message}`);
+    return messages.some((msg) => msg.ruleId === "no-restricted-syntax");
+  };
+
+  it.each([
+    // The literal shape that produced the /<skin>/constructor 500.
+    ["const Page = PAGES[segment] ?? null;", "nullish coalesce"],
+    ["const Page = PAGES[segment] || Fallback;", "logical or"],
+    ["if (!REGISTRY[id]) { notFound(); }", "negation"],
+    ["if (REGISTRY[id]) { use(REGISTRY[id]); }", "if test"],
+    ['const x = REGISTRY[id] ? "y" : "n";', "ternary test"],
+  ])("flags %s (%s)", (code) => {
+    expect(flags(code)).toBe(true);
+  });
+
+  it.each([
+    // Indexed by a value the TYPE already closed — nobody guards these, and the
+    // exec skin is full of them.
+    [
+      "const label = DEPARTMENT_LABEL[row.department];",
+      "unguarded registry read",
+    ],
+    // Guarded by OWN-key membership, which is the fix this rule asks for.
+    [
+      "if (!Object.hasOwn(SkinRegistry, id)) notFound();",
+      "the Object.hasOwn fix",
+    ],
+    // A lowercase local, not a module-scope registry.
+    ["const hit = lookup[key] ?? null;", "a lowercase object"],
+    // A `??` INSIDE the key, not on the result.
+    ['const gap = GAP[props.gap ?? "md"];', "a coalesce in the key"],
+    // Array index arithmetic, which shares no part of the hazard.
+    ["const next = CHOICES[(i + 1) % CHOICES.length];", "an array index"],
+  ])("leaves %s alone (%s)", (code) => {
+    expect(flags(code)).toBe(false);
+  });
 });
 
 describe("skinIdentities", () => {

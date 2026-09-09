@@ -1,5 +1,6 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
+import { hasLearningContainerConfiguration } from "../core/learning";
 import {
   isA2UIEnabled,
   isIntelligenceRuntime,
@@ -71,7 +72,6 @@ interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
   threadEndpointsEnabled?: boolean;
-  inspectorLearningEnabled?: boolean;
   singleRouteResourceOperationsEnabled?: boolean;
 }
 
@@ -118,7 +118,6 @@ export async function handleGetRuntimeInfo({
   runtime,
   request,
   threadEndpointsEnabled = true,
-  inspectorLearningEnabled = false,
   singleRouteResourceOperationsEnabled = false,
 }: HandleGetRuntimeInfoParameters) {
   try {
@@ -190,7 +189,7 @@ export async function handleGetRuntimeInfo({
               wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
             inspectorMetadata: true,
-            ...(runtime.debug?.enabled === true && inspectorLearningEnabled
+            ...(hasLearningContainerConfiguration(runtime)
               ? { inspectorLearning: true }
               : {}),
           }

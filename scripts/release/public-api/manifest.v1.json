@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -136,7 +136,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -197,7 +197,7 @@
     },
     {
       "name": "@copilotkit/angular",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "sourceDirectory": "packages/angular",
       "entrypoints": [
         {
@@ -958,7 +958,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1107,7 +1107,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1223,7 +1223,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1418,7 +1418,7 @@
     },
     {
       "name": "@copilotkit/react-textarea",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/react-textarea",
       "entrypoints": [
         {
@@ -1491,7 +1491,7 @@
     },
     {
       "name": "@copilotkit/react-ui",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/react-ui",
       "entrypoints": [
         {
@@ -1574,7 +1574,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -1730,7 +1730,7 @@
     },
     {
       "name": "@copilotkit/runtime-client-gql",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/runtime-client-gql",
       "entrypoints": [
         {
@@ -1791,7 +1791,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -1898,7 +1898,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -1973,7 +1973,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2050,7 +2050,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2119,7 +2119,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2225,7 +2225,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2320,7 +2320,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.70.1",
+      "version": "1.70.3",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {
@@ -2725,7 +2725,6 @@
           "runtime",
           "basePath",
           "mode",
-          "inspectorLearning",
           "cors",
           "hooks",
           "activateChannels"
@@ -2763,7 +2762,6 @@
           "mode",
           "cors",
           "hooks",
-          "inspectorLearning",
           "activateChannels"
         ],
         "provenance": {
@@ -2799,7 +2797,6 @@
           "mode",
           "cors",
           "hooks",
-          "inspectorLearning",
           "activateChannels"
         ],
         "provenance": {
@@ -2855,7 +2852,6 @@
           "runtime",
           "basePath",
           "mode",
-          "inspectorLearning",
           "cors",
           "hooks",
           "activateChannels"

@@ -53,12 +53,6 @@ export interface CopilotExpressEndpointParams {
   hooks?: CopilotRuntimeHooks;
 
   /**
-   * Whether to expose the debug-gated Inspector Learning snapshot route.
-   * Defaults to `false`.
-   */
-  inspectorLearning?: boolean;
-
-  /**
    * Whether the underlying handler builds the control surface for the runtime's
    * declared managed Channels — and, because Express is a long-running host,
    * starts their activation at creation. Defaults to `true`. Set `false` to
@@ -131,7 +125,6 @@ export function createCopilotExpressHandler({
   mode = "multi-route",
   cors: corsOption = true,
   hooks,
-  inspectorLearning,
   activateChannels,
   __channelEngine,
 }: CopilotExpressEndpointParams): CopilotExpressRouter {
@@ -143,7 +136,6 @@ export function createCopilotExpressHandler({
     mode,
     cors: false, // CORS is handled at the Express middleware layer
     hooks,
-    inspectorLearning,
     activateChannels,
     __channelEngine,
   });

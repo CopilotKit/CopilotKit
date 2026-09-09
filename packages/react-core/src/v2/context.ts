@@ -63,3 +63,23 @@ export const LicenseContext = createContext<LicenseContextValue>({
 
 export const useLicenseContext = (): LicenseContextValue =>
   useContext(LicenseContext);
+
+// Provider-level default agent id, published by `<CopilotKitProvider agentId>`.
+//
+// This is a context of its own rather than a `CopilotChatConfigurationProvider`
+// rendered at the root, because that provider also owns a thread: it resolves a
+// threadId (minting a UUID when none is given) and the top-most one owns the
+// imperative active-thread override. Rendering it around the whole application
+// would hand every `<CopilotChat>` the same inherited threadId, so two sibling
+// chats would share one transcript. A bare string context carries the agent
+// default and nothing else.
+//
+// It is the LAST fallback before `DEFAULT_AGENT_ID`, so an explicit `agentId`
+// argument, a `<CopilotChat agentId>`, and a `<CopilotChatConfigurationProvider
+// agentId>` all still win.
+export const CopilotKitAgentIdContext = createContext<string | undefined>(
+  undefined,
+);
+
+export const useDefaultAgentId = (): string | undefined =>
+  useContext(CopilotKitAgentIdContext);
