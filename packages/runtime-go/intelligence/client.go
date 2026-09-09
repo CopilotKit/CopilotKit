@@ -142,6 +142,9 @@ type Client struct {
 	config     Config
 	httpClient *http.Client
 	owned      bool
+	created    listeners[Thread]
+	updated    listeners[Thread]
+	deleted    listeners[ThreadDeletedPayload]
 }
 
 // New validates credentials and endpoints without making network requests.
@@ -202,12 +205,14 @@ func (c *Client) Request(ctx context.Context, method, path string, body any, hea
 		return nil, &Error{Status: 400}
 	}
 	var reader io.Reader
+	var encodedBody []byte
 	if body != nil {
 		encoded, err := json.Marshal(body)
 		if err != nil {
 			return nil, &Error{Status: 400, cause: err}
 		}
 		reader = bytes.NewReader(encoded)
+		encodedBody = encoded
 	}
 	request, err := http.NewRequestWithContext(ctx, method, c.config.APIURL+path, reader)
 	if err != nil {
@@ -236,6 +241,7 @@ func (c *Client) Request(ctx context.Context, method, path string, body any, hea
 	if len(data) != 0 && !json.Valid(data) {
 		return nil, &Error{Status: 502}
 	}
+	c.notifyThreadMutation(method, path, encodedBody, data)
 	return data, nil
 }
 

@@ -85,6 +85,31 @@ The runtime implements `http.Handler`. It connects native Go agents and AG-UI
 HTTP agents to CopilotKit Intelligence. An Intelligence project API key and
 authenticated application identity are required.
 
+## Handle thread changes
+
+Register a typed callback on the SDK:
+
+```go
+unsubscribe := client.OnThreadCreated(func(thread intelligence.Thread) {
+    fmt.Println(thread.ID)
+})
+defer unsubscribe()
+```
+
+`OnThreadCreated` receives the canonical thread after creation.
+`OnThreadUpdated` receives the thread after an update or archive.
+`OnThreadDeleted` receives a `ThreadDeletedPayload` with the thread, user, and agent IDs.
+Listeners receive changes from direct SDK calls and from a Runtime that shares the SDK.
+
+Each registration is independent and returns an idempotent unsubscribe function.
+Callbacks run synchronously outside the registration mutex, in registration order.
+Concurrent SDK calls can invoke callbacks concurrently. Protect shared callback state with a mutex or atomic operations.
+A notification already in progress can finish after unsubscribe.
+
+Failed requests and concurrent-create conflicts emit no success event.
+The SDK recovers listener panics and continues with other listeners.
+It logs the event and panic type through the standard Go logger, without the panic value or thread payload.
+
 ## Start a server
 
 1. Set `CPK_INTELLIGENCE_API_KEY` to your project key.
