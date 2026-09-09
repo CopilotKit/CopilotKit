@@ -29,7 +29,7 @@ import {
   frontendPicks,
   scopedHref,
 } from "@/lib/homepage-map";
-import { getIntegrations } from "@/lib/registry";
+import { getDocsMode, getIntegrations } from "@/lib/registry";
 
 /**
  * Anchor id for the Agent block, the destination of "Change framework" in
@@ -42,17 +42,32 @@ export const DOCS_MAP_FRAMEWORKS_ANCHOR = "frameworks";
 
 export function DocsProductMap(): React.JSX.Element {
   // The validation set for a remembered framework slug. Built from every
-  // known integration — not filtered by `docs_mode` — because this record
-  // exists only to answer "is this slug still one we know about", the same
-  // reach the old `getIntegration(slug)` lookup had. `scopedHref("", slug)`
-  // yields exactly that framework's href prefix (`""` for the root
-  // framework, `/<slug>` otherwise), so the URL rule itself stays owned by
+  // known integration, the same reach the old `getIntegration(slug)` lookup
+  // had — except for one deliberate narrowing beyond both v1 and the
+  // written spec: `docs_mode: "hidden"` slugs are dropped. `knownFrameworks`
+  // in `src/app/layout.tsx` is filtered only by reserved route slugs, so a
+  // hidden integration's slug is still in it — visiting `/spring-ai/...`
+  // renders the layout and persists `"spring-ai"` to localStorage through
+  // the framework provider's remembered-slug effect *before* the route's
+  // own `notFound()` fires. Without this filter, the next visit to `/`
+  // would find that stored slug still a key here, scope the whole map to
+  // it, and point all six tiles at pages that 404. Filtering it out makes
+  // `remembered` resolve to null instead,
+  // falling back to `effectiveFramework` — the same rescue `agentPicks()`
+  // already performs in `homepage-map.ts`. `scopedHref("", slug)` yields
+  // exactly that framework's href prefix (`""` for the root framework,
+  // `/<slug>` otherwise), so the URL rule itself stays owned by
   // `homepage-map.ts` alone.
   const frameworks = Object.fromEntries(
-    getIntegrations().map((integration) => [
-      integration.slug,
-      { name: integration.name, hrefPrefix: scopedHref("", integration.slug) },
-    ]),
+    getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => [
+        integration.slug,
+        {
+          name: integration.name,
+          hrefPrefix: scopedHref("", integration.slug),
+        },
+      ]),
   );
 
   return (

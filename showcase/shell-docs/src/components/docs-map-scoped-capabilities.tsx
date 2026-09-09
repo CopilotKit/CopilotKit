@@ -44,12 +44,13 @@ export function ScopedCapabilities({
   // longer serves), so it only counts when it is a key in `frameworks` —
   // otherwise the displayed name and the hrefs would disagree.
   const remembered =
-    storedFramework && frameworks[storedFramework] ? storedFramework : null;
+    storedFramework && Object.hasOwn(frameworks, storedFramework)
+      ? storedFramework
+      : null;
   const scope = framework ?? remembered ?? effectiveFramework;
-  const { name, hrefPrefix } = frameworks[scope] ?? {
-    name: scope,
-    hrefPrefix: "",
-  };
+  const { name, hrefPrefix } = Object.hasOwn(frameworks, scope)
+    ? frameworks[scope]
+    : { name: scope, hrefPrefix: "" };
 
   return (
     <>
