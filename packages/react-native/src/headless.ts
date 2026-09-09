@@ -28,6 +28,10 @@
 // Must run before any CopilotKit code that relies on ReadableStream / fetch streaming.
 import "./polyfills";
 
+// Type-only, so both are erased and neither can run before the polyfills above.
+import type React from "react";
+import type { ReactToolCallRenderer } from "@copilotkit/react-core/v2/headless";
+
 // React Native provider (no web deps, no bottom-sheet, no expo native modules)
 export { CopilotKitProvider } from "./CopilotKitProvider";
 export type { CopilotKitNativeProviderProps } from "./CopilotKitProvider";
@@ -115,43 +119,20 @@ export type {
   AgentCapabilities,
 } from "@ag-ui/client";
 
-// Render tool registration. React Native has ZERO render-tool API of its own:
-// this IS react-core's hook, re-exported unchanged, and its companion
-// `useFrontendTool` is re-exported with the other platform-agnostic hooks above.
+// Render tool registration. `useRenderTool` is a TEMPORARY, deprecated
+// COMPATIBILITY SHIM over BOTH core hooks — routing rules and reasoning in
+// src/hooks/useRenderTool.ts — scheduled for removal in the next minor, after
+// which this line goes back to a plain re-export from
+// @copilotkit/react-core/v2/headless. Contract and migration notes:
+// /reference/react-native/hooks/useRenderTool.
 //
-// The two are NOT interchangeable, which is why RN no longer stands between a
-// consumer and either of them:
-//
-//   • `useFrontendTool` registers a TOOL *and* its renderer. The tool is
-//     advertised to the model on every run and the model may call it, so it
-//     needs a `description` and a handler (or HITL) to be worth offering.
-//   • `useRenderTool` registers a RENDERER ONLY. Nothing is advertised and
-//     nothing becomes callable; it supplies UI for a tool call somebody else
-//     owns — a server-side tool, or, with `name: "*"`, every tool call that has
-//     no renderer of its own.
-//
-// RN used to export a LOCAL `useRenderTool` whose whole body forwarded to
-// `useFrontendTool` — core's other hook, wearing this one's name. The visible
-// cost was `name: "*"`: it registered a frontend tool literally called `*`,
-// with no description and no schema, and offered it to the model.
-//
-// `useRenderTool` below is a TEMPORARY COMPATIBILITY SHIM over BOTH core hooks,
-// deprecated and scheduled for removal in the next minor, after which this line
-// goes back to `export { useRenderTool } from "@copilotkit/react-core/v2/headless"`.
-// It exists because this break ships in a MINOR (this package is in the
-// 16-package lockstep `monorepo` release scope), so the compiler is the only
-// signal most consumers get — and a hoisted config object, a spread, or an
-// untyped call site is invisible to it. The shim routes those calls the way the
-// old hook did and warns, instead of letting the tool silently stop being
-// registered while the screen paints unchanged. Routing rules and reasoning:
-// src/hooks/useRenderTool.ts.
-//
-// It registers NOTHING itself: every path delegates to a react-core hook, which
-// is what keeps `CopilotKitCoreReact` the single registry. Do not grow a local
-// registry here — src/__tests__/headless-entry-surface.test.ts fails the build
-// if any module in this entry's graph writes to a registry of its own, and
-// src/hooks/__tests__/useRenderTool.test.tsx asserts each route against core's
-// own observable state.
+// DO NOT reintroduce a LOCAL hook under either name. RN's old `useRenderTool`
+// forwarded its whole body to `useFrontendTool` — core's OTHER hook, wearing
+// this one's name — so `name: "*"` registered a frontend tool literally called
+// `*` and advertised it to the model. The shim registers nothing itself: every
+// path delegates to a react-core hook, and
+// src/__tests__/headless-entry-surface.test.ts fails the build if any module in
+// this entry's graph grows a registry of its own.
 export { useRenderTool } from "./hooks/useRenderTool";
 export type { RenderToolProps } from "@copilotkit/react-core/v2/headless";
 
@@ -161,3 +142,59 @@ export type { RenderToolProps } from "@copilotkit/react-core/v2/headless";
 // on any surface, chat or not.
 export { useRenderToolCall } from "@copilotkit/react-core/v2/headless";
 export type { ReactToolCallRenderer } from "@copilotkit/react-core/v2/headless";
+
+/**
+ * A tool-call render function whose return type is narrowed to React Native's
+ * `ReactElement | null`. Annotate a `useFrontendTool` renderer with it to have
+ * the compiler reject a return React Native cannot draw.
+ *
+ * `useFrontendTool`'s `render` is `ReactToolCallRenderer<T>["render"]`, i.e. a
+ * `React.ComponentType`, so it returns `ReactNode` — which means
+ * `render: ({ args }) => \`Weather in ${args.city}\`` typechecks and then throws
+ * *Text strings must be rendered within a `<Text>` component* on a device. This
+ * type is what rejects it at `check-types` instead. (core's `useRenderTool`
+ * already declares its own `render` as `ReactElement | null`, so the gap is
+ * `useFrontendTool`'s.)
+ *
+ * OPT-IN, and only that. It changes no hook signature: a renderer written
+ * inline in a `useFrontendTool` call is still checked against core's
+ * `ReactNode`-returning contract, and a bare string still compiles there. This
+ * type gives the narrowing back on renderers you annotate; it does not make the
+ * package safe.
+ *
+ * DERIVED from core's canonical `ReactToolCallRenderer` contract rather than
+ * declared separately: the props come from it unchanged through
+ * `React.ComponentProps`, and only the return type is React Native's. That is
+ * deliberate — the last time this package declared its own render-prop shape it
+ * drifted from the contract (`{ args: T; status: "executing" | "complete";
+ * result?: string }`: no `name`, no `toolCallId`, no in-progress arm, and `args`
+ * unconditionally complete). Deriving means a change to the contract changes
+ * this type with it, and `check-types` names every renderer that breaks.
+ *
+ * @typeParam T - The parsed tool arguments; the same `T` as `useFrontendTool`'s.
+ *
+ * @example
+ * ```tsx
+ * import { useFrontendTool } from "@copilotkit/react-native/headless";
+ * import type { FrontendToolRenderFunction } from "@copilotkit/react-native/headless";
+ * import { Text } from "react-native";
+ * import { z } from "zod";
+ *
+ * const renderWeather: FrontendToolRenderFunction<{ city: string }> = ({
+ *   args,
+ * }) => <Text>{args.city}</Text>;
+ *
+ * useFrontendTool({
+ *   name: "showWeather",
+ *   description: "Show the weather",
+ *   parameters: z.object({ city: z.string() }),
+ *   handler: async ({ city }) => city,
+ *   render: renderWeather,
+ * });
+ * ```
+ */
+export type FrontendToolRenderFunction<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = (
+  props: React.ComponentProps<ReactToolCallRenderer<T>["render"]>,
+) => React.ReactElement | null;
