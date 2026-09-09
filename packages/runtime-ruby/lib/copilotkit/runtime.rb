@@ -22,7 +22,8 @@ module CopilotKit
                    runner_url: 'wss://realtime.intelligence.copilotkit.ai/runner',
                    client_url: 'wss://realtime.intelligence.copilotkit.ai/client', agents: {},
                    base_path: '', memory_access: nil, telemetry: nil, cors_origins: [],
-                   learning_container: nil, a2ui: nil, mcp_apps: nil, on_error: nil)
+                   learning_container: nil, a2ui: nil, mcp_apps: nil, on_error: nil,
+                   lock_heartbeat_interval: 15, lock_ttl: 20)
       raise ArgumentError, 'api_key is required' if api_key.to_s.strip.empty?
       raise ArgumentError, 'identify_user must be callable' unless identify_user.respond_to?(:call)
       @platform = Platform.new(api_url, api_key)
@@ -34,8 +35,11 @@ module CopilotKit
       @memory_access = memory_access || ->(_user, _env) { { 'user' => 'none', 'project' => 'none' } }
       @telemetry = telemetry || Telemetry.new
       @on_error = on_error
+      raise ArgumentError, 'Lock heartbeat must be positive and shorter than TTL' unless lock_heartbeat_interval.is_a?(Numeric) && lock_ttl.is_a?(Numeric) && lock_heartbeat_interval.positive? && lock_ttl > lock_heartbeat_interval
+      @lock_heartbeat_interval, @lock_ttl = lock_heartbeat_interval, lock_ttl
       @cors_origins, @learning_container = cors_origins.freeze, learning_container
       @runs, @mutex, @closed = {}, Mutex.new, false
+      @startups = {}
       @telemetry.emit('oss.runtime.instance_created', 'agentsAmount' => @agents.length)
     end
 
@@ -73,11 +77,14 @@ module CopilotKit
 
     # Waits for active work, cancels remaining agents, and flushes the exporter.
     def close(timeout: 10)
-      runs = @mutex.synchronize { @closed = true; @runs.values.dup }
+      runs, startups = @mutex.synchronize { @closed = true; [@runs.values.dup, @startups.values.dup] }
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+      startups.each(&:kill)
+      runs.each(&:request_stop)
+      startups.each { |thread| thread.join([deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC), 0].max) }
       runs.each { |run| run.join([deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC), 0].max) }
-      runs.each(&:stop)
-      @telemetry.close
+      runs.each { |run| run.stop(timeout: 0) }
+      @telemetry.close(timeout: [deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC), 0].max)
     end
 
     private
@@ -95,6 +102,10 @@ module CopilotKit
       raise Error.new(413, 'Request body too large') if raw.bytesize > 1_048_576
       body = raw.empty? ? {} : JSON.parse(raw)
       raise Error.new(400, 'JSON object is required') unless body.is_a?(Hash)
+      if (match = %r{\A/agent/([^/]+)/stop/([^/]+)\z}.match(path))
+        raise Error.new(405, 'Method not allowed') unless method == 'POST'
+        return stop_run(match[1], match[2], body, user)
+      end
       if (match = %r{\A/agent/([^/]+)/(run|connect)\z}.match(path))
         raise Error.new(405, 'Method not allowed') unless method == 'POST'
         agent_id, action = match.captures
@@ -120,6 +131,23 @@ module CopilotKit
 
     def identifier!(value)
       raise Error.new(400, 'Valid identifier is required') unless value.is_a?(String) && !value.strip.empty? && value.length <= 512
+    end
+
+    def stop_run(agent_id, requested_thread, body, user)
+      identifier!(body['runId']) if body.key?('runId')
+      begin
+        thread = @platform.request('GET', "/api/threads/#{requested_thread}?userId=#{escaped(user['id'])}").fetch('thread')
+      rescue Error => error
+        raise Error.new(error.status >= 500 ? 502 : error.status, 'Thread access denied')
+      end
+      raise Error.new(502, 'Invalid thread response') unless thread.is_a?(Hash) && thread['id'].is_a?(String) && !thread['id'].strip.empty?
+      raise Error.new(403, 'Thread access denied') if thread.key?('agentId') && thread['agentId'] != agent_id
+      raise Error.new(404, 'Agent not found') unless @agents.key?(agent_id)
+      active = @mutex.synchronize { @runs.values.find { |run| run.thread_id == thread['id'] && (!body['runId'] || run.run_id == body['runId']) } }
+      stopped = active ? active.request_stop : false
+      result = { 'stopped' => stopped }
+      result['interrupt'] = { 'type' => 'RUN_ERROR', 'message' => 'Run stopped by user', 'code' => 'STOPPED' } if stopped
+      [200, result]
     end
 
     def report_error(error)
@@ -223,6 +251,22 @@ module CopilotKit
     end
 
     def run(input, user, agent_id)
+      token = Object.new
+      worker = @mutex.synchronize do
+        raise Error.new(503, 'Runtime is shutting down') if @closed
+        @startups[token] = Thread.new do
+          begin
+            perform_run(input, user, agent_id)
+          ensure
+            @mutex.synchronize { @startups.delete(token) }
+          end
+        end
+      end
+      worker.report_on_exception = false
+      worker.value || raise(Error.new(503, 'Runtime is shutting down'))
+    end
+
+    def perform_run(input, user, agent_id)
       identifier!(input['runId'])
       raise Error.new(400, 'messages must be an array') unless input['messages'].is_a?(Array)
       raise Error.new(503, 'Runtime is shutting down') if @closed
@@ -241,30 +285,43 @@ module CopilotKit
           @platform.request('GET', "/api/threads/#{escaped(thread_id)}?userId=#{escaped(user['id'])}")
         end
       end
-      lock = @platform.request('POST', "/api/threads/#{escaped(thread_id)}/lock", creation.reject { |key, _| key == 'threadId' }.merge('runId' => input['runId']))
-      runner = nil
+      runner, lock, started, lock_rejected = nil, nil, false, false
       begin
+        begin
+          lock = @platform.request('POST', "/api/threads/#{escaped(thread_id)}/lock", creation.reject { |key, _| key == 'threadId' }.merge('runId' => input['runId'], 'ttlSeconds' => @lock_ttl))
+        rescue Error => error
+          lock_rejected = error.status.between?(400, 499)
+          raise
+        end
         %w[threadId runId joinToken].each { |field| raise Error.new(502, 'Invalid platform lock response') unless lock[field].is_a?(String) && !lock[field].empty? }
         canonical = input.merge('threadId' => lock['threadId'], 'runId' => lock['runId'])
+        a2ui = @a2ui if @a2ui && @a2ui['enabled'] != false && (!@a2ui['agents'] || @a2ui['agents'].include?(agent_id))
+        servers = @mcp_servers.select { |server| !server['agentId'] || server['agentId'] == agent_id }
+        agent = UIAgent.new(agent: @agents.fetch(agent_id), a2ui: a2ui, mcp_servers: servers)
+        runner = Runner.new(platform: @platform, url: @runner_url, auth_token: @api_key, lock: lock, agent: agent, input: canonical, messages: [], telemetry: @telemetry, on_error: @on_error, heartbeat_interval: @lock_heartbeat_interval, lock_ttl: @lock_ttl)
+        runner.start_lease
         history = @platform.request('GET', "/api/threads/#{escaped(lock['threadId'])}/messages?userId=#{escaped(user['id'])}").fetch('messages')
         prior_ids = history.map { |message| message['id'] }
         fresh = input['messages'].reject { |message| prior_ids.include?(message['id']) }
         canonical['messages'] = history + fresh
-        a2ui = @a2ui if @a2ui && @a2ui['enabled'] != false && (!@a2ui['agents'] || @a2ui['agents'].include?(agent_id))
-        servers = @mcp_servers.select { |server| !server['agentId'] || server['agentId'] == agent_id }
-        agent = UIAgent.new(agent: @agents.fetch(agent_id), a2ui: a2ui, mcp_servers: servers)
-        runner = Runner.new(platform: @platform, url: @runner_url, auth_token: @api_key, lock: lock, agent: agent, input: canonical, messages: fresh, telemetry: @telemetry, on_error: @on_error)
+        runner.prepare_input(canonical, fresh)
         runner.join_gateway
         @mutex.synchronize do
           raise Error.new(503, 'Runtime is shutting down') if @closed
           @runs[lock['runId']] = runner
+          runner.start { @mutex.synchronize { @runs.delete(lock['runId']) } }
+          started = true
         end
-        runner.start { @mutex.synchronize { @runs.delete(lock['runId']) } }
         [200, credentials(lock)]
-      rescue StandardError
-        runner&.stop
-        @platform.request('DELETE', "/api/threads/#{escaped(lock['threadId'] || thread_id)}/lock", 'runId' => lock['runId'] || input['runId']) rescue nil
-        raise
+      ensure
+        unless started || lock_rejected
+          runner&.stop
+          begin
+            Timeout.timeout(3) { @platform.request('DELETE', "/api/threads/#{escaped(lock&.dig('threadId') || thread_id)}/lock", 'runId' => lock&.dig('runId') || input['runId']) }
+          rescue StandardError => error
+            report_error(error)
+          end
+        end
       end
     end
   end

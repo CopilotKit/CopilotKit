@@ -31,7 +31,9 @@ The conformance example's test headers are for local testing only.
 Create the runtime after a worker forks. Call `close(timeout: 10)` in the
 application server's worker shutdown hook so runs release their locks and the
 telemetry exporter closes. The timeout covers the drain phase; platform cleanup
-also has a bounded HTTP timeout.
+has its own three-second bound. Shutdown cancels pending startup requests and all producers before draining.
+If the drain deadline expires, the runtime closes remaining publishers; the
+platform lease expires as a fallback when cleanup cannot reach Intelligence.
 
 ## Configure
 
@@ -44,6 +46,21 @@ Secrets stay on server requests and never appear in runtime responses or telemet
 instances. Native agents implement `each_event(input)` and yield AG-UI event
 hashes. Keep mutable state local to each invocation. `HttpAgent` incrementally
 reads an AG-UI SSE endpoint and accepts server-configured request headers.
+
+Each agent must emit `RUN_FINISHED` or `RUN_ERROR`. EOF alone is not success.
+The runner closes open text and tool streams, then emits `INCOMPLETE_STREAM`
+when an agent returns without a terminal event.
+
+```ruby
+class GreetingAgent < CopilotKit::Agent
+  def each_event(_input)
+    yield('type' => 'TEXT_MESSAGE_START', 'messageId' => 'greeting', 'role' => 'assistant')
+    yield('type' => 'TEXT_MESSAGE_CONTENT', 'messageId' => 'greeting', 'delta' => 'Hello')
+    yield('type' => 'TEXT_MESSAGE_END', 'messageId' => 'greeting')
+    yield('type' => 'RUN_FINISHED')
+  end
+end
+```
 
 `memory_access` resolves a trusted grant for each request:
 
@@ -71,10 +88,21 @@ platform's canonical thread/run IDs. The HTTP success response waits for an
 authenticated Phoenix channel join. The agent executes in the worker process.
 
 The runner stamps each event with canonical IDs, a stable UUID, and an increasing
-sequence number. It waits for an ACK before reading the next event. Reconnect
-replays the same event without rerunning the agent. Retries are bounded to four
-attempts. A heartbeat renews the platform lease every ten seconds. Completion,
-failure, and shutdown release the lock.
+sequence number. A 32-event queue bounds producer output. The publisher waits
+for an ACK before sending more events. When the gateway advertises batch
+support, bursts use batches of at most 32 events. Reconnect replays identical
+unacknowledged events without rerunning the agent. Retries are bounded to four
+attempts; permanent gateway rejections stop retrying.
+
+The default lease is 20 seconds with a heartbeat every 15 seconds. Set
+`lock_ttl:` and `lock_heartbeat_interval:` together to change those values.
+Lease renewal starts before history loading and gateway join. It does not wait
+for gateway ACKs.
+Lease renewal failure cancels the producer. Gateway `ag-ui` stop messages also
+interrupt an idle HTTP agent. `POST /agent/:agentId/stop/:threadId` checks the
+trusted user's thread ownership and optional `runId` before canceling a local
+run. An old run ID cannot stop a newer run. Stops finish with a durable `STOPPED`
+event; completion analytics waits for the terminal event's ACK.
 
 ## Telemetry
 
@@ -156,14 +184,28 @@ NX_DAEMON=false pnpm nx run-many -t test,lint,build -p runtime-ruby
 node tools/runtime-conformance/run.mjs -- ruby packages/runtime-ruby/examples/conformance.rb
 ```
 
-All 43 shared socket, UI, and analytics cases pass, including lost-ACK reconnect, join
+The Rails fixture pins Rails 7.1.5.2 and mounts the same runtime in a real Rails
+application. It preserves HTTP headers and runs the same socket cases:
+
+```sh
+bundle install --gemfile packages/runtime-ruby/examples/rails/Gemfile
+NX_DAEMON=false pnpm nx run runtime-ruby:test-rails
+```
+
+Verified locally with Ruby 2.7.8, Rails 7.1.5.2, and Rack 3.2.7. Both `/info`
+and a full agent run passed through Rails middleware, authenticated Phoenix,
+persisted events, and AIMock. The Rails fixture's test identity is not production
+authentication.
+
+All 51 shared socket, UI, runner, and analytics cases pass, including lost-ACK reconnect, join
 rejection, ownership, API mutations, validation, and AIMock agent execution.
 Local tests cover denied identity, memory grants, startup validation, and safe
 telemetry. A gem build checks the installable artifact.
 
-User-requested cancellation, distributed stop signaling, suggestions,
-and Inspector metadata are not yet implemented. Analytics matches the reference
+Suggestions and Inspector metadata are not yet implemented. HTTP stops address
+the current worker; clients use the authenticated realtime gateway to stop a
+run on another worker. Analytics matches the reference
 TypeScript runtime; OpenTelemetry is not a dependency or claimed capability.
-Rails boots, certificate-failure cases, prolonged lease loss,
-high concurrency, and shutdown deadlines need integration coverage before a
+Certificate-failure cases, sustained high concurrency, and multi-worker
+operational testing still need coverage before a
 production-readiness claim. The shared suite is one gate, not release approval.

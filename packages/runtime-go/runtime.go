@@ -166,15 +166,29 @@ func cloneAgents(m map[string]Agent) map[string]Agent {
 	return n
 }
 
-// Close cancels running agents and waits for event publishers and telemetry.
+// Close cancels running agents and allows ten seconds for shutdown.
 func (r *Runtime) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return r.CloseContext(ctx)
+}
+
+// CloseContext cancels running agents and bounds draining by the caller's context.
+// An agent that ignores cancellation may outlive the deadline.
+func (r *Runtime) CloseContext(ctx context.Context) error {
 	r.mu.Lock()
 	r.closed = true
 	r.cancel()
 	r.mu.Unlock()
-	r.wg.Wait()
-	r.telemetry.close()
-	return nil
+	done := make(chan struct{})
+	go func() { r.wg.Wait(); r.telemetry.close(); close(done) }()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		r.telemetry.cancel()
+		return ctx.Err()
+	}
 }
 
 // RuntimeError is delivered only to the application, never to the analytics sink.
@@ -375,10 +389,11 @@ func (r *Runtime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			r.mu.Lock()
 			active, ok := r.active[parts[3]]
 			r.mu.Unlock()
-			if ok && (str(body["runId"]) == "" || str(body["runId"]) == active.runID) {
+			stopped := ok && (str(body["runId"]) == "" || str(body["runId"]) == active.runID)
+			if stopped {
 				active.cancel()
 			}
-			reply(w, 200, map[string]any{"stopped": ok})
+			reply(w, 200, map[string]any{"stopped": stopped})
 			return
 		}
 	}

@@ -1,6 +1,15 @@
 {
   "name": "runtime-ruby",
   "targets": {
+    "test-rails": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/runtime-conformance/run.mjs --cwd packages/runtime-ruby/examples/rails -- bundle exec ruby ../rails_conformance.rb",
+        "cwd": "."
+      },
+      "cache": false,
+      "dependsOn": []
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {

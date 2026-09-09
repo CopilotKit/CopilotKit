@@ -50,6 +50,7 @@ class GreetingAgent:
         yield {"type": "TEXT_MESSAGE_START", "messageId": "greeting", "role": "assistant"}
         yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": "greeting", "delta": "Hello"}
         yield {"type": "TEXT_MESSAGE_END", "messageId": "greeting"}
+        yield {"type": "RUN_FINISHED"}
 ```
 
 The runtime adds missing run lifecycle events and stamps canonical thread/run IDs on every event.
@@ -152,6 +153,18 @@ The agent owns model retries. The middleware reports retry state and prevents in
 An explicit `enabled=False` disables A2UI for every agent. `agents` limits A2UI to the listed agent IDs.
 
 ## Verification
+
+The runner reads stop controls even when the agent is idle. Lost lock renewal cancels agent work.
+Lock renewal starts when acquisition succeeds, before history loading or channel join.
+Shutdown cancels pending startups before it closes the platform client.
+It retries temporary joins and planned socket restarts without starting the agent again.
+Negotiated batches contain at most 32 events. Retries preserve event IDs, sequences, and payloads.
+A 32-event producer queue applies backpressure. The active batch must receive its ACK before normal cleanup.
+Shutdown allows `shutdown_timeout` seconds for runs to finish cleanup, then aborts their transports.
+Application agents must cooperate with cancellation. Python cannot forcibly terminate arbitrary application code.
+The telemetry exporter has its own bounded shutdown period.
+Every agent must emit `RUN_FINISHED` or `RUN_ERROR`. Missing terminal events produce `INCOMPLETE_STREAM`, including clean HTTP EOF and `[DONE]`.
+Incomplete streams close open text and tool calls and add missing tool results. Authorized stops use a clean `RUN_FINISHED`.
 
 Run local tests, lint, type checks, and package builds from the repository root:
 

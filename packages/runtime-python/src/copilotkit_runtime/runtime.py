@@ -7,6 +7,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
@@ -20,6 +21,7 @@ from starlette.types import Receive, Scope, Send
 
 from .a2ui import A2UIConfig, A2UIMiddleware
 from .agents import Agent
+from .finalizer import EventFinalizer
 from .gateway import Gateway
 from .mcp_apps import MCPAppsConfig, MCPAppsMiddleware, MCPServer
 from .models import Json, PlatformError, RuntimeConfig, RuntimeErrorResponse, User
@@ -30,6 +32,15 @@ IdentifyUser = Callable[[Request], Awaitable[User | None] | User | None]
 MemoryPolicy = Callable[[User, Request], Awaitable[Json] | Json]
 LearningSelector = Callable[[User, str, Json], Awaitable[str | None] | str | None]
 ErrorHandler = Callable[[Exception, str], Awaitable[None]]
+
+
+@dataclass
+class _Lease:
+    """Transfer lock supervision from startup to execution without resetting its clock."""
+
+    owner: asyncio.Task[Any] | None
+    task: asyncio.Task[None] | None = None
+    error: Exception | None = None
 
 
 def required(body: Json, key: str) -> str:
@@ -79,6 +90,9 @@ class IntelligenceRuntime:
         self.client = http_client or httpx.AsyncClient()
         self.platform = Platform(config, self.client)
         self._runs: dict[str, tuple[asyncio.Task[None], str, str]] = {}
+        self._gateways: dict[str, Gateway] = {}
+        self._startups: set[asyncio.Task[Any]] = set()
+        self._leases: dict[Gateway, _Lease] = {}
         self._closing = False
         self._instance_reported = False
         base = config.base_path.rstrip("/")
@@ -114,11 +128,29 @@ class IntelligenceRuntime:
     async def aclose(self) -> None:
         """Cancel runs, wait for lock cleanup, and close owned HTTP connections."""
         self._closing = True
-        tasks = [item[0] for item in self._runs.values()]
+        tasks = [item[0] for item in self._runs.values()] + list(self._startups)
         for task in tasks:
-            task.cancel()
+            active = next(
+                (self._gateways.get(key) for key, item in self._runs.items() if item[0] is task),
+                None,
+            )
+            if active:
+                active.stop_requested.set()
+            else:
+                task.cancel()
         if tasks:
-            await asyncio.wait(tasks, timeout=self.config.shutdown_timeout)
+            _, pending = await asyncio.wait(tasks, timeout=self.config.shutdown_timeout)
+            if pending:
+                for gateway in self._gateways.values():
+                    gateway.abort()
+                for lease in self._leases.values():
+                    if lease.task:
+                        lease.task.cancel()
+                for task in pending:
+                    task.cancel()
+                # Allow cooperative agents to observe the forced cancellation, without
+                # waiting indefinitely for application code that suppresses cancellation.
+                await asyncio.sleep(0)
         if self._owned_client:
             await self.client.aclose()
         await self.telemetry.aclose()
@@ -220,9 +252,14 @@ class IntelligenceRuntime:
                 )
             if path[2] == "stop" and len(path) == 4 and method == "POST":
                 entry = self._runs.get(path[3])
+                if entry and entry[1] != user.id:
+                    raise RuntimeErrorResponse(403, "Thread access denied")
                 stopped = entry is not None and entry[1:] == (user.id, agent_id)
-                if stopped and entry:
-                    entry[0].cancel()
+                gateway = self._gateways.get(path[3])
+                if body.get("runId") and (not gateway or body["runId"] != gateway.run_id):
+                    stopped = False
+                if stopped and gateway:
+                    gateway.stop_requested.set()
                 data = {"stopped": stopped}
                 if stopped:
                     data["interrupt"] = {
@@ -326,6 +363,16 @@ class IntelligenceRuntime:
             raise PlatformError(502, "Run connection credentials not available")
 
     async def _run(self, agent_id: str, body: Json, user: User) -> Response:
+        """Register startup before its first side effect so shutdown can drain it."""
+        owner = asyncio.current_task()
+        assert owner is not None
+        self._startups.add(owner)
+        try:
+            return await self._start_run(agent_id, body, user)
+        finally:
+            self._startups.discard(owner)
+
+    async def _start_run(self, agent_id: str, body: Json, user: User) -> Response:
         """Acquire canonical ownership and join ingestion before returning success."""
         if self._closing:
             raise RuntimeErrorResponse(503, "Runtime is shutting down")
@@ -355,8 +402,11 @@ class IntelligenceRuntime:
         gateway = Gateway(
             self.config, canonical_thread or thread_id, canonical_run or run_id, self.telemetry
         )
+        lease: _Lease | None = None
         try:
             self._credentials(lock, run=True)
+            lease = self._start_lease(gateway)
+            self._gateways[canonical_thread] = gateway
             history = await self.platform.request(
                 "GET",
                 f"/api/threads/{segment(canonical_thread)}/messages",
@@ -373,14 +423,28 @@ class IntelligenceRuntime:
                 await gateway.join()
             except Exception as error:
                 raise PlatformError(502, "Failed to join Intelligence gateway") from error
+            if self._closing:
+                raise RuntimeErrorResponse(503, "Runtime is shutting down")
         except BaseException:
+            if lease and lease.task:
+                lease.task.cancel()
+                await asyncio.gather(lease.task, return_exceptions=True)
+            self._leases.pop(gateway, None)
             await gateway.aclose()
             await self._cleanup(canonical_thread or thread_id, canonical_run or run_id)
+            if self._gateways.get(canonical_thread) is gateway:
+                self._gateways.pop(canonical_thread, None)
+            if lease and lease.error:
+                raise PlatformError(502, "Run lock renewal failed") from lease.error
             raise
         task = asyncio.create_task(
-            self._execute(agent_id, input, new_messages, gateway), name="copilotkit-agent-run"
+            self._execute(agent_id, input, new_messages, gateway, lease),
+            name="copilotkit-agent-run",
         )
+        assert lease is not None
+        lease.owner = None
         self._runs[canonical_thread] = (task, user.id, agent_id)
+        self._gateways[canonical_thread] = gateway
         return JSONResponse(
             {
                 "threadId": canonical_thread,
@@ -405,72 +469,159 @@ class IntelligenceRuntime:
         """Renew ownership until shutdown; failure cancels the producer task group."""
         while True:
             await asyncio.sleep(self.config.lock_heartbeat_seconds)
-            await self.platform.request(
-                "PATCH",
-                f"/api/threads/{segment(gateway.thread_id)}/lock",
-                {"runId": gateway.run_id, "ttlSeconds": self.config.lock_ttl_seconds},
-            )
+            async with asyncio.timeout(
+                self.config.lock_ttl_seconds - self.config.lock_heartbeat_seconds
+            ):
+                await self.platform.request(
+                    "PATCH",
+                    f"/api/threads/{segment(gateway.thread_id)}/lock",
+                    {"runId": gateway.run_id, "ttlSeconds": self.config.lock_ttl_seconds},
+                )
             await self.telemetry.emit("runtime.lock.renewed")
 
+    def _start_lease(self, gateway: Gateway) -> _Lease:
+        """Begin lease renewal at acquisition, including history fetch and channel join."""
+        owner = asyncio.current_task()
+        assert owner is not None
+        lease = _Lease(owner)
+
+        async def supervise() -> None:
+            try:
+                await self._renew(gateway)
+            except Exception as error:
+                lease.error = error
+                if lease.owner:
+                    lease.owner.cancel()
+
+        lease.task = asyncio.create_task(supervise(), name="copilotkit-lock-lease")
+        self._leases[gateway] = lease
+        return lease
+
     async def _execute(
-        self, agent_id: str, input: Json, messages: list[Json], gateway: Gateway
+        self,
+        agent_id: str,
+        input: Json,
+        messages: list[Json],
+        gateway: Gateway,
+        lease: _Lease | None = None,
     ) -> None:
         """Persist ordered agent events while heartbeat failures abort execution."""
         started = time.monotonic()
         await self.telemetry.emit("oss.runtime.agent_execution_stream_started")
         outcome = "complete"
+        lease = lease or self._start_lease(gateway)
+        lease.owner = None
+        sent = EventFinalizer()
+        owner = asyncio.current_task()
+
+        async def stop_monitor() -> None:
+            await gateway.stop_requested.wait()
+            if owner:
+                owner.cancel()
+
+        async def lease_monitor() -> None:
+            if lease.task:
+                await asyncio.shield(lease.task)
+            if lease.error and owner:
+                owner.cancel()
+
+        queue: asyncio.Queue[Json | None] = asyncio.Queue(maxsize=32)
+
+        async def produce() -> None:
+            if lease.error:
+                raise lease.error
+            if gateway.stop_requested.is_set():
+                raise asyncio.CancelledError
+            produced = EventFinalizer()
+            terminal = False
+            async for event in self._agent_events(agent_id, input, lease):
+                if terminal:
+                    raise ValueError("Agent emitted after terminal event")
+                if event.get("type") == "RUN_STARTED":
+                    continue
+                # Detach before yielding control to the producer again.
+                await queue.put(json.loads(json.dumps(event, allow_nan=False)))
+                produced.observe(event)
+                terminal = event.get("type") in ("RUN_FINISHED", "RUN_ERROR")
+            if not terminal:
+                for final_event in produced.finish():
+                    await queue.put(final_event)
+            await queue.put(None)
+
         try:
+            initial = {"type": "RUN_STARTED", "input": {**input, "messages": messages}}
+            sent.observe(initial)
+            await gateway.send(initial)
+            # This check follows the ACK await and precedes all producer scheduling.
+            if lease.error:
+                raise lease.error
+            if gateway.stop_requested.is_set():
+                raise asyncio.CancelledError
             async with asyncio.TaskGroup() as group:
-                renewal = group.create_task(self._renew(gateway))
                 keepalive = group.create_task(gateway.keepalive())
-                seen_start = False
-                terminal = False
-                async for event in self._agent_events(agent_id, input):
-                    if terminal:
-                        raise ValueError("Agent emitted after terminal event")
-                    if not seen_start:
-                        seen_start = True
-                        await gateway.send(
-                            {"type": "RUN_STARTED", "input": {**input, "messages": messages}}
-                        )
-                    if event.get("type") == "RUN_STARTED":
-                        continue
-                    await gateway.send(event)
-                    terminal = event.get("type") in ("RUN_FINISHED", "RUN_ERROR")
-                    if event.get("type") == "RUN_ERROR":
+                monitor = group.create_task(stop_monitor())
+                lease_watcher = group.create_task(lease_monitor())
+                group.create_task(produce())
+                done = False
+                while not done:
+                    first = await queue.get()
+                    if first is None:
+                        break
+                    batch = [first]
+                    await asyncio.sleep(0)
+                    while len(batch) < 32 and not queue.empty():
+                        item = queue.get_nowait()
+                        if item is None:
+                            done = True
+                            break
+                        batch.append(item)
+                    for event in batch:
+                        sent.observe(event)
+                    await gateway.send_many(batch)
+                    if any(event.get("type") == "RUN_ERROR" for event in batch):
                         outcome = "error"
                         await self._report_error(
                             RuntimeError("Agent emitted RUN_ERROR"), "agent.event"
                         )
-                if not seen_start:
-                    await gateway.send(
-                        {"type": "RUN_STARTED", "input": {**input, "messages": messages}}
-                    )
-                if not terminal:
-                    await gateway.send({"type": "RUN_FINISHED"})
-                renewal.cancel()
                 keepalive.cancel()
+                monitor.cancel()
+                lease_watcher.cancel()
         except asyncio.CancelledError:
-            outcome = "cancelled"
+            outcome = (
+                "error"
+                if lease.error
+                else "complete"
+                if gateway.stop_requested.is_set()
+                else "cancelled"
+            )
+            if lease.error:
+                await self._report_error(lease.error, "lock.renewal")
             try:
-                await gateway.send(
-                    {"type": "RUN_ERROR", "message": "Run stopped", "code": "STOPPED"}
-                )
+                for final_event in sent.finish(
+                    stop_requested=gateway.stop_requested.is_set() and not lease.error
+                ):
+                    await gateway.send(final_event)
             except Exception:
                 pass
         except Exception as error:
             await self._report_error(error, "agent.execution")
             outcome = "error"
             try:
-                await gateway.send({"type": "RUN_ERROR", "message": "Agent execution failed"})
+                for final_event in sent.finish():
+                    await gateway.send(final_event)
             except Exception:
                 pass
         finally:
+            if lease.task:
+                lease.task.cancel()
+                await asyncio.gather(lease.task, return_exceptions=True)
+            self._leases.pop(gateway, None)
             await gateway.aclose()
             await self._cleanup(gateway.thread_id, gateway.run_id)
             entry = self._runs.get(gateway.thread_id)
             if entry and entry[0] is asyncio.current_task():
                 self._runs.pop(gateway.thread_id, None)
+                self._gateways.pop(gateway.thread_id, None)
             await self.telemetry.emit(
                 "oss.runtime.agent_execution_stream_ended"
                 if outcome == "complete"
@@ -480,7 +631,9 @@ class IntelligenceRuntime:
                 error="RUN_STOPPED" if outcome == "cancelled" else "AGENT_EXECUTION_FAILED",
             )
 
-    async def _agent_events(self, agent_id: str, input: Json) -> AsyncIterator[Json]:
+    async def _agent_events(
+        self, agent_id: str, input: Json, lease: _Lease | None = None
+    ) -> AsyncIterator[Json]:
         """Transform configured UI features before canonical Intelligence ingestion."""
         proxy = input.get("forwardedProps", {}).get("__proxiedMCPRequest")
         if proxy is not None:
@@ -494,6 +647,8 @@ class IntelligenceRuntime:
         ui_tools: dict[str, tuple[MCPServer, str]] = {}
         if self.mcp_apps:
             prepared, ui_tools = await self.mcp_apps.discover(prepared, agent_id)
+        if lease and lease.error:
+            raise lease.error
         source = self.agents[agent_id].run(prepared)
         if self.mcp_apps:
             source = self.mcp_apps.transform(source, prepared, ui_tools)

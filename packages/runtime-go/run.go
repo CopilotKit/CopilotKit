@@ -83,6 +83,18 @@ func (a *HTTPAgent) Run(ctx context.Context, input map[string]any, emit func(Eve
 	return flush()
 }
 func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID string, agent Agent, input map[string]any) {
+	ctx, cancelCause := context.WithCancelCause(r.ctx)
+	cancel := func() { cancelCause(context.Canceled) }
+	stop := func() { cancelCause(errUserStopped) }
+	stopRequest := context.AfterFunc(req.Context(), cancel)
+	defer stopRequest()
+	transferred := false
+	defer func() {
+		if !transferred {
+			cancel()
+		}
+	}()
+	req = req.WithContext(ctx)
 	thread, runID := str(input["threadId"]), str(input["runId"])
 	if !identifier(thread) || !identifier(runID) {
 		bad(w, 400, "Invalid threadId or runId")
@@ -171,6 +183,30 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		bad(w, 502, "Missing run credentials")
 		return
 	}
+	heartbeatDone := make(chan struct{})
+	go func() {
+		defer close(heartbeatDone)
+		ticker := time.NewTicker(r.config.HeartbeatInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_, err := r.platform(ctx, "PATCH", "/api/threads/"+url.PathEscape(canonicalThread)+"/lock", map[string]any{"runId": canonicalRun, "ttlSeconds": int(r.config.LockTTL.Seconds())}, nil)
+				if err != nil {
+					cancelCause(errLockLost)
+					return
+				}
+			}
+		}
+	}()
+	defer func() {
+		if !transferred {
+			cancel()
+			<-heartbeatDone
+		}
+	}()
 	history, e := r.platform(req.Context(), "GET", "/api/threads/"+url.PathEscape(canonicalThread)+"/messages?userId="+url.QueryEscape(u.ID), nil, nil)
 	if e != nil {
 		cleanup()
@@ -190,10 +226,19 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		}
 	}
 	input["threadId"], input["runId"] = canonicalThread, canonicalRun
-	ctx, cancelCause := context.WithCancelCause(r.ctx)
-	cancel := func() { cancelCause(context.Canceled) }
-	stop := func() { cancelCause(errUserStopped) }
-	pub, e := newPublisher(r.ctx, r.config.RunnerURL, r.config.APIKey, canonicalThread, canonicalRun, stop)
+	publisherContext, cancelPublisher := context.WithCancel(r.ctx)
+	stopPublisher := context.AfterFunc(ctx, func() {
+		if !errors.Is(context.Cause(ctx), errUserStopped) {
+			cancelPublisher()
+		}
+	})
+	defer func() {
+		if !transferred {
+			stopPublisher()
+			cancelPublisher()
+		}
+	}()
+	pub, e := newPublisher(publisherContext, r.config.RunnerURL, r.config.APIKey, canonicalThread, canonicalRun, stop)
 	if e != nil {
 		cancel()
 		cleanup()
@@ -201,6 +246,14 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		return
 	}
 	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		pub.close()
+		cancel()
+		cleanup()
+		bad(w, 503, "Runtime shutting down")
+		return
+	}
 	if _, exists := r.active[canonicalThread]; exists {
 		r.mu.Unlock()
 		pub.close()
@@ -210,31 +263,24 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		return
 	}
 	r.active[canonicalThread] = activeRun{cancel: stop, runID: canonicalRun}
-	r.mu.Unlock()
 	r.wg.Add(1)
+	r.mu.Unlock()
+	stopRequest()
+	transferred = true
+	go func() {
+		select {
+		case <-pub.done:
+			cancelCause(errors.New("gateway connection permanently failed"))
+		case <-ctx.Done():
+		}
+	}()
 	go func() {
 		defer r.wg.Done()
 		defer cancel()
 		defer pub.close()
+		defer cancelPublisher()
+		defer stopPublisher()
 		defer func() { r.mu.Lock(); delete(r.active, canonicalThread); r.mu.Unlock() }()
-		heartbeatDone := make(chan struct{})
-		go func() {
-			defer close(heartbeatDone)
-			ticker := time.NewTicker(r.config.HeartbeatInterval)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					_, err := r.platform(ctx, "PATCH", "/api/threads/"+url.PathEscape(canonicalThread)+"/lock", map[string]any{"runId": canonicalRun, "ttlSeconds": int(r.config.LockTTL.Seconds())}, nil)
-					if err != nil {
-						cancelCause(errLockLost)
-						return
-					}
-				}
-			}
-		}()
 		defer func() { cancel(); <-heartbeatDone }()
 		r.capture("oss.runtime.agent_execution_stream_started", map[string]any{})
 		started, terminal := false, false
@@ -272,14 +318,17 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 			terminal = str(event["type"]) == "RUN_FINISHED" || str(event["type"]) == "RUN_ERROR"
 			return nil
 		}
-		e := agent.Run(ctx, input, func(event Event) error {
-			if !started && str(event["type"]) != "RUN_STARTED" {
-				if err := emit(Event{"type": "RUN_STARTED"}); err != nil {
-					return err
+		e := ctx.Err()
+		if e == nil {
+			e = agent.Run(ctx, input, func(event Event) error {
+				if !started && str(event["type"]) != "RUN_STARTED" {
+					if err := emit(Event{"type": "RUN_STARTED"}); err != nil {
+						return err
+					}
 				}
-			}
-			return emit(event)
-		})
+				return emit(event)
+			})
+		}
 		if !started {
 			if err := emit(Event{"type": "RUN_STARTED"}); err != nil {
 				e = err

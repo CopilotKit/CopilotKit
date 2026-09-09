@@ -78,4 +78,12 @@ class RuntimeTest < Minitest::Test
     assert_equal 1, failures.length
     assert_instance_of CopilotKit::Error, failures.first
   end
+
+  def test_stop_rejects_unauthorized_thread_before_touching_local_run
+    runtime = build_runtime(api_key: 'test-secret', identify_user: ->(_) { { 'id' => 'alice' } }, agents: { 'default' => CopilotKit::Agent.new })
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*_args| raise CopilotKit::Error.new(403, 'Forbidden') }
+    runtime.instance_variable_set(:@platform, platform)
+    assert_equal 403, request(runtime, 'POST', '/agent/default/stop/private', 'runId' => 'r').first
+  end
 end

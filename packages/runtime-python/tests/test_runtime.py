@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 import pytest
 
@@ -138,4 +140,232 @@ async def test_application_error_handler_is_separate_and_failure_isolated():
     assert response.status_code == 502
     assert "private handler" not in response.text
     assert errors == [("PlatformError", "platform")]
+    await app.aclose()
+
+
+@pytest.mark.parametrize("cause", ["stop", "lease_failure"])
+async def test_authoritative_stop_cancels_idle_producer_and_acks_before_cleanup(cause):
+    from dataclasses import replace
+
+    from copilotkit_runtime.gateway import Gateway
+
+    stopped = asyncio.Event()
+    cleanup = []
+
+    class IdleAgent:
+        description = "idle"
+
+        async def run(self, input):
+            try:
+                await asyncio.Event().wait()
+                yield {"type": "RUN_FINISHED"}
+            finally:
+                stopped.set()
+
+    class TestGateway(Gateway):
+        async def keepalive(self):
+            await asyncio.Event().wait()
+
+        async def send_many(self, events):
+            cleanup.extend(event["type"] for event in events)
+
+    app = runtime(lambda request: cleanup.append("unlock") or httpx.Response(200, json={}))
+    app.agents["default"] = IdleAgent()
+    if cause == "lease_failure":
+        app.config = replace(app.config, lock_heartbeat_seconds=0.01)
+
+        async def failed_renewal(*args, **kwargs):
+            if args[0] == "PATCH":
+                raise ConnectionError("lease lost")
+            cleanup.append("unlock")
+            return {}
+
+        app.platform.request = failed_renewal
+    gateway = TestGateway(app.config, "thread", "run", app.telemetry)
+    task = asyncio.create_task(app._execute("default", {}, [], gateway))
+    await asyncio.sleep(0.01)
+    if cause == "stop":
+        gateway.stop_requested.set()
+    await asyncio.wait_for(asyncio.shield(task), 0.2)
+    assert stopped.is_set()
+    assert cleanup[0] == "RUN_STARTED"
+    assert cleanup[-2:] == ["RUN_FINISHED" if cause == "stop" else "RUN_ERROR", "unlock"]
+    await app.aclose()
+
+
+async def test_shutdown_cancels_work_that_exceeds_deadline():
+    from dataclasses import replace
+
+    cancelled_twice = asyncio.Event()
+
+    async def stuck_cleanup():
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled_twice.set()
+
+    app = runtime(lambda request: httpx.Response(200, json={}))
+    app.config = replace(app.config, shutdown_timeout=0.02)
+    task = asyncio.create_task(stuck_cleanup())
+    app._runs["thread"] = (task, "user", "default")
+    await asyncio.sleep(0)
+    await app.aclose()
+    await asyncio.sleep(0)
+    try:
+        assert cancelled_twice.is_set()
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_join_finishing_after_shutdown_cannot_launch_agent(monkeypatch):
+    from copilotkit_runtime.gateway import Gateway
+
+    joining, release = asyncio.Event(), asyncio.Event()
+    cleanup = []
+
+    async def join(self):
+        joining.set()
+        await release.wait()
+
+    monkeypatch.setattr(Gateway, "join", join)
+
+    def platform(request):
+        if request.method == "DELETE":
+            cleanup.append(request.url.path)
+        if request.method == "POST":
+            return httpx.Response(
+                200, json={"threadId": "canonical", "runId": "canonical-run", "joinToken": "token"}
+            )
+        return httpx.Response(200, json={"messages": []})
+
+    app = runtime(platform)
+    app._owned_client = True
+    startup = asyncio.create_task(
+        app._run("default", {"threadId": "thread", "runId": "run"}, User("user"))
+    )
+    await joining.wait()
+    await app.aclose()
+    try:
+        assert startup.done(), "Shutdown must drain pending startup before returning"
+        with pytest.raises(asyncio.CancelledError):
+            await startup
+        assert not app._runs
+        assert cleanup == ["/api/threads/canonical/lock"]
+        assert app.client.is_closed
+    finally:
+        release.set()
+        await asyncio.gather(startup, return_exceptions=True)
+        await app.aclose()
+
+
+@pytest.mark.parametrize("blocked_phase", ["join", "history"])
+async def test_lease_renews_and_cancels_startup_while_join_is_blocked(monkeypatch, blocked_phase):
+    from dataclasses import replace
+
+    from copilotkit_runtime.gateway import Gateway
+    from copilotkit_runtime.models import PlatformError
+
+    joining = asyncio.Event()
+    calls = []
+
+    async def join(self):
+        joining.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(Gateway, "join", join)
+
+    async def platform(request):
+        calls.append(request.method)
+        if blocked_phase == "history" and request.url.path.endswith("/messages"):
+            joining.set()
+            await asyncio.Event().wait()
+        if request.method == "PATCH":
+            return httpx.Response(409)
+        if request.method == "POST":
+            return httpx.Response(
+                200, json={"threadId": "canonical", "runId": "canonical-run", "joinToken": "token"}
+            )
+        return httpx.Response(200, json={"messages": []})
+
+    app = runtime(platform)
+    app.config = replace(app.config, lock_heartbeat_seconds=0.01)
+    startup = asyncio.create_task(
+        app._run("default", {"threadId": "thread", "runId": "run"}, User("user"))
+    )
+    await joining.wait()
+    try:
+        with pytest.raises(PlatformError):
+            await asyncio.wait_for(asyncio.shield(startup), 0.2)
+        assert "PATCH" in calls and calls[-1] == "DELETE"
+        assert not app._runs
+    finally:
+        startup.cancel()
+        await asyncio.gather(startup, return_exceptions=True)
+        await app.aclose()
+
+
+async def test_already_failed_lease_never_enters_agent():
+    from copilotkit_runtime.gateway import Gateway
+    from copilotkit_runtime.runtime import _Lease
+
+    entered = []
+
+    class Agent:
+        description = "must not start"
+
+        async def run(self, input):
+            entered.append(True)
+            yield {"type": "RUN_FINISHED"}
+
+    class TestGateway(Gateway):
+        async def send_many(self, events):
+            return None
+
+        async def keepalive(self):
+            await asyncio.Event().wait()
+
+    app = runtime(lambda request: httpx.Response(200, json={}))
+    app.agents["default"] = Agent()
+    lease = _Lease(None, error=ConnectionError("expired"))
+    await app._execute(
+        "default", {}, [], TestGateway(app.config, "thread", "run", app.telemetry), lease
+    )
+    assert not entered
+    await app.aclose()
+
+
+async def test_immediate_agent_error_persists_input_before_finalization():
+    from copilotkit_runtime.gateway import Gateway
+
+    events = []
+
+    class Agent:
+        description = "throws"
+
+        async def run(self, input):
+            raise ValueError("private")
+            yield {}
+
+    class TestGateway(Gateway):
+        async def send_many(self, batch):
+            events.extend(batch)
+
+        async def keepalive(self):
+            await asyncio.Event().wait()
+
+    app = runtime(lambda request: httpx.Response(200, json={}))
+    app.agents["default"] = Agent()
+    fresh = [{"id": "new", "role": "user", "content": "persist me"}]
+    await app._execute(
+        "default",
+        {"threadId": "canonical", "runId": "run"},
+        fresh,
+        TestGateway(app.config, "canonical", "run", app.telemetry),
+    )
+    assert [event["type"] for event in events] == ["RUN_STARTED", "RUN_ERROR"]
+    assert events[0]["input"]["messages"] == fresh
     await app.aclose()

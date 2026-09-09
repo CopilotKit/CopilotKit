@@ -46,6 +46,10 @@ module CopilotKit
               break
             end
           end
+          # The framing gem reports unsupported close codes (including 1012)
+          # through error? rather than raising. Treat them as a closed transport
+          # immediately so pending events replay without waiting for an ACK timeout.
+          raise Error.new(502, 'Gateway framing failed') if decoder.error?
         end
       rescue StandardError
         on_message.call([:closed]) unless @closed

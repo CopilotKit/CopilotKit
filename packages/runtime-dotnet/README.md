@@ -75,6 +75,29 @@ The legacy MCP SSE transport is not supported.
 A configured callback that returns null denies access before any platform call.
 `LearningContainer` selects the container at run initialization.
 
+## Runner delivery and shutdown
+
+The publisher queues at most 256 events. A full queue pauses agent consumption.
+The active batch contains at most 32 more events. Negotiated batches collect output
+for five milliseconds. Without the gateway capability, the publisher sends single events.
+Retries retain event IDs and sequence numbers. Run completion waits for every gateway ACK.
+
+Retryable joins and planned gateway restarts do not rerun the agent.
+The connection monitor checks idle sockets each second and sends heartbeats every 20 seconds.
+Lock renewal runs independently of agent output. A failed renewal cancels the agent.
+Lease supervision starts after lock acquisition, before history retrieval or gateway join.
+Shutdown includes runs that still await startup.
+Stop requests require thread access and cannot cancel a different run or agent.
+
+An abrupt stream closes open text and tool calls before `INCOMPLETE_STREAM`.
+Native agents must emit `RUN_FINISHED` for success or `RUN_ERROR` for failure.
+An existing terminal event prevents further events. The runtime permits at most 4,096 open text and tool items.
+
+Shutdown cancels active agents and waits up to `RequestTimeout` for completion.
+After that deadline, it aborts publishers and attempts lock cleanup within another `RequestTimeout`.
+The host receives `RUN_SHUTDOWN_TIMEOUT` through `OnError`.
+Native agents must obey cancellation. The runtime cannot forcibly stop application-owned code.
+
 ## Analytics and error reporting
 
 Analytics uses the TypeScript event names and property shapes.

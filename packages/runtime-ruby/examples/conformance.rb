@@ -16,22 +16,45 @@ runtime = CopilotKit::Runtime.new(
     disabled: config.fetch('telemetryDisabled', false), telemetry_id: config['telemetryId']),
   a2ui: config['a2ui'], mcp_apps: config['mcpApps']
 )
+app = runtime
+if ENV['CPK_RAILS_FIXTURE'] == 'true'
+  require 'rails'
+  require 'action_controller/railtie'
+  require 'rack/mock'
+  class CopilotKitFixtureRails < Rails::Application
+    config.eager_load = false
+    config.secret_key_base = 'local-conformance-only-not-a-production-secret' * 2
+    config.logger = Logger.new(File::NULL)
+    config.hosts.clear
+    config.active_support.cache_format_version = 7.1
+  end
+  CopilotKitFixtureRails.initialize!
+  CopilotKitFixtureRails.routes.draw { mount runtime => '/copilotkit' }
+  app = CopilotKitFixtureRails
+end
 server = WEBrick::HTTPServer.new(Port: config.fetch('port', 0), BindAddress: '127.0.0.1', Logger: WEBrick::Log.new(File::NULL), AccessLog: [])
 servlet = Class.new(WEBrick::HTTPServlet::AbstractServlet) do
   define_method(:service) do |request, response|
     env = { 'REQUEST_METHOD' => request.request_method, 'PATH_INFO' => request.path,
             'QUERY_STRING' => request.query_string.to_s, 'rack.input' => StringIO.new(request.body.to_s) }
+    if ENV['CPK_RAILS_FIXTURE'] == 'true'
+      env = Rack::MockRequest.env_for(request.request_uri.to_s, method: request.request_method,
+        input: request.body.to_s, 'CONTENT_TYPE' => request['content-type'])
+    end
     request.header.each { |key, value| env['HTTP_' + key.upcase.tr('-', '_')] = value.first }
-    status, headers, body = runtime.call(env)
+    status, headers, body = app.call(env)
     response.status = status
     headers.each { |key, value| response[key] = value }
-    response.body = body.to_a.join
+    buffer = +''
+    body.each { |part| buffer << part }
+    body.close if body.respond_to?(:close)
+    response.body = buffer
   end
 end
 server.mount('/', servlet)
 %w[TERM INT].each { |signal| trap(signal) { server.shutdown } }
 $stdout.sync = true
-puts JSON.generate('port' => server.listeners.first.addr[1])
+puts JSON.generate({ 'port' => server.listeners.first.addr[1] }.merge(ENV['CPK_RAILS_FIXTURE'] == 'true' ? { 'railsVersion' => Rails.version } : {}))
 begin
   server.start
 ensure

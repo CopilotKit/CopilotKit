@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Threading.Channels;
 
 namespace CopilotKit.Intelligence;
 
@@ -13,6 +14,11 @@ internal sealed class PhoenixPublisher(RuntimeOptions options, string threadId, 
     private CancellationTokenSource? connection;
     private Task? receiver;
     private Task? heartbeat;
+    private readonly CancellationTokenSource lifetime = new();
+    private readonly SemaphoreSlim joining = new(1, 1);
+    private readonly Channel<JsonObject> queue = Channel.CreateBounded<JsonObject>(new BoundedChannelOptions(256) { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
+    private Task? delivery;
+    private bool batching;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonObject>> pending = new();
     private readonly SemaphoreSlim sender = new(1, 1);
     private long reference;
@@ -20,6 +26,28 @@ internal sealed class PhoenixPublisher(RuntimeOptions options, string threadId, 
     private string Topic => "ingestion:" + runId;
 
     public async Task JoinAsync(CancellationToken cancellationToken)
+    {
+        await joining.WaitAsync(cancellationToken);
+        try
+        {
+            if (socket?.State == WebSocketState.Open) return;
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
+            deadline.CancelAfter(options.RequestTimeout);
+            for (var attempt = 0; ; attempt++)
+            {
+                try { await ConnectAsync(deadline.Token); break; }
+                catch (RetryableGatewayException)
+                {
+                    await CloseConnectionAsync();
+                    await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(100 * Math.Pow(2, Math.Min(attempt, 5)), 2000)), deadline.Token);
+                }
+            }
+            heartbeat ??= HeartbeatAsync(lifetime.Token);
+        }
+        finally { joining.Release(); }
+    }
+
+    private async Task ConnectAsync(CancellationToken cancellationToken)
     {
         await CloseConnectionAsync();
         socket = new ClientWebSocket();
@@ -35,8 +63,8 @@ internal sealed class PhoenixPublisher(RuntimeOptions options, string threadId, 
         connection = new CancellationTokenSource();
         receiver = ReceiveAsync(socket, connection.Token);
         joinRef = Interlocked.Increment(ref reference).ToString(System.Globalization.CultureInfo.InvariantCulture);
-        await PushAsync("phx_join", new JsonObject { ["thread_id"] = threadId, ["run_id"] = runId }, timeout.Token, joinRef);
-        heartbeat = HeartbeatAsync(connection.Token);
+        var reply = await PushAsync("phx_join", new JsonObject { ["thread_id"] = threadId, ["run_id"] = runId }, timeout.Token, joinRef);
+        batching = reply["response"]?["capabilities"] is JsonArray capabilities && capabilities.Any(value => value?.GetValue<string>() == "runner_event_batch_v1");
         telemetry.Record("gateway.joined", "agent.run");
     }
 
@@ -44,19 +72,57 @@ internal sealed class PhoenixPublisher(RuntimeOptions options, string threadId, 
     {
         var payload = (JsonObject)value.DeepClone();
         payload["thread_id"] = threadId; payload["run_id"] = runId;
+        delivery ??= DeliverAsync();
+        await queue.Writer.WriteAsync(payload, cancellationToken);
+    }
+
+    public async Task CompleteAsync(CancellationToken cancellationToken)
+    {
+        queue.Writer.TryComplete();
+        if (delivery is not null) await delivery.WaitAsync(cancellationToken);
+    }
+
+    /// <summary>Stops network work when the host's shutdown deadline expires.</summary>
+    public void Abort()
+    {
+        try { lifetime.Cancel(); socket?.Abort(); }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async Task DeliverAsync()
+    {
+        try
+        {
+            while (await queue.Reader.WaitToReadAsync(lifetime.Token))
+            {
+                if (batching) await Task.Delay(5, lifetime.Token);
+                var values = new List<JsonObject>();
+                while (values.Count < (batching ? 32 : 1) && queue.Reader.TryRead(out var value)) values.Add(value);
+                await DeliverBatchAsync(values, lifetime.Token);
+            }
+        }
+        catch (Exception error) { queue.Writer.TryComplete(error); stop(); throw; }
+    }
+
+    private async Task DeliverBatchAsync(List<JsonObject> values, CancellationToken cancellationToken)
+    {
         var elapsed = Stopwatch.StartNew();
         var attempt = 0;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(options.DeliveryTimeout);
+        cancellationToken = deadline.Token;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 if (socket?.State != WebSocketState.Open) await JoinAsync(cancellationToken);
-                await PushAsync("event", payload, cancellationToken);
+                if (batching) await PushAsync("events", new JsonObject { ["events"] = new JsonArray(values.Select(value => value.DeepClone()).ToArray()) }, cancellationToken);
+                else foreach (var value in values) await PushAsync("event", value, cancellationToken);
                 telemetry.Record("gateway.event_acknowledged", "agent.run", durationMs: elapsed.Elapsed.TotalMilliseconds, attempt: attempt);
                 return;
             }
-            catch (Exception error) when (error is WebSocketException or IOException or TimeoutException or OperationCanceledException)
+            catch (Exception error) when (error is WebSocketException or IOException or TimeoutException or OperationCanceledException or RetryableGatewayException)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (elapsed.Elapsed >= options.DeliveryTimeout) throw new RuntimeRequestException(502, "Event durability deadline exceeded");
@@ -78,7 +144,11 @@ internal sealed class PhoenixPublisher(RuntimeOptions options, string threadId, 
             try { await socket!.SendAsync(Encoding.UTF8.GetBytes(message.ToJsonString()), WebSocketMessageType.Text, true, cancellationToken); }
             finally { sender.Release(); }
             var reply = await completion.Task.WaitAsync(options.AckTimeout, cancellationToken);
-            if (reply["status"]?.GetValue<string>() != "ok") throw new RuntimeRequestException(502, "Gateway rejected " + name);
+            if (reply["status"]?.GetValue<string>() != "ok")
+            {
+                if (reply["response"]?["retryable"]?.GetValue<bool>() == true || reply["response"]?["reason"]?.GetValue<string>() == "gateway_draining") throw new RetryableGatewayException();
+                throw new RuntimeRequestException(502, "Gateway rejected " + name);
+            }
             return reply;
         }
         finally { pending.TryRemove(id, out _); }
@@ -104,11 +174,12 @@ internal sealed class PhoenixPublisher(RuntimeOptions options, string threadId, 
                 var name = frame[3]?.GetValue<string>();
                 if (name == "phx_reply" && frame[1]?.GetValue<string>() is { } id && pending.TryRemove(id, out var waiter) && frame[4] is JsonObject reply) waiter.TrySetResult(reply);
                 if (name is "phx_close" or "phx_error") { webSocket.Abort(); throw new IOException("Gateway channel closed"); }
-                if (name == "ag_ui_event" && frame[4]?["type"]?.GetValue<string>() == "CUSTOM" && frame[4]?["name"]?.GetValue<string>() == "stop") stop();
+                if (name == "ag-ui" && frame[2]?.GetValue<string>() == Topic && frame[4]?["type"]?.GetValue<string>() == "CUSTOM" && frame[4]?["name"]?.GetValue<string>() == "stop") stop();
             }
         }
         catch (Exception error)
         {
+            webSocket.Abort();
             foreach (var item in pending.Values) item.TrySetException(new IOException("Gateway disconnected", error));
         }
     }
@@ -117,8 +188,19 @@ internal sealed class PhoenixPublisher(RuntimeOptions options, string threadId, 
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(20));
-            while (await timer.WaitForNextTickAsync(cancellationToken)) await PushAsync("heartbeat", new JsonObject(), cancellationToken, topic: "phoenix");
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            var nextHeartbeat = DateTime.UtcNow.AddSeconds(20);
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                try
+                {
+                    if (socket?.State != WebSocketState.Open) await JoinAsync(cancellationToken);
+                    if (DateTime.UtcNow < nextHeartbeat) continue;
+                    await PushAsync("heartbeat", new JsonObject(), cancellationToken, topic: "phoenix");
+                    nextHeartbeat = DateTime.UtcNow.AddSeconds(20);
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested) { socket?.Abort(); }
+            }
         }
         catch (Exception) { socket?.Abort(); }
     }
@@ -128,18 +210,23 @@ internal sealed class PhoenixPublisher(RuntimeOptions options, string threadId, 
         if (connection is not null) await connection.CancelAsync();
         socket?.Abort();
         if (receiver is not null) await receiver;
-        if (heartbeat is not null) await heartbeat;
         socket?.Dispose(); connection?.Dispose();
-        receiver = null; heartbeat = null; connection = null;
+        receiver = null; connection = null;
     }
 
     public async ValueTask DisposeAsync()
     {
+        await lifetime.CancelAsync();
+        queue.Writer.TryComplete();
+        if (delivery is not null) try { await delivery; } catch (Exception) { }
+        if (heartbeat is not null) await heartbeat;
         if (socket?.State == WebSocketState.Open)
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
             try { await PushAsync("phx_leave", new JsonObject(), timeout.Token); } catch (Exception) { }
         }
-        await CloseConnectionAsync(); sender.Dispose();
+        await CloseConnectionAsync(); sender.Dispose(); joining.Dispose(); lifetime.Dispose();
     }
+
+    private sealed class RetryableGatewayException : Exception;
 }

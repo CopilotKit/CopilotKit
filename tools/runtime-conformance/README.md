@@ -19,7 +19,7 @@ The Nx target uses the same runner. The direct command also supports external ag
 Each case starts a fresh native driver and a fresh platform fixture on loopback ports.
 TypeScript uses the existing public runtime package through `typescript-driver.mjs`.
 It is the fifth supported implementation, not only a reference.
-Only IntelligenceRunner is in scope for all five languages.
+Only the Intelligence Runner is in scope for all five languages.
 The driver receives configuration through `CPK_CONFIG` and reports its port as one JSON line.
 The harness calls the public runtime API under `/copilotkit`.
 It records the runtime's platform HTTP calls and authenticated Phoenix frames.
@@ -57,10 +57,11 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Current coverage limit
 
-The suite has 50 cases: 16 initial cases, 16 UI cases, 11 additional analytics cases, and seven runner cases.
+The suite has 53 cases: 16 initial cases, 16 UI cases, 11 additional analytics cases, and ten runner cases.
 The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
 Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
-Runner cases cover batches, draining joins, planned restarts, final acknowledgements, and stop boundaries.
+Runner cases cover batches, draining joins, planned restarts, final acknowledgments, and stop boundaries.
+They also require input persistence before early stop or error and reject incomplete streams as successful runs.
 They do not yet prove browser replay, all cancellation paths, shutdown, or full recovery deadlines.
 The fixture's event journal is test evidence, not an implementation of the Intelligence database.
 The wider requirements and remaining release gates live in [PLAN.md](PLAN.md).

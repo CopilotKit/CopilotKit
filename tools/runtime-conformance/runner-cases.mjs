@@ -41,6 +41,142 @@ function idleAgent(platform) {
 
 export const runnerCases = [
   {
+    id: "runner.idle-stop-preserves-input",
+    async run(context) {
+      const { platform } = context;
+      platform.faults.agentKeepOpen = true;
+      platform.faults.agentEvents = [];
+      const body = await start(context);
+      await platform.waitFor(() => platform.agentInputs.length === 1);
+      platform.stopRun(body.runId);
+      await platform.waitFor(() =>
+        platform.events.some(
+          (event) =>
+            event.runId === body.runId &&
+            ["RUN_FINISHED", "RUN_ERROR"].includes(event.type),
+        ),
+      );
+      const events = platform.events.filter(
+        (event) => event.runId === body.runId,
+      );
+      assert.equal(
+        events[0].type,
+        "RUN_STARTED",
+        "Early stop lost canonical input before the first agent event",
+      );
+      assert.equal(
+        events.filter((event) => event.type === "RUN_STARTED").length,
+        1,
+      );
+      assert.equal(events[0].input.threadId, body.threadId);
+      assert.equal(events[0].input.runId, body.runId);
+      assert.deepEqual(events[0].input.messages, body.messages);
+      // Abort timing can produce RUN_ERROR or RUN_FINISHED in TypeScript.
+      // This case requires input persistence, not a new stop-event contract.
+      assert.ok(["RUN_FINISHED", "RUN_ERROR"].includes(events.at(-1).type));
+    },
+  },
+  {
+    id: "runner.initial-agent-error-preserves-input",
+    async run(context) {
+      const { platform } = context;
+      platform.faults.http.set("POST /agent", {
+        status: 503,
+        body: { error: "fixture unavailable" },
+      });
+      const body = await start(context);
+      await platform.waitFor(() =>
+        platform.events.some(
+          (event) =>
+            event.runId === body.runId &&
+            ["RUN_FINISHED", "RUN_ERROR"].includes(event.type),
+        ),
+      );
+      const events = platform.events.filter(
+        (event) => event.runId === body.runId,
+      );
+      assert.equal(
+        events[0].type,
+        "RUN_STARTED",
+        "Initial agent error lost canonical input",
+      );
+      assert.equal(
+        events.filter((event) => event.type === "RUN_STARTED").length,
+        1,
+      );
+      assert.equal(events[0].input.threadId, body.threadId);
+      assert.equal(events[0].input.runId, body.runId);
+      assert.deepEqual(events[0].input.messages, body.messages);
+      assert.equal(events.at(-1).type, "RUN_ERROR");
+    },
+  },
+  {
+    id: "runner.missing-terminal-is-not-success",
+    async run(context) {
+      context.platform.faults.agentEvents = (body) => [
+        { type: "RUN_STARTED", threadId: body.threadId, runId: body.runId },
+        {
+          type: "TEXT_MESSAGE_START",
+          messageId: "unfinished-text",
+          role: "assistant",
+        },
+        {
+          type: "TEXT_MESSAGE_CONTENT",
+          messageId: "unfinished-text",
+          delta: "Partial answer",
+        },
+        {
+          type: "TOOL_CALL_START",
+          toolCallId: "unfinished-tool",
+          toolCallName: "example",
+          parentMessageId: "unfinished-text",
+        },
+        {
+          type: "TOOL_CALL_ARGS",
+          toolCallId: "unfinished-tool",
+          delta: '{"value":',
+        },
+      ];
+      const body = await start(context);
+      await context.platform.waitFor(() =>
+        context.platform.events.some(
+          (event) =>
+            event.runId === body.runId &&
+            ["RUN_FINISHED", "RUN_ERROR"].includes(event.type),
+        ),
+      );
+      const events = context.platform.events.filter(
+        (event) => event.runId === body.runId,
+      );
+      assert.equal(events.at(-1).type, "RUN_ERROR");
+      assert.equal(events.at(-1).code, "INCOMPLETE_STREAM");
+      assert.ok(
+        events.some(
+          (event) =>
+            event.type === "TEXT_MESSAGE_END" &&
+            event.messageId === "unfinished-text",
+        ),
+      );
+      assert.ok(
+        events.some(
+          (event) =>
+            event.type === "TOOL_CALL_END" &&
+            event.toolCallId === "unfinished-tool",
+        ),
+      );
+      const result = events.find(
+        (event) =>
+          event.type === "TOOL_CALL_RESULT" &&
+          event.toolCallId === "unfinished-tool",
+      );
+      assert.equal(JSON.parse(result.content).reason, "missing_terminal_event");
+      assert.equal(
+        events.some((event) => event.type === "RUN_FINISHED"),
+        false,
+      );
+    },
+  },
+  {
     id: "runner.negotiated-batches",
     async run(context) {
       const { platform } = context;

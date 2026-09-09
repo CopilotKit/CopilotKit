@@ -34,7 +34,10 @@ headers. The `cmd/conformance` program uses test-only identity headers and must
 not serve production traffic.
 
 Call `Close` during host shutdown. It rejects new requests, cancels agent runs,
-waits for active work, and drains analytics for at most three seconds. Each
+and allows ten seconds for active work and analytics to drain. Use
+`CloseContext(ctx)` to set a different deadline. Agents must honor cancellation.
+Go cannot force an agent goroutine to stop after the deadline. Analytics drains
+for at most three seconds. Each
 runtime has one exporter worker and a 128-event queue; overflow drops analytics
 without blocking runs. `FlushTelemetry(ctx)` waits for events already queued.
 Sink requests time out after three seconds and never follow redirects.
@@ -83,7 +86,12 @@ The shared suite covers UI discovery/execution, authenticated sessions, iframe
 reentry, atomic components, progressive data, action history and agent scoping.
 Legacy MCP SSE transport, OAuth credential negotiation, server-initiated MCP
 requests, resumable MCP streams and adapter-owned A2UI model retries are excluded.
-Entitlement cache/gating and idle Phoenix heartbeats remain pending. Gateway
+Entitlement cache/gating remains pending. Idle Phoenix heartbeats run every
+fifteen seconds. When the gateway supports batches, the publisher sends at most
+32 events per batch and queues at most 32 more events. Each event has a 4 MB
+limit. Retries preserve batch membership and event IDs. Terminal events wait
+for the final durable ACK. Without batch support, each event waits for its ACK.
+Gateway
 durability remains separate from the MCP server's side effects. Analytics uses
 the canonical CopilotKit event sink; this package does not add an OTel pipeline.
 

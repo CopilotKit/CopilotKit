@@ -19,10 +19,17 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
     private readonly CancellationTokenSource stopping = new();
     private readonly ConcurrentDictionary<string, ActiveRun> runs = new();
     private int disposed;
-    private sealed class ActiveRun(CancellationTokenSource cancellation)
+    private sealed class ActiveRun(CancellationTokenSource cancellation, string runId, string agentId)
     {
         internal CancellationTokenSource Cancellation { get; } = cancellation;
-        internal Task Completion { get; set; } = Task.CompletedTask;
+        internal TaskCompletionSource Lifecycle { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal Task Completion => Lifecycle.Task;
+        internal Task Execution { get; set; } = Task.CompletedTask;
+        internal CancellationTokenSource RenewalStop { get; } = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
+        internal Task Renewal { get; set; } = Task.CompletedTask;
+        internal string RunId { get; } = runId;
+        internal string AgentId { get; } = agentId;
+        internal Action? AbortPublisher { get; set; }
     }
 
     public IntelligenceRuntime(RuntimeOptions options, HttpClient? httpClient = null)
@@ -75,8 +82,11 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
                 if (segments[2] == "stop" && segments.Length == 4)
                 {
                     await PlatformAsync("GET", ThreadPath(segments[3]) + "?userId=" + Escape(user.Id), null, user, ct);
-                    if (runs.TryGetValue(segments[3], out var active)) await active.Cancellation.CancelAsync();
-                    await WriteAsync(context, new JsonObject { ["stopped"] = active is not null }, ct); return;
+                    var stopBody = await ReadBodyAsync(context, ct, allowEmpty: true);
+                    var requestedRun = stopBody["runId"]?.GetValue<string>();
+                    var stopped = runs.TryGetValue(segments[3], out var active) && active.AgentId == segments[1] && (requestedRun is null || requestedRun == active.RunId);
+                    if (stopped) await active!.Cancellation.CancelAsync();
+                    await WriteAsync(context, new JsonObject { ["stopped"] = stopped }, ct); return;
                 }
                 if (segments.Length != 3) throw new RuntimeRequestException(404, "Route not found");
                 if (segments[2] is "run" or "connect") telemetry.Record("oss.runtime.copilot_request_created", operation);
@@ -164,49 +174,78 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         try
         {
             thread = RequiredPlatformString(locked, "threadId"); run = RequiredPlatformString(locked, "runId"); var joinToken = RequiredPlatformString(locked, "joinToken");
+            state = new ActiveRun(CancellationTokenSource.CreateLinkedTokenSource(stopping.Token), run, agentId);
+            if (!runs.TryAdd(thread, state)) throw new RuntimeRequestException(409, "Thread already running");
+            state.Renewal = RenewAsync(thread, run, state.Cancellation, state.RenewalStop.Token);
+            using var startup = CancellationTokenSource.CreateLinkedTokenSource(ct, state.Cancellation.Token);
             var canonical = (JsonObject)input.DeepClone(); canonical["threadId"] = thread; canonical["runId"] = run;
-            var history = await PlatformAsync("GET", ThreadPath(thread) + "/messages?userId=" + Escape(user.Id), null, user, ct);
+            var history = await PlatformAsync("GET", ThreadPath(thread) + "/messages?userId=" + Escape(user.Id), null, user, startup.Token);
             if (history?["messages"] is not JsonArray historic) throw new RuntimeRequestException(502, "Invalid thread history response");
             var ids = historic.Select(message => message?["id"]?.GetValue<string>()).ToHashSet();
             var persisted = new JsonArray(input["messages"]!.AsArray().Where(message => !ids.Contains(message?["id"]?.GetValue<string>())).Select(message => message?.DeepClone()).ToArray());
-            state = new ActiveRun(CancellationTokenSource.CreateLinkedTokenSource(stopping.Token));
-            if (!runs.TryAdd(thread, state)) throw new RuntimeRequestException(409, "Thread already running");
             var current = state;
             publisher = new PhoenixPublisher(options, thread, run, telemetry, () => current.Cancellation.Cancel());
-            await publisher.JoinAsync(ct);
+            state.AbortPublisher = publisher.Abort;
+            await publisher.JoinAsync(startup.Token);
+            startup.Token.ThrowIfCancellationRequested();
             telemetry.Record("oss.runtime.agent_execution_stream_started", "agent.run");
-            state.Completion = ExecuteRunAsync(agent, canonical, persisted, publisher, state, thread, run);
+            state.Execution = ExecuteRunAsync(agent, canonical, persisted, publisher, state, thread, run);
             context.Response.Headers.CacheControl = "no-cache";
             var result = ConnectionInfo(thread, joinToken); result["runId"] = run; return result;
         }
         catch
         {
-            if (publisher is not null) await publisher.DisposeAsync();
-            if (state is not null) { runs.TryRemove(new KeyValuePair<string, ActiveRun>(thread, state)); state.Cancellation.Dispose(); }
-            await CleanupLockAsync(thread, run); throw;
+            if (state is not null) await ReleaseRunAsync(thread, run, state, publisher);
+            else { if (publisher is not null) await publisher.DisposeAsync(); await CleanupLockAsync(thread, run); }
+            throw;
         }
     }
 
     private async Task ExecuteRunAsync(IRuntimeAgent agent, JsonObject input, JsonArray persisted, PhoenixPublisher publisher, ActiveRun state, string thread, string run)
     {
-        using var renewalStop = CancellationTokenSource.CreateLinkedTokenSource(state.Cancellation.Token);
-        var renew = RenewAsync(thread, run, state.Cancellation, renewalStop.Token);
         var sequence = new EventSequencer(thread, run);
         var started = false; var terminal = false; var errored = false; var clock = Stopwatch.StartNew();
+        var openMessages = new HashSet<string>();
+        var openTools = new Dictionary<string, (bool Ended, bool Result)>();
         async Task Emit(JsonObject value, CancellationToken cancellationToken)
         {
             var type = value["type"]?.GetValue<string>();
+            if (terminal) return;
+            cancellationToken.ThrowIfCancellationRequested();
             if (type == "RUN_STARTED")
             {
-                var canonicalInput = (JsonObject)input.DeepClone(); canonicalInput["messages"] = persisted.DeepClone(); value["input"] = canonicalInput; started = true;
+                var canonicalInput = (JsonObject)input.DeepClone(); canonicalInput["messages"] = persisted.DeepClone(); value["input"] = canonicalInput;
             }
-            if (type is "RUN_FINISHED" or "RUN_ERROR") terminal = true;
+            var messageId = value["messageId"]?.GetValue<string>();
+            var toolCallId = value["toolCallId"]?.GetValue<string>();
+            if (type == "TEXT_MESSAGE_START" && messageId is not null) openMessages.Add(messageId);
+            if (type == "TEXT_MESSAGE_END" && messageId is not null) openMessages.Remove(messageId);
+            if (type == "TOOL_CALL_START" && toolCallId is not null) openTools[toolCallId] = (false, false);
+            if (toolCallId is not null && openTools.TryGetValue(toolCallId, out var tool))
+            {
+                if (type == "TOOL_CALL_END") tool.Ended = true;
+                if (type == "TOOL_CALL_RESULT") tool.Result = true;
+                if (tool.Ended && tool.Result) openTools.Remove(toolCallId); else openTools[toolCallId] = tool;
+            }
+            if (openMessages.Count + openTools.Count > 4096) throw new RuntimeRequestException(502, "Too many open stream items");
             if (type == "RUN_ERROR" && !errored)
             {
                 errored = true; telemetry.Record("oss.runtime.agent_execution_stream_errored", "agent.run", errorCode: "AGENT_EXECUTION_FAILED");
                 ReportError("agent.run", "AGENT_EXECUTION_FAILED", new RuntimeRequestException(502, "Agent emitted RUN_ERROR"));
             }
             await publisher.PublishAsync(sequence.Stamp(value), cancellationToken);
+            if (type == "RUN_STARTED") started = true;
+            if (type is "RUN_FINISHED" or "RUN_ERROR") terminal = true;
+        }
+        async Task CloseOpenItems(CancellationToken cancellationToken)
+        {
+            if (terminal) return;
+            foreach (var id in openMessages.ToArray()) await Emit(new JsonObject { ["type"] = "TEXT_MESSAGE_END", ["messageId"] = id }, cancellationToken);
+            foreach (var (id, tool) in openTools.ToArray())
+            {
+                if (!tool.Ended) await Emit(new JsonObject { ["type"] = "TOOL_CALL_END", ["toolCallId"] = id }, cancellationToken);
+                if (!tool.Result) await Emit(new JsonObject { ["type"] = "TOOL_CALL_RESULT", ["toolCallId"] = id, ["messageId"] = id + "-result", ["role"] = "tool", ["content"] = new JsonObject { ["status"] = "error", ["reason"] = "missing_terminal_event", ["message"] = "Run ended without emitting a terminal event" }.ToJsonString() }, cancellationToken);
+            }
         }
         try
         {
@@ -216,7 +255,12 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
                 await Emit(value, state.Cancellation.Token);
             }
             if (!started) await Emit(new JsonObject { ["type"] = "RUN_STARTED" }, state.Cancellation.Token);
-            if (!terminal) await Emit(new JsonObject { ["type"] = "RUN_FINISHED" }, state.Cancellation.Token);
+            if (!terminal)
+            {
+                await CloseOpenItems(state.Cancellation.Token);
+                await Emit(new JsonObject { ["type"] = "RUN_ERROR", ["message"] = "Run ended without emitting a terminal event", ["code"] = "INCOMPLETE_STREAM" }, state.Cancellation.Token);
+            }
+            await publisher.CompleteAsync(state.Cancellation.Token);
         }
         catch (Exception error)
         {
@@ -230,16 +274,38 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
             try
             {
                 if (!started) await Emit(new JsonObject { ["type"] = "RUN_STARTED" }, finalTimeout.Token);
+                await CloseOpenItems(finalTimeout.Token);
                 if (!terminal) await Emit(new JsonObject { ["type"] = "RUN_ERROR", ["message"] = state.Cancellation.IsCancellationRequested ? "Run canceled" : "Agent execution failed" }, finalTimeout.Token);
+                await publisher.CompleteAsync(finalTimeout.Token);
             }
             catch (Exception) { telemetry.Record("run.durability_failed", "agent.run"); }
         }
         finally
         {
-            await renewalStop.CancelAsync(); await renew; await publisher.DisposeAsync(); await CleanupLockAsync(thread, run);
-            runs.TryRemove(new KeyValuePair<string, ActiveRun>(thread, state)); state.Cancellation.Dispose();
-            if (!errored) telemetry.Record("oss.runtime.agent_execution_stream_ended", "agent.run");
-            telemetry.Record("run.completed", "agent.run", durationMs: clock.Elapsed.TotalMilliseconds);
+            try
+            {
+                await ReleaseRunAsync(thread, run, state, publisher, completeLifecycle: false);
+                if (!errored) telemetry.Record("oss.runtime.agent_execution_stream_ended", "agent.run");
+                telemetry.Record("run.completed", "agent.run", durationMs: clock.Elapsed.TotalMilliseconds);
+            }
+            finally { state.Lifecycle.TrySetResult(); }
+        }
+    }
+
+    /// <summary>Completes the registered lifecycle only after lease and transport cleanup.</summary>
+    private async Task ReleaseRunAsync(string thread, string run, ActiveRun state, PhoenixPublisher? publisher, bool completeLifecycle = true)
+    {
+        try
+        {
+            await state.RenewalStop.CancelAsync(); await state.Renewal;
+            if (publisher is not null) await publisher.DisposeAsync();
+            await CleanupLockAsync(thread, run);
+        }
+        finally
+        {
+            runs.TryRemove(new KeyValuePair<string, ActiveRun>(thread, state));
+            state.RenewalStop.Dispose(); state.Cancellation.Dispose();
+            if (completeLifecycle) state.Lifecycle.TrySetResult();
         }
     }
 
@@ -358,7 +424,7 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         try { return JsonNode.Parse(text); } catch (JsonException) { throw new RuntimeRequestException(502, "Invalid Intelligence platform response"); }
     }
 
-    private async Task<JsonObject> ReadBodyAsync(HttpContext context, CancellationToken ct)
+    private async Task<JsonObject> ReadBodyAsync(HttpContext context, CancellationToken ct, bool allowEmpty = false)
     {
         if (context.Request.ContentLength > options.MaxRequestBytes) throw new RuntimeRequestException(413, "Request exceeds size limit");
         using var stream = new MemoryStream(); var buffer = new byte[8192]; int size;
@@ -366,6 +432,7 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         {
             if (stream.Length + size > options.MaxRequestBytes) throw new RuntimeRequestException(413, "Request exceeds size limit"); stream.Write(buffer, 0, size);
         }
+        if (allowEmpty && stream.Length == 0) return new JsonObject();
         return JsonNode.Parse(stream.ToArray()) as JsonObject ?? throw new RuntimeRequestException(400, "Expected JSON object");
     }
     private static string Escape(string value) => Uri.EscapeDataString(value);
@@ -387,7 +454,15 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref disposed, 1) != 0) return;
-        await stopping.CancelAsync(); await Task.WhenAll(runs.Values.Select(run => run.Completion));
+        await stopping.CancelAsync();
+        try { await Task.WhenAll(runs.Values.Select(run => run.Completion)).WaitAsync(options.RequestTimeout); }
+        catch (TimeoutException error)
+        {
+            ReportError("agent.run", "RUN_SHUTDOWN_TIMEOUT", error);
+            var outstanding = runs.ToArray();
+            foreach (var pair in outstanding) pair.Value.AbortPublisher?.Invoke();
+            await Task.WhenAll(outstanding.Select(pair => CleanupLockAsync(pair.Key, pair.Value.RunId)));
+        }
         await telemetry.DisposeAsync(); stopping.Dispose(); if (ownsHttp) http.Dispose();
     }
 }
