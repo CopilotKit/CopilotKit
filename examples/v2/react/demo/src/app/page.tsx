@@ -123,15 +123,29 @@ function Chat({
   onToggleTheme: () => void;
 }) {
   const colors = themeColors[theme];
-  const [selectedThreadId, setSelectedThreadId] = useState<
-    "thread---a" | "thread---b" | "thread---c" | undefined
-  >(undefined);
-  const threadOptions: Array<{ id: typeof selectedThreadId; label: string }> = [
-    { id: undefined, label: "Stateless" },
+  const [selectedThreadId, setSelectedThreadId] = useState<string>();
+  const [isThreadsMenuOpen, setIsThreadsMenuOpen] = useState(false);
+  const [pastThreads, setPastThreads] = useState([
     { id: "thread---a", label: "Thread A" },
     { id: "thread---b", label: "Thread B" },
     { id: "thread---c", label: "Thread C" },
-  ];
+  ]);
+  const hasInspectorPreview = selectedThreadId?.startsWith("thread---");
+
+  const startNewThread = useCallback(() => {
+    const id = `thread-${crypto.randomUUID()}`;
+    setPastThreads((threads) => [
+      { id, label: `New thread ${threads.length + 1}` },
+      ...threads,
+    ]);
+    setSelectedThreadId(id);
+    setIsThreadsMenuOpen(false);
+  }, []);
+
+  const selectThread = useCallback((threadId: string) => {
+    setSelectedThreadId(threadId);
+    setIsThreadsMenuOpen(false);
+  }, []);
 
   useConfigureSuggestions({
     instructions: "Suggest follow-up tasks based on the current page content",
@@ -274,40 +288,94 @@ function Chat({
             </svg>
           )}
         </button>
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            gap: "10px",
-            justifyContent: "center",
-          }}
-        >
-          {threadOptions.map(({ id, label }) => {
-            const isActive = id === selectedThreadId;
-            return (
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => setIsThreadsMenuOpen((open) => !open)}
+            aria-expanded={isThreadsMenuOpen}
+            aria-haspopup="menu"
+            style={{
+              padding: "8px 14px",
+              borderRadius: "8px",
+              border: `1px solid ${colors.border}`,
+              backgroundColor: colors.muted,
+              color: colors.text,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Threads
+          </button>
+          {isThreadsMenuOpen && (
+            <div
+              role="menu"
+              aria-label="Threads"
+              style={{
+                position: "absolute",
+                top: "calc(100% + 8px)",
+                left: 0,
+                zIndex: 10,
+                minWidth: 220,
+                padding: 8,
+                border: `1px solid ${colors.border}`,
+                borderRadius: 12,
+                backgroundColor: colors.bg,
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12)",
+              }}
+            >
               <button
-                key={id ?? "stateless"}
                 type="button"
-                onClick={() => setSelectedThreadId(id)}
-                aria-pressed={isActive}
+                role="menuitem"
+                onClick={startNewThread}
                 style={{
-                  padding: "6px 14px",
-                  borderRadius: "20px",
-                  border: isActive
-                    ? `2px solid ${colors.text}`
-                    : `1px solid ${colors.border}`,
-                  backgroundColor: isActive ? colors.text : colors.bg,
-                  color: isActive ? colors.bg : colors.text,
+                  width: "100%",
+                  padding: "9px 10px",
+                  border: 0,
+                  borderRadius: 8,
+                  backgroundColor: colors.text,
+                  color: colors.bg,
                   fontWeight: 600,
-                  fontSize: "0.85rem",
+                  textAlign: "left",
                   cursor: "pointer",
-                  transition: "all 0.15s ease-in-out",
                 }}
               >
-                {label}
+                + New thread
               </button>
-            );
-          })}
+              <div
+                style={{
+                  margin: "12px 10px 6px",
+                  color: colors.text,
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  opacity: 0.65,
+                  textTransform: "uppercase",
+                }}
+              >
+                Past threads
+              </div>
+              {pastThreads.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => selectThread(id)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 10px",
+                    border: 0,
+                    borderRadius: 8,
+                    backgroundColor:
+                      id === selectedThreadId ? colors.muted : "transparent",
+                    color: colors.text,
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -315,7 +383,7 @@ function Chat({
           className={theme === "dark" ? "dark" : undefined}
           input={{ toolsMenu }}
           welcomeScreen={
-            selectedThreadId
+            hasInspectorPreview
               ? {
                   children: ({ input, suggestionView }) => (
                     <div
