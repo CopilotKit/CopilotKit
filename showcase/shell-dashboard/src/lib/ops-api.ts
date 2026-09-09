@@ -494,7 +494,21 @@ export interface WorkerView {
    */
   registeredAt: string;
   currentJobId: string | null;
-  capacity: { inUse: number; available: number; max: number };
+  capacity: {
+    inUse: number;
+    available: number;
+    max: number;
+    /**
+     * cgroup PID gauges, null when the cgroup was unreadable. Optional here
+     * (not in run-view's own `WorkerView`) so a body served by a harness
+     * predating the projection still parses — an old body simply reads
+     * "unknown", which renders as no PID annotation at all.
+     */
+    pidsCurrent?: number | null;
+    pidsMax?: number | null;
+    /** Server-derived saturation verdict; never re-derive a threshold here. */
+    pidsSaturated?: boolean;
+  };
 }
 
 /** GET /api/runs (§5.2.1). */

@@ -119,7 +119,16 @@ function makeFakes() {
     lastHeartbeatAt: new Date(T0).toISOString(),
     registeredAt: new Date(T0 - HOUR).toISOString(),
     currentJobId: null,
-    capacity: { inUse: 0, available: 1, max: 1 },
+    // Unknown cgroup PID gauges: these fixtures exercise gone-detection, not
+    // PID saturation.
+    capacity: {
+      inUse: 0,
+      available: 1,
+      max: 1,
+      pidsCurrent: null,
+      pidsMax: null,
+      pidsSaturated: false,
+    },
   };
 
   function liveProducer(atMs = clock): FamilySummaryResponse {
@@ -221,7 +230,16 @@ describe("isProducerLive (§2.5 acceptance)", () => {
     lastHeartbeatAt: new Date(T0).toISOString(),
     registeredAt: new Date(T0).toISOString(),
     currentJobId: null,
-    capacity: { inUse: 0, available: 1, max: 1 },
+    // Unknown cgroup PID gauges: these fixtures exercise gone-detection, not
+    // PID saturation.
+    capacity: {
+      inUse: 0,
+      available: 1,
+      max: 1,
+      pidsCurrent: null,
+      pidsMax: null,
+      pidsSaturated: false,
+    },
   });
 
   const inflightEntry = (): FamilySummaryEntry => ({

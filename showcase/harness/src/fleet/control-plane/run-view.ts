@@ -139,6 +139,16 @@ export interface WorkerRow {
   capacity_in_use?: number;
   capacity_available?: number;
   capacity_max?: number;
+  /**
+   * cgroup `pids.current` / `pids.max` as of the last heartbeat (written by
+   * worker/registration.ts via `gaugeOrNull`, so the -1 "unreadable/unbounded"
+   * sentinel arrives as null). The context budget is NOT the only binding
+   * constraint on a worker: on 2026-08-03 the fleet sat at `pids 1000/1000`
+   * with ~730 zombies and could not launch a browser while still reporting
+   * `online` with 36 contexts free.
+   */
+  capacity_pids_current?: number | null;
+  capacity_pids_max?: number | null;
   current_job_id?: string;
   last_heartbeat_at?: string;
   /**
@@ -226,7 +236,27 @@ export interface WorkerView {
    */
   registeredAt: string;
   currentJobId: string | null;
-  capacity: { inUse: number; available: number; max: number };
+  capacity: {
+    inUse: number;
+    available: number;
+    max: number;
+    /**
+     * cgroup PID gauges, or null when the cgroup was unreadable / the column is
+     * absent. Null is NOT zero: "we could not read the ceiling" must not render
+     * as "0 PIDs in use", and it must never imply saturation.
+     */
+    pidsCurrent: number | null;
+    pidsMax: number | null;
+    /**
+     * Canonical PID-saturation verdict at `PIDS_SATURATION_THRESHOLD`. Derived
+     * server-side ON PURPOSE: every consumer (dashboard strip, external
+     * watcher) must read the same verdict rather than re-deriving a threshold
+     * and drifting, the same reason the cell model forbids re-deriving colour
+     * from `status.state` (cell-model.contribution.ts:536-541). False whenever
+     * either gauge is unknown — absence of evidence is not evidence.
+     */
+    pidsSaturated: boolean;
+  };
 }
 
 /**
@@ -722,6 +752,39 @@ function determineWorkerHealth(
 }
 
 /**
+ * Fraction of the cgroup PID ceiling at or above which a worker is reported
+ * saturated. Prod crossed 0.85 on 2026-08-01, roughly 36 hours before the
+ * 2026-08-03 flip in which every probe lost the ability to launch a browser —
+ * so this threshold is a warning with real lead time, not a post-hoc marker.
+ */
+export const PIDS_SATURATION_THRESHOLD = 0.85;
+
+/**
+ * Read one cgroup gauge column. Absent (pre-migration row), null (the -1
+ * unreadable/unbounded sentinel, normalized by `gaugeOrNull` at write time),
+ * negative, or non-finite all mean UNKNOWN, which is null — never 0.
+ */
+function readGauge(value: number | null | undefined): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+/**
+ * Is this worker at or over the PID ceiling fraction? Requires BOTH gauges to
+ * be known and a positive ceiling: an unbounded or unreadable cgroup cannot be
+ * saturated by this measure, and reporting it as such would page on nothing.
+ */
+function isPidsSaturated(
+  pidsCurrent: number | null,
+  pidsMax: number | null,
+): boolean {
+  if (pidsCurrent === null || pidsMax === null || pidsMax <= 0) return false;
+  return pidsCurrent / pidsMax >= PIDS_SATURATION_THRESHOLD;
+}
+
+/**
  * Project one `workers` row into the §5.2.1 strip entry, deriving `health`
  * through `determineWorkerHealth` (the shared per-call-site wrapper around
  * `contracts.deriveHealth`) so this surface and `fleet-health.ts`'s cycle
@@ -736,6 +799,8 @@ export function projectWorker(
 ): WorkerView {
   const heartbeat = row.last_heartbeat_at ?? "";
   const health = determineWorkerHealth(row, nowMs, workerStaleAfterMs);
+  const pidsCurrent = readGauge(row.capacity_pids_current);
+  const pidsMax = readGauge(row.capacity_pids_max);
   return {
     workerId: row.worker_id,
     health,
@@ -749,6 +814,9 @@ export function projectWorker(
       inUse: row.capacity_in_use ?? 0,
       available: row.capacity_available ?? 0,
       max: row.capacity_max ?? 0,
+      pidsCurrent,
+      pidsMax,
+      pidsSaturated: isPidsSaturated(pidsCurrent, pidsMax),
     },
   };
 }
