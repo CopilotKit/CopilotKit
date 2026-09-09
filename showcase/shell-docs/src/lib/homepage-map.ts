@@ -131,10 +131,17 @@ const INTELLIGENCE_ONLY_FRONTENDS = new Set(["slack", "teams"]);
 
 /**
  * `ROOT_FRAMEWORK`'s docs are served at the root URL surface, so its pages
- * take no prefix; every other framework lives under `/<slug>/`. Absolute URLs
- * are returned untouched — prefixing one would produce a broken local path.
+ * take no prefix; every other framework lives under `/<slug>/`. The
+ * absolute-URL guard is this function's own addition, not inherited from the
+ * v1 `docs-build-with.tsx` this map replaces: without it, an external
+ * Analytics link would get framework-prefixed into a broken path like
+ * `/mastra/https://...` instead of being returned untouched.
  *
- * Lifted verbatim from the v1 `docs-build-with.tsx`, which this map replaces.
+ * Contract: only `COPILOTKIT_CAPABILITIES` hrefs are framework-scoped. The
+ * `INTELLIGENCE_CAPABILITIES` are platform pages with one canonical
+ * location — `scopedHref("/intelligence/memories", "mastra")` would produce
+ * a path no page is served at, so callers must not run Intelligence hrefs
+ * through this function.
  */
 export function scopedHref(href: string, slug: string): string {
   if (/^https?:\/\//.test(href)) return href;
@@ -165,7 +172,6 @@ export function frontendPicks(): MapPick[] {
 export function agentPicks(): MapPick[] {
   return getIntegrations()
     .filter((integration) => getDocsMode(integration.slug) !== "hidden")
-    .slice()
     .sort((a, b) => {
       if (a.slug === ROOT_FRAMEWORK) return -1;
       if (b.slug === ROOT_FRAMEWORK) return 1;
