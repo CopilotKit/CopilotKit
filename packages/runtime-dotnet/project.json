@@ -3,6 +3,15 @@
   "projectType": "library",
   "root": "packages/runtime-dotnet",
   "targets": {
+    "pack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet pack packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj --configuration Release --output packages/runtime-dotnet/src/bin/packages"
+      },
+      "outputs": ["{projectRoot}/src/bin/packages"],
+      "cache": false,
+      "dependsOn": []
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {
