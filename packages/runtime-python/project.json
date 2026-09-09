@@ -16,7 +16,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "uv run ruff check .",
+        "command": "uv run ruff check . && uv run ruff format --check .",
         "cwd": "packages/runtime-python"
       },
       "cache": false,
