@@ -21,9 +21,12 @@ symptoms point here:
 
 - **Duplicated history.** Your agent merges the messages CopilotKit sends with
   the messages it already stored, so the model receives every turn twice. Token
-  cost doubles, and some providers reject the run. Anthropic returns an error
-  when a tool call is not followed by its own tool result, which is what a
-  doubled history produces.
+  cost doubles. The merge can also separate a tool call from its result. A
+  backend whose stored history ends with a pending tool call appends the
+  forwarded copy after that call. The call is then no longer followed by its
+  result, and Anthropic rejects the run. This is the human-in-the-loop failure
+  reported on
+  [#1482](https://github.com/CopilotKit/CopilotKit/issues/1482#issuecomment-4555989351).
 - **Large requests.** The request body grows with the conversation. Long threads
   raise latency on every turn, and a proxy can reject the request with HTTP 413.
 
@@ -48,6 +51,9 @@ The filter below keeps the final turn, which is the last user message and
 everything after it. A tool call and its result normally sit inside one turn, so
 the pair survives. The second pass covers the exception. A human-in-the-loop run
 can leave a tool call in an earlier turn, so the filter pulls that call back in.
+It pulls back only the calls that a forwarded result answers. An assistant
+message can hold several tool calls, and forwarding a call whose result you
+dropped recreates the error you are trying to avoid.
 
 ```ts title="trim-history.ts" doctest="component"
 import {
@@ -74,16 +80,18 @@ export function lastTurnOnly(messages: Message[]): Message[] {
     kept.flatMap((message) => (message.role === "tool" ? [message.toolCallId] : [])),
   );
 
-  const rescuedToolCalls = messages
-    .slice(0, start)
-    .filter(
-      (message) =>
-        message.role === "assistant" &&
-        !keptIds.has(message.id) &&
-        (message.toolCalls ?? []).some((call) => neededCallIds.has(call.id)),
+  const rescued: Message[] = [];
+  for (const message of messages.slice(0, start)) {
+    if (message.role !== "assistant" || keptIds.has(message.id)) continue;
+    // Keep only the calls a forwarded result answers. An assistant message can
+    // hold several calls, and a call whose result you drop must go too.
+    const toolCalls = (message.toolCalls ?? []).filter((call) =>
+      neededCallIds.has(call.id),
     );
+    if (toolCalls.length > 0) rescued.push({ ...message, toolCalls });
+  }
 
-  return [...rescuedToolCalls, ...kept];
+  return [...rescued, ...kept];
 }
 
 /** Rewrites the messages of one run, leaving the stored transcript alone. */
@@ -136,7 +144,8 @@ The same middleware shrinks the request body when you attach it to an agent
 instance you construct yourself, through
 [`selfManagedAgents` or the local development option](/backend/self-managed-agents).
 The filtered messages become the HTTP body, and the transcript in the UI stays
-whole.
+whole. `selfManagedAgents` belongs to the Enterprise Intelligence tier, so
+production use needs a `publicLicenseKey`.
 
 <FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
