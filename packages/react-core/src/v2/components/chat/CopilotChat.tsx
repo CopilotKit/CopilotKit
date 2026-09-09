@@ -19,7 +19,7 @@ import type { Suggestion } from "@copilotkit/core";
 import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
-  isRunCompletionAware,
+  ɵawaitActiveRunSettlement,
   ɵcreateThreadStore,
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
@@ -703,29 +703,20 @@ export function CopilotChat({
   // active run's completion serializes the two turns so the resume finishes
   // (graph completes) before the new message starts a fresh run.
   //
-  // The completion promise lives only on `IntelligenceAgent` (via the
-  // `RunCompletionAware` contract), not on the `AbstractAgent` type held here —
-  // so it is reached through a type guard, not a cast. Agents that don't
-  // implement the contract degrade safely (the await is skipped).
+  // Do not require `activeRunCompletionPromise` to already be assigned.
+  // `@ag-ui/client` sets `isRunning` synchronously, then awaits
+  // `onInitialize` before creating the promise. Gating on the promise
+  // made a second send fail open during that window (#6937).
   const waitForActiveRunToSettle = useCallback(async () => {
-    // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
-    // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
-    // and collapse the narrowed type to `never`.
-    const maybeAware: unknown = agent;
-    const activeRunCompletionPromise = isRunCompletionAware(maybeAware)
-      ? maybeAware.activeRunCompletionPromise
-      : undefined;
-    if (agent.isRunning && activeRunCompletionPromise) {
-      try {
-        await activeRunCompletionPromise;
-      } catch (error) {
-        // The in-flight run rejected — proceed with the new send anyway,
-        // but log so a chronically-failing in-flight run is observable.
-        console.error(
-          "CopilotChat: in-flight run rejected while queuing send",
-          error,
-        );
-      }
+    try {
+      await ɵawaitActiveRunSettlement(agent);
+    } catch (error) {
+      // The in-flight run rejected — proceed with the new send anyway,
+      // but log so a chronically-failing in-flight run is observable.
+      console.error(
+        "CopilotChat: in-flight run rejected while queuing send",
+        error,
+      );
     }
   }, [agent]);
 
