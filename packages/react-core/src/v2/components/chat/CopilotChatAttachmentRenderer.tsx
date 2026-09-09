@@ -117,7 +117,7 @@ const DocumentAttachment = memo(function DocumentAttachment({
   return (
     <div
       className={cn(
-        "cpk:inline-flex cpk:items-center cpk:gap-2 cpk:px-3 cpk:py-2 cpk:border cpk:border-border cpk:rounded-lg cpk:bg-muted",
+        "cpk:inline-flex cpk:max-w-full cpk:items-center cpk:gap-2 cpk:px-3 cpk:py-2 cpk:border cpk:border-border cpk:rounded-lg cpk:bg-muted",
         className,
       )}
     >
