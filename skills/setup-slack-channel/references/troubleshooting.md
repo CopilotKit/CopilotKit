@@ -4,10 +4,14 @@ Diagnose by layer, in this order: **runtime → Intelligence → Slack → agent
 Runtime comes first because one command there names the failure, which saves you
 from guessing at the other three.
 
-Everything below was verified against the currently published
-`@copilotkit/channels@0.6.0` and `@copilotkit/runtime@1.65.0`. Never quote line
-numbers at the developer, and re-read the installed package if a claim looks
-wrong — the API is moving, and a starter may pin something older or newer.
+Everything below was verified against `@copilotkit/channels@0.6.0` and
+`@copilotkit/runtime@1.65.0`, the pair published when this page was written. It
+has **not** been re-verified against the current pair,
+`@copilotkit/channels@0.9.2` and `@copilotkit/runtime@1.70.3` (as of
+2026-09-09). That older pair records where these claims came from; it is not a
+version to pin. Never quote line numbers at the developer, and re-read the
+installed package if a claim looks wrong — the API is moving, and a starter may
+pin something older or newer.
 
 ## First move: make the runtime tell the truth
 
