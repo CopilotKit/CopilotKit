@@ -20,12 +20,12 @@ import {
   loadDoc,
 } from "@/lib/docs-render";
 import { compareByDisplayOrder } from "@/lib/framework-order";
+import { visibleIntegrations } from "@/lib/homepage-map";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
   getDocsFolder,
   getDocsMode,
   getIntegration,
-  getIntegrations,
   ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
@@ -119,8 +119,7 @@ function DocsOverview() {
   // framework picker dropdown (same accent treatment as the framework pages'
   // direct quickstart link). The default framework sorts first; its
   // quickstart lives at the root.
-  const quickstartOptions = getIntegrations()
-    .filter((i) => getDocsMode(i.slug) !== "hidden")
+  const quickstartOptions = visibleIntegrations()
     .slice()
     .sort((a, b) => {
       if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
@@ -182,9 +181,16 @@ function DocsOverview() {
               />
             </div>
             {/* Quiet reassurance, not navigation — see the constant above for
-                why these are plain text rather than links. */}
+                why these are plain text rather than links. The middot
+                separators are `aria-hidden` so a screen reader announces the
+                three labels without reading "middle dot" between them. */}
             <p className="mt-4 text-xs leading-relaxed text-[var(--text-muted)]">
-              {HERO_STARTING_POINTS.join(" · ")}
+              {HERO_STARTING_POINTS.map((label, index) => (
+                <span key={label}>
+                  {index > 0 && <span aria-hidden="true"> · </span>}
+                  {label}
+                </span>
+              ))}
             </p>
           </div>
         </section>

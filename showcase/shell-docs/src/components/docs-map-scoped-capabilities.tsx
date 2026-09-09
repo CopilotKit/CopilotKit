@@ -48,6 +48,13 @@ export function ScopedCapabilities({
       ? storedFramework
       : null;
   const scope = framework ?? remembered ?? effectiveFramework;
+  // The `{ name: scope, hrefPrefix: "" }` fallback is defensive only: from
+  // `DocsProductMap`'s own composition, `scope` is always a key in
+  // `frameworks` (either the URL framework, always null on `/`, or
+  // `effectiveFramework` — always `ROOT_FRAMEWORK`, which the filtered
+  // record always contains), so this branch is unreachable there. It stays
+  // because this component takes `frameworks` as a prop and must not crash
+  // for a caller that passes a narrower record.
   const { name, hrefPrefix } = Object.hasOwn(frameworks, scope)
     ? frameworks[scope]
     : { name: scope, hrefPrefix: "" };
