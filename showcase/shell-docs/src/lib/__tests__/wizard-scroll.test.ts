@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   easeInOutCubic,
+  findScrollContainer,
   prefersReducedMotion,
   scrollElementIntoCenter,
   WIZARD_SCROLL_DURATION_MS,
@@ -64,6 +65,51 @@ function withFakeWindow(scrollY: number, innerHeight: number) {
     scrollY,
     innerHeight,
   };
+}
+
+/**
+ * A plain object standing in for the scroll container: settable `scrollTop`
+ * (so a test can read back what the animation wrote) plus the box metrics
+ * the position maths reads. Duck-typed as `HTMLElement` at the call site,
+ * same idiom as `fakeElement` above.
+ */
+type FakeContainer = {
+  scrollTop: number;
+  readonly clientHeight: number;
+  readonly scrollHeight: number;
+  getBoundingClientRect: () => DOMRect;
+};
+
+function fakeContainer(config: {
+  scrollTop: number;
+  clientHeight: number;
+  scrollHeight: number;
+  rectTop: number;
+}): FakeContainer {
+  return {
+    scrollTop: config.scrollTop,
+    clientHeight: config.clientHeight,
+    scrollHeight: config.scrollHeight,
+    getBoundingClientRect: () => ({ top: config.rectTop }) as DOMRect,
+  };
+}
+
+/**
+ * A fake ancestor node for exercising `findScrollContainer`'s walk directly,
+ * without a real DOM/CSSOM. `overflowY` is read back by the test's stub
+ * `getComputedStyleFn` rather than any real computed style.
+ */
+type FakeNode = {
+  parentElement: FakeNode | null;
+  overflowY: string;
+  scrollHeight: number;
+  clientHeight: number;
+};
+
+function fakeGetComputedStyle(
+  el: Element,
+): Pick<CSSStyleDeclaration, "overflowY"> {
+  return { overflowY: (el as unknown as FakeNode).overflowY };
 }
 
 describe("scrollElementIntoCenter", () => {
@@ -132,5 +178,174 @@ describe("scrollElementIntoCenter", () => {
     } finally {
       restoreWindow();
     }
+  });
+
+  it("with a scrollable ancestor, writes to that container's scrollTop and never calls the window scroll path", () => {
+    const element = fakeElement(500, 100);
+    const container = fakeContainer({
+      scrollTop: 50,
+      clientHeight: 592,
+      scrollHeight: 2074,
+      rectTop: 0,
+    });
+    // target = container.scrollTop + rect.top - containerRect.top
+    //          - (container.clientHeight - rect.height) / 2
+    //        = 50 + 500 - 0 - (592 - 100) / 2 = 550 - 246 = 304
+    const target = 304;
+
+    const scrollTo = vi.fn();
+    let time = 0;
+    const now = () => time;
+    const frameDurationMs = 100;
+    const requestFrame = (cb: (t: number) => void) => {
+      time += frameDurationMs;
+      cb(time);
+    };
+
+    scrollElementIntoCenter(element, {
+      reducedMotion: false,
+      durationMs: WIZARD_SCROLL_DURATION_MS,
+      now,
+      requestFrame,
+      scrollTo,
+      findScrollContainer: () => container as unknown as HTMLElement,
+    });
+
+    expect(container.scrollTop).toBe(target);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("with no scrollable ancestor, still scrolls the window as before", () => {
+    withFakeWindow(0, 800);
+    try {
+      const element = fakeElement(1000, 200);
+      const target = 700;
+      const scrollCalls: number[] = [];
+      const scrollTo = (top: number) => scrollCalls.push(top);
+
+      let time = 0;
+      const now = () => time;
+      const frameDurationMs = 100;
+      const requestFrame = (cb: (t: number) => void) => {
+        time += frameDurationMs;
+        cb(time);
+      };
+
+      scrollElementIntoCenter(element, {
+        reducedMotion: false,
+        durationMs: WIZARD_SCROLL_DURATION_MS,
+        now,
+        requestFrame,
+        scrollTo,
+        findScrollContainer: () => null,
+      });
+
+      expect(scrollCalls.length).toBeGreaterThan(1);
+      expect(scrollCalls[scrollCalls.length - 1]).toBe(target);
+    } finally {
+      restoreWindow();
+    }
+  });
+
+  it("container path lands exactly on the clamped target on the final frame", () => {
+    const element = fakeElement(500, 100);
+    const container = fakeContainer({
+      scrollTop: 50,
+      clientHeight: 592,
+      scrollHeight: 2074,
+      rectTop: 0,
+    });
+    const target = 304; // see the computation in the test above
+
+    let time = 0;
+    const now = () => time;
+    const frameDurationMs = 100;
+    const requestFrame = (cb: (t: number) => void) => {
+      time += frameDurationMs;
+      cb(time);
+    };
+
+    scrollElementIntoCenter(element, {
+      reducedMotion: false,
+      durationMs: WIZARD_SCROLL_DURATION_MS,
+      now,
+      requestFrame,
+      scrollTo: vi.fn(),
+      findScrollContainer: () => container as unknown as HTMLElement,
+    });
+
+    expect(container.scrollTop).toBe(target);
+  });
+
+  it("clamps the container target so an element near the bottom does not scroll past scrollHeight - clientHeight", () => {
+    const element = fakeElement(2000, 50);
+    const container = fakeContainer({
+      scrollTop: 1400,
+      clientHeight: 592,
+      scrollHeight: 2074,
+      rectTop: 0,
+    });
+    // rawTarget = 1400 + 2000 - 0 - (592 - 50) / 2 = 3400 - 271 = 3129,
+    // which is far past scrollHeight - clientHeight = 1482.
+    const maxScrollTop = 2074 - 592;
+
+    let time = 0;
+    const now = () => time;
+    const frameDurationMs = 100;
+    const requestFrame = (cb: (t: number) => void) => {
+      time += frameDurationMs;
+      cb(time);
+    };
+
+    scrollElementIntoCenter(element, {
+      reducedMotion: false,
+      durationMs: WIZARD_SCROLL_DURATION_MS,
+      now,
+      requestFrame,
+      scrollTo: vi.fn(),
+      findScrollContainer: () => container as unknown as HTMLElement,
+    });
+
+    expect(container.scrollTop).toBe(maxScrollTop);
+  });
+});
+
+describe("findScrollContainer", () => {
+  it("skips an ancestor that is overflow-y: auto but does not actually overflow, and continues to a genuine scroller further up", () => {
+    const genuineScroller: FakeNode = {
+      parentElement: null,
+      overflowY: "auto",
+      scrollHeight: 2000,
+      clientHeight: 600, // overflows: scrollHeight > clientHeight
+    };
+    const nonOverflowingWrapper: FakeNode = {
+      parentElement: genuineScroller,
+      overflowY: "auto",
+      scrollHeight: 300,
+      clientHeight: 300, // does not overflow
+    };
+    const element = {
+      parentElement: nonOverflowingWrapper,
+    } as unknown as HTMLElement;
+
+    const result = findScrollContainer(element, fakeGetComputedStyle);
+
+    expect(result).toBe(genuineScroller);
+  });
+
+  it("returns null when no ancestor scrolls", () => {
+    const staticWrapper: FakeNode = {
+      parentElement: null,
+      overflowY: "visible",
+      scrollHeight: 300,
+      clientHeight: 300,
+    };
+    const element = {
+      parentElement: staticWrapper,
+    } as unknown as HTMLElement;
+
+    const result = findScrollContainer(element, fakeGetComputedStyle);
+
+    expect(result).toBeNull();
   });
 });
