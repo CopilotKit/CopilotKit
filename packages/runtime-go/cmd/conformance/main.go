@@ -2,8 +2,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	runtime "github.com/CopilotKit/CopilotKit/packages/runtime-go"
 	"log"
@@ -31,11 +33,28 @@ func main() {
 		A2UI                *runtime.A2UIConfig    `json:"a2ui"`
 		MCPApps             *runtime.MCPAppsConfig `json:"mcpApps"`
 		MemoryGrant         json.RawMessage        `json:"memoryGrant"`
+		OmitMemoryPolicy    bool                   `json:"omitMemoryPolicy"`
 	}
 	if err := json.Unmarshal([]byte(os.Getenv("CPK_CONFIG")), &c); err != nil {
 		log.Fatal(err)
 	}
-	rt, err := runtime.New(runtime.Config{APIKey: c.APIKey, APIURL: c.APIURL, RunnerURL: c.RunnerURL, ClientURL: c.ClientURL, TelemetryURL: c.TelemetryURL, TelemetrySampleRate: c.TelemetrySampleRate, TelemetryDisabled: c.TelemetryDisabled, TelemetryID: c.TelemetryID, LicenseToken: c.LicenseToken, A2UI: c.A2UI, MCPApps: c.MCPApps, Agents: map[string]runtime.Agent{"default": &runtime.HTTPAgent{URL: c.AgentURL}}, IdentifyUser: func(r *http.Request) (runtime.User, error) {
+	var memoryAccess func(*http.Request, runtime.User) (runtime.MemoryGrant, error)
+	if !c.OmitMemoryPolicy {
+		memoryAccess = func(*http.Request, runtime.User) (runtime.MemoryGrant, error) {
+			if len(c.MemoryGrant) != 0 {
+				if bytes.Equal(bytes.TrimSpace(c.MemoryGrant), []byte("null")) {
+					return runtime.MemoryGrant{}, errors.New("memory access denied")
+				}
+				var grant runtime.MemoryGrant
+				if err := json.Unmarshal(c.MemoryGrant, &grant); err != nil {
+					return runtime.MemoryGrant{}, nil
+				}
+				return grant, nil
+			}
+			return runtime.MemoryGrant{User: "read-write", Project: "read-write"}, nil
+		}
+	}
+	rt, err := runtime.New(runtime.Config{APIKey: c.APIKey, APIURL: c.APIURL, RunnerURL: c.RunnerURL, ClientURL: c.ClientURL, TelemetryURL: c.TelemetryURL, TelemetrySampleRate: c.TelemetrySampleRate, TelemetryDisabled: c.TelemetryDisabled, TelemetryID: c.TelemetryID, LicenseToken: c.LicenseToken, A2UI: c.A2UI, MCPApps: c.MCPApps, Agents: map[string]runtime.Agent{"default": &runtime.HTTPAgent{URL: c.AgentURL, DescriptionText: "Conformance agent"}}, IdentifyUser: func(r *http.Request) (runtime.User, error) {
 		id, name := r.Header.Get("x-test-user-id"), r.Header.Get("x-test-user-name")
 		if id == "" {
 			id = "test-user"
@@ -44,16 +63,7 @@ func main() {
 			name = "Test User"
 		}
 		return runtime.User{ID: id, Name: name}, nil
-	}, MemoryAccess: func(*http.Request, runtime.User) (runtime.MemoryGrant, error) {
-		if len(c.MemoryGrant) != 0 {
-			var grant runtime.MemoryGrant
-			if err := json.Unmarshal(c.MemoryGrant, &grant); err != nil {
-				return runtime.MemoryGrant{}, nil
-			}
-			return grant, nil
-		}
-		return runtime.MemoryGrant{User: "read-write", Project: "read-write"}, nil
-	}})
+	}, MemoryAccess: memoryAccess})
 	if err != nil {
 		log.Fatal(err)
 	}

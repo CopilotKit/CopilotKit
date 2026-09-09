@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -132,5 +133,17 @@ func TestStopCanonicalThreadStillRejectsStaleRun(t *testing.T) {
 	rt.ServeHTTP(response, httptest.NewRequest("POST", "/copilotkit/agent/default/stop/alias", strings.NewReader(`{"runId":"stale"}`)))
 	if response.Code != 200 || cancelled || !strings.Contains(response.Body.String(), `"stopped":false`) {
 		t.Fatalf("status=%d cancelled=%v body=%s", response.Code, cancelled, response.Body.String())
+	}
+}
+
+func TestMemoryPolicyErrorNeverDelegatesToPlatform(t *testing.T) {
+	rt, calls := stopFixture(t, map[string]any{}, 200)
+	rt.config.MemoryAccess = func(*http.Request, User) (MemoryGrant, error) {
+		return MemoryGrant{}, errors.New("policy service unavailable")
+	}
+	response := httptest.NewRecorder()
+	rt.ServeHTTP(response, httptest.NewRequest("GET", "/copilotkit/memories", nil))
+	if response.Code != 403 || calls.Load() != 0 {
+		t.Fatalf("status=%d calls=%d", response.Code, calls.Load())
 	}
 }

@@ -1,148 +1,271 @@
 # CopilotKit Intelligence Runtime for ASP.NET Core
 
-This native .NET 9 library mounts the multi-route CopilotKit browser API.
-Every run uses the Intelligence platform and its realtime ingestion gateway.
-The library has no local runner or Node.js sidecar.
+Host the CopilotKit browser API in an ASP.NET Core application with .NET 9.
+The library implements the Intelligence Runner and sends agent events to the Intelligence gateway for persistence and replay.
+Agents can run in your .NET process or at a remote AG-UI endpoint.
 
-## Host the runtime
+## Install from a local package
 
-Reference `src/CopilotKit.Intelligence.Runtime.csproj` from an ASP.NET Core project.
-Resolve the application user through your existing server authentication.
+The package requires the .NET 9 SDK and an ASP.NET Core host.
+
+1. From the CopilotKit repository root, build the NuGet package:
+
+   ```sh
+   dotnet pack packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj --configuration Release --output packages/runtime-dotnet/src/bin/packages
+   ```
+
+2. From your application directory, install the package from that local feed:
+
+   ```sh
+   dotnet add package CopilotKit.Intelligence.Runtime --version 0.1.0-preview.1 --source /absolute/path/to/CopilotKit/packages/runtime-dotnet/src/bin/packages
+   ```
+
+The local feed path must point to your checkout.
+A project reference to `src/CopilotKit.Intelligence.Runtime.csproj` also works for development within a checkout.
+
+## Connect an ASP.NET Core host
+
+1. Supply these values through ASP.NET Core configuration:
+
+   | Key                      | Value                                                           |
+   | ------------------------ | --------------------------------------------------------------- |
+   | `Intelligence:ApiUrl`    | The Intelligence HTTP API URL                                   |
+   | `Intelligence:RunnerUrl` | The runner WebSocket URL, without the final `/websocket` suffix |
+   | `Intelligence:ClientUrl` | The browser WebSocket URL                                       |
+   | `Intelligence:ApiKey`    | Your server-side Intelligence API key                           |
+   | `Agent:Url`              | Your agent's AG-UI SSE endpoint                                 |
+
+   Environment variables use double underscores, for example `Intelligence__ApiKey`.
+
+2. Register the runtime as a singleton in your authenticated ASP.NET Core application:
+
+   ```csharp
+   using System.Security.Claims;
+   using CopilotKit.Intelligence;
+
+   var builder = WebApplication.CreateBuilder(args);
+   // Keep your application's authentication and authorization registrations here.
+   builder.Services.AddHttpClient("agent", client =>
+       client.Timeout = Timeout.InfiniteTimeSpan)
+       .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+       {
+           PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+       })
+       .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+   builder.Services.AddSingleton<IntelligenceRuntime>(services =>
+   {
+       var configuration = services.GetRequiredService<IConfiguration>();
+       var logger = services.GetRequiredService<ILogger<IntelligenceRuntime>>();
+       string Required(string key) => configuration[key]
+           ?? throw new InvalidOperationException($"Missing configuration: {key}");
+
+       return new IntelligenceRuntime(new RuntimeOptions
+       {
+           ApiUrl = new Uri(Required("Intelligence:ApiUrl")),
+           RunnerUrl = new Uri(Required("Intelligence:RunnerUrl")),
+           ClientUrl = new Uri(Required("Intelligence:ClientUrl")),
+           ApiKey = Required("Intelligence:ApiKey"),
+           Agents = new Dictionary<string, IRuntimeAgent>
+           {
+               ["default"] = new HttpAgent(
+                   new Uri(Required("Agent:Url")),
+                   services.GetRequiredService<IHttpClientFactory>()
+                       .CreateClient("agent"))
+           },
+           IdentifyUser = (context, cancellationToken) =>
+           {
+               cancellationToken.ThrowIfCancellationRequested();
+               var id = context.User.Identity?.IsAuthenticated == true
+                   ? context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                   : null;
+               return ValueTask.FromResult<RuntimeUser?>(id is null
+                   ? null : new RuntimeUser(id, context.User.Identity?.Name));
+           },
+           OnError = error => logger.LogError(
+               error.Exception, "Runtime failure: {Code}", error.Code)
+       });
+   });
+
+   var app = builder.Build();
+   app.UseAuthentication();
+   app.UseAuthorization();
+   app.Services.GetRequiredService<IntelligenceRuntime>().Map(app, "/copilotkit");
+   await app.RunAsync();
+   ```
+
+3. Point your CopilotKit frontend at the host's `/copilotkit` URL.
+
+The example uses your existing authentication scheme and sign-in flow.
+`IdentifyUser` must return a stable application-user ID from trusted server authentication.
+A null result rejects protected requests with HTTP 401. `/info` provides public discovery.
+Browser-supplied user IDs are not authentication.
+
+The runtime keeps the API key on the server.
+`HttpAgent` forwards only headers that you explicitly supply to its constructor.
+The sample renews pooled connections because the singleton agent retains its HTTP client.
+For cross-origin requests, set `AllowedOrigins` to the exact browser origins.
+An empty set adds no CORS response headers and applies no origin restriction.
+
+## Write a native agent
+
+Implement `IRuntimeAgent` with an async iterator:
 
 ```csharp
-using System.Security.Claims;
+using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 using CopilotKit.Intelligence;
 
-var builder = WebApplication.CreateBuilder(args);
-// Register your existing authentication scheme here.
-var app = builder.Build();
-app.UseAuthentication();
-app.UseAuthorization();
-
-using var agentHttp = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-await using var runtime = new IntelligenceRuntime(new RuntimeOptions
+public sealed class GreetingAgent : IRuntimeAgent
 {
-    ApiUrl = new Uri(builder.Configuration["Intelligence:ApiUrl"]!),
-    RunnerUrl = new Uri(builder.Configuration["Intelligence:RunnerUrl"]!),
-    ClientUrl = new Uri(builder.Configuration["Intelligence:ClientUrl"]!),
-    ApiKey = builder.Configuration["Intelligence:ApiKey"]!,
-    Agents = new Dictionary<string, IRuntimeAgent>
+    public string Description => "Sends a greeting";
+
+    public async IAsyncEnumerable<JsonObject> RunAsync(
+        JsonObject input,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        ["default"] = new HttpAgent(
-            new Uri(builder.Configuration["Agent:Url"]!), agentHttp)
-    },
-    IdentifyUser = (context, _) =>
-    {
-        var id = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return ValueTask.FromResult<RuntimeUser?>(
-            id is null ? null : new RuntimeUser(id, context.User.Identity?.Name));
-    },
-    A2UI = new A2UIOptions { InjectTool = true },
-    OnError = error => app.Logger.LogError(
-        error.Exception, "Runtime failure: {Code}", error.Code)
-});
-runtime.Map(app, "/copilotkit");
-await app.RunAsync();
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
+        var messageId = Guid.NewGuid().ToString();
+        yield return new() { ["type"] = "RUN_STARTED" };
+        yield return new()
+        {
+            ["type"] = "TEXT_MESSAGE_START",
+            ["messageId"] = messageId, ["role"] = "assistant"
+        };
+        yield return new()
+        {
+            ["type"] = "TEXT_MESSAGE_CONTENT",
+            ["messageId"] = messageId, ["delta"] = "Hello from .NET."
+        };
+        yield return new() { ["type"] = "TEXT_MESSAGE_END", ["messageId"] = messageId };
+        yield return new() { ["type"] = "RUN_FINISHED" };
+    }
+}
 ```
 
-Supply separate platform API, runner WebSocket, and browser WebSocket URLs.
-The runner URL excludes the final `/websocket` suffix.
-Use `IRuntimeAgent` for native agents; `HttpAgent` accepts an AG-UI SSE endpoint.
-Dispose the runtime on host shutdown so it cancels active runs and flushes analytics.
+Register the instance under `Agents["default"]` instead of `HttpAgent`.
+The input contains AG-UI messages, state, tools, and context.
+The runtime assigns canonical thread and run IDs to each event.
 
-The `driver/` project serves the shared conformance suite.
-Its `x-test-user-id` identity callback is test-only. Do not use it in an application.
+Pass the cancellation token to model calls, HTTP calls, and waits.
+Emit `RUN_FINISHED` for success or `RUN_ERROR` for failure.
+A stream without a terminal event closes open text and tools, then emits `INCOMPLETE_STREAM`.
+The runtime stops consumption at the first terminal event.
+It permits at most 4,096 open text and tool items.
 
-## Runtime features
+## Control memory access
 
-The library provides run/connect, thread reads and mutations, memory CRUD and recall,
-subscriptions, and annotations. A run returns credentials after the gateway accepts
-its ingestion channel. Each event retains its ID across acknowledged delivery retries.
-Lock renewal failure cancels the agent. Input history filtering prevents duplicate persistence.
+`MemoryGrant` resolves permissions from trusted application policy.
+Each grant contains `user` and `project`, with values `none`, `read`, or `read-write`:
 
-A2UI transforms occur before persistence. They include catalog context, render tools,
-atomic component validation, progressive data, user actions, and recovery activity states.
-The agent adapter owns generation retries; the runtime validates and renders their results.
+```csharp
+MemoryGrant = (context, user, cancellationToken) =>
+    ValueTask.FromResult<JsonObject?>(new JsonObject
+    {
+        ["user"] = "read-write",
+        ["project"] = "read"
+    }),
+```
 
-Configure `McpAppsServers` with `McpAppServer` entries for MCP Apps.
-Servers can have an `AgentId`, `ServerId`, and server-owned authentication headers.
-Discovery includes UI tools only. Tool execution emits MCP Apps activities.
-Iframe requests can call tools, read resources, send message notifications, and ping
-registered servers. Sessions support Streamable HTTP with JSON or SSE responses.
-The legacy MCP SSE transport is not supported.
+A configured callback that returns null denies access before a platform request.
+Without a callback, the runtime delegates memory access to the platform without grant restrictions.
+Invalid grants fail with HTTP 500. Two `none` values deny access with HTTP 403.
+The platform resolves the stored scope for updates and deletes.
 
-`MemoryGrant` resolves user/project grants from trusted application policy.
-A configured callback that returns null denies access before any platform call.
-`LearningContainer` selects the container at run initialization.
+`LearningContainer` selects a container at run initialization from the trusted user, agent ID, and run input.
+Memory CRUD, recall, and subscriptions use the runtime's memory routes.
+Thread routes provide reads and mutations. Annotation routes record feedback.
 
-## Runner delivery and shutdown
+## Enable A2UI and MCP Apps
 
-The publisher queues at most 256 events. A full queue pauses agent consumption.
-The active batch contains at most 32 more events. Negotiated batches collect output
-for five milliseconds. Without the gateway capability, the publisher sends single events.
-Retries retain event IDs and sequence numbers. Run completion waits for every gateway ACK.
+Add UI configuration to `RuntimeOptions`:
 
-Retryable joins and planned gateway restarts do not rerun the agent.
-The connection monitor checks idle sockets each second and sends heartbeats every 20 seconds.
-Lock renewal runs independently of agent output. A failed renewal cancels the agent.
-Lease supervision starts after lock acquisition, before history retrieval or gateway join.
-Shutdown includes runs that still await startup.
+```csharp
+A2UI = new A2UIOptions { InjectTool = true },
+McpAppsServers =
+[
+    new McpAppServer
+    {
+        Url = new Uri("https://mcp.example.com/mcp"),
+        ServerId = "catalog",
+        AgentId = "default",
+        Headers = new Dictionary<string, string>
+        {
+            ["Authorization"] = "Bearer " + mcpToken
+        }
+    }
+],
+```
+
+A2UI validates components and transforms render tools, progressive data, and user actions before persistence.
+It preserves recovery activity states. The agent adapter owns generation retries.
+`A2UIOptions.Agents` restricts A2UI to named agents.
+
+MCP Apps discovers UI tools and records tool results as activities.
+Servers use Streamable HTTP endpoints with JSON or SSE responses.
+Iframe requests select registered servers, not browser-supplied URLs.
+The proxy supports tool calls, resource reads, message notifications, ping, and sessions.
+Server headers belong to your application configuration, not the browser.
+
+## Manage delivery and shutdown
+
+The runtime returns run credentials after the Intelligence gateway accepts the channel.
+Delivery retries preserve event IDs and sequence numbers. Completion waits for every gateway acknowledgment.
+Gateway restarts do not rerun the agent. A failed lock renewal cancels the agent.
 Stop requests require thread access and cannot cancel a different run or agent.
 
-An abrupt stream closes open text and tool calls before `INCOMPLETE_STREAM`.
-Native agents must emit `RUN_FINISHED` for success or `RUN_ERROR` for failure.
-An existing terminal event prevents further events. The runtime permits at most 4,096 open text and tool items.
+The publisher holds at most 256 queued events plus an active batch of at most 32 events.
+A full queue pauses agent consumption.
+`MaxRequestBytes` defaults to 4 MiB. `RequestTimeout` defaults to 30 seconds.
 
-Shutdown cancels active agents and waits up to `RequestTimeout` for completion.
-After that deadline, it aborts publishers and attempts lock cleanup within another `RequestTimeout`.
-The host receives `RUN_SHUTDOWN_TIMEOUT` through `OnError`.
+The DI container disposes the singleton runtime asynchronously with the host.
+For a manually created runtime, use `await using` around the host lifetime.
+Do not create a runtime per request.
+A supplied platform `HttpClient` remains caller-owned. Otherwise, the runtime creates and disposes its own client.
+
+Shutdown cancels active agents, including runs that await startup.
+It waits up to `RequestTimeout`, then attempts publisher and lock cleanup within another `RequestTimeout`.
+An expired shutdown deadline reports `RUN_SHUTDOWN_TIMEOUT` through `OnError`.
 Native agents must obey cancellation. The runtime cannot forcibly stop application-owned code.
 
-## Analytics and error reporting
+## Configure analytics and diagnostics
 
-Analytics uses the TypeScript event names and property shapes.
-By default, it samples each event at 5% and posts to
-`https://telemetry.copilotkit.ai/ingest`.
-The sink receives no API keys, prompts, user IDs, thread IDs, run IDs, or raw errors.
-The timestamp uses integer Unix seconds.
+Analytics samples each event at 5% by default and sends events to `https://telemetry.copilotkit.ai/ingest`.
+Events exclude API keys, prompts, user IDs, thread IDs, run IDs, and raw errors.
 
-| Setting                                           | Behavior                                                                        |
-| ------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `TelemetryDisabled`                               | Stops analytics for this runtime.                                               |
-| `DO_NOT_TRACK` or `COPILOTKIT_TELEMETRY_DISABLED` | `true` or `1` disables analytics, regardless of runtime options.                |
-| `TelemetrySampleRate`                             | Sampling probability from 0 to 1; default 0.05.                                 |
-| `COPILOTKIT_TELEMETRY_SAMPLE_RATE`                | Overrides the configured rate; invalid or non-finite values fail configuration. |
-| `TelemetryUrl` / `COPILOTKIT_TELEMETRY_URL`       | Changes the sink; the environment value takes precedence.                       |
-| `TelemetryId` / `CPK_TELEMETRY_ID`                | Optional attribution; the first valid configured or environment value wins.     |
+| Configuration                                     | Behavior                                                                                  |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `TelemetryDisabled`                               | Disables analytics                                                                        |
+| `DO_NOT_TRACK` or `COPILOTKIT_TELEMETRY_DISABLED` | `true` or `1` disables analytics regardless of other configuration                        |
+| `TelemetrySampleRate`                             | Probability from 0 to 1, default `0.05`                                                   |
+| `COPILOTKIT_TELEMETRY_SAMPLE_RATE`                | Overrides the rate. Invalid or non-finite values fail configuration                       |
+| `TelemetryUrl` / `COPILOTKIT_TELEMETRY_URL`       | Changes the destination. The environment value wins                                       |
+| `TelemetryId` / `CPK_TELEMETRY_ID`                | Selects the first valid configured or environment identity                                |
+| `LicenseToken` / `COPILOTKIT_LICENSE_TOKEN`       | Supplies a legacy analytics token. A blank configured token uses the environment fallback |
 
-Telemetry IDs must contain 1–128 ASCII letters, digits, underscores, or hyphens.
-The library trims surrounding spaces and tabs. It sends valid IDs only through
-`X-CopilotKit-Telemetry-Id`. An ID does not bypass sampling.
-`LicenseToken` accepts the legacy analytics token. `COPILOTKIT_LICENSE_TOKEN` supplies a fallback when the configured token is blank.
-Without a standalone identity, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
-The exporter sends only the extracted identity, never the token. This claim does not verify the license signature or grant access.
-Analytics opt-out still takes precedence.
+Telemetry IDs contain 1–128 ASCII letters, digits, underscores, or hyphens.
+The runtime trims surrounding spaces and tabs and sends the ID only through `X-CopilotKit-Telemetry-Id`.
+A standalone ID does not bypass sampling.
 
-The exporter uses a queue of at most 256 waiting events. Overflow drops analytics.
-HTTP requests time out after three seconds and never follow redirects.
-Shutdown allows three seconds for queued analytics, plus at most half a second
-for exporter disposal. Sink errors do not fail requests or invoke `OnError`.
+Without a standalone ID, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
+The exporter sends the extracted ID, never the license token.
+This claim does not verify a license signature or grant access. Analytics opt-out always wins.
 
-`OnError` belongs to the host application. It receives runtime failures separately
-from analytics. Callback exceptions do not replace the original runtime response.
-Local `ActivitySource` and `Meter` instruments are available under
-`CopilotKit.Intelligence.Runtime`; the library does not configure an OpenTelemetry exporter.
+The analytics queue holds at most 256 waiting events. Overflow drops analytics.
+HTTP requests time out after three seconds and do not follow redirects.
+Shutdown allows three seconds for queued analytics and half a second for exporter disposal.
+Sink errors do not fail requests or invoke `OnError`.
+`TelemetryExporter` accepts a custom `IRuntimeTelemetryExporter` implementation.
 
-## Verify and package locally
+`OnError` receives original runtime exceptions separately from analytics.
+Your application controls access to these diagnostics. Callback exceptions do not replace runtime responses.
+Local `ActivitySource` and `Meter` instruments use the name `CopilotKit.Intelligence.Runtime`.
 
-Run from the repository root:
+## Build and test the package
+
+From the CopilotKit repository root, run the package checks:
 
 ```sh
 NX_DAEMON=false pnpm nx run-many --projects=runtime-dotnet --targets=test,build,lint,check-types --parallel=1
-node tools/runtime-conformance/run.mjs -- dotnet packages/runtime-dotnet/driver/bin/Release/net9.0/Runtime.Driver.dll
-dotnet pack packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj --configuration Release
+NX_DAEMON=false pnpm nx run runtime-dotnet:pack
 ```
-
-The package command creates a local NuGet artifact. It does not publish anything.
-Current validation covers .NET 9 only. Package release and production approval remain separate gates.
-Automatic memory-tool injection and the local entitlement cache are not implemented. Memory REST routes remain available.

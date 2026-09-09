@@ -30,7 +30,13 @@ type Agent interface {
 	Run(context.Context, map[string]any, func(Event) error) error
 }
 
-// MemoryGrant controls access; the default denies both scopes.
+// DescribedAgent optionally supplies discovery text without changing Agent.
+type DescribedAgent interface {
+	Agent
+	Description() string
+}
+
+// MemoryGrant restricts user and project access when a host policy is configured.
 type MemoryGrant struct {
 	User    string `json:"user"`
 	Project string `json:"project"`
@@ -434,8 +440,12 @@ func (r *Runtime) info(w http.ResponseWriter, req *http.Request) {
 		ent = map[string]any{"status": "unavailable", "error": map[string]any{"code": "PLATFORM_UNAVAILABLE", "message": "Intelligence unavailable", "retryable": true}}
 	}
 	agents := map[string]any{}
-	for id := range r.config.Agents {
-		agents[id] = map[string]any{"name": id, "description": "", "className": "Agent"}
+	for id, agent := range r.config.Agents {
+		description := ""
+		if described, ok := agent.(DescribedAgent); ok {
+			description = described.Description()
+		}
+		agents[id] = map[string]any{"name": id, "description": description, "className": "Agent"}
 	}
 	info := map[string]any{"version": "0.1.0", "mode": "intelligence", "agents": agents, "intelligence": map[string]any{"wsUrl": r.config.ClientURL}, "runtimeEntitlements": ent, "threadEndpoints": map[string]any{"list": true, "inspect": true, "mutations": true, "realtimeMetadata": true}, "a2uiEnabled": r.config.A2UI != nil && (r.config.A2UI.Enabled == nil || *r.config.A2UI.Enabled), "audioFileTranscriptionEnabled": false, "openGenerativeUIEnabled": false, "telemetryDisabled": r.config.TelemetryDisabled}
 	info["telemetryDisabled"] = r.telemetry.disabled

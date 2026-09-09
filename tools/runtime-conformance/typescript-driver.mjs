@@ -22,14 +22,20 @@ const intelligence = new CopilotKitIntelligence({
 });
 const runtime = new CopilotIntelligenceRuntime({
   intelligence,
-  agents: { default: new HttpAgent({ url: configuration.agentUrl }) },
+  agents: {
+    default: new HttpAgent({
+      url: configuration.agentUrl,
+      description: "Conformance agent",
+    }),
+  },
   identifyUser: (request) => ({
     id: request.headers.get("x-test-user-id") ?? "test-user",
     name: request.headers.get("x-test-user-name") ?? "Test User",
   }),
   generateThreadNames: false,
   exposeMemoryRoutes: true,
-  ...(Object.hasOwn(configuration, "memoryGrant")
+  ...(!configuration.omitMemoryPolicy &&
+  Object.hasOwn(configuration, "memoryGrant")
     ? { memory: { access: () => configuration.memoryGrant } }
     : {}),
   telemetryId: configuration.telemetryId,

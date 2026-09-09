@@ -34,6 +34,10 @@ export const cases = [
       assert.equal(response.status, 200);
       assert.equal(response.body.mode, "intelligence");
       assert.equal(response.body.agents.default.name, "default");
+      assert.equal(
+        response.body.agents.default.description,
+        "Conformance agent",
+      );
       assert.deepEqual(response.body.threadEndpoints, {
         list: true,
         inspect: true,

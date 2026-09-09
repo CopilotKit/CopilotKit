@@ -11,13 +11,12 @@ const basicCatalog = "https://a2ui.org/specification/v0_9/basic_catalog.json"
 
 // A2UIConfig configures native v0.9 surface middleware. Retries remain agent-owned.
 type A2UIConfig struct {
-	Enabled          *bool          `json:"enabled,omitempty"`
-	Agents           []string       `json:"agents,omitempty"`
-	InjectA2UITool   any            `json:"injectA2UITool,omitempty"`
-	DefaultCatalogID string         `json:"defaultCatalogId,omitempty"`
-	Schema           any            `json:"schema,omitempty"`
-	ToolNames        []string       `json:"a2uiToolNames,omitempty"`
-	Recovery         map[string]any `json:"recovery,omitempty"`
+	Enabled          *bool    `json:"enabled,omitempty"`
+	Agents           []string `json:"agents,omitempty"`
+	InjectA2UITool   any      `json:"injectA2UITool,omitempty"`
+	DefaultCatalogID string   `json:"defaultCatalogId,omitempty"`
+	Schema           any      `json:"schema,omitempty"`
+	ToolNames        []string `json:"a2uiToolNames,omitempty"`
 }
 
 func (c *A2UIConfig) enabled(agent string) bool {

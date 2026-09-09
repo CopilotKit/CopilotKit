@@ -56,6 +56,14 @@ Library tests supplement the shared cases. Passing the harness alone does not pr
 
 ## Current evidence
 
-The initial audit found no existing branch, implementation, or PR for this objective.
-The isolated worktree is `CopilotKit-intelligence-runtimes` on `codex/intelligence-polyglot-runtimes`.
-The active goal remains incomplete until every required surface has evidence.
+Pull request #6967 contains the five-language implementation and its shared tests.
+The public walkthrough is https://intelligence-runtime-guide.mikeryandev.chatgpt.site/.
+The PR records current test results and review limits. Live checks must pass on the final commit.
+
+## Developer experience
+
+Each public API must fit its language: naming, errors, configuration, hosting, and cancellation.
+Existing agent implementations must remain compatible with additive metadata support.
+Package READMEs lead with installation and a working application example.
+They explain supported behavior and host responsibilities, not project status or missing features.
+The PR retains explicit exclusions and unverified checks for reviewers.

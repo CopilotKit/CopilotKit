@@ -87,21 +87,6 @@ func (r *Runtime) rest(w http.ResponseWriter, req *http.Request, u User, parts [
 			bad(w, 400, err)
 			return
 		}
-		if r.config.MemoryAccess == nil {
-			bad(w, 403, "Memory access is not configured")
-			return
-		}
-		grant, e := r.config.MemoryAccess(req, u)
-		if e != nil {
-			bad(w, 403, "Memory access denied")
-			return
-		}
-		valid := func(v string) bool { return v == "none" || v == "read" || v == "read-write" }
-		if !valid(grant.User) || !valid(grant.Project) {
-			bad(w, 500, "Invalid memory grant")
-			return
-		}
-		write := method == "PATCH" || method == "DELETE" || (method == "POST" && len(parts) == 1)
 		scope := str(body["scope"])
 		if scope == "" {
 			scope = q.Get("scope")
@@ -110,22 +95,36 @@ func (r *Runtime) rest(w http.ResponseWriter, req *http.Request, u User, parts [
 			bad(w, 400, "Invalid memory scope")
 			return
 		}
-		if write && method == "POST" {
-			if (scope == "project" && grant.Project != "read-write") || (scope != "project" && grant.User != "read-write") {
-				bad(w, 403, "Memory scope write denied")
+		headers["x-cpki-user-id"] = u.ID
+		if r.config.MemoryAccess != nil {
+			grant, e := r.config.MemoryAccess(req, u)
+			if e != nil {
+				bad(w, 403, "Memory access denied")
 				return
 			}
+			valid := func(v string) bool { return v == "none" || v == "read" || v == "read-write" }
+			if !valid(grant.User) || !valid(grant.Project) {
+				bad(w, 500, "Invalid memory grant")
+				return
+			}
+			write := method == "PATCH" || method == "DELETE" || (method == "POST" && len(parts) == 1)
+			if write && method == "POST" {
+				if (scope == "project" && grant.Project != "read-write") || (scope != "project" && grant.User != "read-write") {
+					bad(w, 403, "Memory scope write denied")
+					return
+				}
+			}
+			if write && grant.User != "read-write" && grant.Project != "read-write" {
+				bad(w, 403, "Memory write denied")
+				return
+			}
+			if grant.User == "none" && grant.Project == "none" {
+				bad(w, 403, "Memory access denied")
+				return
+			}
+			encoded, _ := json.Marshal(grant)
+			headers["x-cpki-memory-grant"] = string(encoded)
 		}
-		if write && grant.User != "read-write" && grant.Project != "read-write" {
-			bad(w, 403, "Memory write denied")
-			return
-		}
-		if grant.User == "none" && grant.Project == "none" {
-			bad(w, 403, "Memory access denied")
-			return
-		}
-		encoded, _ := json.Marshal(grant)
-		headers["x-cpki-user-id"], headers["x-cpki-memory-grant"] = u.ID, string(encoded)
 		delete(body, "userId")
 		delete(body, "memoryGrant")
 	} else {

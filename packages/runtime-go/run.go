@@ -14,10 +14,14 @@ import (
 
 // HTTPAgent streams AG-UI from a remote HTTP endpoint, preserving all extension events.
 type HTTPAgent struct {
-	URL     string
-	Headers map[string]string
-	Client  *http.Client
+	URL             string
+	Headers         map[string]string
+	Client          *http.Client
+	DescriptionText string
 }
+
+// Description returns the text exposed by runtime discovery.
+func (a *HTTPAgent) Description() string { return a.DescriptionText }
 
 // Run executes an AG-UI SSE request with bounded event frames and cancellation.
 func (a *HTTPAgent) Run(ctx context.Context, input map[string]any, emit func(Event) error) error {

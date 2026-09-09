@@ -32,9 +32,17 @@ class RuntimeTest < Minitest::Test
     assert_equal 403, status
   end
 
-  def test_memory_default_grants_are_deny_all
+  def test_absent_memory_policy_delegates_to_platform_without_fabricating_grant
     runtime = build_runtime(api_key: 'test-secret', identify_user: ->(_) { { 'id' => 'alice' } })
-    assert_equal 403, request(runtime, 'GET', '/memories').first
+    calls = []
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*args| calls << args; { 'memories' => [] } }
+    runtime.instance_variable_set(:@platform, platform)
+    assert_equal 200, request(runtime, 'GET', '/memories').first
+    assert_equal ['GET', '/api/memories', nil, { 'x-cpki-user-id' => 'alice' }], calls.first
+    assert_equal 1, calls.length
+  ensure
+    runtime&.close
   end
 
   def test_unknown_agents_do_not_contact_platform
@@ -120,6 +128,64 @@ class RuntimeTest < Minitest::Test
     platform.define_singleton_method(:request) { |*args| calls << args; {} }
     runtime.instance_variable_set(:@platform, platform)
     assert_equal 403, request(runtime, 'GET', '/memories').first
+    assert_empty calls
+  ensure
+    runtime&.close
+  end
+
+  def test_throwing_memory_callback_fails_closed_without_upstream_access
+    calls = []
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { 'id' => 'alice' } }, memory_access: ->(_, _) { raise 'Private policy failure' })
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*args| calls << args; {} }
+    runtime.instance_variable_set(:@platform, platform)
+    status, body = request(runtime, 'GET', '/memories')
+    assert_equal 500, status
+    refute JSON.generate(body).include?('Private policy failure')
+    assert_empty calls
+  ensure
+    runtime&.close
+  end
+
+  def test_symbol_identity_and_memory_policy_keys_normalize_at_callback_boundary
+    calls = []
+    trusted = nil
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { id: 'alice', name: 'Alice' } },
+      memory_access: ->(user, _) { trusted = user; { user: 'read', project: 'none' } })
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*args| calls << args; { 'memories' => [] } }
+    runtime.instance_variable_set(:@platform, platform)
+    assert_equal 200, request(runtime, 'GET', '/memories').first
+    assert_equal({ 'id' => 'alice', 'name' => 'Alice' }, trusted)
+    assert_equal({ 'user' => 'read', 'project' => 'none' }, JSON.parse(calls.first.last['x-cpki-memory-grant']))
+    assert_equal 'alice', calls.first.last['x-cpki-user-id']
+  ensure
+    runtime&.close
+  end
+
+  def test_false_string_identity_is_not_replaced_by_symbol_alias
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { 'id' => false, id: 'alice' } })
+    assert_equal 401, request(runtime, 'GET', '/memories').first
+  ensure
+    runtime&.close
+  end
+
+  def test_nil_string_grant_is_not_replaced_by_symbol_alias
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { 'id' => 'alice' } },
+      memory_access: ->(_, _) { { 'user' => nil, user: 'read-write', project: 'none' } })
+    assert_equal 500, request(runtime, 'GET', '/memories').first
+  ensure
+    runtime&.close
+  end
+
+  def test_unknown_symbol_grant_key_is_rejected_without_upstream_access
+    calls = []
+    runtime = build_runtime(api_key: 'fixture', identify_user: ->(_) { { id: 'alice' } },
+      memory_access: ->(_, _) { { user: 'read', unexpected: 'none' } })
+    platform = Object.new
+    platform.define_singleton_method(:request) { |*args| calls << args; {} }
+    runtime.instance_variable_set(:@platform, platform)
+    assert_equal 500, request(runtime, 'GET', '/memories').first
     assert_empty calls
   ensure
     runtime&.close

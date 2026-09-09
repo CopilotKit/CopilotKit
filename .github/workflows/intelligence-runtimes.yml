@@ -161,7 +161,7 @@ jobs:
 
       - name: Ruby Rack shared conformance
         if: matrix.language == 'ruby'
-        run: pnpm nx run runtime-conformance:conformance -- --cwd packages/runtime-ruby -- bundle exec ruby examples/conformance.rb
+        run: pnpm nx run runtime-ruby:test-rack
 
       - name: Real Rails shared conformance
         if: matrix.language == 'ruby'

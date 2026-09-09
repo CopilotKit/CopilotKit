@@ -35,8 +35,8 @@ async def main():
             runner_url=config["runnerUrl"],
             client_url=config["clientUrl"],
         ),
-        agents={"default": HttpAgent(config["agentUrl"])},
-        memory_policy=lambda *_: config.get(
+        agents={"default": HttpAgent(config["agentUrl"], description="Conformance agent")},
+        memory_policy=None if config.get("omitMemoryPolicy") else lambda *_: config.get(
             "memoryGrant", {"user": "read-write", "project": "read-write"}
         ),
         identify_user=identify,

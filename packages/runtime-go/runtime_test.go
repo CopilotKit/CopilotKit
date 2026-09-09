@@ -22,16 +22,28 @@ func TestHTTPAgentPreservesUnknownFieldsAndMultilineSSE(t *testing.T) {
 	}
 }
 
-func TestMemoryPolicyDefaultsToDeny(t *testing.T) {
-	rt, err := New(Config{APIKey: "secret", TelemetryDisabled: true, IdentifyUser: func(*http.Request) (User, error) { return User{ID: "u", Name: "U"}, nil }})
+func TestMemoryOmittedPolicyDelegatesToPlatformWithTrustedIdentity(t *testing.T) {
+	calls := 0
+	platform := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		calls++
+		if req.Header.Get("Authorization") != "Bearer secret" || req.Header.Get("x-cpki-user-id") != "u" || req.Header.Get("x-cpki-memory-grant") != "" || req.URL.Query().Get("userId") != "" {
+			t.Error("memory defaults did not preserve trusted platform scope")
+		}
+		json.NewEncoder(w).Encode(map[string]any{"memories": []any{}})
+	}))
+	defer platform.Close()
+	rt, err := New(Config{APIKey: "secret", APIURL: platform.URL, TelemetryDisabled: true, IdentifyUser: func(*http.Request) (User, error) { return User{ID: "u", Name: "U"}, nil }})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rt.Close()
 	response := httptest.NewRecorder()
-	rt.ServeHTTP(response, httptest.NewRequest("GET", "/copilotkit/memories", nil))
-	if response.Code != 403 {
-		t.Fatalf("status=%d", response.Code)
+	req := httptest.NewRequest("GET", "/copilotkit/memories?userId=attacker", nil)
+	req.Header.Set("x-cpki-user-id", "attacker")
+	req.Header.Set("x-cpki-memory-grant", `{"user":"read-write","project":"read-write"}`)
+	rt.ServeHTTP(response, req)
+	if response.Code != 200 || calls != 1 {
+		t.Fatalf("status=%d platform calls=%d", response.Code, calls)
 	}
 }
 

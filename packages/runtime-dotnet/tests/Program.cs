@@ -9,6 +9,9 @@ using Microsoft.Extensions.Logging;
 using System.Net.Http.Json;
 
 static void Check(bool condition, string name) { if (!condition) throw new Exception(name); Console.WriteLine($"PASS {name}"); }
+Check(!typeof(RuntimeValidation).IsVisible, "request validation remains an internal implementation detail");
+Check(!typeof(EventSequencer).IsVisible, "event sequencing remains an internal implementation detail");
+Check(!typeof(A2UIValidation).IsVisible, "A2UI validation remains an internal implementation detail");
 var input = JsonNode.Parse("{\"threadId\":\"t\",\"runId\":\"r\",\"messages\":[],\"tools\":[],\"context\":[],\"state\":{},\"forwardedProps\":{}}")!.AsObject();
 RuntimeValidation.ValidateRun(input);
 Check(true, "valid AG-UI input accepted");

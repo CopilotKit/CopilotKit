@@ -1,119 +1,158 @@
 # CopilotKit Intelligence Runtime for Python
 
-This package mounts the Intelligence runtime API in an ASGI application. It requires Python 3.11 or later and an Intelligence project API key.
-It contains no Node process, GraphQL endpoint, single-route dispatcher, or open-source runner.
+Host Python agents and the CopilotKit Intelligence API in an ASGI application.
+The package requires Python 3.11 or later and an Intelligence project API key.
 
-## Local installation
+## Install and start
 
-From the repository root, install the unpublished package:
+1. From the repository root, install the package and an ASGI server:
 
-```sh
-pip install ./packages/runtime-python
-```
+   ```sh
+   pip install ./packages/runtime-python
+   pip install uvicorn
+   ```
 
-## ASGI application
+2. Set `CPK_INTELLIGENCE_API_KEY`, `APP_AUTH_TOKEN`, and `APP_USER_ID` in your server environment.
+
+   This example binds one private application token to one application user.
+   `APP_AUTH_TOKEN` must differ from the Intelligence API key.
+
+3. Save this application as `app.py`:
+
+   ```python
+   import hmac
+   import os
+   from collections.abc import AsyncIterator
+   from typing import Any
+
+   from starlette.requests import Request
+
+   from copilotkit_runtime import IntelligenceRuntime, RuntimeConfig, User
+
+
+   class GreetingAgent:
+       description = "Returns a greeting"
+
+       async def run(self, input: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
+           yield {"type": "TEXT_MESSAGE_START", "messageId": "greeting", "role": "assistant"}
+           yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": "greeting", "delta": "Hello"}
+           yield {"type": "TEXT_MESSAGE_END", "messageId": "greeting"}
+           yield {"type": "RUN_FINISHED"}
+
+
+   async def identify_user(request: Request) -> User | None:
+       expected = f"Bearer {os.environ['APP_AUTH_TOKEN']}".encode()
+       supplied = request.headers.get("authorization", "").encode()
+       if not hmac.compare_digest(supplied, expected):
+           return None
+       return User(id=os.environ["APP_USER_ID"], name="Application user")
+
+
+   app = IntelligenceRuntime(
+       RuntimeConfig(api_key=os.environ["CPK_INTELLIGENCE_API_KEY"]),
+       agents={"default": GreetingAgent()},
+       identify_user=identify_user,
+   )
+   ```
+
+4. Start the application:
+
+   ```sh
+   python -m uvicorn app:app --port 8000
+   ```
+
+The runtime API is at `http://localhost:8000/copilotkit`.
+`/copilotkit/info` describes the agents. The API also serves agent run/connect/stop routes, threads, memories, and annotations.
+Authenticated requests use `Authorization: Bearer <APP_AUTH_TOKEN>` in this example.
+
+## Identify your application users
+
+Replace the example token lookup with your application's session or token verification.
+Return `User(id=..., name=...)` for the verified application user. Return `None` to deny access.
+The callback can be synchronous or asynchronous.
+
+The user ID identifies your application user, not an API-key owner or a control-plane user.
+The runtime uses this identity for scoped platform requests. Stop requests recheck current ownership and use the platform's canonical thread ID.
+
+Keep the Intelligence API key on the server. Do not accept a user ID from an unverified browser header.
+
+## Write an async agent
+
+An agent has a `description` attribute and a `run(input)` method that returns an async iterator of AG-UI event dictionaries.
+The runtime adds `RUN_STARTED` and stamps canonical thread and run IDs on each event.
+Keep per-run mutable state inside `run`. Release open resources in `finally` blocks and allow cancellation to propagate.
+
+Every agent must emit `RUN_FINISHED` or `RUN_ERROR`.
+A missing terminal event produces `INCOMPLETE_STREAM`, including an HTTP stream that ends with EOF or `[DONE]`.
+The runtime closes unfinished text and tool streams and adds missing tool results. An authorized stop ends with `RUN_FINISHED`.
+
+For an HTTP AG-UI agent, replace `GreetingAgent()` with an `HttpAgent` instance:
 
 ```python
-import os
+from copilotkit_runtime import HttpAgent
 
-from copilotkit_runtime import HttpAgent, IntelligenceRuntime, RuntimeConfig, User
-
-
-async def identify_user(request):
-    # Your authentication middleware supplies this trusted principal.
-    principal = request.scope.get("user")
-    if principal is None or not principal.is_authenticated:
-        return None
-    return User(id=principal.identity, name=principal.display_name)
-
-
-app = IntelligenceRuntime(
-    RuntimeConfig(api_key=os.environ["CPK_INTELLIGENCE_API_KEY"]),
-    agents={"default": HttpAgent("http://localhost:8001/agent")},
-    identify_user=identify_user,
+agent = HttpAgent(
+    "http://localhost:8001/agent",
+    headers={"Authorization": "Bearer " + os.environ["AGENT_TOKEN"]},
+    timeout=120,
 )
 ```
 
-The application serves `/copilotkit/info`, agent run/connect/stop routes, threads, memories, and annotations.
-`base_path` changes this prefix. `allowed_origins` enables CORS for selected browser origins.
-The host authentication callback must return an application user, never an API-key owner or control-plane user.
+`HttpAgent` uses server-owned headers. It does not forward browser authentication headers.
 
-## Native agents
+## Configure the runtime and its lifecycle
 
-An agent implements an async iterator with a `description` attribute:
+`RuntimeConfig` contains the Intelligence endpoints, route prefix, CORS configuration, and transport limits:
 
 ```python
-class GreetingAgent:
-    description = "Returns a greeting"
-
-    async def run(self, input):
-        yield {"type": "TEXT_MESSAGE_START", "messageId": "greeting", "role": "assistant"}
-        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": "greeting", "delta": "Hello"}
-        yield {"type": "TEXT_MESSAGE_END", "messageId": "greeting"}
-        yield {"type": "RUN_FINISHED"}
+config = RuntimeConfig(
+    api_key=os.environ["CPK_INTELLIGENCE_API_KEY"],
+    base_path="/copilotkit",
+    allowed_origins=("http://localhost:3000",),
+    request_timeout=30,
+    ack_timeout=10,
+    max_delivery_attempts=5,
+    lock_ttl_seconds=60,
+    lock_heartbeat_seconds=20,
+    shutdown_timeout=15,
+)
 ```
 
-The runtime adds missing run lifecycle events and stamps canonical thread/run IDs on every event.
-An agent must support cancellation and keep mutable execution state inside `run`.
-`HttpAgent` accepts static server-owned headers. It does not forward browser headers to the agent.
+`api_url`, `runner_url`, and `client_url` select the HTTP API and the two WebSocket endpoints.
+The defaults connect to the managed Intelligence service.
 
-## Persistence and shutdown
+The runtime acquires a lock and joins the authenticated ingestion channel before it returns browser credentials.
+Lock renewal starts before history loading and channel join. A lost lease cancels startup or agent work.
 
-The runtime acquires an Intelligence lock and waits for an authenticated Phoenix join before it returns browser credentials.
-It sends events in sequence and waits for each ACK before it reads the next event.
-Retries preserve event IDs and payloads. A permanent gateway rejection stops delivery immediately.
-The default delivery limit is five attempts. Each ACK has a ten-second timeout.
+The producer queue holds at most 32 events. Negotiated batches contain at most 32 events.
+Delivery retries preserve event IDs, sequences, and payloads. A permanent gateway rejection stops delivery.
+The active batch must receive its ACK before normal lock cleanup.
 
-Lock renewal runs every 20 seconds with a 60-second TTL. Renewal failure cancels the agent.
-The runtime releases the lock after completion, cancellation, or failure.
-ASGI lifespan shutdown cancels active runs. Hosts that manage lifespan themselves must call `await app.aclose()`.
-An abrupt process exit can lose unacknowledged in-process events. The runtime does not claim crash-resumable agent execution.
+The ASGI lifespan closes the runtime automatically. If your host manages lifespan separately, call `await app.aclose()` during shutdown.
+Shutdown cancels pending startups and gives active runs `shutdown_timeout` seconds for cleanup. It then aborts their transports.
+Application agents must cooperate with cancellation. An abrupt process exit can lose in-process events that lack an ACK.
 
-## Trusted policy callbacks
+## Set memory and learning policies
 
-`memory_policy(user, request)` returns `{"user": "read-write", "project": "read"}` or another valid grant.
-Each grant value is `none`, `read`, or `read-write`. The runtime forwards this server-owned grant to Intelligence.
+Pass a trusted memory callback to `IntelligenceRuntime(memory_policy=...)`:
+
+```python
+def memory_policy(user: User, request: Request) -> dict[str, str]:
+    return {"user": "read-write", "project": "read"}
+```
+
+Each grant value is `none`, `read`, or `read-write`.
+`None` or a grant with both values set to `none` denies access before a platform request.
+The runtime rejects invalid grants and forwards valid server-owned grants to Intelligence.
 Without a callback, Intelligence applies its default memory policy.
 
-`learning_container(user, agent_id, input)` selects an optional Learning Container ID.
-The runtime supplies that ID when it creates the thread and acquires the lock.
+`learning_container(user, agent_id, input)` returns an optional Learning Container ID.
+The runtime supplies that ID for thread creation and lock acquisition.
 Both callbacks can return a value directly or through an awaitable.
 
-## Telemetry
+## Use MCP Apps and A2UI
 
-The library sends canonical CopilotKit analytics to `https://telemetry.copilotkit.ai/ingest`.
-`Telemetry(url=...)` selects another endpoint. `COPILOTKIT_TELEMETRY_URL` overrides this configuration.
-The exporter does not follow redirects. Each HTTP request has a three-second deadline.
-
-The default sample rate is `0.05`. `Telemetry(sample_rate=...)` changes this rate.
-`COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides the configured rate. Rates must be finite and within `[0, 1]`.
-Each event includes its sample rate, adjustment factor, sample weight, native emitter, and transport.
-Timestamps use integer Unix seconds. Analytics contain no prompts, user IDs, thread IDs, API keys, or raw errors.
-
-`Telemetry(telemetry_id=...)` supplies a standalone identity. `CPK_TELEMETRY_ID` supplies a fallback identity.
-Identities accept 1–128 ASCII letters, digits, underscores, or hyphens after spaces and tabs at each end are removed.
-The identity travels only in `X-CopilotKit-Telemetry-Id`. It does not bypass sampling.
-
-`Telemetry(license_token=...)` accepts the legacy analytics token. `COPILOTKIT_LICENSE_TOKEN` supplies a fallback when the configured token is blank.
-Without a standalone identity, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
-The exporter sends only the extracted identity, never the token. This claim does not verify the license signature or grant access.
-Analytics opt-out still takes precedence.
-
-The exporter queues at most 256 events and discards new events when that queue fills.
-Request handling does not wait for analytics delivery. `telemetry.stats` reports queue depth, sends, failures, discarded events, and sampling exclusions locally.
-`await telemetry.flush()` waits at most three seconds. Runtime shutdown closes the exporter after a bounded flush.
-`Telemetry(sink=async_callback)` supplies a custom asynchronous sink with the same deadline and event contract.
-Custom callbacks must support cancellation and must not block the event loop.
-
-`RuntimeConfig(telemetry_enabled=False)` disables the default telemetry instance. `Telemetry(enabled=False)` disables an explicit telemetry instance.
-`DO_NOT_TRACK` and `COPILOTKIT_TELEMETRY_DISABLED` each disable telemetry when their value is `true` or `1`.
-
-`IntelligenceRuntime(on_error=async_callback)` supplies an application-owned error handler, separate from analytics.
-It receives an exception and a fixed phase name. The handler has a three-second deadline, and handler errors do not fail runtime requests.
-
-## MCP Apps and A2UI
-
-Add native UI middleware through the runtime constructor:
+Pass the UI configuration to the runtime constructor:
 
 ```python
 from copilotkit_runtime import A2UIConfig, MCPAppsConfig, MCPServer
@@ -141,53 +180,72 @@ app = IntelligenceRuntime(
 )
 ```
 
-MCP Apps uses the official Python MCP SDK for Streamable HTTP sessions.
-The runtime advertises the UI extension, discovers UI-enabled tools, and injects their schemas into the agent input.
-It runs unresolved tool calls before `RUN_FINISHED`, then publishes tool results and `mcp-apps` activity snapshots.
-The browser can request resources or tools through `forwardedProps.__proxiedMCPRequest` without another agent call.
-The proxy accepts only configured servers and four methods: `tools/call`, `resources/read`, `notifications/message`, and `ping`.
-Server authentication headers never come from browser input. The runtime closes each MCP session after its operation.
+MCP Apps requires a Streamable HTTP server. The runtime uses the official Python MCP SDK and closes each session after its operation.
+It discovers UI-enabled tools, adds their schemas to the agent input, and runs unresolved calls before `RUN_FINISHED`.
+It publishes tool results and `mcp-apps` activity snapshots.
 
-A2UI adds schema context and optional rendering tools. `inject_tool` accepts `True`, `False`, or a custom tool name.
-The runtime appends synthetic action history from `forwardedProps.a2uiAction.userAction`.
-It validates complete component arrays before it publishes them, then publishes cumulative data snapshots as array items arrive.
-Validation covers IDs, component types, roots, catalog membership, required properties, references, and cycles. It is not a general JSON Schema validator.
+Browser reentry uses `forwardedProps.__proxiedMCPRequest` without another agent call.
+The proxy permits configured servers and four methods: `tools/call`, `resources/read`, `notifications/message`, and `ping`.
+Browser input cannot replace server authentication headers.
 
-Building, retry, failure, and painted surfaces share one activity ID.
-The agent owns model retries. The middleware reports retry state and prevents invalid component trees from the streaming path from reaching the renderer.
-An explicit `enabled=False` disables A2UI for every agent. `agents` limits A2UI to the listed agent IDs.
+A2UI adds schema context and rendering tools. `inject_tool` accepts `True`, `False`, or a custom tool name.
+`agents` limits A2UI to named agents. `enabled=False` disables it for every agent.
+Action history comes from `forwardedProps.a2uiAction.userAction`.
 
-## Verification
+A2UI validates complete component arrays before publication, then publishes cumulative data snapshots as array items arrive.
+Validation covers IDs, component types, roots, catalog membership, required properties, references, and cycles.
+The `schema` configuration describes A2UI components, not arbitrary JSON Schema validation.
+Build, retry, error, and painted surface updates share one activity ID. The agent controls model retries.
 
-The runner reads stop controls even when the agent is idle. Lost lock renewal cancels agent work.
-Lock renewal starts when acquisition succeeds, before history loading or channel join.
-Shutdown cancels pending startups before it closes the platform client.
-It retries temporary joins and planned socket restarts without starting the agent again.
-Negotiated batches contain at most 32 events. Retries preserve event IDs, sequences, and payloads.
-A 32-event producer queue applies backpressure. The active batch must receive its ACK before normal cleanup.
-Shutdown allows `shutdown_timeout` seconds for runs to finish cleanup, then aborts their transports.
-Application agents must cooperate with cancellation. Python cannot forcibly terminate arbitrary application code.
-The telemetry exporter has its own bounded shutdown period.
-Every agent must emit `RUN_FINISHED` or `RUN_ERROR`. Missing terminal events produce `INCOMPLETE_STREAM`, including clean HTTP EOF and `[DONE]`.
-Incomplete streams close open text and tool calls and add missing tool results. Authorized stops use a clean `RUN_FINISHED`.
+## Configure analytics and error reporting
 
-Run local tests, lint, type checks, and package builds from the repository root:
+Pass a telemetry instance to `IntelligenceRuntime(telemetry=...)`:
+
+```python
+from copilotkit_runtime import Telemetry
+
+telemetry = Telemetry(sample_rate=0.05, telemetry_id="my-application")
+```
+
+Analytics use `https://telemetry.copilotkit.ai/ingest`. `Telemetry(url=...)` changes the endpoint.
+`COPILOTKIT_TELEMETRY_URL` overrides the endpoint. The exporter does not follow redirects and has a three-second request deadline.
+
+The default sample rate is `0.05`. `COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides `sample_rate`.
+Rates must be finite and within `[0, 1]`.
+Events include the sample rate, adjustment factor, weight, emitter, transport, and an integer Unix timestamp.
+Analytics contain no prompts, user IDs, thread IDs, API keys, or raw errors.
+
+`telemetry_id` supplies a standalone identity. `CPK_TELEMETRY_ID` supplies its fallback.
+Identities accept 1–128 ASCII letters, digits, underscores, or hyphens, with optional spaces and tabs at each end.
+The identity travels only in `X-CopilotKit-Telemetry-Id`. A standalone identity does not bypass sampling.
+
+`Telemetry(license_token=...)` accepts a legacy analytics token. `COPILOTKIT_LICENSE_TOKEN` supplies the fallback for a blank configured token.
+Without a standalone identity, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
+The exporter sends only the extracted identity. This claim does not verify a license signature or grant access.
+
+`RuntimeConfig(telemetry_enabled=False)` disables default analytics. `Telemetry(enabled=False)` disables an explicit instance.
+`DO_NOT_TRACK` or `COPILOTKIT_TELEMETRY_DISABLED` disables analytics with a value of `true` or `1`.
+Opt-out takes precedence over license attribution.
+
+The exporter holds at most 256 events and discards new events when the queue fills.
+Requests do not wait for analytics delivery. `telemetry.stats` reports queue depth, sends, errors, discarded events, and sampling exclusions.
+`await telemetry.flush()` waits at most three seconds. Runtime shutdown gives the exporter a separate bounded flush period.
+
+`Telemetry(sink=async_callback)` supplies a custom sink with the same deadline and event contract.
+`IntelligenceRuntime(on_error=async_callback)` supplies a separate application error handler.
+The handler receives an exception and a fixed phase name. It has a three-second deadline, and its errors do not fail requests.
+Both callbacks must support cancellation and must not block the event loop.
+
+## Develop in this repository
+
+Run package checks from the repository root:
 
 ```sh
 NX_DAEMON=false pnpm nx run-many -t test,lint,typecheck,build -p runtime-python
 ```
 
-Run the shared HTTP/Phoenix/AIMock cases:
+Run the shared integration cases:
 
 ```sh
 NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- uv run --project packages/runtime-python python packages/runtime-python/examples/conformance.py
 ```
-
-The conformance driver supplies test configuration only. It contains no runtime implementation.
-
-## Current scope
-
-Automatic memory-tool injection and the local entitlement cache are not implemented. Memory REST routes remain available.
-
-Voice, provider-specific agents, managed Channels, automatic thread naming, and stateless suggestions are not implemented.
-Legacy MCP SSE transport is not implemented. MCP Apps supports Streamable HTTP only.

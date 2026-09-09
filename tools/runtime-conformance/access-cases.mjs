@@ -26,6 +26,86 @@ async function activeRun({ platform, request }) {
 
 export const accessCases = [
   {
+    id: "access.memory-absent-policy",
+    configuration: { omitMemoryPolicy: true },
+    async run({ request, platform }) {
+      const spoof = {
+        "x-cpki-user-id": "victim",
+        "x-cpki-memory-grant": JSON.stringify({
+          user: "none",
+          project: "none",
+        }),
+      };
+      const created = await request(
+        "POST",
+        "/memories",
+        {
+          content: "Owned memory",
+          kind: "topical",
+          scope: "user",
+          userId: "victim",
+          projectId: "victim-project",
+        },
+        spoof,
+      );
+      assert.equal(created.status, 201);
+      assert.equal(
+        (await request("GET", "/memories", undefined, spoof)).status,
+        200,
+      );
+      const upstream = platform.requests.filter((entry) =>
+        entry.path.startsWith("/api/memories"),
+      );
+      assert.ok(upstream.length >= 2);
+      for (const entry of upstream) {
+        assert.equal(entry.headers["x-cpki-user-id"], "test-user");
+        assert.equal(entry.headers["x-cpki-memory-grant"], undefined);
+      }
+      assert.equal([...platform.memories.values()][0].userId, "test-user");
+      const foreign = await request("GET", "/memories", undefined, {
+        "x-test-user-id": "another-user",
+      });
+      assert.equal(foreign.status, 200);
+      assert.equal(
+        JSON.stringify(foreign.body).includes("Owned memory"),
+        false,
+      );
+    },
+  },
+  {
+    id: "access.memory-read-only-writes",
+    configuration: { memoryGrant: { user: "read", project: "read" } },
+    async run({ request, platform }) {
+      platform.memories.set("existing-memory", {
+        id: "existing-memory",
+        userId: "test-user",
+        content: "Existing",
+        scope: "user",
+        kind: "topical",
+      });
+      assert.equal((await request("GET", "/memories")).status, 200);
+      for (const [method, path, body] of [
+        [
+          "POST",
+          "/memories",
+          { content: "Denied", kind: "topical", scope: "user" },
+        ],
+        [
+          "PATCH",
+          "/memories/existing-memory",
+          { content: "Denied", kind: "topical" },
+        ],
+        ["DELETE", "/memories/existing-memory", undefined],
+      ])
+        assert.equal((await request(method, path, body)).status, 403);
+      assert.equal(
+        platform.memories.get("existing-memory").invalidated,
+        undefined,
+      );
+      assert.equal(platform.memories.size, 1);
+    },
+  },
+  {
     id: "access.stop-rejects-malformed-run-id",
     async run(context) {
       const body = await activeRun(context);
@@ -105,6 +185,19 @@ export const accessCases = [
   {
     id: "access.memory-explicit-denial",
     configuration: { memoryGrant: { user: "none", project: "none" } },
+    async run({ request, platform }) {
+      assert.equal((await request("GET", "/memories")).status, 403);
+      assert.equal(
+        platform.requests.some((entry) =>
+          entry.path.startsWith("/api/memories"),
+        ),
+        false,
+      );
+    },
+  },
+  {
+    id: "access.memory-null-denial",
+    configuration: { memoryGrant: null },
     async run({ request, platform }) {
       assert.equal((await request("GET", "/memories")).status, 403);
       assert.equal(

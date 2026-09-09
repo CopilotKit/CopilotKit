@@ -32,7 +32,7 @@ module CopilotKit
       @a2ui = a2ui == true ? {} : a2ui
       @mcp_servers = (mcp_apps || {}).fetch('servers', [])
       @runner_url, @client_url = runner_url, client_url
-      @memory_access = memory_access || ->(_user, _env) { { 'user' => 'none', 'project' => 'none' } }
+      @memory_access = memory_access
       @telemetry = telemetry || Telemetry.new(license_token: license_token)
       @on_error = on_error
       raise ArgumentError, 'Lock heartbeat must be positive and shorter than TTL' unless lock_heartbeat_interval.is_a?(Numeric) && lock_ttl.is_a?(Numeric) && lock_heartbeat_interval.positive? && lock_ttl > lock_heartbeat_interval
@@ -95,7 +95,7 @@ module CopilotKit
         raise Error.new(405, 'Method not allowed') unless method == 'GET'
         return [200, info]
       end
-      user = @identify_user.call(env)
+      user = normalize_callback_keys(@identify_user.call(env), %w[id name])
       raise Error.new(401, 'Authenticated application user is required') unless user.is_a?(Hash) && user['id'].is_a?(String) && !user['id'].strip.empty?
       query = URI.decode_www_form(env.fetch('QUERY_STRING', '')).to_h
       raw = env['rack.input']&.read(1_048_577).to_s
@@ -131,6 +131,19 @@ module CopilotKit
 
     def identifier!(value)
       raise Error.new(400, 'Valid identifier is required') unless value.is_a?(String) && !value.strip.empty? && value.length <= 512
+    end
+
+    # Normalize only documented callback keys. Explicit string values win,
+    # including nil and false, so aliases cannot bypass value validation.
+    def normalize_callback_keys(value, keys)
+      return value unless value.is_a?(Hash)
+      result = value.dup
+      keys.each do |key|
+        symbol = key.to_sym
+        result[key] = value[symbol] if !value.key?(key) && value.key?(symbol)
+        result.delete(symbol)
+      end
+      result
     end
 
     def stop_run(agent_id, requested_thread, body, user)
@@ -222,15 +235,22 @@ module CopilotKit
 
     def memories(method, path, query, body, user, env)
       raise Error.new(404, 'Route not found') unless path.match?(%r{\A/memories(?:/[^/]+)?\z})
-      grant = @memory_access.call(user, env)
-      raise Error.new(403, 'Memory access is not granted') if grant.nil?
-      raise Error.new(500, 'Invalid memory grant') unless grant.is_a?(Hash) && grant.keys.sort == %w[project user] && grant.values.all? { |value| %w[none read read-write].include?(value) }
-      raise Error.new(403, 'Memory access is not granted') unless grant.is_a?(Hash) && grant.values.any? { |value| %w[read read-write].include?(value) }
-      raise Error.new(403, 'Memory write access is not granted') if %w[POST PATCH DELETE].include?(method) && !%w[/memories/subscribe /memories/recall].include?(path) && !grant.values.include?('read-write')
-      if path == '/memories' && method == 'POST'
-        raise Error.new(403, 'Memory scope is not writable') unless grant[body.fetch('scope', 'user')] == 'read-write'
+      headers = { 'x-cpki-user-id' => user['id'] }
+      unless @memory_access.nil?
+        begin
+          grant = normalize_callback_keys(@memory_access.call(user, env), %w[user project])
+        rescue StandardError
+          raise Error.new(500, 'Memory policy failed')
+        end
+        raise Error.new(403, 'Memory access is not granted') if grant.nil?
+        raise Error.new(500, 'Invalid memory grant') unless grant.is_a?(Hash) && grant.length == 2 && grant.key?('user') && grant.key?('project') && grant.values.all? { |value| %w[none read read-write].include?(value) }
+        raise Error.new(403, 'Memory access is not granted') unless grant.values.any? { |value| %w[read read-write].include?(value) }
+        raise Error.new(403, 'Memory write access is not granted') if %w[POST PATCH DELETE].include?(method) && !%w[/memories/subscribe /memories/recall].include?(path) && !grant.values.include?('read-write')
+        if path == '/memories' && method == 'POST'
+          raise Error.new(403, 'Memory scope is not writable') unless grant[body.fetch('scope', 'user')] == 'read-write'
+        end
+        headers['x-cpki-memory-grant'] = JSON.generate(grant)
       end
-      headers = { 'x-cpki-user-id' => user['id'], 'x-cpki-memory-grant' => JSON.generate(grant) }
       payload = body.slice('content', 'kind', 'scope', 'sourceThreadIds', 'query', 'limit')
       if path == '/memories/recall'
         raise Error.new(400, 'Recall query is required') unless payload['query'].is_a?(String) && !payload['query'].strip.empty?

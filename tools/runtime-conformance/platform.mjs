@@ -357,6 +357,36 @@ export async function startPlatform() {
       const id = decodeURIComponent(
         url.pathname.slice("/api/memories/".length),
       );
+      // app-api resolves absent grants to full access inside the authenticated
+      // project. Explicit grants constrain scopes, including existing-row writes.
+      let grant = { user: "read-write", project: "read-write" };
+      if (request.headers["x-cpki-memory-grant"] !== undefined) {
+        try {
+          grant = JSON.parse(request.headers["x-cpki-memory-grant"]);
+          if (
+            !grant ||
+            ["user", "project"].some(
+              (scope) => !["none", "read", "read-write"].includes(grant[scope]),
+            )
+          )
+            throw new Error("Invalid grant");
+        } catch {
+          json(response, 400, { error: "Invalid memory grant" });
+          return;
+        }
+      }
+      const existing = memories.get(id);
+      const writing =
+        ["PATCH", "DELETE"].includes(request.method) ||
+        (request.method === "POST" && url.pathname === "/api/memories");
+      const scope = existing?.scope ?? body?.scope ?? "user";
+      if (
+        (writing && grant[scope] !== "read-write") ||
+        (!writing && grant.user === "none" && grant.project === "none")
+      ) {
+        json(response, 403, { error: "Memory access denied" });
+        return;
+      }
       if (url.pathname === "/api/memories/subscribe") {
         json(response, 200, {
           joinToken: "memory-token",
@@ -367,12 +397,15 @@ export async function startPlatform() {
       } else if (request.method === "GET" || id === "recall") {
         json(response, 200, {
           memories: [...memories.values()].filter(
-            (memory) => memory.userId === userId && !memory.invalidated,
+            (memory) =>
+              (memory.scope === "project" || memory.userId === userId) &&
+              grant[memory.scope ?? "user"] !== "none" &&
+              !memory.invalidated,
           ),
         });
       } else if (request.method === "DELETE") {
         const memory = memories.get(id);
-        if (!memory || memory.userId !== userId)
+        if (!memory || (memory.scope !== "project" && memory.userId !== userId))
           json(response, 404, { error: "Memory not found" });
         else {
           memory.invalidated = true;
@@ -381,13 +414,13 @@ export async function startPlatform() {
       } else {
         if (request.method === "PATCH") {
           const old = memories.get(id);
-          if (!old || old.userId !== userId) {
+          if (!old || (old.scope !== "project" && old.userId !== userId)) {
             json(response, 404, { error: "Memory not found" });
             return;
           }
           old.invalidated = true;
         }
-        const memory = { ...body, id: randomUUID(), userId };
+        const memory = { ...body, scope, id: randomUUID(), userId };
         memories.set(memory.id, memory);
         json(response, request.method === "POST" ? 201 : 200, {
           memory,

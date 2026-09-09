@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 namespace CopilotKit.Intelligence;
 
 /// <summary>Semantic validation matching a2ui-toolkit 0.0.4. Streaming validation intentionally defers data bindings.</summary>
-public static class A2UIValidation
+internal static class A2UIValidation
 {
     public static JsonArray ValidateComponents(JsonArray components, JsonObject? catalog = null)
     {

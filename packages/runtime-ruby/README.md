@@ -1,216 +1,292 @@
 # CopilotKit Intelligence Runtime for Ruby
 
-Native Ruby runtime for Rack and Rails. It requires Intelligence and has no
-open-source runner, GraphQL dispatch, single-route mode, or Node process.
-This package is under review and has not been published.
+Connect a Rails or Rack application to CopilotKit Intelligence with native Ruby
+agents or an AG-UI HTTP agent. The runtime uses the Intelligence Runner.
+It does not start a Node process.
 
-## Install from this checkout
+## Install
 
-```ruby
-# Gemfile
-gem 'copilotkit-runtime', path: '/path/to/CopilotKit/packages/runtime-ruby'
-```
+1. Add the gem from your checkout to your application's `Gemfile`:
 
-Run `bundle install`. The runtime requires Ruby 2.7 or later and the `websocket`
-gem for protocol framing. HTTP, TLS, SSE, and concurrency use Ruby libraries.
+   ```ruby
+   gem 'copilotkit-runtime', path: '/path/to/CopilotKit/packages/runtime-ruby'
+   ```
+
+2. Run `bundle install`.
+
+Ruby 2.7 or later is required. The gem installs its `websocket` dependency.
+Your application supplies Rails or a Rack server.
 
 ## Mount in Rails
 
-See [examples/rails.rb](examples/rails.rb) for a Devise/Warden initializer.
-The runtime implements Rack's `call(env)` interface and mounts in Rails routes:
+1. Set `CPK_INTELLIGENCE_API_KEY` and `AG_UI_AGENT_URL` in your server environment.
+2. Add this initializer:
 
-```ruby
-mount Rails.application.config.x.copilotkit_runtime => '/copilotkit'
-```
+   ```ruby
+   # config/initializers/copilotkit.rb
+   require 'copilotkit/runtime'
 
-`identify_user` must resolve the authenticated application user and return a
-hash with string keys `id` and optional `name`. Returning `nil` denies access.
-Do not trust user IDs sent in request bodies, query strings, or arbitrary headers.
-The conformance example's test headers are for local testing only.
+   Rails.application.config.x.copilotkit_runtime = CopilotKit::Runtime.new(
+     api_key: ENV.fetch('CPK_INTELLIGENCE_API_KEY'),
+     agents: {
+       'default' => CopilotKit::HttpAgent.new(url: ENV.fetch('AG_UI_AGENT_URL'))
+     },
+     identify_user: lambda do |env|
+       user = env['warden']&.user
+       user && { id: user.id.to_s, name: user.name.to_s }
+     end
+   )
+   ```
 
-Create the runtime after a worker forks. Call `close(timeout: 10)` in the
-application server's worker shutdown hook so runs release their locks and the
-telemetry exporter closes. The timeout covers the drain phase; platform cleanup
-has its own three-second bound. Shutdown cancels pending startup requests and all producers before draining.
-If the drain deadline expires, the runtime closes remaining publishers; the
-platform lease expires as a fallback when cleanup cannot reach Intelligence.
+3. Mount the runtime in your routes:
 
-## Configure
+   ```ruby
+   # config/routes.rb
+   Rails.application.routes.draw do
+     mount Rails.application.config.x.copilotkit_runtime => '/copilotkit'
+   end
+   ```
 
-`api_key` and `identify_user` are required. Set `api_url`, `runner_url`, and
-`client_url` together for self-hosting. Runner/client URLs end in `/runner` and
-`/client`; do not include `/websocket`. TLS checks certificate trust and hostnames.
-Secrets stay on server requests and never appear in runtime responses or telemetry.
+4. Point your CopilotKit frontend at `/copilotkit`.
 
-`agents` maps agent IDs to native `CopilotKit::Agent` subclasses or `HttpAgent`
-instances. Native agents implement `each_event(input)` and yield AG-UI event
-hashes. Keep mutable state local to each invocation. `HttpAgent` incrementally
-reads an AG-UI SSE endpoint and accepts server-configured request headers.
+This example uses Devise/Warden for authentication. If you use another system,
+replace `identify_user` with your application's authentication lookup.
+The callback receives the real Rack environment. It returns a hash with `id`
+and optional `name`. Symbol and string keys are accepted. A `nil` result denies access.
 
-Each agent must emit `RUN_FINISHED` or `RUN_ERROR`. EOF alone is not success.
-The runner closes open text and tool streams, then emits `INCOMPLETE_STREAM`
-when an agent returns without a terminal event.
+The initializer assumes each worker boots Rails without preloading.
+For preloaded applications, follow [Worker lifecycle](#worker-lifecycle).
+
+## Write a Ruby agent
+
+Subclass `CopilotKit::Agent` and yield AG-UI event hashes from `each_event(input)`:
 
 ```ruby
 class GreetingAgent < CopilotKit::Agent
   def each_event(_input)
-    yield('type' => 'TEXT_MESSAGE_START', 'messageId' => 'greeting', 'role' => 'assistant')
-    yield('type' => 'TEXT_MESSAGE_CONTENT', 'messageId' => 'greeting', 'delta' => 'Hello')
-    yield('type' => 'TEXT_MESSAGE_END', 'messageId' => 'greeting')
+    message_id = SecureRandom.uuid
+    yield('type' => 'TEXT_MESSAGE_START', 'messageId' => message_id, 'role' => 'assistant')
+    yield('type' => 'TEXT_MESSAGE_CONTENT', 'messageId' => message_id, 'delta' => 'Hello')
+    yield('type' => 'TEXT_MESSAGE_END', 'messageId' => message_id)
     yield('type' => 'RUN_FINISHED')
   end
 end
 ```
 
-`memory_access` resolves a trusted grant for each request:
+Register the instance with `agents: { 'default' => GreetingAgent.new }`.
+The input contains canonical thread and run IDs and message history.
+State and tools remain available from the request.
+The runner adds `RUN_STARTED`, event IDs, and sequence numbers.
+
+Each invocation must keep mutable state local. Multiple runs can share an agent
+instance. Use `ensure` to release resources when a run stops.
+
+For agents that use Active Record, wrap the event method in the Rails executor.
+The executor manages connection cleanup on the runtime's agent thread:
 
 ```ruby
-memory_access: ->(user, env) { { 'user' => 'read-write', 'project' => 'none' } }
+class DatabaseAgent < CopilotKit::Agent
+  def each_event(_input)
+    Rails.application.executor.wrap do
+      value = ActiveRecord::Base.connection.select_value('SELECT 1')
+      message_id = SecureRandom.uuid
+      yield('type' => 'TEXT_MESSAGE_START', 'messageId' => message_id, 'role' => 'assistant')
+      yield('type' => 'TEXT_MESSAGE_CONTENT', 'messageId' => message_id, 'delta' => value.to_s)
+      yield('type' => 'TEXT_MESSAGE_END', 'messageId' => message_id)
+      yield('type' => 'RUN_FINISHED')
+    end
+  end
+end
 ```
 
-Each scope accepts `none`, `read`, or `read-write`. Both default to `none`.
-The runtime forwards the immutable identity/grant headers to Intelligence for
-final resource authorization. `learning_container` optionally selects a stable
-container ID from `(user, input)`. A thread must keep the same container.
+Each agent must yield `RUN_FINISHED` or `RUN_ERROR`. A return without a terminal
+event produces `INCOMPLETE_STREAM`, not success. The runner closes open text
+and tool streams before that error.
 
-`cors_origins` is an explicit allowlist. No origins receive CORS headers by default.
-`base_path` is useful with a raw Rack server; leave it empty when Rails strips the mount path.
+`CopilotKit::HttpAgent.new(url:, headers: {}, description: '')` connects to an
+AG-UI SSE endpoint. The server owns its headers. The adapter reads events as
+they arrive and applies the same terminal-event rule.
 
-## Wire behavior
+## Mount in Rack
 
-The app serves `/info`, `/agent/:id/run`, `/agent/:id/connect`, thread list,
-inspection, mutation and subscription routes, memory CRUD/recall/subscription
-routes, and `/annotate` under the mount path.
+The runtime implements `call(env)`. Mount it inside your authenticated Rack
+application with `Rack::Builder`:
 
-A run resolves ownership, creates a missing thread, handles a concurrent-create
-conflict, acquires the platform lock, and loads persisted messages. It uses the
-platform's canonical thread/run IDs. The HTTP success response waits for an
-authenticated Phoenix channel join. The agent executes in the worker process.
+```ruby
+require 'copilotkit/runtime'
+require 'rack'
 
-The runner stamps each event with canonical IDs, a stable UUID, and an increasing
-sequence number. A 32-event queue bounds producer output. The publisher waits
-for an ACK before sending more events. When the gateway advertises batch
-support, bursts use batches of at most 32 events. Reconnect replays identical
-unacknowledged events without rerunning the agent. Retries are bounded to four
-attempts; permanent gateway rejections stop retrying.
+runtime = CopilotKit::Runtime.new(
+  api_key: ENV.fetch('CPK_INTELLIGENCE_API_KEY'),
+  agents: { 'default' => CopilotKit::HttpAgent.new(url: ENV.fetch('AG_UI_AGENT_URL')) },
+  identify_user: lambda do |env|
+    user = env['warden']&.user
+    user && { id: user.id.to_s, name: user.name.to_s }
+  end
+)
 
-The default lease is 20 seconds with a heartbeat every 15 seconds. Set
-`lock_ttl:` and `lock_heartbeat_interval:` together to change those values.
-Lease renewal starts before history loading and gateway join. It does not wait
-for gateway ACKs.
-Lease renewal failure cancels the producer. Gateway `ag-ui` stop messages also
-interrupt an idle HTTP agent. `POST /agent/:agentId/stop/:threadId` checks the
-trusted user's thread ownership and optional `runId` before canceling a local
-run. An old run ID cannot stop a newer run. Stops finish with a durable `STOPPED`
-event; completion analytics waits for the terminal event's ACK.
+app = Rack::Builder.new do
+  map('/copilotkit') { run runtime }
+end.to_app
+```
 
-## Telemetry
+Pass `app` to your Rack server behind your authentication middleware.
+This example expects Warden to have resolved the current user.
+Rails and `Rack::Builder#map` strip the mount prefix. Leave `base_path` empty
+for these mounts. For a host that preserves the prefix, set
+`base_path: '/copilotkit'`.
 
-Analytics uses the TypeScript runtime's five event names and property shapes.
-Events report instance creation, run/connect requests, and agent start, completion,
-or failure. Failed runs emit an error event with a fixed code, not a completion
-event. Timestamps use integer Unix seconds. Payloads contain no prompts, user IDs,
-thread/run IDs, credentials, route strings, or dependency error messages.
+## Configure access and connections
 
-The default HTTP sink is `https://telemetry.copilotkit.ai/ingest`.
-`COPILOTKIT_TELEMETRY_URL` changes it. A server can also pass
-`Telemetry.new(url: endpoint)`, or provide an application exporter with
-`Telemetry.new(exporter: ->(event) { ... })`.
+Keep API keys and agent credentials on the server. Resolve user IDs from
+authenticated application state, not request bodies, query strings, or arbitrary
+HTTP headers. Intelligence checks resource ownership using that identity.
 
-The default sample rate is `0.05`. Set `sample_rate:` to change it;
-`COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides that option. Values must be finite
-numbers from zero through one; invalid values use the default. Events include
-the sample rate and weight. `telemetry_id:` takes precedence over
-`CPK_TELEMETRY_ID`. A valid ID contains 1–128 letters, digits, underscores, or
-hyphens after trimming spaces and tabs. It travels only in the
-`X-CopilotKit-Telemetry-Id` header and does not bypass sampling.
+Without `memory_access`, Intelligence applies its platform memory policy.
+The runtime sends the trusted user ID without a grant override.
+To set an application policy, pass a callback:
 
-`license_token:` accepts the legacy analytics token. `COPILOTKIT_LICENSE_TOKEN` supplies a fallback when the configured token is blank.
-Without a standalone identity, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
-The exporter sends only the extracted identity, never the token. This claim does not verify the license signature or grant access.
-Analytics opt-out still takes precedence.
+```ruby
+memory_access: ->(user, env) { { user: 'read-write', project: 'none' } }
+```
 
-Set `disabled: true`, or set either `DO_NOT_TRACK` or
-`COPILOTKIT_TELEMETRY_DISABLED` to `true` or `1`, to disable analytics.
-Opt-out wins over sample rate and identity. The exporter queues at most 256
-events and drops new events when full. Each export has a three-second timeout,
-does not follow redirects, and cannot fail a runtime request. `flush(timeout:)`
-waits for queued events; `close(timeout:)` drains and stops the worker within
-its deadline. The conformance driver uses the library exporter with a local sink.
+Each scope accepts `none`, `read`, or `read-write`. A `nil` grant or two `none`
+grants deny access. Invalid grants return a server error without an upstream
+request. Callback errors also stop the request without a platform fallback.
+The callback receives the trusted user and Rack environment.
+Grant keys accept symbols or strings. Callback user hashes use string keys.
+When both key forms exist, the string value takes precedence, including `nil` or `false`.
 
-Use the separate runtime `on_error:` callback for application error reporting.
-It receives the native exception. Callback failures do not affect HTTP responses
-or agent cleanup. This callback never copies errors into analytics.
+`learning_container: ->(user, input) { ... }` selects a learning container ID.
+A thread must keep the same container.
 
-## A2UI and MCP Apps
+For self-hosted Intelligence, set `api_url`, `runner_url`, and `client_url`
+together. Runner and client URLs end in `/runner` and `/client`.
+Do not append `/websocket`. TLS checks certificate trust and hostnames.
 
-Pass `a2ui: { 'injectA2UITool' => true, 'schema' => catalog }` to inject the
-render tool, usage context, and server-owned component schema. A string value
-for `injectA2UITool` selects a custom tool name. Set `agents` to an array of
-agent IDs to limit A2UI to those agents. `enabled: false` disables it.
+For a frontend on another origin, set `cors_origins: ['https://app.example.com']`.
+The runtime sends no CORS allow headers by default.
 
-The middleware follows A2UI middleware 0.0.10 and toolkit 0.0.4 semantics:
-complete component arrays pass root, ID, type, required-property, reference,
-and cycle checks before painting. Complete data items can then paint during
-streaming. Building, retrying, failure, and painted states share one activity
-ID. Browser actions append synthetic tool history. Adapter-owned model retries
-remain the agent's responsibility; the runtime reports recovery state.
+The mount serves agent run/connect/stop routes, thread and memory routes,
+subscriptions, annotations, and `/info`. A successful run response means the
+runner joined its authenticated gateway channel, not that the agent finished.
+The frontend receives events through Intelligence.
 
-Use `defaultCatalogId` to select the host catalog. Otherwise the runtime uses
-the frontend schema's catalog ID, a streamed non-basic ID, or the basic catalog
-URL, in that order. Binding resolution and general JSON Schema validation are
-not part of the streaming semantic gate, matching the reference middleware.
+## Add A2UI or MCP Apps
 
-MCP Apps configuration is server-owned:
+Pass a server-owned catalog through `a2ui`:
+
+```ruby
+a2ui: {
+  'injectA2UITool' => true,
+  'schema' => catalog,
+  'agents' => ['default']
+}
+```
+
+A string value for `injectA2UITool` selects a custom tool name.
+The `agents` array limits A2UI to named agents. Omit it to include all agents.
+Set `'enabled' => false` to disable A2UI.
+
+The middleware adds the render tool and context. It validates complete component
+trees before publishing them, then publishes complete data items as they arrive.
+Browser actions become tool history for the next run. The agent owns model retries.
+
+Set `defaultCatalogId` to select a host catalog. Otherwise, catalog selection uses
+the frontend schema, a streamed non-basic ID, or the basic catalog URL.
+The streaming gate checks component structure and references, not general JSON
+Schema rules or binding resolution.
+
+Configure MCP Apps servers and credentials on the server:
 
 ```ruby
 mcp_apps: { 'servers' => [{
-  'type' => 'http', 'url' => 'https://mcp.example.com/mcp',
-  'serverId' => 'cards', 'agentId' => 'default',
+  'type' => 'http',
+  'url' => 'https://mcp.example.com/mcp',
+  'serverId' => 'cards',
+  'agentId' => 'default',
   'headers' => { 'authorization' => ENV.fetch('MCP_AUTHORIZATION') }
 }] }
 ```
 
-The runtime initializes Streamable HTTP sessions, forwards session credentials,
-discovers UI tools, injects tool schemas, executes pending UI calls, and persists
-`mcp-apps` activity snapshots with the result and resource URI. The iframe can
-reenter through `__proxiedMCPRequest` with a configured server ID/hash. Only
-`tools/call`, `resources/read`, `notifications/message`, and `ping` are allowed.
-Reentry bypasses the agent and cannot select a browser-supplied server URL.
-Session headers stay on MCP HTTP requests. Legacy MCP SSE discovery transport
-is excluded; SSE responses to Streamable HTTP requests are supported.
+The runtime discovers UI tools, executes calls, and publishes MCP Apps activities.
+Iframe requests use configured server IDs or hashes. They cannot override the
+server URL or credentials. The proxy accepts `tools/call`, `resources/read`,
+`notifications/message`, and `ping`.
 
-## Validation and remaining work
+MCP Apps uses Streamable HTTP. SSE responses to HTTP requests are supported.
+Legacy MCP SSE discovery is not supported.
 
-From the repository root:
+## Worker lifecycle
 
-```sh
-NX_DAEMON=false pnpm nx run-many -t test,lint,build -p runtime-ruby
-node tools/runtime-conformance/run.mjs -- ruby packages/runtime-ruby/examples/conformance.rb
+Create one runtime per worker after fork. Close it from your server's worker
+shutdown hook:
+
+```ruby
+Rails.application.config.x.copilotkit_runtime.close(timeout: 10)
 ```
 
-The Rails fixture pins Rails 7.1.5.2 and mounts the same runtime in a real Rails
-application. It preserves HTTP headers and runs the same socket cases:
+For preloaded Rails applications, create the runtime in the worker-boot hook
+instead of the initializer. Mount a callable that resolves the worker instance:
 
-```sh
-bundle install --gemfile packages/runtime-ruby/examples/rails/Gemfile
-NX_DAEMON=false pnpm nx run runtime-ruby:test-rails
+```ruby
+mount ->(env) { Rails.application.config.x.copilotkit_runtime.call(env) } => '/copilotkit'
 ```
 
-Verified locally with Ruby 2.7.8, Rails 7.1.5.2, and Rack 3.2.7. Both `/info`
-and a full agent run passed through Rails middleware, authenticated Phoenix,
-persisted events, and AIMock. The Rails fixture's test identity is not production
-authentication.
+Shutdown cancels pending startup requests and agent producers before draining
+event delivery. The timeout bounds the drain phase. Platform cleanup has its
+own three-second bound. If cleanup cannot reach Intelligence, the lease expires.
 
-The shared suite covers socket delivery, UI middleware, runner recovery, analytics, access, and the public frontend client.
-Local tests cover denied identity, memory grants, startup validation, and safe
-telemetry. A gem build checks the installable artifact.
+The default lease lasts 20 seconds and renews every 15 seconds. Set `lock_ttl:`
+and `lock_heartbeat_interval:` together to change them. Renewal starts before
+history loading and channel join. A lost lease cancels the agent.
 
-Suggestions and Inspector metadata are not yet implemented. HTTP stops address
-the current worker; clients use the authenticated realtime gateway to stop a
-run on another worker. Analytics matches the reference
-TypeScript runtime; OpenTelemetry is not a dependency or claimed capability.
-Automatic memory-tool injection and the local entitlement cache are not implemented. Memory REST routes remain available.
-Certificate-failure cases, sustained high concurrency, and multi-worker
-operational testing still need coverage before a
-production-readiness claim. The shared suite is one gate, not release approval.
+The producer queue holds at most 32 events. The publisher waits for durable ACKs
+and replays unacknowledged events after reconnect without rerunning the agent.
+Gateway batches contain at most 32 events. Retries use at most four attempts.
+
+HTTP stop requests check current ownership and an optional `runId` before
+stopping a local run. Use the authenticated realtime gateway to stop a run
+on another worker. Repeated stops do not cancel pending durable delivery.
+
+## Telemetry and errors
+
+Pass a `CopilotKit::Telemetry` instance to control analytics:
+
+```ruby
+telemetry: CopilotKit::Telemetry.new(disabled: true)
+```
+
+`DO_NOT_TRACK=true` or `COPILOTKIT_TELEMETRY_DISABLED=true` also disables analytics.
+Both variables accept `1`. Opt-out takes precedence over identity and sampling.
+
+Analytics reports runtime creation, run/connect requests, and agent start,
+completion, or failure. Event bodies contain no prompts, user IDs, thread/run
+IDs, credentials, routes, or dependency error messages.
+
+The default sample rate is `0.05`. Set `sample_rate:` on `Telemetry` to change it.
+`COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides this value. Rates must be finite
+numbers from zero through one. Invalid rates use the default.
+
+`telemetry_id:` takes precedence over `CPK_TELEMETRY_ID`. IDs allow 1–128 ASCII
+letters, digits, underscores, or hyphens after spaces and tabs are trimmed.
+An ID travels only in `X-CopilotKit-Telemetry-Id` and does not bypass sampling.
+
+`license_token:` accepts a legacy analytics token. A blank value falls back to
+`COPILOTKIT_LICENSE_TOKEN`. Without a standalone ID, a valid `telemetry_id` claim
+selects every event. The exporter sends only the extracted ID, never the token.
+This claim does not verify a license signature or grant access.
+
+The default sink is `https://telemetry.copilotkit.ai/ingest`.
+Set `COPILOTKIT_TELEMETRY_URL` or `Telemetry.new(url: endpoint)` to change it.
+Use `Telemetry.new(exporter: ->(event) { ... })` for an application exporter.
+An injected exporter owns its telemetry configuration.
+
+The queue holds at most 256 events and discards new events when full.
+Exports have a three-second timeout and do not follow redirects.
+Exporter failures do not fail runtime requests. `flush(timeout:)` waits for
+queued events. `close(timeout:)` drains the queue and stops the exporter.
+
+Use `on_error: ->(error) { ... }` on the runtime for application error reporting.
+It receives the native exception separately from analytics. Callback failures
+do not affect HTTP responses or cleanup.

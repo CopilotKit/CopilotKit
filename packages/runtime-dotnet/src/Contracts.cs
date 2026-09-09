@@ -66,7 +66,7 @@ public sealed class RuntimeRequestException(int statusCode, string message) : Ex
 public sealed record RuntimeError(string Operation, string Code, Exception Exception);
 
 /// <summary>Validates input before acquiring locks or invoking agents.</summary>
-public static class RuntimeValidation
+internal static class RuntimeValidation
 {
     public static string RequiredString(JsonObject input, string field)
     {
@@ -93,7 +93,7 @@ public static class RuntimeValidation
 }
 
 /// <summary>Assigns durable event identity once; retries preserve the immutable payload.</summary>
-public sealed class EventSequencer(string threadId, string runId)
+internal sealed class EventSequencer(string threadId, string runId)
 {
     private long next = 1;
     public JsonObject Stamp(JsonObject source)

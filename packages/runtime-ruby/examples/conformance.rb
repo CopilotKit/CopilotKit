@@ -9,9 +9,11 @@ config = JSON.parse(ENV.fetch('CPK_CONFIG'))
 runtime = CopilotKit::Runtime.new(
   api_key: config.fetch('apiKey'), api_url: config.fetch('apiUrl'),
   runner_url: config.fetch('runnerUrl'), client_url: config.fetch('clientUrl'), base_path: '/copilotkit',
-  agents: { 'default' => CopilotKit::HttpAgent.new(url: config.fetch('agentUrl')) },
+  agents: { 'default' => CopilotKit::HttpAgent.new(url: config.fetch('agentUrl'), description: 'Conformance agent') },
   identify_user: ->(env) { { 'id' => env['HTTP_X_TEST_USER_ID'] || 'test-user', 'name' => env['HTTP_X_TEST_USER_NAME'] || 'Test User' } },
-  memory_access: ->(_user, _env) { config.key?('memoryGrant') ? config['memoryGrant'] : { 'user' => 'read-write', 'project' => 'read-write' } },
+  **(config['omitMemoryPolicy'] == true ? {} : {
+    memory_access: ->(_user, _env) { config.key?('memoryGrant') ? config['memoryGrant'] : { 'user' => 'read-write', 'project' => 'read-write' } }
+  }),
   telemetry: CopilotKit::Telemetry.new(url: config['telemetryUrl'], sample_rate: config.fetch('telemetrySampleRate', 0.05),
     disabled: config.fetch('telemetryDisabled', false), telemetry_id: config['telemetryId'], license_token: config['licenseToken']),
   a2ui: config['a2ui'], mcp_apps: config['mcpApps']
