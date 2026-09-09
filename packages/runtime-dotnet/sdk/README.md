@@ -117,3 +117,14 @@ Its request deadline still applies. A shorter supplied-client timeout also appli
 
 Dispose the SDK after its last request.
 Disposal closes SDK-owned connections and rejects later SDK calls.
+
+## Share the SDK with an ASP.NET Core Runtime
+
+Set `RuntimeOptions.Intelligence` to this client.
+The Runtime uses its credentials, endpoints, and request deadline for platform access.
+`RunnerUrl` and `ClientUrl` select the gateway endpoints for the Runtime.
+The SDK alone starts no gateway connection.
+
+Dispose the Runtime before the SDK.
+Runtime shutdown does not close an injected SDK.
+See the [Runtime guide](https://github.com/CopilotKit/CopilotKit/blob/main/packages/runtime-dotnet/README.md) for dependency-injection registration.

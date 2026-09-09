@@ -91,6 +91,7 @@ await foreach (var _ in mcp.RunAsync(proxyInput, CancellationToken.None)) { }
 Check(mcpWire.Calls.Count == previousCalls, "MCP forbidden proxy method causes no network call");
 await TelemetryTests.RunAsync();
 await RunnerTests.RunAsync();
+await SdkInjectionTests.RunAsync();
 
 sealed class CaptureAgent : IRuntimeAgent
 {

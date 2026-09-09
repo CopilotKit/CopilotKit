@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
@@ -15,6 +14,9 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
     private readonly RuntimeOptions options;
     private readonly HttpClient http;
     private readonly bool ownsHttp;
+    private readonly bool ownsIntelligence;
+    /// <summary>The SDK used for platform calls. An injected SDK remains application-owned.</summary>
+    public IntelligenceClient Intelligence { get; }
     private readonly RuntimeTelemetry telemetry;
     private readonly CancellationTokenSource stopping = new();
     private readonly ConcurrentDictionary<string, ActiveRun> runs = new();
@@ -35,7 +37,17 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
 
     public IntelligenceRuntime(RuntimeOptions options, HttpClient? httpClient = null)
     {
-        options.Validate(); this.options = options; http = httpClient ?? new HttpClient(); ownsHttp = httpClient is null;
+        options.Validate();
+        if (options.Intelligence is not null && httpClient is not null)
+            throw new ArgumentException("Configure the platform HTTP client on the injected Intelligence SDK.", nameof(httpClient));
+        this.options = options;
+        Intelligence = options.Intelligence ?? new IntelligenceClient(new IntelligenceOptions
+        {
+            ApiKey = options.ApiKey, ApiUrl = options.ApiUrl, RunnerUrl = options.RunnerUrl,
+            ClientUrl = options.ClientUrl, RequestTimeout = options.RequestTimeout
+        }, httpClient);
+        ownsIntelligence = options.Intelligence is null;
+        http = httpClient ?? new HttpClient(); ownsHttp = httpClient is null;
         telemetry = new RuntimeTelemetry(options);
     }
 
@@ -430,17 +442,14 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
 
     private async Task<JsonNode?> PlatformAsync(string method, string path, JsonNode? body, RuntimeUser? user, CancellationToken ct, JsonObject? grant = null)
     {
-        using var request = new HttpRequestMessage(new HttpMethod(method), options.ApiUrl.ToString().TrimEnd('/') + path);
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
-        if (user is not null) request.Headers.TryAddWithoutValidation("x-cpki-user-id", user.Id);
-        if (grant is not null) request.Headers.TryAddWithoutValidation("x-cpki-memory-grant", grant.ToJsonString());
-        if (body is not null) request.Content = JsonContent.Create(body);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(options.RequestTimeout);
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-        if (!response.IsSuccessStatusCode) throw new RuntimeRequestException((int)response.StatusCode, "Intelligence platform request failed");
-        var text = await response.Content.ReadAsStringAsync(timeout.Token);
-        if (text.Length == 0) return null;
-        try { return JsonNode.Parse(text); } catch (JsonException) { throw new RuntimeRequestException(502, "Invalid Intelligence platform response"); }
+        var headers = new Dictionary<string, string>();
+        if (user is not null) headers["x-cpki-user-id"] = user.Id;
+        if (grant is not null) headers["x-cpki-memory-grant"] = grant.ToJsonString();
+        try { return await Intelligence.RequestAsync(new HttpMethod(method), path, body, ct, headers); }
+        catch (IntelligenceException error)
+        {
+            throw new RuntimeRequestException(error.StatusCode, "Intelligence platform request failed");
+        }
     }
 
     private async Task<JsonObject> ReadBodyAsync(HttpContext context, CancellationToken ct, bool allowEmpty = false)
@@ -483,5 +492,6 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
             await Task.WhenAll(outstanding.Select(pair => CleanupLockAsync(pair.Key, pair.Value.RunId)));
         }
         await telemetry.DisposeAsync(); stopping.Dispose(); if (ownsHttp) http.Dispose();
+        if (ownsIntelligence) Intelligence.Dispose();
     }
 }

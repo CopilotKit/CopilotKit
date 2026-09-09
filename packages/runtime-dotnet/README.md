@@ -11,10 +11,10 @@ It provides direct thread, Memory, and annotation methods without an ASP.NET Cor
 
 The package requires the .NET 9 SDK and an ASP.NET Core host.
 
-1. From the CopilotKit repository root, build the NuGet package:
+1. From the CopilotKit repository root, build the SDK and Runtime packages:
 
    ```sh
-   dotnet pack packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj --configuration Release --output packages/runtime-dotnet/src/bin/packages
+   NX_DAEMON=false pnpm nx run runtime-dotnet:pack
    ```
 
 2. From your application directory, install the package from that local feed:
@@ -108,6 +108,46 @@ The runtime keeps the API key on the server.
 The sample renews pooled connections because the singleton agent retains its HTTP client.
 For cross-origin requests, set `AllowedOrigins` to the exact browser origins.
 An empty set adds no CORS response headers and applies no origin restriction.
+
+## Share an SDK with the Runtime
+
+The Runtime uses the standalone SDK for platform requests.
+You can share that SDK with application code that reads threads, uses Memory, or records feedback.
+
+1. Before the Runtime registration in the host example, register the SDK:
+
+   ```csharp
+   builder.Services.AddSingleton<IntelligenceClient>(services =>
+   {
+       var configuration = services.GetRequiredService<IConfiguration>();
+       return new IntelligenceClient(new IntelligenceOptions
+       {
+           ApiKey = configuration["Intelligence:ApiKey"]
+               ?? throw new InvalidOperationException("Missing Intelligence:ApiKey"),
+           ApiUrl = new Uri(configuration["Intelligence:ApiUrl"]
+               ?? "https://api.intelligence.copilotkit.ai"),
+           RunnerUrl = new Uri(configuration["Intelligence:RunnerUrl"]
+               ?? "wss://realtime.intelligence.copilotkit.ai/runner"),
+           ClientUrl = new Uri(configuration["Intelligence:ClientUrl"]
+               ?? "wss://realtime.intelligence.copilotkit.ai/client")
+       });
+   });
+   ```
+
+2. In `RuntimeOptions`, replace `ApiKey`, `ApiUrl`, `RunnerUrl`, and `ClientUrl` with the SDK reference:
+
+   ```csharp
+   Intelligence = services.GetRequiredService<IntelligenceClient>(),
+   ```
+
+The Runtime uses the SDK's endpoints, credentials, and request deadline.
+Conflicting duplicate configuration fails during construction.
+Configure a supplied platform `HttpClient` on the SDK, not on both constructors.
+
+The DI container owns the registered SDK and disposes it after the Runtime.
+For manual ownership, dispose the Runtime before the shared SDK.
+Runtime shutdown leaves an injected SDK available for other application work.
+Without injection, the Runtime creates and disposes its own SDK.
 
 ## Write a native agent
 

@@ -12,6 +12,10 @@ public sealed class IntelligenceOptions
     public required string ApiKey { get; init; }
     /// <summary>The Intelligence HTTP API endpoint.</summary>
     public Uri ApiUrl { get; init; } = new("https://api.intelligence.copilotkit.ai");
+    /// <summary>The runner gateway endpoint, without the final websocket suffix.</summary>
+    public Uri RunnerUrl { get; init; } = new("wss://realtime.intelligence.copilotkit.ai/runner");
+    /// <summary>The browser gateway endpoint.</summary>
+    public Uri ClientUrl { get; init; } = new("wss://realtime.intelligence.copilotkit.ai/client");
     /// <summary>The maximum duration of one request, including its response body.</summary>
     public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(30);
 }
@@ -30,6 +34,8 @@ public sealed partial class IntelligenceClient : IDisposable
     private readonly HttpClient http;
     private readonly bool ownsHttp;
     private int disposed;
+    internal IntelligenceOptions Configuration => options;
+    internal void EnsureActive() => ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
 
     /// <summary>Creates a client. A supplied HTTP client remains application-owned.</summary>
     public IntelligenceClient(IntelligenceOptions options, HttpClient? httpClient = null)
@@ -42,6 +48,13 @@ public sealed partial class IntelligenceClient : IDisposable
             throw new ArgumentException("ApiUrl must be HTTP(S), without credentials, query, or fragment.", nameof(options));
         if (options.RequestTimeout <= TimeSpan.Zero || options.RequestTimeout.TotalMilliseconds > uint.MaxValue - 1)
             throw new ArgumentException("RequestTimeout must be positive and at most 4294967294 milliseconds.", nameof(options));
+        foreach (var endpoint in new[] { options.RunnerUrl, options.ClientUrl })
+        {
+            if (endpoint is null || !endpoint.IsAbsoluteUri || endpoint.Scheme is not ("ws" or "wss" or "http" or "https")
+                || string.IsNullOrEmpty(endpoint.Host) || !string.IsNullOrEmpty(endpoint.UserInfo)
+                || !string.IsNullOrEmpty(endpoint.Query) || !string.IsNullOrEmpty(endpoint.Fragment))
+                throw new ArgumentException("Gateway URLs must be WS(S) or HTTP(S), without credentials, query, or fragment.", nameof(options));
+        }
         this.options = options;
         http = httpClient ?? new HttpClient(new SocketsHttpHandler
         {
@@ -58,10 +71,10 @@ public sealed partial class IntelligenceClient : IDisposable
         return Thread(await RequestAsync(HttpMethod.Get, "/api/threads/" + Segment(threadId) + "?userId=" + Segment(userId), cancellationToken: cancellationToken));
     }
 
-    private async Task<JsonNode?> RequestAsync(HttpMethod method, string path, JsonNode? body = null,
+    internal async Task<JsonNode?> RequestAsync(HttpMethod method, string path, JsonNode? body = null,
         CancellationToken cancellationToken = default, Dictionary<string, string>? headers = null)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        EnsureActive();
         using var request = new HttpRequestMessage(method, options.ApiUrl.ToString().TrimEnd('/') + path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey);
         if (headers is not null)

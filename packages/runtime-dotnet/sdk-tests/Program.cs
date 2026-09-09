@@ -39,6 +39,12 @@ static async Task RejectsInvalidConfiguration()
     {
         await Throws<ArgumentException>(() => { using var client = new IntelligenceClient(Options(timeout: timeout), http); return Task.CompletedTask; });
     }
+    foreach (var endpoint in new[] { "relative", "ftp://gateway.test", "wss://key@gateway.test", "wss://gateway.test?q=secret", "wss://gateway.test/#secret" })
+    {
+        var uri = new Uri(endpoint, UriKind.RelativeOrAbsolute);
+        await Throws<ArgumentException>(() => { using var client = new IntelligenceClient(new IntelligenceOptions { ApiKey = "key", RunnerUrl = uri }, http); return Task.CompletedTask; });
+        await Throws<ArgumentException>(() => { using var client = new IntelligenceClient(new IntelligenceOptions { ApiKey = "key", ClientUrl = uri }, http); return Task.CompletedTask; });
+    }
     Check(true, "invalid credentials, endpoints, and deadlines fail before I/O");
 }
 

@@ -16,10 +16,20 @@ public interface IRuntimeAgent
 /// <summary>Explicit configuration for the Intelligence platform. No local or open-source fallback exists.</summary>
 public sealed class RuntimeOptions
 {
-    public required Uri ApiUrl { get; init; }
-    public required Uri RunnerUrl { get; init; }
-    public required Uri ClientUrl { get; init; }
-    public required string ApiKey { get; init; }
+    private static readonly Uri DefaultApiUrl = new("https://api.intelligence.copilotkit.ai");
+    private static readonly Uri DefaultRunnerUrl = new("wss://realtime.intelligence.copilotkit.ai/runner");
+    private static readonly Uri DefaultClientUrl = new("wss://realtime.intelligence.copilotkit.ai/client");
+    private Uri? apiUrl;
+    private Uri? runnerUrl;
+    private Uri? clientUrl;
+    private string? apiKey;
+    private TimeSpan? requestTimeout;
+    /// <summary>An application-owned SDK, shared with scripts or workers.</summary>
+    public IntelligenceClient? Intelligence { get; init; }
+    public Uri ApiUrl { get => apiUrl ?? Intelligence?.Configuration.ApiUrl ?? DefaultApiUrl; init => apiUrl = value; }
+    public Uri RunnerUrl { get => runnerUrl ?? Intelligence?.Configuration.RunnerUrl ?? DefaultRunnerUrl; init => runnerUrl = value; }
+    public Uri ClientUrl { get => clientUrl ?? Intelligence?.Configuration.ClientUrl ?? DefaultClientUrl; init => clientUrl = value; }
+    public string ApiKey { get => apiKey ?? Intelligence?.Configuration.ApiKey ?? ""; init => apiKey = value; }
     public required Func<HttpContext, CancellationToken, ValueTask<RuntimeUser?>> IdentifyUser { get; init; }
     public required IReadOnlyDictionary<string, IRuntimeAgent> Agents { get; init; }
     public A2UIOptions? A2UI { get; init; }
@@ -27,7 +37,7 @@ public sealed class RuntimeOptions
     public Func<HttpContext, RuntimeUser, CancellationToken, ValueTask<JsonObject?>>? MemoryGrant { get; init; }
     public Func<HttpContext, RuntimeUser, string, JsonObject, CancellationToken, ValueTask<string?>>? LearningContainer { get; init; }
     public IReadOnlySet<string> AllowedOrigins { get; init; } = new HashSet<string>();
-    public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(30);
+    public TimeSpan RequestTimeout { get => requestTimeout ?? Intelligence?.Configuration.RequestTimeout ?? TimeSpan.FromSeconds(30); init => requestTimeout = value; }
     public TimeSpan AckTimeout { get; init; } = TimeSpan.FromSeconds(5);
     public TimeSpan DeliveryTimeout { get; init; } = TimeSpan.FromSeconds(60);
     public TimeSpan LockHeartbeatInterval { get; init; } = TimeSpan.FromSeconds(20);
@@ -46,6 +56,14 @@ public sealed class RuntimeOptions
 
     internal void Validate()
     {
+        if (Intelligence is not null)
+        {
+            Intelligence.EnsureActive();
+            var sdk = Intelligence.Configuration;
+            if (ApiKey != sdk.ApiKey || ApiUrl != sdk.ApiUrl || RunnerUrl != sdk.RunnerUrl
+                || ClientUrl != sdk.ClientUrl || RequestTimeout != sdk.RequestTimeout)
+                throw new ArgumentException("Runtime platform configuration must match the injected Intelligence SDK.");
+        }
         if (string.IsNullOrWhiteSpace(ApiKey)) throw new ArgumentException("An Intelligence API key is required.");
         if (!ApiUrl.IsAbsoluteUri || ApiUrl.Scheme is not ("http" or "https")) throw new ArgumentException("ApiUrl must be HTTP(S).");
         if (!RunnerUrl.IsAbsoluteUri || RunnerUrl.Scheme is not ("ws" or "wss" or "http" or "https")) throw new ArgumentException("RunnerUrl must be a WebSocket URL.");
