@@ -23,18 +23,13 @@
     "dist"
   ],
   "type": "module",
-  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.cts",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
       "import": {
         "types": "./dist/index.d.mts",
         "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
       }
     },
     "./activity": {
@@ -54,12 +49,12 @@
   },
   "scripts": {
     "build": "tsdown",
-    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}'",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16"
+    "attw": "attw --pack . --profile node16 --ignore-rules no-resolution"
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
