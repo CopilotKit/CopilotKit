@@ -29,6 +29,28 @@
       },
       "cache": false,
       "dependsOn": []
+    },
+    "test-native": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test test/native.test.mjs",
+        "cwd": "packages/runtime-prolog"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "pack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "sh scripts/pack.sh",
+        "cwd": "packages/runtime-prolog"
+      },
+      "cache": false,
+      "dependsOn": []
     }
-  }
+  },
+  "tags": [
+    "scope:runtime",
+    "lang:prolog"
+  ]
 }

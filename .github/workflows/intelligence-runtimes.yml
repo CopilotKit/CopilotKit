@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [typescript, python, go, ruby, dotnet]
+        language: [typescript, python, go, ruby, dotnet, prolog]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -97,6 +97,13 @@ jobs:
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: "9.0.x"
+
+      - name: Setup SWI-Prolog
+        if: matrix.language == 'prolog'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y swi-prolog-nox
+          swipl --version
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
@@ -181,3 +188,11 @@ jobs:
       - name: .NET shared conformance
         if: matrix.language == 'dotnet'
         run: pnpm nx run runtime-conformance:conformance -- -- dotnet packages/runtime-dotnet/driver/bin/Release/net9.0/Runtime.Driver.dll
+
+      - name: Validate Prolog library
+        if: matrix.language == 'prolog'
+        run: pnpm nx run-many -t test,test-native,lint,build,pack -p runtime-prolog --parallel=1
+
+      - name: Prolog shared conformance
+        if: matrix.language == 'prolog'
+        run: pnpm nx run runtime-conformance:conformance -- -- swipl --on-error=status -q -s packages/runtime-prolog/examples/conformance.pl

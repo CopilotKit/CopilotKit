@@ -18,8 +18,8 @@ The Nx target uses the same runner. The direct command also supports external ag
 
 Each case starts a fresh native driver and a fresh platform fixture on loopback ports.
 TypeScript uses the existing public runtime package through `typescript-driver.mjs`.
-It is the fifth supported implementation, not only a reference.
-Only the Intelligence Runner is in scope for all five languages.
+It participates alongside Python, Go, Ruby, .NET, and Prolog.
+Only the Intelligence Runner is in scope for all six languages.
 The driver receives configuration through `CPK_CONFIG` and reports its port as one JSON line.
 The harness calls the public runtime API under `/copilotkit`.
 It records the runtime's platform HTTP calls and authenticated Phoenix frames.
@@ -74,11 +74,14 @@ They distinguish omitted memory policy from explicit denial and check read-only 
 The fixture's event journal is test evidence, not an implementation of the Intelligence database.
 The wider requirements and remaining release gates live in [PLAN.md](PLAN.md).
 
+The Prolog driver is `swipl -q -s packages/runtime-prolog/examples/conformance.pl`.
+Its package also tests native hosting, shutdown, heartbeats, and stop races.
+
 ## Build boundaries
 
 `pnpm build` and `pnpm test` select JavaScript packages. They do not require native language toolchains.
-`pnpm build:native-runtimes` and `pnpm test:native-runtimes` select the four native implementations.
-The native commands require Python, Go, Ruby, and .NET. The five-language CI workflow installs each toolchain in its own job.
+`pnpm build:native-runtimes` and `pnpm test:native-runtimes` select the five native implementations.
+The native commands require Python, Go, Ruby, .NET, and SWI-Prolog. The six-language CI workflow installs each toolchain in its own job.
 
 ## Source references
 
