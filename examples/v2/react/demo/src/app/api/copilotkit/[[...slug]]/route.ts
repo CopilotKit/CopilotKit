@@ -7,8 +7,11 @@ import {
 import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
 import { createOpenAI } from "@ai-sdk/openai";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
+import { EventType } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import { handle } from "hono/vercel";
 import OpenAI from "openai";
+import { Observable } from "rxjs";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -41,17 +44,42 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
   return "openai/gpt-5.2";
 };
 
-const builtInAgent = new BuiltInAgent({
+class DemoAgent extends BuiltInAgent {
+  constructor(private demoConfig: BuiltInAgentClassicConfig) {
+    super(demoConfig);
+  }
+
+  override run(input: RunAgentInput) {
+    const latestUserMessage = [...input.messages]
+      .toReversed()
+      .find((message) => message.role === "user");
+
+    if (
+      JSON.stringify(latestUserMessage?.content)
+        .toLowerCase()
+        .includes("agent error")
+    ) {
+      return new Observable((subscriber) => {
+        subscriber.next({
+          type: EventType.RUN_STARTED,
+          threadId: input.threadId,
+          runId: input.runId,
+        });
+        subscriber.error(new Error("Intentional agent error for the demo."));
+      });
+    }
+
+    return super.run(input);
+  }
+
+  override clone() {
+    return new DemoAgent(this.demoConfig);
+  }
+}
+
+const builtInAgent = new DemoAgent({
   model: determineModel(),
-  prompt: `You are a helpful AI assistant for a CopilotKit Inspector demo.
-
-Use the available frontend tools when the user requests one of these demos:
-- For an intentional failed tool call, call failDemoTool with a concise reason.
-- For a chart or generative UI, call showDemoChart with three or four labeled values between 0 and 100.
-- For an approval or human-in-the-loop request, call requestDemoApproval with the action that needs approval.
-- For a theme request, call setTheme.
-
-After a demo tool call, briefly tell the user they can open the CopilotKit Inspector from the tool call to inspect it. Do not call demo tools unless the user asks for the corresponding demo.`,
+  prompt: "You are a helpful assistant.",
   providerOptions: {
     ...(openAIApiKey
       ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }

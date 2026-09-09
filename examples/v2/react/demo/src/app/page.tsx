@@ -231,8 +231,8 @@ function ChatContent({
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Show me the tool",
-        message: "Show me a tool that fails.",
+        title: "Show me an agent error",
+        message: "Show me an agent error.",
       },
       {
         title: "Show me a chart",
@@ -279,36 +279,6 @@ function ChatContent({
     },
   });
 
-  useFrontendTool({
-    name: "failDemoTool",
-    description:
-      "Demo-only tool that always fails. Use it only when the user asks to demo, inspect, or troubleshoot a failed tool call.",
-    parameters: z.object({
-      reason: z.string().describe("A short description of the demo failure"),
-    }),
-    handler: async ({ reason }) => {
-      throw new Error(`Intentional demo failure: ${reason}`);
-    },
-    render: ({ args }) => (
-      <div
-        style={{
-          padding: 12,
-          border: "1px solid #fecaca",
-          borderRadius: 10,
-          backgroundColor: "#fef2f2",
-          color: "#991b1b",
-        }}
-      >
-        <strong>Intentional tool failure</strong>
-        <div style={{ marginTop: 4 }}>{args.reason}</div>
-        <div style={{ marginTop: 8, fontSize: "0.8rem" }}>
-          Open the Inspector shortcut on this response to inspect the failed
-          call.
-        </div>
-      </div>
-    ),
-  });
-
   useComponent({
     name: "showDemoChart",
     description:
@@ -353,39 +323,32 @@ function ChatContent({
           ? responseFromResult
           : storedApproval === "true";
       const hasResponded = typeof approved === "boolean";
-      const accent = approved ? "#15803d" : "#b91c1c";
-      const choose = (approved: boolean) => {
+      const choose = (decision: boolean) => {
         setApprovalResponses((responses) => ({
           ...responses,
-          [toolCallId]: approved,
+          [toolCallId]: decision,
         }));
-        window.sessionStorage.setItem(storageKey, String(approved));
-        respond?.({ approved });
+        window.sessionStorage.setItem(storageKey, String(decision));
+        respond?.({ approved: decision });
       };
 
       return (
         <div
           style={{
             padding: 14,
-            border: `1px solid ${hasResponded ? accent : "#bfdbfe"}`,
+            border: "1px solid #d1d5db",
             borderRadius: 10,
-            backgroundColor: hasResponded
-              ? approved
-                ? "#f0fdf4"
-                : "#fef2f2"
-              : "#eff6ff",
+            backgroundColor: hasResponded ? "#f9fafb" : "white",
           }}
         >
           <strong>
             {hasResponded
-              ? approved
-                ? "Approved"
-                : "Declined"
+              ? `Decision: ${approved ? "approved" : "declined"}`
               : "Approve this action?"}
           </strong>
           <div style={{ marginTop: 4 }}>{args.action}</div>
           {hasResponded ? (
-            <div style={{ marginTop: 12, color: accent, fontWeight: 600 }}>
+            <div style={{ marginTop: 12, color: "#4b5563", fontWeight: 600 }}>
               {approved
                 ? "You approved this action."
                 : "You declined this action."}
@@ -398,9 +361,9 @@ function ChatContent({
                 onClick={() => choose(true)}
                 style={{
                   padding: "8px 12px",
-                  border: "1px solid #15803d",
+                  border: "1px solid #111827",
                   borderRadius: 6,
-                  backgroundColor: "#15803d",
+                  backgroundColor: "#111827",
                   color: "white",
                   cursor: respond ? "pointer" : "not-allowed",
                   fontWeight: 600,
@@ -414,7 +377,7 @@ function ChatContent({
                 onClick={() => choose(false)}
                 style={{
                   padding: "8px 12px",
-                  border: "1px solid #d1d5db",
+                  border: "1px solid #6b7280",
                   borderRadius: 6,
                   backgroundColor: "white",
                   color: "#374151",
