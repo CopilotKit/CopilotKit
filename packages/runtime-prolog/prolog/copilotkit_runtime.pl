@@ -9,7 +9,6 @@
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_json)).
 :- use_module(library(uri)).
-:- use_module(library(time)).
 :- dynamic configuration/2, listener/2.
 
 %! runtime_create(+Options, -Runtime) is det.
@@ -66,7 +65,7 @@ public_error(_,502,_{error:"Runtime dependency failed"}).
 runtime_dispatch(_,options,_,_,_,_,204,null) :- !.
 runtime_dispatch(R,M,['inspector-metadata'],_,_,_,Status,Metadata) :- !,
     method(M,get),configuration(R,C),
-    (catch(call_with_time_limit(5,(platform(C,get,'/api/inspector/metadata',none,[timeout(5)],Raw),inspector_metadata(Raw,Metadata))),_,fail)->Status=200;Status=204,Metadata=null).
+    (catch(metadata_fetch(C,Metadata),_,fail)->Status=200;Status=204,Metadata=null).
 runtime_dispatch(R,M,[info],_,_,_,200,Info) :- !,
     method(M,get),configuration(R,C),runtime_info(C,Info).
 runtime_dispatch(R,M,Segments,Q,B,Request,S,Reply) :-
@@ -181,3 +180,17 @@ response_headers(R,Request) :-
     ;format('Cache-Control: no-store\r\n')),
     (configuration(R,C),memberchk(origin(A),Request),atom_string(A,Origin),memberchk(Origin,C.cors_origins)->
        format('Access-Control-Allow-Origin: ~s\r\nVary: Origin\r\nAccess-Control-Allow-Credentials: true\r\nAccess-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type, Authorization\r\n',[Origin]);true).
+
+%! metadata_fetch(+Config,-Metadata) is semidet.
+%  Bound the caller's wait even when SWI 9 defers a signal during socket I/O.
+%  The short-lived reader owns its socket; cancellation unwinds that reader.
+metadata_fetch(Config,Metadata) :-
+    setup_call_cleanup(message_queue_create(Queue),
+      setup_call_cleanup(thread_create(metadata_reader(Config,Queue),Reader,[detached(true)]),
+        (thread_get_message(Queue,Result,[timeout(5)]),Result=metadata(Metadata)),
+        catch(thread_signal(Reader,throw(cpki_metadata_cancelled)),_,true)),
+      message_queue_destroy(Queue)).
+metadata_reader(Config,Queue) :-
+    catch((platform(Config,get,'/api/inspector/metadata',none,[timeout(5)],Raw),
+      inspector_metadata(Raw,Metadata)->Result=metadata(Metadata);Result=absent),_,Result=absent),
+    catch(thread_send_message(Queue,Result),_,true).
