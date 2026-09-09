@@ -71,20 +71,22 @@ Follow the Markdown instructions it prints until onboarding is complete.
 
 The CLI inspects the project first and prints the right instructions for your agent to follow, so the same prompt works whether the directory is empty or already holds an app.
 
-https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
-
-When onboarding finishes, this is what you have:
-
-- **CopilotKit installed** – Core packages are fully set up in your app
-- **Provider configured** – Context, state, and hooks ready to use
-- **Agent <> UI connected** – Agents can stream actions and render UI immediately
-- **Deployment-ready** – Your app is ready to deploy
-
 Prefer to drive the setup yourself? `create` scaffolds a new project in its own directory — it signs you in to CopilotKit Intelligence and creates a project, and it does not modify an app you already have.
 
 ```bash
 npx copilotkit@latest create
 ```
+
+https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
+
+<div align="center">Scaffolding a new project with <code>npx copilotkit@latest create</code></div>
+
+Either way, when setup finishes you have:
+
+- **CopilotKit installed** – Core packages are fully set up in your app
+- **Provider configured** – Context, state, and hooks ready to use
+- **Agent <> UI connected** – Agents can stream actions and render UI immediately
+- **Deployment-ready** – Your app is ready to deploy
 
 **Starting points:**
 
@@ -94,7 +96,7 @@ npx copilotkit@latest create
 
 ## Agent Skills
 
-CopilotKit ships [agent skills](https://docs.copilotkit.ai) that teach your coding agent (Claude Code, Codex, Cursor, Gemini, and others) how to set up, build with, integrate, debug, and upgrade CopilotKit.
+CopilotKit ships [agent skills](https://docs.copilotkit.ai/cli?ref=github_readme) that teach your coding agent (Claude Code, Codex, Cursor, Gemini, and others) how to set up, build with, integrate, debug, and upgrade CopilotKit.
 
 Install them into any project directory:
 
@@ -200,9 +202,9 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
 ### Compare the Three Types
 
-<img width="708" height="311" alt="image" src="https://github.com/user-attachments/assets/962f49c2-31ea-43c5-b2a3-7cdde114705a" />
+<img width="708" height="311" alt="The three generative UI types compared" src="https://github.com/user-attachments/assets/962f49c2-31ea-43c5-b2a3-7cdde114705a" />
 
-#### Explore:
+**Explore:**
 
 - [Static (AG-UI Protocol)](https://docs.copilotkit.ai/agentic-protocols/ag-ui?ref=github_readme)
 - [Declarative (A2UI)](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme#using-a2ui-with-copilotkit)
@@ -216,36 +218,27 @@ Connect agent workflows to user-facing apps, with deep partnerships and 1st-part
 
 [![AG-UI](https://github.com/user-attachments/assets/a625237a-cfc1-45fc-8d0c-637316b81291)](https://github.com/ag-ui-protocol/ag-ui)
 
----
+Start a new AG-UI agent app:
 
-```
+```bash
 npx create-ag-ui-app my-agent-app
 ```
 
-  <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">
-   Learn more in the AG-UI README →
-  </a>
+[Learn more in the AG-UI README →](https://github.com/ag-ui-protocol/ag-ui)
 
 ## 🤝 Community
 
-- [What's New](https://docs.copilotkit.ai/whats-new)
-<h3>Have questions or need help?</h3>
-  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
-   Join our Discord →
-  </a> </br>
-    <a href="https://docs.copilotkit.ai/?ref=github_readme" target="_blank">
-  Read the Docs →
-  </a> </br>
-    <a href="https://dashboard.operations.copilotkit.ai?ref=github_readme" target="_blank">
-   Try CopilotKit Intelligence →
-  </a>
-<h3>Stay up to date with our latest releases!</h3>
-  <a href="https://www.linkedin.com/company/copilotkit/" target="_blank">
-   Follow us on LinkedIn →
-  </a> </br>
-    <a href="https://x.com/copilotkit" target="_blank">
-   Follow us on X →
-  </a>
+### Have questions or need help?
+
+- [Join our Discord →](https://discord.gg/6dffbvGU3D?ref=github_readme)
+- [Read the Docs →](https://docs.copilotkit.ai/?ref=github_readme)
+- [Try CopilotKit Intelligence →](https://dashboard.operations.copilotkit.ai?ref=github_readme)
+
+### Stay up to date with our latest releases
+
+- [What's New](https://docs.copilotkit.ai/whats-new?ref=github_readme) — every release, with migration notes
+- [Follow us on LinkedIn →](https://www.linkedin.com/company/copilotkit/)
+- [Follow us on X →](https://x.com/copilotkit)
 
 ## 🙋🏽‍♂️ Contributing
 
@@ -257,7 +250,6 @@ Here are a few useful resources to help you get started:
 
 - For code contributions, [CONTRIBUTING.md](./CONTRIBUTING.md).
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
-
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
 ## 📄 License
