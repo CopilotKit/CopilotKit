@@ -3,6 +3,7 @@
 :- use_module(cpki_http).
 :- use_module(cpki_runner).
 :- use_module(cpki_telemetry).
+:- use_module(cpki_a2ui).
 :- use_module(library(http/thread_httpd)).
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_json)).
@@ -17,7 +18,9 @@ runtime_create(Options,R) :-
     (get_dict(identify_user,Options,Identify),callable(Identify) -> true;throw(error(type_error(callable,identify_user),_))),
     Defaults=_{api_url:"https://api.intelligence.copilotkit.ai",runner_url:"wss://realtime.intelligence.copilotkit.ai/runner",
       client_url:"wss://realtime.intelligence.copilotkit.ai/client",base_path:"/copilotkit",agents:_{},cors_origins:[]},
-    put_dict(Options,Defaults,C0), value(Options,telemetry,_{},TOptions),
+    put_dict(Options,Defaults,RawConfig),
+    (get_dict(a2ui,RawConfig,true)->put_dict(a2ui,RawConfig,_{},C0);C0=RawConfig),
+    validate_config(C0), value(Options,telemetry,_{},TOptions),
     telemetry_create(TOptions,T),put_dict(telemetry,C0,T,Config),new_id(R),assertz(configuration(R,Config)),
     dict_pairs(Config.agents,_,Agents),length(Agents,N),telemetry_emit(T,"instance_created",_{agentsAmount:N}).
 
@@ -45,8 +48,9 @@ runtime_handler(R,Request) :-
            request_body(Request,Body),
            runtime_dispatch(R,Method,Segments,Q,Body,Request,Status,Reply)),
           Error, public_error(Error,Status,Reply)),
-    !, reply_json_dict(Reply,[status(Status)]).
-runtime_handler(_,_) :- reply_json_dict(_{error:"Route not found"},[status(404)]).
+    !, response_headers(R,Request),
+    (Status==204->format('Status: 204 No Content\r\n\r\n');reply_json_dict(Reply,[status(Status)])).
+runtime_handler(R,Request) :- response_headers(R,Request), reply_json_dict(_{error:"Route not found"},[status(404)]).
 request_body(Request,Body) :-
     (memberchk(content_length(N),Request),N>1048576 -> runtime_error(413,"Request body too large");true),
     (memberchk(content_length(N),Request),N>0 ->
@@ -61,7 +65,8 @@ runtime_dispatch(_,options,_,_,_,_,204,null) :- !.
 runtime_dispatch(R,M,[info],_,_,_,200,Info) :- !,
     method(M,get),configuration(R,C),runtime_info(C,Info).
 runtime_dispatch(R,M,Segments,Q,B,Request,S,Reply) :-
-    configuration(R,C), Identify=C.identify_user, call(Identify,Request,User),
+    configuration(R,C), Identify=C.identify_user,
+    (call(Identify,Request,User)->true;runtime_error(401,"Authenticated application user is required")),
     (is_dict(User),get_dict(id,User,ID),string(ID),normalize_space(string(Trim),ID),Trim\=="" -> true;runtime_error(401,"Authenticated application user is required")),
     (is_dict(B)->true;runtime_error(400,"JSON object is required")),
     dispatch(C,R,M,Segments,Q,B,User,Request,S,Reply).
@@ -71,9 +76,10 @@ runtime_info(C,Info) :-
     catch(platform(C,get,'/api/entitlements/runtime',none,Ent),_,Ent=_{status:"unavailable"}),
     dict_pairs(C.agents,_,Agents),maplist(agent_info,Agents,Pairs),dict_pairs(Map,_,Pairs),
     telemetry_disabled(C.telemetry,Disabled),
-    Info=_{version:"0.1.0",mode:"intelligence",agents:Map,intelligence:_{wsUrl:C.client_url},
+    Base=_{version:"0.1.0",mode:"intelligence",agents:Map,intelligence:_{wsUrl:C.client_url},
        runtimeEntitlements:Ent,threadEndpoints:_{list:true,inspect:true,mutations:true,realtimeMetadata:true},
-       a2uiEnabled:false,openGenerativeUIEnabled:false,audioFileTranscriptionEnabled:false,suggestions:false,telemetryDisabled:Disabled}.
+       a2uiEnabled:Enabled,openGenerativeUIEnabled:false,audioFileTranscriptionEnabled:false,suggestions:false,telemetryDisabled:Disabled},
+    (a2ui_enabled(C,_)->Enabled=true,select_keys(C.a2ui,[agents],Scope),put_dict(enabled,Scope,true,A2UI),put_dict(a2ui,Base,A2UI,Info);Enabled=false,Info=Base).
 agent_info(ID-Agent,ID-Info) :- atom_string(ID,Name),value(Agent,description,"",D),Info=_{name:Name,description:D,className:"PrologAgent"}.
 
 dispatch(C,_,M,[agent,A,connect],_,B,U,_,S,Reply) :- !,
@@ -139,7 +145,7 @@ memory_headers(C,M,Tail,B,U,Request,H) :-
        (P=="none",Us=="none"->runtime_error(403,"Memory access is not granted");true),
        (memberchk(M,[post,patch,delete]),\+memberchk(Tail,[[recall],[subscribe]]) ->
          (memberchk("read-write",[P,Us])->true;runtime_error(403,"Memory write access is not granted")),
-         (M==post,Tail==[] -> value(B,scope,"user",Scope),atom_string(K,Scope),
+         (M==post,Tail==[] -> value(B,scope,"user",Scope),(string(Scope),memberchk(Scope,["user","project"])->true;runtime_error(400,"Invalid memory scope")),atom_string(K,Scope),
            (get_dict(K,Grant,"read-write")->true;runtime_error(403,"Memory scope is not writable"));true);true),
        json_text(Grant,Text),H=[request_header('x-cpki-memory-grant'=Text)|Base]
     ;H=Base).
@@ -152,3 +158,18 @@ validate_memory(M,Tail,B) :-
     ;true),
     (get_dict(scope,B,Scope)->(memberchk(Scope,["user","project"])->true;runtime_error(400,"Invalid memory scope"));true),
     (get_dict(sourceThreadIds,B,IDs)->(is_list(IDs),maplist(string,IDs)->true;runtime_error(400,"Invalid sourceThreadIds"));true).
+
+validate_config(C) :-
+    forall(member(K-Schemes,[api_url-[http,https],runner_url-[ws,wss],client_url-[ws,wss]]),
+      (get_dict(K,C,URL),valid_url(URL,Schemes))),
+    (is_dict(C.agents)->true;throw(error(type_error(dict,agents),_))),
+    dict_pairs(C.agents,_,Agents),forall(member(_-Agent,Agents),
+      (is_dict(Agent),(get_dict(run,Agent,Run),callable(Run)->true;valid_url(Agent.url,[http,https])))),
+    (is_list(C.cors_origins),forall(member(Origin,C.cors_origins),(string(Origin),\+sub_string(Origin,_,_,_,"\n"),\+sub_string(Origin,_,_,_,"\r")))->true;throw(error(type_error(list,cors_origins),_))).
+valid_url(URL,Schemes) :-
+    uri_components(URL,Parts),uri_data(scheme,Parts,Scheme),uri_data(authority,Parts,Authority),
+    (memberchk(Scheme,Schemes),nonvar(Authority),Authority\=='',\+sub_atom(Authority,_,_,_,'@')->true;throw(error(domain_error(transport_url,URL),_))).
+response_headers(R,Request) :-
+    format('Cache-Control: no-store\r\n'),
+    (configuration(R,C),memberchk(origin(A),Request),atom_string(A,Origin),memberchk(Origin,C.cors_origins)->
+       format('Access-Control-Allow-Origin: ~s\r\nVary: Origin\r\nAccess-Control-Allow-Credentials: true\r\nAccess-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type, Authorization\r\n',[Origin]);true).

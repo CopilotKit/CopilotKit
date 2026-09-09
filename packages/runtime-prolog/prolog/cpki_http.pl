@@ -19,7 +19,7 @@ new_id(Id) :- uuid(A), atom_string(A, Id).
 json_text(D, S) :- with_output_to(string(S), json_write_dict(current_output,D,[width(0)])).
 select_keys(D, Keys, Selected) :- findall(K-V, (member(K,Keys),get_dict(K,D,V)), Pairs), dict_pairs(Selected,_,Pairs).
 path(Parts, Path) :- maplist(segment,Parts,Encoded), atomic_list_concat(Encoded,'/',A), atom_concat('/',A,Path).
-segment(P,E) :- uri_encoded(path,P,E).
+segment(P,E) :- uri_encoded(segment,P,E).
 query_path(Base, Query, Path) :- dict_pairs(Query,_,Pairs), uri_query_components(Q,Pairs), atomic_list_concat([Base,'?',Q],Path).
 
 %! platform(+Config, +Method, +Path, +Body, -Reply) is det.
@@ -56,4 +56,4 @@ sse_lines(S, Emit, Lines, Size) :-
 emit_frame([],_) :- !.
 emit_frame(Lines,Emit) :- atomics_to_string(Lines,"\n",Text), normalize_space(string(Trim),Text),
     (Trim=="[DONE]" -> true; atom_json_dict(Text,Event,[]),
-     (is_dict(Event),string(Event.type) -> call(Emit,Event);runtime_error(502,"Malformed AG-UI event"))).
+     (is_dict(Event) -> call(Emit,Event);runtime_error(502,"Malformed SSE JSON object"))).

@@ -12,7 +12,7 @@ telemetry_create(Options,ID) :-
     new_id(ID),settings(Options,Settings),message_queue_create(Q,[max_size(256)]),
     thread_create(export_loop(Q,Settings),Thread,[]),assertz(exporter(ID,Settings,Q,Thread)).
 settings(O,S) :-
-    (get_dict(disabled,O,true);env_true('DO_NOT_TRACK');env_true('COPILOTKIT_TELEMETRY_DISABLED')->Disabled=true;Disabled=false),
+    ((get_dict(disabled,O,true);env_true('DO_NOT_TRACK');env_true('COPILOTKIT_TELEMETRY_DISABLED'))->Disabled=true;Disabled=false),
     value(O,sample_rate,0.05,Configured),
     (getenv('COPILOTKIT_TELEMETRY_SAMPLE_RATE',Raw),catch(atom_number(Raw,Env),_,fail)->Rate0=Env;Rate0=Configured),
     (number(Rate0),Rate0>=0,Rate0=<1->Rate1=Rate0;Rate1=0.05),

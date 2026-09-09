@@ -1,49 +1,59 @@
 :- module(cpki_runner,[start_run/7,stop_run/4,close_runs/1]).
 :- use_module(cpki_http).
 :- use_module(cpki_telemetry).
+:- use_module(cpki_ui).
 :- use_module(library(http/websocket)).
 :- use_module(library(base64)).
 :- use_module(library(http/http_open)).
 :- use_module(library(http/http_json)).
 :- use_module(library(time)).
-:- dynamic active/6, cancelled/3, worker/2.
+:- dynamic active/6, cancelled/3, worker/2, closing/1.
 
 %! start_run(+Config,+Runtime,+AgentId,+Input,+User,:Credentials,-Reply) is det.
 %  Own startup in a worker and return only after the Phoenix join succeeds.
 start_run(C,R,A,Input,U,Credentials,Reply) :-
+    reap_workers(R),
     message_queue_create(Ready),
-    thread_create(run_worker(C,R,A,Input,U,Ready),Thread,[]),assertz(worker(R,Thread)),
+    with_mutex(cpki_runs,
+      (closing(R)->message_queue_destroy(Ready),runtime_error(503,"Runtime is shutting down")
+      ;thread_create(run_worker(C,R,A,Input,U,Ready),Thread,[]),assertz(worker(R,Thread)))),
     setup_call_cleanup(true,
       (thread_get_message(Ready,Result,[timeout(40)]) ->
          (Result=ready(Lock)->call(Credentials,C,Lock,Reply);Result=error(Error)->throw(Error))
        ;runtime_error(504,"Run startup timed out")),message_queue_destroy(Ready)).
 
 run_worker(C,R,A,Input,U,Ready) :-
-    catch(setup_run(C,R,A,Input,U,Ready),Error,catch(thread_send_message(Ready,error(Error)),_,true)),
-    thread_self(Self),retractall(worker(R,Self)).
+    catch((once(setup_run(C,R,A,Input,U,Ready))->true;runtime_error(502,"Run failed")),
+      Error,catch(thread_send_message(Ready,error(Error)),_,true)).
 setup_run(C,R,A,Input,U,Ready) :-
     path([api,threads,Input.threadId],Base),query_path(Base,_{userId:U.id},Get),
-    atom_string(A,AgentId), Creation=_{threadId:Input.threadId,userId:U.id,agentId:AgentId},
+    atom_string(A,AgentId), Creation0=_{threadId:Input.threadId,userId:U.id,agentId:AgentId},
+    (get_dict(learning_container,C,Callback)->call(Callback,U,Input,Container),identifier(Container),put_dict(learningContainerId,Creation0,Container,Creation);Creation=Creation0),
     catch(platform(C,get,Get,none,_),error(runtime(404,_),_),
       catch(platform(C,post,'/api/threads',Creation,_),error(runtime(409,_),_),platform(C,get,Get,none,_))),
     path([api,threads,Input.threadId,lock],LP),
     put_dict(_{runId:Input.runId,ttlSeconds:20},Creation,LockBody),
-    platform(C,post,LP,LockBody,Lock),
+    catch(platform(C,post,LP,LockBody,Lock),Error,
+      (Error=error(runtime(Status,_),_),between(400,499,Status)->throw(Error)
+      ;catch(platform(C,delete,LP,_{runId:Input.runId},_),_,true),throw(Error))),
     setup_call_cleanup(true,locked_run(C,R,A,Input,U,Lock,Ready),
-        (path([api,threads,Lock.threadId,lock],Unlock),
-         catch(platform(C,delete,Unlock,_{runId:Lock.runId},_),_,true))).
+        (canonical_or_requested(Lock,Input,IDs),path([api,threads,IDs.threadId,lock],Unlock),
+         catch(platform(C,delete,Unlock,_{runId:IDs.runId},_),_,true))).
 locked_run(C,R,A,Input,U,Lock,Ready) :-
-    maplist(identifier,[Lock.threadId,Lock.runId,Lock.joinToken]),
+    catch(maplist(identifier,[Lock.threadId,Lock.runId,Lock.joinToken]),_,runtime_error(502,"Invalid platform lock response")),
+    with_mutex(cpki_runs,
+      (closing(R)->runtime_error(503,"Runtime is shutting down");assertz(active(R,Lock.threadId,Lock.runId,none,none,running)))),
     thread_create(lease(C,R,Lock),Lease,[]),
     setup_call_cleanup(true,
       (path([api,threads,Lock.threadId,messages],HB),query_path(HB,_{userId:U.id},HP),
        platform(C,get,HP,none,History),
        exclude(prior_message(History.messages),Input.messages,Fresh),
        put_dict(_{threadId:Lock.threadId,runId:Lock.runId},Input,Canonical),
-       Gateway=gw(none,none,none,0,false),
+       (cancelled(R,Lock.runId,_)->runtime_error(503,"Run startup was cancelled");true),
+       Gateway=gw(none,none,none,0,false,0),
        setup_call_cleanup(gateway_connect(C,R,Lock,Gateway),
          run_joined(C,R,A,Canonical,Fresh,Lock,Gateway,Ready),gateway_close(Gateway))),
-      stop_thread(Lease)).
+      (stop_thread(Lease),retractall(active(R,_,Lock.runId,_,_,_)),retractall(cancelled(R,Lock.runId,_)))).
 prior_message(History,M) :- member(P,History),get_dict(id,P,ID),get_dict(id,M,ID),!.
 lease(C,R,L) :- sleep(15),
     catch((path([api,threads,L.threadId,lock],P),platform(C,patch,P,_{runId:L.runId,ttlSeconds:20},_),lease(C,R,L)),
@@ -51,32 +61,42 @@ lease(C,R,L) :- sleep(15),
 
 run_joined(C,R,A,Input,Fresh,L,G,Ready) :-
     message_queue_create(Events,[max_size(32)]),
-    assertz(active(R,L.threadId,L.runId,Events,none,running)),
+    with_mutex(cpki_runs,
+      (cancelled(R,L.runId,_)->message_queue_destroy(Events),runtime_error(503,"Run startup was cancelled")
+      ;retract(active(R,L.threadId,L.runId,none,none,running)),assertz(active(R,L.threadId,L.runId,Events,none,running)))),
     thread_send_message(Ready,ready(L)),
     telemetry_emit(C.telemetry,"agent_execution_stream_started",_{}),
-    nb_setval(cpki_sequence,0),nb_setval(cpki_open_messages,[]),nb_setval(cpki_open_tools,[]),
+    nb_setval(cpki_pending,false),nb_setval(cpki_sequence,0),nb_setval(cpki_open_messages,[]),nb_setval(cpki_open_tools,[]),
     setup_call_cleanup(true,
       catch((put_dict(messages,Input,Fresh,Saved),publish(C,R,L,G,[_{type:"RUN_STARTED",input:Saved}]),
         thread_create(produce(C,A,Input,Events),Producer,[]),
         with_mutex(cpki_runs,(retract(active(R,L.threadId,L.runId,Events,none,running)),assertz(active(R,L.threadId,L.runId,Events,Producer,running)))),
         (cancelled(R,L.runId,_)->stop_thread(Producer);true),
         consume(C,R,L,G,Events)),
-       _,catch(publish(C,R,L,G,[_{type:"RUN_ERROR",code:"AGENT_RUN_FAILED",message:"Agent run failed"}]),_,true)),
+       _,(nb_getval(cpki_pending,Pending),
+          (Pending==false->catch(publish(C,R,L,G,[_{type:"RUN_ERROR",code:"AGENT_RUN_FAILED",message:"Agent run failed"}]),_,true);true))),
       (retract(active(R,L.threadId,L.runId,Events,P,_)),stop_thread(P),message_queue_destroy(Events),retractall(cancelled(R,L.runId,_)))).
 produce(C,A,Input,Q) :-
-    catch((get_dict(A,C.agents,Agent),
-      (get_dict(run,Agent,Callback)->call(Callback,Input,cpki_runner:queue_event(Q));http_agent(Agent,Input,Q)),
-      thread_send_message(Q,done)),Error,catch(thread_send_message(Q,error(Error)),_,true)).
-queue_event(Q,E) :- thread_send_message(Q,event(E)).
-http_agent(Agent,Input,Q) :- json_text(Input,Text),
+    catch(((get_dict(A,C.agents,Agent),
+      ui_run(C,A,Input,cpki_runner:run_agent(Agent),cpki_runner:queue_event(Q)),
+      thread_send_message(Q,done))->true;runtime_error(502,"Agent predicate failed")),Error,(Error==cpki_cancelled->true;catch(thread_send_message(Q,error(Error)),_,true))).
+queue_event(Q,E) :-
+    (is_dict(E),get_dict(type,E,Type),string(Type)->thread_send_message(Q,event(E));runtime_error(502,"Malformed AG-UI event")).
+run_agent(Agent,Input,Emit) :-
+    (get_dict(run,Agent,Callback)->call(Callback,Input,Emit);http_agent(Agent,Input,Emit)).
+http_agent(Agent,Input,Emit) :- json_text(Input,Text),
     value(Agent,headers,_{},Headers),dict_pairs(Headers,_,Pairs),maplist(request_header,Pairs,Options),
     append([post(string('application/json',Text)),request_header('Accept'='text/event-stream'),timeout(120),status_code(Status),redirect(false)],Options,Opts),
     setup_call_cleanup(http_open(Agent.url,S,Opts),
-      (between(200,299,Status)->sse_events(S,queue_event(Q));runtime_error(502,"Agent request failed")),close(S)).
+      (between(200,299,Status)->sse_events(S,validated_event(Emit));runtime_error(502,"Agent request failed")),close(S)).
+validated_event(Emit,E) :-
+    (is_dict(E),get_dict(type,E,Type),string(Type)->call(Emit,E);runtime_error(502,"Malformed AG-UI event")).
 request_header(K-V,request_header(K=V)).
 consume(C,R,L,G,Q) :-
+    heartbeat_if_due(G,L),
     (cancelled(R,L.runId,Code)-> publish(C,R,L,G,[_{type:"RUN_ERROR",code:Code,message:"Run stopped"}])
-    ; thread_get_message(Q,Item,[timeout(0.05)]) -> consume_item(Item,C,R,L,G,Q)
+    ; thread_get_message(Q,Item,[timeout(0.05)]) ->
+      (cancelled(R,L.runId,_)->consume(C,R,L,G,Q);consume_item(Item,C,R,L,G,Q))
     ; consume(C,R,L,G,Q)).
 consume_item(event(E),C,R,L,G,Q) :- !,
     (E.type=="RUN_STARTED" -> consume(C,R,L,G,Q)
@@ -98,8 +118,8 @@ cancel_run(R,ID,Code,Stopped) :- with_mutex(cpki_runs,
     ((active(R,_,ID,_,Producer,running),\+cancelled(R,ID,_)) ->
        assertz(cancelled(R,ID,Code)),Stopped=true;Producer=none,Stopped=false)),
     (Stopped==true->stop_thread(Producer);true).
-close_runs(R) :- forall(active(R,_,ID,_,_,_),cancel_run(R,ID,"STOPPED",_)),
-    forall(worker(R,T),(catch(call_with_time_limit(10,thread_join(T,_)),_,stop_thread(T)))).
+close_runs(R) :- with_mutex(cpki_runs,(closing(R)->true;assertz(closing(R)))), forall(active(R,_,ID,_,_,_),cancel_run(R,ID,"STOPPED",_)),
+    forall(retract(worker(R,T)),catch(call_with_time_limit(10,thread_join(T,_)),_,stop_thread(T))).
 stop_thread(none) :- !.
 stop_thread(T) :- catch(thread_signal(T,throw(cpki_cancelled)),_,true),catch(thread_join(T,_),_,true).
 
@@ -115,7 +135,7 @@ connect_once(C,R,L,G) :-
     http_open_websocket(URL,WS,[subprotocols([phoenix,Bearer]),timeout(5)]),
     nb_setarg(1,G,WS),message_queue_create(Replies,[max_size(64)]),nb_setarg(3,G,Replies),
     thread_create(receive_gateway(WS,Replies,R,L.runId),Reader,[]),nb_setarg(2,G,Reader),
-    exchange(G,L,"phx_join",_{thread_id:L.threadId,run_id:L.runId},Reply),
+    exchange(G,L,"phx_join",_{thread_id:L.threadId,run_id:L.runId},Reply),get_time(Now),nb_setarg(6,G,Now),
     (Reply.status=="ok"->value(Reply,response,_{},Response),value(Response,capabilities,[],Caps),
       (memberchk("runner_event_batch_v1",Caps)->nb_setarg(5,G,true);nb_setarg(5,G,false))
     ;get_dict(response,Reply,Res),get_dict(retryable,Res,true)->throw(error(retry_gateway,_))
@@ -130,12 +150,12 @@ receive_loop(WS,Q,R,Run) :-
     ;thread_send_message(Q,Message.data,[timeout(0)]),receive_loop(WS,Q,R,Run)).
 gateway_close(G) :-
     arg(1,G,WS),arg(2,G,T),arg(3,G,Q),
-    (WS==none->true;catch(close(WS,[force(true)]),_,true)),stop_thread(T),
+    stop_thread(T),(WS==none->true;catch(close(WS,[force(true)]),_,true)),
     (Q==none->true;catch(message_queue_destroy(Q),_,true)),
     nb_setarg(1,G,none),nb_setarg(2,G,none),nb_setarg(3,G,none).
 exchange(G,L,Name,Payload,Reply) :-
     arg(4,G,N),Next is N+1,nb_setarg(4,G,Next),number_string(Next,Ref),
-    string_concat("ingestion:",L.runId,Topic),arg(1,G,WS),arg(3,G,Q),
+    (Name=="heartbeat"->Topic="phoenix";string_concat("ingestion:",L.runId,Topic)),arg(1,G,WS),arg(3,G,Q),
     ws_send(WS,json(["1",Ref,Topic,Name,Payload])),
     call_with_time_limit(5,await_reply(Q,Ref,Reply)).
 await_reply(Q,Ref,Reply) :- thread_get_message(Q,Message),
@@ -143,10 +163,11 @@ await_reply(Q,Ref,Reply) :- thread_get_message(Q,Message),
     ;Message=[_,Ref,_,"phx_reply",Reply]->true;await_reply(Q,Ref,Reply)).
 
 publish(C,R,L,G,Sources) :-
+    nb_setval(cpki_pending,true),
     maplist(canonical_event(L),Sources,Events),
     (member(E,Events),memberchk(E.type,["RUN_FINISHED","RUN_ERROR"])->
        with_mutex(cpki_runs,(retract(active(R,T,L.runId,Q,P,running))->assertz(active(R,T,L.runId,Q,P,terminal));true));true),
-    publish_attempt(C,R,L,G,Events,0),maplist(track_event,Events),
+    publish_attempt(C,R,L,G,Events,0),nb_setval(cpki_pending,false),maplist(track_event,Events),
     (member(E,Events),E.type=="RUN_FINISHED"->telemetry_emit(C.telemetry,"agent_execution_stream_ended",_{})
     ;member(E,Events),E.type=="RUN_ERROR"->telemetry_emit(C.telemetry,"agent_execution_stream_errored",_{});true).
 canonical_event(L,Source,E) :- nb_getval(cpki_sequence,N),Next is N+1,nb_setval(cpki_sequence,Next),new_id(ID),
@@ -154,7 +175,7 @@ canonical_event(L,Source,E) :- nb_getval(cpki_sequence,N),Next is N+1,nb_setval(
     put_dict(_{cpki_event_id:ID,cpki_event_seq:Next},Meta,M),
     put_dict(_{threadId:L.threadId,runId:L.runId,thread_id:L.threadId,run_id:L.runId,metadata:M},Source,E).
 publish_attempt(C,R,L,G,Events,N) :-
-    catch((arg(5,G,Batch),(Batch==true->push(G,L,"events",_{events:Events});maplist(push_one(G,L),Events))),E,
+    catch((heartbeat_if_due(G,L),arg(5,G,Batch),(Batch==true->push(G,L,"events",_{events:Events});maplist(push_one(G,L),Events))),E,
       (N<3,E\=error(permanent_gateway,_)->gateway_close(G),Delay is 0.1*2^N,sleep(Delay),
        gateway_connect(C,R,L,G),N1 is N+1,publish_attempt(C,R,L,G,Events,N1);throw(E))).
 push_one(G,L,E) :- push(G,L,"event",E).
@@ -177,3 +198,13 @@ incomplete_events(Events) :-
       (End==false,E=_{type:"TOOL_CALL_END",toolCallId:ID}
       ;Result==false,new_id(M),json_text(_{reason:"missing_terminal_event",status:"error"},Text),E=_{type:"TOOL_CALL_RESULT",messageId:M,toolCallId:ID,content:Text})),ToolEnds),
     append([Ends,ToolEnds,[_{type:"RUN_ERROR",code:"INCOMPLETE_STREAM",message:"Run ended without a terminal event"}]],Events).
+
+heartbeat_if_due(G,L) :- get_time(Now),arg(6,G,Last),
+    (Now-Last>=15->exchange(G,L,"heartbeat",_{},_),nb_setarg(6,G,Now);true).
+
+reap_workers(R) :- forall((worker(R,T),thread_property(T,status(Status)),Status\==running),
+    (retract(worker(R,T)),catch(thread_join(T,_),_,true))).
+
+canonical_or_requested(Lock,Input,IDs) :-
+    (is_dict(Lock),get_dict(threadId,Lock,T),string(T),T\==""->Thread=T;Thread=Input.threadId),
+    (is_dict(Lock),get_dict(runId,Lock,R),string(R),R\==""->Run=R;Run=Input.runId),IDs=_{threadId:Thread,runId:Run}.

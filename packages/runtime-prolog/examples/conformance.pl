@@ -15,6 +15,9 @@ main :- getenv('CPK_CONFIG',Raw),atom_json_dict(Raw,C,[]),
     value(C,telemetrySampleRate,0.05,Rate),value(C,telemetryDisabled,false,Disabled),
     value(C,telemetryId,null,TelemetryId),value(C,licenseToken,null,License),
     put_dict(telemetry,Configured,_{url:C.telemetryUrl,sample_rate:Rate,disabled:Disabled,telemetry_id:TelemetryId,license_token:License},Final),
-    runtime_create(Final,R),runtime_listen(R,[port(0)],Port),
+    value(C,a2ui,null,A2UI),value(C,mcpApps,_{},MCP),put_dict(_{a2ui:A2UI,mcp_apps:MCP},Final,WithUI),
+    runtime_create(WithUI,R),runtime_listen(R,[port(0)],Port),
     json_write_dict(current_output,_{port:Port},[width(0)]),nl,flush_output,
-    thread_get_message(stop),runtime_close(R).
+    on_signal(term,_,stop_signal),on_signal(int,_,stop_signal),
+    call_cleanup(thread_get_message(stop),runtime_close(R)).
+stop_signal(_) :- thread_send_message(main,stop).
