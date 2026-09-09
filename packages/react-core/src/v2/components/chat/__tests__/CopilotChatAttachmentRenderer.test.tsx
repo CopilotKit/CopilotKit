@@ -36,7 +36,11 @@ describe("CopilotChatAttachmentRenderer", () => {
     render(
       <CopilotChatAttachmentRenderer
         type="document"
-        source={{ type: "base64", value: "JVBERi0=", mimeType: "application/pdf" }}
+        source={{
+          type: "data",
+          value: "JVBERi0=",
+          mimeType: "application/pdf",
+        }}
       />,
     );
 
