@@ -6,7 +6,6 @@ import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   defineToolCallRenderer,
-  useAgent,
   useAgentContext,
   useComponent,
   useCopilotChatConfiguration,
@@ -16,7 +15,7 @@ import {
   useThreads,
 } from "@copilotkit/react-core/v2";
 import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core/v2";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 import { DEMO_RUNTIME_URL } from "./runtime-url";
 
@@ -194,17 +193,7 @@ function ChatContent({
   >({});
   const configuration = useCopilotChatConfiguration();
   const agentId = configuration?.agentId ?? "default";
-  const { threads, refetchThreads } = useThreads({ agentId });
-  const { agent } = useAgent({ agentId });
-
-  // This local runtime has no realtime thread feed. Refresh the shared store
-  // after persistence so both the menu and Inspector can find the latest run.
-  useEffect(() => {
-    const subscription = agent.subscribe({
-      onRunFinalized: () => refetchThreads(),
-    });
-    return () => subscription.unsubscribe();
-  }, [agent, refetchThreads]);
+  const { threads } = useThreads({ agentId });
   const hasInspectorPreview = configuration?.threadId?.startsWith("thread---");
   const pastThreads = [
     ...(draftThreadId && !threads.some((thread) => thread.id === draftThreadId)
