@@ -181,17 +181,26 @@ function DocsOverview() {
               />
             </div>
             {/* Quiet reassurance, not navigation — see the constant above for
-                why these are plain text rather than links. The middot
-                separators are `aria-hidden` so a screen reader announces the
-                three labels without reading "middle dot" between them. */}
-            <p className="mt-4 text-xs leading-relaxed text-[var(--text-muted)]">
+                why these are plain text rather than links.
+                A list, not a paragraph of spans: the middot separators are
+                `aria-hidden` so nobody hears "middle dot", and list items are
+                then what gives a screen reader the boundary between the three
+                labels. Spans alone announced them as one run-on string. */}
+            {/* `role="list"` is not redundant: Safari drops the list role when
+                `list-style: none` is set, which would undo the whole reason
+                this is a list. Inline items keep the single flowing line the
+                paragraph had — a flex row wrapped it onto two. */}
+            <ul
+              role="list"
+              className="mt-4 block list-none p-0 text-xs leading-relaxed text-[var(--text-muted)]"
+            >
               {HERO_STARTING_POINTS.map((label, index) => (
-                <span key={label}>
-                  {index > 0 && <span aria-hidden="true"> · </span>}
+                <li key={label} className="inline">
+                  {index > 0 ? <span aria-hidden="true"> · </span> : null}
                   {label}
-                </span>
+                </li>
               ))}
-            </p>
+            </ul>
           </div>
         </section>
 
