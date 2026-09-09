@@ -3,6 +3,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"math"
@@ -18,9 +19,14 @@ import (
 )
 
 var telemetryIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+var telemetryLicensePayloadPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 const telemetryQueueCapacity = 128
 const telemetryTimeout = 3 * time.Second
+
+// ECMAScript String.trim includes BOM but excludes NEL, unlike Go TrimSpace.
+const telemetryLicenseWhitespace = "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004" +
+	"\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
 
 type telemetryJob struct {
 	body    []byte
@@ -35,6 +41,7 @@ type telemetryExporter struct {
 	cancel             context.CancelFunc
 	mu                 sync.Mutex
 	closed, disabled   bool
+	identified         bool
 	rate               float64
 	identity, endpoint string
 	client             *http.Client
@@ -48,6 +55,24 @@ func telemetryIdentity(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// licenseTelemetryIdentity extracts a legacy analytics claim, without verifying
+// signatures or granting access. Only the validated claim can reach the sink.
+func licenseTelemetryIdentity(token string) string {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 || len(parts[1])%4 == 1 || !telemetryLicensePayloadPattern.MatchString(parts[1]) {
+		return ""
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return ""
+	}
+	var claims map[string]any
+	if json.Unmarshal(payload, &claims) != nil {
+		return ""
+	}
+	return telemetryIdentity(str(claims["telemetry_id"]))
 }
 func disabledEnvironment() bool {
 	for _, key := range []string{"DO_NOT_TRACK", "COPILOTKIT_TELEMETRY_DISABLED"} {
@@ -85,6 +110,17 @@ func newTelemetry(c Config) (*telemetryExporter, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	exporter := &telemetryExporter{queue: make(chan telemetryJob, telemetryQueueCapacity), done: make(chan struct{}), ctx: ctx, cancel: cancel, disabled: c.TelemetryDisabled || disabledEnvironment(), rate: rate, identity: telemetryIdentity(c.TelemetryID, os.Getenv("CPK_TELEMETRY_ID")), endpoint: endpoint, client: &http.Client{Timeout: telemetryTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	if !exporter.disabled && exporter.identity == "" {
+		token := c.LicenseToken
+		if strings.Trim(token, telemetryLicenseWhitespace) == "" {
+			token = os.Getenv("COPILOTKIT_LICENSE_TOKEN")
+		}
+		exporter.identity = licenseTelemetryIdentity(token)
+		exporter.identified = exporter.identity != ""
+		if exporter.identified {
+			exporter.rate = 1
+		}
+	}
 	go exporter.work()
 	return exporter, nil
 }
@@ -127,7 +163,7 @@ func (e *telemetryExporter) capture(event string, properties map[string]any) {
 	if e.disabled || e.rate == 0 || (e.rate < 1 && rand.Float64() >= e.rate) {
 		return
 	}
-	body, err := json.Marshal(map[string]any{"event": event, "properties": properties, "global_properties": map[string]any{"sampleRate": e.rate, "sampleRateAdjustmentFactor": 1 - e.rate, "sampleWeight": 1 / e.rate, "telemetry_identified": false, "telemetry_emitter": "runtime-go", "telemetry_transport": "lambda"}, "package": map[string]any{"name": "copilotkit-runtime-go", "version": "0.1.0"}, "ts": time.Now().Unix()})
+	body, err := json.Marshal(map[string]any{"event": event, "properties": properties, "global_properties": map[string]any{"sampleRate": e.rate, "sampleRateAdjustmentFactor": 1 - e.rate, "sampleWeight": 1 / e.rate, "telemetry_identified": e.identified, "telemetry_emitter": "runtime-go", "telemetry_transport": "lambda"}, "package": map[string]any{"name": "copilotkit-runtime-go", "version": "0.1.0"}, "ts": time.Now().Unix()})
 	if err != nil {
 		return
 	}

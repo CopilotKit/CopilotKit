@@ -13,7 +13,7 @@ runtime = CopilotKit::Runtime.new(
   identify_user: ->(env) { { 'id' => env['HTTP_X_TEST_USER_ID'] || 'test-user', 'name' => env['HTTP_X_TEST_USER_NAME'] || 'Test User' } },
   memory_access: ->(_user, _env) { config.key?('memoryGrant') ? config['memoryGrant'] : { 'user' => 'read-write', 'project' => 'read-write' } },
   telemetry: CopilotKit::Telemetry.new(url: config['telemetryUrl'], sample_rate: config.fetch('telemetrySampleRate', 0.05),
-    disabled: config.fetch('telemetryDisabled', false), telemetry_id: config['telemetryId']),
+    disabled: config.fetch('telemetryDisabled', false), telemetry_id: config['telemetryId'], license_token: config['licenseToken']),
   a2ui: config['a2ui'], mcp_apps: config['mcpApps']
 )
 app = runtime

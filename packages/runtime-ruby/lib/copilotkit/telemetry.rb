@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 require 'timeout'
+require 'base64'
 
 module CopilotKit
   # Bounded asynchronous analytics exporter with TypeScript-compatible envelopes.
@@ -9,7 +10,7 @@ module CopilotKit
     ENDPOINT = 'https://telemetry.copilotkit.ai/ingest'
     EVENTS = %w[instance_created copilot_request_created agent_execution_stream_started agent_execution_stream_ended agent_execution_stream_errored].freeze
 
-    def initialize(exporter: nil, disabled: false, sample_rate: 0.05, telemetry_id: nil,
+    def initialize(exporter: nil, disabled: false, sample_rate: 0.05, telemetry_id: nil, license_token: nil,
                    url: nil, queue_capacity: 256, random: -> { Random.rand }, env: ENV)
       @disabled = disabled || %w[DO_NOT_TRACK COPILOTKIT_TELEMETRY_DISABLED].any? { |key| %w[true 1].include?(env[key].to_s.downcase) }
       configured_rate = env.key?('COPILOTKIT_TELEMETRY_SAMPLE_RATE') ? env['COPILOTKIT_TELEMETRY_SAMPLE_RATE'] : sample_rate
@@ -19,9 +20,20 @@ module CopilotKit
         @rate = 0.05
       end
       @rate = 0.05 unless @rate.finite? && @rate.between?(0, 1)
-      @id = [telemetry_id, env['CPK_TELEMETRY_ID']].find { |value| value.is_a?(String) && !value.gsub(/\A[ \t]+|[ \t]+\z/, '').empty? }
-      @id = @id.gsub(/\A[ \t]+|[ \t]+\z/, '') if @id
-      @id = nil unless @id&.match?(/\A[A-Za-z0-9_-]{1,128}\z/)
+      @id = [telemetry_id, env['CPK_TELEMETRY_ID']].filter_map do |value|
+        next unless value.is_a?(String)
+        normalized = value.gsub(/\A[ \t]+|[ \t]+\z/, '')
+        normalized if normalized.match?(/\A[A-Za-z0-9_-]{1,128}\z/)
+      end.first unless @disabled
+      @identified = false
+      unless @disabled || @id
+        token = [license_token, env['COPILOTKIT_LICENSE_TOKEN']].find do |value|
+          value.is_a?(String) && value.match?(/[^\u0009-\u000D\u0020\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/)
+        end
+        @id = license_telemetry_id(token)
+        @identified = !@id.nil?
+        @rate = 1.0 if @identified
+      end
       @url = url || env['COPILOTKIT_TELEMETRY_URL'] || ENDPOINT
       @exporter, @random = exporter, random
       raise ArgumentError, 'queue_capacity must be positive' unless queue_capacity.is_a?(Integer) && queue_capacity.positive?
@@ -35,7 +47,7 @@ module CopilotKit
 
     # Queue one sampled event without waiting for the network. A full queue drops it.
     def emit(name, attributes = {})
-      return if @disabled || @rate.zero? || @random.call >= @rate
+      return if @disabled || (!@identified && (@rate.zero? || @random.call >= @rate))
       event_name = name.delete_prefix(PREFIX)
       return unless name.start_with?(PREFIX) && EVENTS.include?(event_name)
       properties = case event_name
@@ -54,7 +66,7 @@ module CopilotKit
       event = { 'event' => name, 'properties' => properties, 'ts' => Time.now.to_i,
                 'package' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0' },
                 'global_properties' => { 'sampleRate' => @rate, 'sampleRateAdjustmentFactor' => 1 - @rate,
-                  'sampleWeight' => 1 / @rate, 'telemetry_identified' => false,
+                  'sampleWeight' => 1 / @rate, 'telemetry_identified' => @identified,
                   'telemetry_emitter' => 'runtime-ruby', 'telemetry_transport' => 'lambda' } }
       @mutex.synchronize do
         return if @closed
@@ -107,6 +119,21 @@ module CopilotKit
     end
 
     private
+
+    # Claims provide analytics attribution only, never license verification.
+    def license_telemetry_id(token)
+      return unless token.is_a?(String)
+      parts = token.split('.', -1)
+      return unless parts.length == 3
+      payload = parts[1]
+      return unless payload.match?(/\A[A-Za-z0-9_-]+\z/) && payload.length % 4 != 1
+      decoded = JSON.parse(Base64.urlsafe_decode64(payload))
+      return unless decoded.is_a?(Hash) && decoded['telemetry_id'].is_a?(String)
+      id = decoded['telemetry_id'].gsub(/\A[ \t]+|[ \t]+\z/, '')
+      id if id.match?(/\A[A-Za-z0-9_-]{1,128}\z/)
+    rescue ArgumentError, JSON::ParserError
+      nil
+    end
 
     def monotonic
       Process.clock_gettime(Process::CLOCK_MONOTONIC)

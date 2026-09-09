@@ -118,8 +118,10 @@ The timestamp uses integer Unix seconds.
 Telemetry IDs must contain 1–128 ASCII letters, digits, underscores, or hyphens.
 The library trims surrounding spaces and tabs. It sends valid IDs only through
 `X-CopilotKit-Telemetry-Id`. An ID does not bypass sampling.
-The `telemetry_identified` field remains false because this runtime has no
-license-based sampling bypass.
+`LicenseToken` accepts the legacy analytics token. `COPILOTKIT_LICENSE_TOKEN` supplies a fallback when the configured token is blank.
+Without a standalone identity, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
+The exporter sends only the extracted identity, never the token. This claim does not verify the license signature or grant access.
+Analytics opt-out still takes precedence.
 
 The exporter uses a queue of at most 256 waiting events. Overflow drops analytics.
 HTTP requests time out after three seconds and never follow redirects.
@@ -143,3 +145,4 @@ dotnet pack packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj -
 
 The package command creates a local NuGet artifact. It does not publish anything.
 Current validation covers .NET 9 only. Package release and production approval remain separate gates.
+Automatic memory-tool injection and the local entitlement cache are not implemented. Memory REST routes remain available.

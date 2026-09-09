@@ -45,13 +45,15 @@ type Config struct {
 	MemoryAccess                                   func(*http.Request, User) (MemoryGrant, error)
 	LearningContainer                              func(*http.Request, User, map[string]any) (string, error)
 	TelemetryURL, TelemetryID                      string
-	TelemetryDisabled                              bool
-	TelemetrySampleRate                            *float64
-	OnError                                        func(RuntimeError)
-	AllowedOrigins                                 []string
-	LockTTL, HeartbeatInterval                     time.Duration
-	A2UI                                           *A2UIConfig
-	MCPApps                                        *MCPAppsConfig
+	// LicenseToken supplies only a legacy analytics claim. It grants no access.
+	LicenseToken               string
+	TelemetryDisabled          bool
+	TelemetrySampleRate        *float64
+	OnError                    func(RuntimeError)
+	AllowedOrigins             []string
+	LockTTL, HeartbeatInterval time.Duration
+	A2UI                       *A2UIConfig
+	MCPApps                    *MCPAppsConfig
 }
 type activeRun struct {
 	cancel context.CancelFunc

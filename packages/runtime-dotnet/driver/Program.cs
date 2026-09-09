@@ -20,6 +20,7 @@ await using var runtime = new IntelligenceRuntime(new RuntimeOptions
     TelemetryDisabled = config["telemetryDisabled"]?.GetValue<bool>() ?? false,
     TelemetrySampleRate = config["telemetrySampleRate"]?.GetValue<double>() ?? 0.05,
     TelemetryId = config["telemetryId"]?.GetValue<string>(),
+    LicenseToken = config["licenseToken"]?.GetValue<string>(),
     TelemetryUrl = config["telemetryUrl"] is null ? null : new Uri(config["telemetryUrl"]!.GetValue<string>()),
     AckTimeout = TimeSpan.FromMilliseconds(config["ackTimeoutMs"]?.GetValue<int>() ?? 500),
     LockHeartbeatInterval = TimeSpan.FromMilliseconds(config["lockHeartbeatMs"]?.GetValue<int>() ?? 1000)

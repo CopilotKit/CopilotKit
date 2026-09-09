@@ -37,6 +37,8 @@ public sealed class RuntimeOptions
     public bool TelemetryDisabled { get; init; }
     public double TelemetrySampleRate { get; init; } = 0.05;
     public string? TelemetryId { get; init; }
+    /// <summary>Optional legacy JWT claim for analytics attribution only. This does not verify or grant access.</summary>
+    public string? LicenseToken { get; init; }
     public Uri? TelemetryUrl { get; init; }
     public IRuntimeTelemetryExporter? TelemetryExporter { get; init; }
     /// <summary>Application-owned error reporting, separate from sampled analytics. Callback failures are isolated.</summary>

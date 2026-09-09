@@ -51,6 +51,7 @@ async function startDriver(
         "COPILOTKIT_TELEMETRY_DISABLED",
         "COPILOTKIT_TELEMETRY_SAMPLE_RATE",
         "CPK_TELEMETRY_ID",
+        "COPILOTKIT_LICENSE_TOKEN",
       ].includes(name)
     )
       throw new Error(`Unsupported fixture environment key: ${name}`);

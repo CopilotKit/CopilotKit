@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import time
 
@@ -8,6 +9,109 @@ import pytest
 from copilotkit_runtime import Telemetry
 
 STARTED = "oss.runtime.agent_execution_stream_started"
+
+
+def license_token(claim):
+    payload = base64.urlsafe_b64encode(json.dumps(claim).encode()).decode().rstrip("=")
+    return f"header.{payload}.signature"
+
+
+@pytest.mark.parametrize("from_environment", [False, True])
+async def test_license_identity_bypasses_sampling_without_exposing_token(
+    monkeypatch, from_environment
+):
+    token = license_token({"telemetry_id": " \tlicense-team\t ", "private": "secret"})
+    monkeypatch.setenv("COPILOTKIT_TELEMETRY_SAMPLE_RATE", "0")
+    if from_environment:
+        monkeypatch.setenv("COPILOTKIT_LICENSE_TOKEN", token)
+    requests = []
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: requests.append(request) or httpx.Response(202)
+        )
+    )
+    telemetry = Telemetry(license_token=None if from_environment else token, http_client=client)
+    await telemetry.emit(STARTED)
+    await telemetry.aclose()
+    assert len(requests) == 1
+    assert requests[0].headers["x-copilotkit-telemetry-id"] == "license-team"
+    body = json.loads(requests[0].content)
+    globals = body["global_properties"]
+    assert [
+        globals[key]
+        for key in (
+            "sampleRate",
+            "sampleRateAdjustmentFactor",
+            "sampleWeight",
+            "telemetry_identified",
+        )
+    ] == [1, 0, 1, True]
+    wire = str(requests[0].headers) + requests[0].content.decode()
+    assert (
+        token not in wire
+        and "secret" not in wire
+        and "license-team" not in requests[0].content.decode()
+    )
+    await client.aclose()
+
+
+@pytest.mark.parametrize("identity", ["option", "environment"])
+async def test_standalone_identity_wins_over_license_and_stays_sampled(monkeypatch, identity):
+    if identity == "environment":
+        monkeypatch.setenv("CPK_TELEMETRY_ID", "standalone")
+    telemetry = Telemetry(
+        sample_rate=0,
+        telemetry_id="standalone" if identity == "option" else None,
+        license_token=license_token({"telemetry_id": "license"}),
+    )
+    await telemetry.emit(STARTED)
+    assert telemetry.telemetry_id == "standalone"
+    assert telemetry.stats.sampled_out == 1
+    await telemetry.aclose()
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "bad",
+        "a.=.b",
+        "a.a.b",
+        license_token({}),
+        license_token({"telemetry_id": 5}),
+        license_token({"telemetry_id": "bad\r\nid"}),
+    ],
+)
+async def test_invalid_license_remains_anonymous(token):
+    telemetry = Telemetry(sample_rate=0, license_token=token)
+    await telemetry.emit(STARTED)
+    assert telemetry.telemetry_id is None
+    assert telemetry.stats.sampled_out == 1
+    await telemetry.aclose()
+
+
+async def test_opt_out_wins_over_license_identity(monkeypatch):
+    monkeypatch.setenv("DO_NOT_TRACK", "1")
+    telemetry = Telemetry(license_token=license_token({"telemetry_id": "license"}))
+    await telemetry.emit(STARTED)
+    assert telemetry.stats.queued == telemetry.stats.sent == 0
+    await telemetry.aclose()
+
+
+async def test_blank_license_option_falls_back_to_environment(monkeypatch):
+    monkeypatch.setenv("COPILOTKIT_LICENSE_TOKEN", license_token({"telemetry_id": "environment"}))
+    telemetry = Telemetry(license_token=" \t ", enabled=False)
+    assert telemetry.telemetry_id == "environment"
+    await telemetry.aclose()
+
+
+@pytest.mark.parametrize("candidate,expected", [("\ufeff", "environment"), ("\u0085", None)])
+async def test_license_blank_fallback_matches_javascript_whitespace(
+    monkeypatch, candidate, expected
+):
+    monkeypatch.setenv("COPILOTKIT_LICENSE_TOKEN", license_token({"telemetry_id": "environment"}))
+    telemetry = Telemetry(license_token=candidate, enabled=False)
+    assert telemetry.telemetry_id == expected
+    await telemetry.aclose()
 
 
 async def test_canonical_envelope_identity_header_and_seconds():

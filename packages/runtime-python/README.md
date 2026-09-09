@@ -94,6 +94,11 @@ Timestamps use integer Unix seconds. Analytics contain no prompts, user IDs, thr
 Identities accept 1–128 ASCII letters, digits, underscores, or hyphens after spaces and tabs at each end are removed.
 The identity travels only in `X-CopilotKit-Telemetry-Id`. It does not bypass sampling.
 
+`Telemetry(license_token=...)` accepts the legacy analytics token. `COPILOTKIT_LICENSE_TOKEN` supplies a fallback when the configured token is blank.
+Without a standalone identity, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
+The exporter sends only the extracted identity, never the token. This claim does not verify the license signature or grant access.
+Analytics opt-out still takes precedence.
+
 The exporter queues at most 256 events and discards new events when that queue fills.
 Request handling does not wait for analytics delivery. `telemetry.stats` reports queue depth, sends, failures, discarded events, and sampling exclusions locally.
 `await telemetry.flush()` waits at most three seconds. Runtime shutdown closes the exporter after a bounded flush.
@@ -181,6 +186,8 @@ NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- uv run --proje
 The conformance driver supplies test configuration only. It contains no runtime implementation.
 
 ## Current scope
+
+Automatic memory-tool injection and the local entitlement cache are not implemented. Memory REST routes remain available.
 
 Voice, provider-specific agents, managed Channels, automatic thread naming, and stateless suggestions are not implemented.
 Legacy MCP SSE transport is not implemented. MCP Apps supports Streamable HTTP only.

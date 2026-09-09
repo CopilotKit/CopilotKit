@@ -1,7 +1,9 @@
 """Canonical CopilotKit analytics with bounded asynchronous delivery."""
 
 import asyncio
+import base64
 import inspect
+import json
 import math
 import os
 import random
@@ -9,7 +11,7 @@ import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import urlsplit
 
 import httpx
@@ -19,6 +21,38 @@ from .models import Json
 EventSink = Callable[[Json], Awaitable[None]]
 _PREFIX = "oss.runtime."
 _IDENTITY = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+# ECMAScript WhiteSpace + LineTerminator; Python str.strip() differs for FEFF/NEL.
+_JS_WHITESPACE = "\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+
+
+def _invalid_json_constant(value: str) -> NoReturn:
+    """Reject non-JSON numeric constants that Python's decoder otherwise accepts."""
+    raise ValueError("Invalid JSON constant")
+
+
+def _license_identity(token: str | None) -> str | None:
+    """Read a safe legacy analytics claim, never verify a license or retain its token."""
+    if not isinstance(token, str):
+        return None
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+    payload = parts[1]
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", payload) or len(payload) % 4 == 1:
+        return None
+    try:
+        decoded = json.loads(
+            base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)).decode(
+                "utf-8", errors="replace"
+            ),
+            parse_constant=_invalid_json_constant,
+        )
+        value = decoded.get("telemetry_id") if isinstance(decoded, dict) else None
+        if isinstance(value, str) and _IDENTITY.fullmatch(value.strip(" \t")):
+            return value.strip(" \t")
+    except (ValueError, TypeError, RecursionError):
+        pass
+    return None
 
 
 @dataclass(frozen=True)
@@ -42,6 +76,7 @@ class Telemetry:
         *,
         sample_rate: float = 0.05,
         telemetry_id: str | None = None,
+        license_token: str | None = None,
         url: str = "https://telemetry.copilotkit.ai/ingest",
         queue_capacity: int = 256,
         timeout: float = 3,
@@ -70,6 +105,21 @@ class Telemetry:
             ),
             None,
         )
+        self.identified = False
+        if self.telemetry_id is None:
+            self.telemetry_id = _license_identity(
+                next(
+                    (
+                        candidate
+                        for candidate in (license_token, os.getenv("COPILOTKIT_LICENSE_TOKEN"))
+                        if isinstance(candidate, str) and candidate.strip(_JS_WHITESPACE)
+                    ),
+                    None,
+                )
+            )
+            self.identified = self.telemetry_id is not None
+            if self.identified:
+                self.sample_rate = 1
         self.url = os.getenv("COPILOTKIT_TELEMETRY_URL") or url
         parsed = urlsplit(self.url)
         if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username:
@@ -137,7 +187,7 @@ class Telemetry:
                 "sampleRate": self.sample_rate,
                 "sampleRateAdjustmentFactor": 1 - self.sample_rate,
                 "sampleWeight": 1 / self.sample_rate,
-                "telemetry_identified": False,
+                "telemetry_identified": self.identified,
                 "telemetry_emitter": "native-python",
                 "telemetry_transport": "lambda",
             },

@@ -33,6 +33,7 @@ const runtime = new CopilotIntelligenceRuntime({
     ? { memory: { access: () => configuration.memoryGrant } }
     : {}),
   telemetryId: configuration.telemetryId,
+  licenseToken: configuration.licenseToken,
   a2ui: configuration.a2ui,
   mcpApps: configuration.mcpApps,
 });

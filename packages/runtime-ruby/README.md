@@ -125,6 +125,11 @@ the sample rate and weight. `telemetry_id:` takes precedence over
 hyphens after trimming spaces and tabs. It travels only in the
 `X-CopilotKit-Telemetry-Id` header and does not bypass sampling.
 
+`license_token:` accepts the legacy analytics token. `COPILOTKIT_LICENSE_TOKEN` supplies a fallback when the configured token is blank.
+Without a standalone identity, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
+The exporter sends only the extracted identity, never the token. This claim does not verify the license signature or grant access.
+Analytics opt-out still takes precedence.
+
 Set `disabled: true`, or set either `DO_NOT_TRACK` or
 `COPILOTKIT_TELEMETRY_DISABLED` to `true` or `1`, to disable analytics.
 Opt-out wins over sample rate and identity. The exporter queues at most 256
@@ -197,8 +202,7 @@ and a full agent run passed through Rails middleware, authenticated Phoenix,
 persisted events, and AIMock. The Rails fixture's test identity is not production
 authentication.
 
-All 51 shared socket, UI, runner, and analytics cases pass, including lost-ACK reconnect, join
-rejection, ownership, API mutations, validation, and AIMock agent execution.
+The shared suite covers socket delivery, UI middleware, runner recovery, analytics, access, and the public frontend client.
 Local tests cover denied identity, memory grants, startup validation, and safe
 telemetry. A gem build checks the installable artifact.
 
@@ -206,6 +210,7 @@ Suggestions and Inspector metadata are not yet implemented. HTTP stops address
 the current worker; clients use the authenticated realtime gateway to stop a
 run on another worker. Analytics matches the reference
 TypeScript runtime; OpenTelemetry is not a dependency or claimed capability.
+Automatic memory-tool injection and the local entitlement cache are not implemented. Memory REST routes remain available.
 Certificate-failure cases, sustained high concurrency, and multi-worker
 operational testing still need coverage before a
 production-readiness claim. The shared suite is one gate, not release approval.

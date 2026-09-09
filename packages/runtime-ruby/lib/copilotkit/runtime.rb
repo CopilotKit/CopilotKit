@@ -23,7 +23,7 @@ module CopilotKit
                    client_url: 'wss://realtime.intelligence.copilotkit.ai/client', agents: {},
                    base_path: '', memory_access: nil, telemetry: nil, cors_origins: [],
                    learning_container: nil, a2ui: nil, mcp_apps: nil, on_error: nil,
-                   lock_heartbeat_interval: 15, lock_ttl: 20)
+                   lock_heartbeat_interval: 15, lock_ttl: 20, license_token: nil)
       raise ArgumentError, 'api_key is required' if api_key.to_s.strip.empty?
       raise ArgumentError, 'identify_user must be callable' unless identify_user.respond_to?(:call)
       @platform = Platform.new(api_url, api_key)
@@ -33,7 +33,7 @@ module CopilotKit
       @mcp_servers = (mcp_apps || {}).fetch('servers', [])
       @runner_url, @client_url = runner_url, client_url
       @memory_access = memory_access || ->(_user, _env) { { 'user' => 'none', 'project' => 'none' } }
-      @telemetry = telemetry || Telemetry.new
+      @telemetry = telemetry || Telemetry.new(license_token: license_token)
       @on_error = on_error
       raise ArgumentError, 'Lock heartbeat must be positive and shorter than TTL' unless lock_heartbeat_interval.is_a?(Numeric) && lock_ttl.is_a?(Numeric) && lock_heartbeat_interval.positive? && lock_ttl > lock_heartbeat_interval
       @lock_heartbeat_interval, @lock_ttl = lock_heartbeat_interval, lock_ttl

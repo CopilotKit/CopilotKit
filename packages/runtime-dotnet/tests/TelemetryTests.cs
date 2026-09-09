@@ -69,6 +69,7 @@ internal static class TelemetryTests
         }
         Check(redirected == 0, "HTTP analytics never follows redirects");
         await app.StopAsync();
+        await LicenseTelemetryTests.RunAsync();
     }
     private static RuntimeOptions Options(IRuntimeTelemetryExporter exporter, double sampleRate, string? identity = null) => new()
     {

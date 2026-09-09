@@ -44,7 +44,87 @@ function envelope(event) {
   assert.equal(event.global_properties.telemetry_transport, "lambda");
 }
 
+// Claim-only fixture, never a valid license or authorization credential.
+const analyticsToken = `fixture.${Buffer.from(JSON.stringify({ telemetry_id: "  fixture-license-identity  " })).toString("base64url")}.signature`;
+
+/** Check legacy analytics attribution without treating the claim as access authority. */
+async function licenseAttribution(context) {
+  await run(context);
+  await context.platform.waitFor(() =>
+    context.platform.telemetry.some((event) =>
+      event.event.endsWith("stream_ended"),
+    ),
+  );
+  for (const event of context.platform.telemetry) {
+    envelope(event);
+    assert.equal(event.global_properties.telemetry_identified, true);
+  }
+  const sends = context.platform.requests.filter(
+    (entry) => entry.path === "/telemetry",
+  );
+  assert.ok(sends.length > 0);
+  for (const request of sends)
+    assert.equal(
+      request.headers["x-copilotkit-telemetry-id"],
+      "fixture-license-identity",
+    );
+  assert.equal(
+    JSON.stringify(sends).includes(analyticsToken),
+    false,
+    "Raw license token must never leave the runtime",
+  );
+}
+
 export const telemetryCases = [
+  {
+    id: "telemetry.license-claim-bypasses-sampling",
+    configuration: { telemetrySampleRate: 0, licenseToken: analyticsToken },
+    run: licenseAttribution,
+  },
+  {
+    id: "telemetry.license-environment-fallback",
+    configuration: { telemetrySampleRate: 0, licenseToken: "  " },
+    environment: { COPILOTKIT_LICENSE_TOKEN: analyticsToken },
+    run: licenseAttribution,
+  },
+  {
+    id: "telemetry.license-bom-environment-fallback",
+    configuration: { telemetrySampleRate: 0, licenseToken: "\uFEFF" },
+    environment: { COPILOTKIT_LICENSE_TOKEN: analyticsToken },
+    run: licenseAttribution,
+  },
+  {
+    id: "telemetry.license-nel-prevents-environment-fallback",
+    configuration: { telemetrySampleRate: 0, licenseToken: "\u0085" },
+    environment: { COPILOTKIT_LICENSE_TOKEN: analyticsToken },
+    async run(context) {
+      await run(context);
+      await delay(200);
+      assert.equal(context.platform.telemetry.length, 0);
+    },
+  },
+  ...[
+    [
+      "standalone-overrides-license",
+      { telemetryId: "standalone-identity", licenseToken: analyticsToken },
+    ],
+    [
+      "malformed-license-stays-anonymous",
+      { licenseToken: "not.a.valid.claim" },
+    ],
+    [
+      "license-cannot-override-opt-out",
+      { licenseToken: analyticsToken, telemetryDisabled: true },
+    ],
+  ].map(([id, configuration]) => ({
+    id: `telemetry.${id}`,
+    configuration: { telemetrySampleRate: 0, ...configuration },
+    async run(context) {
+      await run(context);
+      await delay(200);
+      assert.equal(context.platform.telemetry.length, 0);
+    },
+  })),
   {
     id: "telemetry.canonical-events-and-envelope",
     async run(context) {

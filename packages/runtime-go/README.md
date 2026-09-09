@@ -46,6 +46,10 @@ Telemetry uses fixed event properties and never includes prompts, user IDs,
 project keys, or raw upstream error text. `TelemetrySampleRate` defaults to 0.05;
 `COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides it. A configured `TelemetryID`, then
 `CPK_TELEMETRY_ID`, selects a header-only identity. It does not bypass sampling.
+`LicenseToken` accepts the legacy analytics token. `COPILOTKIT_LICENSE_TOKEN` supplies a fallback when the configured token is blank.
+Without a standalone identity, a valid `telemetry_id` claim selects every event and sets `telemetry_identified` to true.
+The exporter sends only the extracted identity, never the token. This claim does not verify the license signature or grant access.
+Analytics opt-out still takes precedence.
 Set `TelemetryDisabled`, `DO_NOT_TRACK`, or `COPILOTKIT_TELEMETRY_DISABLED` to opt
 out; environment values `true` and `1` both work. `COPILOTKIT_TELEMETRY_URL`
 overrides the default sink when no explicit `TelemetryURL` is set.
@@ -86,7 +90,8 @@ The shared suite covers UI discovery/execution, authenticated sessions, iframe
 reentry, atomic components, progressive data, action history and agent scoping.
 Legacy MCP SSE transport, OAuth credential negotiation, server-initiated MCP
 requests, resumable MCP streams and adapter-owned A2UI model retries are excluded.
-Entitlement cache/gating remains pending. Idle Phoenix heartbeats run every
+Automatic memory-tool injection and the local entitlement cache are not implemented. Memory REST routes remain available.
+Idle Phoenix heartbeats run every
 fifteen seconds. When the gateway supports batches, the publisher sends at most
 32 events per batch and queues at most 32 more events. Each event has a 4 MB
 limit. Retries preserve batch membership and event IDs. Terminal events wait

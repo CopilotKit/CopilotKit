@@ -47,6 +47,7 @@ An empty case selection is an error.
 | `telemetrySampleRate` | One for deterministic lifecycle assertions                     |
 | `telemetryDisabled`   | Explicit analytics opt-out                                     |
 | `telemetryId`         | Header-only analytics identity                                 |
+| `licenseToken`        | Legacy token with an analytics identity claim                  |
 | `a2ui`                | A2UI configuration for the selected case                       |
 | `mcpApps`             | MCP server configuration for the selected case                 |
 
@@ -57,9 +58,11 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Current coverage limit
 
-The suite has 60 cases: 16 initial cases, 16 UI cases, 11 additional analytics cases, ten runner cases, six access cases, and one frontend-client case.
+The suite has 67 cases. These include 16 initial cases, 16 UI cases, and 18 additional analytics cases.
+Ten runner cases, six access cases, and one frontend-client case cover the remaining requirements.
 The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
 Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
+Seven cases cover legacy license identity, environment fallback, whitespace rules, standalone identity precedence, malformed tokens, and opt-out precedence.
 Runner cases cover batches, draining joins, planned restarts, final acknowledgments, and stop boundaries.
 They also require input persistence before early stop or error and reject incomplete streams as successful runs.
 The frontend-client case uses the public core package and real Phoenix sockets to run an agent and replay its history.
@@ -68,6 +71,12 @@ Native tests cover additional cancellation, shutdown, and lease failures beyond 
 Access cases require current ownership, canonical stop IDs, valid stop input, agent scope, and memory denial before upstream access.
 The fixture's event journal is test evidence, not an implementation of the Intelligence database.
 The wider requirements and remaining release gates live in [PLAN.md](PLAN.md).
+
+## Build boundaries
+
+`pnpm build` and `pnpm test` select JavaScript packages. They do not require native language toolchains.
+`pnpm build:native-runtimes` and `pnpm test:native-runtimes` select the four native implementations.
+The native commands require Python, Go, Ruby, and .NET. The five-language CI workflow installs each toolchain in its own job.
 
 ## Source references
 

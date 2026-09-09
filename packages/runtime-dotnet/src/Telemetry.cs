@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 
@@ -52,7 +54,7 @@ public sealed class HttpTelemetryExporter : IRuntimeTelemetryExporter
     public ValueTask DisposeAsync() { client.Dispose(); return ValueTask.CompletedTask; }
 }
 
-internal sealed record TelemetrySettings(bool Disabled, double SampleRate, string? Identity, Uri Endpoint)
+internal sealed record TelemetrySettings(bool Disabled, double SampleRate, string? Identity, Uri Endpoint, bool Identified = false)
 {
     internal static TelemetrySettings Resolve(RuntimeOptions options)
     {
@@ -67,10 +69,39 @@ internal sealed record TelemetrySettings(bool Disabled, double SampleRate, strin
             var normalized = candidate?.Trim(' ', '\t');
             if (normalized is not null && Regex.IsMatch(normalized, "\\A[A-Za-z0-9_-]{1,128}\\z", RegexOptions.CultureInvariant)) { identity = normalized; break; }
         }
+        var identified = false;
+        if (identity is null)
+        {
+            // Match JavaScript trim for license placeholders, without changing the selected token.
+            var token = new[] { options.LicenseToken, Environment.GetEnvironmentVariable("COPILOTKIT_LICENSE_TOKEN") }.FirstOrDefault(candidate => candidate is not null && Regex.IsMatch(candidate, "[^\\u0009-\\u000D\\u0020\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]", RegexOptions.CultureInvariant));
+            identity = ParseLicenseIdentity(token);
+            identified = identity is not null;
+            if (identified) rate = 1;
+        }
         var endpoint = Environment.GetEnvironmentVariable("COPILOTKIT_TELEMETRY_URL");
         var url = string.IsNullOrWhiteSpace(endpoint) ? options.TelemetryUrl ?? new Uri("https://telemetry.copilotkit.ai/ingest") : new Uri(endpoint);
         if (!url.IsAbsoluteUri || url.Scheme is not ("http" or "https") || url.UserInfo.Length > 0) throw new ArgumentException("Telemetry endpoint must be HTTP(S), without embedded credentials.");
-        return new TelemetrySettings(disabled, rate, identity, url);
+        return new TelemetrySettings(disabled, rate, identity, url, identified);
+    }
+
+    /// <summary>Reads the legacy analytics claim without verifying JWT signatures or authorizing access.</summary>
+    private static string? ParseLicenseIdentity(string? token)
+    {
+        if (string.IsNullOrEmpty(token)) return null;
+        var parts = token.Split('.');
+        if (parts.Length != 3) return null;
+        var payload = parts[1];
+        if (!Regex.IsMatch(payload, "\\A[A-Za-z0-9_-]+\\z", RegexOptions.CultureInvariant) || payload.Length % 4 == 1) return null;
+        try
+        {
+            var base64 = payload.Replace('-', '+').Replace('_', '/');
+            base64 += new string('=', (4 - base64.Length % 4) % 4);
+            using var document = JsonDocument.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(base64)));
+            if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty("telemetry_id", out var claim) || claim.ValueKind != JsonValueKind.String) return null;
+            var normalized = claim.GetString()!.Trim(' ', '\t');
+            return Regex.IsMatch(normalized, "\\A[A-Za-z0-9_-]{1,128}\\z", RegexOptions.CultureInvariant) ? normalized : null;
+        }
+        catch (Exception error) when (error is JsonException or FormatException or InvalidOperationException) { return null; }
     }
     private static bool True(string? value) => value is "true" or "1";
 }
@@ -118,7 +149,7 @@ internal sealed class RuntimeTelemetry : IAsyncDisposable
         var globals = new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>
         {
             ["sampleRate"] = settings.SampleRate, ["sampleRateAdjustmentFactor"] = 1 - settings.SampleRate, ["sampleWeight"] = 1 / settings.SampleRate,
-            ["telemetry_identified"] = false, ["telemetry_emitter"] = "native", ["telemetry_transport"] = "lambda"
+            ["telemetry_identified"] = settings.Identified, ["telemetry_emitter"] = "native", ["telemetry_transport"] = "lambda"
         });
         var value = new RuntimeTelemetryEvent(name, DateTimeOffset.UtcNow, new ReadOnlyDictionary<string, object?>(attributes)) { GlobalProperties = globals, Identity = settings.Identity };
         if (!queue.Writer.TryWrite(value)) dropped.Add(1);
