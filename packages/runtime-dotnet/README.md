@@ -101,6 +101,7 @@ A project reference to `src/CopilotKit.Intelligence.Runtime.csproj` also works f
 The example uses your existing authentication scheme and sign-in flow.
 `IdentifyUser` must return a stable application-user ID from trusted server authentication.
 A null result rejects protected requests with HTTP 401. `/info` provides public discovery.
+`/inspector-metadata` provides public account display details through the SDK.
 Browser-supplied user IDs are not authentication.
 
 The runtime keeps the API key on the server.
@@ -108,6 +109,18 @@ The runtime keeps the API key on the server.
 The sample renews pooled connections because the singleton agent retains its HTTP client.
 For cross-origin requests, set `AllowedOrigins` to the exact browser origins.
 An empty set adds no CORS response headers and applies no origin restriction.
+
+## Show Inspector metadata
+
+Inspector reads `GET /copilotkit/inspector-metadata` to show identity, plan, license, action, and usage details.
+The Runtime reads these values through its standalone SDK with the server-side API key.
+It does not forward browser credentials or call `IdentifyUser` for this display route.
+The configured origin restriction still applies. Thread and Memory routes still require authentication.
+
+The route returns sanitized metadata as JSON with `Cache-Control: no-store, private`.
+For absent metadata or provider errors, it returns HTTP 204 with the same cache header and no body.
+Provider errors also reach `OnError` with operation `inspector.metadata` and code `INSPECTOR_METADATA_FAILED`.
+`GET /copilotkit/info` reports `inspectorMetadata: true` without a metadata request.
 
 ## Share an SDK with the Runtime
 

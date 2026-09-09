@@ -60,7 +60,7 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         var route = context.Request.RouteValues["runtimePath"]?.ToString()?.Trim('/') ?? "";
         var segments = route.Split('/', StringSplitOptions.RemoveEmptyEntries);
         var agentOperation = segments.ElementAtOrDefault(2) is "run" or "connect" or "stop" ? segments[2] : "unknown";
-        var operation = segments.FirstOrDefault() switch { "agent" => "agent." + agentOperation, "threads" => "threads", "memories" => "memories", "annotate" => "annotate", "info" => "info", _ => "unknown" };
+        var operation = segments.FirstOrDefault() switch { "agent" => "agent." + agentOperation, "threads" => "threads", "memories" => "memories", "annotate" => "annotate", "info" => "info", "inspector-metadata" => "inspector.metadata", _ => "unknown" };
         using var activity = telemetry.Disabled ? null : RuntimeTelemetry.ActivitySource.StartActivity(operation, ActivityKind.Server);
         using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, stopping.Token);
         requestCancellation.CancelAfter(options.RequestTimeout);
@@ -85,6 +85,16 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
             {
                 if (context.Request.Method != "GET") throw new RuntimeRequestException(405, "Method not allowed");
                 await WriteAsync(context, await InfoAsync(ct), ct); return;
+            }
+            if (route == "inspector-metadata")
+            {
+                context.Response.Headers.CacheControl = "no-store, private";
+                if (context.Request.Method != "GET")
+                {
+                    context.Response.Headers.Allow = "GET";
+                    throw new RuntimeRequestException(405, "Method not allowed");
+                }
+                await InspectorMetadataAsync(context, ct); return;
             }
             var user = await options.IdentifyUser(context, ct);
             if (user is null || string.IsNullOrWhiteSpace(user.Id)) throw new RuntimeRequestException(401, "Authenticated user required");
@@ -140,6 +150,20 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         finally { telemetry.Record("request.completed", operation, context.Response.StatusCode, watch.Elapsed.TotalMilliseconds); }
     }
 
+    /// <summary>Returns SDK-sanitized display metadata without app-user credentials.</summary>
+    private async Task InspectorMetadataAsync(HttpContext context, CancellationToken ct)
+    {
+        InspectorMetadata? metadata;
+        try { metadata = await Intelligence.GetInspectorMetadataAsync(ct); }
+        catch (Exception error)
+        {
+            ReportError("inspector.metadata", "INSPECTOR_METADATA_FAILED", error);
+            context.Response.StatusCode = 204; return;
+        }
+        if (metadata is null) { context.Response.StatusCode = 204; return; }
+        await context.Response.WriteAsJsonAsync(metadata, cancellationToken: ct);
+    }
+
     private async Task<JsonObject> InfoAsync(CancellationToken ct)
     {
         JsonNode? entitlement;
@@ -153,7 +177,7 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
             ["audioFileTranscriptionEnabled"] = false, ["a2uiEnabled"] = options.A2UI?.Enabled == true, ["openGenerativeUIEnabled"] = false,
             ["threadEndpoints"] = new JsonObject { ["list"] = true, ["inspect"] = true, ["mutations"] = true, ["realtimeMetadata"] = true },
             ["intelligence"] = new JsonObject { ["wsUrl"] = options.ClientUrl.ToString().TrimEnd('/') },
-            ["suggestions"] = false, ["telemetryDisabled"] = telemetry.Disabled, ["runtimeEntitlements"] = entitlement,
+            ["suggestions"] = false, ["inspectorMetadata"] = true, ["telemetryDisabled"] = telemetry.Disabled, ["runtimeEntitlements"] = entitlement,
             ["licenseStatus"] = entitlement?["status"]?.GetValue<string>() == "ready" && entitlement?["entitlement"]?["active"]?.GetValue<bool>() == true ? "valid" : "invalid"
         };
         if (options.A2UI?.Enabled == true)
