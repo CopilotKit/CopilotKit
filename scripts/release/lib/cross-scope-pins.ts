@@ -1,4 +1,4 @@
-import { satisfies, validRange } from "semver";
+import { minVersion, satisfies, subset, validRange } from "semver";
 import type { ReleaseConfig, ReleaseScope } from "./config.js";
 
 /**
@@ -33,6 +33,7 @@ export interface ScopedManifest {
   readonly version?: string;
   readonly dependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
+  readonly optionalDependencies?: Readonly<Record<string, string>>;
   readonly devDependencies?: Readonly<Record<string, string>>;
 }
 
@@ -41,8 +42,16 @@ export interface ScopedManifest {
  *
  * `devDependencies` are deliberately absent: npm never installs them for a
  * consumer, so an exact one cannot split a consumer's tree.
+ *
+ * `optionalDependencies` are present: npm installs one unless the consumer
+ * opts out, so an exact one splits the tree exactly like a normal dependency.
+ * `versions.ts` already treats them as consumer-facing for the same reason.
  */
-const PUBLISHED_FIELDS = ["dependencies", "peerDependencies"] as const;
+const PUBLISHED_FIELDS = [
+  "dependencies",
+  "peerDependencies",
+  "optionalDependencies",
+] as const;
 
 /** Which published dependency field an edge was declared in. */
 export type PublishedField = (typeof PUBLISHED_FIELDS)[number];
@@ -110,22 +119,38 @@ export function crossScopeEdges(
 /**
  * Whether a declared range admits anything other than one exact version.
  *
- * `workspace:*` and `workspace:~` are read through to what `pnpm pack` writes:
- * `*` becomes the exact version in the tree, `~` and `^` become ranges. A
- * literal `1.69.3` is the same defect already resolved.
+ * The workspace protocol is read through to what `pnpm pack` writes. Bare
+ * `workspace:*` becomes the exact version in the tree; bare `workspace:^` and
+ * `workspace:~` become ranges; `workspace:^1.70.0` keeps the range it carries.
+ *
+ * Everything else is decided by semver rather than by spelling, so `1.69.3`,
+ * `=1.69.3` and `1.69.3+build` are all recognised as the one exact pin they
+ * are, and `>=1.70.0` is recognised as the range it is.
  *
  * @param range - The declared range.
  * @returns True when a later release of the dependency can satisfy it.
  */
 function admitsALaterRelease(range: string): boolean {
-  if (range.startsWith("workspace:")) {
-    const protocol = range.slice("workspace:".length);
-    return protocol === "^" || protocol === "~";
+  let declared = range.trim();
+
+  if (declared.startsWith("workspace:")) {
+    const protocol = declared.slice("workspace:".length);
+    if (protocol === "*") return false;
+    if (protocol === "^" || protocol === "~") return true;
+    // A version-carrying workspace range packs as the range it carries.
+    declared = protocol;
   }
+
   // A range semver cannot parse belongs to some other protocol (`file:`,
   // `npm:`, a git URL) and is not this rule's business.
-  if (validRange(range) === null) return true;
-  return !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(range.trim());
+  const parsed = validRange(declared);
+  if (parsed === null) return true;
+
+  // A range is an exact pin when the only version it admits is its own floor,
+  // however that range is spelled.
+  const floor = minVersion(parsed);
+  if (floor === null) return true;
+  return !subset(parsed, `=${floor.version}`);
 }
 
 /**
@@ -151,25 +176,39 @@ export function findExactCrossScopePins(
     );
 }
 
+/**
+ * The consumer-facing dependency maps one package carries on the registry.
+ *
+ * Keyed by field, because a cross-scope edge can be declared as a normal, a
+ * peer or an optional dependency, and every one of them is resolved for a
+ * consumer. Reading only `dependencies` let a published peer range through.
+ */
+export type PublishedManifest = Readonly<
+  Partial<Record<PublishedField, Readonly<Record<string, string>>>>
+>;
+
 /** What {@link findSupersededPublishedPins} needs to decide. */
 export interface SupersededPinInputs {
   /** The scope about to be published. */
   readonly scope: ReleaseScope;
   /** The version that scope is about to be published at. */
   readonly version: string;
-  /** The workspace manifests, for finding who depends on the scope. */
+  /**
+   * The workspace manifests. Used only to describe the remedy, because the
+   * range the tree would pack is what makes releasing the stranded scope
+   * first work.
+   */
   readonly workspace: readonly ScopedManifest[];
   /**
-   * The dependency map each other-scope package carries **on the registry**,
-   * keyed by package name. A package absent from this map is not published.
+   * What each other-scope package declares **on the registry**, keyed by
+   * package name. A package absent from this map is not published.
    *
-   * Read from the registry rather than the workspace on purpose: the workspace
-   * may already carry the fix while the last publish baked in the exact pin,
-   * and only the published one can split an installing consumer's tree.
+   * These, not the workspace edges, decide the outcome. A cross-scope
+   * dependency dropped from the tree before its own scope republished is
+   * still on the registry, still resolved by every consumer, and would go
+   * unchecked if the edges came from the workspace graph.
    */
-  readonly publishedDependencies: Readonly<
-    Record<string, Readonly<Record<string, string>>>
-  >;
+  readonly publishedDependencies: Readonly<Record<string, PublishedManifest>>;
   /** The release configuration that assigns packages to scopes. */
   readonly config: ReleaseConfig;
 }
@@ -183,28 +222,50 @@ export interface SupersededPinInputs {
 export function findSupersededPublishedPins(
   inputs: SupersededPinInputs,
 ): readonly string[] {
+  const index = scopeIndex(inputs.config);
   const problems: string[] = [];
 
+  // What the tree would pack for each edge, so the remedy can name it.
+  const workspaceRanges = new Map<string, string>();
   for (const edge of crossScopeEdges(inputs.workspace, inputs.config)) {
-    if (edge.dependencyScope !== inputs.scope) continue;
-    if (edge.packageScope === inputs.scope) continue;
+    workspaceRanges.set(`${edge.package}\u0000${edge.dependency}`, edge.range);
+  }
 
-    const published = inputs.publishedDependencies[edge.package];
-    if (published === undefined) continue;
+  for (const [packageName, published] of Object.entries(
+    inputs.publishedDependencies,
+  )) {
+    const packageScope = index.get(packageName);
+    if (packageScope === undefined || packageScope === inputs.scope) continue;
 
-    const range = published[edge.dependency];
-    if (range === undefined || validRange(range) === null) continue;
-    if (satisfies(inputs.version, range)) continue;
+    for (const field of PUBLISHED_FIELDS) {
+      for (const [dependency, range] of Object.entries(
+        published[field] ?? {},
+      )) {
+        if (index.get(dependency) !== inputs.scope) continue;
+        if (validRange(range) === null) continue;
+        if (satisfies(inputs.version, range)) continue;
 
-    problems.push(
-      `Published ${edge.package} declares ${edge.dependency} as "${range}", which ` +
-        `${inputs.version} does not satisfy. Releasing scope ${inputs.scope} now would ` +
-        `leave every consumer of ${edge.package} resolving two copies of ` +
-        `${edge.dependency}. Release scope ${edge.packageScope} first, from this tree: ` +
-        `it packs ${edge.dependency} as "${edge.range}", which resolves against the ` +
-        `workspace version rather than the published one, so its new release admits ` +
-        `${inputs.version} before this one ships.`,
-    );
+        const workspaceRange = workspaceRanges.get(
+          `${packageName}\u0000${dependency}`,
+        );
+        const remedy =
+          workspaceRange === undefined
+            ? `Release scope ${packageScope} first: this tree no longer declares ` +
+              `${dependency} on ${packageName}, so its next release drops the ` +
+              `superseded range altogether.`
+            : `Release scope ${packageScope} first, from this tree: it packs ` +
+              `${dependency} as "${workspaceRange}", which resolves against the ` +
+              `workspace version rather than the published one, so its new release ` +
+              `admits ${inputs.version} before this one ships.`;
+
+        problems.push(
+          `Published ${packageName} declares ${dependency} as "${range}" in ${field}, ` +
+            `which ${inputs.version} does not satisfy. Releasing scope ${inputs.scope} ` +
+            `now would leave every consumer of ${packageName} resolving two copies of ` +
+            `${dependency}. ${remedy}`,
+        );
+      }
+    }
   }
 
   return problems;

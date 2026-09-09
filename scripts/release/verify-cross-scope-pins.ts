@@ -25,11 +25,13 @@ import { join } from "node:path";
 import { ROOT, loadConfig, resolveScopes } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import {
-  crossScopeEdges,
   findExactCrossScopePins,
   findSupersededPublishedPins,
 } from "./lib/cross-scope-pins.js";
-import type { ScopedManifest } from "./lib/cross-scope-pins.js";
+import type {
+  PublishedManifest,
+  ScopedManifest,
+} from "./lib/cross-scope-pins.js";
 import { getCurrentVersion } from "./lib/versions.js";
 
 /** Reads the manifest of every package under `packages/`. */
@@ -53,27 +55,53 @@ function readWorkspaceManifests(): readonly ScopedManifest[] {
   return manifests;
 }
 
+/** The dependency fields npm resolves for a consumer of a published package. */
+const PUBLISHED_FIELD_NAMES = [
+  "dependencies",
+  "peerDependencies",
+  "optionalDependencies",
+] as const;
+
 /**
- * Reads the dependency map a package carries on the registry.
+ * Reads every consumer-facing dependency map a package carries on the registry.
  *
- * An unpublished package answers `undefined` rather than throwing: a scope
- * whose package has never shipped cannot be left behind by this release. Any
- * other registry failure throws, because a release must not be waved through by
- * a check that could not run.
+ * All three fields are fetched, not just `dependencies`: a cross-scope edge
+ * declared as a peer or an optional dependency is resolved for a consumer just
+ * the same, and reading one field let those ranges through unchecked.
+ *
+ * An unpublished package answers `undefined` rather than throwing: a package
+ * that has never shipped cannot be left behind by this release. Any other
+ * registry failure throws, because a release must not be waved through by a
+ * check that could not run.
  */
-function readPublishedDependencies(
+function readPublishedManifest(
   packageName: string,
-): Record<string, string> | undefined {
+): PublishedManifest | undefined {
   const result = spawnSync(
     "npm",
-    ["view", `${packageName}@latest`, "dependencies", "--json"],
+    ["view", `${packageName}@latest`, ...PUBLISHED_FIELD_NAMES, "--json"],
     { encoding: "utf8", timeout: 30_000 },
   );
 
   if (result.status === 0) {
     const output = result.stdout.trim();
     if (output === "") return {};
-    return JSON.parse(output) as Record<string, string>;
+    const parsed = JSON.parse(output) as unknown;
+    // `npm view` returns the bare field value when one field is asked for and
+    // an object keyed by field when several are. Guard both, because a package
+    // that declares none of them answers with an empty object either way.
+    if (parsed === null || typeof parsed !== "object") return {};
+    const record = parsed as Record<string, unknown>;
+    const manifest: {
+      -readonly [F in keyof PublishedManifest]: Record<string, string>;
+    } = {};
+    for (const field of PUBLISHED_FIELD_NAMES) {
+      const value = record[field];
+      if (value !== null && typeof value === "object") {
+        manifest[field] = value as Record<string, string>;
+      }
+    }
+    return manifest;
   }
 
   const stderr = result.stderr ?? "";
@@ -123,31 +151,32 @@ function main(): void {
   // supersede is about to be rewritten by another. Only the scopes left out can
   // be left behind.
   const releasing = new Set(scopes);
+
+  // Read the registry for every package of every scope left out, rather than
+  // for the dependents the workspace graph still names. A cross-scope
+  // dependency deleted from the tree before its own scope republished is gone
+  // from that graph while the published manifest still carries it, and that
+  // published range is what an installing consumer resolves.
+  const candidates: string[] = [];
+  for (const [scope, scopeConfig] of Object.entries(config.scopes)) {
+    if (releasing.has(scope as ReleaseScope)) continue;
+    candidates.push(...scopeConfig.packages);
+  }
+
+  const publishedDependencies: Record<string, PublishedManifest> = {};
+  for (const name of candidates) {
+    const published = readPublishedManifest(name);
+    if (published !== undefined) publishedDependencies[name] = published;
+  }
+
   const problems: string[] = [];
-
   for (const scope of scopes) {
-    const version = getCurrentVersion(scope);
-    const dependents = new Set(
-      crossScopeEdges(workspace, config)
-        .filter(
-          (edge) =>
-            edge.dependencyScope === scope && !releasing.has(edge.packageScope),
-        )
-        .map((edge) => edge.package),
-    );
-
-    const publishedDependencies: Record<string, Record<string, string>> = {};
-    for (const name of dependents) {
-      const published = readPublishedDependencies(name);
-      if (published !== undefined) publishedDependencies[name] = published;
-    }
-
     problems.push(
       ...findSupersededPublishedPins({
         config,
         publishedDependencies,
         scope,
-        version,
+        version: getCurrentVersion(scope),
         workspace,
       }),
     );
