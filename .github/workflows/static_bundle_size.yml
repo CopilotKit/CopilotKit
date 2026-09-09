@@ -19,7 +19,7 @@ env:
   NX_VERBOSE_LOGGING: true
 
 jobs:
-  # Posts a per-PR comment with per-file gzip diffs for the 10 in-scope packages.
+  # Posts a per-PR comment with per-file gzip diffs for the 11 in-scope packages.
   # Runs preactjs/compressed-size-action, which builds the PR head and the base
   # branch, scans the `pattern` glob in each, and diffs the gzip sizes; the
   # comment updates in place on subsequent pushes. No hard-fail (Phase 1) — see
