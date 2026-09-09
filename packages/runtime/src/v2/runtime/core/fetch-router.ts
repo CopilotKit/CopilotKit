@@ -74,6 +74,11 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "inspector/metadata" };
   }
 
+  // /inspector-learning (1 segment)
+  if (len >= 1 && segments[len - 1] === "inspector-learning") {
+    return { method: "inspector/learning" };
+  }
+
   // /transcribe (1 segment)
   if (len >= 1 && segments[len - 1] === "transcribe") {
     return { method: "transcribe" };

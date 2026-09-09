@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import {
   Check,
@@ -179,6 +179,8 @@ type OnboardingCopyState = "idle" | "copied" | "error";
  * `CHANNELS_ACTIVATION_SURFACES` in `lib/channels-activation-contracts.ts`).
  */
 const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
+const ONBOARDING_PROMPT_TOOLTIP =
+  "Copy a prompt that guides your coding agent through CopilotKit setup.";
 
 /**
  * Copies the canonical CopilotKit onboarding prompt so a reader can paste it
@@ -242,6 +244,7 @@ export function OnboardingPromptCopyButton({
    */
   markdownUrl: string;
 }) {
+  const tooltipId = useId();
   const pathname = usePathname();
   const posthog = usePostHog();
   const [copyState, setCopyState] = useState<OnboardingCopyState>("idle");
@@ -397,6 +400,10 @@ export function OnboardingPromptCopyButton({
         // in the page-tools row that should count as this surface, and its
         // two neighbours copy something else entirely.
         data-docs-copy-surface={ONBOARDING_COPY_SURFACE}
+        data-tooltip={ONBOARDING_PROMPT_TOOLTIP}
+        aria-describedby={[props["aria-describedby"], tooltipId]
+          .filter(Boolean)
+          .join(" ")}
         disabled={isCopying}
         onClick={copyPrompt}
         className={cn(
@@ -428,6 +435,9 @@ export function OnboardingPromptCopyButton({
           ? "Copy blocked"
           : (props.children ?? "Copy agent prompt")}
       </button>
+      <span id={tooltipId} className="sr-only">
+        {ONBOARDING_PROMPT_TOOLTIP}
+      </span>
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"
           ? "Prompt copied"

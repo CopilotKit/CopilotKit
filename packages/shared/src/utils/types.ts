@@ -126,6 +126,8 @@ export interface RuntimeInfo {
   singleRoute?: SingleRouteRuntimeInfo;
   /** Whether this runtime exposes trusted inspector metadata. */
   inspectorMetadata?: boolean;
+  /** Whether this runtime exposes the debug-authorized Learning snapshot. */
+  inspectorLearning?: boolean;
   /**
    * When true, the runtime exposes POST /agent/:agentId/suggest for stateless
    * suggestion generation. Absent on older runtimes; clients fall back to a

@@ -1,22 +1,91 @@
 import {
-  Type,
-  TemplateRef,
-  ViewContainerRef,
+  Binding,
   ComponentRef,
   EmbeddedViewRef,
-  Injector,
+  TemplateRef,
+  Type,
+  ViewContainerRef,
   inject,
+  inputBinding,
+  outputBinding,
+  reflectComponentType,
 } from "@angular/core";
 import {
   SlotValue,
+  SlotOutputs,
   RenderSlotOptions,
   SlotRegistryEntry,
   SLOT_CONFIG,
 } from "./slot.types";
 
 /**
+ * Returns the component inputs that should be bound for the current context.
+ *
+ * Context keys are matched against public (template) input names so unknown
+ * keys are ignored without overwriting defaults for omitted inputs. A `props`
+ * input retains the legacy aggregate-context behavior.
+ */
+export function slotInputNames(
+  type: Type<unknown>,
+  context: unknown,
+): string[] {
+  const mirror = reflectComponentType(type);
+  if (!mirror) return [];
+
+  if (
+    context != null &&
+    mirror.inputs.some(({ templateName }) => templateName === "props")
+  ) {
+    return ["props"];
+  }
+
+  const contextKeys = new Set(
+    Object.keys((context as Record<string, unknown> | undefined) ?? {}),
+  );
+  return mirror.inputs
+    .filter(({ templateName }) => contextKeys.has(templateName))
+    .map(({ templateName }) => templateName);
+}
+
+/**
+ * Builds `createComponent` bindings for a slot component.
+ *
+ * The input-name set is fixed for the lifetime of the component; callers must
+ * recreate the component when {@link slotInputNames} changes. Input values and
+ * output handlers remain live through their getters. Every declared output is
+ * bound so handlers can be added, replaced, or removed without recreation.
+ */
+export function slotBindings(
+  type: Type<unknown>,
+  inputNames: readonly string[],
+  context: () => unknown,
+  outputs: () => SlotOutputs | undefined,
+): Binding[] {
+  const mirror = reflectComponentType(type);
+  if (!mirror) return [];
+  const values = () => context() as Record<string, unknown> | undefined;
+  return [
+    ...inputNames.map((templateName) =>
+      inputBinding(templateName, () =>
+        templateName === "props" ? context() : values()?.[templateName],
+      ),
+    ),
+    ...mirror.outputs.map(({ templateName }) =>
+      outputBinding(templateName, (event) =>
+        outputs()?.[templateName]?.(event),
+      ),
+    ),
+  ];
+}
+
+/**
  * Renders a slot value into a ViewContainerRef.
- * This is the core utility for slot rendering.
+ *
+ * Templates receive `{ $implicit: props, props }` as their context. Components
+ * get individual `props` keys bound to matching inputs, or the entire object
+ * when the component declares a `props` input. `outputs` are matched by public
+ * name via {@link slotBindings}; bindings are applied on the next change
+ * detection pass.
  *
  * @param viewContainer - The ViewContainerRef to render into
  * @param options - Options for rendering the slot
@@ -41,116 +110,45 @@ import {
 export function renderSlot<T = any>(
   viewContainer: ViewContainerRef,
   options: RenderSlotOptions<T>,
-): ComponentRef<T> | EmbeddedViewRef<T> | null {
+): ComponentRef<T> | EmbeddedViewRef<T> {
   const { slot, defaultComponent, props, injector, outputs } = options;
 
   viewContainer.clear();
 
   const effectiveSlot = slot ?? defaultComponent;
-  const effectiveInjector = injector ?? viewContainer.injector;
 
   if (effectiveSlot instanceof TemplateRef) {
-    // TemplateRef: render template
     return viewContainer.createEmbeddedView(effectiveSlot, {
       $implicit: props ?? {},
       props: props ?? {},
     } as any);
-  } else if (isComponentType(effectiveSlot)) {
-    // Component type - wrap in try/catch for safety
-    try {
-      return createComponent(
-        viewContainer,
-        effectiveSlot as Type<T>,
-        props,
-        effectiveInjector,
-        outputs,
-      );
-    } catch (error) {
-      console.warn("Failed to create component:", effectiveSlot, error);
-      // Fall through to default component
-    }
   }
 
-  // Default: render default component if provided
-  return defaultComponent
-    ? createComponent(
-        viewContainer,
-        defaultComponent,
-        props,
-        effectiveInjector,
-        outputs,
-      )
-    : null;
-}
-
-/**
- * Creates a component and applies properties.
- */
-function createComponent<T>(
-  viewContainer: ViewContainerRef,
-  component: Type<T>,
-  props?: Partial<T>,
-  injector?: Injector,
-  outputs?: Record<string, (event: any) => void>,
-): ComponentRef<T> {
-  const componentRef = viewContainer.createComponent(component, {
-    injector,
+  return viewContainer.createComponent(effectiveSlot, {
+    injector: injector ?? viewContainer.injector,
+    bindings: slotBindings(
+      effectiveSlot,
+      slotInputNames(effectiveSlot, props),
+      () => props,
+      () => outputs,
+    ),
   });
-
-  if (props) {
-    // Apply props using setInput, but only for declared inputs
-    const cmpDef: any = (component as any).ɵcmp;
-    const declaredInputs = new Set<string>(Object.keys(cmpDef?.inputs ?? {}));
-
-    if (declaredInputs.has("props")) {
-      componentRef.setInput("props", props as any);
-    } else {
-      for (const key in props) {
-        if (declaredInputs.has(key)) {
-          const value = (props as any)[key];
-          componentRef.setInput(key, value);
-        }
-      }
-    }
-  }
-
-  if (outputs) {
-    // Wire up output event handlers with proper cleanup
-    const instance = componentRef.instance as any;
-    const subscriptions: any[] = [];
-
-    for (const [eventName, handler] of Object.entries(outputs)) {
-      if (instance[eventName]?.subscribe) {
-        const subscription = instance[eventName].subscribe(handler);
-        subscriptions.push(subscription);
-      }
-    }
-
-    // Register cleanup on component destroy
-    componentRef.onDestroy(() => {
-      subscriptions.forEach((sub) => sub.unsubscribe());
-    });
-  }
-
-  // Trigger change detection
-  componentRef.changeDetectorRef.detectChanges();
-
-  return componentRef;
 }
 
 /**
- * Checks if a value is a component type.
- * Simplified check - rely on try/catch for actual validation.
+ * Checks if a value is an Angular component type.
  */
-export function isComponentType(value: any): boolean {
-  // Arrow functions and regular functions without a prototype are not components
-  return typeof value === "function" && !!value.prototype;
+export function isComponentType(value: unknown): value is Type<unknown> {
+  return (
+    typeof value === "function" &&
+    reflectComponentType(value as Type<unknown>) !== null
+  );
 }
 
 /**
  * Checks if a value is a valid slot value.
  */
-export function isSlotValue(value: any): value is SlotValue {
+export function isSlotValue(value: unknown): value is SlotValue {
   return value instanceof TemplateRef || isComponentType(value);
 }
 
@@ -178,12 +176,11 @@ export function normalizeSlotValue<T = any>(
 
 /**
  * Creates a slot configuration map for a component.
- * 
+ *
  * @example
  * ```typescript
  * const slots = createSlotConfig({
-    standalone: true,
-*   sendButton: CustomSendButton,
+ *   sendButton: CustomSendButton,
  *   toolbar: 'custom-toolbar-class',
  *   footer: footerTemplate
  * }, {
@@ -210,12 +207,11 @@ export function createSlotConfig<T extends Record<string, Type<any>>>(
 
 /**
  * Provides slot configuration to child components via DI.
- * 
+ *
  * @example
  * ```typescript
  * @Component({
-  standalone: true,
-*   providers: [
+ *   providers: [
  *     provideSlots({
  *       sendButton: CustomSendButton,
  *       toolbar: CustomToolbar
@@ -285,7 +281,7 @@ export function createSlotRenderer<T>(
     viewContainer: ViewContainerRef,
     slot?: SlotValue<T>,
     props?: Partial<T>,
-    outputs?: Record<string, (event: any) => void>,
+    outputs?: SlotOutputs,
   ) => {
     // Check DI for overrides if slot name provided
     if (slotName && !slot && config) {

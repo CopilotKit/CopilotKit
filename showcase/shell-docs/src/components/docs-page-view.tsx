@@ -35,13 +35,15 @@ import type { OpsPlatformCTAProps } from "@/components/react/ops-platform-cta";
 import { ChannelsStartPrompt } from "@/components/channels-start-prompt";
 import type { ChannelsStartPromptProps } from "@/components/channels-start-prompt";
 import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
+import { LearningSetupPrompt } from "@/components/learning-setup-prompt";
 import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
 import type { IntelligenceOnboardingPromptProps } from "@/components/intelligence-onboarding-prompt";
+import { QuickstartIntelligenceCta } from "@/components/quickstart-intelligence-cta";
 import { SignupLink } from "@/components/react/signup-link";
 import type { SignupLinkProps } from "@/components/react/signup-link";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
-import { resolveDocsHref } from "@/lib/docs-link-rewrite";
+import { resolveCtaCardHrefs, resolveDocsHref } from "@/lib/docs-link-rewrite";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
@@ -54,6 +56,7 @@ import {
   convertTablesInJSX,
   inlineSnippets,
   loadDoc,
+  navAncestorBreadcrumbsForSlug,
   navSectionTitleForSlug,
   visibleGuideBreadcrumbs,
   CONTENT_DIR,
@@ -240,10 +243,9 @@ export async function DocsPageView({
     slugHrefPrefix,
   });
   const sectionTitle = navSectionTitleForSlug(tree, slugPath);
-  const ancestorBreadcrumbs = visibleGuideBreadcrumbs(
-    breadcrumbs,
-    sectionTitle,
-  );
+  const ancestorBreadcrumbs =
+    navAncestorBreadcrumbsForSlug(tree, slugPath) ??
+    visibleGuideBreadcrumbs(breadcrumbs, sectionTitle);
 
   // Bridge shell-docs's NavNode tree + headings into Fumadocs's shapes
   // so DocsLayout (sidebar) and DocsPage (right-rail TOC) can render them.
@@ -317,6 +319,31 @@ export async function DocsPageView({
                               : props.href;
                           return <CardComp {...props} href={href} />;
                         },
+                        // `<CTACards>` renders its cards through the
+                        // `Card` imported by the registry, so they never
+                        // reach the href-resolving `Card` override
+                        // above. Resolve each card href here instead.
+                        // Without this, a card on
+                        // `/ms-agent-python/human-in-the-loop` links to
+                        // the authored `/human-in-the-loop/...` path,
+                        // which leaves the active framework.
+                        CTACards: (
+                          props: React.ComponentProps<
+                            typeof docsComponents.CTACards
+                          >,
+                        ) => {
+                          const CTACardsComp = docsComponents.CTACards;
+                          return (
+                            <CTACardsComp
+                              {...props}
+                              cards={resolveCtaCardHrefs(props.cards, {
+                                slugHrefPrefix,
+                                frameworkOverride,
+                                frontendOverride,
+                              })}
+                            />
+                          );
+                        },
                         ChannelsStartPrompt: (
                           props: ChannelsStartPromptProps,
                         ) => (
@@ -326,6 +353,8 @@ export async function DocsPageView({
                           />
                         ),
                         RichThreadsSetupPrompt,
+                        LearningSetupPrompt,
+                        QuickstartIntelligenceCta,
                         IntelligenceOnboardingPrompt:
                           IntelligenceOnboardingPromptMdx,
                         OpsPlatformCTA: (props: OpsPlatformCTAProps) => (
@@ -411,6 +440,12 @@ export async function DocsPageView({
                         // TAB_DEFAULTS_BY_SLUG) fall through to the MDX
                         // `default` and the component's first-label
                         // fallback unchanged.
+                        //
+                        // Pass this as `urlDefault`, NOT by overwriting
+                        // `default`: <Tabs> ranks a persisted pick above
+                        // the author's `default` but below the URL, and
+                        // it can only tell the two apart if they arrive
+                        // on separate props.
                         Tabs: (props: {
                           groupId?: string;
                           default?: string;
@@ -423,10 +458,7 @@ export async function DocsPageView({
                             props.groupId,
                           );
                           return (
-                            <DocsTabs
-                              {...props}
-                              default={urlDefault ?? props.default}
-                            >
+                            <DocsTabs {...props} urlDefault={urlDefault}>
                               {props.children}
                             </DocsTabs>
                           );
@@ -561,6 +593,26 @@ export async function DocsPageView({
                         ),
                       }}
                       options={{
+                        // next-mdx-remote 6 defaults `blockJS` to true,
+                        // which runs a remark plugin that DELETES every
+                        // JSX attribute whose value is an expression
+                        // (`cards={[...]}`, `icon={<Sparkles />}`) and
+                        // every `{expression}` node. The default
+                        // sandboxes untrusted remote MDX; every source
+                        // here is first-party content from
+                        // `src/content`, so the sandbox only silently
+                        // dropped authored props — a `<CTACards
+                        // cards={[...]} />` reached the component with
+                        // no props at all and rendered an empty grid.
+                        // `blockDangerousJS` keeps its default.
+                        //
+                        // Scoped to this route on purpose. The other
+                        // MDXRemote call sites keep the default; the
+                        // ag-ui tree in particular relies on the
+                        // stripping, because `ag-ui/introduction.mdx`
+                        // authors inline `onMouseEnter={...}` handlers
+                        // that would otherwise reach a server component.
+                        blockJS: false,
                         mdxOptions: {
                           remarkPlugins: [remarkGfm],
                           // Use Fumadocs's Shiki-based `rehypeCode` for

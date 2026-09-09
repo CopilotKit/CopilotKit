@@ -4,6 +4,20 @@
   "sourceRoot": "packages/web-inspector/src",
   "projectType": "library",
   "targets": {
+    "test:browser": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm run test:browser",
+        "cwd": "packages/web-inspector"
+      },
+      "dependsOn": [
+        {
+          "target": "build:css",
+          "projects": "self"
+        }
+      ],
+      "cache": false
+    },
     "dev:standalone": {
       "executor": "nx:run-commands",
       "options": {

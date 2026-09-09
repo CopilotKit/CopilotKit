@@ -5,6 +5,7 @@ const METHOD_NAMES = [
   "agent/stop",
   "info",
   "inspector/metadata",
+  "inspector/learning",
   "transcribe",
   "resource/request",
 ] as const;

@@ -741,6 +741,11 @@ export class CopilotKitCore {
     return this.agentRegistry.suggestions;
   }
 
+  /** Whether the connected Runtime exposes debug-authorized Learning data. */
+  get inspectorLearning(): boolean {
+    return this.agentRegistry.inspectorLearning;
+  }
+
   /** Trusted, optional metadata advertised by the connected runtime. */
   get inspectorMetadata(): InspectorMetadataV1 | undefined {
     return this.agentRegistry.inspectorMetadata;

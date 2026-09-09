@@ -8,24 +8,9 @@ import {
   parseAndWarnTelemetryId,
 } from "./lambda-client";
 import { computeSamplingMeta, TELEMETRY_EMITTER_V1 } from "./sampling";
+import { isTelemetryDisabled } from "./telemetry-disabled";
 
-/**
- * Checks if telemetry is disabled via environment variables.
- * Users can opt out by setting:
- * - COPILOTKIT_TELEMETRY_DISABLED=true or COPILOTKIT_TELEMETRY_DISABLED=1
- * - DO_NOT_TRACK=true or DO_NOT_TRACK=1
- */
-export function isTelemetryDisabled(): boolean {
-  return (
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "true" ||
-    (process.env as Record<string, string | undefined>)
-      .COPILOTKIT_TELEMETRY_DISABLED === "1" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK ===
-      "true" ||
-    (process.env as Record<string, string | undefined>).DO_NOT_TRACK === "1"
-  );
-}
+export { isTelemetryDisabled };
 
 /** Transport identity and sampling authority resolved for one runtime. */
 export interface TelemetryIdentity {

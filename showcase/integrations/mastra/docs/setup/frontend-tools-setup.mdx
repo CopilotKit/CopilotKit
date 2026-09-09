@@ -1,0 +1,43 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    The AG-UI Mastra adapter turns the request's tool definitions into Mastra
+    client tools and passes them to `agent.stream()` on every run, so the agent
+    declares none of its own. Register the component with `useComponent` and
+    leave `tools` to your real backend tools.
+
+    ```ts title="src/mastra/agents/chart-agent.ts"
+    import { Agent } from "@mastra/core/agent";
+    import { openai } from "@ai-sdk/openai";
+
+    // `render_bar_chart` is intentionally NOT declared here. It is a
+    // frontend-only tool registered via `useComponent`, and the adapter
+    // forwards it as a client tool on every run.
+    export const chartAgent = new Agent({
+      id: "chart-agent",
+      name: "Chart Agent",
+      model: openai("gpt-4o"),
+      instructions: SYSTEM_PROMPT,
+    });
+    ```
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    This is the part that is easy to miss. The tool arrives on every run, but a
+    model with no instruction about it will answer in prose and never call it.
+    Name the tool in `instructions` and say what it is for.
+
+    ```ts title="src/mastra/agents/chart-agent.ts"
+    const SYSTEM_PROMPT = `You are a data visualization assistant.
+
+    When the user asks for a chart, call the frontend \`render_bar_chart\` tool
+    with a concise title and a \`data\` array of \`{label, value}\` items.
+
+    Keep chat responses brief and let the chart do the talking.`;
+    ```
+
+  </Step>
+</Steps>

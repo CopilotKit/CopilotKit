@@ -127,7 +127,7 @@ export function adaptRendererProps(
  */
 export function useDefaultRenderTool(
   config?: {
-    render?: (props: DefaultRenderProps) => React.ReactElement;
+    render?: (props: DefaultRenderProps) => React.ReactElement | null;
   },
   deps?: ReadonlyArray<unknown>,
 ): void {
@@ -137,16 +137,18 @@ export function useDefaultRenderTool(
   // documented {@link DefaultRenderProps} (parameters, string-union status)
   // even though `useRenderToolCall` invokes the registered render with the
   // framework-internal `{ args, status: ToolCallStatus, ... }` shape.
-  const registered: (props: RawRendererProps) => React.ReactElement = userRender
-    ? (raw) => userRender(adaptRendererProps(raw))
-    : (raw) => <DefaultToolCallRenderer {...adaptRendererProps(raw)} />;
+  const registered: (props: RawRendererProps) => React.ReactElement | null =
+    userRender
+      ? (raw) => userRender(adaptRendererProps(raw))
+      : (raw) => <DefaultToolCallRenderer {...adaptRendererProps(raw)} />;
 
   useRenderTool(
     {
       name: "*",
-      // `useRenderTool` types the render with the raw framework signature;
-      // the wrapper above adapts to the documented shape. We cast through
-      // `unknown` to bridge the public type without `as any`.
+      // `useRenderTool` types the render with the raw framework signature
+      // and still requires a `React.ReactElement` return; the wrapper above
+      // adapts to the documented shape and may return `null`. We cast through
+      // `unknown` to bridge both gaps without `as any`.
       render: registered as unknown as (props: unknown) => React.ReactElement,
     },
     deps,
