@@ -1,7 +1,7 @@
 // LLM-friendly rendering of docs pages.
 //
 // Three consumers:
-//   1. `/llms.txt`            — index of every docs page (title + URL).
+//   1. `/llms.txt`            — curated decision index (title + URL).
 //   2. `/llms-full.txt`       — concatenated full body of every page.
 //   3. `/<path>.md` and .mdx  — single-page raw markdown, snippets inlined.
 //
@@ -165,8 +165,8 @@ export interface LlmPage {
 // -----------------------------------------------------------------------
 
 /**
- * Enumerate every docs page that should appear in `llms.txt` and the
- * concatenated `llms-full.txt` aggregate. Covers five URL families:
+ * Enumerate every docs page available to the exhaustive `llms-full.txt`
+ * aggregate and route-contract tests. Covers five URL families:
  *
  *   - Bare unscoped docs   (/<slug>)
  *   - Per-framework        (/<framework>/<slug>)
@@ -183,7 +183,7 @@ export interface LlmPage {
  */
 export interface GetAllLlmPagesOptions {
   /**
-   * `all` is the discovery index and emits every channel/framework guide URL.
+   * `all` emits every channel/framework guide URL for exhaustive discovery.
    * `content-unique` keeps every framework quickstart but emits each shared
    * guide body only once per provider at the Built-in Agent URL.
    */
@@ -1015,10 +1015,17 @@ function readSource(page: LlmPage): string | null {
  * is a list item with a Markdown link; optional description follows
  * after a colon.
  */
-export function renderLlmsIndex(pages: LlmPage[], baseUrl: string): string {
+export function renderLlmsIndex(
+  pages: readonly Pick<LlmPage, "url" | "title" | "description">[],
+  baseUrl: string,
+): string {
   const out: string[] = ["# CopilotKit Docs", ""];
   out.push(
-    "> Docs, live demos, and integrations for CopilotKit — the frontend framework for AI agents.",
+    "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
+    "",
+    "> This curated index prioritizes product decisions, core interaction surfaces, persistent threads, and current getting-started paths.",
+    "",
+    `> For exhaustive retrieval—including reference, migration, contributor, framework variant, and channel pages—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
     "",
     "## Pages",
     "",

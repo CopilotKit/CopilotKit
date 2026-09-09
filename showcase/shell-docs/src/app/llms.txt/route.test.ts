@@ -1,12 +1,8 @@
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 
-import {
-  CHANNEL_FRONTENDS,
-  CHANNEL_GUIDE_ROUTES,
-  channelConnectHref,
-} from "@/lib/channel-guide-routes";
+import { CURATED_LLM_PAGES } from "@/lib/curated-llm-pages";
 import { getAllLlmPages } from "@/lib/llm-text";
-import { getDocsMode, getIntegrations } from "@/lib/registry";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
 import { GET } from "./route";
 
 vi.mock("@/lib/llm-text", async (importOriginal) => {
@@ -19,40 +15,64 @@ vi.mock("@/lib/llm-text", async (importOriginal) => {
   };
 });
 
-test("publishes every channel/framework discovery URL from the all mode", async () => {
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+test("publishes the curated decision index and exhaustive retrieval link", async () => {
   const response = GET();
   const body = await response.text();
-  const visibleFrameworks = getIntegrations().filter(
-    (integration) => getDocsMode(integration.slug) !== "hidden",
+  const baseUrl = getBaseUrl();
+
+  expect(getAllLlmPages).not.toHaveBeenCalled();
+  expect(body).toContain(`[llms-full.txt](${baseUrl}/llms-full.txt)`);
+  for (const page of CURATED_LLM_PAGES) {
+    expect(body).toContain(
+      `- [${page.title}](${baseUrl}/${page.url}): ${page.description}`,
+    );
+  }
+  expect(body).not.toContain("/slack/mastra/tools)");
+  expect(body).not.toContain("/teams/langgraph-fastapi/interactive)");
+});
+
+test("keeps the curated policy ordered, unique, and on canonical routes", () => {
+  const urls = CURATED_LLM_PAGES.map((page) => page.url);
+  const titles = CURATED_LLM_PAGES.map((page) => page.title);
+  const exhaustiveUrls = new Set(
+    getAllLlmPages({ channelGuideVariants: "content-unique" }).map(
+      (page) => page.url,
+    ),
   );
 
-  expect(getAllLlmPages).toHaveBeenCalledWith({
-    channelGuideVariants: "all",
-  });
-  for (const frontend of CHANNEL_FRONTENDS) {
-    for (const integration of visibleFrameworks) {
-      expect(body).toContain(
-        `/${channelConnectHref(frontend, integration.slug).slice(1)})`,
-      );
-    }
-  }
-  expect(body).toContain("/slack/mastra/tools)");
-  expect(body).toContain("/teams/langgraph-fastapi/interactive)");
-  expect(body).not.toContain("/channels/tools");
-
-  const expectedScopedCount =
-    CHANNEL_FRONTENDS.length *
-    visibleFrameworks.length *
-    (CHANNEL_GUIDE_ROUTES.length + 1);
-  const pages = vi.mocked(getAllLlmPages).mock.results[0]?.value as
-    | ReturnType<typeof getAllLlmPages>
-    | undefined;
+  expect(CURATED_LLM_PAGES).toHaveLength(40);
+  expect(urls.slice(0, 9)).toEqual([
+    "",
+    "agentic-chat-ui",
+    "concepts/generative-ui-overview",
+    "human-in-the-loop",
+    "threads",
+    "learning",
+    "intelligence/overview",
+    "langgraph-python/threads-import",
+    "google-adk/threads-import",
+  ]);
+  expect(new Set(urls).size).toBe(urls.length);
+  expect(new Set(titles).size).toBe(titles.length);
+  expect(urls.filter((url) => url.startsWith("langgraph-"))).toEqual([
+    "langgraph-python/threads-import",
+    "langgraph-python/quickstart",
+  ]);
   expect(
-    pages?.filter((page) =>
-      CHANNEL_FRONTENDS.some(
-        (frontend) =>
-          page.url === frontend || page.url.startsWith(`${frontend}/`),
+    urls.some((url) =>
+      /(?:^|\/)(?:contributing|migrate|troubleshooting|whats-new)(?:\/|$)/.test(
+        url,
       ),
     ),
-  ).toHaveLength(expectedScopedCount);
+  ).toBe(false);
+  expect(urls.some((url) => /^(?:slack|teams)(?:\/|$)/.test(url))).toBe(false);
+
+  for (const page of CURATED_LLM_PAGES) {
+    expect(page.description).toMatch(/^[^\n]+[.!?]$/);
+    if (page.url) expect(exhaustiveUrls.has(page.url), page.url).toBe(true);
+  }
 });
