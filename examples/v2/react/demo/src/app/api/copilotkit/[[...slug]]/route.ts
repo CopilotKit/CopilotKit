@@ -16,7 +16,8 @@ import { Observable } from "rxjs";
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
+const DEFAULT_OPENROUTER_MODEL = "openai/gpt-5.6-terra";
+const DEFAULT_OPENAI_MODEL = "openai/gpt-5.6-terra";
 
 const determineOpenRouterModelId = () => {
   return process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;
@@ -32,7 +33,7 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
     return openrouter(determineOpenRouterModelId());
   }
   if (openAIApiKey) {
-    return "openai/gpt-5.2";
+    return DEFAULT_OPENAI_MODEL;
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     // Claude Opus 4.8 supports adaptive thinking
@@ -41,7 +42,7 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
   if (process.env.GOOGLE_API_KEY?.trim()) {
     return "google/gemini-2.5-pro";
   }
-  return "openai/gpt-5.2";
+  return DEFAULT_OPENAI_MODEL;
 };
 
 class DemoAgent extends BuiltInAgent {
