@@ -72,7 +72,8 @@ public sealed partial class IntelligenceClient : IDisposable
     }
 
     internal async Task<JsonNode?> RequestAsync(HttpMethod method, string path, JsonNode? body = null,
-        CancellationToken cancellationToken = default, Dictionary<string, string>? headers = null)
+        CancellationToken cancellationToken = default, Dictionary<string, string>? headers = null,
+        bool inspectorMetadata = false)
     {
         EnsureActive();
         using var request = new HttpRequestMessage(method, options.ApiUrl.ToString().TrimEnd('/') + path);
@@ -81,10 +82,13 @@ public sealed partial class IntelligenceClient : IDisposable
             foreach (var header in headers) request.Headers.Add(header.Key, header.Value);
         if (body is not null) request.Content = JsonContent.Create(body);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(options.RequestTimeout);
+        timeout.CancelAfter(inspectorMetadata && options.RequestTimeout > TimeSpan.FromSeconds(5)
+            ? TimeSpan.FromSeconds(5) : options.RequestTimeout);
         try
         {
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (inspectorMetadata && response.StatusCode is System.Net.HttpStatusCode.NoContent or System.Net.HttpStatusCode.NotFound)
+                return null;
             if (!response.IsSuccessStatusCode) throw new IntelligenceException((int)response.StatusCode, "Intelligence request rejected");
             const int maxResponseBytes = 16 * 1024 * 1024;
             if (response.Content.Headers.ContentLength > maxResponseBytes)
@@ -99,6 +103,7 @@ public sealed partial class IntelligenceClient : IDisposable
                     throw new IntelligenceException(502, "Intelligence response exceeds 16 MiB");
                 bytes.Write(buffer, 0, count);
             }
+            if (inspectorMetadata && bytes.Length == 0) throw new IntelligenceException(502, "Invalid Intelligence response");
             var result = bytes.Length == 0 ? null : JsonNode.Parse(bytes.GetBuffer().AsSpan(0, (int)bytes.Length));
             NotifyThreadMutation(method, path, body, result);
             return result;

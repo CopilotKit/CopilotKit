@@ -111,6 +111,28 @@ Resolve grants from trusted application policy.
 The grant limits access to user and project Memory.
 Without a grant, the platform applies its access rules to the API key and application user.
 
+## Read Inspector metadata
+
+Read project display details without an ASP.NET Core host:
+
+```csharp
+InspectorMetadata? metadata = await intelligence.GetInspectorMetadataAsync();
+if (metadata?.Identity is { } identity)
+{
+    Console.WriteLine(identity.ProjectName);
+}
+```
+
+The result contains typed, immutable records for identity, plan, license, action, and usage.
+Each module is optional. An invalid module does not hide other valid modules.
+Known zero counts remain zero. A null `ExpiringSoonCount` means unknown.
+These values describe the account. They do not grant access to protected resources.
+
+The method returns null for HTTP 204, HTTP 404, or an unsupported schema.
+Malformed JSON raises `IntelligenceException` with status 502.
+The request has a five-second deadline, including its response body.
+A shorter configured deadline or caller cancellation also applies.
+
 ## Available operations
 
 | Resource | Methods                                                                                                                                             |

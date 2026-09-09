@@ -5,7 +5,7 @@ using CopilotKit.Intelligence;
 
 var tests = new Func<Task>[] { ReadsScopedThread, RejectsInvalidConfiguration, RejectsInvalidIdentifiers,
     RejectsMalformedResponses, RedactsPlatformErrors, RedactsTransportErrors, PreservesCancellation,
-    BoundsRequestTime, BoundsResponseSize, PreservesBorrowedClient, RejectsCallsAfterDisposal, BlocksRedirects, ResourceTests.RunAsync, LifecycleTests.RunAsync };
+    BoundsRequestTime, BoundsResponseSize, PreservesBorrowedClient, RejectsCallsAfterDisposal, BlocksRedirects, ResourceTests.RunAsync, LifecycleTests.RunAsync, InspectorTests.RunAsync };
 var failures = 0;
 foreach (var test in tests)
 {
