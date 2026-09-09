@@ -1,0 +1,41 @@
+{
+  "name": "runtime-dotnet",
+  "projectType": "library",
+  "root": "packages/runtime-dotnet",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet run --project packages/runtime-dotnet/tests/Runtime.Tests.csproj"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet build packages/runtime-dotnet/driver/Runtime.Driver.csproj --configuration Release"
+      },
+      "outputs": ["{projectRoot}/src/bin", "{projectRoot}/driver/bin"],
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet build packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj -warnaserror"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "check-types": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet build packages/runtime-dotnet/driver/Runtime.Driver.csproj -warnaserror"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  },
+  "tags": ["type:lib"]
+}

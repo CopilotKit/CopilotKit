@@ -1,0 +1,55 @@
+# Intelligence runtimes
+
+## Required outcome
+
+Python, Go, Ruby on Rails, and C# libraries mount the Intelligence runtime API.
+Each library runs natively. None uses the open-source runner or a Node sidecar.
+The TypeScript runtime at commit `862ff3c180` is the initial compatibility reference.
+
+The release gate is a reviewed CopilotKit PR with passing checks and a public Sites walkthrough.
+No package release, deployment of a runtime, or merge is authorized.
+The public walkthrough is the explicit exception to the publishing restriction.
+
+## Work sequence
+
+1. Extract the browser API and platform protocol into shared runnable cases.
+2. Build native libraries and framework adapters against those cases.
+3. Extend cases for MCP Apps, A2UI, telemetry, failures, and concurrency.
+4. Review each library, build installable artifacts, and run integration checks.
+5. Publish the walkthrough with generated diagrams and open the reviewed PR.
+
+## Compatibility scope
+
+| Surface     | Required behavior                                                                                                          |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Discovery   | Agent descriptions, Intelligence mode, entitlements, thread capabilities, A2UI flags, telemetry opt-out                    |
+| Runs        | Trusted identity, thread creation race, canonical lock IDs, gateway join before HTTP success, native or HTTP AG-UI agents  |
+| Durability  | Acknowledged event delivery, stable event IDs and sequence, bounded retries, backpressure, lock renewal, cleanup, shutdown |
+| Connections | JSON credentials, blank-thread 204, platform status fidelity, persisted history, reconnect without a new run               |
+| Threads     | List, messages, events, state, update, archive, delete, subscription credentials                                           |
+| Memories    | List, create, update, retire, recall, subscriptions, trusted grants and user identity                                      |
+| Learning    | Annotation API and optional container selection at the run boundary                                                        |
+| MCP Apps    | Tool discovery/execution, UI activity, proxied resource/tool requests, per-agent server configuration                      |
+| A2UI        | Tool/schema context, streamed surface activity, render results, action history, per-agent configuration                    |
+| Telemetry   | Request/run lifecycle, errors, durations, retry/queue metrics, traces, safe attributes, exporter lifecycle and opt-out     |
+| Hosting     | ASGI Python, Go net/http, Rails/Rack, ASP.NET Core, configurable CORS and authentication callbacks                         |
+
+Voice/transcription, managed Channels, GraphQL, single-route dispatch, provider-specific agent frameworks,
+Open Generative UI, and automatic LLM thread naming are candidates for explicit exclusions.
+The unfinished user bullet (`They do not need`) does not establish an exclusion.
+No listed candidate removes MCP Apps, A2UI, telemetry, or Intelligence persistence from the required outcome.
+
+## Factory rules
+
+The harness observes public HTTP responses and platform effects through real local sockets.
+Every language runs the same cases. A driver configures a library but cannot implement runtime behavior.
+Case IDs remain stable so an agent can target one failure without changing the success criteria.
+Each feature requires a failing case before implementation, then a passing case with recorded evidence.
+Fault cases cover ownership, malformed input, failed dependencies, concurrent runs, dropped ACKs, and shutdown.
+Library tests supplement the shared cases. Passing the harness alone does not prove release readiness.
+
+## Current evidence
+
+The initial audit found no existing branch, implementation, or PR for this objective.
+The isolated worktree is `CopilotKit-intelligence-runtimes` on `codex/intelligence-polyglot-runtimes`.
+The active goal remains incomplete until every required surface has evidence.

@@ -1,0 +1,32 @@
+{
+  "name": "runtime-ruby",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ruby -Ilib test/runtime_test.rb",
+        "cwd": "packages/runtime-ruby"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ruby -c lib/copilotkit/runtime.rb",
+        "cwd": "packages/runtime-ruby"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "gem build copilotkit-runtime.gemspec --output /tmp/copilotkit-runtime.gem",
+        "cwd": "packages/runtime-ruby"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  }
+}

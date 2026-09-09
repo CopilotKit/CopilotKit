@@ -1,0 +1,45 @@
+{
+  "name": "runtime-python",
+  "projectType": "library",
+  "root": "packages/runtime-python",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["default"],
+      "options": {
+        "command": "uv run pytest",
+        "cwd": "packages/runtime-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run ruff check .",
+        "cwd": "packages/runtime-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run mypy src",
+        "cwd": "packages/runtime-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv build",
+        "cwd": "packages/runtime-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  },
+  "tags": ["scope:runtime", "lang:python"]
+}

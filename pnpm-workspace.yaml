@@ -1,5 +1,6 @@
 packages:
   - "packages/*"
+  - "tools/runtime-conformance"
   - "examples/v1/*"
   - "examples/v2/*"
   - "examples/v2/*/apps/*"
