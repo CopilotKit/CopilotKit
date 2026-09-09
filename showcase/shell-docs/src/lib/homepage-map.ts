@@ -1,12 +1,15 @@
-// homepage-map.ts — everything the docs homepage product map renders.
+// homepage-map.ts — the data behind the homepage setup wizard.
 //
-// The map's components are deliberately dumb: all copy, every destination and
-// every icon choice lives here, so a reviewer can check the page's wording and
-// links in one file instead of four.
+// The homepage is a four-step wizard: pick a frontend, pick features, pick an
+// agent backend, then copy a prompt that carries all three selections. This
+// module owns every option the wizard can show — its copy and its icon — so
+// a reviewer can check the wizard's wording in one file instead of four. None
+// of these are destinations any more: the wizard's steps are selections, not
+// links, so nothing here carries an `href`.
 //
-// Icon rule: each capability uses the icon its destination page already
-// declares in its frontmatter or `meta.json`. Inventing a second symbol for a
-// concept the docs already illustrate is how a design drifts.
+// Icon rule: each capability uses the icon its docs page already declares in
+// its frontmatter or `meta.json`. Inventing a second symbol for a concept the
+// docs already illustrate is how a design drifts.
 
 import { ROOT_FRAMEWORK, getDocsMode, getIntegrations } from "@/lib/registry";
 import type { Integration } from "@/lib/registry";
@@ -21,19 +24,12 @@ export type LucideIconName =
   | "User"
   | "Settings"
   | "Repeat"
-  | "Wrench"
-  | "MessageSquareMore"
-  | "Brain"
-  | "Sparkles"
-  | "SearchCheck"
-  | "BarChart3"
-  | "Server";
+  | "Wrench";
 
 export interface MapCapability {
+  readonly id: string;
   readonly title: string;
   readonly body: string;
-  /** Root-surface path, or an absolute URL for destinations outside the docs. */
-  readonly href: string;
   readonly icon: LucideIconName;
 }
 
@@ -56,131 +52,76 @@ export type MapPickLogo =
 export interface MapPick {
   readonly id: string;
   readonly name: string;
-  readonly href: string;
   readonly logo: MapPickLogo;
-  /** Shown as a small qualifier when the choice carries a condition. */
-  readonly note?: string;
 }
 
-/** Icons here match: chat.mdx, generative-ui/meta.json, human-in-the-loop,
- *  headless-ui.mdx, shared-state.mdx, frontend-tools.mdx. */
+/**
+ * Icons here match: chat.mdx, generative-ui/meta.json, human-in-the-loop,
+ * headless-ui.mdx, shared-state.mdx, frontend-tools.mdx.
+ *
+ * `id` is mirrored into the wizard's URL query string so a shared link
+ * reproduces the same feature selection — treat these ids as a stable
+ * contract: a link already shared with an id breaks if that id is renamed.
+ */
 export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
   {
+    id: "chat",
     title: "Chat surface",
     body: "Drop in a ready-made chat, sidebar, or popup.",
-    href: "/prebuilt-components/chat",
     icon: "MessageSquare",
   },
   {
+    id: "gen-ui",
     title: "Generative UI",
     body: "Your agent returns real React components, not just text.",
-    href: "/generative-ui",
     icon: "Paintbrush",
   },
   {
+    id: "hitl",
     title: "Human in the loop",
     body: "Pause for the user's decision at the steps that matter.",
-    href: "/human-in-the-loop",
     icon: "User",
   },
   {
+    id: "headless",
     title: "Headless UI",
     body: "Own every pixel and keep the agent runtime.",
-    href: "/custom-look-and-feel/headless-ui",
     icon: "Settings",
   },
   {
+    id: "state",
     title: "Shared state",
     body: "Your app and your agent see the same thing, live.",
-    href: "/shared-state",
     icon: "Repeat",
   },
   {
+    id: "tools",
     title: "Frontend tools",
     body: "Let the agent call functions that live in your app.",
-    href: "/frontend-tools",
     icon: "Wrench",
   },
 ] as const;
 
-/** Icons here match: threads.mdx, memories.mdx, learning.mdx, inspector.mdx,
- *  self-hosting.mdx. Analytics has no docs page; `BarChart3` matches the
- *  choice `IntelligenceFeatureCards` already made for it. */
-export const INTELLIGENCE_CAPABILITIES: readonly MapCapability[] = [
-  {
-    title: "Rich Threads",
-    body: "Conversations survive reloads, devices, and sessions.",
-    href: "/threads",
-    icon: "MessageSquareMore",
-  },
-  {
-    title: "Memory",
-    body: "Durable facts and preferences across conversations.",
-    href: "/intelligence/memories",
-    icon: "Brain",
-  },
-  {
-    title: "Learning",
-    body: "Completed threads become reviewed, reusable Skills.",
-    href: "/learning",
-    icon: "Sparkles",
-  },
-  {
-    title: "Inspector",
-    body: "Replay any run and see every event and state change.",
-    href: "/inspector",
-    icon: "SearchCheck",
-  },
-  {
-    title: "Analytics",
-    body: "Where users get value, from the same interaction data.",
-    href: "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    icon: "BarChart3",
-  },
-  {
-    title: "Self-hosting",
-    body: "The same platform inside your own cluster or VPC.",
-    href: "/intelligence/self-hosting",
-    icon: "Server",
-  },
-] as const;
-
-/** Frontends that are managed channels and therefore require Intelligence. */
-const INTELLIGENCE_ONLY_FRONTENDS = new Set(["slack", "teams"]);
-
 /**
- * `ROOT_FRAMEWORK`'s docs are served at the root URL surface, so its pages
- * take no prefix; every other framework lives under `/<slug>/`. The
- * absolute-URL guard is this function's own addition, not inherited from the
- * v1 `docs-build-with.tsx` this map replaces: without it, an external
- * Analytics link would get framework-prefixed into a broken path like
- * `/mastra/https://...` instead of being returned untouched.
- *
- * Contract: only `COPILOTKIT_CAPABILITIES` hrefs are framework-scoped. The
- * `INTELLIGENCE_CAPABILITIES` are platform pages with one canonical
- * location — `scopedHref("/intelligence/memories", "mastra")` would produce
- * a path no page is served at, so callers must not run Intelligence hrefs
- * through this function.
+ * Frontends excluded from the wizard's frontend step. This is an editorial
+ * call, not a technical one: `onboardingFrontendSlug` already returns
+ * undefined for both `slack` and `teams`, so nothing forces this filter. They
+ * are excluded because they are managed channels that require Intelligence,
+ * and Intelligence is no longer on this page.
  */
-export function scopedHref(href: string, slug: string): string {
-  if (/^https?:\/\//.test(href)) return href;
-  return slug === ROOT_FRAMEWORK ? href : `/${slug}${href}`;
-}
+const NON_WIZARD_FRONTENDS = new Set(["slack", "teams"]);
 
 /**
- * The documented frontends. `react` is the default surface and its guide is
- * the root quickstart; the rest are served unprefixed at `/<id>` — there is no
- * `/frontends` index page, so nothing links to one.
+ * The frontends the wizard can pick, minus the managed channels (see
+ * `NON_WIZARD_FRONTENDS`).
  */
 export function frontendPicks(): MapPick[] {
-  return FRONTEND_OPTIONS.map((option) => ({
+  return FRONTEND_OPTIONS.filter(
+    (option) => !NON_WIZARD_FRONTENDS.has(option.id),
+  ).map((option) => ({
     id: option.id,
     name: option.name,
-    href: option.id === "react" ? "/quickstart" : `/${option.id}`,
     logo: { kind: "frontend", icon: option.icon },
-    ...(INTELLIGENCE_ONLY_FRONTENDS.has(option.id)
-      ? { note: "needs Intelligence" }
-      : {}),
   }));
 }
 
@@ -212,10 +153,6 @@ export function agentPicks(): MapPick[] {
     .map((integration) => ({
       id: integration.slug,
       name: integration.name,
-      href:
-        integration.slug === ROOT_FRAMEWORK
-          ? "/quickstart"
-          : `/${integration.slug}`,
       logo: {
         kind: "framework",
         slug: integration.slug,

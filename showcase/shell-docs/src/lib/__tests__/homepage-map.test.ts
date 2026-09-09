@@ -1,86 +1,51 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
-
 import { describe, expect, it } from "vitest";
 import * as lucide from "lucide-react";
 
 import {
   COPILOTKIT_CAPABILITIES,
-  INTELLIGENCE_CAPABILITIES,
   agentPicks,
   frontendPicks,
-  scopedHref,
 } from "../homepage-map";
 import { getDocsMode, getIntegrations } from "@/lib/registry";
 import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
 
-const CONTENT_DOCS_ROOT = path.join(process.cwd(), "src/content/docs");
-
-/** A capability href `/foo/bar` is served by either `foo/bar.mdx` or
- *  `foo/bar/index.mdx`. */
-function contentFileExists(href: string): boolean {
-  const relative = href.replace(/^\//, "");
-  const flat = path.join(CONTENT_DOCS_ROOT, `${relative}.mdx`);
-  const indexed = path.join(CONTENT_DOCS_ROOT, relative, "index.mdx");
-  return existsSync(flat) || existsSync(indexed);
-}
-
 describe("homepage map data", () => {
-  const all = [...COPILOTKIT_CAPABILITIES, ...INTELLIGENCE_CAPABILITIES];
-
-  it("gives each block six capabilities so the three-per-row grid has no orphan", () => {
+  it("gives the block six capabilities so the three-per-row grid has no orphan", () => {
     expect(COPILOTKIT_CAPABILITIES).toHaveLength(6);
-    expect(INTELLIGENCE_CAPABILITIES).toHaveLength(6);
   });
 
   // Every icon is the one its destination page already declares. A name that
   // is not a real lucide export renders nothing at all, silently.
   it("names only icons that lucide-react actually exports", () => {
-    for (const cap of all) {
+    for (const cap of COPILOTKIT_CAPABILITIES) {
       expect(lucide, `icon for ${cap.title}`).toHaveProperty(cap.icon);
     }
   });
 
-  it("gives every capability a non-empty title, body and href", () => {
-    for (const cap of all) {
+  it("gives every capability a non-empty title and body", () => {
+    for (const cap of COPILOTKIT_CAPABILITIES) {
       expect(cap.title.length).toBeGreaterThan(0);
       expect(cap.body.length).toBeGreaterThan(0);
-      expect(cap.href).toMatch(/^(\/|https:\/\/)/);
     }
   });
 
-  it("uses distinct titles and distinct hrefs within the whole map", () => {
-    expect(new Set(all.map((c) => c.title)).size).toBe(all.length);
-    expect(new Set(all.map((c) => c.href)).size).toBe(all.length);
+  it("uses distinct titles within the capability block", () => {
+    const titles = COPILOTKIT_CAPABILITIES.map((c) => c.title);
+    expect(new Set(titles).size).toBe(titles.length);
   });
 
-  // The root surface serves ROOT_FRAMEWORK, so its pages take no prefix.
-  it("prefixes hrefs for a non-default framework and leaves the default alone", () => {
-    expect(scopedHref("/generative-ui", "built-in-agent")).toBe(
-      "/generative-ui",
-    );
-    expect(scopedHref("/generative-ui", "mastra")).toBe(
-      "/mastra/generative-ui",
-    );
-  });
-
-  it("never prefixes an absolute URL", () => {
-    const external = "https://www.copilotkit.ai/copilotkit-intelligence";
-    expect(scopedHref(external, "mastra")).toBe(external);
-  });
-
-  // A capability href is not fed through any content pipeline (search index,
-  // llms.txt) that would otherwise catch a typo'd or dead destination — this
-  // is the only check standing between a broken tile and the homepage.
-  it("resolves every non-absolute capability href to a real content file", () => {
-    for (const cap of all) {
-      if (/^https?:\/\//.test(cap.href)) continue;
-      expect(contentFileExists(cap.href), cap.href).toBe(true);
+  // Mirrored into the wizard's URL query string, so a duplicate or empty id
+  // would silently collide two feature selections into one.
+  it("gives every capability a unique, non-empty id", () => {
+    const ids = COPILOTKIT_CAPABILITIES.map((c) => c.id);
+    for (const id of ids) {
+      expect(id.length).toBeGreaterThan(0);
     }
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   // The tile is named for the pattern the docs page is named for. "Approvals"
-  // described only one of the things `/human-in-the-loop` covers.
+  // described only one of the things human-in-the-loop covers.
   it("names the human-in-the-loop capability after its own docs page", () => {
     const titles = COPILOTKIT_CAPABILITIES.map((cap) => cap.title);
 
@@ -90,46 +55,36 @@ describe("homepage map data", () => {
     const hitl = COPILOTKIT_CAPABILITIES.find(
       (cap) => cap.title === "Human in the loop",
     );
-    expect(hitl?.href).toBe("/human-in-the-loop");
+    expect(hitl?.id).toBe("hitl");
     expect(hitl?.icon).toBe("User");
   });
 
-  it("lists exactly the documented frontends, with React pointing at the quickstart", () => {
+  it("lists exactly the documented frontends minus the managed channels", () => {
     const picks = frontendPicks();
-    expect(picks.map((p) => p.id)).toEqual(FRONTEND_OPTIONS.map((o) => o.id));
-    expect(picks.find((p) => p.id === "react")?.href).toBe("/quickstart");
-    expect(picks.find((p) => p.id === "vue")?.href).toBe("/vue");
+    const nonChannelIds = FRONTEND_OPTIONS.filter(
+      (o) => o.id !== "slack" && o.id !== "teams",
+    ).map((o) => o.id);
+
+    expect(picks.map((p) => p.id)).toEqual(nonChannelIds);
+    expect(picks.map((p) => p.id)).not.toContain("slack");
+    expect(picks.map((p) => p.id)).not.toContain("teams");
   });
 
-  // Slack and Teams are frontends in the registry but are managed channels
-  // that require Intelligence. Listing them unqualified in the
-  // "bring your own" block would mislead.
-  it("marks only Slack and Teams as requiring Intelligence", () => {
-    const picks = frontendPicks();
-    expect(picks.filter((p) => p.note).map((p) => p.id)).toEqual([
-      "slack",
-      "teams",
-    ]);
-  });
-
-  it("puts the built-in agent first and points it at the root quickstart", () => {
+  it("puts the built-in agent first", () => {
     const picks = agentPicks();
     expect(picks[0]?.id).toBe("built-in-agent");
-    expect(picks[0]?.href).toBe("/quickstart");
   });
 
-  it("lists every visible integration and links each at its own surface", () => {
+  it("lists every visible integration", () => {
     const picks = agentPicks();
     const visible = getIntegrations().filter(
       (integration) => getDocsMode(integration.slug) !== "hidden",
     );
     expect(picks).toHaveLength(visible.length);
-    // langroid carries docs_mode: hidden in the registry today — linking it
-    // would land on a 404.
+    // langroid carries docs_mode: hidden in the registry today — listing it
+    // would offer a pick with no docs behind it.
     expect(picks.map((p) => p.id)).not.toContain("langroid");
-    expect(picks.find((p) => p.id === "mastra")?.href).toBe("/mastra");
     for (const pick of picks) {
-      expect(pick.href).toMatch(/^\//);
       expect(pick.name.length).toBeGreaterThan(0);
     }
   });
@@ -140,6 +95,7 @@ describe("homepage map data", () => {
     const picks = frontendPicks();
 
     for (const option of FRONTEND_OPTIONS) {
+      if (option.id === "slack" || option.id === "teams") continue;
       const pick = picks.find((candidate) => candidate.id === option.id);
       expect(pick?.logo, option.id).toEqual({
         kind: "frontend",
