@@ -200,8 +200,11 @@ export interface CopilotKitProviderProps {
   showDevConsole?: boolean | "auto";
   /**
    * Disable the CopilotKit Inspector in development.
-   * The Inspector is enabled by default in development browser builds and is
-   * always disabled in production and during server rendering.
+   * The Inspector is enabled by default in development browser builds on
+   * localhost/loopback. It is always disabled on remote hosts, in production,
+   * and during server rendering. Temporary Inspector hides also hide its
+   * message shortcuts.
+   * An explicit value takes priority over CopilotChat's inspectorTools prop.
    */
   enableInspector?: boolean;
   /**
@@ -321,9 +324,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   debug,
 }) => {
   // Keep the server render and the first client render identical. The
-  // Inspector is browser-only, so resolve its development policy after
-  // hydration instead of branching on `window` during render.
+  // Inspector only runs in local development. Resolve its host and build
+  // policy after hydration instead of branching on `window` during render.
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
+  const [inspectorVisible, setInspectorVisible] = useState(false);
 
   useEffect(() => {
     setShouldRenderInspector(
@@ -331,7 +335,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         enableInspector,
         isBrowser: true,
         isDevelopment: process.env.NODE_ENV === "development",
-      }),
+      }) &&
+        ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname),
     );
   }, [enableInspector]);
 
@@ -366,10 +371,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   const inspectorContextValue = useMemo(
     () => ({
-      isInspectorEnabled: shouldRenderInspector,
+      providerEnableInspector: enableInspector,
+      isInspectorEnabled: shouldRenderInspector && inspectorVisible,
       openInspector: requestInspectorOpen,
     }),
-    [shouldRenderInspector, requestInspectorOpen],
+    [
+      enableInspector,
+      shouldRenderInspector,
+      inspectorVisible,
+      requestInspectorOpen,
+    ],
   );
 
   // Normalize array props to stable references with clear dev warnings
@@ -1074,6 +1085,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               <CopilotKitInspector
                 core={copilotkit}
                 openRequest={inspectorOpenRequest}
+                onVisibilityChange={setInspectorVisible}
               />
             ) : null}
           </CopilotKitInspectorContextProvider>
