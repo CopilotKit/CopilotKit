@@ -4,6 +4,11 @@ import { compareByDisplayOrder } from "../framework-order";
 import { getDocsMode, getIntegration } from "../registry";
 
 describe("docs mode registry", () => {
+  it("keeps Conversational Flows inside the CrewAI docs surface", () => {
+    expect(getDocsMode("crewai-crews")).toBe("authored");
+    expect(getDocsMode("crewai-conversational-flows")).toBe("hidden");
+  });
+
   it("treats Deep Agents as authored docs", () => {
     expect(getIntegration("deepagents")).toMatchObject({
       name: "Deep Agents",

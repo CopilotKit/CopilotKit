@@ -37,9 +37,9 @@ of everything that has happened during a HITL interaction.
         ### Run and connect your agent
 
         You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
-        you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart/pydantic-ai) guide.
+        you can follow the instructions in the [Getting Started](/pydantic-ai/quickstart) guide.
 
-        If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-pydantic-ai) as a starting point
+        If you don't already have an agent, you can use the [Pydantic AI starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/pydantic-ai) as a starting point
         as this guide uses it as a starting point.
     </Step>
 
@@ -106,6 +106,11 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
       <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
         from pydantic_ai import Agent
+        from pydantic_ai.ui.ag_ui import AGUIAdapter
+        from starlette.applications import Starlette
+        from starlette.requests import Request
+        from starlette.responses import Response
+        from starlette.routing import Route
 
         agent = Agent('openai:gpt-5.4-mini')
 
@@ -116,7 +121,12 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
             # The agent will wait for user feedback before proceeding
             return f"Essay draft on '{topic}' has been generated. Please review."
 
-        app = agent.to_ag_ui()
+
+        async def run_agent(request: Request) -> Response:
+            return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+
+        app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
         ```
       </Tab>
     </Tabs>

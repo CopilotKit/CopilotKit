@@ -43,7 +43,7 @@ Generated: 2026-03-28
 
 ## integrations/pydantic-ai.md
 
-- examples/integrations/pydantic-ai/ (PydanticAI with StateDeps, agent.to_ag_ui(), StateSnapshotEvent for state sync)
+- examples/integrations/pydantic-ai/ (PydanticAI with StateDeps, AGUIAdapter.dispatch_request(), StateSnapshotEvent for state sync)
 
 ## integrations/strands.md
 

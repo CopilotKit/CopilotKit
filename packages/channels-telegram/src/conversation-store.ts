@@ -1,6 +1,9 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { ThreadMessage } from "@copilotkit/channels-ui";
-import type { ConversationStore, AgentSession } from "@copilotkit/channels";
+import type {
+  ConversationStore,
+  AgentSession,
+} from "@copilotkit/channels-core";
 import type { ReplyTarget } from "./types.js";
 import type { AgentContentPart } from "./download-files.js";
 
@@ -19,6 +22,7 @@ const MAX_HISTORY = 200;
  *    that callers can use for lightweight within-session context.
  */
 export class TelegramConversationStore implements ConversationStore {
+  readonly seedsInboundTurn = true;
   private readonly sessions = new Map<string, AgentSession>();
   private readonly history = new Map<string, ThreadMessage[]>();
   /**

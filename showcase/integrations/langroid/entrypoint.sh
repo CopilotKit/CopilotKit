@@ -53,7 +53,7 @@ trap cleanup EXIT
 
 # Provider-agnostic startup diagnostic. langroid is multi-provider — the chat
 # model is selected via ``LANGROID_MODEL`` (e.g. ``gpt-4.1``,
-# ``litellm/anthropic/claude-opus-4``, ``gemini/gemini-2.5-flash``). Whichever
+# ``litellm/anthropic/claude-opus-4-8``, ``gemini/gemini-2.5-flash``). Whichever
 # provider is picked, only THAT provider's API key is required.
 #
 # This block inspects ``LANGROID_MODEL`` (and the planner-only override
@@ -255,7 +255,7 @@ _check_key() {
     # Bare ``anthropic/<model>`` is not a langroid-native prefix; langroid
     # only routes Anthropic via ``litellm/anthropic/...`` or
     # ``openrouter/anthropic/...``. If an operator sets
-    # ``LANGROID_MODEL=anthropic/claude-opus-4`` the env-key check passes
+    # ``LANGROID_MODEL=anthropic/claude-opus-4-8`` the env-key check passes
     # but the request will fail downstream because langroid falls back to
     # the default OpenAI client and the OpenAI SDK rejects the model id.
     #

@@ -1,0 +1,62 @@
+---
+title: "registerRenderActivityMessage"
+description: "Register a typed Angular renderer for AG-UI activity messages."
+---
+
+`registerRenderActivityMessage` registers a standalone component for one AG-UI
+activity type for the lifetime of the current injector.
+
+```ts
+function registerRenderActivityMessage<TContent>(
+  config: RenderActivityMessageConfig<TContent>,
+): void;
+
+interface RenderActivityMessageConfig<TContent> {
+  activityType: string;
+  agentId?: string;
+  content: AngularActivityContentSchema<TContent>;
+  component: Type<ActivityRenderer<TContent>>;
+}
+```
+
+```ts
+import { Component, input } from "@angular/core";
+import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
+import {
+  ActivityRenderer,
+  registerRenderActivityMessage,
+} from "@copilotkit/angular";
+import { z } from "zod";
+
+const progressSchema = z.object({ label: z.string(), percent: z.number() });
+
+@Component({
+  template: `<progress [value]="content().percent" max="100"></progress>`,
+})
+export class ProgressActivity implements ActivityRenderer<
+  z.infer<typeof progressSchema>
+> {
+  readonly activityType = input.required<string>();
+  readonly content = input.required<z.infer<typeof progressSchema>>();
+  readonly message = input.required<ActivityMessage>();
+  readonly agent = input<AbstractAgent>();
+}
+
+@Component({ template: `` })
+export class ActivityRegistration {
+  constructor() {
+    registerRenderActivityMessage({
+      activityType: "job-progress",
+      content: progressSchema,
+      component: ProgressActivity,
+    });
+  }
+}
+```
+
+Content must pass `safeParse` before the component renders. `agentId` scopes a
+renderer to one agent. Application registrations take precedence over
+CopilotKit built-ins such as A2UI, Open Generative UI, and MCP Apps. The helper
+must run in an injection context and removes the exact registration on destroy.
+Renderer components should be standalone, OnPush- or zoneless-compatible, and
+must guard their own browser-only work for SSR and hydration.

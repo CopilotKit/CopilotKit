@@ -24,6 +24,14 @@ This video shows an example of our [AI Travel App](/langgraph/tutorials/ai-trave
 
 Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
 
+<Callout type="info" title="Conversational Flows">
+  The frontend HITL APIs are unchanged in conversational mode. For native
+  `useInterrupt` flows, register the AG-UI endpoint with
+  `emit_interrupt_outcome=True` and
+  `enable_legacy_on_interrupt_event=False`, in addition to
+  `conversational=True`.
+</Callout>
+
 <Frame className="my-0">
   <img
     src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png"
@@ -53,7 +61,7 @@ Read more about the approach to HITL in CrewAI Flows.
       title: "Flow-based",
       description:
         "Utilize CrewAI Flows to create Human-in-the-Loop workflows.",
-      href: "/crewai-flows/human-in-the-loop/flow",
+      href: "/human-in-the-loop/flow",
     },
   ]}
 />

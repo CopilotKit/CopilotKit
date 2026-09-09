@@ -1,19 +1,35 @@
-import {
-  BaseAutosuggestionsConfig,
-  defaultBaseAutosuggestionsConfig,
-} from "../base";
-import {
-  SuggestionsApiConfig,
-  defaultSuggestionsApiConfig,
-} from "./suggestions-api-config";
-import {
-  InsertionsApiConfig,
-  defaultInsertionsApiConfig,
-} from "./insertions-api-config";
-import {
-  EditingApiConfig,
-  defaultEditingApiConfig,
-} from "./editing-api-config";
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-textarea — AutosuggestionsConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-textarea — defaultAutosuggestionsConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
+import type { BaseAutosuggestionsConfig } from "../base";
+import { defaultBaseAutosuggestionsConfig } from "../base";
+import type { SuggestionsApiConfig } from "./suggestions-api-config";
+import { defaultSuggestionsApiConfig } from "./suggestions-api-config";
+import type { InsertionsApiConfig } from "./insertions-api-config";
+import { defaultInsertionsApiConfig } from "./insertions-api-config";
+import type { EditingApiConfig } from "./editing-api-config";
+import { defaultEditingApiConfig } from "./editing-api-config";
 import { defaultCopilotContextCategories } from "@copilotkit/react-core";
 
 // Like the base autosuggestions config, with 2 additional fields:

@@ -1,0 +1,31 @@
+Follow the [LangGraph Python quickstart](/langgraph-python/quickstart) to
+configure the `sample_agent` graph. Start its existing LangGraph server:
+
+```bash title="Agent application"
+npx @langchain/langgraph-cli dev --port 8123 --no-browser
+```
+
+Point the native LangGraph adapter at that deployment:
+
+```dotenv title=".env"
+LANGGRAPH_DEPLOYMENT_URL=http://localhost:8123
+```
+
+The Runtime package installed by the Channels quickstart includes the native
+LangGraph adapter.
+
+LangGraph Server speaks the LangGraph API, so use `LangGraphAgent` rather
+than `HttpAgent`. Return a fresh adapter for every channel thread:
+
+```ts title="agent.ts"
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+export function makeAgent(threadId: string) {
+  const agent = new LangGraphAgent({
+    deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!,
+    graphId: "sample_agent",
+  });
+  agent.threadId = threadId;
+  return agent;
+}
+```

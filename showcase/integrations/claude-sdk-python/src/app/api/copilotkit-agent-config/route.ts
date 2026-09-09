@@ -15,9 +15,8 @@
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import { claudeHttpAgentConfig } from "@/app/api/_shared/claude-http-agent";
@@ -148,15 +147,15 @@ const agents: Record<string, AbstractAgent> = {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-agent-config",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- see main route.ts
         agents,
       }),
+      basePath: "/api/copilotkit-agent-config",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     return internalRuntimeErrorResponse("/api/copilotkit-agent-config", error);
   }

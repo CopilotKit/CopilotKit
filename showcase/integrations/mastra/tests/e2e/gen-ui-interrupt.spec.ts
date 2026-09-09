@@ -126,10 +126,18 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     await expect(cancelled).toBeVisible({ timeout: 10_000 });
     await expect(cancelled).toContainText("Cancelled");
 
-    await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
-    ).toBeVisible({
+    const assistant = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .first();
+    await expect(assistant).toBeVisible({
       timeout: 45_000,
     });
+    // Regression (cancel-path narration): cancel resumes with the SAME
+    // toolCallId as pick, so before aimock 1.37.0's toolResultContains gate the
+    // resume matched the pick-confirmation fixture and the assistant replayed
+    // a booking confirmation after the user cancelled.
+    await expect(assistant).toContainText("Denied", { timeout: 45_000 });
+    await expect(assistant).not.toContainText("Scheduled:");
+    await expect(assistant).not.toContainText("Booked:");
   });
 });

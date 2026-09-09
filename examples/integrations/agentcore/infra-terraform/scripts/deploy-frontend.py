@@ -5,22 +5,34 @@
 """
 Cross-platform frontend deployment script for Terraform deployments.
 
-Deploys the Next.js frontend to AWS Amplify by:
+Intended to deploy the Vite frontend to AWS Amplify by:
 1. Fetching configuration from Terraform outputs
 2. Generating aws-exports.json
 3. Building the frontend
 4. Packaging and uploading to S3
 5. Triggering Amplify deployment
 
-Requires: Python 3.8+, AWS CLI, npm, Node.js, Terraform
-No external Python dependencies - uses standard library only.
+KNOWN BLOCKER: step 2 requires a Terraform output named `feedback_api_url`, and
+no root or module outputs.tf declares one (infra-terraform/modules/backend/ssm.tf
+has an SSM parameter of that name, which is not an output). Every run therefore
+stops with "Missing required Terraform outputs: feedback_api_url" and exits 1,
+before it builds or uploads anything. Tracked separately; do not treat the steps
+above as a working path until it is fixed.
+
+Requires: Python 3.8+, AWS CLI, npm, Node.js, Terraform. uv is optional — the
+script imports the standard library only, so a plain `python3` invocation works.
+When uv is used, `--no-project` tells it to skip syncing the example-root
+virtualenv the script never touches while still provisioning an interpreter. Its
+sibling `test-agent.py` does import third-party packages and is run WITHOUT
+`--no-project`, so uv resolves the example-root project by walking up from
+`infra-terraform/`.
 
 Usage:
     cd infra-terraform
-    python scripts/deploy-frontend.py
+    uv run --no-project scripts/deploy-frontend.py
 
     # Or with pattern override
-    python scripts/deploy-frontend.py --pattern langgraph-single-agent
+    uv run --no-project scripts/deploy-frontend.py --pattern langgraph-single-agent
 """
 
 import argparse
@@ -378,9 +390,16 @@ def parse_args() -> argparse.Namespace:
         description="Deploy frontend to AWS Amplify using Terraform outputs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Run from the infra-terraform directory. This script is standard-library only,
+so --no-project skips a virtualenv sync it does not need; a plain `python3`
+invocation works too.
+
+KNOWN BLOCKER: it requires a Terraform output named feedback_api_url, which no
+outputs.tf declares, so every run exits 1 before building or uploading anything.
+
 Examples:
-  python scripts/deploy-frontend.py
-  python scripts/deploy-frontend.py --pattern langgraph-single-agent
+  uv run --no-project scripts/deploy-frontend.py
+  uv run --no-project scripts/deploy-frontend.py --pattern langgraph-single-agent
         """,
     )
 
@@ -517,7 +536,7 @@ def main() -> int:
         log_success("Dependencies are up to date")
 
     # Build frontend
-    log_info("Building Next.js app...")
+    log_info("Building Vite app...")
     try:
         run_command(["npm", "run", "build"], capture_output=False)
         log_success("Build completed")

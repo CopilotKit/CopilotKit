@@ -9,14 +9,14 @@ import {
 } from "@angular/core";
 
 import {
-  LucideAngularModule,
+  CopilotIcon,
   Copy,
   Check,
   ThumbsUp,
   ThumbsDown,
   Volume2,
   RefreshCw,
-} from "lucide-angular";
+} from "../icons/copilot-icon";
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
@@ -81,7 +81,7 @@ export class CopilotChatAssistantMessageToolbarButton {
 // Copy button component
 @Component({
   selector: "copilot-chat-assistant-message-copy-button",
-  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -93,9 +93,9 @@ export class CopilotChatAssistantMessageToolbarButton {
       (click)="handleCopy($event)"
     >
       @if (copied()) {
-        <lucide-angular [img]="CheckIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="CheckIcon" [size]="18"></copilot-icon>
       } @else {
-        <lucide-angular [img]="CopyIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="CopyIcon" [size]="18"></copilot-icon>
       }
     </button>
   `,
@@ -128,7 +128,7 @@ export class CopilotChatAssistantMessageCopyButton {
 // Thumbs up button component
 @Component({
   selector: "copilot-chat-assistant-message-thumbs-up-button",
-  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -139,7 +139,7 @@ export class CopilotChatAssistantMessageCopyButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <lucide-angular [img]="ThumbsUpIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="ThumbsUpIcon" [size]="18"></copilot-icon>
     </button>
   `,
 })
@@ -162,7 +162,7 @@ export class CopilotChatAssistantMessageThumbsUpButton {
 // Thumbs down button component
 @Component({
   selector: "copilot-chat-assistant-message-thumbs-down-button",
-  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -173,7 +173,7 @@ export class CopilotChatAssistantMessageThumbsUpButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <lucide-angular [img]="ThumbsDownIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="ThumbsDownIcon" [size]="18"></copilot-icon>
     </button>
   `,
 })
@@ -196,7 +196,7 @@ export class CopilotChatAssistantMessageThumbsDownButton {
 // Read aloud button component
 @Component({
   selector: "copilot-chat-assistant-message-read-aloud-button",
-  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -207,7 +207,7 @@ export class CopilotChatAssistantMessageThumbsDownButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <lucide-angular [img]="Volume2Icon" [size]="20"></lucide-angular>
+      <copilot-icon [img]="Volume2Icon" [size]="20"></copilot-icon>
     </button>
   `,
 })
@@ -230,7 +230,7 @@ export class CopilotChatAssistantMessageReadAloudButton {
 // Regenerate button component
 @Component({
   selector: "copilot-chat-assistant-message-regenerate-button",
-  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -241,7 +241,7 @@ export class CopilotChatAssistantMessageReadAloudButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <lucide-angular [img]="RefreshCwIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="RefreshCwIcon" [size]="18"></copilot-icon>
     </button>
   `,
 })

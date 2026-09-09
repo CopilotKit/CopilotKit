@@ -9,10 +9,10 @@ description: "Angular function that subscribes to an AG-UI agent and returns a s
 
 Read the store by calling the outer signal, then read each member by calling its signal: `store().messages()`, `store().isRunning()`, `store().state()`. The `agent` member is the plain AG-UI instance (not a signal), so you read it directly: `store().agent`.
 
-This is the Angular equivalent of React's `useAgent()`. Call it from an injection context (a constructor or a field initializer). The subscription is torn down automatically when the owning component or service is destroyed.
+Call it from an injection context such as a constructor or field initializer. The subscription is torn down automatically when the owning component or service is destroyed.
 
 <Callout type="warn">
-  Resolution of the agent is lazy and reactive. If no agent can be resolved for the given `agentId` after the runtime has synced (for example, the id does not match any agent reported by your runtime `/info` or registered via `agents__unsafe_dev_only`), reading the store signal throws an error listing the known agents.
+  Resolution of the agent is lazy and reactive. If no agent can be resolved for the given `agentId` after the runtime has synced (for example, the id does not match any agent reported by your runtime `/info` or configured through `agents` or `selfManagedAgents`), reading the store signal throws an error listing the known agents.
 </Callout>
 
 ## Signature
@@ -48,11 +48,19 @@ function injectAgentStore(
   </PropertyReference>
 
   <PropertyReference name="state" type="Signal<unknown>">
-    A readonly signal of the agent's shared state object, synchronized between your app and the agent. Read it with `store().state()`. It is `undefined` until the agent reports state. Cast or type it as needed for your agent's state shape.
+    A readonly signal of the agent's shared state object, synchronized between your app and the agent. Read it with `store().state()`. The store seeds this signal synchronously from the agent's current `state`, including state restored before subscription. Cast or type it as needed for your agent's state shape.
   </PropertyReference>
 
   <PropertyReference name="isRunning" type="Signal<boolean>">
     A readonly signal indicating whether the agent is currently executing. Read it with `store().isRunning()`. It becomes `true` when a run is initialized and `false` when the run finalizes, fails, or reports a protocol-level run error.
+  </PropertyReference>
+
+  <PropertyReference name="interruptController" type="InterruptController">
+    The pending interrupt for this conversation — the same agent and thread the other members describe. Read it directly (`store().interruptController`), then bind its signals: `hasInterrupt()`, `view()`, `interrupt()`, `interrupts()`, `error()`, and resolve with `resolve(payload?, interruptId?)` or `cancel(interruptId?)`.
+
+    The controller is created and connected with the store. Standard AG-UI interrupts retained by the agent are surfaced immediately, and legacy `on_interrupt` events are observed for the store's full lifetime. The controller is destroyed when the store is torn down or the agent is swapped.
+
+    This is the unfiltered default and is untyped (`InterruptController<unknown, never>`). For a typed value, an `enabled` filter, or a `handler`, use [`injectInterrupt`](/reference/angular/functions/injectInterrupt) with the same agent id.
   </PropertyReference>
 </PropertyReference>
 
@@ -131,7 +139,7 @@ export class MultiAgentComponent {
 
 - **Reactive resolution.** The returned signal recomputes when the `agentId`, the set of available agents, the runtime connection status, the runtime URL or transport, or the request headers change.
 - **Provisional agents.** When a runtime is configured but not yet connected, a provisional proxied runtime agent is created and cached so the store has something to render before the runtime syncs.
-- **Automatic cleanup.** The agent subscription is unsubscribed when the owning component or service is destroyed. Switching to a new agent tears down the previous store's subscription first.
+- **Automatic cleanup.** The agent subscription is unsubscribed when the owning component or service is destroyed. Switching to a new agent tears down the previous store's subscription first, including its interrupt controller.
 - **Error on missing agent.** If no agent resolves after the runtime has synced, reading the store signal throws an error that lists the known agent ids.
 
 ## Related

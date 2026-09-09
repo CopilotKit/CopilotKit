@@ -135,7 +135,7 @@ UI, swap the message in place, or run a HITL flow:
 ```
 
 It's durable on the same terms as a component `onClick`: when the `<Message>`
-comes from a component registered via `createBot({ components: [...] })` and a
+comes from a component registered via `createChannel({ components: [...] })` and a
 durable `store` is configured, a reaction after a restart re-renders the
 component to re-derive the handler. Inline handlers (and `<Message>` used
 directly) route in-process but don't survive a restart. For durable, filtered
@@ -154,7 +154,8 @@ interface InteractionContext<TValue = unknown> {
   message: IncomingMessage;
   action: { id: string; value?: TValue };
   values: Record<string, unknown>;
-  user: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   platform: string;
 }
 ```
@@ -163,7 +164,7 @@ interface InteractionContext<TValue = unknown> {
 from `value` — `<Button value={{ confirmed: true }} onClick={(ctx) => ctx.action.value?.confirmed}>`
 type-checks with no cast. `Select`/`Input` resolve the value to `string`.
 
-The structural types `Thread`, `IncomingMessage`, `PlatformUser`,
+The structural types `Thread`, `IncomingMessage`, `ApplicationUser`, `ProviderActor`,
 `MessageRef`, and `ClickHandler` are declared here for handler typing only —
 they're implemented at runtime by `@copilotkit/channels` and its adapters.
 `@copilotkit/channels-ui` has no runtime dependency on them.
@@ -192,6 +193,6 @@ Runtime: `renderToIR`, `Fragment`, `bind`, and the vocabulary
 (`Message`, `Header`, `Section`, `Markdown`, `Field`, `Fields`, `Context`,
 `Actions`, `Button`, `Select`, `Input`, `Image`, `Divider`).
 Types: `BotNode`, `BotChildren`, `ComponentFn`, `Renderable`, `Thread`,
-`InteractionContext`, `PlatformUser`, `IncomingMessage`, `MessageRef`,
+`InteractionContext`, `ApplicationUser`, `ProviderActor`, `IncomingMessage`, `MessageRef`,
 `ClickHandler`, and the per-component prop types (`MessageProps`,
 `ButtonProps`, `SelectProps`, `TableProps`, `TableColumn`, …).

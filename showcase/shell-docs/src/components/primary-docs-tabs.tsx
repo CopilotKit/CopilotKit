@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChefHat } from "lucide-react";
 import BookIcon from "./icons/book";
+import { DocsMegaMenu } from "./docs-mega-menu";
+import { isDocsExplorePath } from "@/lib/docs-mega-menu";
 
 const PRIMARY_DOCS_LINKS = [
   {
@@ -37,7 +39,13 @@ function getActiveRoute(pathname: string) {
   return "/";
 }
 
-export function PrimaryDocsTabs({ className }: { className?: string }) {
+export function PrimaryDocsTabs({
+  className,
+  exploreMenu = false,
+}: {
+  className?: string;
+  exploreMenu?: boolean;
+}) {
   const pathname = usePathname();
   const activeRoute = getActiveRoute(pathname);
 
@@ -45,16 +53,28 @@ export function PrimaryDocsTabs({ className }: { className?: string }) {
     <nav className={className} aria-label="Primary docs sections">
       {PRIMARY_DOCS_LINKS.map((link) => {
         const isActive = activeRoute === link.href;
+        const tabClassName = `shell-docs-radius-control shell-docs-primary-tab ${
+          isActive ? "shell-docs-nav-link-active" : "shell-docs-nav-link-idle"
+        }`;
+
+        if (exploreMenu && link.href === "/") {
+          return (
+            <DocsMegaMenu
+              key={link.href}
+              triggerClassName={`shell-docs-radius-control shell-docs-primary-tab ${
+                isDocsExplorePath(pathname)
+                  ? "shell-docs-nav-link-active"
+                  : "shell-docs-nav-link-idle"
+              }`}
+            />
+          );
+        }
 
         return (
           <Link
             key={link.href}
             href={link.href}
-            className={`shell-docs-radius-control shell-docs-primary-tab ${
-              isActive
-                ? "shell-docs-nav-link-active"
-                : "shell-docs-nav-link-idle"
-            }`}
+            className={tabClassName}
             aria-current={isActive ? "page" : undefined}
           >
             {link.icon}

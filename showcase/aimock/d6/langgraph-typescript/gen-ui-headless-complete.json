@@ -2,8 +2,8 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / gen-ui-headless-complete",
     "sourceFile": "headless-complete.json",
-    "copiedFrom": "langgraph-python",
-    "_note": "Alias of the headless-complete demo's 4 gen-UI pills (weather/stock/highlight/revenue) for the gen-ui-headless-complete probe (showcase/harness/src/probes/scripts/d5-gen-ui-headless-complete.ts -> fixtureFile 'gen-ui-headless-complete.json'), which had no matching fixture in any slug so its first leg 503'd under strict. Narration (toolCallId) fixtures FIRST so they win when the last message is a matching tool result; toolcall (userMessage+context) fixtures AFTER with NO turnIndex gate so each of the 4 sequential pill turns in one chat thread matches regardless of prior assistant/tool history (the turnIndex multi-turn match-gate bug). Modeled on the green langgraph-python pattern. Interrupt fixtures intentionally omitted (interrupt-headless is a separate cluster item)."
+    "copiedFrom": "langgraph-typescript",
+    "_note": "Alias of the headless-complete demo's 4 gen-UI pills (weather/stock/highlight/revenue) for the gen-ui-headless-complete probe (showcase/harness/src/probes/scripts/d5-gen-ui-headless-complete.ts -> fixtureFile 'gen-ui-headless-complete.json'), which had no matching fixture in any slug so its first leg 503'd under strict. Narration (toolCallId) fixtures FIRST so they win when the last message is a matching tool result; toolcall (userMessage+context) fixtures AFTER with NO turnIndex gate so each of the 4 sequential pill turns in one chat thread matches regardless of prior assistant/tool history (the turnIndex multi-turn match-gate bug). Modeled on the green langgraph-typescript pattern. Interrupt fixtures intentionally omitted (interrupt-headless is a separate cluster item)."
   },
   "fixtures": [
     {
@@ -111,5 +111,8 @@
         ]
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

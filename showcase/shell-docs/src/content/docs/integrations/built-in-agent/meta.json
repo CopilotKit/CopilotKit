@@ -11,12 +11,15 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
       "pages": [
-        "prebuilt-components/copilot-threads-drawer",
         "threads",
-        "threads-import"
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import",
+        "threads-self-managed"
       ]
     },
     "custom-look-and-feel",
@@ -35,7 +38,7 @@
     "advanced-configuration",
     "telemetry",
     "---Runtime---",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     "---Deploy---",
     "---Platforms---",
     "---Other---"

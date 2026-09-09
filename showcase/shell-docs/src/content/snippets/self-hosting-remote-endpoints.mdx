@@ -11,11 +11,9 @@ import { Tab } from "../components/react/tabs";
 <Tabs groupId="lg-deployment-type" items={["Local (LangGraph Studio)", "Self hosted (FastAPI)", "LangGraph Platform"]}>
   <Tab value="Local (LangGraph Studio)">
     ```ts
-    import { 
-      CopilotRuntime,
-      LangGraphAgent  // [!code highlight]
-      // ...
-    } from "@copilotkit/runtime";
+    import { CopilotRuntime } from "@copilotkit/runtime/v2";
+    // [!code highlight]
+    import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
     // ...
     const runtime = new CopilotRuntime({
       // [!code highlight:8]
@@ -33,11 +31,8 @@ import { Tab } from "../components/react/tabs";
   </Tab>
   <Tab value="Self hosted (FastAPI)">
     ```ts
-    import { 
-      CopilotRuntime,
-      LangGraphHttpAgent,
-      // ...
-    } from "@copilotkit/runtime";
+    import { CopilotRuntime } from "@copilotkit/runtime/v2";
+    import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
     // ...
     const runtime = new CopilotRuntime({
       agents: {
@@ -52,11 +47,9 @@ import { Tab } from "../components/react/tabs";
 
   <Tab value="LangGraph Platform">
     ```ts
-    import { 
-      CopilotRuntime,
-      LangGraphAgent  // [!code highlight]
-      // ...
-    } from "@copilotkit/runtime";
+    import { CopilotRuntime } from "@copilotkit/runtime/v2";
+    // [!code highlight]
+    import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
     // ...
     const runtime = new CopilotRuntime({
       // [!code highlight:8]

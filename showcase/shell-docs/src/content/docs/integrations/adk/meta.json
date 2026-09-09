@@ -8,12 +8,16 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
-    "---Intelligence Platform---",
+    "agent-app-context",
+    "---Deploy---",
+    "deploy-langsmith",
+    "---Intelligence---",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
       "pages": [
         "threads",
+        "headless-threads",
         "threads-import"
       ]
     }

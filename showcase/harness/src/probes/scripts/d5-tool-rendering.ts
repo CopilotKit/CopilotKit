@@ -58,10 +58,8 @@
  * city label is a D3 rendering-detail concern, not a D5 signal.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /**
@@ -266,7 +264,7 @@ export function buildToolRenderingAssertion(opts?: {
         // All checks passed — card is structurally complete.
         console.debug("[d5-tool-rendering] tool card structurally complete", {
           selector: probe.selector,
-          text: probe.text.slice(0, 200),
+          textLength: probe.text.length,
           childCount: probe.childCount,
           probeAttempts: probeCount,
         });
@@ -276,9 +274,9 @@ export function buildToolRenderingAssertion(opts?: {
         console.debug("[d5-tool-rendering] tool card probe — not ready yet", {
           probeCount,
           selector: probe.selector,
-          text: probe.text.slice(0, 100),
+          textLength: probe.text.length,
           childCount: probe.childCount,
-          validationError: lastError,
+          validationPending: true,
         });
       }
       // Card not ready yet — sleep briefly and retry.
@@ -287,7 +285,7 @@ export function buildToolRenderingAssertion(opts?: {
 
     console.debug("[d5-tool-rendering] tool card probe TIMEOUT", {
       probeCount,
-      lastError,
+      validationFailed: lastError !== null,
     });
     // Deadline elapsed — throw the last validation error.
     throw new Error(lastError!);

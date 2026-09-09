@@ -3,9 +3,9 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  type OnChanges,
   afterRenderEffect,
   computed,
-  effect,
   inject,
   input,
   signal,
@@ -25,6 +25,7 @@ import {
   processPartialHtml,
 } from "./process-partial-html";
 import {
+  hasRenderableOpenGenerativeUIContent,
   parseOpenGenerativeUIContent,
   resolveWebsandboxConstructor,
   shouldFlushOpenGenerativeUIImmediately,
@@ -38,9 +39,9 @@ export const OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER = new InjectionToken<
 >("OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER", {
   providedIn: "root",
   factory: () => async (): Promise<WebsandboxConstructor> => {
-    const module =
+    const websandboxModule =
       (await import("@jetbrains/websandbox")) as unknown as WebsandboxModuleShape;
-    return resolveWebsandboxConstructor(module);
+    return resolveWebsandboxConstructor(websandboxModule);
   },
 });
 
@@ -164,7 +165,7 @@ type OpenGenerativeUIRenderState = {
     `,
   ],
 })
-export class CopilotOpenGenerativeUIRenderer {
+export class CopilotOpenGenerativeUIRenderer implements OnChanges {
   readonly content = input.required<OpenGenerativeUIContent>();
 
   private readonly containerRef = viewChild<
@@ -183,7 +184,6 @@ export class CopilotOpenGenerativeUIRenderer {
   private previewSandbox: WebsandboxInstance | undefined;
   private sandboxReady = false;
   private previewReady = false;
-  private finalSandboxKey: string | undefined;
   private executedExpressionIndex = 0;
   private pendingQueue: string[] = [];
   private jsFunctionsInjected = false;
@@ -258,30 +258,33 @@ export class CopilotOpenGenerativeUIRenderer {
       this.destroyFinalSandbox();
     });
 
-    effect(() => {
-      const next = parseOpenGenerativeUIContent(this.content());
-      this.latestContent = next;
-      const previous = untracked(() => this.throttledContent());
+    afterRenderEffect({
+      write: (onCleanup) => {
+        const fullHtml = this.fullHtml();
+        const css = this.css();
+        const container = this.containerRef()?.nativeElement;
 
-      if (!this.hasReceivedContent) {
-        this.hasReceivedContent = true;
-        this.clearThrottle();
-        this.throttledContent.set(next);
-        return;
-      }
+        untracked(() => {
+          let cancelled = false;
 
-      if (shouldFlushOpenGenerativeUIImmediately(previous, next)) {
-        this.clearThrottle();
-        this.throttledContent.set(next);
-        return;
-      }
+          onCleanup(() => {
+            cancelled = true;
+            this.destroyFinalSandbox();
+          });
 
-      if (!this.throttleTimer) {
-        this.throttleTimer = setTimeout(() => {
-          this.throttleTimer = undefined;
-          this.throttledContent.set(this.latestContent);
-        }, THROTTLE_MS);
-      }
+          this.resetFinalRuntimeState();
+          this.autoHeight.set(undefined);
+          if (!container || !fullHtml) return;
+
+          this.destroyPreviewSandbox();
+          void this.createFinalSandbox(
+            fullHtml,
+            css,
+            container,
+            () => cancelled,
+          );
+        });
+      },
     });
 
     afterRenderEffect({
@@ -298,6 +301,51 @@ export class CopilotOpenGenerativeUIRenderer {
         if (cleanup) this.destroyRef.onDestroy(cleanup);
       },
     });
+  }
+
+  /** Applies input updates synchronously before the matching render pass. */
+  ngOnChanges(): void {
+    const next = parseOpenGenerativeUIContent(this.content());
+    this.latestContent = next;
+    const previous = this.throttledContent();
+
+    if (!this.hasReceivedContent) {
+      this.hasReceivedContent = true;
+      this.clearThrottle();
+      this.commitContent(previous, next);
+      return;
+    }
+
+    if (shouldFlushOpenGenerativeUIImmediately(previous, next)) {
+      this.clearThrottle();
+      this.commitContent(previous, next);
+      return;
+    }
+
+    if (!this.throttleTimer) {
+      this.throttleTimer = setTimeout(() => {
+        this.throttleTimer = undefined;
+        this.throttledContent.set(this.latestContent);
+      }, THROTTLE_MS);
+    }
+  }
+
+  /** Commits content and synchronously removes stale sandbox DOM on restart. */
+  private commitContent(
+    previous: OpenGenerativeUIContent,
+    next: OpenGenerativeUIContent,
+  ): void {
+    this.throttledContent.set(next);
+
+    if (
+      hasRenderableOpenGenerativeUIContent(previous) &&
+      !hasRenderableOpenGenerativeUIContent(next)
+    ) {
+      this.destroyPreviewSandbox();
+      this.destroyFinalSandbox();
+      this.resetFinalRuntimeState();
+      this.autoHeight.set(undefined);
+    }
   }
 
   private clearThrottle(): void {
@@ -334,7 +382,8 @@ export class CopilotOpenGenerativeUIRenderer {
         if (
           !this.containerRef() ||
           this.previewSandbox ||
-          this.renderState().fullHtml
+          this.renderState().fullHtml ||
+          !this.renderState().hasPreview
         ) {
           return;
         }
@@ -393,10 +442,6 @@ export class CopilotOpenGenerativeUIRenderer {
 
   private reconcileSandboxState(state: OpenGenerativeUIRenderState): void {
     if (!state.fullHtml) {
-      this.destroyFinalSandbox();
-      this.resetFinalRuntimeState();
-      this.autoHeight.set(undefined);
-
       if (!state.hasPreview) {
         this.destroyPreviewSandbox();
         return;
@@ -408,43 +453,21 @@ export class CopilotOpenGenerativeUIRenderer {
     }
 
     this.destroyPreviewSandbox();
-    const finalSandboxKey = this.getFinalSandboxKey(state.fullHtml, state.css);
-    if (!this.sandbox || this.finalSandboxKey !== finalSandboxKey) {
-      void this.createFinalSandbox(state.fullHtml, state.css, finalSandboxKey);
-    }
-
     this.injectJsFunctions(state.jsFunctions);
     void this.executeNewExpressions(state.jsExpressions);
-  }
-
-  private getFinalSandboxKey(
-    fullHtml: string,
-    css: string | undefined,
-  ): string {
-    return JSON.stringify([fullHtml, css ?? ""]);
   }
 
   private async createFinalSandbox(
     fullHtml: string,
     css: string | undefined,
-    finalSandboxKey: string,
+    container: HTMLDivElement,
+    isCancelled: () => boolean,
   ): Promise<void> {
-    const container = this.containerRef()?.nativeElement;
-    if (!container || !fullHtml) return;
-
-    this.destroyPreviewSandbox();
-    this.destroyFinalSandbox();
-    this.finalSandboxKey = finalSandboxKey;
-    this.resetFinalRuntimeState();
-    this.autoHeight.set(undefined);
-
     const htmlContent = css ? injectCssIntoHtml(fullHtml, css) : fullHtml;
 
     try {
       const Websandbox = await this.loadWebsandbox();
-      if (!this.containerRef() || this.finalSandboxKey !== finalSandboxKey) {
-        return;
-      }
+      if (isCancelled()) return;
 
       const sandbox = Websandbox.create(this.createLocalApi(), {
         frameContainer: container,
@@ -459,7 +482,7 @@ export class CopilotOpenGenerativeUIRenderer {
       this.styleIframe(sandbox.iframe);
 
       sandbox.promise.then(() => {
-        if (this.sandbox !== sandbox) return;
+        if (isCancelled() || this.sandbox !== sandbox) return;
         this.sandboxReady = true;
         void sandbox.run(`
           var s = document.createElement('style');
@@ -471,9 +494,6 @@ export class CopilotOpenGenerativeUIRenderer {
         for (const code of queue) void sandbox.run(code);
       });
     } catch (error) {
-      if (this.finalSandboxKey === finalSandboxKey) {
-        this.finalSandboxKey = undefined;
-      }
       console.error("[OpenGenerativeUI] Failed to load sandbox module:", error);
     }
   }
@@ -578,7 +598,6 @@ export class CopilotOpenGenerativeUIRenderer {
     }
     this.sandboxReady = false;
     this.heightMeasured = false;
-    this.finalSandboxKey = undefined;
   }
 }
 

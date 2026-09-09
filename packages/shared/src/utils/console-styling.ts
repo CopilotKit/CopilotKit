@@ -53,15 +53,15 @@ export function logCopilotKitPlatformMessage() {
   console.log(
     `%cCopilotKit Warning%c
 
-useCopilotChatHeadless_c provides full compatibility with CopilotKit's newly released Headless UI feature set. To enable this premium feature, add your public license key, available for free at:
+useCopilotChatHeadless_c provides full compatibility with CopilotKit's newly released Headless UI feature set. Headless UI requires a CopilotKit Intelligence license key, available for free at:
 
 %chttps://dashboard.operations.copilotkit.ai%c
 
 Alternatively, useCopilotChat is available for basic programmatic control, and does not require a license key.
 
-To learn more about premium features, read the documentation here:
+To learn more about CopilotKit Intelligence, read the documentation here:
 
-%chttps://docs.copilotkit.ai/premium/overview%c`,
+%chttps://docs.copilotkit.ai/intelligence/overview%c`,
     ConsoleStyles.header,
     ConsoleStyles.body,
     ConsoleStyles.cta,

@@ -256,7 +256,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       //    satisfies the testid wait but contains the wrong content.
       const text = await readAssistantTranscript(page);
       console.debug(`[d5-tool-rendering-reasoning-chain] ${tag} text`, {
-        text: text.slice(0, 300),
+        textLength: text.length,
       });
       assertContainsAll(text, exp.textTokens, tag);
     },

@@ -1,17 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
 import { ComponentType, ButtonStyle } from "discord.js";
 import { renderComponents } from "./components-v2.js";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 
-const text = (value: string): BotNode => ({ type: "text", props: { value } });
-const node = (type: string, props: Record<string, unknown> = {}): BotNode => ({
+const text = (value: string): ChannelNode => ({
+  type: "text",
+  props: { value },
+});
+const node = (
+  type: string,
+  props: Record<string, unknown> = {},
+): ChannelNode => ({
   type,
   props,
 });
 
 describe("renderComponents", () => {
   it("wraps a header + section in a container with text displays", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: [
           node("header", { children: text("Hello") }),
@@ -30,7 +36,7 @@ describe("renderComponents", () => {
   });
 
   it("maps accent to the container accent color (#5865F2 → int)", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", { accent: "#5865F2", children: text("hi") }),
     ];
     const json = renderComponents(ir).toJSON();
@@ -38,7 +44,7 @@ describe("renderComponents", () => {
   });
 
   it("renders a button with its minted custom_id and style", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("button", {
@@ -61,7 +67,7 @@ describe("renderComponents", () => {
   });
 
   it("renders a url button as a Link-style button with no custom_id", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("button", {
@@ -82,7 +88,7 @@ describe("renderComponents", () => {
   });
 
   it("sets max_values on a multi-select so the decoder reads an array", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("select", {
@@ -110,7 +116,7 @@ describe("renderComponents", () => {
     const buttons = Array.from({ length: 7 }, (_, i) =>
       node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),
     );
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", { children: node("actions", { children: buttons }) }),
     ];
     const json = renderComponents(ir).toJSON();
@@ -123,7 +129,7 @@ describe("renderComponents", () => {
   });
 
   it("renders a divider as a separator", () => {
-    const ir: BotNode[] = [node("message", { children: node("divider") })];
+    const ir: ChannelNode[] = [node("message", { children: node("divider") })];
     const json = renderComponents(ir).toJSON();
     expect(
       json.components.some((c: any) => c.type === ComponentType.Separator),
@@ -133,7 +139,7 @@ describe("renderComponents", () => {
   it("clamps an IR with > componentsPerMessage components and appends one overflow marker", () => {
     // 60 dividers each cost one component; the message caps at 40 total.
     const dividers = Array.from({ length: 60 }, () => node("divider"));
-    const ir: BotNode[] = [node("message", { children: dividers })];
+    const ir: ChannelNode[] = [node("message", { children: dividers })];
     const json = renderComponents(ir).toJSON();
     expect(json.components.length).toBeLessThanOrEqual(40);
     const overflow = json.components.filter(
@@ -150,7 +156,7 @@ describe("renderComponents", () => {
     const sections = Array.from({ length: 3 }, () =>
       node("section", { children: text(chunk) }),
     );
-    const ir: BotNode[] = [node("message", { children: sections })];
+    const ir: ChannelNode[] = [node("message", { children: sections })];
     const json = renderComponents(ir).toJSON();
     const totalText = json.components
       .filter((c: any) => c.type === ComponentType.TextDisplay)
@@ -165,7 +171,7 @@ describe("renderComponents", () => {
       label: `opt${i}`,
       value: `v${i}`,
     }));
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("select", { onSelect: { id: "ck:sel" }, options }),
@@ -192,7 +198,7 @@ describe("renderComponents", () => {
 
   it("truncates a select placeholder over 150 chars", () => {
     const long = "p".repeat(300);
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("select", {
@@ -231,7 +237,7 @@ describe("renderComponents", () => {
   it("drops an over-large button value but still renders the button via its handler id", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const bigValue = { blob: "z".repeat(200) }; // v:<json> exceeds 100 chars
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("button", {
@@ -255,7 +261,7 @@ describe("renderComponents", () => {
   it("warns and renders no button when an over-large value is the only id source", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const bigValue = { blob: "z".repeat(200) };
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("button", { children: text("Go"), value: bigValue }),
@@ -278,7 +284,7 @@ describe("renderComponents", () => {
         ],
       }),
     );
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", { children: node("table", { columns, children: rows }) }),
     ];
     const json = renderComponents(ir).toJSON();
@@ -297,7 +303,7 @@ describe("renderComponents", () => {
     const buttons = Array.from({ length: 25 }, (_, i) =>
       node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),
     );
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: [
           node("section", { children: text("header text") }),
@@ -326,7 +332,7 @@ describe("renderComponents", () => {
     const buttons = Array.from({ length: 25 }, (_, i) =>
       node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),
     );
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: [...dividers, node("actions", { children: buttons })],
       }),
@@ -352,7 +358,7 @@ describe("renderComponents", () => {
     // Two 4000-char sections: the first fills totalTextChars, the second clamps
     // to "" — which must NOT become an empty TextDisplay (Discord rejects it).
     const chunk = "x".repeat(4000);
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: [
           node("section", { children: text(chunk) }),
@@ -368,7 +374,7 @@ describe("renderComponents", () => {
   });
 
   it("emits no 'content truncated' marker for genuinely-empty input (empty Fields / empty Text)", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: [
           node("fields", { children: [] }),
@@ -410,7 +416,7 @@ describe("renderComponents", () => {
         ],
       }),
     );
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: [...fillers, node("table", { columns, children: rows })],
       }),
@@ -429,7 +435,7 @@ describe("renderComponents", () => {
   });
 
   it("does not emit a Select with zero options", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("select", { onSelect: { id: "ck:sel" }, options: [] }),
@@ -445,7 +451,7 @@ describe("renderComponents", () => {
   });
 
   it("falls back to ' ' for an explicitly-empty select placeholder", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: node("actions", {
           children: node("select", {
@@ -471,7 +477,7 @@ describe("renderComponents", () => {
     const sections = Array.from({ length: 4 }, () =>
       node("section", { children: text(chunk) }),
     );
-    const ir: BotNode[] = [node("message", { children: sections })];
+    const ir: ChannelNode[] = [node("message", { children: sections })];
     const json = renderComponents(ir).toJSON();
     const totalText = json.components
       .filter((c: any) => c.type === ComponentType.TextDisplay)

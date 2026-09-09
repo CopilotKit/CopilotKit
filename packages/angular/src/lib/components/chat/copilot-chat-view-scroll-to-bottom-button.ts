@@ -6,7 +6,7 @@ import {
   ViewEncapsulation,
 } from "@angular/core";
 
-import { LucideAngularModule, ChevronDown } from "lucide-angular";
+import { ChevronDown, CopilotIcon } from "../icons/copilot-icon";
 import { cn } from "../../utils";
 
 /**
@@ -15,21 +15,22 @@ import { cn } from "../../utils";
  */
 @Component({
   selector: "copilot-chat-view-scroll-to-bottom-button",
-  imports: [LucideAngularModule],
+  imports: [CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
     <button
       type="button"
+      aria-label="Scroll to bottom"
       [class]="computedClass"
       [disabled]="disabled()"
       (click)="handleClick()"
     >
-      <lucide-angular
+      <copilot-icon
         [img]="ChevronDown"
         class="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white"
       >
-      </lucide-angular>
+      </copilot-icon>
     </button>
   `,
 })

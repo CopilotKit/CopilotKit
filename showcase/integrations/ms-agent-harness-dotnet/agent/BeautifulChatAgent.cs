@@ -111,6 +111,14 @@ Tool guidance:
   charts, tables, and cards. It handles rendering automatically.
 - Charts (frontend components): call query_data first, then render with the
   pieChart or barChart frontend component.
+- Calculator / freeform interactive UI: call generateSandboxedUi. Build a real
+  clickable calculator with digit and operator buttons (type=""button"", never
+  type=""submit"", never wrap in a <form>). Wire each button with click handlers
+  that update a visible display element. Metric shortcut buttons insert sample
+  values into the display. The UI must work without host functions when none
+  are required for pure client-side math.
+- MCP / Excalidraw: use the registered MCP app tools when the user asks for a
+  diagram; do not invent fake iframe HTML yourself.
 - Todos: enable app mode first (call enableAppMode), then manage todos.
 - A2UI actions: when you see a log_a2ui_event result (e.g. ""view_details""),
   respond with a brief confirmation. The UI already updated on the frontend.";
@@ -344,7 +352,7 @@ price (e.g. ""$289"").")]
         {
             content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
                 _configuration,
-                "Generate a useful A2UI dashboard.",
+                BeautifulChatA2ui.DesignSystemPrompt(CatalogId),
                 userContent,
                 _logger,
                 cancellationToken).ConfigureAwait(false);
@@ -389,10 +397,13 @@ price (e.g. ""$289"").")]
                 errorId);
         }
 
-        // Reuse the SalesAgentFactory's A2UI response builder so the JSON
-        // massaging is shared across both demos and we get the same structured
-        // error taxonomy for free.
-        return BeautifulChatA2ui.BuildA2uiResponseFromContent(content, errorId, _logger);
+        // Force the page-registered catalog id — models invent names like
+        // "sales_dashboard" which paint as "Catalog not found" on the client.
+        return BeautifulChatA2ui.BuildA2uiResponseFromContent(
+            content,
+            errorId,
+            _logger,
+            forcedCatalogId: CatalogId);
     }
 
     // ─── Sample data (inline port of beautiful_chat_data/db.csv) ───

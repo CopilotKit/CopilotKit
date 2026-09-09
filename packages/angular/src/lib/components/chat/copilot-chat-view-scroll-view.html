@@ -11,9 +11,19 @@
       } @else {
       <copilot-chat-message-view
         [messages]="messages()"
+        [state]="state()"
         [agentId]="agentId()"
         [inputClass]="messageViewClass()"
         [showCursor]="showCursor()"
+        [assistantMessageComponent]="assistantMessageComponent()"
+        [assistantMessageTemplate]="assistantMessageTemplate()"
+        [assistantMessageClass]="assistantMessageClass()"
+        [reasoningMessageComponent]="reasoningMessageComponent()"
+        [reasoningMessageTemplate]="reasoningMessageTemplate()"
+        [reasoningMessageClass]="reasoningMessageClass()"
+        [childrenComponent]="messageViewChildrenComponent()"
+        [childrenTemplate]="messageViewChildrenTemplate()"
+        [childrenClass]="messageViewChildrenClass()"
         (assistantMessageThumbsUp)="assistantMessageThumbsUp.emit($event)"
         (assistantMessageThumbsDown)="assistantMessageThumbsDown.emit($event)"
         (assistantMessageReadAloud)="assistantMessageReadAloud.emit($event)"
@@ -48,7 +58,7 @@
 </div>
 } @else {
 <div
-  class="cpk:h-[calc(100vh-9rem)] cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative"
+  class="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative"
 >
   @if (autoScroll()) {
   <!-- Auto-scroll mode with StickToBottom directive -->

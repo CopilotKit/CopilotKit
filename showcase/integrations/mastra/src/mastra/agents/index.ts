@@ -6,27 +6,58 @@
 // `withForwardedHeaders(req, () => handleRequest(req))`.
 import { openai } from "@/mastra/_header_forwarding";
 import { Agent } from "@mastra/core/agent";
+import { stepCountIs } from "ai";
 import {
   weatherTool,
   stockPriceTool,
+  revenueChartTool,
   queryDataTool,
-  manageSalesTodosTool,
-  getSalesTodosTool,
+  manageTodosTool,
+  getTodosTool,
   scheduleMeetingTool,
+  scheduleMeetingInterruptTool,
   searchFlightsTool,
+  searchFlightsA2uiTool,
+  rollDiceTool,
+  rollD20Tool,
   generateA2uiTool,
   setNotesTool,
   setStepsTool,
   researchAgentTool,
   writingAgentTool,
   critiqueAgentTool,
+  browseWebTool,
+  runDeepResearchTool,
 } from "@/mastra/tools";
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
+import type { RequestContext } from "@mastra/core/request-context";
+// Backend-owned A2UI with the toolkit validate->retry recovery loop (OSS-422).
+// `@ag-ui/mastra/a2ui` is a bridge-free subpath (avoids the Mastra bundler vs
+// @ag-ui/client→uuid clash); mirrors langgraph's get_a2ui_tools.
+import { getA2UITools } from "@ag-ui/mastra/a2ui";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
+  // Beautiful Chat's app-mode todo canvas reads `agent.state.todos`. The
+  // `manage_todos` tool writes the list into working memory (see
+  // writeTodosToWorkingMemory), which the bridge surfaces as a STATE_SNAPSHOT —
+  // so the slice MUST be declared here or the write has nowhere to land and the
+  // panel stays on "No todos yet" (OSS-452). Shape mirrors langgraph-python's
+  // Todo (beautiful_chat.py) and the shared frontend's Todo interface.
+  // Optional/defaulted so every other weatherAgent-backed demo is unaffected.
+  todos: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        description: z.string(),
+        emoji: z.string(),
+        status: z.enum(["pending", "completed"]),
+      }),
+    )
+    .default([]),
 });
 
 /**
@@ -128,14 +159,33 @@ export const GenUiAgentState = z.object({
 });
 // @endregion[gen-ui-agent-state-schema]
 
+// @region[shared-state-streaming-state-schema]
+/**
+ * Shared-state schema for the Shared State (Streaming) demo.
+ *
+ * `document` is streamed token-by-token into shared state as the agent
+ * writes. Mastra parity for the LangGraph `StateStreamingMiddleware` /
+ * predictive-state pattern: instead of a `write_document` tool whose arg is
+ * forwarded per-token, this agent calls Mastra's built-in
+ * `updateWorkingMemory` tool with the growing document. The AG-UI Mastra
+ * adapter intercepts that tool call's STREAMING args (OSS-414) and emits a
+ * leading `STATE_SNAPSHOT` followed by incremental `STATE_DELTA`s on the
+ * `document` key, so `useAgent({ updates:[OnStateChanged] })` sees
+ * `state.document` grow live.
+ */
+export const SharedStateStreamingAgentState = z.object({
+  document: z.string().default(""),
+});
+// @endregion[shared-state-streaming-state-schema]
+
 export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
   tools: {
     get_weather: weatherTool,
     query_data: queryDataTool,
-    manage_sales_todos: manageSalesTodosTool,
-    get_sales_todos: getSalesTodosTool,
+    manage_todos: manageTodosTool,
+    get_todos: getTodosTool,
     schedule_meeting: scheduleMeetingTool,
     search_flights: searchFlightsTool,
     generate_a2ui: generateA2uiTool,
@@ -170,9 +220,16 @@ export const weatherAgent = new Agent({
 export const headlessCompleteAgent = new Agent({
   id: "headless-complete-agent",
   name: "Headless Complete Agent",
+  // Register under the snake_case names the aimock fixtures + useRenderTool
+  // renderers emit (get_weather / get_stock_price / get_revenue_chart). Object
+  // shorthand ({ weatherTool, stockPriceTool }) exposed the JS variable names
+  // instead, so the fixture-scripted get_* tool calls were never executable and
+  // the WeatherCard / StockCard / ChartCard stalled in their "running" state.
+  // Mirrors gold langgraph-python headless_complete.py tools=[...].
   tools: {
-    weatherTool,
-    stockPriceTool,
+    get_weather: weatherTool,
+    get_stock_price: stockPriceTool,
+    get_revenue_chart: revenueChartTool,
   },
   model: openai("gpt-4o-mini"),
   instructions: `You are a helpful, concise assistant wired into a headless chat surface that demonstrates CopilotKit's full rendering stack. Pick the right surface for each user question and fall back to plain text when none of the tools fit.
@@ -277,6 +334,16 @@ export const genUiAgent = new Agent({
   name: "Gen UI Agent",
   tools: { setStepsTool },
   model: openai("gpt-4o-mini"),
+  // The planner scripts 3 steps × 2 set_steps transitions (in_progress →
+  // completed) + 1 initial "all pending" call + 1 closing message = ~8 model
+  // turns. The AI SDK's default stop condition halts the agentic loop before
+  // the 3rd step reaches "completed" (only 2/3 land), so raise the step cap to
+  // run the full progression. LangGraph (gold) loops until the graph ends and
+  // needs no equivalent; this is the AI-SDK step-cap analogue (cf.
+  // toolRenderingAgent's d20 sequence).
+  defaultOptions: {
+    stopWhen: stepCountIs(12),
+  },
   instructions: `You are an agentic planner. For each user request, follow this exact sequence:
 1. Plan exactly 3 concrete steps and call \`set_steps\` ONCE with all three steps at status="pending".
 2. Step 1: call \`set_steps\` with step 1 at status="in_progress", then call \`set_steps\` again with step 1 at status="completed".
@@ -301,6 +368,221 @@ The \`set_steps\` tool persists the steps to working memory itself — you do NO
   }),
 });
 // @endregion[gen-ui-agent]
+
+// @region[reasoning-agent]
+/**
+ * Reasoning-capable model for the reasoning demos.
+ *
+ * Why a reasoning model (parity with langgraph-python's `reasoning_agent.py`):
+ * the OpenAI Responses API streams `response.reasoning_summary_text.delta`
+ * items only for native reasoning models (gpt-5, o3, o4-mini, ...). The
+ * @ag-ui/mastra bridge translates those into AG-UI REASONING_MESSAGE_* events
+ * (`role: "reasoning"`), which the frontend renders via the built-in
+ * `CopilotChatReasoningMessage` (reasoning-default) or a custom
+ * `reasoningMessage` slot (reasoning-custom). gpt-4o / gpt-4o-mini emit no
+ * reasoning items, so mapping these demos to the default weatherAgent (gpt-4o)
+ * meant the reasoning slot never lit up. Override via `OPENAI_REASONING_MODEL`.
+ */
+export const REASONING_MODEL =
+  process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
+
+/**
+ * Provider options that force the OpenAI Responses API to emit a reasoning
+ * summary on every turn. `summary: "detailed"` is what makes the model stream
+ * its chain of thought as `reasoning_summary_text.delta` items (mirrors the
+ * gold `reasoning={"effort":"medium","summary":"detailed"}` config). Passed as
+ * the agent's default `.stream()` options so the @ag-ui/mastra bridge (which
+ * calls `agent.stream()`) picks them up on every run.
+ */
+const REASONING_PROVIDER_OPTIONS = {
+  openai: {
+    reasoningEffort: "medium",
+    reasoningSummary: "detailed",
+  },
+} as const;
+
+/**
+ * Mastra agent backing the Reasoning: Default and Reasoning: Custom demos.
+ *
+ * Shared by both cells (the only difference is frontend-side: whether the
+ * `messageView.reasoningMessage` slot is overridden). No tools — these demos
+ * exercise pure reasoning-summary streaming, matching gold's `reasoning_agent`.
+ */
+export const reasoningAgent = new Agent({
+  id: "reasoning-agent",
+  name: "Reasoning Agent",
+  tools: {},
+  model: openai(REASONING_MODEL),
+  defaultOptions: {
+    providerOptions: REASONING_PROVIDER_OPTIONS,
+  },
+  instructions: `You are a helpful assistant. Think through problems step by step before answering. When a question benefits from reasoning, work through the intermediate steps, then give a clear, concise final answer.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "reasoning-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[reasoning-agent]
+
+// @region[reasoning-chain-agent]
+/**
+ * Mastra agent backing the Tool Rendering + Reasoning Chain demo.
+ *
+ * Combines reasoning-summary streaming (same reasoning model + provider
+ * options as `reasoningAgent`) with backend tool rendering. Registers the
+ * four chain tools the aimock fixtures script (weather, flights, stock,
+ * dice) under the exact tool-call names the fixtures emit (`get_weather`,
+ * `search_flights`, `get_stock_price`, `roll_dice`) so Mastra can EXECUTE
+ * each leg and advance the multi-turn chain to its final narration. Mapping
+ * this demo to the default weatherAgent left `get_stock_price`/`roll_dice`
+ * unregistered, so the stock/dice chains never reached the closing message.
+ *
+ * Mirrors langgraph-python's `tool_rendering_reasoning_chain_agent.py`
+ * (system prompt + toolset + reasoning model).
+ */
+export const reasoningChainAgent = new Agent({
+  id: "reasoning-chain-agent",
+  name: "Reasoning Chain Agent",
+  tools: {
+    get_weather: weatherTool,
+    search_flights: searchFlightsTool,
+    get_stock_price: stockPriceTool,
+    roll_dice: rollDiceTool,
+  },
+  model: openai(REASONING_MODEL),
+  defaultOptions: {
+    providerOptions: REASONING_PROVIDER_OPTIONS,
+  },
+  instructions: `You are a helpful travel & lifestyle concierge with mock tools for weather, flights, stock prices, and dice rolls — they all return mock data, so always call them rather than guessing.
+
+Your habit is to CHAIN tools when one answer naturally invites another. For a single user question, call at least TWO tools in sequence when it makes sense:
+  - "What's the weather in <city>?" -> call get_weather(<city>), then call search_flights(origin='SFO', destination=<city>) so the user can act on it.
+  - "How is <ticker> doing?" -> call get_stock_price(<ticker>), then call get_stock_price on a comparable ticker (e.g. 'MSFT' or 'AAPL') to compare.
+  - "Roll a 20-sided die" -> call roll_dice(sides=20), then call roll_dice again with a different number of sides so the user sees a contrast.
+  - "Find flights from <a> to <b>" -> call search_flights(a, b), then call get_weather(<b>) for the destination.
+
+Only skip the second tool call when the question is truly atomic and more tool calls would feel intrusive. Never fabricate data that a tool could provide. After the tools return, write one short narration summarizing the results.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "reasoning-chain-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[reasoning-chain-agent]
+
+// @region[tool-rendering-agent]
+/**
+ * Dedicated agent for the tool-rendering demos (tool-rendering,
+ * tool-rendering-default-catchall, tool-rendering-custom-catchall). Binds all
+ * four demo tools under the exact names the aimock fixtures emit — get_weather,
+ * search_flights, get_stock_price, roll_d20 — so Mastra can EXECUTE each pill's
+ * tool call and the card renders. Routing this demo to the default weatherAgent
+ * left get_stock_price / roll_d20 unregistered, so the Stock, d20, and Chain
+ * pills emitted uncallable tool calls that the AI SDK dropped (no card).
+ *
+ * Mirrors langgraph-python's tool_rendering_agent.py (system prompt + toolset).
+ */
+export const toolRenderingAgent = new Agent({
+  id: "tool-rendering-agent",
+  name: "Tool Rendering Agent",
+  tools: {
+    get_weather: weatherTool,
+    search_flights: searchFlightsTool,
+    get_stock_price: stockPriceTool,
+    roll_d20: rollD20Tool,
+  },
+  // Gold parity (tool_rendering_agent.py uses gpt-5.4). On gpt-4o this agent
+  // prefixed the flights turn with a restatement of the PREVIOUS turn's
+  // weather ("The weather in San Francisco is…"), which read as a tool result
+  // arriving a turn late (PNI-121); gold narrates only the current turn's
+  // tools. Same system prompt, so the model was the divergence.
+  model: openai("gpt-5.4"),
+  // The "Roll a d20" pill chains 5 sequential roll_d20 calls + a closing
+  // narration (6 model turns), and "Chain tools" fans out 3 tools then
+  // summarizes. The AI SDK default stop condition halts the agentic loop
+  // before the sequence completes (only 4/5 dice cards render), so raise the
+  // step cap enough to run the longest scripted chain to completion.
+  defaultOptions: {
+    stopWhen: stepCountIs(8),
+  },
+  instructions: `You are a travel & lifestyle concierge. Use the mock tools for weather, flights, stock prices, or d20 rolls when the user asks; otherwise reply in plain text. For flights, default origin to 'SFO' if the user only names a destination. Call multiple tools in one turn if asked. After tools return, summarize in one short sentence. Never fabricate data a tool could provide.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "tool-rendering-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[tool-rendering-agent]
+
+// @region[shared-state-streaming-agent]
+/**
+ * Mastra agent backing the Shared State (Streaming) demo.
+ *
+ * Per-token state streaming. When asked to write, draft, or revise text the
+ * agent calls the built-in `updateWorkingMemory` tool with the FULL document
+ * text under the `document` key. Because working memory is enabled with the
+ * `SharedStateStreamingAgentState` schema, Mastra streams that tool call's
+ * args as `tool-call-delta` frames; the AG-UI Mastra adapter accumulates
+ * them, re-parses the growing prefix, and emits a leading `STATE_SNAPSHOT`
+ * plus incremental `STATE_DELTA`s on `/document` (OSS-414). The frontend
+ * renders `state.document` live as it fills in.
+ *
+ * NOTE: unlike `sharedStateReadWriteAgent`/`genUiAgent` (which use a custom
+ * `set_*` tool that yields a single end-of-run `STATE_SNAPSHOT`), this demo
+ * deliberately drives the built-in `updateWorkingMemory` tool — that is the
+ * only path that streams progressive per-token deltas rather than one blob
+ * at run end. So the prompt tells the model to write the document straight
+ * into working memory instead of via a bespoke tool.
+ */
+export const sharedStateStreamingAgent = new Agent({
+  id: "shared-state-streaming",
+  name: "Shared State Streaming Agent",
+  tools: {},
+  model: openai("gpt-4o"),
+  instructions: `You are a collaborative writing assistant wired to a live Document panel.
+
+Whenever the user asks you to write, draft, revise, or explain anything of any length (a poem, an email, an essay, a summary, an explanation, etc.), you MUST call the \`updateWorkingMemory\` tool with the FULL content as a single string under the \`document\` field, e.g. { "document": "<the full text>" }.
+
+Rules:
+  - NEVER paste the document body into a chat message. The document belongs in shared state — the UI renders it live from working memory as you stream it.
+  - Always send the ENTIRE document in one \`updateWorkingMemory\` call (not a diff, not chunks across multiple calls).
+  - After the document is written, reply with ONE short chat sentence confirming what you wrote (e.g. "Done — I've drafted your poem in the document panel."). Keep the document text itself out of that message.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "shared-state-streaming-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: SharedStateStreamingAgentState,
+      },
+    },
+  }),
+});
+// @endregion[shared-state-streaming-agent]
 
 // @region[subagents-supervisor]
 /**
@@ -366,13 +648,23 @@ If a delegation's \`status\` field is \`"failed"\`, treat it as a real error: do
 export const mcpAppsAgent = new Agent({
   id: "mcp-apps-agent",
   name: "MCP Apps Agent",
-  model: openai("gpt-4o-mini"),
+  // `create_view` takes `elements` as a *stringified* JSON array, so the model has
+  // to hand-escape nested JSON and sometimes appends a stray `}` past the closing
+  // `]`. The MCP server rejects that payload, and with no retry the cell just
+  // renders an empty iframe. The server's error names the exact problem, so the
+  // model is told to read it and correct itself rather than relying on one-shot
+  // accuracy: at most 2 corrections (3 `create_view` calls), with the step cap
+  // bounding the loop if it never converges.
+  model: openai("gpt-5.4"),
+  defaultOptions: {
+    stopWhen: stepCountIs(6),
+  },
   instructions: `You draw simple diagrams in Excalidraw via the MCP tool.
 
-SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize for polish. Target: one tool call, done in seconds.
+SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize for polish. Target: one successful tool call, done in seconds.
 
 When the user asks for a diagram:
-1. Call \`create_view\` ONCE with 3-5 elements total: shapes + arrows + an optional title text.
+1. Call \`create_view\` with 3-5 elements total: shapes + arrows + an optional title text.
 2. Use straightforward shapes (rectangle, ellipse, diamond) with plain \`label\` fields (\`{"text": "...", "fontSize": 18}\`) on them.
 3. Connect with arrows. Endpoints can be element centers or simple coordinates.
 4. Include ONE \`cameraUpdate\` at the END of the elements array that frames the whole diagram (600x450 or 800x600).
@@ -380,7 +672,9 @@ When the user asks for a diagram:
 
 Every element needs a unique string \`id\` (e.g. \`"b1"\`, \`"a1"\`, \`"title"\`). Standard sizes: rectangles 160x70, ellipses/diamonds 120x80, 40-80px gap between shapes.
 
-Do NOT call \`read_me\`, do NOT iterate, do NOT make multiple calls. Ship on the first shot.`,
+Do NOT call \`read_me\`. Get it right on the first call whenever you can.
+
+If \`create_view\` returns an error, the \`elements\` string you sent was not valid JSON. It must contain ONLY a JSON array: start at \`[\`, end at \`]\`, and emit nothing after that final \`]\`. Read the error, fix the string, and call \`create_view\` again. You may correct at most TWICE (3 calls total). If the third call still fails, reply with one short sentence saying you could not render the diagram.`,
   memory: new Memory({
     storage: new LibSQLStore({
       id: "mcp-apps-agent-memory",
@@ -493,25 +787,27 @@ Example response (sales dashboard):
  * Scheduling agent for the interrupt-adapted demos (gen-ui-interrupt,
  * interrupt-headless).
  *
- * This agent powers the "Strategy B" adaptation of the LangGraph interrupt
- * demos. LangGraph has a native `interrupt()` primitive with
- * checkpoint/resume; Mastra does not. Instead, we register a frontend tool
- * (`schedule_meeting`) via `useFrontendTool` with an async handler. The
- * handler returns a Promise that only resolves once the user picks a time
- * slot (or cancels), producing the same UX as `interrupt()`.
+ * This agent powers the NATIVE interrupt path (OSS-383). The backend
+ * `schedule_meeting` tool `suspend()`s with a time-picker payload; the
+ * @ag-ui/mastra v1 bridge maps that to an AG-UI interrupt (legacy
+ * `on_interrupt` CUSTOM event + the standard `RUN_FINISHED` interrupt-outcome,
+ * on by default). The frontend `useInterrupt` (gen-ui-interrupt, in-chat) /
+ * hand-rolled headless subscription (interrupt-headless, app-surface) renders
+ * the picker and resolves it, which resumes the run — re-invoking the tool's
+ * `execute` with `resumeData`. Replaces the prior `useHumanInTheLoop`
+ * frontend-tool workaround.
  *
- * The agent defines NO backend tools — `schedule_meeting` is satisfied
- * entirely by the frontend. The system prompt directs the model to always
- * call `schedule_meeting` when asked to book/schedule.
+ * Resume requires instance `storage` (see src/mastra/index.ts) so the
+ * suspended agentic-loop snapshot can be reloaded.
  */
 export const interruptAgent = new Agent({
   id: "interrupt-agent",
   name: "Interrupt Agent",
-  tools: {},
+  tools: { schedule_meeting: scheduleMeetingInterruptTool },
   model: openai("gpt-4o-mini"),
   instructions: `You are a scheduling assistant. Whenever the user asks you to book a call or schedule a meeting, you MUST call the \`schedule_meeting\` tool. Pass a short \`topic\` describing the purpose of the meeting and, if known, an \`attendee\` describing who the meeting is with.
 
-The \`schedule_meeting\` tool is implemented on the client: it surfaces a time-picker UI to the user and returns the user's selection. After the tool returns, briefly confirm whether the meeting was scheduled and at what time, or note that the user cancelled. Do NOT ask for approval yourself — always call the tool and let the picker handle the decision.
+The \`schedule_meeting\` tool surfaces an interactive time-picker to the user and pauses until they pick a slot (or cancel), then returns their selection to you. After it returns, briefly confirm whether the meeting was scheduled and at what time, or note that the user cancelled. Do NOT ask for approval yourself — always call the tool and let the picker handle the decision.
 
 Keep responses short and friendly. After you finish executing tools, always send a brief final assistant message summarizing what happened so the message persists.`,
   memory: new Memory({
@@ -529,6 +825,107 @@ Keep responses short and friendly. After you finish executing tools, always send
 });
 // @endregion[interrupt-agent]
 // @endregion[backend-interrupt-tool]
+
+// A2UI Error Recovery agent (OSS-422). Backend-owned `generate_a2ui` via
+// getA2UITools, which runs the forced render_a2ui subagent + the toolkit
+// validate->retry recovery loop + the recovery-exhausted hard-fail envelope
+// INSIDE the tool. The dedicated route (/api/copilotkit-a2ui-recovery) sets
+// a2ui.injectA2UITool=false so the runtime does not inject a second copy.
+// Reuses the declarative-gen-ui catalog ("declarative-gen-ui-catalog"); mirrors
+// langgraph-python recovery_agent.py + the strands recovery cell.
+export const a2uiRecoveryAgent = new Agent({
+  id: "a2ui-recovery",
+  name: "A2UI Recovery Agent",
+  model: openai("gpt-4.1"),
+  instructions:
+    "You are the embedded sales analyst for Vantage Threads, a fictional B2B " +
+    "apparel company. Answer every business question by calling `generate_a2ui` " +
+    "to draw a rich visual surface, and keep the chat reply to one short " +
+    "sentence. `generate_a2ui` handles the rendering — and its automatic " +
+    "recovery — for you.",
+  tools: {
+    generate_a2ui: getA2UITools({
+      model: openai("gpt-4.1"),
+      defaultCatalogId: "declarative-gen-ui-catalog",
+      recovery: { maxAttempts: 3 },
+    }),
+  },
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "a2ui-recovery-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+
+// Dedicated agent for the Beautiful Chat flagship cell. Mirrors langgraph-python
+// `beautiful_chat.py`: query_data + todos + the dynamic `generate_a2ui`
+// (dashboards) + a FIXED-schema `search_flights` that returns a FlightCard A2UI
+// envelope. Kept separate from the shared `weatherAgent` so the fixed-schema
+// flights + the flight/dashboard steering prompt don't leak into the
+// tool-rendering cells (which render flights via their own frontend card).
+// Frontend tools (pieChart, barChart, scheduleTime, generateSandboxedUi,
+// toggleTheme, enableAppMode, …) arrive as client tools at run time, so they
+// are not declared here.
+export const beautifulChatAgent = new Agent({
+  id: "beautiful-chat-agent",
+  name: "Beautiful Chat Agent",
+  tools: {
+    query_data: queryDataTool,
+    manage_todos: manageTodosTool,
+    get_todos: getTodosTool,
+    generate_a2ui: generateA2uiTool,
+    search_flights: searchFlightsA2uiTool,
+  },
+  // Matches gold `beautiful_chat.py` (`ChatOpenAI(model="gpt-5.4")`).
+  model: openai("gpt-5.4"),
+  // Mirror gold `beautiful_chat.py` (`parallel_tool_calls=False`): the model
+  // commits to one tool per step instead of firing several at once. Without it,
+  // a "sales dashboard … include a pie chart and a bar chart" request tempts the
+  // model to call the standalone `pieChart`/`barChart` tools AND `generate_a2ui`
+  // in parallel, painting loose charts next to the dashboard.
+  defaultOptions: {
+    providerOptions: {
+      openai: {
+        parallelToolCalls: false,
+      },
+    },
+  },
+  instructions:
+    "You are a polished, professional demo assistant. Keep responses to 1-2 " +
+    "sentences.\n\nTool guidance:\n" +
+    "- Flights: call search_flights to show flight cards with a pre-built " +
+    "schema.\n" +
+    "- Dashboards & rich UI: call generate_a2ui to create dashboard UIs with " +
+    "metrics, charts, tables, and cards. It handles rendering automatically. " +
+    "When a request asks for a dashboard or says 'using A2UI', call " +
+    "generate_a2ui ONLY — do NOT also call the standalone pieChart or barChart " +
+    "tools; generate_a2ui draws the charts inside the surface.\n" +
+    "- Standalone charts: only when the user asks for a single pie or bar chart " +
+    "(not a dashboard), call query_data first, then the pieChart or barChart " +
+    "tool.\n" +
+    "- Todos: enable app mode first, then manage todos.\n" +
+    "- A2UI actions: when you see a log_a2ui_event result, respond with a " +
+    "brief confirmation. The UI already updated on the frontend.",
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "beautiful-chat-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
 
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",
@@ -549,3 +946,245 @@ export const multimodalAgent = new Agent({
     },
   }),
 });
+
+// @region[browser-use-agent]
+/**
+ * Mastra agent backing the Browser Use demo (OSS-91).
+ *
+ * Modeled on Mastra's HackerNews browser example: the agent drives a real,
+ * LOCAL headless browser (Playwright Chromium — no hosted-browser API key)
+ * via the `browse_web` tool, then summarizes what it found back into the
+ * CopilotKit chat. The frontend renders the structured results as cards via
+ * a custom `useRenderTool` renderer.
+ *
+ * This is a Mastra-only, real-LLM demo: browser navigation is
+ * non-deterministic (live pages change every request) and therefore does
+ * NOT replay under aimock. There is no D6 aimock fixture for this cell — see
+ * `qa/browser-use.md` and `tests/e2e/browser-use.spec.ts` for the rationale.
+ *
+ * Failure handling lives in the tool: `browse_web` returns a structured
+ * `{ error }` payload if the local Chromium binary is missing or a launch
+ * fails, so the run always completes rather than crashing.
+ */
+export const browserUseAgent = new Agent({
+  id: "browser-use-agent",
+  name: "Browser Use Agent",
+  tools: { browse_web: browseWebTool },
+  model: openai("gpt-4o-mini"),
+  instructions: `You are a web-browsing assistant with access to a REAL local browser via the \`browse_web\` tool.
+
+When the user asks you to look something up on the web, read a page, or check what's trending:
+1. Call \`browse_web\` with a clear \`task\` describing what to fetch. Pass an explicit http(s) URL when the user names a site (e.g. "read https://www.copilotkit.ai"); otherwise describe the goal (e.g. "top Hacker News stories").
+2. The tool returns JSON with a \`results\` array (and, for page reads, a \`text\` excerpt). Base your answer ONLY on what the tool returns — never invent stories, links, scores, or page contents.
+3. Write a short, useful summary in chat: for Hacker News, mention a few of the top stories with their points; for a page read, summarize what the page is about in 2-3 sentences.
+
+If the tool returns an \`error\` field, tell the user plainly that the browser could not run and relay the error message (it usually means the local Chromium binary is not installed). Do not retry more than once.
+
+Keep responses concise and always end with a brief final assistant message so the summary persists.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "browser-use-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[browser-use-agent]
+
+// @region[background-agents-agent]
+/**
+ * Background Agents demo agent (OSS-426).
+ *
+ * Wires the backgroundable `run_deep_research` tool. When the user asks to
+ * research a topic, the agent calls the tool once; Mastra dispatches it as a
+ * background task (the instance enables the BackgroundTaskManager in
+ * `src/mastra/index.ts`) and MastraAgent surfaces it as a live "working"
+ * activity card instead of a normal tool pill. Completion is out of band —
+ * see `src/mastra/tools/background-research.ts`.
+ */
+export const backgroundAgentsAgent = new Agent({
+  id: "background-agents",
+  name: "Background Agents Agent",
+  tools: { runDeepResearchTool },
+  model: openai("gpt-4.1"),
+  instructions: `You are a research assistant that dispatches long-running work to the background.
+
+When the user asks you to research, investigate, look into, or dig into a topic, you MUST call the \`run_deep_research\` tool ONCE with a concise \`topic\` describing what to research. That kicks the work off in the background so the conversation can continue.
+
+After you call the tool, send ONE short assistant message telling the user the deep-research task is now running in the background and that you'll surface the findings when it completes. Do not call the tool more than once per request, and do not wait for results before replying.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "background-agents-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[background-agents-agent]
+
+// @region[observational-memory-agent]
+/**
+ * Mastra agent backing the Observational Memory demo (OSS-427).
+ *
+ * Observational Memory (OM) is a Mastra `Memory` feature: as the conversation
+ * grows, Mastra runs an Observer agent OUT OF BAND that reads the unobserved
+ * messages, compresses them into structured observations, and activates those
+ * observations into the working context. OM surfaces this background work on
+ * the agent's `fullStream` as typed `data-om-*` chunks, which MastraAgent maps
+ * to AG-UI activity events (activityType `mastra-observational-memory`).
+ *
+ * TWO independent opt-ins: (1) HERE — enable OM on the agent's `Memory` via
+ * `options.observationalMemory`; (2) in the route — the surfacing toggle
+ * `getLocalAgents({ mastra, observationalMemory: true })`.
+ *
+ * Config notes (verified vs @mastra/memory 1.22): `scope:'thread'` is required
+ * for the async buffering path (`'resource'` throws); the trigger is UNOBSERVED
+ * message-token SIZE (not turn count) with a reliable 600/300 floor (200/100
+ * no-ops) — the demo pills send SIZABLE messages to trip it; a config object
+ * requires an explicit model (default google/gemini-2.5-flash), pinned to the
+ * forwarding `openai` so the Observer call routes through the header shim.
+ */
+export const observationalMemoryAgent = new Agent({
+  id: "observational-memory-agent",
+  name: "Observational Memory Agent",
+  model: openai("gpt-4.1"),
+  instructions: `You are a helpful assistant with a long memory. The user will share large amounts of context about their work, projects, and preferences across the conversation. Read what they share carefully, answer their questions directly and concisely, and lean on everything they've told you so far. Keep replies focused — a few short paragraphs at most.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "observational-memory-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+      observationalMemory: {
+        scope: "thread",
+        observation: { messageTokens: 600, bufferTokens: 300 },
+        model: openai("gpt-4.1"),
+      },
+    },
+  }),
+});
+// @endregion[observational-memory-agent]
+
+// @region[open-gen-ui-agents]
+/**
+ * Dedicated agents for the Open Generative UI demos (minimal + advanced).
+ *
+ * Parity target (gold = langgraph-python `open_gen_ui_agent.py` /
+ * `open_gen_ui_advanced_agent.py`): each is a purpose-built agent whose
+ * system prompt MANDATES a single `generateSandboxedUi` call producing a
+ * polished (advanced: INTERACTIVE, host-function-wired) sandboxed UI, and
+ * reads the design-skill + sandbox-function descriptors the
+ * `CopilotKitProvider` injects as agent CONTEXT.
+ *
+ * Why NOT the shared `weatherAgent`: with only
+ * `"You are a helpful assistant."` plus the tool description, a live LLM
+ * emits STATIC HTML with no JS wiring — the calculator's buttons render
+ * but nothing is interactive. aimock hid this because its replay fixture
+ * ships a fully-wired UI, so the divergence only showed on a live endpoint.
+ *
+ * Why DYNAMIC instructions: on Mastra, `RunAgentInput.context` is a
+ * read-channel (`requestContext.get("ag-ui").context`) — it is NOT
+ * auto-injected into the LLM prompt (unlike the langgraph
+ * `CopilotKitMiddleware`, which merges `copilotkit.context` into what the
+ * LLM sees). So we read that context here and fold the design-skill +
+ * sandbox-function descriptors into the system prompt, giving the Mastra
+ * model the same knowledge the gold agent gets from its context.
+ */
+function foldHostContext(requestContext: RequestContext): string {
+  const agui = requestContext.get("ag-ui") as
+    | { context?: Array<{ description: string; value: string }> }
+    | undefined;
+  const items = agui?.context ?? [];
+  if (items.length === 0) return "";
+  const blocks = items
+    .map((c) => `### ${c.description}\n${c.value}`)
+    .join("\n\n");
+  return `\n\n---\nHOST CONTEXT (provided by the application — read carefully and follow it):\n\n${blocks}`;
+}
+
+const OPEN_GEN_UI_BASE_PROMPT = `You are a UI-generating assistant for an Open Generative UI demo focused on intricate, educational visualisations (3D axes / rotations, neural-network activations, sorting-algorithm walkthroughs, Fourier series, wave interference, planetary orbits, etc.).
+
+On every user turn you MUST call the \`generateSandboxedUi\` frontend tool exactly once. Design a visually polished, self-contained HTML + CSS + SVG widget that *teaches* the requested concept.
+
+A detailed "design skill" describing the palette, typography, labelling, and motion conventions is provided in the host context below — follow it closely. Key invariants:
+- Use inline SVG (or <canvas>) for geometric content, not stacks of <div>s.
+- Every axis is labelled; every colour-coded series has a legend.
+- Prefer CSS @keyframes / transitions over setInterval; loop cyclical concepts with animation-iteration-count: infinite.
+- Motion must teach — animate the actual step of the concept, not decoration.
+- No fetch / XHR / localStorage — the sandbox has no same-origin access.
+
+Output order:
+- \`initialHeight\` (typically 480-560 for visualisations) first.
+- A short \`placeholderMessages\` array (2-3 lines describing the build).
+- \`css\` (complete).
+- \`html\` (streams live — keep it tidy). CDN <script> tags for Chart.js / D3 / etc. go inside the html.
+
+Keep your own chat message brief (1 sentence) — the real output is the rendered visualisation.`;
+
+const OPEN_GEN_UI_ADVANCED_BASE_PROMPT = `You are a UI-generating assistant for the Open Generative UI (Advanced) demo.
+
+On every user turn you MUST call the \`generateSandboxedUi\` frontend tool exactly once. The generated UI must be INTERACTIVE and must invoke the available host-side sandbox functions described in the host context below in response to user interactions.
+
+Sandbox-function calling contract (inside the generated iframe):
+- Call a host function with:
+      await Websandbox.connection.remote.<functionName>(args)
+  The call returns a Promise; await it.
+- Each handler returns a plain object. Read the return shape from the function's description in the context and use the EXACT field names it returns (e.g. if the description says the handler returns \`{ ok, value }\`, read \`res.value\` — not \`res.result\`).
+- Descriptions, names, and JSON-schema parameter shapes for every available sandbox function are listed in the host context below. Read them carefully and wire at least one interactive UI element to call one.
+
+Sandbox iframe restrictions (CRITICAL):
+- The iframe runs with \`sandbox="allow-scripts"\` ONLY. Forms are NOT allowed. You MUST NOT use \`<form>\` elements or \`<button type="submit">\`. Clicking a submit button inside a sandboxed form is blocked by the browser BEFORE any onsubmit handler runs, so the sandbox-function call never fires.
+- Use plain \`<button type="button">\` elements and wire them with \`addEventListener('click', ...)\`. For "Enter" keypresses on inputs, attach a \`keydown\` listener that checks \`e.key === 'Enter'\` and calls your handler directly — do NOT wrap inputs in a \`<form>\`.
+
+Making the UI interactive (REQUIRED — static markup alone is NOT acceptable):
+- The buttons/inputs MUST actually do something. Include the wiring JavaScript either as an inline \`<script>\` at the END of your \`html\`, or via the \`jsFunctions\` / \`jsExpressions\` parameters. A UI with no script is a bug.
+- Always include a visible result element (e.g. an output div) that you UPDATE after the sandbox function resolves, so the user can SEE the round-trip: "interaction -> remote call -> visible result".
+
+Generation guidance:
+- Emit \`initialHeight\` and \`placeholderMessages\` first, then \`css\`, then \`html\` (put any wiring script at the end of the html), then \`jsFunctions\` / \`jsExpressions\` if helpful.
+- Do NOT use fetch/XHR, localStorage, or document.cookie — the sandbox has no same-origin access. ONLY use \`Websandbox.connection.remote.*\` for host-page interactions.
+- Keep your own chat message brief (1 sentence max); the rendered UI is the real output.`;
+
+/**
+ * Memory factory for the OGUI agents. Storage only (no working-memory
+ * schema) — these agents are single-shot UI generators with no shared
+ * state, matching gold's `tools=[]` agents. Storage keeps thread history
+ * consistent with the bridge's send-only-new-turn contract.
+ */
+const openGenUiMemory = (id: string) =>
+  new Memory({
+    storage: new LibSQLStore({ id, url: WORKING_MEMORY_DB_URL }),
+  });
+
+export const openGenUiAgent = new Agent({
+  id: "open-gen-ui-agent",
+  name: "Open Generative UI Agent",
+  model: openai("gpt-4o"),
+  instructions: ({ requestContext }) =>
+    OPEN_GEN_UI_BASE_PROMPT + foldHostContext(requestContext),
+  memory: openGenUiMemory("open-gen-ui-agent-memory"),
+});
+
+export const openGenUiAdvancedAgent = new Agent({
+  id: "open-gen-ui-advanced-agent",
+  name: "Open Generative UI Advanced Agent",
+  model: openai("gpt-4o"),
+  instructions: ({ requestContext }) =>
+    OPEN_GEN_UI_ADVANCED_BASE_PROMPT + foldHostContext(requestContext),
+  memory: openGenUiMemory("open-gen-ui-advanced-agent-memory"),
+});
+// @endregion[open-gen-ui-agents]

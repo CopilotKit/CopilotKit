@@ -3,6 +3,9 @@ title: Workflow Execution
 icon: "lucide/Play"
 description: Decide which state properties are received and returned to the frontend
 ---
+
+import AngularStateWorkflow from "@/snippets/shared/angular/shared-state-workflow.mdx";
+
 ## What is this?
 
 Not all state properties are relevant for frontend-backend sharing.
@@ -105,6 +108,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - Answer will change once it's returned back from the agent
     - The UI has no access to resources.
 
+    <FrontendOnly frontend="react">
     ```tsx
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
@@ -116,5 +120,10 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
     console.log(answer) // You can expect seeing "answer" change, while the others are not returned from the agent
     ```
+    </FrontendOnly>
+
+    <FrontendOnly frontend="angular">
+      <AngularStateWorkflow />
+    </FrontendOnly>
   </Step>
 </Steps>

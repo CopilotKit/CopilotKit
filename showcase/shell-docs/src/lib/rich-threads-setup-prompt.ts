@@ -1,0 +1,8 @@
+/** Canonical coding-agent prompt for completing Rich Threads Runtime setup. */
+export const RICH_THREADS_SETUP_PROMPT = `Read https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes and finish setting up Rich Threads in this repository.
+
+First inspect the repository's agent instructions, installed CopilotKit versions, Runtime adapter, frontend provider, route or proxy setup, and existing authentication. Preserve the current framework and deployment model. Preserve existing authentication middleware and access checks on every Runtime route.
+
+Follow the guide to enable the multi-route Runtime, align the frontend transport, and expose the full Runtime subtree for GET, POST, PATCH, and DELETE. Authenticate every Runtime route with onRequest. Set identifyUser from the existing server-verified signed-in application user. Enforce thread ownership for threads/events, threads/state, and agent/stop as described in https://docs.copilotkit.ai/auth#thread-authorization. Never use a fixed demo identity in production. If no trusted user identity or ownership source exists, stop and ask me which source to use.
+
+Start the app. For a browser frontend, open Inspector and verify that Home shows Intelligence connected. Send one message, open Threads in Inspector, and confirm that the new thread contains the message. React Native does not include Inspector, so verify its new thread in the selected hosted Intelligence project instead. Run focused tests, lint, and typecheck. Report the files changed, commands run, and verification result. If blocked, explain the missing input; do not invent setup.`;

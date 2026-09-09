@@ -28,10 +28,8 @@
  * shape) will be caught here.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import {
   FIRST_SIGNAL_TIMEOUT_MS,
@@ -137,6 +135,7 @@ export function buildInterruptHeadlessAssertion(
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return INTERRUPT_HEADLESS_PILLS.map(({ tag, prompt }) => ({
     input: prompt,
+    completionSignal: "sse",
     assertions: buildInterruptHeadlessAssertion(tag),
     // Each pill exercises a full interrupt → resolve → resume cycle —
     // bigger budget than agentic-chat's text-only turns. The 60s ceiling

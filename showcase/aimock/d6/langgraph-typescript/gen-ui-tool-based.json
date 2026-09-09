@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / gen-ui-tool-based",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -19,7 +18,7 @@
     {
       "match": {
         "userMessage": "3D axis visualization (model airplane)",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -45,7 +44,7 @@
     {
       "match": {
         "userMessage": "How a neural network works",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -71,7 +70,7 @@
     {
       "match": {
         "userMessage": "Quicksort visualization",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -97,7 +96,7 @@
     {
       "match": {
         "userMessage": "Fourier: square wave from sines",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -123,7 +122,7 @@
     {
       "match": {
         "userMessage": "Calculator (calls evaluateExpression)",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -149,7 +148,7 @@
     {
       "match": {
         "userMessage": "Ping the host (calls notifyHost)",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -175,7 +174,7 @@
     {
       "match": {
         "userMessage": "Inline expression evaluator",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "langgraph-typescript"
       },
       "response": {
@@ -228,5 +227,8 @@
         "content": "The advanced gen-UI flow continued with the second-step component. The chained payloads from turns 1 and 2 form the complete advanced gen-UI sequence."
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

@@ -2,12 +2,11 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / gen-ui-interrupt",
     "sourceFile": "harness/fixtures/d5/gen-ui-interrupt.json",
-    "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "created": "2026-05-21"
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-interrupt sales-call pill — first leg: schedule_meeting tool call triggers the agent's interrupt(...). The toolName gate ensures this matches only when schedule_meeting is in the tool list (the agent must declare it). Placed BEFORE the toolCallId resume-leg so the duplicate-userMessage dedup does not shadow the tool-emitting leg — mirrors the passing mastra/pydantic-ai ordering.",
+      "_comment": "gen-ui-interrupt sales-call pill — first leg: schedule_meeting tool call triggers Python agent's interrupt(...). The toolName gate ensures this matches only when schedule_meeting is in the tool list (the agent must declare it). Placed BEFORE the toolCallId resume-leg so the duplicate-userMessage dedup does not shadow the tool-emitting leg — mirrors the passing mastra/pydantic-ai ordering.",
       "match": {
         "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
@@ -90,5 +89,8 @@
         "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

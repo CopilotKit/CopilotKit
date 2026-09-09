@@ -9,7 +9,15 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
+      - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
+      # This job runs showcase/scripts/advance-latest-tag.test.ts, which
+      # asserts against the LIVE text of showcase_build.yml (that the build
+      # step pushes no `:latest`, stamps the revision label, and runs the
+      # guard). Without this path the guard test does not run on the very
+      # PR that could break it — a change re-adding `:latest` to the push
+      # would sail through untested.
+      - ".github/workflows/showcase_build.yml"
   push:
     branches: [main]
     paths:
@@ -19,7 +27,9 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
+      - ".github/workflows/aeo_synthetics.yml"
       - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/showcase_build.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -62,12 +72,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           # Cache npm for the showcase/shell `npm ci` step below (shell is
@@ -79,7 +89,7 @@ jobs:
         # Pinned to a specific minor rather than floating @v4 so that a
         # silent upstream major/minor change can't alter install semantics
         # on a random CI run. Bump deliberately when refreshing the toolchain.
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -190,6 +200,20 @@ jobs:
         # install; `npx tsx` could fetch a drifting version on a registry
         # cache miss.
         run: pnpm exec tsx validate-parity.ts
+
+      - name: Run validate-shared-symlinks (single-source erosion ratchet)
+        working-directory: showcase/scripts
+        # Guards against "single-source erosion": a REAL directory where a
+        # symlink into showcase/shared/... belongs (integrations/<slug>/
+        # {shared-tools,tools,_shared}). That copy silently drifts from the
+        # shared source — the failure class that eroded the tree in April and
+        # that an agent editing a copy (instead of the shared source)
+        # reintroduces. `validate-shared-symlinks.baseline.json` grandfathers
+        # the currently-eroded set so this PASSES on the pre-existing debt and
+        # FAILS only on NEW erosion. The baseline is a SHRINK-ONLY ratchet;
+        # once it reaches [], the guard is fully enforcing. See
+        # showcase/scripts/validate-shared-symlinks.ts and showcase/AGENTS.md.
+        run: pnpm exec tsx validate-shared-symlinks.ts
 
       - name: Run validate-fixture-tool-surface (aimock drift)
         working-directory: showcase/scripts
@@ -619,7 +643,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -657,7 +681,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -702,12 +726,40 @@ jobs:
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
+      # `showcase/integrations/*/public/demo-files/*` are Git LFS objects, and
+      # this checkout deliberately does NOT set `lfs: true` — a blanket LFS
+      # checkout would pull all ~248 tracked objects (~475 MB, including several
+      # 13-26 MB README gifs) into a job that runs in 2-4 minutes under a 10
+      # minute cap. Timeout starvation is a real failure mode here: jobs that hit
+      # `timeout-minutes` report `cancelled`, which is neither success nor
+      # failure and silently suppresses alerting.
+      #
+      # So pull only the demo-file assets: 40 objects, ~320 KB. Without them,
+      # pypdf reads the 129-byte LFS pointer text instead of a PDF and
+      # `ms-agent-python/tests/python/test_multimodal_pdf_prompt.py` fails with
+      # "real pypdf text extraction produced nothing". The repo is public, so
+      # LFS downloads resolve anonymously and this works with
+      # `persist-credentials: false`.
+      - name: Fetch demo-file LFS assets
+        run: |
+          set -euo pipefail
+          git lfs pull --include="showcase/integrations/*/public/demo-files/*"
+          # Fail here with a clear message rather than 3 minutes later inside
+          # pytest if the pull silently no-ops (missing git-lfs, LFS endpoint
+          # trouble, a pattern that stops matching after a directory move).
+          pdf="showcase/integrations/ms-agent-python/public/demo-files/sample.pdf"
+          if [ "$(head -c 5 "$pdf")" != "%PDF-" ]; then
+            echo "::error::$pdf is still a Git LFS pointer after 'git lfs pull' -- PDF-reading tests would fail misleadingly."
+            head -c 200 "$pdf"
+            exit 1
+          fi
+
       - name: Setup Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -721,7 +773,7 @@ jobs:
       # interception against it. Without this, that test skips and the durable
       # LGT persistence-disable fix would ship with zero real-package coverage.
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
 
@@ -859,7 +911,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Post to #oss-alerts
         if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook

@@ -8,7 +8,7 @@ import {
   ViewEncapsulation,
 } from "@angular/core";
 
-import { LucideAngularModule, Copy, Check, Edit } from "lucide-angular";
+import { Check, CopilotIcon, Copy, Edit } from "../icons/copilot-icon";
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
@@ -69,7 +69,7 @@ export class CopilotChatUserMessageToolbarButton {
 // Copy button component
 @Component({
   selector: "copilot-chat-user-message-copy-button",
-  imports: [LucideAngularModule, CopilotChatUserMessageToolbarButton],
+  imports: [CopilotIcon, CopilotChatUserMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -81,9 +81,9 @@ export class CopilotChatUserMessageToolbarButton {
       (click)="handleCopy()"
     >
       @if (copied()) {
-        <lucide-angular [img]="CheckIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="CheckIcon" [size]="18"></copilot-icon>
       } @else {
-        <lucide-angular [img]="CopyIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="CopyIcon" [size]="18"></copilot-icon>
       }
     </button>
   `,
@@ -115,7 +115,7 @@ export class CopilotChatUserMessageCopyButton {
 // Edit button component
 @Component({
   selector: "copilot-chat-user-message-edit-button",
-  imports: [LucideAngularModule, CopilotChatUserMessageToolbarButton],
+  imports: [CopilotIcon, CopilotChatUserMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -126,7 +126,7 @@ export class CopilotChatUserMessageCopyButton {
       [inputClass]="inputClass()"
       (click)="handleEdit()"
     >
-      <lucide-angular [img]="EditIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="EditIcon" [size]="18"></copilot-icon>
     </button>
   `,
 })

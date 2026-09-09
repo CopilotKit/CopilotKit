@@ -39,6 +39,8 @@ export type RouteInfo =
   | { method: "agent/connect"; agentId: string }
   | { method: "agent/stop"; agentId: string; threadId: string }
   | { method: "info" }
+  | { method: "inspector/metadata" }
+  | { method: "inspector/learning" }
   | { method: "transcribe" }
   | { method: "threads/list" }
   | { method: "threads/subscribe" }
@@ -49,6 +51,7 @@ export type RouteInfo =
   | { method: "threads/state"; threadId: string }
   | { method: "threads/clear" }
   | { method: "memories/list" }
+  | { method: "memories/recall" }
   | { method: "memories/subscribe" }
   | { method: "memories/mutate"; memoryId: string }
   | { method: "annotate" }

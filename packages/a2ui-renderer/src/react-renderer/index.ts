@@ -38,6 +38,7 @@ export type { InlineCatalogSchema } from "./catalog-utils";
 
 // Catalog creation — new API (definitions + renderers)
 export { createCatalog, extractSchema } from "./create-catalog";
+export { filterCatalog } from "./filter-catalog";
 export type {
   CatalogComponentDefinition,
   CatalogDefinitions,
@@ -85,6 +86,27 @@ export { createReactComponent } from "./a2ui-react/adapter";
 export type { ReactComponentImplementation } from "./a2ui-react/adapter";
 export { basicCatalog } from "./a2ui-react/catalog/basic";
 export { Catalog } from "@a2ui/web_core/v0_9";
+
+// Prop schemas for catalog definitions. A prop the A2UI schema binds to the
+// data model (`{ path: "/origin" }`) must use one of these unions rather than a
+// plain literal type: the binder classifies a prop as dynamic by inspecting its
+// Zod type, so a plain type leaves the raw `{ path }` object unresolved. These
+// live in `@a2ui/web_core`, a transitive dependency here that app code cannot
+// rely on importing — hence the re-export.
+export {
+  DynamicStringSchema,
+  DynamicNumberSchema,
+  DynamicBooleanSchema,
+  DynamicStringListSchema,
+  DataBindingSchema,
+} from "@a2ui/web_core/v0_9";
+export type {
+  DynamicString,
+  DynamicNumber,
+  DynamicBoolean,
+  DynamicStringList,
+  DataBinding,
+} from "@a2ui/web_core/v0_9";
 
 // Backward compat: no-op functions for initializeDefaultCatalog
 export function registerDefaultCatalog() {

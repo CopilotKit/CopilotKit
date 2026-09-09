@@ -1,4 +1,12 @@
-import { nextTick, defineComponent, h, onUpdated, ref } from "vue";
+import {
+  nextTick,
+  defineComponent,
+  h,
+  isProxy,
+  isReactive,
+  onUpdated,
+  ref,
+} from "vue";
 import { render } from "@testing-library/vue";
 import { describe, expect, it, vi } from "vitest";
 import type {
@@ -176,6 +184,41 @@ describe("useAttachments", () => {
       expect(onUploadFailed).toHaveBeenCalledTimes(1);
       expect(onUploadFailed.mock.calls[0][0].reason).toBe("invalid-type");
       expect(onUploadFailed.mock.calls[0][0].message).toContain("audio/*");
+    });
+  });
+
+  describe("Vue-specific reactive semantics", () => {
+    it("keeps uploaded attachment source cloneable and non-reactive", async () => {
+      const harness = mountHook({
+        enabled: true,
+        onUpload: async () => ({
+          type: "url",
+          value: "https://example.com/report.pdf",
+          mimeType: "application/pdf",
+          metadata: { source: "test-upload" },
+        }),
+      });
+
+      await harness.api.processFiles([
+        createFile("report.pdf", 128, "application/pdf"),
+      ]);
+
+      const [attachment] = harness.api.attachments.value;
+      expect(attachment).toBeDefined();
+      expect(attachment.source).toEqual({
+        type: "url",
+        value: "https://example.com/report.pdf",
+        mimeType: "application/pdf",
+      });
+      expect(isProxy(attachment.source)).toBe(false);
+      expect(isReactive(attachment.source)).toBe(false);
+      expect(() => structuredClone(attachment.source)).not.toThrow();
+
+      const [consumed] = harness.api.consumeAttachments();
+      expect(consumed).toBeDefined();
+      expect(isProxy(consumed.source)).toBe(false);
+      expect(isReactive(consumed.source)).toBe(false);
+      expect(() => structuredClone(consumed.source)).not.toThrow();
     });
   });
 });

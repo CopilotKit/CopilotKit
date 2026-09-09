@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
- * redeploy-env.ts — Trigger Railway `serviceInstanceRedeploy` for the
- * CI-built showcase services in the named environment.
+ * redeploy-env.ts — Trigger Railway deployments for the CI-built showcase
+ * services in the named environment.
  *
  * Usage:
  *   npx tsx showcase/scripts/redeploy-env.ts <env> [--services <csv>]
@@ -40,19 +40,16 @@
  *     print FAIL lines to stdout and land in the markdown summary written
  *     to $GITHUB_STEP_SUMMARY (mirrored to stderr). Exit-code policy is
  *     FAIL-LOUD BY DEFAULT: any per-service failure yields a non-zero
- *     exitCode for EVERY env except staging. Staging is the single
- *     documented carve-out (failures stay non-fatal) because staging is
- *     not a release gate — the verify-deploy workflow is what fails on
- *     bad images. A future env (preview, canary, …) inherits the fatal
- *     default; do NOT add it to a carve-out list unless it also gets its
- *     own downstream gate.
+ *     exitCode for EVERY env except ordinary staging services. A staging
+ *     harness-workers failure is release-blocking because that path must
+ *     apply `ALWAYS` before deploying clean-recycling workers. Other
+ *     staging failures remain non-fatal because verify-deploy is their gate.
  *   - Operator/config errors (bad env name, unknown service, missing or
  *     malformed token) ALWAYS fail loud with a non-zero exit.
  *
  * Auth: RAILWAY_TOKEN env var or ~/.railway/config.json.
- * Exit code: 0 on staging even when per-service redeploys fail; non-zero
- * for per-service failures in any other env and for any operator/config
- * error.
+ * Exit code: non-zero for staging harness-workers failures, per-service
+ * failures in any other env, and operator/config errors.
  */
 
 import fs from "fs";
@@ -62,8 +59,11 @@ import {
   ENV_IDS,
   ENV_ID_BY_NAME,
   SERVICES,
+  STAGING_ENV_ID,
+  repoNameFor,
   resolveEnv,
   serviceForDispatchName,
+  workerProvisioningFor,
 } from "./railway-envs";
 import type { EnvName } from "./railway-envs";
 import {
@@ -107,6 +107,42 @@ export type RedeployFn = (
   environmentId: string,
 ) => Promise<RedeployOutcome>;
 
+type RailwayMutationResult =
+  | { ok: true; value: unknown }
+  | { ok: false; error: string };
+
+async function railwayMutation(
+  token: string,
+  query: string,
+  variables: Record<string, unknown>,
+  resultField: string,
+): Promise<RailwayMutationResult> {
+  const res = await fetch(RAILWAY_API, {
+    method: "POST",
+    signal: AbortSignal.timeout(30_000),
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!res.ok) {
+    const body = sanitizeErrorBody(await res.text());
+    return { ok: false, error: `HTTP ${res.status}: ${body}` };
+  }
+  const json = (await res.json()) as {
+    data?: Record<string, unknown>;
+    errors?: Array<{ message: string }>;
+  };
+  if (json.errors?.length) {
+    return {
+      ok: false,
+      error: json.errors.map((e) => sanitizeErrorBody(e.message)).join("; "),
+    };
+  }
+  return { ok: true, value: json.data?.[resultField] };
+}
+
 /**
  * Build a `liveRedeploy` RedeployFn bound to a single resolved token, so
  * token resolution happens once per process rather than once per service.
@@ -117,44 +153,84 @@ export function makeLiveRedeploy(token: string): RedeployFn {
     serviceId: string,
     environmentId: string,
   ): Promise<RedeployOutcome> {
-    const res = await fetch(RAILWAY_API, {
-      method: "POST",
-      // A hung Railway API must surface as a per-service FAIL (the timeout
-      // rejection is caught by runRedeploy's per-service try/catch), not
-      // stall the CI job until the runner's global timeout.
-      signal: AbortSignal.timeout(30_000),
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: `mutation serviceInstanceRedeploy($serviceId: String!, $environmentId: String!) {
+    const isStagingWorker =
+      serviceId === SERVICES["harness-workers"].serviceId &&
+      environmentId === STAGING_ENV_ID;
+    if (isStagingWorker) {
+      const provisioning = workerProvisioningFor("harness-workers", "staging");
+      if (provisioning === undefined) {
+        return {
+          ok: false,
+          error: "harness-workers staging provisioning is missing from SSOT",
+        };
+      }
+
+      // A clean recycle needs the replacement policy in the deployment
+      // Railway creates from desired state.
+      const update = await railwayMutation(
+        token,
+        `mutation serviceInstanceUpdate($serviceId: String!, $environmentId: String!, $input: ServiceInstanceUpdateInput!) {
+        serviceInstanceUpdate(serviceId: $serviceId, environmentId: $environmentId, input: $input)
+      }`,
+        {
+          serviceId,
+          environmentId,
+          input: {
+            source: {
+              image: `ghcr.io/copilotkit/${repoNameFor(
+                "harness-workers",
+                "staging",
+              )}:latest`,
+            },
+            restartPolicyType: provisioning.restartPolicyType,
+            multiRegionConfig: {
+              "us-west2": {
+                numReplicas: provisioning.effectiveReplicas,
+              },
+            },
+          },
+        },
+        "serviceInstanceUpdate",
+      );
+      if (!update.ok) return update;
+      if (update.value !== true) {
+        return {
+          ok: false,
+          error: `serviceInstanceUpdate returned ${JSON.stringify(update.value)}`,
+        };
+      }
+
+      const deploy = await railwayMutation(
+        token,
+        `mutation serviceInstanceDeployV2($serviceId: String!, $environmentId: String!) {
+        serviceInstanceDeployV2(serviceId: $serviceId, environmentId: $environmentId)
+      }`,
+        { serviceId, environmentId },
+        "serviceInstanceDeployV2",
+      );
+      if (!deploy.ok) return deploy;
+      if (typeof deploy.value !== "string" || deploy.value.trim() === "") {
+        return {
+          ok: false,
+          error: `serviceInstanceDeployV2 returned ${JSON.stringify(deploy.value)}`,
+        };
+      }
+      return { ok: true };
+    }
+
+    const redeploy = await railwayMutation(
+      token,
+      `mutation serviceInstanceRedeploy($serviceId: String!, $environmentId: String!) {
         serviceInstanceRedeploy(serviceId: $serviceId, environmentId: $environmentId)
       }`,
-        variables: { serviceId, environmentId },
-      }),
-    });
-    if (!res.ok) {
-      const body = sanitizeErrorBody(await res.text());
-      return { ok: false, error: `HTTP ${res.status}: ${body}` };
-    }
-    const json = (await res.json()) as {
-      data?: { serviceInstanceRedeploy?: boolean };
-      errors?: Array<{ message: string }>;
-    };
-    if (json.errors?.length) {
-      // Sanitize each GraphQL error message exactly like the HTTP-error
-      // path above — Railway/Cloudflare error strings can be multi-KB and
-      // markdown-breaking too.
+      { serviceId, environmentId },
+      "serviceInstanceRedeploy",
+    );
+    if (!redeploy.ok) return redeploy;
+    if (redeploy.value !== true) {
       return {
         ok: false,
-        error: json.errors.map((e) => sanitizeErrorBody(e.message)).join("; "),
-      };
-    }
-    if (json.data?.serviceInstanceRedeploy !== true) {
-      return {
-        ok: false,
-        error: `serviceInstanceRedeploy returned ${JSON.stringify(json.data?.serviceInstanceRedeploy)}`,
+        error: `serviceInstanceRedeploy returned ${JSON.stringify(redeploy.value)}`,
       };
     }
     return { ok: true };
@@ -179,11 +255,32 @@ export interface RunRedeployOpts {
   services?: string[];
 }
 
+/**
+ * A single per-service redeploy outcome. `status:"ok"` means Railway accepted
+ * the deployment request for that service; `status:"error"` carries the
+ * sanitized failure. Callers that must confirm a SPECIFIC service was actually
+ * redeployed (e.g. reconcile-staging's per-service remediation check) match on
+ * these records rather than the post-expansion `attempted` COUNT — imageOf
+ * expansion inflates `attempted` above the requested set, so a count alone can
+ * mask a dropped/failed service.
+ */
+export interface RedeployServiceRecord {
+  service: string;
+  status: "ok" | "error";
+  error?: string;
+}
+
 export interface RunRedeploySummary {
   exitCode: number;
   attempted: number;
   succeeded: number;
   failed: number;
+  /**
+   * Per-service outcomes for EVERY service the run attempted (post-expansion),
+   * in iteration order. Exposed so a caller can confirm remediation
+   * per-service instead of trusting the aggregate counts.
+   */
+  records: RedeployServiceRecord[];
 }
 
 /**
@@ -412,14 +509,10 @@ export async function runRedeploy(
   // by showcase_deploy.yml's `enforce-redeploy-gate` (A.7) via the
   // REDEPLOY_SUMMARY_JSON artifact. Shape:
   //   Array<{ service: string; status: "ok" | "error"; error?: string }>
-  // Built in parallel with the existing `failures`/`succeeded` tallies so
-  // PR #5093's exit-code computation below is untouched.
-  const records: Array<{
-    service: string;
-    status: "ok" | "error";
-    error?: string;
-  }> = [];
+  // Built in parallel with the existing `failures`/`succeeded` tallies.
+  const records: RedeployServiceRecord[] = [];
   let succeeded = 0;
+  let hasReleaseBlockingFailure = false;
 
   appendSummary(`## Railway redeploy — env=${env}`);
   appendSummary("");
@@ -438,6 +531,8 @@ export async function runRedeploy(
         `Unknown service "${name}" — not an SSOT key in railway-envs.ts. Add it to SERVICES or fix the caller.`,
       );
     }
+    const isReleaseBlockingWorker =
+      env === "staging" && name === "harness-workers";
     process.stdout.write(`  ${name.padEnd(36)} `);
     try {
       const outcome = await redeploy(entry.serviceId, envId);
@@ -446,11 +541,13 @@ export async function runRedeploy(
         records.push({ service: name, status: "ok" });
         process.stdout.write("OK\n");
       } else {
+        if (isReleaseBlockingWorker) hasReleaseBlockingFailure = true;
         failures.push({ service: name, error: outcome.error });
         records.push({ service: name, status: "error", error: outcome.error });
         process.stdout.write(`FAIL: ${outcome.error}\n`);
       }
     } catch (e: unknown) {
+      if (isReleaseBlockingWorker) hasReleaseBlockingFailure = true;
       // Sanitize like the non-throw FAIL path: makeLiveRedeploy pre-sanitizes
       // the errors it RETURNS, but a rejection thrown by the redeploy fn
       // (e.g. an AbortSignal timeout, or a fetch error wrapping a multi-KB
@@ -485,7 +582,11 @@ export async function runRedeploy(
       appendSummary(`| \`${f.service}\` | FAIL | ${safeErr} |`);
     }
     appendSummary("");
-    if (env === "staging") {
+    if (env === "staging" && hasReleaseBlockingFailure) {
+      appendSummary(
+        "The harness-workers failure is release-blocking; independent staging services were still attempted.",
+      );
+    } else if (env === "staging") {
       appendSummary(
         "Staging redeploys are non-fatal — the verify-deploy workflow is the gate.",
       );
@@ -525,14 +626,11 @@ export async function runRedeploy(
     }
   }
 
-  // Fail-loud DEFAULT: per-service failures yield a non-zero exit in
-  // every env. Staging is the single documented carve-out (non-fatal —
-  // the verify-deploy workflow is its real release gate). Inverted from
-  // the historic `env === "prod"` allowlist so a future env (preview,
-  // canary, …) inherits fatal semantics instead of silently swallowing
-  // failures the way only staging is meant to.
-  const exitCode = env !== "staging" && failed > 0 ? 1 : 0;
-  return { exitCode, attempted, succeeded, failed };
+  // Fail-loud by default. Ordinary staging services keep their historical
+  // non-fatal behavior; the clean-recycling worker is release-blocking.
+  const exitCode =
+    failed > 0 && (env !== "staging" || hasReleaseBlockingFailure) ? 1 : 0;
+  return { exitCode, attempted, succeeded, failed, records };
 }
 
 async function main(): Promise<void> {

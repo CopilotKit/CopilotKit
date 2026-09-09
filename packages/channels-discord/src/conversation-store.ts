@@ -3,7 +3,7 @@ import type {
   ConversationStore,
   AgentSession,
   ReplyTarget as BotReplyTarget,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import { buildFileContentParts } from "./download-files.js";
 import type {
   AgentContentPart,
@@ -30,6 +30,8 @@ export interface DiscordHistoryMessage {
  * message is part of the reconstructed history, so the app passes NO prompt.
  */
 export class DiscordConversationStore implements ConversationStore {
+  readonly seedsInboundTurn = true;
+
   constructor(
     private deps: {
       /** Channel history, OLDEST→NEWEST. */

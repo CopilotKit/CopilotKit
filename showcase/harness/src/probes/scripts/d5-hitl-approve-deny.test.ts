@@ -53,6 +53,20 @@ describe("d5-hitl-approve-deny script", () => {
     expect(turns[0]!.assertions).toBeTypeOf("function");
   });
 
+  it("completes the tool-only first leg when the approval modal mounts", async () => {
+    const mod = await import("./d5-hitl-approve-deny.js");
+    const script = mod.__d5HitlApproveDenyScript;
+    const turns = script.buildTurns({
+      integrationSlug: "langgraph-python",
+      featureType: "hitl-approve-deny",
+      baseUrl: "https://example.test",
+    });
+
+    expect(turns[0]!.completeOnMount).toEqual({
+      testIds: ["approval-dialog-overlay"],
+    });
+  });
+
   it("assertion clicks approve and passes when the follow-up message contains $50 and 12345", async () => {
     const mod = await import("./d5-hitl-approve-deny.js");
     const script = mod.__d5HitlApproveDenyScript;

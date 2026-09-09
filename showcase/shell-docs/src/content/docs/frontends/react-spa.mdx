@@ -1,0 +1,196 @@
+---
+title: React SPA
+description: Host Copilot Runtime for a React single-page app that has no server of its own.
+icon: "lucide/Component"
+hideTOC: true
+---
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+The rest of these docs are the React docs. [Frontend tools](/frontend-tools), [generative UI](/generative-ui), [human-in-the-loop](/human-in-the-loop), [headless UI](/headless), [prebuilt components](/prebuilt-components) and the [React reference](/reference/v2) all work unchanged in a Vite or Create React App project.
+
+Exactly one instruction does not carry over: **where Copilot Runtime lives.** The quickstarts assume Next.js serves your app and the runtime from one origin, so they use a relative `runtimeUrl` of `/api/copilotkit`. A single-page app has no server and no shared origin, so that path resolves to nothing. This page covers that one difference and sends you back to the pages above for everything else.
+
+## Prerequisites
+
+- An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
+- React 18+
+- Node.js 20+
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Create your React app
+
+        If you don't have one already:
+
+        ```bash
+        npm create vite@latest my-copilot-app -- --template react-ts
+        cd my-copilot-app
+        npm install
+        ```
+
+        An existing Create React App project works the same way — only the dev server command in the last step differs.
+    </Step>
+    <Step>
+        ### Install CopilotKit
+
+        Install the React frontend package and `@copilotkit/runtime` for your local Copilot Runtime server:
+
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+            <Tab value="npm">
+                ```bash
+                npm install @copilotkit/react-core @copilotkit/runtime
+                npm install -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm add @copilotkit/react-core @copilotkit/runtime
+                pnpm add -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn add @copilotkit/react-core @copilotkit/runtime
+                yarn add -D tsx typescript @types/node
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+    <Step>
+        ### Create the Copilot Runtime
+
+        Your SPA has no server, so the runtime needs one of its own. Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` on its own port and registers a `default` built-in agent:
+
+        ```ts title="server.ts"
+        import { createServer } from "node:http";
+        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
+        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+        const runtime = new CopilotRuntime({
+          agents: {
+            default: new BuiltInAgent({
+              model: "openai:gpt-5-mini",
+              prompt: "You are a helpful assistant for a React app.",
+            }),
+          },
+        });
+
+        const port = 8200;
+
+        createServer(
+          createCopilotNodeListener({
+            runtime,
+            basePath: "/api/copilotkit",
+            cors: true, // [!code highlight]
+          }),
+        ).listen(port, () => {
+          console.log(
+            `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+          );
+        });
+        ```
+
+        <Callout type="warn" title="cors: true is required here, and it is not the default">
+          Your app and your runtime are on different origins, so the runtime has to opt into CORS. `createCopilotNodeListener` and `createCopilotRuntimeHandler` are **off by default** — omit `cors` and every browser request fails preflight. This differs from the Express and Hono adapters, which default to permissive CORS. See [Runtime endpoints](/backend/runtime-endpoints) for per-origin and credentialed configuration before you deploy.
+        </Callout>
+    </Step>
+    <Step>
+        ### Import the styles
+
+        Import the package stylesheet once in your app entry. It's self-contained, so the chat renders without any other CSS.
+
+        ```tsx title="src/main.tsx"
+        import React from "react";
+        import ReactDOM from "react-dom/client";
+        import App from "./App";
+        import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+
+        ReactDOM.createRoot(document.getElementById("root")!).render(
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>,
+        );
+        ```
+    </Step>
+    <Step>
+        ### Connect to Copilot Runtime
+
+        Point `CopilotKitProvider` at the runtime endpoint and drop in `CopilotChat`. Because the runtime registers an agent named `default`, the chat picks it up automatically.
+
+        ```tsx title="src/App.tsx"
+        import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+
+        export default function App() {
+          return (
+            /* [!code highlight:5] */
+            <CopilotKitProvider runtimeUrl="http://localhost:8200/api/copilotkit">
+              <div style={{ height: "100vh" }}>
+                <CopilotChat />
+              </div>
+            </CopilotKitProvider>
+          );
+        }
+        ```
+
+        <Callout type="warn" title="The runtimeUrl must be absolute">
+          Every framework quickstart uses a relative `runtimeUrl="/api/copilotkit"`. That works **only** because Next.js serves the app and the runtime from the same origin. In a single-page app the runtime is a separate process on a separate port, so the URL has to name it in full — host and port included. Read it from an env var (`import.meta.env.VITE_COPILOT_RUNTIME_URL` in Vite) so you can point it at your deployed runtime in production.
+        </Callout>
+
+        <Callout type="info" title="Pick your chat layout">
+          `CopilotChat` is a full-height chat. Swap it for `CopilotSidebar` (a collapsible side panel) or `CopilotPopup` (a floating widget) for a different layout. They take the same props.
+        </Callout>
+    </Step>
+    <Step>
+        ### Run the runtime and app
+
+        You are running two dev servers, so they need two different ports. Start Copilot Runtime in one terminal:
+
+        ```bash
+        export OPENAI_API_KEY=sk-...
+        npx tsx server.ts
+        ```
+
+        Start the React app in another terminal:
+
+        ```bash
+        npm run dev
+        ```
+
+        Vite serves on `http://localhost:5173` and the runtime on `8200`, so the defaults don't collide. If you need to move the app, pass `--port` — **Vite ignores the `PORT` environment variable**, unlike Create React App:
+
+        ```bash
+        npm run dev -- --port 3000
+        ```
+
+        Open the dev server URL, send a message, and you'll see it stream back through Copilot Runtime.
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **CORS errors, or requests failing on preflight**: Keep `cors: true` in `createCopilotNodeListener`. It is off by default, and this is the most common cause of a chat that renders but never responds.
+                - **404s on `/api/copilotkit`**: Your `runtimeUrl` is relative. A SPA needs the absolute `http://localhost:8200/api/copilotkit`.
+                - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
+                - **Chat renders unstyled**: Make sure you imported `@copilotkit/react-core/v2/styles.css` in your app entry.
+                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+            </Accordion>
+        </Accordions>
+    </Step>
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+</Steps>
+
+## Next steps
+
+The runtime is the only SPA-specific piece. From here the root React docs apply as written:
+
+- [Frontend tools](/frontend-tools) — let the agent call into your app
+- [Generative UI](/generative-ui) — render your own components from agent output
+- [Human-in-the-loop](/human-in-the-loop) — pause a run for user approval
+- [Headless UI](/headless) — build your own chat surface
+- [Prebuilt components](/prebuilt-components) — the chat, sidebar and popup layouts
+- [React reference](/reference/v2) — full provider, hook and component API
+
+To connect an agent framework instead of `BuiltInAgent`, follow any [integration quickstart](/quickstart) and keep the `server.ts` host and absolute `runtimeUrl` from this page in place of its Next.js route handler.

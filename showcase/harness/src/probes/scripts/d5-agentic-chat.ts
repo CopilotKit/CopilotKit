@@ -42,9 +42,8 @@ import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
   ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
   ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
-  type ConversationTurn,
-  type Page,
 } from "../helpers/conversation-runner.js";
+import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /**
  * Read all visible assistant-message text from the page. Mirrors the
@@ -115,9 +114,8 @@ function expectAssistantContains(opts: {
     console.debug(
       `[d5-agentic-chat] ${opts.label} — checking assistant contains`,
       {
-        expectedFragments: opts.fragments,
         transcriptLength: transcript.length,
-        transcriptSnippet: transcript.slice(0, 300),
+        expectedFragmentCount: opts.fragments.length,
       },
     );
     if (transcript.trim().length === 0) {
@@ -148,7 +146,6 @@ function expectAssistantNonEmpty(label: string): (page: Page) => Promise<void> {
     const transcript = (await readAssistantTranscript(page)) ?? "";
     console.debug(`[d5-agentic-chat] ${label} — checking non-empty`, {
       transcriptLength: transcript.length,
-      transcriptSnippet: transcript.slice(0, 300),
     });
     if (transcript.trim().length === 0) {
       throw new Error(`${label}: assistant response was empty`);

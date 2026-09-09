@@ -54,7 +54,7 @@ internal static class MultimodalAgentFactory
         return new ChatClientAgent(
             chatClient,
             name: "MultimodalAgent",
-            description: SystemPrompt,
+            instructions: SystemPrompt,
             tools: []);
     }
 }

@@ -234,4 +234,45 @@ describe("MCPAppsActivityRenderer", () => {
     );
     expect(iframe.srcdoc).not.toContain("widgets.example.com");
   });
+
+  // Cross-frontend surface contract: the shared harness probe
+  // (`showcase/harness/src/probes/scripts/d5-mcp-apps.ts`) settles the turn on
+  // `[data-testid="mcp-app-iframe"]` mounting. Angular and react-core declare
+  // the same pair; dropping it here silently reds the D5/D6 mcp-apps rows on
+  // every Vue integration while the demo still looks fine by hand.
+  it("tags the sandbox iframe with the shared mcp-app-iframe testid", async () => {
+    const agent = createAgentMock({
+      runResult: {
+        result: {
+          contents: [{ uri: "ui://server/testid", text: "<div>testid</div>" }],
+        },
+      },
+      threadId: "testid-thread",
+    });
+
+    const wrapper = mount(MCPAppsActivityRenderer, {
+      props: {
+        activityType: MCPAppsActivityType,
+        content: {
+          resourceUri: "ui://server/testid",
+          serverHash: "hash-testid",
+          result: {},
+        },
+        message: {
+          id: "activity-testid",
+          role: "assistant",
+          content: "",
+          activityType: MCPAppsActivityType,
+        },
+        agent,
+      },
+    });
+
+    await flushAsync();
+    await flushAsync();
+
+    const iframe = wrapper.find('iframe[data-testid="mcp-app-iframe"]');
+    expect(iframe.exists()).toBe(true);
+    expect(iframe.attributes("title")).toBe("Interactive MCP application");
+  });
 });

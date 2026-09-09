@@ -1,41 +1,27 @@
 ---
-title: "Image"
-description: "Image block in a bot message."
+title: Image
+description: Render an image URL inside a portable Slack or Microsoft Teams message.
 ---
 
-## Overview
-
-`Image` embeds an image in the message by URL.
-
-## Import
+`Image` adds an externally reachable image to a rich message.
 
 ```tsx
-import { Image } from "@copilotkit/channels-ui";
-```
+import { Image, Message } from "@copilotkit/channels/ui";
 
-## Props
-
-<PropertyReference name="url" type="string" required>
-  The image URL. Must be reachable by the platform (Slack fetches it server-side).
-</PropertyReference>
-
-<PropertyReference name="alt" type="string">
-  Alternative text for accessibility.
-</PropertyReference>
-
-## Usage
-
-```tsx
 <Message>
-  <Section>Incident timeline:</Section>
-  <Image url="https://example.com/chart.png" alt="Error rate over time" />
-</Message>
+  <Image
+    url="https://example.com/status.png"
+    alt="Checkout latency over the last hour"
+  />
+</Message>;
 ```
 
-## On Slack
+| Prop | Type | Description |
+| --- | --- | --- |
+| `url` | `string` | Required image URL. |
+| `alt` | `string` | Accessible alternative text. |
 
-Renders as an `image` block. To post a locally generated image (e.g. a rendered chart), upload it with [`thread.postFile`](/reference/channels/classes/Thread) instead — `Image` is for URLs.
-
-## Related
-
-- [Thread.postFile](/reference/channels/classes/Thread) — upload image bytes into the thread
+Managed Slack renders an image block. Managed Teams renders an Adaptive Card
+image. The provider client must be able to fetch the URL without your
+application's private cookies or headers. Use `thread.postFile()` when the
+image must be uploaded as bytes.

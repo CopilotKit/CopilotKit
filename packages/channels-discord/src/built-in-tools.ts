@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { defineBotTool } from "@copilotkit/channels";
-import type { BotTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels-core";
+import type { ChannelTool } from "@copilotkit/channels-core";
 
-export const lookupDiscordUserTool: BotTool = defineBotTool({
+export const lookupDiscordUserTool: ChannelTool = defineChannelTool({
   name: "lookup_discord_user",
   description:
     "Resolve a person's name, display name, or handle to a Discord user id and a " +
@@ -26,4 +26,4 @@ export const lookupDiscordUserTool: BotTool = defineBotTool({
   },
 });
 
-export const defaultDiscordTools: BotTool[] = [lookupDiscordUserTool];
+export const defaultDiscordTools: ChannelTool[] = [lookupDiscordUserTool];

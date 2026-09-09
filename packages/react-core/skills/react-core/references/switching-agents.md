@@ -123,6 +123,15 @@ Correct:
 Without remount via `key`, prior thread state and in-flight runs leak into
 the new agent's view. The remount pattern gives each agent a clean slate.
 
+Keep the `key` on `<CopilotChat>` itself. It discards all state below it, so
+hoisting it onto a wrapper or a layout-level provider also destroys app
+state that has nothing to do with the agent — correlation maps, in-flight
+request records, refs — with no error and no warning. If a component
+dispatches requests and matches the responses back, it must sit outside the
+keyed subtree. See "Keying a subtree on the active thread id above app
+state" in `references/threads.md` for the thread-switching version of the
+same trap.
+
 Source: `examples/v2/react-router/app/routes/_index.tsx:38-39`
 
 ### MEDIUM — Omitting `agentId` when multiple agents share a tool name

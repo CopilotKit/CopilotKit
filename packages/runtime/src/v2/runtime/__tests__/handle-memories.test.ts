@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   handleListMemories,
+  handleRecallMemories,
   handleSubscribeToMemories,
   handleCreateMemory,
   handleUpdateMemory,
@@ -19,6 +20,7 @@ describe("memory handlers", () => {
       request: Request,
     ) => { id: string; name: string } | Promise<{ id: string; name: string }>;
     intelligence?: Record<string, unknown>;
+    memory?: Record<string, unknown>;
   }) =>
     ({
       agents: Promise.resolve({}),
@@ -31,6 +33,7 @@ describe("memory handlers", () => {
       mode: "intelligence",
       identifyUser: options?.identifyUser ?? createIdentifyUser(),
       intelligence: options?.intelligence,
+      memory: options?.memory,
     }) as unknown as CopilotRuntime;
 
   it("returns 422 when intelligence is not configured", async () => {
@@ -83,6 +86,68 @@ describe("memory handlers", () => {
     expect(intelligence.listMemories).toHaveBeenCalledWith({
       userId: "user-1",
     });
+  });
+
+  it("evaluates configured client Memory access and forwards the immutable grant", async () => {
+    const intelligence = {
+      listMemories: vi.fn().mockResolvedValue({ memories: [] }),
+    };
+    const access = vi.fn().mockReturnValue({
+      user: "read",
+      project: "none",
+    });
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: { access },
+    });
+    const request = new Request("https://example.com/memories");
+
+    const response = await handleListMemories({ runtime, request });
+
+    expect(response.status).toBe(200);
+    expect(access).toHaveBeenCalledWith({
+      request,
+      user: { id: "user-1", name: "User One" },
+      consumer: "client",
+    });
+    expect(intelligence.listMemories).toHaveBeenCalledWith({
+      userId: "user-1",
+      memoryGrant: { user: "read", project: "none" },
+    });
+  });
+
+  it("returns forbidden without a platform call when client Memory is denied", async () => {
+    const intelligence = { listMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: { access: vi.fn().mockReturnValue(null) },
+    });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(403);
+    expect(intelligence.listMemories).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the configured Memory policy throws", async () => {
+    const intelligence = { listMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: {
+        access: vi.fn().mockRejectedValue(new Error("policy unavailable")),
+      },
+    });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(500);
+    expect(intelligence.listMemories).not.toHaveBeenCalled();
   });
 
   it("forwards includeInvalidated=true to the platform", async () => {
@@ -488,6 +553,50 @@ describe("memory handlers", () => {
     });
   });
 
+  it("forwards project credentials when the platform mints them", async () => {
+    const intelligence = {
+      ɵsubscribeToMemories: vi.fn().mockResolvedValue({
+        joinToken: "jt-1",
+        joinCode: "jc-1",
+        projectJoinToken: "pjt-1",
+        projectJoinCode: "pjc-1",
+      }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = jsonRequest("/memories/subscribe", "POST");
+
+    const response = await handleSubscribeToMemories({ runtime, request });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      joinToken: "jt-1",
+      joinCode: "jc-1",
+      projectJoinToken: "pjt-1",
+      projectJoinCode: "pjc-1",
+    });
+  });
+
+  it("omits project credentials when the platform does not mint them", async () => {
+    const intelligence = {
+      ɵsubscribeToMemories: vi
+        .fn()
+        .mockResolvedValue({ joinToken: "jt-1", joinCode: "jc-1" }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = jsonRequest("/memories/subscribe", "POST");
+
+    const response = await handleSubscribeToMemories({ runtime, request });
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    // Silent-degrade: the keys are absent, not present-with-undefined.
+    expect(body).toEqual({ joinToken: "jt-1", joinCode: "jc-1" });
+    expect(body).not.toHaveProperty("projectJoinToken");
+    expect(body).not.toHaveProperty("projectJoinCode");
+  });
+
   it("returns 422 for subscribe when intelligence is not configured", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
 
@@ -497,5 +606,233 @@ describe("memory handlers", () => {
     });
 
     expect(response.status).toBe(422);
+  });
+
+  it("recalls memories via identifyUser and returns the scored envelope", async () => {
+    const intelligence = {
+      recallMemories: vi.fn().mockResolvedValue({
+        memories: [
+          {
+            id: "m-1",
+            kind: "topical",
+            scope: "user",
+            content: "User likes jazz.",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+            score: 0.91,
+          },
+        ],
+      }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = jsonRequest("/memories/recall", "POST", {
+      query: "music taste",
+      limit: 3,
+      scope: "user",
+    });
+
+    const response = await handleRecallMemories({ runtime, request });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      memories: [
+        {
+          id: "m-1",
+          kind: "topical",
+          scope: "user",
+          content: "User likes jazz.",
+          sourceThreadIds: [],
+          invalidatedAt: null,
+          score: 0.91,
+        },
+      ],
+    });
+    expect(identifyUser).toHaveBeenCalledWith(request);
+    expect(intelligence.recallMemories).toHaveBeenCalledWith({
+      userId: "user-1",
+      query: "music taste",
+      limit: 3,
+      scope: "user",
+    });
+  });
+
+  it("omits limit/scope when the recall body has none", async () => {
+    const intelligence = {
+      recallMemories: vi.fn().mockResolvedValue({ memories: [] }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", { query: "hi" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(intelligence.recallMemories).toHaveBeenCalledWith({
+      userId: "user-1",
+      query: "hi",
+    });
+  });
+
+  it("returns 400 when recall query is missing", async () => {
+    const intelligence = { recallMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", { limit: 3 }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.recallMemories).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for an out-of-vocabulary recall scope", async () => {
+    const intelligence = { recallMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", {
+        query: "hi",
+        scope: "global",
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.recallMemories).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for a non-number recall limit", async () => {
+    const intelligence = { recallMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", {
+        query: "hi",
+        limit: "3",
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.recallMemories).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Infinity", Infinity],
+    ["NaN", NaN],
+    ["a negative", -1],
+    ["a fraction", 2.5],
+  ])(
+    "returns 400 and does not call recallMemories for %s recall limit",
+    async (_label, limit) => {
+      const intelligence = { recallMemories: vi.fn() };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const response = await handleRecallMemories({
+        runtime,
+        request: jsonRequest("/memories/recall", "POST", {
+          query: "hi",
+          limit,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(intelligence.recallMemories).not.toHaveBeenCalled();
+    },
+  );
+
+  it("returns 400 and does not call recallMemories for a whitespace-only query", async () => {
+    const intelligence = { recallMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", { query: "   " }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.recallMemories).not.toHaveBeenCalled();
+  });
+
+  it("passes a valid query + limit and forwards the trimmed query", async () => {
+    const intelligence = {
+      recallMemories: vi.fn().mockResolvedValue({ memories: [] }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", {
+        query: "  x  ",
+        limit: 5,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(intelligence.recallMemories).toHaveBeenCalledWith({
+      userId: "user-1",
+      query: "x",
+      limit: 5,
+    });
+  });
+
+  it("returns 422 for recall when intelligence is not configured", async () => {
+    const runtime = new CopilotRuntime({ agents: {} });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", { query: "hi" }),
+    });
+
+    expect(response.status).toBe(422);
+  });
+
+  it("forwards a PlatformRequestError 4xx on recall verbatim", async () => {
+    const intelligence = {
+      recallMemories: vi
+        .fn()
+        .mockRejectedValue(new PlatformRequestError("bad", 422)),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", { query: "hi" }),
+    });
+
+    expect(response.status).toBe(422);
+  });
+
+  it("maps a platform 5xx to 502 on recall", async () => {
+    const intelligence = {
+      recallMemories: vi
+        .fn()
+        .mockRejectedValue(new PlatformRequestError("boom", 503)),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", { query: "hi" }),
+    });
+
+    expect(response.status).toBe(502);
+  });
+
+  it("returns 502 when the recall response has no memories array", async () => {
+    const intelligence = {
+      recallMemories: vi.fn().mockResolvedValue({ items: [] }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRecallMemories({
+      runtime,
+      request: jsonRequest("/memories/recall", "POST", { query: "hi" }),
+    });
+
+    expect(response.status).toBe(502);
   });
 });

@@ -47,9 +47,9 @@ features:
   - a2ui-fixed-schema
   - byoc-json-render
   - byoc-hashbrown
-  - multimodal
   - auth
   - voice
+  - multimodal
   - open-gen-ui
   - open-gen-ui-advanced
   - agent-config

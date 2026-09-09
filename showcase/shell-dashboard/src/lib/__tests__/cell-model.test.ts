@@ -150,7 +150,7 @@ describe("buildCellModel", () => {
   // ── Bug 1 regression: D3 passing without health row ─────────────────
   describe("D3 passing without health row (Bug 1 regression)", () => {
     it("returns achievedDepth=3 when only D3 passes (no D5 mapping)", () => {
-      // Use a featureId with no CATALOG_TO_D5_KEY mapping so ceiling=3
+      // Use a featureId with no CATALOG_TO_D5_KEY mapping → structural ceiling 4
       const live = mapOf([
         row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
       ]);
@@ -158,8 +158,11 @@ describe("buildCellModel", () => {
       expect(model.d3!.exists).toBe(true);
       expect(model.d3!.status).toBe("green");
       expect(model.achievedDepth).toBe(3);
-      expect(model.ceilingDepth).toBe(3);
-      // D6-ceiling: no D5 and no D6 exist → gray
+      // §4b: ceilingDepth is STRUCTURAL — a D5-unmapped feature reaches D4 (4),
+      // independent of which probe rows exist.
+      expect(model.ceilingDepth).toBe(4);
+      // A3/§4c: D4 is an incomplete top for a D5-unmapped feature (not a green
+      // "complete verification level"), and D4 itself is absent here → gray.
       expect(model.chipColor).toBe("gray");
     });
 
@@ -174,10 +177,11 @@ describe("buildCellModel", () => {
       expect(model.d5!.exists).toBe(true);
       expect(model.d5!.status).toBeNull();
       expect(model.achievedDepth).toBe(3);
-      // ceilingDepth requires contiguity: D4 doesn't exist → stops at 3
-      expect(model.ceilingDepth).toBe(3);
-      // Contiguous-ladder: D5 exists but has no data (status null), D6
-      // absent → unverified ladder → gray (no-data, not a failure).
+      // §4b: ceilingDepth is STRUCTURAL — a D5-mapped feature reaches D6 (6),
+      // regardless of which probe rows have arrived.
+      expect(model.ceilingDepth).toBe(6);
+      // Contiguous-ladder: D4 absent breaks the ladder above D3 → gray
+      // (I1: unverified, not a failure).
       expect(model.chipColor).toBe("gray");
     });
   });
@@ -258,9 +262,11 @@ describe("buildCellModel", () => {
       expect(model.d3!.exists).toBe(false);
       expect(model.d4!.exists).toBe(false);
       expect(model.achievedDepth).toBe(0);
-      expect(model.ceilingDepth).toBe(0);
-      // Unverified ladder below D5 → gray, same shape as the other no-data
-      // collapses; the D6 claim stays blocked.
+      // §4b: ceilingDepth is STRUCTURAL (D5-mapped feature → 6), not
+      // probe-existence — it no longer collapses to 0 when no rows exist.
+      expect(model.ceilingDepth).toBe(6);
+      // I1: absent D3 breaks the ladder at the base; green D5/D6 above the gap
+      // are not contiguous and do not credit green → gray, D6 claim blocked.
       expect(model.chipColor).toBe("gray");
       expect(model.d6Effective).toBeNull();
       expect(model.surfaceState).toBe("gray");
@@ -278,24 +284,28 @@ describe("buildCellModel", () => {
       expect(model.d6Effective).toBe("green");
     });
 
-    it("absent D3/D4 + red D6 stays RED (red dominates the absent collapse)", () => {
+    it("absent D3/D4 + red D6 → GRAY (red above an absent gap is not contiguous)", () => {
       const live = mapOf([
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
         row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
-      expect(model.chipColor).toBe("red");
-      // The blocked D6 claim still never reads green through an unverified
-      // ladder — the chip carries the red.
+      // I1/§4c: the walk stops at the first absent rung (D3); the red D6 sits
+      // ABOVE the gap, is not contiguous, and does not surface red → gray
+      // unverified. ("red dominates" is preserved only for a red on a
+      // CONTIGUOUS existing rung — spec §4c line 440.)
+      expect(model.chipColor).toBe("gray");
       expect(model.d6Effective).toBeNull();
     });
 
-    it("absent D3/D4 + red D5 stays RED (red dominates the absent collapse)", () => {
+    it("absent D3/D4 + red D5 → GRAY (red above an absent gap is not contiguous)", () => {
       const live = mapOf([
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
-      expect(model.chipColor).toBe("red");
+      // I1/§4c: absent D3/D4 stops the walk; the red D5 above the gap is
+      // excluded → gray unverified.
+      expect(model.chipColor).toBe("gray");
       expect(model.d6Effective).toBeNull();
     });
   });
@@ -323,30 +333,33 @@ describe("buildCellModel", () => {
       ]);
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
       expect(model.achievedDepth).toBe(0);
-      expect(model.ceilingDepth).toBe(3);
-      // tests exist (ceiling=3) but none pass → red
+      // §4b: structural ceiling for a D5-unmapped feature is 4 (D1–D4).
+      expect(model.ceilingDepth).toBe(4);
+      // D3 (a contiguous existing rung) is a fresh red → red.
       expect(model.chipColor).toBe("red");
     });
   });
 
   // ── Gray vs red: no tests at all vs tests-exist-but-all-fail ────────
   describe("gray vs red chip for achievedDepth=0", () => {
-    it("gray when ceilingDepth=0 (no tests exist at all)", () => {
+    it("gray when no rows exist at all (no failing contiguous rung)", () => {
       const model = buildCellModel(
         mapOf([]),
         wiredInput("agno", "no-d5-feature"),
       );
-      expect(model.ceilingDepth).toBe(0);
+      // §4b: ceiling is now STRUCTURAL (4), even with zero rows; the
+      // gray-vs-red distinction is "no failing contiguous rung → gray".
+      expect(model.ceilingDepth).toBe(4);
       expect(model.achievedDepth).toBe(0);
       expect(model.chipColor).toBe("gray");
     });
 
-    it("red when tests exist but all fail (ceilingDepth > 0)", () => {
+    it("red when a contiguous rung fails (D3 red)", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
-      expect(model.ceilingDepth).toBe(3);
+      expect(model.ceilingDepth).toBe(4);
       expect(model.achievedDepth).toBe(0);
       expect(model.chipColor).toBe("red");
     });
@@ -411,14 +424,17 @@ describe("buildCellModel", () => {
       expect(model.d6Effective).toBeNull();
     });
 
-    it("a present RED chat row still fails the D1-D4 gate (red chip unchanged)", () => {
+    it("a present RED chat row folds D4 to red; the chip is a first-strike amber (§C)", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      // The D4 rung still folds to red (a present non-green chat row)…
       expect(model.d4!.status).toBe("red");
-      expect(model.chipColor).toBe("red");
+      // …but §C item 6 de-amplifies a first D4 strike (fail_count 1 < 2) to a
+      // one-tick amber; a second consecutive red crosses the threshold → red.
+      expect(model.chipColor).toBe("amber");
     });
 
     it("missing-chat no-data does NOT mask a present red D5 (red dominates no-data)", () => {
@@ -562,20 +578,20 @@ describe("buildCellModel", () => {
       // agentic-chat IS in CATALOG_TO_D5_KEY, so exists=true but status=null
       expect(model.d5!.exists).toBe(true);
       expect(model.d5!.status).toBeNull();
-      // ceilingDepth requires contiguity: D5 only counts if D3+D4 exist
-      expect(model.ceilingDepth).toBe(0);
+      // §4b: ceiling is STRUCTURAL (D5-mapped → 6), independent of rows.
+      expect(model.ceilingDepth).toBe(6);
       expect(model.achievedDepth).toBe(0);
-      // Contiguous-ladder: D5 has no data (status null), D6 absent →
-      // unverified ladder → gray (no-data, not a failure).
+      // Absent D3 → unverified ladder → gray (no-data, not a failure).
       expect(model.chipColor).toBe("gray");
     });
 
-    it("returns ceilingDepth=0 when no tests exist at all", () => {
+    it("returns structural ceilingDepth even when no tests exist at all", () => {
       const model = buildCellModel(
         mapOf([]),
         wiredInput("agno", "no-d5-feature"),
       );
-      expect(model.ceilingDepth).toBe(0);
+      // §4b: a D5-unmapped feature has structural ceiling 4 (not 0).
+      expect(model.ceilingDepth).toBe(4);
       expect(model.chipColor).toBe("gray");
     });
   });
@@ -611,14 +627,16 @@ describe("buildCellModel", () => {
 
   // ── Edge: D3 exists but no status row (no data yet) ─────────────────
   describe("D3 exists in map but D4/D5 do not", () => {
-    it("ceilingDepth reflects only existing levels", () => {
+    it("ceilingDepth reflects the structural reachability, not existing levels", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
-      expect(model.ceilingDepth).toBe(3);
+      // §4b: structural ceiling for a D5-unmapped feature is 4.
+      expect(model.ceilingDepth).toBe(4);
       expect(model.achievedDepth).toBe(3);
-      // D6-ceiling: no D5 and no D6 → gray
+      // A3: D4 is an incomplete top for a D5-unmapped feature and is absent
+      // here → gray.
       expect(model.chipColor).toBe("gray");
     });
   });
@@ -635,8 +653,10 @@ describe("buildCellModel", () => {
       expect(model.achievedDepth).toBe(3);
       // agentic-chat is D6-mapped, so D6 EXISTS (mapped, unemitted) → ceiling 6.
       expect(model.ceilingDepth).toBe(6);
-      // D6-ceiling: D4 red → gate failure → red
-      expect(model.chipColor).toBe("red");
+      // §C item 6: a first D4 strike (fail_count 1 < 2) de-amplifies to amber
+      // (transient), not red; a second consecutive red would cross the
+      // threshold and go red.
+      expect(model.chipColor).toBe("amber");
     });
   });
 
@@ -763,7 +783,7 @@ describe("buildCellModel", () => {
       expect(model.chipColor).toBe("gray");
     });
 
-    it("D5 null + D6 red → red", () => {
+    it("D5 null + D6 red → GRAY (D6 red above an unverified D5 is not contiguous)", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),
@@ -772,7 +792,11 @@ describe("buildCellModel", () => {
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d5!.status).toBeNull();
       expect(model.d6!.status).toBe("red");
-      expect(model.chipColor).toBe("red");
+      // I1/§4c: D5 has no data (unverified) → the ladder is not contiguous
+      // through D5, so the red D6 above it is excluded and the D6 claim is
+      // blocked (d6Effective null) → gray, not red.
+      expect(model.chipColor).toBe("gray");
+      expect(model.d6Effective).toBeNull();
     });
 
     it("D5 null + D6 unemitted → gray (no data)", () => {
@@ -1055,33 +1079,38 @@ describe("buildCellModel", () => {
   // ── isRegression: achievedDepth below ceilingDepth ─────────────────
   describe("isRegression", () => {
     it("is true when achievedDepth < ceilingDepth (D3 red, tests exist)", () => {
-      // D3 red → achievedDepth=0; D3 exists → ceilingDepth=3 → regression.
+      // D3 red → achievedDepth=0; §4b structural ceiling 6 (D5-mapped). The
+      // next contiguous rung above achieved (D3, skipping absent D1/D2) is a
+      // genuine FAIL_FRESH → regression.
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.achievedDepth).toBe(0);
-      expect(model.ceilingDepth).toBe(3);
+      expect(model.ceilingDepth).toBe(6);
       expect(model.isRegression).toBe(true);
     });
 
-    it("is false when achievedDepth === ceilingDepth (cell at its ceiling)", () => {
-      // D3 green, no D4/D5 mapped → achieved=3, ceiling=3 → no regression.
+    it("is false when achieved < ceiling but the next rung is not a genuine fail", () => {
+      // D3 green → achieved 3; §4b structural ceiling 4 (D5-unmapped). The next
+      // rung (D4) is ABSENT, not a FAIL_FRESH → no regression.
       const live = mapOf([
         row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
       expect(model.achievedDepth).toBe(3);
-      expect(model.ceilingDepth).toBe(3);
+      expect(model.ceilingDepth).toBe(4);
       expect(model.isRegression).toBe(false);
     });
 
-    it("is false when ceilingDepth === 0 (no tests exist at all)", () => {
+    it("is false when no rows exist (nothing achieved, no genuine fail above)", () => {
       const model = buildCellModel(
         mapOf([]),
         wiredInput("agno", "no-d5-feature"),
       );
-      expect(model.ceilingDepth).toBe(0);
+      // §4b: structural ceiling 4 even with zero rows; achieved 0 and the next
+      // rung is ABSENT (not FAIL_FRESH) → no regression.
+      expect(model.ceilingDepth).toBe(4);
       expect(model.isRegression).toBe(false);
     });
 
@@ -1239,8 +1268,9 @@ describe("buildCellModel", () => {
       expect(model.d5?.status).toBe("amber");
       // Depth ladder must not credit D5 when the signal is stale.
       expect(model.achievedDepth).toBe(4);
-      // Chip: D5 not green, D6 absent → red (no longer amber-on-green-D5).
-      expect(model.chipColor).toBe("red");
+      // I2/§4c: a STALE_DEGRADED rung folds to amber ("re-sweep pending"),
+      // NOT red — staleness is not a failure.
+      expect(model.chipColor).toBe("amber");
     });
 
     it("keeps a fresh green D5 row green", () => {
@@ -1366,8 +1396,8 @@ describe("buildCellModel", () => {
         expect(model.d5?.status).toBe("amber");
         // Depth ladder must not credit D5.
         expect(model.achievedDepth).toBe(4);
-        // D5 not green, D6 absent → red.
-        expect(model.chipColor).toBe("red");
+        // I2/§4c: STALE_DEGRADED D5 folds to amber ("re-sweep pending"), not red.
+        expect(model.chipColor).toBe("amber");
       });
 
       it("downgrades to amber when the stale sub-row is folded LAST", () => {
@@ -1378,7 +1408,8 @@ describe("buildCellModel", () => {
         );
         expect(model.d5?.status).toBe("amber");
         expect(model.achievedDepth).toBe(4);
-        expect(model.chipColor).toBe("red");
+        // I2/§4c: STALE_DEGRADED D5 folds to amber, not red.
+        expect(model.chipColor).toBe("amber");
       });
     });
   });
@@ -1419,10 +1450,10 @@ describe("buildCellModel", () => {
       );
       // Stale green D4 must NOT present as healthy.
       expect(model.d4?.status).toBe("amber");
-      // D4 stale-amber fails the gate → chain caps at D3.
+      // D4 stale-amber caps the ladder at D3.
       expect(model.achievedDepth).toBe(3);
-      // Gate fails (D4 not green) → red.
-      expect(model.chipColor).toBe("red");
+      // I2/§4c: STALE_DEGRADED D4 folds to amber ("re-sweep pending"), not red.
+      expect(model.chipColor).toBe("amber");
     });
 
     it("keeps a fresh green D4 row green", () => {
@@ -1454,15 +1485,16 @@ describe("buildCellModel", () => {
     });
   });
 
-  // ── Effective-row invariant: .row.state must AGREE with .status ─────
-  // The returned `.row` must be the EFFECTIVE (stale-downgraded) row, so
-  // `stateToTestStatus(.row.state) === .status`. This mirrors the invariant
-  // in live-status.ts `buildBadge`, whose returned `.row` is the effective
-  // row (`{ ...row, state: "degraded" }`). Previously resolveD4/D5/D6 returned
-  // the RAW status row while `.status` was derived from the stale-downgraded
-  // effective state, so a stale-green fold reported `.row.state === "green"`
-  // but `.status === "amber"` — an internal contradiction.
-  describe("effective-row invariant (.row.state agrees with .status)", () => {
+  // ── Stale-green downgrade: verdict in .status, .row is the raw winner ────
+  // The unified engine folds a stale-green rung to `.status === "amber"` (the
+  // authoritative verdict) and surfaces the RAW contributing (winner) row as
+  // `.row` — its `.state` stays "green" and `.fail_count` stays 0, because the
+  // row genuinely ran green and is merely stale. No consumer reads `.row.state`
+  // (they read `.row.fail_count`/`.signal`/`.id`); `d0-gone-monitor` in fact
+  // RELIES on a stale-green winner reading "green" (fail_count 0) so it is NOT
+  // mistimed as an outage onset (§7 I2 "degraded ≠ failed"). The old synthesized
+  // `.row.state === "degraded"` is retired.
+  describe("stale-green downgrade: .status folds to amber, .row is the raw winner", () => {
     const NOW = Date.parse("2026-05-30T12:00:00Z");
 
     function rowAtAge(
@@ -1482,10 +1514,7 @@ describe("buildCellModel", () => {
     const D4_STALE = D4_STALE_AFTER_MS + 60 * 1000;
     const FRESH = 60 * 1000;
 
-    it("D3: stale-green downgrade returns the EFFECTIVE row and .row.state matches .status (G3c)", () => {
-      // resolveD3's stale-green branch returned the RAW row (`status: "amber",
-      // row` with row.state still "green"), violating the `.row.state` ↔
-      // `.status` invariant resolveD4/D5/D6 maintain.
+    it("D3: stale-green folds .status to amber; .row is the raw green winner (G3c)", () => {
       const live = mapOf([
         rowAtAge(
           keyFor("e2e", "agno", "agentic-chat"),
@@ -1500,7 +1529,9 @@ describe("buildCellModel", () => {
         NOW,
       );
       expect(model.d3?.status).toBe("amber");
-      expect(model.d3?.row?.state).toBe("degraded");
+      // The winner row is the raw stale-green row — state "green", no failures.
+      expect(model.d3?.row?.state).toBe("green");
+      expect(model.d3?.row?.fail_count).toBe(0);
     });
 
     it("D3: fresh-green keeps the raw row (no spurious downgrade)", () => {
@@ -1527,8 +1558,9 @@ describe("buildCellModel", () => {
         NOW,
       );
       expect(model.d4?.status).toBe("amber");
-      // The effective row must reflect the downgrade, not the raw green state.
-      expect(model.d4?.row?.state).toBe("degraded");
+      // Verdict is in .status; .row is the raw green winner (fail_count 0).
+      expect(model.d4?.row?.state).toBe("green");
+      expect(model.d4?.row?.fail_count).toBe(0);
     });
 
     it("D5: stale-green folds to amber and .row.state matches .status", () => {
@@ -1548,10 +1580,12 @@ describe("buildCellModel", () => {
         NOW,
       );
       expect(model.d5?.status).toBe("amber");
-      expect(model.d5?.row?.state).toBe("degraded");
+      // Verdict is in .status; .row is the raw green winner (fail_count 0).
+      expect(model.d5?.row?.state).toBe("green");
+      expect(model.d5?.row?.fail_count).toBe(0);
     });
 
-    it("D6: stale-green folds to amber and .row.state matches .status", () => {
+    it("D6: stale-green folds to amber and .row is the raw green winner", () => {
       const live = mapOf([
         rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
         rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
@@ -1569,7 +1603,9 @@ describe("buildCellModel", () => {
         NOW,
       );
       expect(model.d6?.status).toBe("amber");
-      expect(model.d6?.row?.state).toBe("degraded");
+      // Verdict is in .status; .row is the raw green winner (fail_count 0).
+      expect(model.d6?.row?.state).toBe("green");
+      expect(model.d6?.row?.fail_count).toBe(0);
     });
 
     it("D5: fresh-green keeps the raw row (no spurious downgrade)", () => {
@@ -1702,25 +1738,28 @@ describe("buildCellModel", () => {
       expect(model.chipColor).toBe("amber");
     });
 
-    it("CHARACTERIZATION: an 'error'-state D3 row keeps status null but the gate check still reds the chip", () => {
+    it("an 'error'-state D3 row folds to red status and reds the chip", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", OUT_OF_VOCAB),
         row(keyFor("chat", "agno"), "chat", "green"),
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
-      // D3/D4 keep the base mapping (null for out-of-vocab)…
-      expect(model.d3!.status).toBeNull();
-      // …because the D1-D4 gate check rescues them: exists && !== "green".
+      // Unified fold: an out-of-vocab state ranks above red (worst-wins), so
+      // D3 folds directly to "red" — the two-path "status null but gate reds it"
+      // collapses to a single authoritative red status.
+      expect(model.d3!.status).toBe("red");
+      // D3 (a contiguous existing rung) is a fresh red → red chip, achieved 0.
       expect(model.chipColor).toBe("red");
       expect(model.achievedDepth).toBe(0);
     });
 
-    it("an 'error'-state D4 row yields status red and fails the gate (out-of-vocab never reads as no-data)", () => {
-      // D4's `null` now means NO-DATA (the missing-chat collapse renders
-      // gray), so an out-of-vocabulary D4 state maps to "red" via
-      // foldStateToTestStatus — it must fail the gate loudly, never hide
-      // behind the no-data exclusion.
+    it("an 'error'-state D4 row folds to red status; the chip is a first-strike amber (never no-data gray)", () => {
+      // D4's `null` means NO-DATA (missing-chat collapse → gray), so an
+      // out-of-vocab D4 state maps to "red" via the fold — it must NOT hide
+      // behind the no-data exclusion. The chip is amber (not gray) here because
+      // §C de-amplifies a first D4 strike (fail_count 0 < 2); the key property
+      // — an out-of-vocab D4 never reads as no-data gray — holds.
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", OUT_OF_VOCAB),
@@ -1728,38 +1767,38 @@ describe("buildCellModel", () => {
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d4!.status).toBe("red");
-      expect(model.chipColor).toBe("red");
+      expect(model.chipColor).toBe("amber");
       expect(model.achievedDepth).toBe(3);
     });
   });
 
-  // ── CHARACTERIZATION: buildCellModel does NOT read health:/agent: rows ──
-  // resolveD3 credits D3 from the `e2e:<slug>/<feature>` row ALONE. The
-  // implicit "D1/D2 gate" (a failing liveness probe drags e2e down) is a
-  // PRODUCER-SIDE invariant: the e2e driver is expected not to emit green
-  // when health/agent are red. buildCellModel itself never consults the
-  // health:/agent: rows, so a fresh-green e2e row credits D3 even when a
-  // health/agent row is red or absent. This test PINS that documented
-  // current behavior; it does NOT assert a new requirement.
-  describe("D1/D2 gate is a producer invariant (characterization)", () => {
-    it("credits D3 from a fresh-green e2e row even when health: is RED", () => {
+  // ── §F: buildCellModel reads health:/agent: rows as the D1/D2 liveness gate ──
+  // The unified engine now consumes the health:/agent: rows: a PRESENT
+  // fresh-red D1/D2 gates the cell (achieved 0, red), while an ABSENT or STALE
+  // liveness row is NON-GATING (skipped — preserving the common cold-load /
+  // undiscovered-service case). This absorbs the former producer-side "D1/D2
+  // gate" invariant into the derivation (spec §F).
+  describe("D1/D2 liveness gate (§F)", () => {
+    it("a present fresh-RED health (D1) row gates the cell → achieved 0", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
-        // A red liveness/agent row is present but buildCellModel ignores it.
+        // A fresh-red liveness row now GATES the cell (§F).
         row(keyFor("health", "agno"), "health", "red"),
         row(keyFor("agent", "agno"), "agent", "red"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
-      // D3 is credited from e2e alone — health/agent rows are not consulted.
+      // The D3 rung itself still reads green from its e2e row…
       expect(model.d3!.status).toBe("green");
-      expect(model.achievedDepth).toBe(3);
+      // …but the present fresh-red D1 gates the ladder → achieved 0 (§F).
+      expect(model.achievedDepth).toBe(0);
     });
 
-    it("credits D3 from a fresh-green e2e row even when health:/agent: are ABSENT", () => {
+    it("ABSENT health/agent is non-gating — a fresh-green e2e still credits D3", () => {
       const live = mapOf([
         row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      // §F: absent D1/D2 is skipped (non-gating), so D3 is credited normally.
       expect(model.d3!.status).toBe("green");
       expect(model.achievedDepth).toBe(3);
     });

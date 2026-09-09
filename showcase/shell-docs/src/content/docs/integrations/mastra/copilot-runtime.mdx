@@ -7,3 +7,135 @@ icon: "lucide/Server"
 import CopilotRuntime from "@/snippets/copilot-runtime.mdx";
 
 <CopilotRuntime components={props.components} />
+
+## Local vs remote agents
+
+There are two ways to mount Mastra agents on Copilot Runtime, and the choice is
+decided by where your agent runs — not by preference.
+
+- **Remote** — your Mastra instance already runs as its own process (`mastra dev`,
+  a container, a deployed service). `MastraAgent.getRemoteAgents` reaches it over
+  HTTP and leaves it exactly where it is. **Choose this for any project that
+  already runs a Mastra service.**
+- **Local** — your Mastra instance lives inside the same process as the runtime
+  route, and you import it directly. `MastraAgent.getLocalAgents` bridges it
+  in-process. This suits a greenfield single-process app, where there is no
+  separate agent to preserve.
+
+<Callout type="warn" title="The local path collapses two processes into one">
+  Adopting the local shape in a repository that already runs a Mastra service means
+  moving that service into your frontend — which deletes the process you were trying
+  to keep. If your agent exists today, use the remote path.
+</Callout>
+
+### Remote agents
+
+`getRemoteAgents` is asynchronous: it calls `listAgents()` on your Mastra server
+and returns one AG-UI agent per agent that server reports, keyed by agent id.
+
+```ts
+import { CopilotRuntime, createCopilotRuntimeHandler, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+import { MastraAgent } from "@ag-ui/mastra";
+import { MastraClient } from "@mastra/client-js";
+
+const mastraClient = new MastraClient({
+  baseUrl: process.env.MASTRA_BASE_URL ?? "http://127.0.0.1:4111",
+});
+
+const runtime = new CopilotRuntime({
+  agents: () =>
+    MastraAgent.getRemoteAgents({
+      mastraClient,
+      resourceId: "user-1",
+    }),
+  runner: new InMemoryAgentRunner(),
+});
+```
+
+Pass it as a **factory**, as above, rather than calling it at module scope. `agents`
+does accept the promise itself — `agents: MastraAgent.getRemoteAgents({ ... })` — but
+that starts the HTTP call when the module loads with nothing awaiting it yet. If the
+agent server is not up, the rejection is unhandled and Node terminates the process.
+
+The factory has no such window. Nothing runs until a request arrives, a failure
+surfaces as a `500`, and the next request tries again — so a route that started
+before its agent server did recovers on its own once that server comes up. The cost
+is one `listAgents()` call per request; cache the result in a module-scope variable
+if that matters to you.
+
+Resolving per request is also what lets `resourceId` follow the caller, since the
+factory receives the request:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: ({ request }) =>
+    MastraAgent.getRemoteAgents({
+      mastraClient,
+      resourceId: userIdFrom(request),
+    }),
+  runner: new InMemoryAgentRunner(),
+});
+```
+
+`GetRemoteAgentsOptions`:
+
+| Option | Required | Purpose |
+| --- | --- | --- |
+| `mastraClient` | yes | A `MastraClient` from `@mastra/client-js`, pointed at your agent server's base URL. |
+| `resourceId` | yes | Mastra's memory *resource* — the key working memory is stored under. Falls back to the thread id when the value is unset. |
+| `observationalMemory` | no | Surface Mastra Observational Memory as AG-UI activity events. `true` for every agent, or an array of agent ids. Off by default. |
+| `tracingOptions` | no | Forwarded to each run. See [Execution tracing](#execution-tracing). |
+
+**Base URL convention.** Read the address from the environment and default to the
+local Mastra dev port, so the same route works locally and against a deployed
+service:
+
+```ts
+baseUrl: process.env.MASTRA_BASE_URL ?? "http://127.0.0.1:4111"
+```
+
+Prefer `127.0.0.1` over `localhost`: on machines that resolve `localhost` to IPv6
+first, the loopback name can miss an agent server bound to IPv4 only.
+
+### Local agents
+
+`getLocalAgents` is synchronous and takes the `Mastra` instance itself instead of
+a client. It also accepts `requestContext` and `untilIdle`, neither of which has a
+remote equivalent — `untilIdle` is what [background tasks](/mastra/background-tasks)
+build on, so a run that needs it has to be embedded.
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: MastraAgent.getLocalAgents({ mastra, resourceId: "user-1" }),
+  runner: new InMemoryAgentRunner(),
+});
+```
+
+## Execution tracing
+
+When you embed a Mastra agent in Copilot Runtime, its tracing is carried through
+AG-UI end to end, so runs show up in your Mastra observability backend with no
+extra wiring.
+
+- **Inbound** — pass `tracingOptions` alongside `mastra` in
+  `MastraAgent.getLocalAgents` to anchor each run under a caller-chosen trace.
+  `getRemoteAgents` takes the same option. The shape is
+  `{ traceId?: string; metadata?: Record<string, unknown> }`:
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    agents: MastraAgent.getLocalAgents({
+      mastra,
+      resourceId: "user-1",
+      tracingOptions: {
+        traceId: myTraceId,
+        metadata: { feature: "support-chat", tenant: tenantId },
+      },
+    }),
+  });
+  ```
+
+- **Outbound** — the execution `traceId` Mastra assigns to a run is surfaced on
+  the `RUN_FINISHED` event's `result` field as `{ traceId }`, so you can anchor
+  feedback or scores back to the exact run (e.g. `createFeedback({ traceId })`).
+

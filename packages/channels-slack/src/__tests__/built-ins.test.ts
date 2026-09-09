@@ -6,21 +6,21 @@ import {
   slackFormattingContext,
   slackConversationModelContext,
 } from "../built-in-context.js";
-import type { BotToolContext } from "@copilotkit/channels";
-import type { PlatformUser, Thread } from "@copilotkit/channels-ui";
+import type { ChannelToolContext } from "@copilotkit/channels-core";
+import type { ProviderActor, Thread } from "@copilotkit/channels-ui";
 
 /**
  * Build a minimal handler ctx whose `thread.lookupUser` is the only capability
  * the lookup tool touches. The fake resolves to whatever `user` we hand it.
  */
-function makeCtx(user?: PlatformUser): {
-  ctx: BotToolContext;
+function makeCtx(user?: ProviderActor): {
+  ctx: ChannelToolContext;
   lookupUser: ReturnType<typeof vi.fn>;
 } {
   const lookupUser = vi.fn(async (_query: string) => user);
   const thread = { lookupUser } as unknown as Thread;
   return {
-    ctx: { thread, platform: "slack" } as BotToolContext,
+    ctx: { thread, platform: "slack" } as ChannelToolContext,
     lookupUser,
   };
 }
@@ -29,6 +29,7 @@ describe("lookup_slack_user", () => {
   it("resolves a user via thread.lookupUser and returns a <@USERID> mention", async () => {
     const { ctx, lookupUser } = makeCtx({
       id: "U001",
+      kind: "human",
       name: "Atai Barkai",
       handle: "atai",
       email: "atai@copilotkit.ai",
@@ -59,7 +60,7 @@ describe("lookup_slack_user", () => {
   });
 
   it("returns a raw object (NOT a JSON string) for the run-loop to serialize", async () => {
-    const { ctx } = makeCtx({ id: "U002" });
+    const { ctx } = makeCtx({ id: "U002", kind: "human" });
     const r = await lookupSlackUserTool.handler({ query: "sarah" }, ctx);
     expect(typeof r).toBe("object");
   });

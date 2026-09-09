@@ -8,11 +8,11 @@
  * `send_announcement`, so a consequential action is always gated on a human.
  */
 import { z } from "zod";
-import { defineBotTool } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 import { ConfirmAction } from "./confirm-action.js";
 
 /** The HITL gate: ask the user to approve before a consequential action. */
-export const confirmWriteTool = defineBotTool({
+export const confirmWriteTool = defineChannelTool({
   name: "confirm_write",
   description:
     "Ask the user to approve a consequential action before you perform it. " +
@@ -41,7 +41,7 @@ export const confirmWriteTool = defineBotTool({
 });
 
 /** The gated action. Self-contained (mock), with no external API. */
-export const sendAnnouncementTool = defineBotTool({
+export const sendAnnouncementTool = defineChannelTool({
   name: "send_announcement",
   description:
     "Send a team announcement. You MUST have called confirm_write and received " +

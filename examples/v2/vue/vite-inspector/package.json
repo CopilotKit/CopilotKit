@@ -1,0 +1,19 @@
+{
+  "name": "@copilotkit/vue-vite-inspector",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@copilotkit/vue": "workspace:*",
+    "@copilotkit/web-inspector": "workspace:*",
+    "vue": "^3.5.28"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "5.8.2",
+    "vite": "^6.0.0"
+  }
+}

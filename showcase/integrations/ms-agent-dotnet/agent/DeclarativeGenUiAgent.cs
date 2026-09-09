@@ -20,8 +20,6 @@ using OpenAI;
 /// </summary>
 public class DeclarativeGenUiAgent
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private readonly IConfiguration _configuration;
     private readonly OpenAIClient _openAiClient;
     private readonly ILogger _logger;
@@ -37,17 +35,12 @@ public class DeclarativeGenUiAgent
         _logger = loggerFactory.CreateLogger<DeclarativeGenUiAgent>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
@@ -55,13 +48,28 @@ public class DeclarativeGenUiAgent
     {
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
+        // Instructions (not Description) is the system prompt ChatClientAgent
+        // actually sends to the model. Without it the agent narrates walls of
+        // text and only sometimes calls generate_a2ui.
         return new ChatClientAgent(
             chatClient,
+            instructions: """
+                You are the embedded sales analyst for Vantage Threads. Answer every
+                business question by calling `generate_a2ui` exactly once to draw a
+                rich visual surface. After the tool returns, reply with at most ONE
+                short sentence (or nothing). Never paste tables, metrics, or chart
+                data into the chat message — the A2UI surface is the product.
+
+                When calling generate_a2ui, set `context` to a short brief that names
+                the view (dashboard / rep performance / at-risk / account details)
+                and reminds the designer to use the Vantage Threads Q2 numbers with
+                non-empty chart data arrays and full table rows.
+
+                Catalog only: Card, Metric, PieChart, BarChart, DataTable, StatusBadge,
+                InfoRow, PrimaryButton, Row, Column, Text. Never DashboardCard.
+                """,
             name: "DeclarativeGenUiAgent",
-            description: @"You are an assistant that helps the user visualise information with dynamic UI.
-Whenever the user asks for a dashboard, chart, status report, or any rich visual output,
-ALWAYS call the `generate_a2ui` tool with a short natural-language description of what
-should be rendered. Keep any textual reply to one short sentence — the UI speaks for itself.",
+            description: "Declarative A2UI dynamic-schema demo agent",
             tools: [
                 AIFunctionFactory.Create(GenerateA2ui, options: new() { Name = "generate_a2ui", SerializerOptions = _jsonSerializerOptions })
             ]);
@@ -85,7 +93,7 @@ should be rendered. Keep any textual reply to one short sentence — the UI spea
         {
             content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
                 _configuration,
-                "Generate a useful dashboard UI. Use catalogId='declarative-gen-ui-catalog'.",
+                BeautifulChatA2ui.DeclarativeGenUiDesignSystemPrompt(),
                 userContent,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -111,6 +119,10 @@ should be rendered. Keep any textual reply to one short sentence — the UI spea
             return SalesAgentFactory.StructuredError("empty_llm_output", "Model returned no text content", "Retry or check model availability", errorId);
         }
 
-        return SalesAgentFactory.BuildA2uiResponseFromContent(content, errorId, _logger);
+        return SalesAgentFactory.BuildA2uiResponseFromContent(
+            content,
+            errorId,
+            _logger,
+            forcedCatalogId: BeautifulChatA2ui.DeclarativeGenUiCatalogId);
     }
 }

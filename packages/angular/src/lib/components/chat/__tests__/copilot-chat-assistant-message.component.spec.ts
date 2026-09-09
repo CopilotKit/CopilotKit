@@ -58,6 +58,11 @@ describe("CopilotChatAssistantMessage", () => {
     );
   });
 
+  it("exposes stable cross-frontend message classes", () => {
+    expect(component.computedClass()).toContain("copilotKitMessage");
+    expect(component.computedClass()).toContain("copilotKitAssistantMessage");
+  });
+
   it("exposes tool call context", () => {
     const context = component.toolCallsViewContext();
     expect(context.message).toBe(assistantMessage);

@@ -8,7 +8,7 @@
  * the matrix it summarizes.
  */
 
-import { buildCellModel } from "@/lib/cell-model";
+import { buildCellModel, catalogCellToInput } from "@/lib/cell-model";
 import type { LiveStatusMap } from "@/lib/live-status";
 import type { CatalogCell } from "@/data/catalog-types";
 import type { ParityTier } from "@/components/parity-badge";
@@ -56,29 +56,43 @@ export function asParityTier(tier: unknown): ParityTier | undefined {
 
 /**
  * Exhaustive achievedDepth → DepthDistribution key map. The compiler enforces
- * completeness: `buildCellModel().achievedDepth` is typed `0 | 3 | 4 | 5 | 6`,
- * so every reachable depth (including D6) MUST have an entry or this fails to
- * type-check. Replaces the unchecked `` `d${depth}` as keyof `` cast that
- * silently produced a `"d6"` key the type lacked, dropping D6 cells.
+ * completeness: `buildCellModel().achievedDepth` is now typed `0-6` (the engine
+ * widened to represent D1/D2 liveness, §B), so every reachable depth MUST have
+ * an entry or this fails to type-check. Replaces the unchecked
+ * `` `d${depth}` as keyof `` cast that silently produced a `"d6"` key the type
+ * lacked, dropping D6 cells. D1/D2 (liveness-only, e2e not yet green) land in
+ * the `d0` "below-D3-verification" bucket — the distribution tracks D3+ parity
+ * depth, so a cell that has not reached D3 counts with the D0 tier.
  */
-const DEPTH_TO_KEY: Record<0 | 3 | 4 | 5 | 6, keyof DepthDistribution> = {
-  0: "d0",
-  3: "d3",
-  4: "d4",
-  5: "d5",
-  6: "d6",
-};
+const DEPTH_TO_KEY: Record<0 | 1 | 2 | 3 | 4 | 5 | 6, keyof DepthDistribution> =
+  {
+    0: "d0",
+    1: "d0",
+    2: "d0",
+    3: "d3",
+    4: "d4",
+    5: "d5",
+    6: "d6",
+  };
 
 /**
- * Health stats across all wired cells, derived from `buildCellModel().chipColor`.
+ * Health stats across all wired (or stub) cells, derived from
+ * `buildCellModel().chipColor`.
  *
- * `isSupported: true` is correct by construction: `generate-registry.ts`
- * resolves a feature listed in `not_supported_features` to catalog status
- * `"unsupported"` BEFORE the `"wired"` branch, so a `status === "wired"` cell
- * can never also be unsupported. The matrix's `renderCell` derives support from
- * `not_supported_features`, but for wired cells that always yields supported —
- * the two agree, so passing `true` here keeps the stats bar consistent with the
- * matrix. See `determineCellStatus` in scripts/generate-registry.ts.
+ * The engine input is built via the ONE shared `catalogCellToInput` mapping
+ * (spec §5a) — the SAME mapping the matrix render path (`deriveDepth`) and the
+ * harness `/api/matrix` read-model use. Hand-constructing `{ isSupported: true,
+ * isWired: true }` here (the previous approach) omitted `probeAxis`, which
+ * silently mis-resolved a starter cell on the agent feature ladder instead of
+ * the `starter_smoke` matrix — routing through `catalogCellToInput` makes that
+ * divergence structurally impossible instead of relying on the (currently
+ * true, but unstated) invariant that no starter cell reaches this loop.
+ *
+ * A `status === "stub"` cell is included (not skipped): the engine treats a
+ * stub as wired-but-not-built (`catalogCellToInput`'s `isWired` covers
+ * `"wired" | "stub"`), and the matrix renders a real chip for it, so excluding
+ * it here would make the stats bar undercount what the matrix shows. A stub
+ * with no live data resolves to a gray chip → counted as `noData`.
  *
  * A gray chip (no data yet) is counted as `noData`, NOT green: the matrix shows
  * gray, so folding it into green would make the stats bar disagree with the
@@ -87,7 +101,7 @@ const DEPTH_TO_KEY: Record<0 | 3 | 4 | 5 | 6, keyof DepthDistribution> = {
  * NO DEDUP (unlike `computeParityStats`/docsStats): `catalogData.cells` is
  * one row per grid cell — an `(integration, feature)` pair is unique across the
  * catalog (verified: 0 duplicate pairs). Health is a PER-CELL signal, so every
- * wired cell is counted exactly once. `computeParityStats` dedups by
+ * wired/stub cell is counted exactly once. `computeParityStats` dedups by
  * `integration` because parity is per-integration (many cells share one slug),
  * and docsStats dedups by `feature` because docs are per-feature; neither
  * applies to a genuinely per-cell rollup.
@@ -102,17 +116,12 @@ export function computeHealthStats(
   let red = 0;
   let noData = 0;
   for (const cell of cells) {
-    if (cell.status !== "wired" || cell.feature === null) continue;
-    const model = buildCellModel(
-      liveStatus,
-      {
-        slug: cell.integration,
-        featureId: cell.feature,
-        isSupported: true,
-        isWired: true,
-      },
-      now,
-    );
+    if (
+      (cell.status !== "wired" && cell.status !== "stub") ||
+      cell.feature === null
+    )
+      continue;
+    const model = buildCellModel(liveStatus, catalogCellToInput(cell), now);
     switch (model.chipColor) {
       case "green":
         green++;
@@ -170,13 +179,14 @@ export function computeParityStats(
 }
 
 /**
- * Depth distribution across all wired cells, keyed by achieved depth.
+ * Depth distribution across all wired (or stub) cells, keyed by achieved depth.
  *
  * Uses the exhaustive `DEPTH_TO_KEY` map instead of a string cast so D6-achieved
  * cells land in the `d6` bucket (the previous `` `d${depth}` as keyof `` cast
  * produced a `"d6"` key the type lacked → `dist["d6"]++ === NaN`, dropping every
- * D6 cell). `isSupported: true` is correct by construction — see
- * `computeHealthStats`.
+ * D6 cell). The engine input is built via the shared `catalogCellToInput`
+ * mapping and a stub is included in the loop — see `computeHealthStats` for
+ * why both of those match the matrix render path.
  */
 export function computeDepthDistribution(
   cells: readonly CatalogCell[],
@@ -191,17 +201,12 @@ export function computeDepthDistribution(
     d0: 0,
   };
   for (const cell of cells) {
-    if (cell.status !== "wired" || cell.feature === null) continue;
-    const model = buildCellModel(
-      liveStatus,
-      {
-        slug: cell.integration,
-        featureId: cell.feature,
-        isSupported: true,
-        isWired: true,
-      },
-      now,
-    );
+    if (
+      (cell.status !== "wired" && cell.status !== "stub") ||
+      cell.feature === null
+    )
+      continue;
+    const model = buildCellModel(liveStatus, catalogCellToInput(cell), now);
     const key = DEPTH_TO_KEY[model.achievedDepth];
     dist[key]++;
   }
@@ -227,6 +232,9 @@ export function computeDepthDistribution(
  *   d6Effective red   → red    (genuine D6 failure, ladder intact through D5)
  *   d6Effective amber → degraded (stale/degraded D6, ladder intact through D5)
  *   d6Effective null  → gray   (no row, OR blocked by a broken/unverified ladder)
+ *
+ * Includes stub cells (see `computeHealthStats`) — a stub's engine input is
+ * `isWired: true` with no live rows, so it lands in `gray` here.
  */
 export function computeD6Stats(
   cells: readonly CatalogCell[],
@@ -238,17 +246,12 @@ export function computeD6Stats(
   let gray = 0;
   let red = 0;
   for (const cell of cells) {
-    if (cell.status !== "wired" || cell.feature === null) continue;
-    const model = buildCellModel(
-      liveStatus,
-      {
-        slug: cell.integration,
-        featureId: cell.feature,
-        isSupported: true,
-        isWired: true,
-      },
-      now,
-    );
+    if (
+      (cell.status !== "wired" && cell.status !== "stub") ||
+      cell.feature === null
+    )
+      continue;
+    const model = buildCellModel(liveStatus, catalogCellToInput(cell), now);
     switch (model.d6Effective) {
       case "green":
         green++;

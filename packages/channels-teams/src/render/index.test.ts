@@ -5,6 +5,7 @@ import {
   collectPlainText,
   createRunRenderer,
   ADAPTIVE_CARD_CONTENT_TYPE,
+  renderTeamsMarkdown,
 } from "./index.js";
 
 describe("render/index (managed reuse surface)", () => {
@@ -13,6 +14,7 @@ describe("render/index (managed reuse surface)", () => {
     expect(typeof isPlainText).toBe("function");
     expect(typeof collectPlainText).toBe("function");
     expect(typeof createRunRenderer).toBe("function");
+    expect(typeof renderTeamsMarkdown).toBe("function");
   });
 
   it("exposes the Adaptive Card content type as a string", () => {

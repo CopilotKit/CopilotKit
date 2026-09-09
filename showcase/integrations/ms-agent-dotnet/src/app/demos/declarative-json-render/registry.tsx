@@ -1,11 +1,8 @@
 import { defineRegistry } from "@json-render/react";
 import { catalog } from "./catalog";
-import { MetricCard } from "./metric-card";
-import type { MetricCardComponentProps } from "./metric-card";
-import { BarChart } from "./charts/bar-chart";
-import type { BarChartComponentProps } from "./charts/bar-chart";
-import { PieChart } from "./charts/pie-chart";
-import type { PieChartComponentProps } from "./charts/pie-chart";
+import { MetricCard, type MetricCardComponentProps } from "./metric-card";
+import { BarChart, type BarChartComponentProps } from "./charts/bar-chart";
+import { PieChart, type PieChartComponentProps } from "./charts/pie-chart";
 
 export const { registry } = defineRegistry(catalog, {
   components: {

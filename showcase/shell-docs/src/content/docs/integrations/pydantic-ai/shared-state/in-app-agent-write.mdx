@@ -43,7 +43,12 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     from pydantic import BaseModel
     from pydantic_ai import Agent, RunContext
-    from pydantic_ai.ag_ui import StateDeps
+    from pydantic_ai.ui import StateDeps
+    from pydantic_ai.ui.ag_ui import AGUIAdapter
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import Response
+    from starlette.routing import Route
 
 
     class AgentState(BaseModel):
@@ -75,7 +80,16 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         )
 
 
-    app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+    async def run_agent(request: Request) -> Response:
+        # Build the deps fresh on every request: `dispatch_request` writes the state
+        # the client sent into `deps.state`, so a shared instance leaks state between
+        # concurrent requests and users.
+        return await AGUIAdapter.dispatch_request(
+            request, agent=agent, deps=StateDeps(AgentState())
+        )
+
+
+    app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
     if __name__ == "__main__":
         import uvicorn
@@ -89,6 +103,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
+    import { useEffect } from "react";
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
@@ -98,15 +113,20 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agent } = useAgent({ // [!code highlight]
+      const { agent, isReady } = useAgent({
         agentId: "my_agent",
-        initialState: { language: "english" }  // optionally provide an initial state
       });
+      const state = (agent.state ?? {}) as Partial<AgentState>;
+
+      useEffect(() => {
+        if (!isReady || state.language !== undefined) return;
+        agent.setState({ ...(agent.state ?? {}), language: "english" });
+      }, [agent, isReady, state.language]);
 
       // ...
 
       const toggleLanguage = () => {
-        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ ...(agent.state ?? {}), language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...

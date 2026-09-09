@@ -4,6 +4,10 @@
 //
 //   showcase/integrations/<slug>/docs/setup/<concept>.mdx
 //
+// Docs-only frameworks, which have no integration package, own them at:
+//
+//   showcase/shell-docs/src/content/snippets/setup/<slug>/<concept>.mdx
+//
 // shell-docs runs without integration package sources in production, so these
 // snippets have to be expanded while the Docker builder still has
 // showcase/integrations available. This script rewrites static <DemoCode />
@@ -19,6 +23,14 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "integrations");
+const DOCS_ONLY_SETUP_DIR = path.join(
+  ROOT,
+  "shell-docs",
+  "src",
+  "content",
+  "snippets",
+  "setup",
+);
 const OUTPUT_PATH = path.join(
   ROOT,
   "shell-docs",
@@ -300,16 +312,12 @@ function readSetupConcepts(): SetupContentBundle {
     throw new Error(`Integrations directory not found: ${PACKAGES_DIR}`);
   }
 
-  const integrationDirs = fs
-    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
-
-  for (const framework of integrationDirs) {
-    const packageRoot = path.join(PACKAGES_DIR, framework);
-    const setupDir = path.join(packageRoot, "docs", "setup");
-    if (!fs.existsSync(setupDir)) continue;
+  const addSetupDir = (
+    framework: string,
+    setupDir: string,
+    sourceRoot: string,
+  ): void => {
+    if (!fs.existsSync(setupDir)) return;
 
     const conceptFiles = fs
       .readdirSync(setupDir, { withFileTypes: true })
@@ -325,7 +333,7 @@ function readSetupConcepts(): SetupContentBundle {
       if (raw.trim().length === 0) continue;
 
       try {
-        const source = rewriteDemoCode(stripFrontmatter(raw), packageRoot);
+        const source = rewriteDemoCode(stripFrontmatter(raw), sourceRoot);
         if (/<DemoCode\b/.test(source)) {
           throw new Error("contains an unresolved <DemoCode> reference");
         }
@@ -337,6 +345,37 @@ function readSetupConcepts(): SetupContentBundle {
       } catch (err) {
         errors.push(`${relativeConceptPath}: ${(err as Error).message}`);
       }
+    }
+  };
+
+  const integrationDirs = fs
+    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+
+  for (const framework of integrationDirs) {
+    const packageRoot = path.join(PACKAGES_DIR, framework);
+    addSetupDir(
+      framework,
+      path.join(packageRoot, "docs", "setup"),
+      packageRoot,
+    );
+  }
+
+  if (fs.existsSync(DOCS_ONLY_SETUP_DIR)) {
+    const docsOnlyFrameworks = fs
+      .readdirSync(DOCS_ONLY_SETUP_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+
+    for (const framework of docsOnlyFrameworks) {
+      addSetupDir(
+        framework,
+        path.join(DOCS_ONLY_SETUP_DIR, framework),
+        path.join(ROOT, "shell-docs"),
+      );
     }
   }
 

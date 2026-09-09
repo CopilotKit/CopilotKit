@@ -2,6 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import { TelegramConversationStore } from "../conversation-store.js";
 
 describe("TelegramConversationStore", () => {
+  it("declares that it seeds the inbound turn", () => {
+    const store = new TelegramConversationStore();
+
+    expect(store.seedsInboundTurn).toBe(true);
+  });
+
   it("creates a stable agent session per conversation key", async () => {
     const store = new TelegramConversationStore();
     const makeAgent = vi.fn((threadId: string) => ({ threadId }) as any);

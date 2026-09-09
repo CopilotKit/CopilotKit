@@ -38,7 +38,7 @@ export default function NotFound() {
         <div className="flex justify-center gap-3">
           <Link
             href="/"
-            className="shell-docs-radius-control inline-flex h-10 items-center border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+            className="shell-docs-radius-control inline-flex h-10 items-center border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
           >
             Go to docs home
           </Link>

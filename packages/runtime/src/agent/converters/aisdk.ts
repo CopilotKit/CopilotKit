@@ -16,6 +16,46 @@ import type {
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { createStateEventNormalizer } from "../state-delta";
+import { aggregateRunUsage, getTokenCount, tokenCountKeys } from "./usage";
+import type { AgentRunFinishedDetails, AgentRunUsage } from "./usage";
+
+/**
+ * Reads aggregate usage from an AI SDK finish part without inventing values
+ * when a provider omits a token count.
+ */
+export function getAISDKRunFinishedDetails(
+  part: Record<string, unknown>,
+  identity: { provider?: string; model?: string } = {},
+): AgentRunFinishedDetails {
+  const details: AgentRunFinishedDetails = {};
+
+  if (typeof part.finishReason === "string") {
+    details.finishReason = part.finishReason;
+  }
+
+  if (
+    part.totalUsage === null ||
+    typeof part.totalUsage !== "object" ||
+    Array.isArray(part.totalUsage)
+  ) {
+    return details;
+  }
+
+  const totalUsage = part.totalUsage as Record<string, unknown>;
+  const counts: AgentRunUsage = {};
+
+  for (const key of tokenCountKeys) {
+    const value = getTokenCount(totalUsage[key]);
+    if (value !== undefined) {
+      counts[key] = value;
+    }
+  }
+
+  aggregateRunUsage(details, [{ ...identity, ...counts }]);
+
+  return details;
+}
 
 /**
  * Converts an AI SDK `fullStream` into AG-UI `BaseEvent` objects.
@@ -35,10 +75,13 @@ export async function* convertAISDKStream(
   fullStream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
   pendingInterrupts?: Interrupt[],
+  initialState?: unknown,
+  runFinishedDetails?: AgentRunFinishedDetails,
 ): AsyncGenerator<BaseEvent> {
   let messageId = randomUUID();
   let reasoningMessageId = randomUUID();
   let isInReasoning = false;
+  const normalizeStateEvent = createStateEventNormalizer(initialState);
 
   const toolCallStates = new Map<
     string,
@@ -338,7 +381,9 @@ export async function* convertAISDKStream(
                 type: EventType.STATE_SNAPSHOT,
                 snapshot,
               };
-              yield stateSnapshotEvent;
+              for (const event of normalizeStateEvent(stateSnapshotEvent)) {
+                yield event;
+              }
             }
           } else if (
             toolName === "AGUISendStateDelta" &&
@@ -352,7 +397,9 @@ export async function* convertAISDKStream(
                 type: EventType.STATE_DELTA,
                 delta,
               };
-              yield stateDeltaEvent;
+              for (const event of normalizeStateEvent(stateDeltaEvent)) {
+                yield event;
+              }
             }
           }
 
@@ -375,6 +422,9 @@ export async function* convertAISDKStream(
         }
 
         case "finish": {
+          if (runFinishedDetails) {
+            Object.assign(runFinishedDetails, getAISDKRunFinishedDetails(p));
+          }
           // Terminal — let the caller handle lifecycle
           return;
         }

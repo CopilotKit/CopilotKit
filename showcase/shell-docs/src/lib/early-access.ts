@@ -30,29 +30,18 @@ export interface EarlyAccessGateConfig {
   image?: { alt: string; lightSrc: string; darkSrc: string };
 }
 
-export const EARLY_ACCESS_GATES = {
-  whatsapp: {
-    storageKey: "shell-docs-early-access:whatsapp",
-    password: "earlyaccess",
-    eyebrow: "Early access",
-    title: "WhatsApp is in early access",
-    description: [
-      "The WhatsApp docs are behind a password while WhatsApp support is in early access.",
-      "CopilotKit for WhatsApp turns your agent into a WhatsApp bot over the Cloud API: buffered replies, calling tools, and rendering interactive reply-button and list messages.",
-    ],
-    requestPrompt: "Don't have the password?",
-    requestLinkLabel: "Reach out to request early access to WhatsApp",
-    requestUrl: "https://go.copilotkit.ai/beyond-the-web-form",
-  },
-} as const satisfies Record<string, EarlyAccessGateConfig>;
-
-export type EarlyAccessGateId = keyof typeof EARLY_ACCESS_GATES;
+// No Channels provider currently uses an early-access docs gate. WhatsApp is a
+// coming-soon roadmap item, while Slack and Teams are production ready.
+export const EARLY_ACCESS_GATES = {} as const satisfies Record<
+  string,
+  EarlyAccessGateConfig
+>;
 
 export function getEarlyAccessGate(
   id: string | undefined,
 ): EarlyAccessGateConfig | null {
   if (!id) return null;
-  return id in EARLY_ACCESS_GATES
-    ? EARLY_ACCESS_GATES[id as EarlyAccessGateId]
-    : null;
+  return (
+    (EARLY_ACCESS_GATES as Record<string, EarlyAccessGateConfig>)[id] ?? null
+  );
 }

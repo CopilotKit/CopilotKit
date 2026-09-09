@@ -76,6 +76,7 @@ features:
   - voice
   - agent-config
 a2ui_pattern: schema-loading
+a2ui_agent_form: langgraph-state-graph
 interrupt_pattern: native
 thread_persistence_pattern: langgraph
 agent_config_pattern: shared-state

@@ -31,6 +31,16 @@ COPY showcase/shell-dashboard/ ./shell-dashboard/
 # just the fold to that exact path — keeping the single-shared-fold invariant
 # without dragging the whole harness package into the dashboard image.
 COPY showcase/harness/src/shared/cell-model/ ./harness/src/shared/cell-model/
+# generate-registry.ts also imports the catalog cross-join/flatten fold from
+# ../harness/src/shared/catalog/catalog-flatten.js. That file is ESM (relies on
+# the harness package.json's `"type": "module"`) and does `import yaml from
+# "js-yaml"`, resolved by walking up from the harness tree. Stage the fold + the
+# harness package.json for the ESM scope, then point harness/node_modules at the
+# already-installed scripts node_modules so js-yaml (+ its argparse dep) resolve
+# — no second install of the harness package.
+COPY showcase/harness/src/shared/catalog/ ./harness/src/shared/catalog/
+COPY showcase/harness/package.json ./harness/package.json
+RUN ln -s ../scripts/node_modules harness/node_modules
 
 # Bake commit info into Next.js build (NEXT_PUBLIC_* are compiled in).
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}

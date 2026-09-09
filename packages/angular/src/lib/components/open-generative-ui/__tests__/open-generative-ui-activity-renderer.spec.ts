@@ -142,6 +142,32 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     ).not.toBeNull();
   });
 
+  it("does not create a preview after its sandbox loader becomes stale", async () => {
+    let resolveLoader!: (value: { create: typeof mockCreate }) => void;
+    mockLoadWebsandbox.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLoader = resolve;
+      }),
+    );
+    setContent(fixture, {
+      cssComplete: true,
+      html: ["<body><p>Old preview"],
+      htmlComplete: false,
+    });
+    await flushSandboxImport(fixture);
+
+    setContent(fixture, { generating: true });
+    resolveLoader({ create: mockCreate });
+    await flushSandboxImport(fixture);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-testid="open-generative-ui-preview-sandbox"]',
+      ),
+    ).toBeNull();
+  });
+
   it("creates a final sandbox when HTML is complete", async () => {
     setContent(fixture, {
       css: ".metric { color: blue; }",
@@ -164,6 +190,85 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
         '[data-testid="open-generative-ui-final-sandbox"]',
       ),
     ).not.toBeNull();
+  });
+
+  it("does not duplicate the final sandbox while its loader is pending", async () => {
+    let resolveLoader!: (value: { create: typeof mockCreate }) => void;
+    mockLoadWebsandbox.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLoader = resolve;
+      }),
+    );
+    const content: OpenGenerativeUIContent = {
+      css: ".metric { color: blue; }",
+      cssComplete: true,
+      html: ['<body><div class="metric">Revenue</div></body>'],
+      htmlComplete: true,
+    };
+
+    setContent(fixture, content);
+    await flushSandboxImport(fixture);
+    setContent(fixture, { ...content });
+    await flushSandboxImport(fixture);
+
+    resolveLoader({ create: mockCreate });
+    await flushSandboxImport(fixture);
+
+    expect({
+      createCount: mockCreate.mock.calls.length,
+      destroyCount: mockDestroy.mock.calls.length,
+      iframeCount: fixture.nativeElement.querySelectorAll(
+        '[data-testid="open-generative-ui-final-sandbox"]',
+      ).length,
+      loaderCount: mockLoadWebsandbox.mock.calls.length,
+    }).toEqual({
+      createCount: 1,
+      destroyCount: 0,
+      iframeCount: 1,
+      loaderCount: 1,
+    });
+  });
+
+  it("cancels stale final sandbox effects when content changes A to B to A", async () => {
+    let resolveLoader!: (value: { create: typeof mockCreate }) => void;
+    mockLoadWebsandbox.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLoader = resolve;
+      }),
+    );
+    const contentA: OpenGenerativeUIContent = {
+      html: ["<body><p>A</p></body>"],
+      htmlComplete: true,
+    };
+    const contentB: OpenGenerativeUIContent = {
+      html: ["<body><p>B</p></body>"],
+      htmlComplete: true,
+    };
+
+    setContent(fixture, contentA);
+    await flushSandboxImport(fixture);
+    setContent(fixture, contentB);
+    await flushSandboxImport(fixture);
+    setContent(fixture, contentA);
+    await flushSandboxImport(fixture);
+
+    resolveLoader({ create: mockCreate });
+    await flushSandboxImport(fixture);
+
+    expect({
+      createCount: mockCreate.mock.calls.length,
+      destroyCount: mockDestroy.mock.calls.length,
+      iframeCount: fixture.nativeElement.querySelectorAll(
+        '[data-testid="open-generative-ui-final-sandbox"]',
+      ).length,
+      loaderCount: mockLoadWebsandbox.mock.calls.length,
+    }).toEqual({
+      createCount: 1,
+      destroyCount: 0,
+      iframeCount: 1,
+      loaderCount: 3,
+    });
+    expect(mockCreate.mock.calls[0][1].frameContent).toContain("<p>A</p>");
   });
 
   it("destroys the preview sandbox when final HTML arrives", async () => {

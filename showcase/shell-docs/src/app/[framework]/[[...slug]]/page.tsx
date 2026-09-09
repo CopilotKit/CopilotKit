@@ -36,21 +36,32 @@ import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-fra
 import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { frameworkOverviews } from "@/data/frameworks";
+import {
+  getAngularDocsNavTree,
+  resolveAngularDoc,
+} from "@/lib/angular-doc-navigation";
+import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import {
   getFrontendGuidanceContentSlug,
   getFrontendContentSlug,
+  getFrontendCanonicalSlug,
   getFrontendQuickstartNavTree,
 } from "@/lib/frontend-page-content";
 import type { FrontendPageId } from "@/lib/frontend-page-content";
 import {
   frontendPathForBackend,
   getFrontendOption,
+  isChannelFrontend,
   isFrontendId,
   parseFrontendRoutePath,
 } from "@/lib/frontend-options";
+import { resolveChannelGuideRoute } from "@/lib/channel-guide-routes";
+import type { ChannelFrontend } from "@/lib/channel-guide-routes";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
+import { onboardingFrontendFor } from "@/lib/docs-onboarding-frontend";
 import {
   CONTENT_DIR,
   buildFrameworkNav,
@@ -137,6 +148,35 @@ function frontendMetadata(
   slugPath: string,
   activeBackendFramework: string | null = null,
 ): Metadata {
+  if (isChannelFrontend(frontend) && !slugPath) {
+    const doc = loadDoc("channels");
+    const frontendName =
+      frontend === "teams"
+        ? "Microsoft Teams"
+        : getFrontendOption(frontend).name;
+
+    return buildDocMetadata({
+      title: `${frontendName}: ${doc?.fm.title ?? "Channels"}`,
+      description: doc?.fm.description,
+      canonicalPath: frontendRoutePath(frontend, "", activeBackendFramework),
+    });
+  }
+
+  if (isChannelFrontend(frontend) && slugPath === "connect") {
+    const contentSlug = getFrontendContentSlug(frontend);
+    const doc = loadDoc(contentSlug);
+
+    return buildDocMetadata({
+      title: doc?.fm.title ?? "Connect and run your agent",
+      description: doc?.fm.description,
+      canonicalPath: frontendRoutePath(
+        frontend,
+        "connect",
+        activeBackendFramework,
+      ),
+    });
+  }
+
   if (!slugPath || slugPath === "quickstart") {
     const contentSlug = getFrontendContentSlug(frontend);
     const doc = loadDoc(contentSlug);
@@ -290,6 +330,13 @@ export async function generateMetadata({
         ? null
         : (frontendRoute?.backend ?? null);
     const activeFrontendSlugPath = frontendRoute?.slugPath ?? slugPath;
+    if (
+      activeBackendFramework &&
+      getDocsMode(activeBackendFramework) === "hidden"
+    ) {
+      notFound();
+    }
+
     if (isFrontendGuidanceSlug(activeFrontendSlugPath)) {
       return frontendMetadata(
         framework,
@@ -298,8 +345,83 @@ export async function generateMetadata({
       );
     }
 
-    if (isFrontendRootSlug(activeFrontendSlugPath)) {
-      return frontendMetadata(framework, "", activeBackendFramework);
+    if (isChannelFrontend(framework) && activeFrontendSlugPath === "connect") {
+      return frontendMetadata(
+        framework,
+        activeFrontendSlugPath,
+        activeBackendFramework,
+      );
+    }
+
+    if (
+      isFrontendRootSlug(activeFrontendSlugPath) &&
+      !(
+        framework === "angular" &&
+        activeBackendFramework &&
+        !activeFrontendSlugPath
+      )
+    ) {
+      return frontendMetadata(
+        framework,
+        activeFrontendSlugPath,
+        activeBackendFramework,
+      );
+    }
+
+    const channelGuideRoute = resolveChannelGuideRoute({
+      frontend: framework,
+      framework: activeBackendFramework,
+      slugPath: activeFrontendSlugPath,
+      frameworkDocsMode: getDocsMode(activeBackendFramework ?? ROOT_FRAMEWORK),
+    });
+    if (channelGuideRoute) {
+      const doc = loadDoc(channelGuideRoute.sourceSlug);
+      const frontendName =
+        channelGuideRoute.frontend === "teams"
+          ? "Microsoft Teams"
+          : getFrontendOption(channelGuideRoute.frontend).name;
+      const backendName =
+        channelGuideRoute.framework !== ROOT_FRAMEWORK
+          ? (getIntegration(channelGuideRoute.framework)?.name ??
+            humanizeSlug(channelGuideRoute.framework))
+          : null;
+      const metadataTitlePrefix = backendName
+        ? `${frontendName} + ${backendName}`
+        : frontendName;
+      const canonicalPath = channelGuideRoute.canonicalPath;
+
+      return buildDocMetadata({
+        title: `${metadataTitlePrefix}: ${
+          doc?.fm.title ?? humanizeSlug(channelGuideRoute.slugPath)
+        }`,
+        description: doc?.fm.description,
+        canonicalPath,
+        ogPath: `/og${canonicalPath}/og.png`,
+      });
+    }
+
+    if (framework === "angular" && activeFrontendSlugPath) {
+      const canonicalSlugPath = getFrontendCanonicalSlug(
+        framework,
+        activeFrontendSlugPath,
+      );
+      const resolution = resolveAngularDoc(
+        activeBackendFramework,
+        canonicalSlugPath,
+      );
+      const doc = resolution ? loadDoc(resolution.contentSlugPath) : null;
+      const canonicalPath = frontendRoutePath(
+        framework,
+        canonicalSlugPath,
+        activeBackendFramework,
+      );
+
+      return buildDocMetadata({
+        title: doc?.fm.title ?? canonicalSlugPath,
+        description: doc?.fm.description,
+        canonicalPath,
+        ogPath: `/og${canonicalPath}/og.png`,
+      });
     }
 
     if (activeBackendFramework) {
@@ -402,7 +524,22 @@ export default async function FrameworkScopedDocsPage({
       getIntegrations().map((integration) => integration.slug),
     );
     const activeBackendFramework = frontendRoute?.backend ?? null;
-    const activeFrontendSlugPath = frontendRoute?.slugPath ?? frontendSlugPath;
+    const requestedFrontendSlugPath =
+      frontendRoute?.slugPath ?? frontendSlugPath;
+    const activeFrontendSlugPath = getFrontendCanonicalSlug(
+      framework,
+      requestedFrontendSlugPath,
+    );
+
+    if (activeFrontendSlugPath !== requestedFrontendSlugPath) {
+      redirect(
+        frontendRoutePath(
+          framework,
+          activeFrontendSlugPath,
+          activeBackendFramework,
+        ),
+      );
+    }
 
     if (activeBackendFramework === ROOT_FRAMEWORK) {
       redirect(frontendRoutePath(framework, activeFrontendSlugPath));
@@ -416,15 +553,68 @@ export default async function FrameworkScopedDocsPage({
     }
 
     if (!activeFrontendSlugPath) {
+      if (isChannelFrontend(framework)) {
+        return (
+          <ChannelGuideDocsPage
+            frontend={framework}
+            activeBackendFramework={activeBackendFramework}
+            slugPath=""
+            contentSlugPath="channels"
+          />
+        );
+      }
+
+      if (framework === "angular" && activeBackendFramework) {
+        return (
+          <FrameworkRootPage
+            framework={activeBackendFramework}
+            preferIndexMdx
+            frontendOverride="angular"
+            slugHrefPrefix={frontendRoutePath(
+              framework,
+              "",
+              activeBackendFramework,
+            )}
+            navTreeOverride={getAngularDocsNavTree(activeBackendFramework)}
+            sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
+          />
+        );
+      }
+
       return (
         <FrontendQuickstartDocsPage
           frontend={framework}
           activeBackendFramework={activeBackendFramework}
+          navTree={
+            framework === "angular"
+              ? getAngularDocsNavTree(activeBackendFramework)
+              : undefined
+          }
+        />
+      );
+    }
+
+    if (isChannelFrontend(framework) && activeFrontendSlugPath === "connect") {
+      return (
+        <FrontendQuickstartDocsPage
+          frontend={framework}
+          activeBackendFramework={activeBackendFramework}
+          routeSlugPath="connect"
         />
       );
     }
 
     if (activeFrontendSlugPath === "quickstart") {
+      if (framework === "angular" && activeBackendFramework) {
+        return (
+          <FrontendQuickstartDocsPage
+            frontend={framework}
+            activeBackendFramework={activeBackendFramework}
+            routeSlugPath="quickstart"
+            navTree={getAngularDocsNavTree(activeBackendFramework)}
+          />
+        );
+      }
       redirect(frontendRoutePath(framework, "", activeBackendFramework));
     }
 
@@ -433,6 +623,60 @@ export default async function FrameworkScopedDocsPage({
         <FrontendGuidanceDocsPage
           frontend={framework}
           activeBackendFramework={activeBackendFramework}
+          navTree={
+            framework === "angular"
+              ? getAngularDocsNavTree(activeBackendFramework)
+              : undefined
+          }
+        />
+      );
+    }
+
+    const channelGuideRoute = resolveChannelGuideRoute({
+      frontend: framework,
+      framework: activeBackendFramework,
+      slugPath: activeFrontendSlugPath,
+      frameworkDocsMode: getDocsMode(activeBackendFramework ?? ROOT_FRAMEWORK),
+    });
+    if (channelGuideRoute) {
+      return (
+        <ChannelGuideDocsPage
+          frontend={channelGuideRoute.frontend}
+          activeBackendFramework={
+            channelGuideRoute.framework === ROOT_FRAMEWORK
+              ? null
+              : channelGuideRoute.framework
+          }
+          slugPath={channelGuideRoute.slugPath}
+          contentSlugPath={channelGuideRoute.sourceSlug}
+        />
+      );
+    }
+
+    if (framework === "angular") {
+      const resolution = resolveAngularDoc(
+        activeBackendFramework,
+        activeFrontendSlugPath,
+      );
+      if (!resolution) notFound();
+
+      return (
+        <DocsPageView
+          slugPath={resolution.slugPath}
+          contentSlugPath={resolution.contentSlugPath}
+          slugHrefPrefix={frontendRoutePath(
+            framework,
+            "",
+            activeBackendFramework,
+          )}
+          frameworkOverride={resolution.framework}
+          onboardingFramework={onboardingFrameworkFor(resolution.framework)}
+          // `framework` is the URL's first segment and this branch has already
+          // narrowed it to `angular`, so the URL is what names the frontend.
+          onboardingFrontend={onboardingFrontendFor(`/${framework}`)}
+          frontendOverride="angular"
+          navTree={getAngularDocsNavTree(activeBackendFramework)}
+          sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
         />
       );
     }
@@ -464,6 +708,23 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={activeBackendFramework}
+          // This is the `else` of `if (activeBackendFramework)`, so the URL
+          // carries no backend segment — which on a frontend route is exactly
+          // how the Built-in Agent is spelled: `/vue/built-in-agent/<slug>`
+          // redirects here, and the framework selector shows the Built-in
+          // Agent as the active backend. So `/vue/<slug>` and
+          // `/vue/mastra/<slug>` are the same page under two framework
+          // selections and both name theirs in the copied prompt.
+          //
+          // `frameworkOverride` stays null: no backend segment still means no
+          // framework-scoped snippet resolution for this content.
+          onboardingFramework={onboardingFrameworkFor(
+            activeBackendFramework ?? ROOT_FRAMEWORK,
+          )}
+          // Inside `isFrontendPageId(framework)`, so the URL's first segment
+          // is the frontend the reader selected.
+          onboardingFrontend={onboardingFrontendFor(`/${framework}`)}
+          frontendOverride={framework}
           navTree={getFrontendQuickstartNavTree(framework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
         />
@@ -700,6 +961,14 @@ export default async function FrameworkScopedDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
       frameworkOverride={scopedFramework}
+      onboardingFramework={onboardingFrameworkFor(scopedFramework)}
+      // The page's own URL prefix: `/vue/mastra` on a frontend route,
+      // `/mastra` off one. Only its first segment can name a frontend, so a
+      // backend-only prefix resolves to the default React frontend.
+      onboardingFrontend={onboardingFrontendFor(
+        scopedSlugHrefPrefix ?? `/${scopedFramework}`,
+      )}
+      frontendOverride={activeFrontendPage ?? undefined}
       navTree={
         activeFrontendPage
           ? getFrontendQuickstartNavTree(activeFrontendPage)
@@ -715,23 +984,76 @@ export default async function FrameworkScopedDocsPage({
   );
 }
 
+function ChannelGuideDocsPage({
+  frontend,
+  activeBackendFramework,
+  slugPath,
+  contentSlugPath,
+}: {
+  frontend: ChannelFrontend;
+  activeBackendFramework: string | null;
+  slugPath: string;
+  contentSlugPath: string;
+}) {
+  if (!loadDoc(contentSlugPath)) notFound();
+
+  return (
+    <DocsPageView
+      slugPath={slugPath}
+      contentSlugPath={contentSlugPath}
+      slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
+      frameworkOverride={activeBackendFramework ?? ROOT_FRAMEWORK}
+      // A channel guide with no backend selected still documents the
+      // Built-in Agent, so `ROOT_FRAMEWORK` is the framework being read
+      // about here, not a placeholder.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
+      // `frontend` is the URL's first segment on every route that reaches
+      // these components, so this is the frontend the URL asserts.
+      onboardingFrontend={onboardingFrontendFor(`/${frontend}`)}
+      frontendOverride={frontend}
+      navTree={getFrontendQuickstartNavTree(frontend)}
+      sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
+    />
+  );
+}
+
 function FrontendQuickstartDocsPage({
   frontend,
   activeBackendFramework,
+  routeSlugPath = "",
+  navTree,
 }: {
   frontend: FrontendPageId;
   activeBackendFramework?: string | null;
+  routeSlugPath?: string;
+  navTree?: NavNode[];
 }) {
   const contentSlug = getFrontendContentSlug(frontend);
   if (!loadDoc(contentSlug)) notFound();
 
   return (
     <DocsPageView
-      slugPath=""
+      slugPath={routeSlugPath}
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
-      frameworkOverride={activeBackendFramework}
-      navTree={getFrontendQuickstartNavTree(frontend)}
+      frameworkOverride={
+        activeBackendFramework ??
+        (frontend === "slack" || frontend === "teams" ? ROOT_FRAMEWORK : null)
+      }
+      // No backend segment in the URL means the Built-in Agent is selected,
+      // for every frontend — unlike `frameworkOverride` above, which stays
+      // null off the channel frontends because their quickstart content is
+      // not framework-scoped.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
+      // `frontend` is the URL's first segment on every route that reaches
+      // these components, so this is the frontend the URL asserts.
+      onboardingFrontend={onboardingFrontendFor(`/${frontend}`)}
+      frontendOverride={frontend}
+      navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
     />
   );
@@ -740,9 +1062,11 @@ function FrontendQuickstartDocsPage({
 function FrontendGuidanceDocsPage({
   frontend,
   activeBackendFramework,
+  navTree,
 }: {
   frontend: FrontendPageId;
   activeBackendFramework?: string | null;
+  navTree?: NavNode[];
 }) {
   const contentSlug = getFrontendGuidanceContentSlug(frontend);
   if (!loadDoc(contentSlug)) notFound();
@@ -753,7 +1077,17 @@ function FrontendGuidanceDocsPage({
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework}
-      navTree={getFrontendQuickstartNavTree(frontend)}
+      // Same rule as every other frontend route: no backend segment is the
+      // Built-in Agent, so `/vue/using-these-docs` names it where
+      // `/vue/mastra/using-these-docs` names Mastra.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
+      // `frontend` is the URL's first segment on every route that reaches
+      // these components, so this is the frontend the URL asserts.
+      onboardingFrontend={onboardingFrontendFor(`/${frontend}`)}
+      frontendOverride={frontend}
+      navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
     />
   );
@@ -792,10 +1126,16 @@ async function FrameworkRootPage({
   framework,
   preferIndexMdx = false,
   slugHrefPrefix = `/${framework}`,
+  frontendOverride,
+  navTreeOverride,
+  sidebarBannerSlot,
 }: {
   framework: string;
   preferIndexMdx?: boolean;
   slugHrefPrefix?: string;
+  frontendOverride?: FrontendPageId;
+  navTreeOverride?: NavNode[];
+  sidebarBannerSlot?: React.ReactNode;
 }) {
   // Some frameworks are docs-only — they have a `frameworkOverviews`
   // entry and an `integrations/<slug>/` content folder, but no demo
@@ -818,21 +1158,28 @@ async function FrameworkRootPage({
     framework;
   const docsMode = getDocsMode(framework);
   const navTree: NavNode[] =
-    docsMode === "authored"
+    navTreeOverride ??
+    (docsMode === "authored"
       ? buildFrameworkOnlyNav(docsFolder)
-      : buildFrameworkNav(docsFolder, integrationName, framework);
+      : buildFrameworkNav(docsFolder, integrationName, framework));
 
   const indexContentPath = `integrations/${docsFolder}/index`;
   const indexDoc = loadDoc(indexContentPath);
 
-  if (preferIndexMdx && indexDoc) {
+  if (preferIndexMdx && docsMode !== "generated" && indexDoc) {
     return (
       <DocsPageView
         slugPath=""
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        onboardingFramework={onboardingFrameworkFor(framework)}
+        // `slugHrefPrefix` is this page's own URL prefix — `/angular/mastra`
+        // when a frontend route delegated here, `/<framework>` otherwise.
+        onboardingFrontend={onboardingFrontendFor(slugHrefPrefix)}
+        frontendOverride={frontendOverride}
         navTree={navTree}
+        sidebarBannerSlot={sidebarBannerSlot}
       />
     );
   }
@@ -873,6 +1220,7 @@ async function FrameworkRootPage({
                 <MdxFrameworkOverview
                   {...props}
                   currentFramework={framework ?? props.currentFramework}
+                  hrefPrefix={slugHrefPrefix}
                 />
               ),
               // Mirror the binding in DocsPageView so any
@@ -928,11 +1276,22 @@ async function FrameworkRootPage({
         );
       }
     }
+    const scopedOverview =
+      frontendOverride === "angular"
+        ? buildAngularBackendOverview(overview, framework)
+        : overview;
+
     return (
-      <FrameworkRootShell navTree={navTree} slugHrefPrefix={slugHrefPrefix}>
+      <FrameworkRootShell
+        navTree={navTree}
+        slugHrefPrefix={slugHrefPrefix}
+        sidebarBannerSlot={sidebarBannerSlot}
+      >
         <FrameworkOverview
-          data={overview}
+          data={scopedOverview}
           currentFramework={framework}
+          hrefPrefix={slugHrefPrefix}
+          frontendOverride={frontendOverride}
           afterFeatures={afterFeatures}
         />
       </FrameworkRootShell>
@@ -952,7 +1311,13 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        onboardingFramework={onboardingFrameworkFor(framework)}
+        // `slugHrefPrefix` is this page's own URL prefix — `/angular/mastra`
+        // when a frontend route delegated here, `/<framework>` otherwise.
+        onboardingFrontend={onboardingFrontendFor(slugHrefPrefix)}
+        frontendOverride={frontendOverride}
         navTree={navTree}
+        sidebarBannerSlot={sidebarBannerSlot}
       />
     );
   }
@@ -969,15 +1334,20 @@ async function FrameworkRootPage({
 function FrameworkRootShell({
   navTree,
   slugHrefPrefix,
+  sidebarBannerSlot,
   children,
 }: {
   navTree: NavNode[];
   slugHrefPrefix: string;
+  sidebarBannerSlot?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const pageTree = navTreeToPageTree(navTree, slugHrefPrefix);
   return (
-    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={sidebarBannerSlot ?? <SidebarFrameworkSelector />}
+    >
       <DocsPage
         toc={[]}
         tableOfContent={{ enabled: false }}

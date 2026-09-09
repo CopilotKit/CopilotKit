@@ -2,12 +2,11 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / interrupt-headless",
     "sourceFile": "harness/fixtures/d5/interrupt-headless.json",
-    "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "created": "2026-05-21"
   },
   "fixtures": [
     {
-      "_comment": "interrupt-headless sales-call pill \u2014 second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence over toolName matching.",
+      "_comment": "interrupt-headless sales-call pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence over toolName matching.",
       "match": {
         "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001",
@@ -18,7 +17,7 @@
       }
     },
     {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence.",
+      "_comment": "interrupt-headless alice-1on1 pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence.",
       "match": {
         "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001",
@@ -29,14 +28,14 @@
       }
     },
     {
-      "_comment": "interrupt-headless sales-call pill \u2014 first leg: schedule_meeting tool call triggers interrupt(...). Same agent/prompts as gen-ui-interrupt but different frontend (useHeadlessInterrupt renders in app surface pane, not inline).",
+      "_comment": "interrupt-headless sales-call pill — first leg: schedule_meeting tool call triggers interrupt(...). Same agent/prompts as gen-ui-interrupt but different frontend (useHeadlessInterrupt renders in app surface pane, not inline).",
       "match": {
         "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Sure \u2014 let me check available times.",
+        "content": "Sure — let me check available times.",
         "toolCalls": [
           {
             "id": "call_d5_schedule_sales_001",
@@ -60,20 +59,20 @@
       }
     },
     {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
+      "_comment": "interrupt-headless alice-1on1 pill — first leg: schedule_meeting tool call.",
       "match": {
         "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Got it \u2014 pulling up next-week slots.",
+        "content": "Got it — pulling up next-week slots.",
         "toolCalls": [
           {
             "id": "call_d5_schedule_alice_001",
             "name": "schedule_meeting",
             "arguments": {
-              "topic": "1:1 with Alice \u2014 Q2 goals",
+              "topic": "1:1 with Alice — Q2 goals",
               "attendee": "Alice",
               "slots": [
                 {
@@ -90,5 +89,8 @@
         ]
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

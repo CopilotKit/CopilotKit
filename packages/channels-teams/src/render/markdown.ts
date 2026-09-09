@@ -1,4 +1,4 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 
 /**
  * Render the bot-ui IR tree to a Teams message string.
@@ -10,7 +10,7 @@ import type { BotNode } from "@copilotkit/channels-ui";
  * shapes; richer interactive surfaces (buttons, inputs) will render to
  * Adaptive Cards in a follow-up (see the package README).
  */
-export function renderTeamsMarkdown(ir: BotNode[]): string {
+export function renderTeamsMarkdown(ir: ChannelNode[]): string {
   return ir
     .map((node) => renderNode(node))
     .filter((s) => s.length > 0)
@@ -18,7 +18,7 @@ export function renderTeamsMarkdown(ir: BotNode[]): string {
     .trim();
 }
 
-function renderNode(node: BotNode): string {
+function renderNode(node: ChannelNode): string {
   if (typeof node.type !== "string") {
     // Components are expanded to intrinsic nodes before render(); a stray
     // function/symbol node carries no renderable text.
@@ -66,7 +66,7 @@ function renderNode(node: BotNode): string {
  * native Table; this is the text-surface fallback). Teams renders GFM pipe
  * tables in message text.
  */
-function renderTable(node: BotNode): string {
+function renderTable(node: ChannelNode): string {
   const columns = node.props?.columns as
     | { header: string; align?: "left" | "center" | "right" }[]
     | undefined;
@@ -99,7 +99,7 @@ function renderTable(node: BotNode): string {
   );
 }
 
-function renderChildren(node: BotNode): string {
+function renderChildren(node: ChannelNode): string {
   const kids = childNodes(node);
   if (kids.length === 0) return "";
   return kids
@@ -109,19 +109,19 @@ function renderChildren(node: BotNode): string {
 }
 
 /** Normalize a node's `children` prop to an array of child nodes. */
-function childNodes(node: BotNode): BotNode[] {
+function childNodes(node: ChannelNode): ChannelNode[] {
   const children = node.props?.children;
-  if (Array.isArray(children)) return children as BotNode[];
+  if (Array.isArray(children)) return children as ChannelNode[];
   if (children && typeof children === "object" && "type" in children) {
-    return [children as BotNode];
+    return [children as ChannelNode];
   }
   return [];
 }
 
 /** Depth-first collection of a node's descendant text. */
-function collectText(node: BotNode): string {
+function collectText(node: ChannelNode): string {
   const out: string[] = [];
-  const visit = (n: BotNode): void => {
+  const visit = (n: ChannelNode): void => {
     if (typeof n.type === "string" && n.type === "text") {
       const value = n.props?.value;
       if (value != null) out.push(String(value));

@@ -1,4 +1,4 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { ModalRenderError } from "@copilotkit/channels-ui";
 import {
   ActionRowBuilder,
@@ -15,12 +15,12 @@ import {
  * a {@link ModalRenderError}, which `adapter.openModal` translates to
  * `{ ok: false, error }` (degrade-never-throw at the boundary).
  */
-export function renderDiscordModal(ir: BotNode[]): ModalBuilder {
+export function renderDiscordModal(ir: ChannelNode[]): ModalBuilder {
   const root = ir.find((n) => n.type === "modal");
   if (!root)
     throw new ModalRenderError("renderDiscordModal: no <Modal> root in IR");
   const p = root.props as Record<string, unknown>;
-  const kids = Array.isArray(p.children) ? (p.children as BotNode[]) : [];
+  const kids = Array.isArray(p.children) ? (p.children as ChannelNode[]) : [];
   const inputs = kids.filter((k) => k.type === "modal_text_input");
   const unsupported = kids.find((k) => k.type !== "modal_text_input");
   if (unsupported) {

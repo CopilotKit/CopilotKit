@@ -1,49 +1,24 @@
 // Dedicated runtime for the Agent Config Object demo.
 //
-// This runtime hosts a single LangGraph agent (`agent_config_agent`).
-// The Python graph reads three properties — tone / expertise / responseLength
-// — from `RunnableConfig["configurable"]["properties"]` to build its system
-// prompt dynamically per turn (see `src/agents/agent_config_agent.py`).
-//
-// ── Property-forwarding regression note ────────────────────────────
-// Previously this route used a custom `AgentConfigLangGraphAgent` subclass
-// that repacked the CopilotKit provider's `properties` into
-// `forwardedProps.config.configurable.properties` so the Python graph could
-// read them. That stopped working with `@ag-ui/langgraph@0.0.31`, which
-// builds the LangGraph SDK request as
-// `{ ..., config, context: { ...input.context, ...config.configurable } }`
-// — i.e. it merges `configurable` INTO `context`. LangGraph 0.6.0+ rejects
-// any request that sets both `configurable` and `context`:
-//
-//   HTTP 400: "Cannot specify both configurable and context. Prefer setting
-//   context alone. Context was introduced in LangGraph 0.6.0 and is the long
-//   term planned replacement for configurable."
-//
-// Net effect: any forwardedProps that landed in `configurable.<key>` made
-// the chat round-trip 400 unconditionally — the user message rendered, but
-// no assistant reply ever came back.
-//
-// To unbreak the chat round-trip, this route now uses the plain
-// `LangGraphAgent` and stops repacking properties into `configurable`. The
-// Python graph falls back to its `DEFAULT_*` constants, so the demo's
-// frontend toggles no longer affect the agent's response style. The
-// property-forwarding feature is tracked as a known regression pending an
-// `@ag-ui/langgraph` fix that decouples `context` from `configurable`.
+// Hosts the `agent_config_agent` graph. The frontend publishes its
+// tone / expertise / responseLength toggles to the agent through
+// `useAgentContext`, which the runtime serializes onto the AG-UI run as
+// a context entry. `CopilotKitMiddleware` on the Python side injects
+// that entry into the model's prompt so the same single static system
+// prompt adapts its style to whatever the frontend currently has
+// selected.
 //
 // References:
-// - src/agents/agent_config_agent.py — the graph (still reads
-//   configurable.properties; falls back to DEFAULT_* when missing)
-// - src/app/demos/agent-config/page.tsx — the provider config
-// - node_modules/.pnpm/@ag-ui+langgraph@0.0.31_*/dist/index.js — the
-//   prepareStream merge that introduces the conflict
+// - src/agents/src/agent_config_agent.py — the graph
+// - src/app/demos/agent-config/config-context-relay.tsx — the
+//   `useAgentContext` publisher
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const LANGGRAPH_URL =
@@ -76,12 +51,12 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-agent-config",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-agent-config",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

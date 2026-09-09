@@ -1,9 +1,30 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-ui — AssistantMessage:
+ *   V2 import and usage:
+ *     import { AssistantMessage } from "@copilotkit/react-core/v2";
+ *     const v2AssistantMessage = AssistantMessage;
+ *   V2 replacement source: packages/react-core/src/v2/index.ts
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import type { AssistantMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
 import React from "react";
 import { copyToClipboard } from "@copilotkit/shared";
+import { isActivatingClick } from "../feedback";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
@@ -36,15 +57,17 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     if (onRegenerate) onRegenerate();
   };
 
+  // Clicking the already-active button retracts the feedback, so report the
+  // state the click transitions to rather than an unconditional `true`.
   const handleThumbsUp = () => {
     if (onThumbsUp && message) {
-      onThumbsUp(message);
+      onThumbsUp(message, isActivatingClick(feedback, "thumbsUp"));
     }
   };
 
   const handleThumbsDown = () => {
     if (onThumbsDown && message) {
-      onThumbsDown(message);
+      onThumbsDown(message, isActivatingClick(feedback, "thumbsDown"));
     }
   };
 

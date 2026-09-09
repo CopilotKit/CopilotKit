@@ -6,6 +6,7 @@ import {
   toCanonicalEmoji,
   normalizeEmoji,
   EMOJI_TABLE,
+  PORTABLE_REACTIONS,
 } from "./emoji.js";
 
 describe("emoji table", () => {
@@ -72,5 +73,57 @@ describe("emoji table", () => {
     expect(toPlatformEmoji("party_parrot", "slack")).toBeUndefined();
     expect(normalizeEmoji(":shrug:", "slack")).toBeUndefined();
     expect(normalizeEmoji("🦜", "discord")).toBeUndefined();
+  });
+
+  it("normalizes Teams reaction tokens (codepoint codes + classic names)", () => {
+    // Modern: `<codepoint-hex>_<name>` — the leading hex is authoritative.
+    expect(normalizeEmoji("1f504_refresh", "teams")).toBe("refresh"); // 🔄
+    expect(normalizeEmoji("1f525_fire", "teams")).toBe("fire"); // 🔥
+    // Hex is matched case-insensitively — providers may deliver upper-case.
+    expect(normalizeEmoji("1F504_refresh", "teams")).toBe("refresh");
+    // Classic bare names map onto canonical (reusing existing where possible).
+    expect(normalizeEmoji("like", "teams")).toBe("thumbs_up");
+    expect(normalizeEmoji("heart", "teams")).toBe("heart");
+    expect(normalizeEmoji("laugh", "teams")).toBe("laugh");
+    expect(normalizeEmoji("surprised", "teams")).toBe("surprised");
+    expect(normalizeEmoji("sad", "teams")).toBe("sad");
+    expect(normalizeEmoji("angry", "teams")).toBe("angry");
+    // Unknown tokens pass through (undefined) — same contract as other platforms.
+    expect(normalizeEmoji("1f984_unicorn", "teams")).toBeUndefined(); // 🦄 not in table
+    expect(normalizeEmoji("shrug", "teams")).toBeUndefined();
+    // A malformed/out-of-range codepoint (regex admits up to 0xFFFFFF, but the
+    // max valid code point is 0x10FFFF) must degrade to undefined, not throw.
+    expect(() => normalizeEmoji("ffffff_x", "teams")).not.toThrow();
+    expect(normalizeEmoji("ffffff_x", "teams")).toBeUndefined();
+    expect(normalizeEmoji("110000_x", "teams")).toBeUndefined();
+  });
+
+  it("renders the documented portable reactions as Teams reaction ids", () => {
+    expect(PORTABLE_REACTIONS).toEqual([
+      "thumbs_up",
+      "thumbs_down",
+      "heart",
+      "fire",
+      "eyes",
+      "refresh",
+      "thinking",
+      "tada",
+    ]);
+    expect(toPlatformEmoji(emoji.thumbs_up, "teams")).toBe("like");
+    expect(toPlatformEmoji(emoji.thumbs_down, "teams")).toBe("no");
+    expect(toPlatformEmoji(emoji.heart, "teams")).toBe("heart");
+    expect(toPlatformEmoji(emoji.fire, "teams")).toBe("fire");
+    expect(toPlatformEmoji(emoji.eyes, "teams")).toBe("eyes");
+    expect(toPlatformEmoji(emoji.refresh, "teams")).toBe("1f504_refresh");
+    expect(toPlatformEmoji(emoji.thinking, "teams")).toBe("think");
+    expect(toPlatformEmoji(emoji.tada, "teams")).toBe("1f389_partypopper");
+  });
+
+  it("normalizes WhatsApp reactions as raw unicode (like discord/telegram)", () => {
+    expect(normalizeEmoji("🔥", "whatsapp")).toBe("fire");
+    expect(normalizeEmoji("❤️", "whatsapp")).toBe("heart"); // qualified (VS16)
+    expect(normalizeEmoji("❤", "whatsapp")).toBe("heart"); // bare codepoint
+    expect(toPlatformEmoji("fire", "whatsapp")).toBe("🔥");
+    expect(normalizeEmoji("🦜", "whatsapp")).toBeUndefined(); // unknown passthrough
   });
 });

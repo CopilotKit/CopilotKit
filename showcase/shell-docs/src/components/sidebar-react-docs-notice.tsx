@@ -228,7 +228,7 @@ export function SidebarReactDocsNotice() {
           <a
             href={notice.href}
             aria-label="Open selected page in React docs"
-            className="shell-docs-radius-control inline-flex min-h-10 max-w-full items-center gap-2 border border-[var(--border)] bg-[var(--accent)] px-4 py-2 text-[13px] font-semibold leading-5 text-white shadow-sm transition-opacity hover:opacity-90"
+            className="shell-docs-radius-control inline-flex min-h-10 max-w-full items-center gap-2 border border-[var(--border)] bg-[var(--accent-fill)] px-4 py-2 text-[13px] font-semibold leading-5 text-white shadow-sm transition-opacity hover:opacity-90"
             onClick={() => setNotice(null)}
           >
             <span className="truncate">Open selected page in React docs</span>

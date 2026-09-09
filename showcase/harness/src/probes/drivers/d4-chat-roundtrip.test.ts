@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   e2eChatToolsDriver,
   createE2eSmokeDriver,
@@ -7,6 +7,8 @@ import {
   buildEdgeAbRecord,
   CvdiagProbeSession,
   wirePlaywrightPage,
+  FIRST_TOKEN_GRACE_MS,
+  SEND_ENABLED_SELECTOR,
 } from "./d4-chat-roundtrip.js";
 import { filterEdgeHeaders } from "../../cvdiag/index.js";
 import { computeAbReport } from "../../cvdiag/ab-report.js";
@@ -23,6 +25,16 @@ import type { BrowserPool } from "../helpers/browser-pool.js";
 import type { Browser } from "playwright";
 import { logger } from "../../logger.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
+
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(null, { status: 204 }),
+  );
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // Driver-level tests for the Playwright-in-process e2e-smoke driver. The
 // real chromium launch path is never exercised here — tests inject a
@@ -202,6 +214,51 @@ describe("e2eChatToolsDriver L3 (chat)", () => {
     expect(chat?.state).toBe("green");
     // Browser must always be torn down.
     expect(state.closed).toBe(true);
+  });
+
+  it("clears backend thread state once without changing a green result when cleanup rejects", async () => {
+    const { browser, state } = makeBrowser([{ assistantText: "Hi there!" }]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = new CapturingWriter();
+    const fetchSpy = vi.mocked(globalThis.fetch);
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    fetchSpy.mockImplementationOnce(async () => {
+      expect(state.closed).toBe(true);
+      throw new Error("thread clear rejected");
+    });
+
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://backend.example.com",
+      publicUrl: "https://public.example.com",
+      demos: [],
+    });
+
+    expect(result).toEqual({
+      key: "e2e-smoke:foo",
+      state: "green",
+      signal: {
+        shape: "package",
+        slug: "foo",
+        backendUrl: "https://backend.example.com",
+        l3: "green",
+        l4: "skipped",
+        failureSummary: "",
+      },
+      observedAt: "2026-04-21T00:00:00.000Z",
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://backend.example.com/api/copilotkit-voice/threads/clear",
+      {
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      },
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      "probe.e2e.threads-clear-failed",
+      expect.objectContaining({ slug: "foo", err: "thread clear rejected" }),
+    );
   });
 
   it("red when chat yields an empty assistant response", async () => {
@@ -2385,6 +2442,18 @@ function makeLateTokenBrowser(opts: {
    */
   firstTypeDelayMs?: number;
   /**
+   * Model the react-core readiness wait (`waitForSelector(SEND_ENABLED_SELECTOR)`,
+   * item-2/item-3): when set, that wait AWAITS this many ms before resolving
+   * (the send control settling from `disabled` → enabled). Draining wall-clock
+   * DURING the wait — rather than during `type` — is how the press-guard
+   * (`send-budget-exhausted`) path is exercised WITHOUT tripping the earlier
+   * readiness-budget guard (`delayed-readiness`): `type` completes with budget
+   * above `SEND_READY_MIN_BUDGET_MS`, the wait then drains the remaining budget
+   * below `SEND_PRESS_MIN_BUDGET_MS`. Only the readiness selector is delayed; the
+   * nav `waitForSelector("textarea")` is untouched.
+   */
+  sendEnableDelayMs?: number;
+  /**
    * Model an SSE-ONLY completion: the turn completes via the `runsFinished`
    * transport counter bumping past baseline, but NO fresh DOM `true→false`
    * stop-edge fires for THIS turn, so `lastStoppedAtMs` keeps holding a STALE
@@ -2421,6 +2490,26 @@ function makeLateTokenBrowser(opts: {
    * staying latched to the stalled first attempt.
    */
   responsesPerSend?: CvdiagResponseEvent[];
+  /**
+   * Model the ROOT render-race Fix B closes: the transport-level RUN_FINISHED
+   * counter (`sseDone`) firing EARLY — at this many ms after the send — while
+   * the DOM run-stop edge (`domDone`, `runningNow: true→false`) AND the
+   * assistant-text commit land LATER, together, at `completeAtDelayMs` /
+   * `firstTokenDelayMs` (which a test sets EQUAL so they coalesce into one
+   * React commit, faithful to the `use-agent.tsx` batchedForceUpdate/
+   * queueMicrotask coalescing proven in `d4-race-cause.md` §2). Set to `0` to
+   * model `sseDone` firing immediately on send.
+   *
+   * DECOUPLES `runsFinished` (sseDone) from `runningNow`/`lastStoppedAtMs`
+   * (domDone): with this set, `runsFinished` bumps past baseline at
+   * `elapsed >= sseLeadMs` INDEPENDENT of the fixture's `complete` gate, which
+   * now drives ONLY the DOM stop-edge. Every OTHER fixture variant flips both
+   * signals together at the same `complete` edge, so none of them exercise the
+   * sseDone-leads / domDone-lags ordering this option models. When UNSET, the
+   * transport finished edge tracks `complete` exactly (existing coupled
+   * behavior — untouched, so all pre-existing tests are unaffected).
+   */
+  sseLeadMs?: number;
 }): CvE2eBrowser {
   const completeAt = opts.completeAtDelayMs ?? 0;
   const prior = opts.priorFinishedRuns ?? 0;
@@ -2496,7 +2585,32 @@ function makeLateTokenBrowser(opts: {
         const perSend = opts.responsesPerSend?.[sendCount - 1];
         if (perSend !== undefined) respHandler?.(perSend);
       },
-      async waitForSelector() {},
+      async waitForSelector(sel?: string, o?: { timeout?: number }) {
+        // Model the react-core readiness wait. Only the enabled-send selector is
+        // special-cased; the nav `waitForSelector("textarea")` stays a no-op.
+        if (sel === SEND_ENABLED_SELECTOR) {
+          // A doomed ~1ms readiness wait (budget drained before the wait) —
+          // Playwright rejects it, which pre-guard mis-classifies as a generic
+          // level-error. Mirrors the type/press timeout modelling.
+          if (
+            opts.throwWhenTimeoutAtMost !== undefined &&
+            o?.timeout !== undefined &&
+            o.timeout <= opts.throwWhenTimeoutAtMost
+          ) {
+            throw new Error(
+              `page.waitForSelector: Timeout ${o.timeout}ms exceeded waiting for selector "${sel}"`,
+            );
+          }
+          // A healthy wait that CONSUMES wall-clock (send control settling) so a
+          // test can drain the press budget during the wait itself.
+          if (
+            opts.sendEnableDelayMs !== undefined &&
+            opts.sendEnableDelayMs > 0
+          ) {
+            await new Promise((r) => setTimeout(r, opts.sendEnableDelayMs));
+          }
+        }
+      },
       async textContent() {
         return "";
       },
@@ -2567,6 +2681,21 @@ function makeLateTokenBrowser(opts: {
         // finished edge is a genuine THIS-turn transition the driver observes.
         const complete =
           started && (!opts.neverComplete || rescued) && elapsed >= completeAt;
+        // SSE-LEAD race (Fix B surface): the transport RUN_FINISHED counter
+        // (`sseDone`) can fire BEFORE the DOM run-stop edge (`domDone`). When
+        // `sseLeadMs` is set, `runsFinished` bumps past baseline at
+        // `elapsed >= sseLeadMs` independent of `complete` — which continues to
+        // drive ONLY `runningNow`/`lastStoppedAtMs` (the DOM edge). When unset,
+        // the finished edge tracks `complete` exactly (coupled, as before), so
+        // every existing fixture variant is byte-for-byte unchanged.
+        // NOTE: `sseFinished` is deliberately INDEPENDENT of `neverComplete` —
+        // the formula-pin test models a turn whose transport RUN_FINISHED edge
+        // fires while the DOM edge (`complete`) NEVER does, so `runsFinished`
+        // must bump even under `neverComplete`.
+        const sseFinished =
+          opts.sseLeadMs !== undefined
+            ? started && elapsed >= opts.sseLeadMs
+            : complete;
         // SSE-only completion: the transport `runsFinished` counter bumps but the
         // DOM run-lifecycle attribute never registers a fresh `true→false` stop
         // edge for THIS turn, so `runningNow` stays `true` and `lastStoppedAtMs`
@@ -2580,7 +2709,7 @@ function makeLateTokenBrowser(opts: {
             ? false
             : null;
         return {
-          runsFinished: prior + priorSendsDone + (complete ? 1 : 0),
+          runsFinished: prior + priorSendsDone + (sseFinished ? 1 : 0),
           attrPresent: true,
           sawRunningTrue: prior > 0 || started,
           runningNow,
@@ -3073,21 +3202,23 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
     expect(typeAttempts).toBe(1);
   }, 10000);
 
-  it("FIRST-SEND cap: a near-hang first `type` does NOT floor `press` to ~1ms → classified send-budget-exhausted, not a generic level-error", async () => {
-    // Item-1 first-send fold: the FIRST `type` near-hangs (awaits past the whole
-    // 2000ms envelope), so by the time `press` is reached the remaining budget
-    // has fully drained — below `RETRY_MIN_BUDGET_MS` (750ms) AND to the ~1ms
-    // pre-fix floor. `pageTimeoutMs` (2000ms) exceeds `RETRY_MIN_BUDGET_MS` so the
-    // FIRST `type` itself clears the guard (a fresh envelope) — only `press`,
-    // reached after the hang, trips it. The fake rejects any `type`/`press` whose
-    // action timeout is <= 5ms (Playwright's ~1ms rejection).
+  it("PRESS cap: the readiness wait drains the envelope so `press` would floor to ~1ms → classified send-budget-exhausted, not a generic level-error", async () => {
+    // Press-guard fold: `type` completes on a fresh envelope (budget well above
+    // `SEND_READY_MIN_BUDGET_MS`, so the item-2 readiness-budget guard does NOT
+    // fire), then the readiness wait (`waitForSelector(SEND_ENABLED_SELECTOR)`)
+    // CONSUMES nearly the whole 4000ms envelope, so by the time `press` is
+    // reached the remaining budget has drained below `SEND_PRESS_MIN_BUDGET_MS`
+    // (50ms) and to the ~1ms pre-fix floor. Draining during the WAIT (not during
+    // `type`) is what isolates the press guard from the earlier readiness guard.
+    // The fake rejects any `type`/`press` whose action timeout is <= 5ms
+    // (Playwright's ~1ms rejection).
     //
     // RED (pre-fix): `sendTurn` floored `press`'s timeout to `Math.max(1,
     // hardCeiling - now)` ≈ 1ms; the fake threw a page-fault-shaped "Timeout 1ms
     // exceeded…", the driver's outer catch red-classified it as a GENERIC
     // `level-error` — a self-inflicted 1ms floor masquerading as a real page
     // fault (spurious-red flap).
-    // GREEN (post-fix): the first-send min-budget guard throws a distinctly
+    // GREEN (post-fix): the press min-budget guard throws a distinctly
     // classified `SendBudgetExhaustedError` BEFORE issuing the doomed `press`, so
     // the red carries `errorDesc: send-budget-exhausted` (observable + specific),
     // never the catch-all `level-error`.
@@ -3097,8 +3228,55 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
         makeLateTokenBrowser({
           assistantText: "",
           firstTokenDelayMs: 100,
-          // First `type` eats the whole envelope so `press` drains below
-          // RETRY_MIN_BUDGET_MS (750ms) and to the ~1ms pre-fix floor.
+          // `type` is instant (fresh envelope clears the readiness guard); the
+          // readiness wait then eats almost the whole 4000ms envelope so `press`
+          // drains below SEND_PRESS_MIN_BUDGET_MS (50ms) and to the ~1ms floor.
+          sendEnableDelayMs: 3980,
+          throwWhenTimeoutAtMost: 5,
+        }) as unknown as E2eBrowser,
+      textPollTimeoutMs: 4000,
+      pageTimeoutMs: 4000,
+    });
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: [],
+    });
+    expect(result.state).toBe("red");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
+    const errorDesc = (chat?.signal as { errorDesc?: string } | undefined)
+      ?.errorDesc;
+    // The discriminator: a distinct, observable classification — NOT the generic
+    // `level-error` a floored-1ms `press` throw produced pre-fix.
+    expect(errorDesc).toBe("send-budget-exhausted");
+  }, 10000);
+
+  // ── ITEM 2: readiness-budget guard (delayed-readiness classification) ────────
+  it("READINESS cap: a near-hang first `type` drains the envelope BEFORE the readiness wait → classified delayed-readiness, not a generic level-error", async () => {
+    // Item-2: react-core gates submission on `isReady`, so `sendTurn` waits for
+    // the send control to become ENABLED between `type` and `press`. When a
+    // near-hang first `type` drains the whole 2000ms envelope, that readiness
+    // wait would floor to `Math.max(1, hardCeiling - now)` ≈ 1ms — a doomed
+    // action Playwright rejects. The fake rejects a `waitForSelector` on the
+    // enabled-send selector whose timeout is <= 5ms (Playwright's ~1ms
+    // rejection), reproducing the exact reported bug.
+    //
+    // RED (pre-fix, no readiness-budget guard): the doomed ~1ms readiness
+    // `waitForSelector` threw a page-fault-shaped "Timeout 1ms exceeded…", which
+    // the driver's outer catch red-classified as a GENERIC `level-error` —
+    // indistinguishable from a real page fault (a spurious-red flap).
+    // GREEN (post-fix): the readiness min-budget guard throws a distinctly
+    // classified `ReadinessBudgetExhaustedError` BEFORE issuing the doomed wait,
+    // so the red carries `errorDesc: delayed-readiness` (observable + specific).
+    const writer = new CapturingWriter();
+    const driver = createE2eSmokeDriver({
+      launcher: async () =>
+        makeLateTokenBrowser({
+          assistantText: "",
+          firstTokenDelayMs: 100,
+          // First `type` eats the whole envelope so the readiness wait budget
+          // drains below SEND_READY_MIN_BUDGET_MS (100ms) and to the ~1ms floor.
           firstTypeDelayMs: 2100,
           throwWhenTimeoutAtMost: 5,
         }) as unknown as E2eBrowser,
@@ -3116,9 +3294,99 @@ describe("d4 L4 first-token wait hardening (readTurnState-driven)", () => {
     const errorDesc = (chat?.signal as { errorDesc?: string } | undefined)
       ?.errorDesc;
     // The discriminator: a distinct, observable classification — NOT the generic
-    // `level-error` a floored-1ms `press` throw produced pre-fix.
-    expect(errorDesc).toBe("send-budget-exhausted");
+    // `level-error` a floored-1ms readiness `waitForSelector` throw produced
+    // pre-fix, and NOT `send-budget-exhausted` (the readiness wait is reached
+    // BEFORE the press guard).
+    expect(errorDesc).toBe("delayed-readiness");
   }, 10000);
+});
+
+describe("d4 render-race: sseDone-leads / domDone-lags turn completion (Fix B)", () => {
+  // These two tests pin the fix for the rotating-full-column-red flap whose
+  // ROOT is a probe render-race: `readTurnComplete()` used to gate `complete`
+  // on `domDone || sseDone`. `sseDone` (the transport RUN_FINISHED counter) is
+  // a synchronous raw-byte parse OUTSIDE React and can fire AT-OR-BEFORE the
+  // React commit that renders the assistant text; `domDone` is coalesced into
+  // that SAME commit. Gating on `sseDone` let the fast-fail grace window elapse
+  // with the DOM still empty under contention, redding a turn that was about to
+  // render correctly ("empty assistant response"). Fix B gates on `domDone`
+  // ALONE. See SPEC "Fix B" + "Test / regression coverage".
+
+  it("TIMING SIM: sseDone fires EARLY, domDone+text land LATE together → GREEN (RED pre-fix)", async () => {
+    // The exact race Fix B closes, decoupled IN TIME (not just in kind):
+    //   - `sseDone` fires at send (`sseLeadMs: 0`) — the transport finished
+    //     edge leads.
+    //   - `domDone` (runningNow true→false) AND the assistant-text DOM commit
+    //     land TOGETHER at 2500ms (`completeAtDelayMs === firstTokenDelayMs`),
+    //     modelling the proven same-React-commit coalescing.
+    // 2500ms is PAST the ~2000ms `FIRST_TOKEN_GRACE_MS`. PRE-FIX
+    // (`domDone || sseDone`): `sseDone` stamps completion at ~send, the grace
+    // window elapses at ~2000ms with the DOM still empty, and the poll fast-
+    // fails RED before the real 2500ms token — the classic false red. POST-FIX
+    // (`domDone` only): `complete` stays false until 2500ms (the turn is merely
+    // `observed` in-flight via `sseDone`, so the poll WIDENS to the ceiling
+    // instead of fast-failing), then the token renders and the poll returns it.
+    // This test only DISCRIMINATES pre-fix vs post-fix while the token lands
+    // AFTER the grace window but BEFORE the attempt-0 ceiling:
+    //   FIRST_TOKEN_GRACE_MS (2000) < firstTokenDelayMs (2500) < ceiling (~4000)
+    // Pin the lower bound against the ACTUAL source constant so that raising
+    // FIRST_TOKEN_GRACE_MS past this fixture's delay fails this test LOUDLY
+    // (the sim would otherwise silently stop discriminating — the token would
+    // land inside the grace window and both formulas would pass).
+    const firstTokenDelayMs = 2500;
+    const pageTimeoutMs = 8000;
+    // Attempt-0 ceiling ≈ pageTimeoutMs / 2. Both bounds must bracket the delay
+    // for the sim to exercise the post-fix widening.
+    const attempt0CeilingMs = pageTimeoutMs / 2;
+    expect(FIRST_TOKEN_GRACE_MS).toBeLessThan(firstTokenDelayMs);
+    expect(firstTokenDelayMs).toBeLessThan(attempt0CeilingMs);
+    const { l4State, failureSummary } = await runLateToken(
+      makeLateTokenBrowser({
+        assistantText: "The weather in San Francisco is sunny, 72 degrees.",
+        sseLeadMs: 0,
+        completeAtDelayMs: firstTokenDelayMs,
+        firstTokenDelayMs,
+      }),
+      // Ceiling comfortably past the 2500ms lag so attempt 0 can reach the
+      // token (attempt-0 ceiling ≈ pageTimeoutMs/2 ≈ 4000ms > 2500ms).
+      { pageTimeoutMs },
+    );
+    expect(l4State).toBe("green");
+    expect(failureSummary).toBe("");
+  }, 20000);
+
+  it("FORMULA PIN: sseDone alone must NOT flip `complete` — a turn that only ever fires sseDone stalls+retries (does NOT fast-fail as completed-empty)", async () => {
+    // Catches a LITERAL revert to `domDone || sseDone` via an observable that
+    // does not depend on wall-clock thresholds: the send count.
+    //   - `sseLeadMs: 0` → `sseDone` fires immediately.
+    //   - `neverComplete` → `domDone` (and the token) NEVER arrive.
+    // POST-FIX (`domDone`): `complete` stays false, so the turn reads as
+    // OBSERVED-but-in-flight (a stall) → the non-completion retry fires → the
+    // page receives a SECOND send (sends === 2), then reds.
+    // PRE-FIX (`domDone || sseDone`): `sseDone` flips `complete` true → the
+    // turn reads as COMPLETED-empty (a real red) → NO retry → sends === 1.
+    // Asserting sends === 2 therefore FAILS on the pre-fix formula and PASSES
+    // only once completion is gated on `domDone` alone.
+    let sends = 0;
+    const { l3State, failureSummary } = await runLateTokenL3(
+      makeLateTokenBrowser({
+        assistantText: "",
+        firstTokenDelayMs: 100,
+        neverComplete: true,
+        sseLeadMs: 0,
+        onSend: (n) => {
+          sends = Math.max(sends, n);
+        },
+      }),
+      { pageTimeoutMs: 4000 },
+    );
+    // Genuinely empty (no token ever) → red either way; the DISCRIMINATOR is
+    // whether the retry fired, i.e. whether `sseDone` alone was (wrongly)
+    // treated as turn-complete.
+    expect(l3State).toBe("red");
+    expect(failureSummary).toContain("empty assistant response");
+    expect(sends).toBe(2);
+  }, 20000);
 });
 
 describe("d4 mid-poll abort/timeout classification (follow-up)", () => {
@@ -3453,4 +3721,252 @@ describe("wirePlaywrightPage attach-fault telemetry (finding 3)", () => {
     const st = await wired.readTurnState!();
     expect(st.sseAttachFailed).toBe(false);
   });
+});
+
+// ── Readiness gate: send-control ordering ────────────────────────────────────
+//
+// react-core now gates chat submission on runtime readiness: while
+// `useAgent().isReady` is false, `CopilotChat` withholds `onSubmitMessage`,
+// which flips `canSend` false, renders `[data-testid="copilot-send-button"]`
+// with the HTML `disabled` attribute, and makes an Enter keypress a SILENT
+// no-op (the composer text is preserved, no turn starts, the assistant
+// response stays empty). A probe that types and immediately presses Enter
+// inside that provisional window sends into the void and the cell FALSELY reds.
+//
+// The driver's `sendTurn` therefore WAITS for the send control to become
+// ENABLED (`SEND_ENABLED_SELECTOR`, i.e. `:not([disabled])`) AFTER typing and
+// BEFORE pressing Enter. These tests pin that ordering with a fake page that
+// models the readiness gate: `press("Enter")` only COMMITS the turn (making the
+// assistant text observable) if the enabled-send wait happened first. Without
+// the wait (pre-fix driver) the Enter no-ops, the turn stays empty, and BOTH
+// the ordering assertion (the enabled-send wait is absent) and the green
+// assertion (empty response → red) fail — the local RED. With the wait the
+// ordering holds and the turn commits — the local GREEN.
+describe("d4 driver — readiness send-control ordering", () => {
+  interface OrderingProbe {
+    page: E2ePage;
+    /** Ordered log of page interactions: `type:*`, `waitForSelector:*`, `press:*`. */
+    calls: string[];
+  }
+
+  /**
+   * Fake page modelling the react-core readiness gate. The send control starts
+   * `disabled`; `waitForSelector(SEND_ENABLED_SELECTOR)` models Playwright
+   * blocking until the button is enabled — resolving it flips the internal
+   * "enabled" latch. `press("Enter")` commits the turn (makes `assistantText`
+   * observable through `evaluate`) ONLY if that latch is set, i.e. only if the
+   * driver waited for the enabled send control before pressing.
+   */
+  function makeOrderingPage(assistantText: string): OrderingProbe {
+    const calls: string[] = [];
+    let sendEnabledWaited = false;
+    let committed = false;
+    const page: E2ePage = {
+      async goto() {},
+      async type(sel, text) {
+        calls.push(`type:${sel}:${text}`);
+      },
+      async waitForSelector(sel) {
+        calls.push(`waitForSelector:${sel}`);
+        if (sel === SEND_ENABLED_SELECTOR) {
+          sendEnabledWaited = true;
+        }
+      },
+      async press(sel, key) {
+        calls.push(`press:${sel}:${key}`);
+        // Enter is a no-op unless the enabled-send wait happened first — the
+        // exact production behaviour of the readiness gate.
+        if (sendEnabledWaited) {
+          committed = true;
+        }
+      },
+      async textContent() {
+        return "";
+      },
+      async evaluate<R>(): Promise<R> {
+        return (committed ? assistantText : "") as unknown as R;
+      },
+      async close() {},
+    };
+    return { page, calls };
+  }
+
+  it("waits for the enabled send control BEFORE pressing Enter (type → wait-enabled → Enter)", async () => {
+    const probe = makeOrderingPage("Hello! Nice to meet you.");
+    const browser: E2eBrowser = {
+      async newContext(): Promise<E2eBrowserContext> {
+        return {
+          async newPage(): Promise<E2ePage> {
+            return probe.page;
+          },
+          async close() {},
+        };
+      },
+      async close() {},
+    };
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      // Keep the empty-response poll short so the pre-fix RED path fails fast
+      // (empty assistant text) instead of spinning the full page timeout.
+      textPollTimeoutMs: 100,
+    });
+    const writer = new CapturingWriter();
+
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+    });
+
+    // Ordering: the enabled-send wait must exist AND precede the Enter press.
+    const enabledWaitIdx = probe.calls.findIndex(
+      (c) => c === `waitForSelector:${SEND_ENABLED_SELECTOR}`,
+    );
+    const enterPressIdx = probe.calls.findIndex(
+      (c) => c === "press:textarea:Enter",
+    );
+    expect(enabledWaitIdx).toBeGreaterThanOrEqual(0);
+    expect(enterPressIdx).toBeGreaterThanOrEqual(0);
+    expect(enabledWaitIdx).toBeLessThan(enterPressIdx);
+
+    // And the readiness-gated turn actually commits → green (an early Enter
+    // would no-op, leaving an empty response → red).
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("green");
+  });
+});
+
+// ── ITEM 3: per-attempt baseline taken AFTER the readiness wait ──────────────
+// The driver captures the turn-lifecycle BASELINE (the page-global monotonic
+// `runsFinished` / `runStartCount` edge counters) that scopes "did THIS turn
+// complete?" to strictly-new edges past it. Taking that snapshot too early —
+// before the readiness wait — lets a DIFFERENT run that completes DURING the
+// wait (an auto-greeting / initial-mount run that finishes while the send
+// control is still settling) land its finished/started edge AFTER the snapshot.
+// The poll's `> baseline` gate then mistakes that unrelated completion for THIS
+// submitted turn finishing; with the assistant text not yet rendered the poll
+// fast-fails "empty assistant response" — a FALSE red on a turn that was about
+// to render correctly. Capturing the baseline AFTER `type` + the enabled-send
+// wait and immediately before Enter folds the during-wait edge into the
+// baseline, so only an edge that lands AFTER Enter counts.
+describe("d4 driver — per-attempt baseline captured after the readiness wait", () => {
+  /**
+   * Fake page modelling a run that completes DURING the readiness wait. A prior
+   * run has already finished (`prior = 1`). When the driver issues the readiness
+   * `waitForSelector(SEND_ENABLED_SELECTOR)`, a PHANTOM run (an auto/greeting run
+   * kicked off as the runtime becomes ready) both STARTS and FINISHES — bumping
+   * `runStartCount` and `runsFinished` past `prior` and settling `runningNow`
+   * false. The user's SUBMITTED turn then starts ~`submittedStartDelayMs` after
+   * Enter and finishes (rendering `assistantText`) at `submittedCompleteDelayMs`.
+   *
+   * With the baseline taken BEFORE the wait (pre-fix), it misses the phantom's
+   * edges, so the very first poll after Enter sees `runStartCount`/`runsFinished`
+   * already past baseline with `runningNow === false` → reads THIS turn as
+   * complete-and-empty and fast-fails RED before the real content lands. With the
+   * baseline taken AFTER the wait (post-fix) the phantom is folded in, so the
+   * poll waits for the submitted turn's OWN new edge and reads its content →
+   * GREEN.
+   */
+  function makeCounterAdvancesDuringWaitBrowser(opts: {
+    assistantText: string;
+    submittedStartDelayMs: number;
+    submittedCompleteDelayMs: number;
+  }): E2eBrowser {
+    const prior = 1;
+    const makeContaminatedPage = (): E2ePage => {
+      let phantomDone = false;
+      let pressed = false;
+      let pressAtMs = 0;
+      const page: E2ePage = {
+        async goto() {
+          return null;
+        },
+        async type() {},
+        async waitForSelector(sel?: string) {
+          // The phantom run starts+finishes DURING the readiness wait.
+          if (sel === SEND_ENABLED_SELECTOR) {
+            phantomDone = true;
+          }
+        },
+        async press(_sel, _key) {
+          pressed = true;
+          pressAtMs = Date.now();
+        },
+        async textContent() {
+          return "";
+        },
+        async evaluate<R>(): Promise<R> {
+          const submittedFinished =
+            pressed && Date.now() - pressAtMs >= opts.submittedCompleteDelayMs;
+          return (submittedFinished ? opts.assistantText : "") as unknown as R;
+        },
+        async readTurnState() {
+          const elapsed = pressed ? Date.now() - pressAtMs : 0;
+          const submittedStarted =
+            pressed && elapsed >= opts.submittedStartDelayMs;
+          const submittedFinished =
+            pressed && elapsed >= opts.submittedCompleteDelayMs;
+          const phantom = phantomDone ? 1 : 0;
+          return {
+            runsFinished: prior + phantom + (submittedFinished ? 1 : 0),
+            attrPresent: true,
+            sawRunningTrue: true,
+            runningNow: submittedStarted && !submittedFinished,
+            runStartCount: prior + phantom + (submittedStarted ? 1 : 0),
+            lastStoppedAtMs: 0,
+            sseAttachFailed: false,
+          };
+        },
+        async close() {},
+      };
+      return page;
+    };
+    return {
+      async newContext(): Promise<E2eBrowserContext> {
+        return {
+          async newPage(): Promise<E2ePage> {
+            return makeContaminatedPage();
+          },
+          async close() {},
+        };
+      },
+      async close() {},
+    };
+  }
+
+  it("does not false-red when a run completes during the readiness wait (baseline taken after the wait)", async () => {
+    // Content lands at 3000ms after Enter — PAST the 2000ms completed-empty grace
+    // window a pre-fix (contaminated-baseline) poll fast-fails within, so a
+    // pre-fix baseline reds before the content; the post-fix baseline waits for
+    // the submitted turn's own edge and reads the content → GREEN. Margins are
+    // deliberately wide (start 300ms « base floor 2000ms; content 3000ms « ceiling
+    // ~5000ms) so the wall-clock assertions are robust under machine load.
+    const writer = new CapturingWriter();
+    const driver = createE2eSmokeDriver({
+      launcher: async () =>
+        makeCounterAdvancesDuringWaitBrowser({
+          assistantText: "Hello! Nice to meet you.",
+          submittedStartDelayMs: 300,
+          submittedCompleteDelayMs: 3000,
+        }),
+      // Wide enough that the pre-start gap (300ms) does not fast-fail as a
+      // "never observed" run before the submitted turn's start edge appears, and
+      // that (pre-fix) the completed-empty grace deadline (2000ms) elapses with
+      // the DOM still empty (content at 3000ms).
+      textPollTimeoutMs: 2000,
+      // Attempt-0 ceiling ≈ pageTimeoutMs/2 ≈ 5000ms > 3000ms content arrival.
+      pageTimeoutMs: 10000,
+    });
+
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+    });
+
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("green");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("green");
+  }, 15000);
 });

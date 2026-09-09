@@ -1,73 +1,36 @@
 ---
-title: "Table"
-description: "Data table in a bot message, built from Row and Cell children with optional column alignment."
+title: Table, Row, and Cell
+description: Render tabular data with portable Channels table primitives.
 ---
 
-## Overview
-
-`Table` renders tabular data. Columns are declared on the table; data flows in as `Row` children containing `Cell` children.
-
-## Import
+`Table` groups `Row` and `Cell` children.
 
 ```tsx
-import { Table, Row, Cell } from "@copilotkit/channels-ui";
+import { Cell, Row, Table } from "@copilotkit/channels/ui";
+
+<Table
+  columns={[
+    { header: "Service", align: "left" },
+    { header: "p95", align: "right" },
+  ]}
+>
+  <Row>
+    <Cell>Checkout</Cell>
+    <Cell>1.8s</Cell>
+  </Row>
+</Table>;
 ```
 
 ## Props
 
-### Table
+| Component | Prop | Type | Description |
+| --- | --- | --- | --- |
+| `Table` | `columns` | `{ header: string; align?: "left" \| "center" \| "right" }[]` | Optional header and alignment metadata. |
+| `Table` | `children` | `BotChildren` | `Row` children. |
+| `Row` | `children` | `BotChildren` | `Cell` children. |
+| `Cell` | `children` | `BotChildren` | Cell text. |
 
-<PropertyReference name="columns" type='{ header: string; align?: "left" | "center" | "right" }[]'>
-  Column definitions (`TableColumn[]`): a header label and an optional alignment per column. Use `align: "right"` for numeric columns.
-</PropertyReference>
-
-<PropertyReference name="children" type="BotChildren">
-  The `Row` elements.
-</PropertyReference>
-
-### Row
-
-<PropertyReference name="children" type="BotChildren">
-  The row's `Cell` elements, in column order.
-</PropertyReference>
-
-### Cell
-
-<PropertyReference name="children" type="BotChildren">
-  One cell's content.
-</PropertyReference>
-
-## Usage
-
-```tsx
-<Message>
-  <Header>Incidents this week</Header>
-  <Table
-    columns={[
-      { header: "Issue" },
-      { header: "Severity" },
-      { header: "Count", align: "right" },
-    ]}
-  >
-    <Row>
-      <Cell>CPK-1201</Cell>
-      <Cell>SEV2</Cell>
-      <Cell>14</Cell>
-    </Row>
-    <Row>
-      <Cell>CPK-1188</Cell>
-      <Cell>SEV3</Cell>
-      <Cell>3</Cell>
-    </Row>
-  </Table>
-</Message>
-```
-
-## On Slack
-
-Renders as a native `table` block — at most **20 columns**, **100 data rows** (the header row built from `columns` is separate), and **2000 characters per cell** (`SLACK_LIMITS.tableColumns` / `tableRows` / `cellText`); overflow is clamped.
-
-## Related
-
-- [Fields](/reference/channels/components/Fields) — lightweight two-column label/value layout
-- [renderBlockKit](/reference/channels/slack/renderBlockKit) — Block Kit mapping and budgets
+Managed Slack renders a native table block. Managed Teams renders an Adaptive
+Card 1.5 table. Both renderers clamp rows, columns, and cell text to provider
+budgets. Keep a short textual summary outside the table for clients that cannot
+display the native structure.

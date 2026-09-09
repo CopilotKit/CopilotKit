@@ -18,7 +18,7 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // rendered surface to the frontend renderer; we just don't want it to also
 // inject a runtime `render_a2ui` tool on top of our own.
 const runtime = new CopilotRuntime({
-  agents: { default: createA2UIFixedSchemaAgent() },
+  agents: { "a2ui-fixed-schema": createA2UIFixedSchemaAgent() },
   runner: new InMemoryAgentRunner(),
   a2ui: {
     injectA2UITool: false,

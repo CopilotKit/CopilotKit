@@ -2,40 +2,61 @@
 
 import posthog from "posthog-js";
 import { useCallback } from "react";
+import { buildIntelligenceAuthEntryHref } from "@/lib/docs-cta-href";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 export interface SignupLinkProps {
   /** Stable identifier for analytics, e.g. "docs_langgraph_quickstart_step1" */
   surface: string;
+  /** Frontend selected by the docs route. */
+  frontend?: string;
+  /** Agent backend selected by the docs route, when one is active. */
+  backend?: string;
+  /** Originating docs path. */
+  fromPath?: string;
   children: React.ReactNode;
 }
 
-function buildHref(surface: string): string {
+function buildHref(
+  surface: string,
+  frontend?: string,
+  backend?: string,
+): string {
   // Read the signup URL at render time from the runtime config injected
   // by the root layout so a single built artifact can point at staging
   // vs prod by changing the Railway env var. The reader already returns
   // a fallback when NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL is unset.
   const signupUrl = getRuntimeConfig().intelligenceSignupUrl;
-  const url = new URL(signupUrl);
-  url.searchParams.set("utm_source", "docs");
-  url.searchParams.set("utm_medium", "cta");
-  url.searchParams.set("utm_campaign", "intelligence");
-  url.searchParams.set("utm_content", surface);
-  return url.toString();
+  return buildIntelligenceAuthEntryHref(signupUrl, {
+    surface,
+    frontend,
+    backend,
+  });
 }
 
-export function SignupLink({ surface, children }: SignupLinkProps) {
+export function SignupLink({
+  surface,
+  frontend,
+  backend,
+  fromPath,
+  children,
+}: SignupLinkProps) {
   const handleClick = useCallback(() => {
     try {
-      posthog.capture("try_for_free_clicked", { location: surface });
+      posthog.capture("try_for_free_clicked", {
+        location: surface,
+        frontend,
+        backend,
+        from_path: fromPath,
+      });
     } catch {
       // PostHog may be blocked by ad blockers — never let analytics block navigation.
     }
-  }, [surface]);
+  }, [backend, frontend, fromPath, surface]);
 
   return (
     <a
-      href={buildHref(surface)}
+      href={buildHref(surface, frontend, backend)}
       target="_blank"
       rel="noreferrer"
       onClick={handleClick}

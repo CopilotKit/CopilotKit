@@ -1,7 +1,7 @@
 """Reasoning agent — emits AG-UI REASONING_MESSAGE_* events.
 
-Shared by agentic-chat-reasoning (custom amber ReasoningBlock) and
-reasoning-default-render (CopilotKit's built-in reasoning slot).
+Shared by reasoning-custom (custom amber ReasoningBlock) and
+reasoning-default (CopilotKit's built-in reasoning slot).
 
 Why a reasoning model + Responses API:
 The OpenAI Responses API streams `response.reasoning_summary_text.delta`
@@ -26,7 +26,7 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5-mini")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 
 # No full CopilotKitMiddleware — this demo exercises only reasoning-token
 # streaming through the OpenAI Responses API and doesn't consume frontend
@@ -40,7 +40,7 @@ graph = create_deep_agent(
     model=init_chat_model(
         f"openai:{REASONING_MODEL}",
         use_responses_api=True,
-        reasoning={"effort": "low", "summary": "auto"},
+        reasoning={"effort": "medium", "summary": "detailed"},
     ),
     tools=[],
     system_prompt=SYSTEM_PROMPT,

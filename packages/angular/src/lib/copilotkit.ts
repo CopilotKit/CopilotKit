@@ -29,6 +29,7 @@ import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   schemaToJsonSchema,
+  type RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
 import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
@@ -36,6 +37,7 @@ import {
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer/web-components";
 import {
+  ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   RenderActivityMessageConfig,
   anyActivityContentSchema,
 } from "./activity-renderer";
@@ -60,12 +62,35 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
+import { CopilotInspector } from "./inspector";
+
+/**
+ * Advertise a client-provided A2UI catalog to the runtime without mutating the
+ * caller's properties object. The runtime uses this per-run capability to
+ * enable A2UI middleware and inject its render tool when endpoint configuration
+ * does not opt in separately; this mirrors the React provider contract.
+ */
+function withA2UICatalogCapability(
+  properties: Record<string, unknown> | undefined,
+  hasCatalog: boolean,
+): Record<string, unknown> | undefined {
+  return hasCatalog
+    ? { ...properties, a2uiCatalogAvailable: true }
+    : properties;
+}
 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
   readonly #config = injectCopilotKitConfig();
+  readonly #extensionActivityMessageRenderers = inject(
+    ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
+  );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  readonly #inspector = inject(CopilotInspector);
+  /** Whether unknown tools may use the built-in text-only fallback renderer. */
+  readonly defaultToolRenderingEnabled =
+    this.#config.defaultToolRendering === true;
   readonly #agents = signal<Record<string, AbstractAgent>>(
     this.#config.agents ?? {},
   );
@@ -81,6 +106,8 @@ export class CopilotKit {
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
+  readonly credentials = this.#credentials.asReadonly();
   readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
     undefined,
   );
@@ -110,6 +137,21 @@ export class CopilotKit {
    * the threads drawer's license gate — re-run once the status resolves.
    */
   readonly licenseStatus = this.#licenseStatus.asReadonly();
+  readonly #runtimeEntitlements = signal<
+    RuntimeEntitlementResponse | undefined
+  >(undefined);
+  /**
+   * Structured entitlement authority from the connected runtime's `/info`
+   * response. Ready managed entitlements override legacy license status.
+   */
+  readonly runtimeEntitlements = this.#runtimeEntitlements.asReadonly();
+  readonly #runtimeEntitlementRetryPending = signal(false);
+  /**
+   * Whether Core still owes the one bounded retry for a retryable entitlement
+   * lookup. Gated UI stays pending until that retry settles.
+   */
+  readonly runtimeEntitlementRetryPending =
+    this.#runtimeEntitlementRetryPending.asReadonly();
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
@@ -118,13 +160,17 @@ export class CopilotKit {
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
-    properties: this.#config.properties,
+    credentials: this.#config.credentials,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
     },
     tools: this.#config.tools,
     suggestionsConfig: this.#config.suggestionsConfig,
+    properties: withA2UICatalogCapability(
+      this.#config.properties,
+      this.#config.a2ui?.catalog !== undefined,
+    ),
   });
 
   readonly #toolCallRenderConfigs: WritableSignal<RenderToolCallConfig[]> =
@@ -164,6 +210,7 @@ export class CopilotKit {
   readonly activityMessageRenderConfigs: Signal<RenderActivityMessageConfig[]> =
     computed(() => [
       ...this.#activityMessageRenderConfigs(),
+      ...this.#extensionActivityMessageRenderers,
       ...this.#builtInActivityMessageRenderConfigs(),
     ]);
 
@@ -172,15 +219,21 @@ export class CopilotKit {
   #a2UIContextIds: string[] = [];
 
   constructor() {
+    void this.#inspector.isInspectorEnabled;
     ensureLicenseWatermark(this.#config.headers);
 
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#credentials.set(this.core.credentials);
     this.#threadEndpoints.set(this.core.threadEndpoints);
     this.#intelligence.set(this.core.intelligence);
     this.#licenseStatus.set(this.core.licenseStatus);
+    this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
+    this.#runtimeEntitlementRetryPending.set(
+      this.core.runtimeEntitlementRetryPending,
+    );
     this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
@@ -221,6 +274,10 @@ export class CopilotKit {
         this.#threadEndpoints.set(this.core.threadEndpoints);
         this.#intelligence.set(this.core.intelligence);
         this.#licenseStatus.set(this.core.licenseStatus);
+        this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
+        this.#runtimeEntitlementRetryPending.set(
+          this.core.runtimeEntitlementRetryPending,
+        );
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },
@@ -267,6 +324,14 @@ export class CopilotKit {
   ): FrontendTool {
     const { injector, handler, ...frontendCandidate } = clientToolWithInjector;
 
+    // A display-only registration declares no handler, and core has its own path
+    // for that: it inserts an empty tool result and completes the turn. Binding a
+    // wrapper here regardless would call `undefined` on the first tool call, and
+    // substituting a stub would put an invented result into the thread instead.
+    if (!handler) {
+      return frontendCandidate;
+    }
+
     return {
       ...frontendCandidate,
       handler: (args, context) =>
@@ -300,10 +365,17 @@ export class CopilotKit {
     ]);
   }
 
+  /** Remove one dynamically registered activity renderer by identity. */
+  removeRenderActivityMessage(renderConfig: RenderActivityMessageConfig): void {
+    this.#activityMessageRenderConfigs.update((current) =>
+      current.filter((candidate) => candidate !== renderConfig),
+    );
+  }
+
   #syncBuiltInActivityMessageRenderers(): void {
     const renderers: RenderActivityMessageConfig[] = [];
 
-    if (this.core.a2uiEnabled) {
+    if (this.#isA2UIActive()) {
       renderers.push({
         activityType: "a2ui-surface",
         content: anyActivityContentSchema,
@@ -324,7 +396,7 @@ export class CopilotKit {
   }
 
   #syncBuiltInA2UI(): void {
-    if (!this.core.a2uiEnabled) {
+    if (!this.#isA2UIActive()) {
       this.#builtInToolCallRenderConfigs.set([]);
       this.#removeA2UIContexts();
       return;
@@ -349,6 +421,11 @@ export class CopilotKit {
 
   #getA2UICatalog(): unknown {
     return this.#config.a2ui?.catalog;
+  }
+
+  /** Return whether runtime capability or an explicit catalog enables A2UI. */
+  #isA2UIActive(): boolean {
+    return this.core.a2uiEnabled || this.#getA2UICatalog() !== undefined;
   }
 
   #syncA2UIContexts(): void {
@@ -560,6 +637,7 @@ export class CopilotKit {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
+    credentials?: RequestCredentials;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
@@ -576,8 +654,17 @@ export class CopilotKit {
       this.core.setHeaders(options.headers);
       this.#headers.set(options.headers);
     }
+    if ("credentials" in options) {
+      this.core.setCredentials(options.credentials);
+      this.#credentials.set(options.credentials);
+    }
     if (options.properties !== undefined) {
-      this.core.setProperties(options.properties);
+      this.core.setProperties(
+        withA2UICatalogCapability(
+          options.properties,
+          this.#config.a2ui?.catalog !== undefined,
+        ) ?? options.properties,
+      );
     }
     if (
       options.agents !== undefined ||

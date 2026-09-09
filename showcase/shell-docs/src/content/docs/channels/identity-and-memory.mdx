@@ -1,0 +1,240 @@
+---
+title: Identity and Memory
+icon: "lucide/Users"
+description: Resolve provider actors to application users and grant Intelligence Memory safely for each Channel run.
+doc_type: how-to
+---
+
+Your Channel already receives provider-scoped conversations and actors. This
+guide maps those actors to your application's users, then grants user or project
+Memory explicitly for each agent run.
+
+## Separate the conversation, actor, and application user
+
+One provider conversation can contain several people. Channels therefore keeps
+three identities separate:
+
+<FrontendOnly frontend="slack">
+
+| Concept | Meaning | Scope |
+| ------- | ------- | ----- |
+| Conversation | Slack thread, channel, or DM represented by the Channels `Thread` | Shared Slack conversation |
+| Actor | Slack account that caused the current message, reaction, or interaction | Resolved for each event |
+| Application user | Canonical user returned by your `identifyUser` policy | Developer-owned project identity |
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+| Concept | Meaning | Scope |
+| ------- | ------- | ----- |
+| Conversation | Teams chat, channel, or thread represented by the Channels `Thread` | Shared Teams conversation |
+| Actor | Teams account that caused the current message, reaction, or interaction | Resolved for each event |
+| Application user | Canonical user returned by your `identifyUser` policy | Developer-owned project identity |
+
+</FrontendOnly>
+
+A `Thread` does not have a personal owner. The person who installed the app,
+started the conversation, or sent the first message does not become the Memory
+subject for later participants. Resolve the current actor independently on every
+event.
+
+<Steps>
+  <Step>
+    ### Map the current provider actor
+
+    `identifyUser` receives the normalized provider, tenant, installation,
+    actor, conversation, and event. Return an application-controlled
+    `{ id, name }` when a trusted mapping exists, or `null` when the actor is
+    intentionally unlinked.
+
+    <FrontendOnly frontend="slack">
+
+    For Slack, `tenant.id` identifies the workspace and `actor.id` identifies
+    the Slack account. Channels, private channels, group DMs, and shared
+    threads can all contain several actors, so include the workspace in the
+    external-identity key.
+
+    ```ts title="channel.ts"
+    import { createChannel } from "@copilotkit/channels";
+    import { makeAgent } from "./agent.js";
+
+    const linkedAccounts = new Map([
+      [
+        "slack:T0123:U0456",
+        { id: "user_42", name: "Ada Lovelace" },
+      ],
+    ]);
+
+    export const channel = createChannel({
+      name: "support",
+      identifyUser: async ({ provider, tenant, actor }) =>
+        linkedAccounts.get(`${provider}:${tenant.id}:${actor.id}`) ?? null,
+      agent: makeAgent,
+    });
+    ```
+
+    </FrontendOnly>
+
+    <FrontendOnly frontend="teams">
+
+    For Microsoft Teams, `tenant.id` identifies the Microsoft tenant and
+    `actor.id` identifies the Teams account. Team channels and group chats can
+    contain several actors, so include the tenant in the external-identity key.
+
+    ```ts title="channel.ts"
+    import { createChannel } from "@copilotkit/channels";
+    import { makeAgent } from "./agent.js";
+
+    const linkedAccounts = new Map([
+      [
+        "teams:tenant-123:user-456",
+        { id: "user_42", name: "Ada Lovelace" },
+      ],
+    ]);
+
+    export const channel = createChannel({
+      name: "support",
+      identifyUser: async ({ provider, tenant, actor }) =>
+        linkedAccounts.get(`${provider}:${tenant.id}:${actor.id}`) ?? null,
+      agent: makeAgent,
+    });
+    ```
+
+    </FrontendOnly>
+
+    Replace the map with a lookup in the account-linking data your application
+    owns. Do not automatically link accounts by email address, display name, or
+    handle. Those attributes can change or collide across provider tenants.
+
+    Returning `null` means that the actor is deliberately unlinked. Throw only
+    when the identity system itself failed. When the adapter provides
+    `lookupProfile`, you may use it to enrich a confirmed provider identity,
+    but profile data does not establish a canonical application account by
+    itself.
+
+  </Step>
+
+  <Step>
+    ### Grant Memory for one run
+
+    Intelligence Memory is off unless the current `runAgent` call grants
+    access. Each `user` or `project` scope accepts `"none"`, `"read"`, or
+    `"read-write"`:
+
+    ```ts title="channel.ts"
+    channel.onMessage(async ({ thread, message }) => {
+      await thread.runAgent({
+        prompt: message.text,
+        memory: {
+          user: "read",
+          project: "read-write",
+        },
+      });
+    });
+    ```
+
+    Omitting a scope disables it for that run. Project-only Memory works when
+    `identifyUser` returns `null`; user Memory fails before the agent starts
+    unless the current event resolved to an application user.
+
+    In a shared channel or group chat, project Memory is the safer default.
+    Grant user Memory only when the current turn clearly acts for the resolved
+    individual. Never reuse the installer, thread creator, or first participant
+    as the personal Memory subject for everyone else.
+
+  </Step>
+
+  <Step>
+    ### Choose the subject when resuming an approval
+
+    A resumed run can grant Memory too. In the callback for a registered
+    component, choose which trusted participant supplies the subject when you
+    grant user Memory:
+
+    ```tsx title="approval-button.tsx"
+    import { Button } from "@copilotkit/channels/ui";
+
+    export function ApprovalButton() {
+      return (
+        <Button
+          value={{ approved: true }}
+          onClick={async ({ thread, action }) => {
+            const value = action.value;
+            if (value === undefined) {
+              await thread.post("The approval value was missing.");
+              return;
+            }
+
+            await thread.resume(value, {
+              memory: {
+                user: "read",
+                project: "read",
+              },
+              subject: "initiator",
+            });
+          }}
+        >
+          Approve
+        </Button>
+      );
+    }
+    ```
+
+    - `"initiator"` keeps the application user who started the continuation
+      chain.
+    - `"actor"` uses the application user resolved for the current interaction.
+    - Project-only Memory needs no subject.
+    - Callers cannot provide an arbitrary raw user ID.
+
+    Use `"initiator"` when an approval belongs to the person who started the
+    workflow. Use `"actor"` when the current approver should supply the personal
+    context. See [Interactive messages and approvals](/channels/interactive)
+    for the complete registered component and post-and-resume flow.
+
+  </Step>
+
+  <Step>
+    ### Verify the identity boundary
+
+    Exercise the mapping with separate provider accounts before enabling it in
+    a shared conversation:
+
+    1. Send a message from two actors in the same conversation. Confirm each
+       event looks up the full provider, tenant, and actor tuple and resolves
+       the correct application user independently.
+    2. Test an intentionally unlinked actor. A project-only run should work;
+       requesting user Memory should fail with
+       `channel_memory_user_required` before the agent starts.
+    3. If the Channel uses approvals, start a workflow as one user and click it
+       as another. Verify `"initiator"` preserves the starter and `"actor"`
+       selects the current approver.
+    4. Check application logs and telemetry. Record the stable error code and
+       your application user ID when needed, but do not log provider tokens,
+       message contents, or Memory contents.
+
+    The boundary is ready when every event resolves its current actor, personal
+    Memory follows only that resolved user, and project Memory follows the
+    explicit grant for the run.
+
+  </Step>
+</Steps>
+
+## Handle stable identity and Memory failures
+
+Identity and Memory validation fails before the agent runs. The public errors
+expose stable codes:
+
+| Code | Meaning |
+| ---- | ------- |
+| `channel_identity_invalid` | `identifyUser` returned neither `null` nor a non-empty `{ id, name }` user. |
+| `channel_identity_failed` | The custom identity resolver threw. |
+| `channel_memory_grant_invalid` | A Memory scope used an unsupported access value. |
+| `channel_memory_user_required` | The run requested user Memory without a resolved application user. |
+| `channel_memory_unavailable` | The Channel has no attached Intelligence Memory-capable runtime or adapter. |
+| `channel_memory_subject_required` | A resumed run requested user Memory without `"initiator"` or `"actor"`. |
+
+Use [Threads and state](/channels/threads-and-state) for conversation-scoped
+workflow state and [History and transcripts](/channels/history-and-transcripts)
+for provider history and SDK-owned user transcripts. Those records are separate
+from per-run Intelligence Memory.

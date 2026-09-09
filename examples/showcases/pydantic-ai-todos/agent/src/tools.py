@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from ag_ui.core import EventType, StateSnapshotEvent
 from pydantic_ai import RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 
 from models import TodoItem, TodoState, TodoStatus
 

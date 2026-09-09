@@ -24,6 +24,8 @@ import {
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
+import { FakeListChatModel } from "@langchain/core/utils/testing";
+import { createAgent, createMiddleware } from "langchain";
 
 import {
   copilotkitMiddleware,
@@ -66,6 +68,28 @@ function systemContents(messages: any[]): string[] {
     }
   }
   return out;
+}
+
+function systemPromptText(request: any): string {
+  expect(typeof request.systemPrompt).toBe("string");
+  return request.systemPrompt;
+}
+
+class CapturingFakeListChatModel extends FakeListChatModel {
+  readonly receivedMessages: Array<
+    Parameters<FakeListChatModel["_generate"]>[0]
+  > = [];
+
+  override async _generate(
+    ...args: Parameters<FakeListChatModel["_generate"]>
+  ) {
+    this.receivedMessages.push(args[0]);
+    return super._generate(...args);
+  }
+
+  override bindTools() {
+    return this;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +143,71 @@ describe("frontend tool injection", () => {
 // ---------------------------------------------------------------------------
 
 describe("exposeState", () => {
+  it("surfaces state owned by a sibling middleware during an agent run", async () => {
+    const model = new CapturingFakeListChatModel({ responses: ["Hello"] });
+    const originalSystemMessage = new SystemMessage({
+      content: [
+        {
+          type: "text",
+          text: "You are a helpful assistant.",
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      additional_kwargs: { provider: "anthropic" },
+      response_metadata: { model: "claude" },
+      id: "system-message-id",
+      name: "deep-agent",
+    });
+    const agentNameMiddleware = createMiddleware({
+      name: "AgentNameMiddleware",
+      stateSchema: z.object({ agentName: z.string().optional() }),
+    });
+    const middleware = createCopilotkitMiddleware({
+      exposeState: ["agentName"],
+    });
+    const agent = createAgent({
+      model,
+      tools: [],
+      systemPrompt: originalSystemMessage,
+      middleware: [agentNameMiddleware, middleware],
+    });
+
+    await agent.invoke({
+      messages: [new HumanMessage("What is your name?")],
+      agentName: "Mochi",
+    });
+
+    const systemMessage = model.receivedMessages[0].find(
+      (message) => message._getType() === "system",
+    );
+    const systemContent = systemMessage?.content;
+    expect(Array.isArray(systemContent)).toBe(true);
+    if (!Array.isArray(systemContent)) {
+      throw new Error("Expected system message content blocks");
+    }
+    const textBlocks = systemContent.filter(
+      (block): block is { type: "text"; text: unknown } =>
+        typeof block === "object" &&
+        block !== null &&
+        "type" in block &&
+        block.type === "text",
+    );
+    expect(textBlocks.length).toBeGreaterThan(0);
+    expect(textBlocks.every((block) => typeof block.text === "string")).toBe(
+      true,
+    );
+    expect(textBlocks.map((block) => block.text).join("\n")).toContain(
+      '"agentName": "Mochi"',
+    );
+    expect(systemContent[0]).toEqual(originalSystemMessage.content[0]);
+    expect(systemMessage).toMatchObject({
+      additional_kwargs: originalSystemMessage.additional_kwargs,
+      response_metadata: originalSystemMessage.response_metadata,
+      id: originalSystemMessage.id,
+      name: originalSystemMessage.name,
+    });
+  });
+
   it("is off by default — user state never lands in the system prompt", async () => {
     const request = makeRequest({
       state: { messages: [], liked: ["a", "b"] },
@@ -137,11 +226,7 @@ describe("exposeState", () => {
 
     const { received } = await runWrap(middleware, request);
 
-    expect(received.systemPrompt).toBeDefined();
-    const content =
-      typeof received.systemPrompt.content === "string"
-        ? received.systemPrompt.content
-        : String(received.systemPrompt.content);
+    const content = systemPromptText(received);
     expect(content).toContain("Current agent state:");
     expect(content).toContain('"liked"');
     expect(content).toContain('"a"');
@@ -165,10 +250,7 @@ describe("exposeState", () => {
 
     const { received } = await runWrap(middleware, request);
 
-    const body =
-      typeof received.systemPrompt?.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
     expect(body).toContain('"liked"');
     for (const reserved of [
       "messages",
@@ -190,10 +272,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt?.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).not.toContain('"_internal"');
     expect(body).toContain('"visible"');
@@ -210,10 +289,7 @@ describe("exposeState", () => {
       const { received } = await runWrap(middleware, request);
       if (received.systemPrompt == null) return; // acceptable: nothing left
 
-      const body =
-        typeof received.systemPrompt.content === "string"
-          ? received.systemPrompt.content
-          : "";
+      const body = systemPromptText(received);
       expect(body).toContain('"filled"');
       expect(body).not.toContain('"blank"');
     },
@@ -242,10 +318,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt?.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).toContain('"liked"');
     expect(body).not.toContain('"todos"');
@@ -261,10 +334,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt?.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).toContain("t-42");
   });
@@ -277,10 +347,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).toContain("You are a helpful assistant.");
     expect(body).toContain("Current agent state:");
@@ -297,10 +364,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).toContain("base");
     expect(body).toContain("Current agent state:");
@@ -330,10 +394,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     const jsonPart = body.split("Current agent state:\n")[1];
     expect(JSON.parse(jsonPart)).toEqual({
@@ -495,6 +556,103 @@ describe("afterAgent", () => {
     ]);
     expect(result!.copilotkit.interceptedToolCalls).toBeUndefined();
     expect(result!.copilotkit.originalAIMessageId).toBeUndefined();
+  });
+
+  it("preserves v1 metadata and content blocks through interception and restoration", () => {
+    const backendToolCall = {
+      id: "backend-1",
+      name: "search",
+      args: { query: "CopilotKit" },
+    };
+    const frontendToolCall = {
+      id: "frontend-1",
+      name: "navigate",
+      args: { path: "/results" },
+    };
+    const original = new AIMessage({
+      content: [
+        { type: "reasoning", reasoning: "Search, then open the result." },
+        { type: "tool_call", ...backendToolCall },
+        { type: "tool_call", ...frontendToolCall },
+        {
+          type: "tool_call_chunk",
+          id: "stale-1",
+          name: "stale",
+          args: "{}",
+        },
+      ],
+      tool_calls: [backendToolCall, frontendToolCall],
+      additional_kwargs: { provider_request_id: "request-1" },
+      response_metadata: {
+        output_version: "v1",
+        status: "completed",
+      },
+      usage_metadata: {
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+      },
+      invalid_tool_calls: [
+        {
+          id: "invalid-1",
+          name: "broken_tool",
+          args: "{",
+          error: "Invalid JSON",
+          type: "invalid_tool_call",
+        },
+      ],
+      id: "ai-v1",
+      name: "assistant-with-tools",
+    });
+    const state = {
+      messages: [new HumanMessage("open the search result"), original],
+      copilotkit: { actions: [{ name: "navigate" }] },
+    };
+
+    const intercepted = copilotkitMiddleware.afterModel(state, {} as any)!;
+    const interceptedMessage = intercepted.messages.at(-1) as AIMessage;
+    const interceptedContent = interceptedMessage.content as any[];
+
+    expect(interceptedMessage).toMatchObject({
+      additional_kwargs: original.additional_kwargs,
+      response_metadata: original.response_metadata,
+      usage_metadata: original.usage_metadata,
+      invalid_tool_calls: original.invalid_tool_calls,
+      id: original.id,
+      name: original.name,
+      tool_calls: [backendToolCall],
+    });
+    expect(
+      interceptedContent
+        .filter((block) => block.type === "tool_call")
+        .map((block) => block.name),
+    ).toEqual(["search"]);
+    expect(
+      interceptedContent.some((block) => block.type === "tool_call_chunk"),
+    ).toBe(false);
+
+    const restored = copilotkitMiddleware.afterAgent(intercepted, {} as any)!;
+    const restoredMessage = restored.messages.at(-1) as AIMessage;
+    const restoredContent = restoredMessage.content as any[];
+
+    expect(restoredMessage).toMatchObject({
+      additional_kwargs: original.additional_kwargs,
+      response_metadata: original.response_metadata,
+      usage_metadata: original.usage_metadata,
+      invalid_tool_calls: original.invalid_tool_calls,
+      id: original.id,
+      name: original.name,
+      tool_calls: [backendToolCall, frontendToolCall],
+    });
+    expect(
+      restoredContent
+        .filter((block) => block.type === "tool_call")
+        .map((block) => block.name),
+    ).toEqual(["search", "navigate"]);
+    expect(restoredContent[0]).toEqual({
+      type: "reasoning",
+      reasoning: "Search, then open the result.",
+    });
   });
 });
 

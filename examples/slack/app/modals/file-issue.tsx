@@ -15,8 +15,8 @@ import {
   ModalSelect,
   ModalSelectOption,
   RadioButtons,
-} from "@copilotkit/channels-ui";
-import type { ModalView } from "@copilotkit/channels-ui";
+} from "@copilotkit/channels";
+import type { ModalView } from "@copilotkit/channels";
 import type { ModalSubmitHandler } from "@copilotkit/channels";
 import { senderContext } from "../sender-context.js";
 
@@ -72,7 +72,7 @@ export const fileIssueSubmit: ModalSubmitHandler = async ({
       context: senderContext(user, thread.platform),
     })
     .catch((err) => {
-      console.error("[bot] file-issue modal run failed", err);
+      console.error("[channel] file-issue modal run failed", err);
       void thread
         .post("Sorry — I couldn't file that issue. Please try again.")
         .catch(() => {});

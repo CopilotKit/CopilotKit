@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { renderWhatsAppMessage } from "./message.js";
 
-const node = (type: string, props: Record<string, unknown> = {}): BotNode => ({
+const node = (
+  type: string,
+  props: Record<string, unknown> = {},
+): ChannelNode => ({
   type,
   props,
 });
@@ -149,10 +152,13 @@ describe("renderWhatsAppMessage", () => {
   // renderToIR lowers text into `{ type: "text", props: { value } }` leaves and
   // nests controls inside containers (message > actions > button). These guard
   // against the shape the flat hand-built fixtures above don't exercise.
-  const text = (value: string): BotNode => ({ type: "text", props: { value } });
+  const text = (value: string): ChannelNode => ({
+    type: "text",
+    props: { value },
+  });
 
   it("renders a message>header>section tree with text-value leaves (issue_list regression)", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: [
           node("header", { children: [text("Open CPK issues")] }),
@@ -170,7 +176,7 @@ describe("renderWhatsAppMessage", () => {
   });
 
   it("finds buttons nested in message>actions with text-value titles (show_incident regression)", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       node("message", {
         children: [
           node("section", { children: [text("An incident needs attention")] }),

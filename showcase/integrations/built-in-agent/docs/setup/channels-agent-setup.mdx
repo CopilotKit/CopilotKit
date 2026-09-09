@@ -1,0 +1,18 @@
+The Built-in Agent runs in the same Node.js process as Channels, so it does
+not need an `AGENT_URL` or a second server. Follow the
+[Built-in Agent quickstart](/quickstart) to configure your model provider,
+then use the Runtime package already installed by the Channels runner.
+
+Create a new agent for each channel thread:
+
+```ts title="agent.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+export function makeAgent(threadId: string) {
+  const agent = new BuiltInAgent({
+    model: "openai:gpt-5.4-mini",
+  });
+  agent.threadId = threadId;
+  return agent;
+}
+```

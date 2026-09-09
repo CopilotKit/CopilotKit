@@ -60,9 +60,10 @@ afterEach(() => {
  * Build a minimal throwaway showcase tree the generator can run against:
  *
  *   <root>/scripts/{generate-registry.ts, validate-constraints.ts,
+ *                   lib/{frontend-registry.ts,frontend-catalog.ts},
  *                   package.json, node_modules -> real node_modules}
- *   <root>/shared/{manifest.schema.json, feature-registry.json[,
- *                  constraints.yaml]}
+ *   <root>/shared/{manifest.schema.json, feature-registry.json,
+ *                  frontend-registry.json[, constraints.yaml]}
  *   <root>/integrations/<slug>/manifest.yaml   (copied real manifests)
  *
  * The generator resolves every path relative to its own location, so all
@@ -89,6 +90,14 @@ function makeHarness(
   ]) {
     fs.copyFileSync(path.join(SCRIPTS_DIR, f), path.join(scriptsDir, f));
   }
+  const scriptsLibDir = path.join(scriptsDir, "lib");
+  fs.mkdirSync(scriptsLibDir, { recursive: true });
+  for (const f of ["frontend-registry.ts", "frontend-catalog.ts"]) {
+    fs.copyFileSync(
+      path.join(SCRIPTS_DIR, "lib", f),
+      path.join(scriptsLibDir, f),
+    );
+  }
   // Bare-specifier resolution (yaml, ajv, ajv-formats) for the copied
   // script — symlink the real node_modules instead of installing.
   fs.symlinkSync(
@@ -99,7 +108,11 @@ function makeHarness(
 
   const sharedDir = path.join(root, "shared");
   fs.mkdirSync(sharedDir, { recursive: true });
-  const sharedFiles = ["manifest.schema.json", "feature-registry.json"];
+  const sharedFiles = [
+    "manifest.schema.json",
+    "feature-registry.json",
+    "frontend-registry.json",
+  ];
   if (constraints) sharedFiles.push("constraints.yaml");
   for (const f of sharedFiles) {
     fs.copyFileSync(
@@ -107,6 +120,43 @@ function makeHarness(
       path.join(sharedDir, f),
     );
   }
+
+  // generate-registry.ts imports the catalog cross-join/flatten logic from
+  // ../harness/src/shared/catalog/catalog-flatten.js (the fold lives in the
+  // harness so the harness build can own it; the script runs under tsx and
+  // imports it cross-package). Stage that single file at the exact relative
+  // path the generator resolves — it imports only node builtins + js-yaml, so
+  // no further harness source is needed for module resolution. The harness
+  // package.json (`"type": "module"`) MUST be staged too: without it the
+  // nearest-package-scope for catalog-flatten.ts is CJS and its named exports
+  // (generateCatalog, MissingReferenceIntegrationError) fail to bind.
+  const harnessDir = path.join(root, "harness");
+  const catalogDir = path.join(harnessDir, "src", "shared", "catalog");
+  fs.mkdirSync(catalogDir, { recursive: true });
+  fs.copyFileSync(
+    path.join(SHOWCASE_ROOT, "harness", "package.json"),
+    path.join(harnessDir, "package.json"),
+  );
+  fs.copyFileSync(
+    path.join(
+      SHOWCASE_ROOT,
+      "harness",
+      "src",
+      "shared",
+      "catalog",
+      "catalog-flatten.ts",
+    ),
+    path.join(catalogDir, "catalog-flatten.ts"),
+  );
+  // Under ESM scope, catalog-flatten's `import yaml from "js-yaml"` is resolved
+  // by walking up from the harness tree (NOT the scripts tree), so js-yaml must
+  // be reachable via a node_modules on that chain — symlink the real scripts
+  // node_modules (which declares js-yaml + its argparse dep) at harness/.
+  fs.symlinkSync(
+    path.join(SCRIPTS_DIR, "node_modules"),
+    path.join(harnessDir, "node_modules"),
+    "dir",
+  );
 
   fs.mkdirSync(path.join(root, "integrations"), { recursive: true });
   for (const slug of integrations) {
@@ -131,7 +181,12 @@ function runGenerator(
   harness: Harness,
   env: Record<string, string | undefined> = {},
 ): string {
-  const childEnv: NodeJS.ProcessEnv = { ...process.env };
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    SHOWCASE_SOURCE_COMMIT: "test-source-commit",
+    SHOWCASE_CONTAINER_IMAGE_REVISION: "test-container-image",
+    SHOWCASE_FIXTURE_REVISION: "test-fixture-revision",
+  };
   delete childEnv.SHOWCASE_BACKEND_HOST_PATTERN;
   delete childEnv.NEXT_PUBLIC_SHOWCASE_BACKEND_HOST_PATTERN;
   for (const [k, v] of Object.entries(env)) {
@@ -178,6 +233,30 @@ const DEFAULT_BACKEND_HOST_PATTERN =
   "showcase-{slug}-production.up.railway.app";
 
 describe("generate-registry reference-integration error contract (SU7-F3 #1)", () => {
+  it("uses the image build commit when the source override is absent", () => {
+    const harness = makeHarness();
+    runGenerator(harness, {
+      SHOWCASE_SOURCE_COMMIT: undefined,
+      SHOWCASE_CONTAINER_IMAGE_REVISION: undefined,
+      SHOWCASE_FIXTURE_REVISION: undefined,
+      NEXT_PUBLIC_COMMIT_SHA: "image-build-commit",
+    });
+
+    const catalog = readJson(
+      harness,
+      "shell",
+      "src",
+      "data",
+      "frontend-catalog.json",
+    );
+    expect(catalog.cells.length).toBeGreaterThan(0);
+    expect(catalog.cells[0]).toMatchObject({
+      source_commit: "image-build-commit",
+      container_image_revision: "git:image-build-commit",
+      fixture_revision: "image-build-commit",
+    });
+  });
+
   it("supports the zero-manifests path: emits an empty registry AND an empty catalog, exit 0", () => {
     // main() explicitly logs "No integration packages found. Generating
     // empty registry." — generateCatalog used to crash right after on a

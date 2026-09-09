@@ -10,3 +10,6 @@
  * module unchanged, so existing import sites resolve identically.
  */
 export * from "../../../harness/src/shared/cell-model/cell-model";
+// The shared catalog→input mapping (spec §5a) — forwarded so the dashboard
+// adapter (T11) and any consumer import the ONE function from the barrel.
+export * from "../../../harness/src/shared/cell-model/catalog-input";

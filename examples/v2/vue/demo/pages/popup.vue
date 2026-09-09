@@ -6,7 +6,7 @@ import {
   CopilotPopup,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/vue";
+} from "@copilotkit/vue/v2";
 
 const popupCards = Array.from({ length: 6 }, (_unused, index) => index + 1);
 
@@ -40,7 +40,7 @@ const PopupChat = defineComponent({
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit" show-dev-console="auto">
+  <CopilotKitProvider runtime-url="/api/copilotkit">
     <div
       class="relative min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200"
     >

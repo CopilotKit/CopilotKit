@@ -165,11 +165,13 @@ function makeTestingCtx(): CellContext {
 function makeCatalogCell(overrides?: Partial<CatalogCell>): CatalogCell {
   return {
     id: "next/chat-text",
+    manifestation: "integrated",
     integration: "next",
     integration_name: "Next.js",
     feature: "chat-text",
     feature_name: "Chat Text",
     status: "wired",
+    parity_tier: "at_parity",
     max_depth: 3,
     category: "chat-ui",
     category_name: "Chat & UI",
@@ -583,8 +585,14 @@ describe("Overlay selector integration — real UI components", () => {
     // With green live status rows, the UI badge (renamed from E2E) should show the green check
     const e2eBadge = getByText("UI");
     expect(e2eBadge).toBeInTheDocument();
-    // The badge label "✓" (green state) should appear as a sibling span
-    const e2eContainer = e2eBadge.closest("[class*='whitespace-nowrap']");
+    // The badge label "✓" (green state) should appear as a sibling span within
+    // the badge container. Locate the container by the semantic `title`
+    // attribute (the tooltip) — the same stable structural path the cell-pieces
+    // suite uses (`span[title]`) — rather than keying off a cosmetic Tailwind
+    // utility class, which a styling refactor could rename with no behavior
+    // change.
+    const e2eContainer = e2eBadge.closest("span[title]");
+    expect(e2eContainer).not.toBeNull();
     expect(e2eContainer?.textContent).toContain("✓");
   });
 
@@ -604,10 +612,13 @@ describe("Overlay selector integration — real UI components", () => {
 
     const chip = getByTestId("depth-chip");
     expect(chip).toBeInTheDocument();
-    // The depth chip renders "D<n>" text — with full green live status and
-    // health+agent+e2e+chat all green, deriveDepth should yield D4
-    const depthAttr = chip.getAttribute("data-depth");
-    expect(depthAttr).toBeTruthy();
-    expect(chip.textContent).toMatch(/^D[0-6]$/);
+    // The depth chip renders "D<n>" text. `chat-text` is NOT a CATALOG_TO_D5_KEY
+    // entry, so its structural ceiling is 4 (no D5 rung). With health+agent+e2e
+    // +chat all green the contiguous ladder reaches D4 exactly → deriveDepth
+    // MUST yield D4. Assert the specific depth (not just "some D0–D6"): a
+    // regression that returned D0/D2/D3 for this fixture would otherwise sail
+    // through a `/^D[0-6]$/` match.
+    expect(chip.getAttribute("data-depth")).toBe("4");
+    expect(chip.textContent).toBe("D4");
   });
 });

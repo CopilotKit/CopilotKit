@@ -39,3 +39,16 @@ export type {
 
 export { buildChannelFileContentParts } from "./graph-files.js";
 export type { GraphCredentials, ChannelMessageRef } from "./graph-files.js";
+export { Teams } from "./native.js";
+export type { TeamsNativeProps, TeamsRawProps } from "./native.js";
+export {
+  TEAMS_NATIVE_MANIFEST,
+  TEAMS_BODY_MANIFEST,
+  TEAMS_ELEMENT_MANIFEST,
+  TEAMS_INPUT_MANIFEST,
+  TEAMS_CHART_MANIFEST,
+  TEAMS_GRAPH_MANIFEST,
+  TEAMS_ACTION_MANIFEST,
+  TEAMS_LAYOUT_MANIFEST,
+  TEAMS_PREVIEW_MANIFEST,
+} from "./native-manifest.js";

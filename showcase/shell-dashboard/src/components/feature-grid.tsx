@@ -371,6 +371,7 @@ const CategorySection = React.memo(
             return (
               <tr
                 key={feature.id}
+                data-testid={`feature-row-${feature.id}`}
                 className="grid-row border-t border-[var(--border)]"
                 style={stripe ? STRIPE_STYLE : undefined}
               >
@@ -740,20 +741,51 @@ export function FeatureGrid({
     return map;
   }, [catalog, showRefDepth]);
 
+  // How many integrations SHIP a demo of each feature — the grid's existing
+  // `isWired` signal (`integration.demos`). A demo is "common" when ≥2
+  // frameworks ship it; anything below that is "unique" and hidden by default
+  // so the view shows cross-framework patterns. We deliberately use demos[]
+  // (NOT the stale `features[]` list, and NOT `not_supported_features`): a
+  // brand-new single-framework demo never appears in another integration's
+  // `not_supported_features`, so that signal would wrongly read it as common.
+  const frameworkCountByFeature = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const feature of features) {
+      let n = 0;
+      for (const integration of integrations) {
+        if (integration.demos.some((d) => d.id === feature.id)) n++;
+      }
+      counts.set(feature.id, n);
+    }
+    return counts;
+  }, [features, integrations]);
+
   // "Show deprecated" toggle — default OFF so the LGP gold-standard view
   // doesn't render rows for legacy/replaced patterns (e.g. `hitl`,
-  // `agentic-chat-reasoning`). Operators can flip it on to surface
-  // deprecated features for cross-integration audit.
+  // `agentic-chat-reasoning`). "Show unique" toggle — default OFF so the
+  // default view is common ∩ non-deprecated. Operators flip either on to widen
+  // the set; both combine with AND.
   const [showDeprecated, setShowDeprecated] = useState(false);
+  const [showUnique, setShowUnique] = useState(false);
 
   const visibleFeatures = useMemo(
     () =>
-      showDeprecated ? features : features.filter((f) => f.deprecated !== true),
-    [features, showDeprecated],
+      features.filter(
+        (f) =>
+          (showDeprecated || f.deprecated !== true) &&
+          (showUnique || (frameworkCountByFeature.get(f.id) ?? 0) >= 2),
+      ),
+    [features, showDeprecated, showUnique, frameworkCountByFeature],
   );
   const deprecatedCount = useMemo(
     () => features.filter((f) => f.deprecated === true).length,
     [features],
+  );
+  const uniqueCount = useMemo(
+    () =>
+      features.filter((f) => (frameworkCountByFeature.get(f.id) ?? 0) < 2)
+        .length,
+    [features, frameworkCountByFeature],
   );
 
   const featuresByCategory = useMemo(
@@ -796,12 +828,32 @@ export function FeatureGrid({
               </span>
             </label>
           )}
+          {uniqueCount > 0 && (
+            <label
+              data-testid="show-unique-toggle"
+              className={`${deprecatedCount > 0 ? "" : "ml-auto "}flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]`}
+              title={`${uniqueCount} demo${uniqueCount === 1 ? "" : "s"} supported by fewer than two frameworks — hidden by default so the view shows cross-framework patterns.`}
+            >
+              <input
+                type="checkbox"
+                checked={showUnique}
+                onChange={(e) => setShowUnique(e.target.checked)}
+                className="h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
+              />
+              <span>
+                Show unique{" "}
+                <span className="text-[var(--text-muted)]">
+                  ({uniqueCount})
+                </span>
+              </span>
+            </label>
+          )}
         </div>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {subtitle ? <>{subtitle} · </> : null}
           {visibleFeatures.length} features × {integrations.length} integrations
-          {!showDeprecated && deprecatedCount > 0
-            ? ` (${deprecatedCount} deprecated hidden)`
+          {features.length - visibleFeatures.length > 0
+            ? ` (${features.length - visibleFeatures.length} hidden)`
             : ""}
           .
         </p>

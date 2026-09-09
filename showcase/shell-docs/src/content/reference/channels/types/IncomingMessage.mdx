@@ -1,0 +1,53 @@
+---
+title: IncomingMessage
+description: The normalized provider message passed to Channels handlers, including user, multimodal parts, and managed correlation ids.
+---
+
+`IncomingMessage` is the normalized inbound turn passed to `onMessage`,
+`onMention`, tools, and interaction contexts.
+
+## Shape
+
+```ts
+interface IncomingMessage {
+  text: string;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
+  ref: MessageRef;
+  platform: string;
+  contentParts?: AgentContentPart[];
+  eventId?: string;
+  turnId?: string;
+  deliveryId?: string;
+}
+```
+
+| Field          | Managed Slack and Teams behavior                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| `text`         | Provider text after ingress normalization.                                                              |
+| `user`         | Nullable application user returned by the Channel's `identifyUser` policy.                              |
+| `actor`        | Provider account that caused the event. It includes a required actor kind.                              |
+| `ref`          | In ordinary message handlers this may have an empty id; do not assume every inbound turn can be edited. |
+| `platform`     | Native source: `"slack"` or `"teams"` for message deliveries.                                           |
+| `contentParts` | Hydrated file/media parts when attachments were retrieved.                                              |
+| `eventId`      | Stable provider-event id for application idempotency.                                                   |
+| `turnId`       | Managed turn correlation id.                                                                            |
+| `deliveryId`   | Managed lease/delivery correlation id.                                                                  |
+
+## Multimodal prompt
+
+```ts
+const prompt = message.contentParts?.length
+  ? [
+      ...(message.text ? [{ type: "text" as const, text: message.text }] : []),
+      ...message.contentParts,
+    ]
+  : message.text;
+
+await thread.runAgent({ prompt });
+```
+
+Managed history excludes the current inbound turn. `runAgent()` injects the
+message automatically when `prompt` is omitted; use the explicit combined
+prompt above when a turn can contain both text and attachments. See
+[Files and multimodal input](/slack/files-and-multimodality).

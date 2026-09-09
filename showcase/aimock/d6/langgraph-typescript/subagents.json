@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / subagents",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -382,5 +381,8 @@
         "content": "Here is the polished summary on reusable rockets, after research → drafting → critique:\n\nReusable rockets are now mainstream in commercial spaceflight. SpaceX's Falcon 9 lands and re-flies its first stage routinely — individual boosters have flown twenty-plus missions — and Falcon Heavy reuses both side boosters. Rocket Lab has demonstrated mid-air Electron booster catch but reuse is not yet routine, while SpaceX Starship is in active orbital flight testing with full two-stage reuse as the target. The economic impact is already priced in: Falcon 9 sits well below expendable competitors per kilogram to low Earth orbit because amortizing a recovered first stage across many missions removes the largest single cost from the launch."
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

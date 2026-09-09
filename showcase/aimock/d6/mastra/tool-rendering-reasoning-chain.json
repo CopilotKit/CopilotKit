@@ -161,8 +161,8 @@
       "_comment": "tool-rendering pill: Find flights \u2014 first leg (verbatim pill prompt, dedicated search_flights fixture). MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape). Intentionally omits `hasToolResult` so this fixture also matches when SFO/JFK is the SECOND turn of a multi-turn flow (e.g. tool-rendering-reasoning-chain probe sends weather\u2192flights). With `hasToolResult: false`, Turn 1's tool result would prevent this fixture from matching Turn 2's first leg, and the matcher would fall through to the second-leg fixture above (which now requires a matching `toolCallId` so it cannot swallow this request).",
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [

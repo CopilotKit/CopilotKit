@@ -5,7 +5,11 @@
     "index",
     "---Generative UI---",
     "...generative-ui",
-    "---Intelligence Platform---",
-    "threads"
+    "---Intelligence---",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["threads", "headless-threads"]
+    }
   ]
 }

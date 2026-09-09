@@ -147,6 +147,11 @@ function WarningBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+function displayNameForSnippetFile(file: string): string {
+  const basename = file.split("/").pop() ?? file;
+  return basename.replace(/\.snippet(?=\.[^.]+$)/, "");
+}
+
 /**
  * `UnsupportedBox` — neutral, intentional-looking placeholder used when the
  * dashboard catalog flags a (framework × cell) pair as `unsupported`.
@@ -455,10 +460,11 @@ export function Snippet({
   // like "frontend/src/app/page.tsx \u2014 chat surface" which duplicates
   // the path + adds a description; the path is implied by surrounding
   // doc context and the description doesn't earn its real estate next
-  // to working code. When `noCaption` is set the title is dropped
-  // entirely so the figure's floating copy button sits alone.
-  const basename = reg.file.split("/").pop() ?? reg.file;
-  const caption = noCaption ? undefined : basename;
+  // to working code. Docs-only extraction files can use `.snippet` before
+  // the extension while still rendering as the file they represent, e.g.
+  // `page.snippet.tsx` captions as `page.tsx`. When `noCaption` is set the
+  // title is dropped entirely so the figure's floating copy button sits alone.
+  const caption = noCaption ? undefined : displayNameForSnippetFile(reg.file);
   const highlightedLines = parseHighlightedLines(
     highlight,
     reg.code.split("\n").length,

@@ -1,0 +1,153 @@
+---
+title: Shared state and agent context
+description: Read and write agent state with Angular signals, and send application-owned context to the agent.
+icon: "lucide/Repeat2"
+doc_type: how-to
+---
+
+Shared state and agent context solve two different data flows.
+
+| Data flow | Use |
+| --- | --- |
+| Agent and application both read and write the value | `injectAgentStore` and `agent.setState` |
+| The application owns the value and the agent only reads it | `connectAgentContext` or `CopilotKitAgentContext` |
+
+## Read agent state
+
+`injectAgentStore` returns a signal that resolves one agent. The store exposes
+messages, state, and run status as nested signals.
+
+```ts title="src/app/workspace.component.ts"
+import { Component, computed } from "@angular/core";
+import { injectAgentStore } from "@copilotkit/angular";
+
+type WorkspaceState = {
+  notes: string[];
+  priority: "low" | "normal" | "high";
+};
+
+const EMPTY_STATE: WorkspaceState = {
+  notes: [],
+  priority: "normal",
+};
+
+@Component({
+  selector: "app-workspace",
+  template: `
+    <p>Priority: {{ state().priority }}</p>
+    <ul>
+      @for (note of state().notes; track note) {
+        <li>{{ note }}</li>
+      }
+    </ul>
+    <button type="button" (click)="setPriority('high')">
+      Mark high priority
+    </button>
+  `,
+})
+export class WorkspaceComponent {
+  readonly store = injectAgentStore("default");
+  readonly state = computed(
+    () => (this.store().state() as WorkspaceState | undefined) ?? EMPTY_STATE,
+  );
+
+  protected setPriority(priority: WorkspaceState["priority"]): void {
+    const agent = this.store().agent;
+    const current = (agent.state as WorkspaceState | undefined) ?? EMPTY_STATE;
+    agent.setState({ ...current, priority });
+  }
+}
+```
+
+Read through `store().state()` so Angular tracks changes. Write through the
+plain AG-UI agent at `store().agent`. Replace the object instead of mutating it
+in place.
+
+The same store gives you:
+
+- `store().messages()` for the current conversation
+- `store().isRunning()` for loading controls
+- `store().agent` for `setState`, `addMessage`, `runAgent`, and `abortRun`
+
+## Send read-only application context
+
+Use `connectAgentContext` for values such as the signed-in user's name,
+selected record, timezone, or current screen. Pass an accessor so signal reads
+stay reactive.
+
+```ts title="src/app/account-context.component.ts"
+import { Component, signal } from "@angular/core";
+import { connectAgentContext } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-account-context",
+  template: `
+    <button type="button" (click)="timezone.set('Europe/London')">
+      Use London time
+    </button>
+  `,
+})
+export class AccountContextComponent {
+  readonly userName = signal("Ada");
+  readonly timezone = signal("America/Los_Angeles");
+
+  constructor() {
+    connectAgentContext(() => ({
+      description: "Current account and timezone",
+      value: JSON.stringify({
+        userName: this.userName(),
+        timezone: this.timezone(),
+      }),
+    }));
+  }
+}
+```
+
+The internal effect removes the old context and registers the new value when a
+read signal changes. It removes the final registration when the owning
+injector is destroyed. If you already have an `Injector`, pass it as
+`{ injector }`; that injector takes precedence over the ambient one.
+
+## Bind context in a template
+
+Use `CopilotKitAgentContext` when the context is already shaped in the
+template.
+
+```ts title="src/app/selection-context.component.ts"
+import { Component, computed, signal } from "@angular/core";
+import { CopilotKitAgentContext } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-selection-context",
+  imports: [CopilotKitAgentContext],
+  template: `
+    <div [copilotkitAgentContext]="selectionContext()"></div>
+  `,
+})
+export class SelectionContextComponent {
+  readonly selectedId = signal("record-42");
+  readonly selectionContext = computed(() => ({
+    description: "The record selected in the application",
+    value: this.selectedId(),
+  }));
+}
+```
+
+Render the directive only after you have a complete context. If it starts
+without one, later input changes do not create the first registration.
+
+## Keep ownership clear
+
+- Use shared state for data that the agent may change.
+- Use context for application-owned facts.
+- Keep durable user preferences in your own data store; publish only the part
+  the current agent needs.
+- Scope `injectAgentStore` to the same agent id as the chat or workflow that
+  reads the state.
+
+## Next steps
+
+- [injectAgentStore API](/reference/angular/functions/injectAgentStore)
+- [connectAgentContext API](/reference/angular/functions/connectAgentContext)
+- [CopilotKitAgentContext API](/reference/angular/directives/CopilotKitAgentContext)
+- [Runnable state examples](/angular/features#shared-state-read-write)

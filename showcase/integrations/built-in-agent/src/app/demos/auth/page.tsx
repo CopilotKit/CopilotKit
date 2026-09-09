@@ -6,34 +6,27 @@
 // wrong.
 //
 // UX shape: the demo defaults to UNAUTHENTICATED on first paint so visitors
-// land on a clear sign-in card. We don't mount the chat until the user has
-// signed in at least once — that sidesteps the transport 401 that would
+// land on a clear sign-in card. We don't render `<CopilotKit>` until the user
+// has signed in at least once — that sidesteps the transport 401 that would
 // otherwise crash `<CopilotChat>` during its initial `/info` handshake.
-// After the user signs in once, the chat stays mounted across the
+// After the user signs in once, `<CopilotKit>` stays mounted across the
 // sign-out → sign-in cycle so the post-sign-out state can actually
 // demonstrate the runtime rejecting unauthenticated requests in the chat
 // surface (the whole point of the demo).
 //
 // Error surfacing: the post-sign-out 401 is captured via the AGENT-SCOPED
-// `<CopilotChat onError>` channel, NOT the provider-level `<CopilotKitProvider
+// `<CopilotChat onError>` channel, NOT the provider-level `<CopilotKit
 // onError>` alone. Agent-run errors (`agent_run_failed`) are reliably
 // delivered to the chat-scoped subscription, whereas the provider-level
 // handler does not fire for them in this flow — so a demo that relies only
-// on the provider `onError` never renders the rejection banner. We register
-// the same handler on BOTH channels: `<CopilotKitProvider onError>` covers
-// any provider-level errors (e.g. the initial `/info` handshake) and
+// on `<CopilotKit onError>` never renders the rejection banner. We register
+// the same handler on BOTH channels: `<CopilotKit onError>` covers any
+// provider-level errors (e.g. the initial `/info` handshake) and
 // `<CopilotChat onError>` covers agent-run rejections, which is what the
 // sign-out path produces.
-//
-// Provider note: this integration is the BUILT-IN agent, so it mounts
-// `<CopilotKitProvider>` (the runtime registers the agent under the default
-// key) rather than `<CopilotKit agent="auth-demo">` like the named-agent
-// langgraph-python reference. That provider choice is a forced divergence;
-// the error-handling shape, auth hook, and testid contract match the gold
-// reference exactly.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
 import { AuthBanner } from "./auth-banner";
 import { SignInCard } from "./sign-in-card";
@@ -106,8 +99,9 @@ export default function AuthDemoPage() {
     // `useSingleEndpoint={false}` opts into the V2 multi-endpoint protocol
     // (separate /info, /agents/<id>/run, etc.), which is what this demo's
     // runtime route is wired up for.
-    <CopilotKitProvider
+    <CopilotKit
       runtimeUrl="/api/copilotkit-auth"
+      agent="auth-demo"
       headers={headers}
       useSingleEndpoint={false}
       onError={handleAuthError}
@@ -138,9 +132,13 @@ export default function AuthDemoPage() {
           </div>
         )}
         <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
-          <CopilotChat className="h-full" onError={handleAuthError} />
+          <CopilotChat
+            agentId="auth-demo"
+            className="h-full"
+            onError={handleAuthError}
+          />
         </div>
       </div>
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }

@@ -29,14 +29,18 @@ admin_user_email = null  # Example: "admin@example.com"
 # Backend Configuration
 # -----------------------------------------------------------------------------
 
-# Agent pattern to deploy
-# Available patterns: strands-single-agent, langgraph-single-agent, claude-agent-sdk-single-agent, claude-agent-sdk-multi-agent
+# Agent pattern to deploy. Must match a directory under ../agents/.
+# Shipped in this example: strands-single-agent, langgraph-single-agent
+# The variable also validates claude-agent-sdk-single-agent and
+# claude-agent-sdk-multi-agent, but this example does not include those agents.
 backend_pattern = "strands-single-agent"
 
 # Deployment type for AgentCore Runtime
-# "docker" - Container image via ECR (requires Docker + separate build step)
-#   Deployment: terraform apply -> ./scripts/build-and-push-image.sh -> terraform apply
-# "zip" - Python package via S3 (no Docker required, single-step deploy)
+# "docker" - Container image via ECR (requires Docker)
+#   Deployment: terraform apply. The apply builds the ARM64 image and pushes it
+#   to ECR before creating the runtime, so no separate build step is needed.
+#   ./scripts/build-and-push-image.sh is optional (CI, or rebuilding on its own).
+# "zip" - Python package via S3 (no Docker required)
 #   Deployment: terraform apply (packages and deploys automatically)
 backend_deployment_type = "docker"
 
@@ -50,7 +54,7 @@ backend_network_mode = "PUBLIC"
 # -----------------------------------------------------------------------------
 # Uncomment and configure if using VPC network mode.
 # Your VPC must have the necessary VPC endpoints for AWS services.
-# See README.md VPC Deployment Mode section for full requirements.
+# See the AWS documentation linked below for the full requirements.
 #
 # Security groups are optional. If omitted, a default security group is created
 # with HTTPS (443) self-referencing ingress and all-traffic egress.

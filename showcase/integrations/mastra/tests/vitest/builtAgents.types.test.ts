@@ -13,12 +13,11 @@ vi.mock("@ag-ui/mastra", () => ({
   MastraAgent: { getLocalAgents: vi.fn() },
   getLocalAgent: vi.fn(),
 }));
-vi.mock("@copilotkit/runtime", () => ({
+vi.mock("@copilotkit/runtime/v2", () => ({
   CopilotRuntime: vi.fn(),
-  ExperimentalEmptyAdapter: vi.fn(),
-  copilotRuntimeNextJSAppRouterEndpoint: vi.fn(() => ({
-    handleRequest: vi.fn(async () => new Response("ok")),
-  })),
+  createCopilotRuntimeHandler: vi.fn(() =>
+    vi.fn(async () => new Response("ok")),
+  ),
 }));
 vi.mock("next/server", () => ({
   NextRequest: class {},
@@ -31,11 +30,11 @@ vi.mock("next/server", () => ({
   },
 }));
 
-import {
-  buildAgents,
-  demoAgentNames,
-  type BuiltAgents,
-  type DemoAgentName,
+import type { buildAgents } from "../../src/app/api/copilotkit/route";
+import { demoAgentNames } from "../../src/app/api/copilotkit/route";
+import type {
+  BuiltAgents,
+  DemoAgentName,
 } from "../../src/app/api/copilotkit/route";
 
 // Helper: "these two types are assignable in both directions" (i.e. equal).

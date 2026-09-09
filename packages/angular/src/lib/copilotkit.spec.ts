@@ -17,7 +17,10 @@ import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
   RENDER_A2UI_TOOL_NAME,
 } from "./components/a2ui/a2ui-tool-types";
-import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "@copilotkit/a2ui-renderer/web-components";
+import {
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+  minimalCatalog,
+} from "@copilotkit/a2ui-renderer/web-components";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
@@ -41,7 +44,16 @@ const licenseKey = "ck_pub_" + "a".repeat(32);
 let lastCoreInstance: any;
 let lastCoreConfig: any;
 
-vi.mock("@copilotkit/core", () => {
+// Spread the real module and override only what these tests drive. The factory
+// used to replace `@copilotkit/core` wholesale, which broke as soon as the
+// Inspector mounted here: it is enabled by default in browser frameworks now,
+// and its connectedCallback reaches for `isInspectorThreadBridgeEnabled` — one
+// of seventeen value exports it needs. A missing one throws an uncaught
+// exception that fails the run while all 49 test files still pass, which is a
+// confusing way to learn about it. Listing the seventeen would only postpone
+// the next occurrence.
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@copilotkit/core")>();
   const CopilotKitCoreRuntimeConnectionStatus = {
     Disconnected: "disconnected",
     Connected: "connected",
@@ -86,8 +98,10 @@ vi.mock("@copilotkit/core", () => {
   }
 
   return {
+    ...actual,
     CopilotKitCore: MockCopilotKitCore,
     CopilotKitCoreRuntimeConnectionStatus,
+    isInspectorThreadBridgeEnabled: () => false,
   } as any;
 });
 
@@ -115,6 +129,7 @@ describe("CopilotKit", () => {
           headers: { Authorization: "token" },
           properties: { region: "eu" },
           licenseKey,
+          defaultToolRendering: true,
           tools: [
             {
               name: "search",
@@ -138,6 +153,7 @@ describe("CopilotKit", () => {
 
     const copilotKit = TestBed.inject(CopilotKit);
 
+    expect(copilotKit.defaultToolRenderingEnabled).toBe(true);
     expect(lastCoreConfig.runtimeUrl).toBe("https://runtime.local");
     expect(lastCoreConfig.headers).toEqual({
       Authorization: "token",
@@ -202,6 +218,34 @@ describe("CopilotKit", () => {
     };
     await tool.handler({ value: "ok" }, mockContext);
     expect(handlerSpy).toHaveBeenCalledWith({ value: "ok" }, mockContext);
+  });
+
+  it("adds a display-only client tool with no handler at all", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const injector = TestBed.inject(Injector);
+
+    copilotKit.addFrontendTool({
+      name: "display-only",
+      description: "Renders a card",
+      args: z.object({ value: z.string() }),
+      component: class {
+        toolCall = signal({} as any);
+      },
+      injector,
+    } as never);
+
+    // Core inserts an empty tool result for a tool that declares no handler, so a
+    // display-only registration must reach it with `handler` still absent. Binding
+    // a wrapper around `undefined` here would throw on the first tool call, and
+    // supplying a stub would write a fabricated result into the thread.
+    const tool = mockAddTool.mock.calls.at(-1)![0];
+    expect(tool.name).toBe("display-only");
+    expect(tool.handler).toBeUndefined();
+    expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
   });
 
   it("registers human-in-the-loop tools and delegates responses", async () => {
@@ -381,6 +425,67 @@ describe("CopilotKit", () => {
         value: A2UI_DEFAULT_DESIGN_GUIDELINES,
       }),
     );
+  });
+
+  it("enables built-in A2UI when the frontend provides a catalog", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          a2ui: { catalog: minimalCatalog },
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    expect(lastCoreInstance!.a2uiEnabled).toBe(false);
+    expect(copilotKit.activityMessageRenderConfigs()).toEqual([
+      expect.objectContaining({
+        activityType: "a2ui-surface",
+        component: CopilotA2UIActivityRenderer,
+      }),
+    ]);
+    expect(copilotKit.toolCallRenderConfigs()).toEqual([
+      expect.objectContaining({ name: RENDER_A2UI_TOOL_NAME }),
+      expect.objectContaining({ name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME }),
+    ]);
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
+      }),
+    );
+  });
+
+  it("advertises a provided A2UI catalog in initial and updated runtime properties", () => {
+    const initialProperties = { region: "eu" };
+    const updatedProperties = { locale: "en" };
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          properties: initialProperties,
+          a2ui: { catalog: minimalCatalog },
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.properties).toEqual({
+      region: "eu",
+      a2uiCatalogAvailable: true,
+    });
+    expect(initialProperties).toEqual({ region: "eu" });
+
+    copilotKit.updateRuntime({ properties: updatedProperties });
+
+    expect(mockSetProperties).toHaveBeenCalledWith({
+      locale: "en",
+      a2uiCatalogAvailable: true,
+    });
+    expect(updatedProperties).toEqual({ locale: "en" });
   });
 
   it("removes tools and renderer configs", () => {

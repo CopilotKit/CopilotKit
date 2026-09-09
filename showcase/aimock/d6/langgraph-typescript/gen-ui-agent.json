@@ -2,8 +2,7 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / gen-ui-agent",
     "sourceFile": "frontend-tools-async.json (extracted)",
-    "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "created": "2026-05-21"
   },
   "fixtures": [
     {
@@ -12,7 +11,7 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "All three launch steps complete. Goals defined, marketing aligned, post-launch metrics tracked \u2014 ready to ship."
+        "content": "All three launch steps complete. Goals defined, marketing aligned, post-launch metrics tracked — ready to ship."
       },
       "chunkSize": 9999
     },
@@ -372,5 +371,8 @@
       },
       "chunkSize": 9999
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

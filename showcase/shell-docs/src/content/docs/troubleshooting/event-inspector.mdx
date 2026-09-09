@@ -2,6 +2,7 @@
 title: "AG-UI Event Inspector"
 description: "Inspect AG-UI events in real time with the VSCode extension"
 icon: "lucide/Activity"
+frontend: universal
 ---
 The AG-UI Event Inspector gives you a live view of every event flowing between your CopilotKit runtime and client. Instead of sprinkling `console.log` statements through your agent code, you can watch the full AG-UI event stream in a filterable, color-coded panel inside VS Code.
 
@@ -10,12 +11,12 @@ Use it when:
 - You want to understand the AG-UI event lifecycle (e.g., how `RUN_STARTED` flows through `TEXT_MESSAGE_CONTENT` chunks to `RUN_FINISHED`)
 - You need to inspect tool call arguments or state deltas for a specific interaction
 
-<OpsPlatformCTA
-  variant="inline"
-  title="The threads tab needs Intelligence"
-  body="When you open the Inspector, threads is the default tab. Sign up for the free Developer tier to see your conversation history."
-  surface="docs_event_inspector"
-/>
+<Callout type="info">
+  The in-app Inspector handles a locked Threads tab from the Runtime's current
+  license state. It can show **Enable Intelligence**, **Renew**, or **Manage
+  plan** only when the Runtime supplies a matching trusted action URL. See
+  [Inspector](/inspector) for the state matrix.
+</Callout>
 
 ## Prerequisites
 
@@ -26,13 +27,30 @@ Use it when:
   The `/cpk-debug-events` endpoint is disabled when `NODE_ENV=production`. This is intentional — it streams internal event data that should not be exposed in production environments.
 </Callout>
 
+<Callout type="warning">
+  This stream carries the AG-UI events a **self-hosted** runtime sends over SSE.
+  A runtime configured with `intelligence` does not send them: it answers runs
+  over CopilotKit Intelligence's realtime connection instead. On that runtime
+  `/cpk-debug-events` still connects and reports `: connected`, then stays
+  empty. To trace an Intelligence-backed run, use the in-app
+  [Inspector](/inspector), which reads the events on the client.
+</Callout>
+
 ## Connect and inspect
 
 <Steps>
 <Step>
 ### Ensure your runtime is running in development mode
 
-The debug event endpoint is available at `GET /cpk-debug-events` on your CopilotKit runtime. It activates automatically when `NODE_ENV !== 'production'` — no extra configuration needed. If you're using the default dev setup, you're already good to go.
+The debug event endpoint is available at `GET {runtimeUrl}/cpk-debug-events`. It activates automatically when `NODE_ENV !== 'production'` — no extra configuration needed. If you're using the default dev setup, you're already good to go.
+
+The path is relative to the `basePath` the runtime is mounted at, not to the server's origin. A runtime mounted at `/api/copilotkit` on port 8200 serves the stream at `http://localhost:8200/api/copilotkit/cpk-debug-events`; requesting `http://localhost:8200/cpk-debug-events` returns `404 {"error":"Not found"}`. Confirm the URL before you connect:
+
+```bash
+curl -N http://localhost:8200/api/copilotkit/cpk-debug-events
+```
+
+A working endpoint responds immediately with `: connected` and then holds the connection open.
 </Step>
 
 <Step>
@@ -50,7 +68,7 @@ This opens a dedicated webview panel.
 <Step>
 ### Enter your runtime URL and connect
 
-Type your runtime URL in the input field at the top of the panel (default: `http://localhost:4000`) and click **Connect**. The panel status indicator turns green when the SSE connection is established.
+Type your runtime URL in the input field at the top of the panel (default: `http://localhost:4000`) and click **Connect**. Use the full mounted runtime URL — the same value your frontend passes as `runtimeUrl`, including its base path — not just the origin. The panel status indicator turns green when the SSE connection is established.
 </Step>
 
 <Step>
@@ -93,6 +111,14 @@ Click any event row to expand the full JSON payload in the detail panel. This sh
 | **State** | Teal | `STATE_SNAPSHOT`, `STATE_DELTA` | Agent state snapshots and incremental updates |
 | **Activity/UI** | Yellow | `ACTIVITY_SNAPSHOT`, `ACTIVITY_DELTA` | UI activity indicators and progress updates |
 
+<FrontendOnly frontend="react">
 <Callout type="info">
   For console-level debug logging and programmatic error handling in your app, see [Error Debugging](/troubleshooting/error-debugging). If you're debugging a render prop rather than a runtime event stream, the [Hook Explorer](/troubleshooting/hook-explorer) is the offline, render-first complement to this tool.
 </Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+<Callout type="info">
+  For application-level debugging, use the [Angular troubleshooting guide](/guides/troubleshooting). For component and tool-renderer examples, use the [Angular feature examples](/features).
+</Callout>
+</FrontendOnly>

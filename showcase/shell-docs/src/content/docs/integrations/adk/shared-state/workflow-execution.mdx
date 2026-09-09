@@ -4,6 +4,8 @@ icon: "lucide/Play"
 description: Decide which state properties are received and returned to the frontend.
 ---
 
+import AngularStateWorkflow from "@/snippets/shared/angular/shared-state-workflow.mdx";
+
 ## What is this?
 
 Not all state properties are relevant for frontend-backend sharing.
@@ -126,6 +128,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - **answer**: Read from the agent's response
     - **resources**: Not accessible to the UI (internal agent use only)
 
+    <FrontendOnly frontend="react">
     ```tsx title="ui/app/page.tsx"
     "use client";
 
@@ -211,6 +214,11 @@ In addition, some state properties contain a lot of information. Syncing them ba
       );
     }
     ```
+    </FrontendOnly>
+
+    <FrontendOnly frontend="angular">
+      <AngularStateWorkflow />
+    </FrontendOnly>
 
     <Callout type="warn" title="Important">
       The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).

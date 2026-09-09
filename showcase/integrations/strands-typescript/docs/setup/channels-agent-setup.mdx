@@ -1,0 +1,33 @@
+Follow the [AWS Strands TypeScript quickstart](/strands-typescript/quickstart)
+to configure the agent. For its **Use an existing agent** path, start
+`main.ts`:
+
+```bash title="Agent application"
+npx tsx main.ts
+```
+
+If you chose the CLI starter instead, keep its `npm run dev` process running.
+
+The shared Strands agent is mounted at the server root:
+
+```dotenv title=".env"
+AGENT_URL=http://localhost:8000/
+```
+
+Install the HTTP adapter in the Channels runner:
+
+```bash title="Channels runner"
+npm install @ag-ui/client@0.0.57
+```
+
+Create a new HTTP adapter for every channel thread:
+
+```ts title="agent.ts"
+import { HttpAgent } from "@ag-ui/client";
+
+export function makeAgent(threadId: string) {
+  const agent = new HttpAgent({ url: process.env.AGENT_URL! });
+  agent.threadId = threadId;
+  return agent;
+}
+```

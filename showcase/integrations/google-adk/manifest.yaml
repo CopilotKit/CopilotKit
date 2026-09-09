@@ -75,6 +75,7 @@ a2ui_pattern: schema-loading
 thread_persistence_pattern: adk-session
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
+voice_backend_pattern: adk-fastapi-agent-path
 demos:
   - id: cli-start
     name: CLI Start Command

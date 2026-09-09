@@ -40,6 +40,7 @@ import type { Logger } from "../../types/index.js";
 import type { AlertStateStore } from "../../storage/alert-state-store.js";
 import type { PbClient } from "../../storage/pb-client.js";
 import { buildCellModel } from "../../shared/cell-model/cell-model.js";
+import type { CellModel } from "../../shared/cell-model/cell-model.js";
 import type { StatusRow } from "../../shared/cell-model/live-status.js";
 import { mergeRowsToMap } from "../../shared/cell-model/live-status.js";
 import type { ProducerSchedule } from "./control-plane.js";
@@ -86,6 +87,31 @@ export const DEFAULT_MAX_SLUGS_IN_MESSAGE = 25;
  *  `readStatusRows` into an unbounded loop. 200 × 500 = 100k rows, far above the
  *  real `status` collection; hitting it means PB is misbehaving (logged). */
 export const MAX_STATUS_PAGES = 200;
+
+/**
+ * §E per-cell fault isolation: the degraded model substituted for a wired cell
+ * whose `buildCellModel` THREW (a malformed featureId carrying `:`/`/` makes
+ * `keyFor` throw). A gray/no-data model classifies `"unknown"` in the gone
+ * predicate — so the column is neither gone nor fresh-healthy (fails safe: no
+ * fabricated outage, no false recovery), and crucially the ONE bad cell does
+ * not abort the whole scan (which would suppress the entire outage monitor).
+ * Mirrors the engine's own gray singletons (`UNSUPPORTED`/`NOT_WIRED_CELL`).
+ */
+const GRAY_ERROR_MODEL: CellModel = Object.freeze({
+  supported: true,
+  d3: null,
+  d4: null,
+  d5: null,
+  d6: null,
+  d6Effective: null,
+  achievedDepth: 0,
+  ceilingDepth: 0,
+  chipColor: "gray",
+  isRegression: false,
+  surfaceState: "gray",
+  isStaleCell: false,
+  observedAtAgeMs: null,
+});
 
 /** Per-slug outage record persisted in the serialized JSON map (§5.1). */
 interface OutageEntry {
@@ -498,6 +524,14 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
     const rows: StatusRow[] = [];
     const perPage = 500;
     let page = 1;
+    // With `skipTotal: false`, PB returns an AUTHORITATIVE `totalItems`/
+    // `totalPages`. A read is short ONLY when we accumulate fewer rows than the
+    // reported `totalItems` (checked after the loop) OR a NON-final page comes
+    // back incomplete (< perPage). A FULL final page at `page === totalPages` is
+    // the NORMAL terminal state for an exact multiple of `perPage` (500, 1000,
+    // …), NOT truncation — the previous heuristic mis-fired the short-read ERROR
+    // at every 500-boundary, training operators to ignore the signal.
+    let reportedTotal: number | null = null;
     // Full rows (default fields incl. signal); large perPage to bound round-trips.
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -507,50 +541,86 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         skipTotal: false,
       });
       rows.push(...res.items);
+      // Capture the AUTHORITATIVE `totalItems` BEFORE the empty-page break. An
+      // empty FIRST page that PB nonetheless reports a positive `totalItems` for
+      // (a transient/inconsistent read) must still trip the post-loop
+      // short-read guard below — if we broke first, `reportedTotal` would stay
+      // null, the guard would be skipped, and the empty rows would be silently
+      // folded into a "nothing gone" verdict (a real mass outage coinciding with
+      // the inconsistent read would be MISSED — under-firing toward SILENCE).
+      const totalItems = Number(res.totalItems);
+      if (Number.isFinite(totalItems)) reportedTotal = totalItems;
       if (res.items.length === 0) break;
       // A4: guard a NaN/undefined `totalPages` — a `page >= NaN` comparison is
       // always false, so a full page + bad totalPages would loop forever
       // accumulating duplicate rows (OOM). Treat a non-finite totalPages as
       // "unknown" and rely on the empty-page break + hard cap below.
       const totalPages = Number(res.totalPages);
-      if (Number.isFinite(totalPages) && page >= totalPages) {
-        // C3: A4 only guarded the loop-FOREVER direction (NaN totalPages). The
-        // OPPOSITE hazard is a SHORT read: PB reports a finite `totalPages` that
-        // says "no more pages" while STILL returning a FULL page (== perPage).
-        // A full final page strongly implies more rows exist beyond what
-        // `totalPages` admits, so honoring the break here SILENTLY TRUNCATES the
-        // status set — and a truncated read can flip a gone verdict (a slug's
-        // missing rows read as no-data, or a partial column folds to gone). We
-        // still stop (honoring PB's own page count avoids an unbounded read), but
-        // LOG a loud, greppable errorId so the inconsistency surfaces instead of
-        // silently poisoning a verdict.
-        if (res.items.length >= perPage) {
-          logger.error("d0-monitor.status-short-read", {
-            errorId: "d0-monitor-short-read",
-            page,
-            totalPages: res.totalPages,
-            perPage,
-            lastPageItems: res.items.length,
-            rowsSoFar: rows.length,
-          });
-        }
-        break;
+      const isFinalPage = Number.isFinite(totalPages) && page >= totalPages;
+      // C3 / fail-safe: a NON-final page that came back SHORT (< perPage) is a
+      // genuine truncation — PB says more pages follow yet returned an
+      // incomplete page. A truncated status set can flip a gone verdict (a
+      // slug's missing rows read as no-data → the column looks recovered/idle),
+      // so the read must be treated as INCONCLUSIVE, not folded into a verdict.
+      // We LOG a loud, greppable errorId and THROW (like the matrix read-model)
+      // → the caller's try/catch treats the read as inconclusive and HOLDs (§9
+      // "never a fake all-gone / inconclusive-on-DB-trouble"). Throwing here
+      // ALSO de-dupes the short-read log: it exits before the post-loop guard,
+      // so `d0-monitor-short-read` is emitted exactly once for a truncated read.
+      if (!isFinalPage && res.items.length < perPage) {
+        logger.error("d0-monitor.status-short-read", {
+          errorId: "d0-monitor-short-read",
+          page,
+          totalPages: res.totalPages,
+          totalItems: res.totalItems,
+          perPage,
+          lastPageItems: res.items.length,
+          rowsSoFar: rows.length,
+        });
+        throw new Error(
+          "d0 monitor: status read truncated (short page before totalPages) — inconclusive",
+        );
       }
+      if (isFinalPage) break;
       // A4: hard page cap — a defensive ceiling so a misbehaving PB (missing/
       // NaN totalPages while always returning a full page) cannot wedge the
       // control-plane. 200 pages × 500 = 100k rows, far beyond the real status
-      // collection; hitting it means PB is misbehaving, so log loudly.
+      // collection; hitting it means PB is misbehaving, so log loudly AND throw
+      // (the read is truncated → inconclusive, fail safe).
       if (page >= MAX_STATUS_PAGES) {
         logger.error("d0-monitor.status-page-cap-hit", {
           errorId: "d0-monitor-page-cap",
           page,
           maxPages: MAX_STATUS_PAGES,
           totalPages: res.totalPages,
+          totalItems: res.totalItems,
           rowsSoFar: rows.length,
         });
-        break;
+        throw new Error(
+          "d0 monitor: status read hit page cap before totalPages — inconclusive",
+        );
       }
       page += 1;
+    }
+    // C3 (authoritative-total) / fail-safe: `totalItems` is authoritative under
+    // `skipTotal: false`, so accumulating FEWER rows than it reports means the
+    // read was truncated (a full exact-multiple final page is NOT short —
+    // `rows.length === totalItems`). This is the SOLE emitter for the
+    // empty-first-page-inconsistent and short-final-page classes (the in-loop
+    // guards throw for the non-final cases), so `d0-monitor-short-read` fires
+    // once. LOG loudly then THROW → the read is treated as INCONCLUSIVE (HOLD),
+    // never folded into a "nothing gone" verdict that under-fires toward
+    // silence.
+    if (reportedTotal !== null && rows.length < reportedTotal) {
+      logger.error("d0-monitor.status-short-read", {
+        errorId: "d0-monitor-short-read",
+        perPage,
+        reportedTotal,
+        rowsRead: rows.length,
+      });
+      throw new Error(
+        "d0 monitor: status read truncated (fewer rows than totalItems) — inconclusive",
+      );
     }
     return rows;
   }
@@ -579,18 +649,34 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
       // Keep the FULL CellModel per cell (not just the gone-input pick) so the
       // onset below can be derived from the SAME fold that decides gone — the
       // model's own contributing rows — never a separate raw-row re-scan.
-      const models = cells.map((c) =>
-        buildCellModel(
-          live,
-          {
+      const models = cells.map((c) => {
+        // §E: guard each per-cell build. A malformed featureId (`:`/`/`) makes
+        // `keyFor` throw inside `buildCellModel`; without this catch the throw
+        // aborts the whole `cells.map`, then the whole scan, then the tick —
+        // silently suppressing the ENTIRE outage monitor. Degrade the ONE bad
+        // cell to gray/no-data (classifies "unknown" → fails safe) and log the
+        // malformed id loudly so it surfaces.
+        try {
+          return buildCellModel(
+            live,
+            {
+              slug: c.slug,
+              featureId: c.featureId,
+              isSupported: true,
+              isWired: true,
+            },
+            nowMs,
+          );
+        } catch (err) {
+          logger.error("d0-monitor.cell-build-failed", {
+            errorId: "d0-monitor-cell-build-failed",
             slug: c.slug,
             featureId: c.featureId,
-            isSupported: true,
-            isWired: true,
-          },
-          nowMs,
-        ),
-      );
+            err: err instanceof Error ? err.message : String(err),
+          });
+          return GRAY_ERROR_MODEL;
+        }
+      });
       const goneInputs: CellGoneInput[] = models.map((m) => ({
         achievedDepth: m.achievedDepth,
         chipColor: m.chipColor,
@@ -612,20 +698,26 @@ export function createD0GoneMonitor(deps: D0GoneMonitorDeps): D0GoneMonitor {
         // construction (buildCellModel keys by this slug), so no substring/
         // prefix mis-attribution is possible.
         //
-        // C2: match a WINNER row by its NON-GREEN status (the rung that FAILED
-        // the ladder gate), NOT by a literal `row.state === "red"`. A gate can
-        // fail on a `degraded` (flaky/amber) winner rung whose literal state is
-        // not "red" — the old `state === "red"` filter skipped it, leaving
-        // `earliest` NaN → onset silently fell back to `nowMs`. A non-green
-        // winner row (red OR degraded) is what actually drove the red-D0, so its
-        // `first_failure_at ?? observed_at ?? transitioned_at` is the true onset.
+        // C2: match a WINNER row by its NON-GREEN status, NOT by a literal
+        // `row.state === "red"`. Under the unified ladder a `degraded` rung is
+        // AMBER — not itself a red-D0 (§7 I2, "degraded ≠ failed") — but a
+        // genuinely-gone cell (gated red by a red rung, or by a fresh-red
+        // liveness signal §F) can still CARRY a degraded/amber winner rung at
+        // another level whose failure PREDATES the red rung. The old
+        // `state === "red"` filter skipped such a rung, so when the earliest
+        // failure instant belonged to a degraded winner, `earliest` stayed NaN
+        // → onset silently fell back to `nowMs` (re-timing the onset). A
+        // non-green winner row (red OR degraded) carries a real failure instant,
+        // so its `first_failure_at ?? observed_at ?? transitioned_at` can be the
+        // true onset.
         let earliest = Number.NaN;
         for (const m of models) {
           for (const level of [m.d3, m.d4, m.d5, m.d6]) {
             const r = level?.row;
-            // A green winner row cannot contribute to a red-D0 verdict; every
-            // OTHER winner state (red / degraded / out-of-vocab) is a
-            // gate-failing rung whose failure instant times the onset.
+            // A green winner row cannot carry a failure instant; every OTHER
+            // winner state (red / degraded / out-of-vocab) is a non-green rung
+            // whose failure instant can time the onset of the (separately
+            // determined) gone verdict.
             if (!r || r.state === "green") continue;
             const t = parseIso(
               r.first_failure_at ?? r.observed_at ?? r.transitioned_at,

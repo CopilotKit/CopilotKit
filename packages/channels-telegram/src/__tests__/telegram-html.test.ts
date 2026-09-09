@@ -60,6 +60,50 @@ describe("telegramHtml", () => {
       '<a href="http://e.com/a&quot;b">x</a>',
     );
   });
+
+  it("empty input returns empty", () => {
+    expect(telegramHtml("")).toBe("");
+  });
+
+  it("__bold__ → <b>", () => {
+    expect(telegramHtml("__bold__")).toBe("<b>bold</b>");
+  });
+
+  it("_italic_ → <i>", () => {
+    expect(telegramHtml("_italic_")).toBe("<i>italic</i>");
+  });
+
+  it("## heading → bold", () => {
+    expect(telegramHtml("## Sub")).toBe("<b>Sub</b>");
+  });
+
+  it("### heading → bold", () => {
+    expect(telegramHtml("### Deep Title")).toBe("<b>Deep Title</b>");
+  });
+
+  it("inline code escapes &", () => {
+    expect(telegramHtml("`a & b`")).toBe("<code>a &amp; b</code>");
+  });
+
+  it("* bullet → • prefix", () => {
+    expect(telegramHtml("* item")).toBe("•  item");
+  });
+
+  it("+ bullet → • prefix", () => {
+    expect(telegramHtml("+ item")).toBe("•  item");
+  });
+
+  it("multiple fenced blocks each become <pre>", () => {
+    expect(telegramHtml("```\ncode1\n``` and ```\ncode2\n```")).toBe(
+      "<pre>code1</pre> and <pre>code2</pre>",
+    );
+  });
+
+  it("bold and italic can coexist on one line", () => {
+    expect(telegramHtml("**bold** and *italic*")).toBe(
+      "<b>bold</b> and <i>italic</i>",
+    );
+  });
 });
 
 describe("stripHtml", () => {

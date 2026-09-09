@@ -3,7 +3,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import { TeamsMessageStream } from "./message-stream.js";
 import { autoCloseOpenMarkdown } from "./render/auto-close.js";
 
@@ -24,6 +24,8 @@ export function createRunRenderer(args: {
   post: (text: string) => Promise<string>;
   /** Edit a previously-posted streamed message. */
   update: (id: string, text: string) => Promise<void>;
+  /** Send the final edit through a priority transport lane. */
+  finalize?: (id: string, text: string) => Promise<void>;
   /** Optional typing indicator, fired once before a message's first post. */
   typing?: () => Promise<void>;
   interruptEventNames?: ReadonlySet<string>;
@@ -46,6 +48,7 @@ export function createRunRenderer(args: {
       s = new TeamsMessageStream({
         post: args.post,
         update: args.update,
+        finalize: args.finalize,
         typing: args.typing,
       });
       streams.set(messageId, s);

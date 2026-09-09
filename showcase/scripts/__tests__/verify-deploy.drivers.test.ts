@@ -29,7 +29,11 @@ import {
 } from "../verify-deploy.drivers.baseline";
 import type { FetchLike } from "../verify-deploy.drivers.baseline";
 import { probeShell } from "../verify-deploy.drivers.shell";
-import { probeDocs } from "../verify-deploy.drivers.docs";
+import {
+  checkProductionDocsCanonicalHost,
+  probeDocs,
+  validateDocsAuthRuntimeConfig,
+} from "../verify-deploy.drivers.docs";
 import { probeDashboard } from "../verify-deploy.drivers.dashboard";
 import { probeDojo } from "../verify-deploy.drivers.dojo";
 import { probeHarness } from "../verify-deploy.drivers.harness";
@@ -721,7 +725,15 @@ describe.each(DRIVER_CASES)(
       const fetchImpl = makeFetch((url) => {
         if (url.includes("/graphql/v2"))
           return gqlDeploymentResponse("SUCCESS");
-        return Promise.resolve(mkResponse({ status: 200 }));
+        return Promise.resolve(
+          mkResponse({
+            status: 200,
+            text:
+              label === "docs"
+                ? '<script>window.__SHOWCASE_CONFIG__={"intelligenceSignupUrl":"https://dashboard.staging.operations.copilotkit.ai","clerkPublishableKey":"pk_test_shared"};</script>'
+                : undefined,
+          }),
+        );
       });
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         const out = await driver({
@@ -760,13 +772,33 @@ describe.each(DRIVER_CASES)(
       // healthcheck to fetch + sentinel-check the injected
       // `__SHOWCASE_CONFIG__` (see verify-deploy.drivers.dashboard.ts). That
       // extra GET targets the same `/` path, so both non-graphql fetches go
-      // to `https://<host>/`. Every other driver makes exactly one.
-      const expectedHealthCount = label === "dashboard" ? 2 : 1;
+      // to `https://<host>/`. The production docs driver additionally probes
+      // two representative pages plus all four crawler surfaces.
+      const expectedHealthCount =
+        label === "dashboard" ? 2 : label === "docs" ? 7 : 1;
       expect(healthUrls).toHaveLength(expectedHealthCount);
-      for (const u of healthUrls) {
-        expect(u).toBe(
-          `https://${domainFor(service, "prod")}${expectedHealthPath}`,
+      if (label === "docs") {
+        expect(healthUrls).toEqual(
+          expect.arrayContaining(
+            [
+              expectedHealthPath,
+              "/",
+              "/quickstart",
+              "/robots.txt",
+              "/sitemap.xml",
+              "/llms.txt",
+              "/llms-full.txt",
+            ].map(
+              (urlPath) => `https://${domainFor(service, "prod")}${urlPath}`,
+            ),
+          ),
         );
+      } else {
+        for (const u of healthUrls) {
+          expect(u).toBe(
+            `https://${domainFor(service, "prod")}${expectedHealthPath}`,
+          );
+        }
       }
     });
 
@@ -830,6 +862,142 @@ describe.each(DRIVER_CASES)(
     });
   },
 );
+
+describe("probeDocs production canonical-host guard", () => {
+  const canonicalOrigin = "https://docs.copilotkit.ai";
+  const leakedOrigin = "https://docs.showcase.copilotkit.ai";
+  const target: ProbeTarget = {
+    name: "docs",
+    host: asHost(domainFor("docs", "prod")),
+    driver: "docs",
+  };
+
+  type MachineSurface =
+    | "canonical"
+    | "open-graph"
+    | "robots"
+    | "sitemap"
+    | "llms"
+    | "llms-full";
+
+  function docsSurfaceFetch(leak?: MachineSurface): FetchLike {
+    return makeFetch((url) => {
+      if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
+      if (url.endsWith("/robots.txt")) {
+        const origin = leak === "robots" ? leakedOrigin : canonicalOrigin;
+        return Promise.resolve(
+          mkResponse({
+            text: `User-Agent: *\nSitemap: ${origin}/sitemap.xml\n`,
+          }),
+        );
+      }
+      if (url.endsWith("/sitemap.xml")) {
+        const origin = leak === "sitemap" ? leakedOrigin : canonicalOrigin;
+        return Promise.resolve(
+          mkResponse({
+            text: `<urlset><url><loc>${origin}/</loc></url></urlset>`,
+          }),
+        );
+      }
+      if (url.endsWith("/llms.txt")) {
+        const origin = leak === "llms" ? leakedOrigin : canonicalOrigin;
+        return Promise.resolve(
+          mkResponse({ text: `- [Quickstart](${origin}/quickstart)` }),
+        );
+      }
+      if (url.endsWith("/llms-full.txt")) {
+        const origin = leak === "llms-full" ? leakedOrigin : canonicalOrigin;
+        return Promise.resolve(
+          mkResponse({ text: `## Source: ${origin}/quickstart` }),
+        );
+      }
+      const urlPath = new URL(url).pathname;
+      const canonical = leak === "canonical" ? leakedOrigin : canonicalOrigin;
+      const openGraph = leak === "open-graph" ? leakedOrigin : canonicalOrigin;
+      return Promise.resolve(
+        mkResponse({
+          text:
+            '<script>window.__SHOWCASE_CONFIG__={"intelligenceSignupUrl":"https://dashboard.operations.copilotkit.ai","clerkPublishableKey":"pk_live_shared"};</script>' +
+            `<link rel="canonical" href="${canonical}${urlPath}">` +
+            `<meta property="og:url" content="${openGraph}${urlPath}">`,
+        }),
+      );
+    });
+  }
+
+  it("passes when every production machine surface uses the canonical host", async () => {
+    await withGlobalSeam(docsSurfaceFetch(), TOKEN, async () => {
+      expect(await probeDocs(target)).toEqual({ ok: true });
+    });
+  });
+
+  it.each<MachineSurface>([
+    "canonical",
+    "open-graph",
+    "robots",
+    "sitemap",
+    "llms",
+    "llms-full",
+  ])("fails when %s leaks an alternate docs host", async (surface) => {
+    const error = await checkProductionDocsCanonicalHost(
+      target.host,
+      docsSurfaceFetch(surface),
+    );
+    expect(error).toContain("docs.showcase.copilotkit.ai");
+    expect(error).toContain("docs.copilotkit.ai");
+  });
+});
+
+describe("docs deployed auth runtime-config guard", () => {
+  const html = (opsUrl: string, publishableKey: string) =>
+    `<script>window.__SHOWCASE_CONFIG__=${JSON.stringify({
+      intelligenceSignupUrl: opsUrl,
+      clerkPublishableKey: publishableKey,
+    })};</script>`;
+
+  it("accepts the matching stable non-production Ops origin and Clerk key", () => {
+    expect(
+      validateDocsAuthRuntimeConfig(
+        html(
+          "https://dashboard.staging.operations.copilotkit.ai",
+          "pk_test_shared",
+        ),
+        "https://dashboard.staging.operations.copilotkit.ai",
+        "pk_test_",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("rejects a missing Clerk publishable key", () => {
+    expect(
+      validateDocsAuthRuntimeConfig(
+        html("https://dashboard.operations.copilotkit.ai", ""),
+        "https://dashboard.operations.copilotkit.ai",
+        "pk_live_",
+      ),
+    ).toContain("clerkPublishableKey");
+  });
+
+  it("rejects the non-production Clerk key in production", () => {
+    expect(
+      validateDocsAuthRuntimeConfig(
+        html("https://dashboard.operations.copilotkit.ai", "pk_test_shared"),
+        "https://dashboard.operations.copilotkit.ai",
+        "pk_live_",
+      ),
+    ).toContain("pk_live_");
+  });
+
+  it("rejects a production Ops URL in stable non-production", () => {
+    expect(
+      validateDocsAuthRuntimeConfig(
+        html("https://dashboard.operations.copilotkit.ai", "pk_test_shared"),
+        "https://dashboard.staging.operations.copilotkit.ai",
+        "pk_test_",
+      ),
+    ).toContain("dashboard.staging.operations.copilotkit.ai");
+  });
+});
 
 describe("runDriver dispatch: starter is a real baseline driver, not a fail-loud stub", () => {
   it("routes a driver:'starter' target through the baseline probe (ok on a healthy starter)", async () => {

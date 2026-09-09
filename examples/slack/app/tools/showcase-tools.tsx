@@ -1,5 +1,5 @@
 /**
- * Showcase render-tools — three small JSX `BotTool`s that demonstrate the
+ * Showcase render-tools — three small JSX `ChannelTool`s that demonstrate the
  * `@copilotkit/channels-ui` vocabulary end-to-end:
  *
  *  - `show_incident` — an interactive card whose `Acknowledge`/`Escalate`
@@ -20,9 +20,9 @@ import {
   Field,
   Actions,
   Button,
-} from "@copilotkit/channels-ui";
-import type { InteractionContext } from "@copilotkit/channels-ui";
-import { defineBotTool } from "@copilotkit/channels";
+} from "@copilotkit/channels";
+import type { InteractionContext } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 
 // ── show_incident ──────────────────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ export function IncidentCard({ id, title, severity, summary }: IncidentProps) {
   );
 }
 
-export const showIncidentTool = defineBotTool({
+export const showIncidentTool = defineChannelTool({
   name: "show_incident",
   description:
     "Render an interactive incident card with Acknowledge/Escalate buttons. " +
@@ -125,7 +125,7 @@ export function StatusCard({ heading, fields }: StatusProps) {
   );
 }
 
-export const showStatusTool = defineBotTool({
+export const showStatusTool = defineChannelTool({
   name: "show_status",
   description:
     "Render a status card: a heading plus a grid of label/value fields " +
@@ -169,7 +169,7 @@ export function LinksCard({ heading, links }: LinksProps) {
   );
 }
 
-export const showLinksTool = defineBotTool({
+export const showLinksTool = defineChannelTool({
   name: "show_links",
   description:
     "Render a card of links: a heading plus a dot-separated row of clickable " +

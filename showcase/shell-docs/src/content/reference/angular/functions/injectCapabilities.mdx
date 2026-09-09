@@ -1,0 +1,89 @@
+---
+title: "injectCapabilities"
+description: "Angular function for reading an agent's declared capabilities as a readonly signal."
+---
+
+## Overview
+
+`injectCapabilities` returns the [AG-UI `AgentCapabilities`](https://docs.ag-ui.com/concepts/capabilities) declared by the resolved agent as an Angular signal.
+
+Capabilities are populated from the runtime `/info` response. This function is a convenience selector over `injectAgentStore`; it does not keep separate capability state or make its own request. The signal is `undefined` until runtime discovery completes or when the agent does not declare capabilities.
+
+## Signature
+
+```ts
+import { injectCapabilities } from "@copilotkit/angular";
+import type { Signal } from "@angular/core";
+import type { AgentCapabilities } from "@ag-ui/core";
+
+function injectCapabilities(
+  agentId?: string | Signal<string | undefined>,
+): Signal<AgentCapabilities | undefined>;
+```
+
+## Parameters
+
+<PropertyReference
+  name="agentId"
+  type="string | Signal<string | undefined>"
+  required={false}
+>
+  ID of the agent whose capabilities to read. A provided id takes precedence.
+  When omitted or `undefined`, the function uses the surrounding
+  `CopilotChatConfiguration` agent and then falls back to the default agent.
+  Pass a signal to switch agents reactively.
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference
+  name="capabilities"
+  type="Signal<AgentCapabilities | undefined>"
+>
+  A readonly signal containing the resolved agent's capability declaration.
+  `undefined` means runtime discovery is still pending or the agent did not
+  declare capabilities; it does not confirm that a capability is unsupported.
+</PropertyReference>
+
+## Usage
+
+```ts title="src/app/tool-panel.component.ts"
+import { Component } from "@angular/core";
+import { injectCapabilities } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-tool-panel",
+  standalone: true,
+  template: `
+    @if (capabilities()?.tools?.supported === true) {
+      <p>This agent supports tools.</p>
+    }
+  `,
+})
+export class ToolPanelComponent {
+  readonly capabilities = injectCapabilities();
+}
+```
+
+To read another agent or switch reactively, pass its id or an id signal from a component class:
+
+```ts
+import { signal } from "@angular/core";
+import { injectCapabilities } from "@copilotkit/angular";
+
+export class AgentCapabilitiesComponent {
+  readonly agentId = signal<string | undefined>("support");
+  readonly capabilities = injectCapabilities(this.agentId);
+}
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="injectAgentStore"
+    description="Access the resolved agent and its reactive messages, state, and run status."
+    href="/reference/angular/functions/injectAgentStore"
+    icon={<LinkIcon />}
+  />
+</Cards>

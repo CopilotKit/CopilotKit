@@ -51,7 +51,12 @@ included in the function's final returned state. Otherwise, they will be overwri
         ```python title="agent.py"
         from pydantic import BaseModel
         from pydantic_ai import Agent
-        from pydantic_ai.ag_ui import StateDeps
+        from pydantic_ai.ui import StateDeps
+        from pydantic_ai.ui.ag_ui import AGUIAdapter
+        from starlette.applications import Starlette
+        from starlette.requests import Request
+        from starlette.responses import Response
+        from starlette.routing import Route
 
 
         class AgentState(BaseModel):
@@ -60,10 +65,29 @@ included in the function's final returned state. Otherwise, they will be overwri
 
 
         agent = Agent('openai:gpt-5.4-mini', deps_type=StateDeps[AgentState])
-        app = agent.to_ag_ui(deps=StateDeps(AgentState()))
 
+
+        async def run_agent(request: Request) -> Response:
+            # Build the deps fresh on every request: `dispatch_request` writes the state
+            # the client sent into `deps.state`, so a shared instance leaks state between
+            # concurrent requests and users.
+            return await AGUIAdapter.dispatch_request(
+                request, agent=agent, deps=StateDeps(AgentState())
+            )
+
+
+        app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
         if __name__ == "__main__":
+            import uvicorn
+
+            uvicorn.run(app, host="0.0.0.0", port=8000)
+        ```
+
+        Then render the predicted state in your frontend:
+
+        ```tsx title="ui/app/page.tsx"
+        import { useAgent } from "@copilotkit/react-core/v2";
 
         // ...
 

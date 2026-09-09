@@ -25,10 +25,13 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // @region[minimal-runtime-flag]
 // @region[advanced-runtime-config]
 const runtime = new CopilotRuntime({
-  agents: { default: createOguiAgent() },
+  agents: {
+    "open-gen-ui": createOguiAgent(),
+    "open-gen-ui-advanced": createOguiAgent(),
+  },
   runner: new InMemoryAgentRunner(),
   openGenerativeUI: {
-    agents: ["default"],
+    agents: ["open-gen-ui", "open-gen-ui-advanced"],
   },
 });
 // @endregion[advanced-runtime-config]

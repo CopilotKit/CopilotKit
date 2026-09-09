@@ -2,7 +2,7 @@
 
 ## V1 Error Codes (`CopilotKitErrorCode`)
 
-Legacy error codes from the v1 runtime layer. These still surface in `@copilotkit/*` packages since they wrap v2 internally. Defined in `packages/v1/shared/src/utils/errors.ts`.
+Legacy error codes from the v1 runtime layer. These still surface in `@copilotkit/*` packages since they wrap v2 internally. Defined in `packages/shared/src/utils/errors.ts`.
 
 ### NETWORK_ERROR
 
@@ -20,7 +20,7 @@ Legacy error codes from the v1 runtime layer. These still surface in `@copilotki
 - **HTTP Status**: 404
 - **Severity**: CRITICAL (banner)
 - **Cause**: The runtime URL returns 404. Wrong basePath or the server is not serving CopilotKit at that path.
-- **Resolution**: Ensure `basePath` in `createCopilotEndpoint()` matches the `runtimeUrl` in the provider.
+- **Resolution**: Ensure `basePath` in `createCopilotRuntimeHandler()` matches the `runtimeUrl` in the provider.
 - **Docs**: https://docs.copilotkit.ai/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found
 
 ### AGENT_NOT_FOUND
@@ -60,7 +60,7 @@ Legacy error codes from the v1 runtime layer. These still surface in `@copilotki
 - **HTTP Status**: 400
 - **Severity**: INFO (dev only)
 - **Cause**: `@copilotkit/*` packages are on different versions.
-- **Resolution**: Ensure all `@copilotkit/*` packages are the same version. Run `npm ls @copilotkit/runtime @copilotkit/react`.
+- **Resolution**: Ensure all `@copilotkit/*` packages are the same version. Run `npm ls @copilotkit/runtime @copilotkit/react-core`.
 
 ### CONFIGURATION_ERROR
 
@@ -101,7 +101,7 @@ Legacy error codes from the v1 runtime layer. These still surface in `@copilotki
 
 ## V1 Error Classes
 
-All defined in `packages/v1/shared/src/utils/errors.ts`:
+All defined in `packages/shared/src/utils/errors.ts`:
 
 | Class                                    | Extends                       | When Thrown                               |
 | ---------------------------------------- | ----------------------------- | ----------------------------------------- |
@@ -121,7 +121,7 @@ All defined in `packages/v1/shared/src/utils/errors.ts`:
 
 ## V2 Error Codes (`CopilotKitCoreErrorCode`)
 
-Used by `@copilotkit/core`. Defined in `packages/v2/core/src/core/core.ts`. These are emitted via the `onError` subscriber callback.
+Used by `@copilotkit/core`. Defined in `packages/core/src/core/core.ts`. These are emitted via the `onError` subscriber callback.
 
 ### runtime_info_fetch_failed
 
@@ -202,7 +202,7 @@ Used by `@copilotkit/core`. Defined in `packages/v2/core/src/core/core.ts`. Thes
 
 ## Transcription Error Codes (`TranscriptionErrorCode`)
 
-Used by `@copilotkit/shared` and `@copilotkit/react`. Defined in `packages/v2/shared/src/transcription-errors.ts`.
+Used by `@copilotkit/shared` and `@copilotkit/react-core`. Defined in `packages/shared/src/transcription-errors.ts`.
 
 | Code                     | Retryable | Description                                 |
 | ------------------------ | --------- | ------------------------------------------- |
@@ -218,9 +218,9 @@ Used by `@copilotkit/shared` and `@copilotkit/react`. Defined in `packages/v2/sh
 
 ---
 
-## Intelligence Platform Error (`PlatformRequestError`)
+## Intelligence Error (`PlatformRequestError`)
 
-Used by `@copilotkit/runtime` for Intelligence mode. Defined in `packages/v2/runtime/src/intelligence-platform/client.ts`.
+Used by `@copilotkit/runtime` for Intelligence mode. Defined in `packages/runtime/src/v2/runtime/intelligence-platform/client.ts`.
 
 | Status | Meaning                                                                                |
 | ------ | -------------------------------------------------------------------------------------- |

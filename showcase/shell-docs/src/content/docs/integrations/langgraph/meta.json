@@ -7,10 +7,11 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
       "pages": [
         "threads",
+        "headless-threads",
         "threads-import"
       ]
     },
@@ -27,6 +28,10 @@
     "configurable",
     "subgraphs",
     "auth",
+    "guardrails",
+    "---Deploy---",
+    "deploy-agentcore",
+    "deploy-langsmith",
     "---Tutorials---",
     "...tutorials"
   ]

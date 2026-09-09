@@ -1,0 +1,61 @@
+<Steps>
+  <Step>
+    ### Take the forwarded tools off the Flow's state
+
+    A Flow owns its own model call, so unlike a chat agent it has to hand the
+    forwarded tools to the model itself. Type the Flow on `CopilotKitState` and
+    read `state.copilotkit.actions` — that is where a component registered with
+    `useComponent` arrives.
+
+    ```python title="src/agents/chart_flow.py"
+    from crewai.flow.flow import Flow, start
+    from litellm import acompletion
+
+    from ag_ui_crewai import CopilotKitState, copilotkit_stream
+
+
+    class ChartFlow(Flow[CopilotKitState]):
+        @start()
+        async def chat(self) -> None:
+            actions = self.state.copilotkit.actions or None
+            response = await copilotkit_stream(
+                await acompletion(
+                    model="openai/gpt-4.1-mini",
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        *self.state.messages,
+                    ],
+                    tools=actions,
+                    parallel_tool_calls=False,
+                    stream=True,
+                )
+            )
+            self.state.messages.append(response.choices[0].message)
+    ```
+
+    Wrap the call in `copilotkit_stream` so the tool call reaches the browser as
+    it streams. A Flow that returns only when the model is finished renders
+    nothing until the turn ends.
+
+  </Step>
+  <Step>
+    ### Decide when the component is required
+
+    The Flow controls `tool_choice`, which is the lever a chat agent does not
+    have. Forcing the call on the user's turn and leaving it on `auto`
+    afterwards is what renders the component immediately and still lets the run
+    end: the follow-up turn is plain narration once the browser has returned the
+    result.
+
+    ```python title="src/agents/chart_flow.py"
+    on_user_turn = bool(
+        self.state.messages and self.state.messages[-1].get("role") == "user"
+    )
+    tool_choice = "required" if actions and on_user_turn else "auto"
+    ```
+
+    Leaving `tool_choice` on `auto` for every turn is the usual reason a Flow
+    answers in prose and the component never appears.
+
+  </Step>
+</Steps>

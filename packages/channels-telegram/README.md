@@ -8,6 +8,12 @@ plus streaming via chunked message edits, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Telegram.
 
+The adapter keeps its own Telegram bot token — in the managed path the Channel
+runs inside a CopilotKit Intelligence-configured `CopilotRuntime` (free plan
+available), which starts and owns the channel's lifecycle. Building and
+operating your own channel runner on the SDK primitives is also a supported
+path.
+
 ## Install
 
 ```sh
@@ -29,15 +35,19 @@ pnpm add @copilotkit/channels-telegram @copilotkit/channels @copilotkit/channels
 > ```
 
 ```tsx
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   telegram,
   defaultTelegramTools,
   defaultTelegramContext,
 } from "@copilotkit/channels-telegram";
 import { Message, Section } from "@copilotkit/channels-ui";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
-const bot = createBot({
+const bot = createChannel({
+  identifyUser: "platform",
+  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     telegram({
       token: process.env.TELEGRAM_BOT_TOKEN!,
@@ -59,7 +69,20 @@ bot.onThreadStarted(async ({ thread }) => {
   );
 });
 
-await bot.start();
+// The runtime owns the channel's lifecycle — there is no `bot.start()`.
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
+    // both together only for a self-hosted deployment.
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  channels: [bot],
+});
+
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation so a broken config fails startup loudly.
+await listener.channels.ready(); // listener.channels.stop() tears it down
 ```
 
 `telegram(opts)` returns a `TelegramAdapter`. By default it runs in
@@ -237,7 +260,7 @@ await bot.api.setWebhook(url, {
 
 `telegram`, `TelegramAdapter`, `TelegramAdapterOptions`;
 `createRunRenderer`, `CreateRunRendererArgs`;
-`decodeInteraction`, `conversationKeyOf`, `deriveConversationKey`, `toPlatformUser`;
+`decodeInteraction`, `conversationKeyOf`, `deriveConversationKey`, `toProviderActor`;
 `renderTelegram`; `TELEGRAM_LIMITS`, `truncateText`, `clampArray`, `byteLen`;
 `defaultTelegramTools`, `lookupTelegramUserTool`;
 `defaultTelegramContext`, `telegramTaggingContext`, `telegramFormattingContext`,

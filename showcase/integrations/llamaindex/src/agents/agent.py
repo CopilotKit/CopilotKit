@@ -14,6 +14,7 @@ hitl_in_chat_agent.py module docstring for details.
 """
 
 # @region[weather-tool-backend]
+import asyncio
 import json
 import os
 from typing import Annotated
@@ -140,13 +141,13 @@ async def search_flights(
     return json.dumps(result)
 
 
-async def generate_a2ui(
-    context: Annotated[str, "Conversation context to generate UI from."],
-) -> str:
-    """Generate dynamic A2UI components based on the conversation.
+def _generate_a2ui(context: str) -> str:
+    """Blocking secondary-LLM round-trip for `generate_a2ui`.
 
-    A secondary LLM designs the UI schema and data. The result is
-    returned as an a2ui_operations container for the middleware to detect.
+    Kept synchronous and offloaded via ``asyncio.to_thread`` from the async
+    tool wrapper below: the synchronous ``openai.OpenAI().chat.completions``
+    call would otherwise block the uvicorn asyncio event loop for the full
+    LLM round-trip, wedging the ``:8000`` ``/health`` endpoint under load.
     """
     from openai import OpenAI
 
@@ -189,6 +190,20 @@ async def generate_a2ui(
     args = json.loads(tool_call.function.arguments)
     result = build_a2ui_operations_from_tool_call(args)
     return json.dumps(result)
+
+
+async def generate_a2ui(
+    context: Annotated[str, "Conversation context to generate UI from."],
+) -> str:
+    """Generate dynamic A2UI components based on the conversation.
+
+    A secondary LLM designs the UI schema and data. The result is
+    returned as an a2ui_operations container for the middleware to detect.
+
+    The blocking LLM round-trip runs in ``_generate_a2ui`` and is offloaded
+    via ``asyncio.to_thread`` so it never blocks the event loop.
+    """
+    return await asyncio.to_thread(_generate_a2ui, context)
 
 
 _openai_kwargs = {}

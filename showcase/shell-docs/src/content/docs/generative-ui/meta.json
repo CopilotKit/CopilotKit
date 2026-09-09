@@ -9,6 +9,12 @@
       "pages": ["tool-based", "tool-rendering", "state-rendering"]
     },
     {
+      "title": "Frontend-Driven",
+      "icon": "lucide/MousePointerClick",
+      "defaultOpen": true,
+      "pages": ["frontend-cards"]
+    },
+    {
       "title": "Declarative",
       "icon": "lucide/FileJson",
       "defaultOpen": true,

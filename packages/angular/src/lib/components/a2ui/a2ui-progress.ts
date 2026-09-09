@@ -9,7 +9,12 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
   selector: "copilot-a2ui-progress",
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="copilot-a2ui-progress" data-testid="a2ui-progress">
+    <div
+      class="copilot-a2ui-progress"
+      data-testid="a2ui-progress"
+      role="status"
+      aria-live="polite"
+    >
       <div class="copilot-a2ui-progress-card">
         <div class="copilot-a2ui-topbar">
           <div class="copilot-a2ui-dot-group">
@@ -100,7 +105,7 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
       </div>
 
       <div class="copilot-a2ui-label">
-        <span>Building interface</span>
+        <span>{{ label() }}</span>
         @if (tokens() > 0) {
           <span class="copilot-a2ui-token-count">
             ~{{ tokens().toLocaleString() }} tokens
@@ -221,12 +226,20 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
           background-position: -250% 0;
         }
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        .copilot-a2ui-bar,
+        .copilot-a2ui-shimmer {
+          animation: none;
+        }
+      }
     `,
   ],
 })
 export class CopilotA2UIProgress {
   readonly phase = input.required<number>();
   readonly tokens = input(0);
+  readonly label = input("Building interface");
 
   protected topbarBarClass(): string {
     return [

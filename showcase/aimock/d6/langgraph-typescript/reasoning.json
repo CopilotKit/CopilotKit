@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / reasoning",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -30,5 +29,8 @@
         "content": "Reasoning: first, I identified the question requires step-by-step thinking. Then, I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response. The reasoning block above the answer demonstrates intermediate-thought rendering."
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

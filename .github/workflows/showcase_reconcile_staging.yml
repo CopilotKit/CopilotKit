@@ -1,0 +1,76 @@
+name: "Showcase: Reconcile staging (scheduled self-heal)"
+
+# CI-owned scheduled self-heal for the showcase STAGING fleet. Replaces
+# Railway's registry auto-watch (which we are disabling) with a deterministic,
+# CI-controlled reconcile: every 15 minutes it compares each staging service's
+# ACTUALLY-DEPLOYED image digest (Railway's latest SUCCESS deployment
+# `meta.imageDigest`) against the GHCR `:latest` digest, and re-runs the
+# existing staging redeploy (`redeploy-env.ts`) scoped to any lagging service,
+# posting a Slack alert naming them. Alert-AND-remediate, not alert-only.
+#
+# This is distinct from `showcase_reconcile.yml`, which is the MANUAL,
+# read-only PROD-vs-STAGING drift check (no schedule, no remediation). This
+# workflow reconciles STAGING against GHCR `:latest` and DOES remediate.
+#
+# See showcase/scripts/reconcile-staging.ts for the decision rule + threshold.
+
+on:
+  schedule:
+    # Every 15 minutes — one reconcile cycle. A service mid-redeploy simply
+    # matches on the next cycle (see the threshold note in reconcile-staging.ts).
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  # Serialize reconcile runs so two overlapping cycles never double-trigger a
+  # redeploy for the same lagging service.
+  group: showcase-reconcile-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # GHCR :latest manifest reads. reconcile-staging.ts resolves the digest via
+  # resolveGhcrDigest → ghcrPat() = GHCR_TOKEN || GITHUB_TOKEN. When GHCR_TOKEN
+  # is not set, the automatic GITHUB_TOKEN is used and needs packages:read to
+  # read the private showcase-* image manifests (otherwise the /token exchange
+  # 401s and every service reads as an unresolvable :latest — a false alert).
+  packages: read
+
+jobs:
+  reconcile:
+    name: Reconcile staging vs GHCR :latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # `railway` scopes the Railway/GHCR/Slack secrets to this job. It carries NO
+    # protection rules (no required reviewers, no wait timer, no branch policy),
+    # so it does NOT gate or stall the */15 cron self-heal — it is purely secret
+    # scoping. If protection rules are ever added to this environment, move the
+    # secrets to a plain job-level source instead, or the self-heal will stall
+    # awaiting approval every cycle.
+    environment: railway
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Install scripts deps
+        working-directory: showcase/scripts
+        run: npm ci
+
+      - name: Reconcile staging (compare + self-heal + alert)
+        working-directory: showcase/scripts
+        env:
+          # Railway reads (deployments query) + the staging redeploy mutation.
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # GHCR manifest reads for the `:latest` digest. GITHUB_TOKEN
+          # (packages:read) is the CI default; GHCR_TOKEN overrides locally.
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Incoming webhook for the reconcile alert — the SAME secret
+          # showcase_build.yml posts its #oss-alerts failure alerts through.
+          SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+        run: npx tsx reconcile-staging.ts

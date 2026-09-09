@@ -24,12 +24,12 @@
 // - src/agents/agent_config_agent.py — the AG2 agent + AGUIStream sub-app
 // - src/app/demos/agent-config/page.tsx — the provider config
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 
 // Shape of the AG-UI run input we care about. We avoid a direct import of
@@ -169,17 +169,17 @@ const agents = {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-agent-config",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
-        // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+        // @ts-ignore -- see main route.ts; published CopilotRuntime's `agents`
         // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
         // plain Records. Fixed in source, pending release.
         agents,
       }),
+      basePath: "/api/copilotkit-agent-config",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     // Log full details server-side (operators grep `errorId` to correlate),
     // but never echo `err.message` / `err.stack` back to the HTTP client —

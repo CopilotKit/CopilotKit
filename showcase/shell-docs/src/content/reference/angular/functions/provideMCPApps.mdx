@@ -1,0 +1,56 @@
+---
+title: "provideMCPApps"
+description: "Configure the opt-in MCP Apps activity renderer for Angular."
+---
+
+Import MCP Apps from the secondary entry point so applications that do not use
+it do not load its host and sandbox code.
+
+```ts
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { provideMCPApps } from "@copilotkit/angular/mcp-apps";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideMCPApps({
+      idleTimeoutMs: 30_000,
+      initializationTimeoutMs: 30_000,
+      hostInfo: { name: "Acme Copilot", version: "1.0.0" },
+    }),
+  ],
+};
+```
+
+```ts
+interface MCPAppsConfig {
+  idleTimeoutMs?: number;
+  initializationTimeoutMs?: number;
+  sandboxProxyUrl?: string;
+  hostInfo?: { name: string; version: string };
+  hostCapabilities?: Record<string, unknown>;
+  hostContext?: Record<string, unknown>;
+}
+```
+
+`provideMCPApps` contributes a lower-precedence built-in renderer for
+`activityType: "mcp-apps"`; an explicit application activity renderer still
+wins. It deliberately accepts no MCP server URL. Resource loads, tool calls,
+and follow-up messages travel through the selected AG-UI agent.
+
+`sandboxProxyUrl` selects a dedicated sandbox proxy document for hosts with a
+strict response-level content security policy. The document must implement the
+CopilotKit MCP sandbox proxy protocol and use an opaque response sandbox without
+`allow-same-origin`.
+
+Each widget owns an abortable FIFO queue and iframe listener. Destroying one
+widget cancels only its work; changing threads drops queued stale work. Busy
+agents and initialization handshakes use the configured timeouts. Snapshot
+content, JSON-RPC messages, and exact iframe event sources are validated before
+use. Host context is browser-visible and must not contain secrets.
+
+During SSR the widget is inert. Its sandbox and message listener initialize in
+the browser after hydration. `CopilotMCPAppsWidget`, schemas, tokens, and the
+ready-made activity config are also public from the secondary entry point for
+advanced custom hosts; see the [public API inventory](/reference/angular/public-api).

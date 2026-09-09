@@ -7,7 +7,7 @@ export {
   decodeInteraction,
   conversationKeyOf,
   deriveConversationKey,
-  toPlatformUser,
+  toProviderActor,
 } from "./interaction.js";
 
 export { renderTelegram } from "./render/telegram.js";

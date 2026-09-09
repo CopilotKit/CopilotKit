@@ -19,7 +19,12 @@ it("decodes a modal submission's text fields by custom_id", () => {
   expect(evt).toMatchObject({
     callbackId: "triage",
     values: { summary: "boom", detail: "ctx" },
-    user: { id: "U1", name: "ada" },
+    actor: { id: "U1", kind: "human", name: "ada" },
+    identityContext: {
+      tenant: { id: "G1" },
+      conversation: { id: "C1", kind: "guild" },
+      trigger: "modal_submit",
+    },
     conversationKey: "C1",
     replyTarget: { channelId: "C1", guildId: "G1" },
     platform: "discord",

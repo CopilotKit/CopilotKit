@@ -9,9 +9,10 @@
  *   2. Merge via mergeBuildResultFiles (single source of contract truth).
  *   3. Write the canonical $OUTPUT_DIR/results.json (uploaded as the
  *      `build-results` artifact for cross-workflow consumption).
- *   4. Append `results=...` and `any_success=true|false` to $GITHUB_OUTPUT
- *      so the redeploy-staging guard and the deploy workflow can read
- *      them as job-level outputs.
+ *   4. Append `results=...`, `any_success=true|false`,
+ *      `any_cancelled=true|false` and `cancelled_services=<csv>` to
+ *      $GITHUB_OUTPUT so the redeploy-staging guard, the incomplete-build
+ *      gate and the notify job can read them as job-level outputs.
  *
  * No GitHub API calls. No job-name parsing. Pure filesystem aggregation.
  *
@@ -30,7 +31,11 @@ import {
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { mergeBuildResultFiles, successSet } from "./lib/build-outputs";
+import {
+  cancelledSet,
+  mergeBuildResultFiles,
+  successSet,
+} from "./lib/build-outputs";
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -79,8 +84,16 @@ function readSlotPayload(inputDir: string, slotDirName: string): string {
  * any value that might contain (or grow to contain) a newline — most
  * importantly, it survives pretty-printed JSON or other multi-line
  * payloads without truncation. A random delimiter token prevents
- * collision with embedded payloads. `any_success` stays a plain
- * key=value line since the value is a fixed boolean literal.
+ * collision with embedded payloads. `any_success` and `any_cancelled`
+ * stay plain key=value lines since the values are fixed boolean
+ * literals.
+ *
+ * `cancelled_services` is a plain CSV line. Service names are
+ * dispatch_names (validated non-blank, no commas or newlines by
+ * construction in the build matrix), so the plain form is safe and
+ * matches the CSV convention already used for the redeploy service
+ * list. It is emitted even when empty so a consumer reading it never
+ * sees an undefined output.
  *
  * Written BEFORE results.json so a $GITHUB_OUTPUT write failure
  * (e.g. the file is missing / not writable) aborts before we publish
@@ -91,6 +104,7 @@ function writeGithubOutput(
   githubOutput: string,
   resultsJson: string,
   anySuccess: boolean,
+  cancelledServices: readonly string[],
 ): void {
   const delimiter = `EOF_${randomBytes(8).toString("hex")}`;
   appendFileSync(
@@ -100,6 +114,14 @@ function writeGithubOutput(
   appendFileSync(
     githubOutput,
     `any_success=${anySuccess ? "true" : "false"}\n`,
+  );
+  appendFileSync(
+    githubOutput,
+    `any_cancelled=${cancelledServices.length > 0 ? "true" : "false"}\n`,
+  );
+  appendFileSync(
+    githubOutput,
+    `cancelled_services=${cancelledServices.join(",")}\n`,
   );
 }
 
@@ -137,10 +159,11 @@ export function run(opts: RunOptions): void {
   const merged = mergeBuildResultFiles(payloads);
   const resultsJson = JSON.stringify(merged);
   const anySuccess = successSet(merged).length > 0;
+  const cancelled = cancelledSet(merged);
 
   // Emit $GITHUB_OUTPUT first so a write failure here doesn't leave a
   // published results.json artifact without a matching job output.
-  writeGithubOutput(githubOutput, resultsJson, anySuccess);
+  writeGithubOutput(githubOutput, resultsJson, anySuccess, cancelled);
 
   // Trailing newline for consistency with conventional JSON-on-disk
   // tooling (POSIX line, diff-friendly).

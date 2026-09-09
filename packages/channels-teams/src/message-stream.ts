@@ -21,6 +21,8 @@ export interface TeamsMessageStreamConfig {
   post: (text: string) => Promise<string>;
   /** Edit the posted activity to `text`. */
   update: (id: string, text: string) => Promise<void>;
+  /** Send the final edit through a priority transport lane. */
+  finalize?: (id: string, text: string) => Promise<void>;
   /** Optional: fire a typing indicator once, before the first post. */
   typing?: () => Promise<void>;
   /** Minimum gap between consecutive flushes, in ms (defaults to 700). */
@@ -98,15 +100,17 @@ export class TeamsMessageStream {
    * retries the same buffer. Throws on transport failure — callers decide whether
    * to tolerate (mid-stream) or propagate (final).
    */
-  private async doSend(): Promise<void> {
+  private async doSend(final = false): Promise<void> {
     const text = this.buffer;
-    if (text === this.posted) return;
     // Don't post an empty first message; wait for real content.
     if (this.id === undefined && text.trim().length === 0) return;
     if (this.id === undefined) {
       if (this.config.typing) await this.config.typing();
       this.id = await this.config.post(text);
+    } else if (final && this.config.finalize) {
+      await this.config.finalize(this.id, text);
     } else {
+      if (text === this.posted) return;
       await this.config.update(this.id, text);
     }
     this.posted = text;
@@ -128,7 +132,7 @@ export class TeamsMessageStream {
   /** Final flush at {@link finish}: propagate a transport failure fail-loud. */
   private async flushFinal(): Promise<void> {
     try {
-      await this.doSend();
+      await this.doSend(true);
     } finally {
       this.lastFlushedAt = Date.now();
     }

@@ -1,12 +1,9 @@
 /**
  * D5 — reasoning-display script.
  *
- * Covers BOTH `/demos/reasoning-custom` and `/demos/reasoning-default`
- * via preNavigateRoute. The driver runs one feature per featureType per
- * integration, so the registered type ('reasoning-display') gets one run
- * regardless of how many registry IDs map to it. The default route is
- * `reasoning-custom` — the alternate route is informational only at the
- * catalog level (see open question Q5 in `.claude/specs/lgp-d5-coverage.md`).
+ * Covers BOTH `/demos/reasoning-custom` and `/demos/reasoning-default` as
+ * independent feature types. They share the prompt and assertion contract,
+ * but each route gets its own browser run and D5/D6 result.
  *
  * NOTE: in the LGP demo-pass these routes were renamed from
  * `agentic-chat-reasoning` → `reasoning-custom` and
@@ -31,12 +28,8 @@
  * counted by this probe.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-  type D5RouteContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 const REASONING_TIMEOUT_MS = 5_000;
@@ -111,26 +104,15 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   ];
 }
 
-/** Force the route to a real demo path. Default `/demos/reasoning-display`
- *  doesn't exist; we pick `reasoning-custom` as the canonical reasoning
- *  surface. Per Q5 in the coverage doc this may split later. */
-export function preNavigateRoute(
-  _ft: D5FeatureType,
-  ctx?: D5RouteContext,
-): string {
-  // If the integration declares only `reasoning-default`, prefer that route.
-  if (
-    ctx?.demos &&
-    ctx.demos.includes("reasoning-default") &&
-    !ctx.demos.includes("reasoning-custom")
-  ) {
-    return "/demos/reasoning-default";
-  }
-  return "/demos/reasoning-custom";
+/** Route each probe identity to the surface it reports. */
+export function preNavigateRoute(ft: D5FeatureType): string {
+  if (ft === "reasoning-default") return "/demos/reasoning-default";
+  if (ft === "reasoning-custom") return "/demos/reasoning-custom";
+  throw new Error(`reasoning-display: unsupported feature type ${ft}`);
 }
 
 registerD5Script({
-  featureTypes: ["reasoning-display"],
+  featureTypes: ["reasoning-custom", "reasoning-default"],
   fixtureFile: "reasoning-display.json",
   buildTurns,
   preNavigateRoute,

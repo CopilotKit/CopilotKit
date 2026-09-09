@@ -152,7 +152,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       }
       const text = await readAllAssistantText(page);
       console.debug(`[d5-gen-ui-headless-complete] turn ${idx + 1} text`, {
-        text: text.slice(0, 300),
+        textLength: text.length,
       });
       assertContainsAll(
         text,

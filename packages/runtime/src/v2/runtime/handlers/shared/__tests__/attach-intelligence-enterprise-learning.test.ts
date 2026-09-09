@@ -14,6 +14,7 @@ vi.mock("@ag-ui/mcp-middleware", () => ({
 
 import { attachIntelligenceEnterpriseLearning } from "../agent-utils";
 import { INTELLIGENCE_USER_ID_HEADER } from "../../../intelligence-platform/client";
+import { INTELLIGENCE_MEMORY_GRANT_HEADER } from "../../../intelligence-platform/client";
 import type { CopilotRuntimeLike } from "../../../core/runtime";
 import { RUNTIME_MODE_INTELLIGENCE, logger } from "@copilotkit/shared";
 
@@ -35,11 +36,13 @@ function makeAgent(): AbstractAgent & {
 function makeRuntime(opts: {
   intelligence?: IntelligenceStub;
   identifyUser?: (req: Request) => Promise<{ id: string; name: string }>;
+  memory?: CopilotRuntimeLike["memory"];
 }): CopilotRuntimeLike {
   return {
     mode: opts.intelligence ? RUNTIME_MODE_INTELLIGENCE : "sse",
     intelligence: opts.intelligence,
     identifyUser: opts.identifyUser,
+    memory: opts.memory,
   } as unknown as CopilotRuntimeLike;
 }
 
@@ -113,6 +116,64 @@ describe("attachIntelligenceEnterpriseLearning", () => {
         },
       },
     ]);
+  });
+
+  it("evaluates agent Memory once and sends its grant with the resolved user", async () => {
+    const agent = makeAgent();
+    const identifyUser = vi
+      .fn()
+      .mockResolvedValue({ id: "user-42", name: "Forty Two" });
+    const access = vi.fn().mockReturnValue({
+      user: "read",
+      project: "read-write",
+    });
+    const runRequest = request();
+    const result = await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub({
+          ɵisEnterpriseLearningEnabled: () => false,
+        }),
+        identifyUser,
+        memory: { access },
+      }),
+      request: runRequest,
+      agent,
+    });
+
+    expect(result).toBeUndefined();
+    expect(identifyUser).toHaveBeenCalledTimes(1);
+    expect(access).toHaveBeenCalledWith({
+      request: runRequest,
+      user: { id: "user-42", name: "Forty Two" },
+      consumer: "agent",
+    });
+    const [servers] = mcpMiddlewareCalls[0] as [
+      Array<{ headers: Record<string, string> }>,
+    ];
+    expect(servers[0]?.headers).toMatchObject({
+      [INTELLIGENCE_USER_ID_HEADER]: "user-42",
+      [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify({
+        user: "read",
+        project: "read-write",
+      }),
+    });
+  });
+
+  it("returns forbidden when configured agent Memory is denied", async () => {
+    const agent = makeAgent();
+    const result = await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({ id: "u1", name: "User" }),
+        memory: { access: () => null },
+      }),
+      request: request(),
+      agent,
+    });
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(403);
+    expect(agent.use).not.toHaveBeenCalled();
   });
 
   it("skips silently when identifyUser returns an invalid user", async () => {

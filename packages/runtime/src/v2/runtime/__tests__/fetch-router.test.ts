@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, test } from "vitest";
 import { matchRoute } from "../core/fetch-router";
 
 describe("fetch-router", () => {
@@ -79,6 +79,11 @@ describe("fetch-router", () => {
     it("matches POST /memories/subscribe (not memories/mutate)", () => {
       const result = matchRoute("/api/copilotkit/memories/subscribe", basePath);
       expect(result).toEqual({ method: "memories/subscribe" });
+    });
+
+    it("matches POST /memories/recall to memories/recall (not memories/mutate)", () => {
+      const result = matchRoute("/api/copilotkit/memories/recall", basePath);
+      expect(result).toEqual({ method: "memories/recall" });
     });
 
     it("matches POST /annotate", () => {
@@ -320,5 +325,14 @@ describe("fetch-router", () => {
       const result = matchRoute("/api/cpk-debug-events", "/api");
       expect(result).toEqual({ method: "cpk-debug-events" });
     });
+  });
+});
+
+test("fetch-router matches inspector metadata with and without a base path", () => {
+  expect(
+    matchRoute("/api/copilotkit/inspector-metadata", "/api/copilotkit"),
+  ).toEqual({ method: "inspector/metadata" });
+  expect(matchRoute("/nested/runtime/inspector-metadata")).toEqual({
+    method: "inspector/metadata",
   });
 });

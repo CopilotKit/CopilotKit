@@ -11,22 +11,21 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 const beautifulChatAgent = getLocalAgent({
   mastra,
-  agentId: "weatherAgent",
+  agentId: "beautifulChatAgent",
   resourceId: "mastra-beautiful-chat",
 });
 
 if (!beautifulChatAgent) {
   throw new Error(
-    "getLocalAgent returned null for weatherAgent — required for /demos/beautiful-chat",
+    "getLocalAgent returned null for beautifulChatAgent — required for /demos/beautiful-chat",
   );
 }
 
@@ -39,7 +38,7 @@ const runtime = new CopilotRuntime({
   },
   openGenerativeUI: true,
   a2ui: {
-    // weatherAgent already has its own `generate_a2ui` tool — don't double-bind.
+    // beautifulChatAgent already owns its `generate_a2ui` tool — don't double-bind.
     injectA2UITool: false,
     // Models follow the tool-usage guide and omit `catalogId`, and the
     // middleware then falls back to the unregistered spec basic catalog
@@ -60,12 +59,12 @@ const runtime = new CopilotRuntime({
 export const POST = async (req: NextRequest) =>
   withForwardedHeaders(req, async () => {
     try {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        endpoint: "/api/copilotkit-beautiful-chat",
-        serviceAdapter: new ExperimentalEmptyAdapter(),
+      const copilotHandler = createCopilotRuntimeHandler({
         runtime,
+        basePath: "/api/copilotkit-beautiful-chat",
+        mode: "single-route",
       });
-      return await handleRequest(req);
+      return await copilotHandler(req);
     } catch (error: unknown) {
       const e = error as { message?: string; stack?: string };
       return NextResponse.json(

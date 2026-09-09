@@ -10,7 +10,12 @@ This file sets up:
 import os
 from agent import agent
 from models import TodoState
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
+from pydantic_ai.ui.ag_ui import AGUIAdapter
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Route
 
 # Configure Logfire for agent tracing (optional - only if LOGFIRE_TOKEN is set)
 # Logfire provides observability into agent runs, tool calls, and LLM interactions
@@ -21,10 +26,21 @@ if logfire_token:
     logfire.configure(token=logfire_token)
     logfire.instrument_pydantic_ai()
 
-# Convert PydanticAI agent to AG-UI compatible ASGI app
-# AG-UI provides a web interface for chatting with the agent
-# StateDeps wraps our TodoState to make it compatible with AG-UI's state management
-app = agent.to_ag_ui(deps=StateDeps(TodoState()))
+
+async def run_agent(request: Request) -> Response:
+    """Serve one AG-UI run. StateDeps wraps our TodoState for AG-UI state management.
+
+    The deps are built fresh on every request: `dispatch_request` writes the state the
+    client sent into `deps.state`, so a shared instance leaks todos between concurrent
+    requests and users.
+    """
+    return await AGUIAdapter.dispatch_request(
+        request, agent=agent, deps=StateDeps(TodoState())
+    )
+
+
+# AG-UI speaks HTTP: one POST endpoint that streams protocol events back as SSE
+app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
 if __name__ == "__main__":
     import uvicorn

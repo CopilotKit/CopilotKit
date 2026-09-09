@@ -1,15 +1,10 @@
 ---
-title: "StateStore"
-description: "The pluggable persistence interface — five primitive groups, the built-in MemoryStore default, and a conformance suite for custom implementations."
+title: StateStore
+description: The pluggable persistence contract for Channel state, callbacks, transcripts, locks, deduplication, and queues.
 ---
 
-## Overview
-
-`StateStore` is the persistence contract that backs the entire bot runtime: action snapshots, per-thread state, cross-platform transcripts, turn locks, inbound-event deduplication, and optional queuing. You choose a backend by passing it as `store.adapter` to [`createBot`](/reference/channels/functions/createBot).
-
-The default is `MemoryStore` — built-in, zero-config, but lost on restart. Implement the `StateStore` interface yourself to back it with a durable store (Redis, Postgres, etc.) for persistence across restarts and horizontal scale.
-
-For a full guide on configuring persistence, see [Persistence](/channels/persistence). For cross-platform transcript storage built on top of StateStore, see [Transcripts](/channels/transcripts).
+`StateStore` is the asynchronous persistence boundary used by the Channels
+runtime.
 
 ## Interface
 
@@ -18,142 +13,70 @@ interface StateStore {
   kv: {
     get<T>(key: string): Promise<T | undefined>;
     set<T>(key: string, value: T, ttlMs?: number): Promise<void>;
+    consume<T>(key: string): Promise<T | undefined>;
     delete(key: string): Promise<void>;
   };
   list: {
-    append<T>(key: string, value: T, opts?: { maxLen?: number; ttlMs?: number }): Promise<number>;
+    append<T>(
+      key: string,
+      value: T,
+      options?: { maxLen?: number; ttlMs?: number },
+    ): Promise<number>;
     range<T>(key: string, start?: number, stop?: number): Promise<T[]>;
     trim(key: string, maxLen: number): Promise<void>;
     delete(key: string): Promise<void>;
   };
   lock: {
-    acquire(key: string, opts?: { ttlMs?: number }): Promise<{ token: string } | null>;
+    acquire(
+      key: string,
+      options?: { ttlMs?: number },
+    ): Promise<{ token: string } | null>;
     release(key: string, token: string): Promise<void>;
   };
   dedup: {
     seen(key: string, ttlMs: number): Promise<boolean>;
   };
   queue: {
-    enqueue<T>(key: string, value: T, opts?: { maxSize?: number; onFull?: "drop-oldest" | "drop-newest" }): Promise<number>;
+    enqueue<T>(
+      key: string,
+      value: T,
+      options?: {
+        maxSize?: number;
+        onFull?: "drop-oldest" | "drop-newest";
+      },
+    ): Promise<number>;
     dequeue<T>(key: string): Promise<T | undefined>;
     depth(key: string): Promise<number>;
   };
 }
 ```
 
-**JSON-serialization contract**: all values round-trip through `JSON.stringify` / `JSON.parse` on remote/custom backends, so `T` must be JSON-serializable. Non-JSON values (`Date`, `Map`, class instances) will not survive on those backends. `MemoryStore` preserves them by reference — a backend divergence to be aware of when writing tests that run against both.
+## Semantics
 
-## Primitive Groups
+- `list.range` is oldest-first and uses non-negative, inclusive indices.
+- `kv.consume` atomically returns and deletes one value. Concurrent callers
+  must observe at most one non-`undefined` result.
+- `list.append({ ttlMs })` sets the expiry for the whole list. An append without
+  `ttlMs` preserves an existing expiry.
+- `lock.acquire` returns `null` while another token holds an unexpired lock.
+- `lock.release` must not release a lock owned by another or newer token.
+- `dedup.seen` returns `false` for the first observation and `true` for a repeat
+  inside the TTL.
+- Queues are FIFO. The configured overflow policy must be deterministic.
 
-<PropertyReference name="kv" type="object" required>
-  Key-value store. General-purpose get/set/delete with optional per-key TTL. Backs per-thread state (`thread.setState` / `thread.state`) and subscription records (`thread.subscribe`).
+Remote stores must support JSON-serializable values. `MemoryStore` preserves
+objects by reference, but that behavior is not portable.
 
-  <PropertyReference name="get" type="<T>(key: string) => Promise<T | undefined>">
-    Read a value; returns `undefined` when the key is absent or expired.
-  </PropertyReference>
-
-  <PropertyReference name="set" type="<T>(key: string, value: T, ttlMs?: number) => Promise<void>">
-    Write a value, optionally expiring after `ttlMs` milliseconds.
-  </PropertyReference>
-
-  <PropertyReference name="delete" type="(key: string) => Promise<void>">
-    Remove a key. No-op when the key does not exist.
-  </PropertyReference>
-</PropertyReference>
-
-<PropertyReference name="list" type="object" required>
-  Ordered list (oldest-first) with optional capping and TTL. Backs transcript storage.
-
-  <PropertyReference name="append" type="<T>(key: string, value: T, opts?: { maxLen?: number; ttlMs?: number }) => Promise<number>">
-    Append a value to the list's tail; returns the new list length. When `maxLen` is set, the list is trimmed from the head (oldest entries dropped) after each append. When `ttlMs` is set, the list's expiry is reset to now + ttlMs; omit it to leave the existing expiry unchanged.
-  </PropertyReference>
-
-  <PropertyReference name="range" type="<T>(key: string, start?: number, stop?: number) => Promise<T[]>">
-    Return a slice of the list in oldest-first order. `start` and `stop` are non-negative indices (inclusive); omit both to return the full list. Negative indices are not supported — behavior is backend-specific.
-  </PropertyReference>
-
-  <PropertyReference name="trim" type="(key: string, maxLen: number) => Promise<void>">
-    Trim the list to at most `maxLen` entries, dropping the oldest from the head.
-  </PropertyReference>
-
-  <PropertyReference name="delete" type="(key: string) => Promise<void>">
-    Delete the entire list.
-  </PropertyReference>
-</PropertyReference>
-
-<PropertyReference name="lock" type="object" required>
-  Per-key mutex with TTL-based auto-expiry. Backs the per-conversation turn lock that prevents concurrent turns from racing.
-
-  <PropertyReference name="acquire" type="(key: string, opts?: { ttlMs?: number }) => Promise<{ token: string } | null>">
-    Attempt to acquire the lock. Returns `{ token }` on success — pass `token` to `release`. Returns `null` when the lock is already held. The lock auto-expires after `ttlMs` milliseconds so a crashed handler cannot permanently block future turns.
-  </PropertyReference>
-
-  <PropertyReference name="release" type="(key: string, token: string) => Promise<void>">
-    Release the lock. No-op when `token` no longer owns the lock (e.g. it expired and was re-acquired by another caller).
-  </PropertyReference>
-</PropertyReference>
-
-<PropertyReference name="dedup" type="object" required>
-  Inbound-event deduplication window. Backs the per-platform event dedup that drops duplicate deliveries within the configured TTL.
-
-  <PropertyReference name="seen" type="(key: string, ttlMs: number) => Promise<boolean>">
-    Atomically record `key`; returns `true` if it was **already** seen within the TTL window (i.e., this is a duplicate), `false` if it is new (i.e., proceed). The entry expires after `ttlMs` milliseconds; events outside the window are treated as new.
-  </PropertyReference>
-</PropertyReference>
-
-<PropertyReference name="queue" type="object" required>
-  FIFO work queue with optional bounded size and overflow policy. Not used by the bot runtime internally but available for application-level queuing (e.g. background jobs, fan-out).
-
-  <PropertyReference name="enqueue" type="<T>(key: string, value: T, opts?: { maxSize?: number; onFull?: 'drop-oldest' | 'drop-newest' }) => Promise<number>">
-    Push a value onto the queue's tail; returns the new depth. When `maxSize` is set and the queue is full, `"drop-oldest"` pops the head before pushing, `"drop-newest"` discards the incoming value instead.
-  </PropertyReference>
-
-  <PropertyReference name="dequeue" type="<T>(key: string) => Promise<T | undefined>">
-    Pop the oldest value from the queue's head; returns `undefined` when empty.
-  </PropertyReference>
-
-  <PropertyReference name="depth" type="(key: string) => Promise<number>">
-    Return the current number of items in the queue.
-  </PropertyReference>
-</PropertyReference>
-
-## Shipped Backends
-
-### MemoryStore (default)
-
-```ts
-import { MemoryStore } from "@copilotkit/channels";
-
-// createBot uses MemoryStore by default; explicit construction:
-const store = new MemoryStore();
-```
-
-Zero-config in-memory implementation. All data is lost on process restart. Suitable for development, demos, or stateless deployments where no cross-turn state is needed.
-
-### Custom backends
-
-To use a durable store (Redis, Postgres, or any other persistence layer), implement the `StateStore` interface and pass your instance as `store.adapter`. This gives you full control over the persistence strategy without depending on a specific adapter package.
-
-## Custom Backend Conformance
-
-Implement all five primitive groups of the `StateStore` interface and pass your instance as `store.adapter`. Run the conformance suite to verify correctness:
+## Conformance test
 
 ```ts
 import { runStateStoreConformance } from "@copilotkit/channels/testing";
 
-runStateStoreConformance(
-  "MyCustomStore",
-  () => new MyCustomStore(),
-  async (s) => s.close(), // optional teardown
-);
+runStateStoreConformance("postgres", () => createPostgresStateStore());
 ```
 
-`runStateStoreConformance(name, make, teardown?)` registers a full [Vitest](https://vitest.dev/) describe block covering all five primitive groups. Your backend passes when all tests green. The `teardown` callback receives the store instance after each test for cleanup (disconnect, flush, etc.).
+KV consumption, locks, deduplication, and queues must be atomic across processes. Use
+project/Channel namespacing to prevent key collisions.
 
-## Related
-
-- [createBot](/reference/channels/functions/createBot) — the `store.adapter` option
-- [Thread](/reference/channels/classes/Thread) — `setState`, `state`, `subscribe`, `unsubscribe`, `isSubscribed`
-- [Persistence guide](/channels/persistence) — configuring a backend (in-memory default; bring your own durable backend)
-- [Transcripts guide](/channels/transcripts) — cross-platform conversation history built on StateStore
-- [ActionStore](/reference/channels/types/ActionStore) — the older action-snapshot interface (deprecated)
+Pass the adapter through `createChannel({ store: { adapter } })`. See
+[Persistence and scaling](/slack/persistence-and-scaling).

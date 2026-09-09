@@ -111,17 +111,34 @@ def search_flights(origin: str, destination: str) -> dict:
 
 
 @tool
-def get_stock_price(ticker: str) -> dict:
+def get_stock_price(
+    ticker: str,
+    price_usd: float | None = None,
+    change_pct: float | None = None,
+) -> dict:
     """Get a mock current price for a stock ticker.
 
     When the user asks about a single ticker, consider also pulling a
     related ticker for context (e.g. if they ask about 'AAPL', also
     fetch 'MSFT' or 'GOOGL' so the reply can compare).
+
+    The optional `price_usd` and `change_pct` arguments let the LLM (or
+    aimock fixture) script a deterministic ticker quote for testing —
+    when supplied, the tool echoes them back verbatim. When omitted (or
+    `None`), the tool returns mock random values.
     """
     return {
         "ticker": ticker.upper(),
-        "price_usd": round(100 + randint(0, 400) + randint(0, 99) / 100, 2),
-        "change_pct": round(choice([-1, 1]) * (randint(0, 300) / 100), 2),
+        "price_usd": (
+            round(float(price_usd), 2)
+            if price_usd is not None
+            else round(100 + randint(0, 400) + randint(0, 99) / 100, 2)
+        ),
+        "change_pct": (
+            round(float(change_pct), 2)
+            if change_pct is not None
+            else round(choice([-1, 1]) * (randint(0, 300) / 100), 2)
+        ),
     }
 
 

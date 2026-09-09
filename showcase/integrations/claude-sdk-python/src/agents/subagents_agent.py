@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 # Default Anthropic model for this showcase. Override with the
 # ANTHROPIC_MODEL or ANTHROPIC_SUBAGENT_MODEL env vars.
-DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4.6"
+DEFAULT_ANTHROPIC_MODEL = "claude-opus-4-8"
 
 
 # @region[subagent-setup]

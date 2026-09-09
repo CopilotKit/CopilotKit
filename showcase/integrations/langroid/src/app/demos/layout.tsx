@@ -39,11 +39,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const pathname = h.get("x-pathname") ?? "";
   const match = pathname.match(/^\/demos\/([^/]+)/);
   const slug = match?.[1];
-  if (!slug) return { title: "LangChain - Python" };
+  if (!slug) return { title: "Langroid" };
 
   const index = loadDemoIndex();
   const demoName = index.get(slug) ?? titleCase(slug);
-  return { title: `LangChain - Python - ${demoName}` };
+  return { title: `Langroid - ${demoName}` };
 }
 
 export default function DemosLayout({

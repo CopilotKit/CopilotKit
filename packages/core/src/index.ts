@@ -8,3 +8,5 @@ export * from "./utils/phoenix-observable";
 export * from "./threads";
 export * from "./memory";
 export * from "./features";
+export * from "./interrupt-state";
+export * from "./inspector-thread-bridge";
