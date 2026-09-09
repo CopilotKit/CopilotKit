@@ -209,6 +209,17 @@ describe("useInterrupt", () => {
     expect(unsubscribeMock).toHaveBeenCalledTimes(1);
   });
 
+  it("opts out of agent re-render updates", () => {
+    render(<Harness renderInChat={false} />);
+
+    // Interrupt events arrive via a direct agent.subscribe() in the hook,
+    // so the useAgent() handle must not force re-renders on every
+    // message/state/run-status change (see #6934).
+    expect(mockUseAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ updates: [] }),
+    );
+  });
+
   it("ignores non-interrupt custom events", () => {
     render(<Harness renderInChat={false} />);
 
