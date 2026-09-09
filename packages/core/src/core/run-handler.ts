@@ -11,6 +11,7 @@ import { randomUUID, logger } from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
+import { ProxiedCopilotRuntimeAgent } from "../agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
@@ -614,10 +615,23 @@ export class RunHandler {
         tools: this.buildFrontendTools(agent.agentId),
         context: this._internal.getContextForAgent(agent.agentId),
       };
-      const runAgentResult = await agent.runAgent(
-        agentRunInput,
-        agentSubscriber,
-      );
+      let runAgentResult: RunAgentResult;
+      try {
+        runAgentResult = await agent.runAgent(agentRunInput, agentSubscriber);
+      } finally {
+        // Local runtimes persist threads without a realtime metadata feed.
+        // Refresh the shared store after persistence, including failed runs,
+        // and before waiting for any frontend/HITL tool to complete.
+        const agentId =
+          agent instanceof ProxiedCopilotRuntimeAgent
+            ? (agent.runtimeAgentId ?? agent.agentId)
+            : agent.agentId;
+        const store = agentId ? this.core.getThreadStore(agentId) : undefined;
+        const context = store?.getState().context;
+        if (context && !context.wsUrl) {
+          store?.refetchThreads();
+        }
+      }
       if (!started) {
         continuationHandoff?.cancel();
       }
