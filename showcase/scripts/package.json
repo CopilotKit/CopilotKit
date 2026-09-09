@@ -13,6 +13,7 @@
     "validate-routes": "tsx validate-runtime-routes.ts --all",
     "check-aeo-synthetics": "tsx check-aeo-synthetics.ts",
     "showcase:audit": "tsx audit.ts",
+    "mutation-gate": "tsx mutation-gate/mutation-gate.ts",
     "create-integration": "tsx create-integration/index.ts",
     "bundle-content": "tsx bundle-demo-content.ts",
     "bundle-angular-content": "tsx bundle-angular-source-content.ts",
