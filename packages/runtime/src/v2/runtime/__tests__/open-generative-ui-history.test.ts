@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import type { BaseEvent, Message, MessagesSnapshotEvent, RunAgentInput } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  Message,
+  MessagesSnapshotEvent,
+  RunAgentInput,
+} from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
@@ -69,13 +74,17 @@ function sandboxCall(callId: string): Message {
       {
         id: callId,
         type: "function",
-        function: { name: "generateSandboxedUi", arguments: JSON.stringify(args) },
+        function: {
+          name: "generateSandboxedUi",
+          arguments: JSON.stringify(args),
+        },
       },
     ],
   };
 }
 
-const activities = (messages: Message[]) => messages.filter((m) => m.role === "activity");
+const activities = (messages: Message[]) =>
+  messages.filter((m) => m.role === "activity");
 
 describe("projectOpenGenerativeUIHistory", () => {
   it.each(["complete", "failed", "interrupted"] as const)(
@@ -114,7 +123,9 @@ describe("projectOpenGenerativeUIHistory", () => {
         }),
       ]);
       expect(projected.messages.map((m) => m.role)).toEqual(
-        status === "interrupted" ? ["assistant", "activity"] : ["assistant", "activity", "tool"],
+        status === "interrupted"
+          ? ["assistant", "activity"]
+          : ["assistant", "activity", "tool"],
       );
     },
   );
@@ -122,7 +133,10 @@ describe("projectOpenGenerativeUIHistory", () => {
   it("declares its own activity type as authoritative and keeps other owners", () => {
     const projected = projectOpenGenerativeUIHistory({
       ...snapshot([sandboxCall("call")]),
-      metadata: { "@ag-ui/client": { authoritativeActivityTypes: ["other"] }, keep: true },
+      metadata: {
+        "@ag-ui/client": { authoritativeActivityTypes: ["other"] },
+        keep: true,
+      },
     });
 
     expect(projected.metadata).toEqual({
@@ -138,30 +152,245 @@ describe("projectOpenGenerativeUIHistory", () => {
       activityType: ACTIVITY_TYPE,
       content: { generating: true },
     };
-    const foreign: Message = { id: "foreign", role: "activity", activityType: "other", content: {} };
-    const projected = projectOpenGenerativeUIHistory(snapshot([stale, sandboxCall("call"), foreign]));
+    const foreign: Message = {
+      id: "foreign",
+      role: "activity",
+      activityType: "other",
+      content: {},
+    };
+    const projected = projectOpenGenerativeUIHistory(
+      snapshot([stale, sandboxCall("call"), foreign]),
+    );
 
-    expect(projected.messages.map((m) => m.id)).toEqual(["call-assistant", "call-activity", "foreign"]);
+    expect(projected.messages.map((m) => m.id)).toEqual([
+      "call-assistant",
+      "call-activity",
+      "foreign",
+    ]);
     expect(projectOpenGenerativeUIHistory(projected)).toEqual(projected);
   });
 });
 
 describe("OpenGenerativeUIMiddleware snapshots", () => {
-  async function collect(observable: Observable<BaseEvent>): Promise<BaseEvent[]> {
+  async function collect(
+    observable: Observable<BaseEvent>,
+  ): Promise<BaseEvent[]> {
     return firstValueFrom(observable.pipe(toArray()));
   }
 
   const framed = (event: BaseEvent): BaseEvent[] => [
-    { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+    {
+      type: EventType.RUN_STARTED,
+      threadId: "thread-1",
+      runId: "run-1",
+    } as BaseEvent,
     event,
-    { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" } as BaseEvent,
+    {
+      type: EventType.RUN_FINISHED,
+      threadId: "thread-1",
+      runId: "run-1",
+    } as BaseEvent,
   ];
+
+  it("delivers one completed tool call with all arguments after a lagging snapshot", async () => {
+    const prefix = '{"html":"<main>Live';
+    const complete = prefix + '</main>"}';
+    const agent = new MockAgent([
+      {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent,
+      {
+        type: EventType.TOOL_CALL_START,
+        toolCallId: "live",
+        toolCallName: "generateSandboxedUi",
+        parentMessageId: "assistant",
+      } as BaseEvent,
+      {
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId: "live",
+        delta: prefix,
+      } as BaseEvent,
+      snapshot([]),
+      {
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId: "live",
+        delta: '</main>"}',
+      } as BaseEvent,
+      { type: EventType.TOOL_CALL_END, toolCallId: "live" } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent,
+    ]);
+    agent.use(new OpenGenerativeUIMiddleware());
+    const calls: string[] = [];
+    await agent.runAgent(runInput(), {
+      onNewToolCall: ({ toolCall }) => {
+        calls.push(toolCall.function.arguments);
+      },
+    });
+    expect(calls).toEqual([complete]);
+    expect(activities(agent.messages)[0]?.content).toMatchObject({
+      generating: false,
+    });
+  });
+
+  it.each([EventType.RUN_ERROR, EventType.RUN_FINISHED])(
+    "settles partial presentation before %s",
+    async (type) => {
+      const events = await collect(
+        new OpenGenerativeUIMiddleware().run(
+          runInput(),
+          new MockAgent([
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              runId: "run-1",
+            } as BaseEvent,
+            {
+              type: EventType.TOOL_CALL_START,
+              toolCallId: "live",
+              toolCallName: "generateSandboxedUi",
+            } as BaseEvent,
+            {
+              type: EventType.TOOL_CALL_ARGS,
+              toolCallId: "live",
+              delta: '{"html":"partial',
+            } as BaseEvent,
+            snapshot([]),
+            {
+              type,
+              message: "interrupted",
+              threadId: "thread-1",
+              runId: "run-1",
+            } as BaseEvent,
+          ]),
+        ),
+      );
+      expect(events.slice(0, -1)).toContainEqual(
+        expect.objectContaining({
+          type: EventType.ACTIVITY_DELTA,
+          messageId: "live-activity",
+          patch: [{ op: "add", path: "/generating", value: false }],
+        }),
+      );
+      expect(events.at(-1)?.type).toBe(type);
+      expect(
+        events.some((event) => event.type === EventType.TOOL_CALL_RESULT),
+      ).toBe(false);
+    },
+  );
+
+  it("preserves live HTML and generation state across lagging snapshots", async () => {
+    const prefix = '{"html":"<main>Live';
+    const call: Message = {
+      id: "assistant",
+      role: "assistant",
+      toolCalls: [
+        {
+          id: "live",
+          type: "function",
+          function: { name: "generateSandboxedUi", arguments: prefix },
+        },
+      ],
+    };
+    const later: Message = { id: "later", role: "assistant", content: "Done" };
+    const result: Message = {
+      id: "result",
+      role: "tool",
+      toolCallId: "live",
+      content: "ok",
+    };
+    const source: BaseEvent[] = [
+      {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent,
+      {
+        type: EventType.TOOL_CALL_START,
+        toolCallId: "live",
+        toolCallName: "generateSandboxedUi",
+        parentMessageId: "assistant",
+      } as BaseEvent,
+      {
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId: "live",
+        delta: prefix,
+      } as BaseEvent,
+      snapshot([call]),
+      snapshot([]),
+      {
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId: "live",
+        delta: '</main>"}',
+      } as BaseEvent,
+      { type: EventType.TOOL_CALL_END, toolCallId: "live" } as BaseEvent,
+      {
+        type: EventType.TOOL_CALL_RESULT,
+        toolCallId: "live",
+        messageId: "result",
+        content: "ok",
+      } as BaseEvent,
+      snapshot([call, later]),
+      snapshot([sandboxCall("live"), result]),
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent,
+    ];
+    const events = await collect(
+      new OpenGenerativeUIMiddleware().run(runInput(), new MockAgent(source)),
+    );
+    const snapshots = events.filter(
+      (event): event is MessagesSnapshotEvent =>
+        event.type === EventType.MESSAGES_SNAPSHOT,
+    );
+    for (const current of snapshots.slice(0, 2)) {
+      expect(activities(current.messages)).toEqual([
+        expect.objectContaining({
+          id: "live-activity",
+          content: expect.objectContaining({
+            html: ["<main>Live"],
+            generating: true,
+          }),
+        }),
+      ]);
+      expect(activities(current.messages)[0]?.content).not.toHaveProperty(
+        "htmlComplete",
+      );
+      expect(activities(current.messages)[0]?.content).not.toHaveProperty(
+        "status",
+        "interrupted",
+      );
+    }
+    expect(snapshots[2].messages).toContainEqual(result);
+    expect(
+      snapshots[2].messages
+        .filter((message) => message.role !== "activity")
+        .map((message) => message.id),
+    ).toEqual(["assistant", "result", "later"]);
+    expect(activities(snapshots[2].messages)[0]?.content).toMatchObject({
+      html: ["<main>Live", "</main>"],
+      htmlComplete: true,
+      generating: false,
+    });
+    expect(snapshots[3]).toEqual(
+      projectOpenGenerativeUIHistory(snapshot([sandboxCall("live"), result])),
+    );
+  });
 
   it("projects every forwarded snapshot during a live run", async () => {
     const source = snapshot([sandboxCall("call")]);
     const agent = new MockAgent(framed(source));
 
-    const events = await collect(new OpenGenerativeUIMiddleware().run(runInput(), agent));
+    const events = await collect(
+      new OpenGenerativeUIMiddleware().run(runInput(), agent),
+    );
 
     expect(events.find((e) => e.type === EventType.MESSAGES_SNAPSHOT)).toEqual(
       projectOpenGenerativeUIHistory(source),
@@ -176,7 +405,13 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
       tools: [{ name: "unsafe", description: "unsafe", parameters: {} }],
       forwardedProps: { unsafe: true },
       parentRunId: "unsafe-parent",
-      resume: [{ status: "resolved", interruptId: "unsafe", payload: { approve: true } }],
+      resume: [
+        {
+          status: "resolved",
+          interruptId: "unsafe",
+          payload: { approve: true },
+        },
+      ],
     });
 
   const replayInput = {
@@ -194,14 +429,19 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
     const agent = new MockAgent(framed(source));
 
     const events = await collect(
-      new OpenGenerativeUIMiddleware({ readOnly: true }).run(callerInput(), agent),
+      new OpenGenerativeUIMiddleware({ readOnly: true }).run(
+        callerInput(),
+        agent,
+      ),
     );
 
     expect(agent.receivedInput).toEqual(replayInput);
     expect(events.find((e) => e.type === EventType.MESSAGES_SNAPSHOT)).toEqual(
       projectOpenGenerativeUIHistory(source),
     );
-    expect(events.some((e) => e.type === EventType.TOOL_CALL_RESULT)).toBe(false);
+    expect(events.some((e) => e.type === EventType.TOOL_CALL_RESULT)).toBe(
+      false,
+    );
   });
 
   it("wires readOnly from the runtime's openGenerativeUI config", async () => {
@@ -210,7 +450,9 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
     backend.threadId = "thread-1";
     backend.messages = [{ id: "unsafe", role: "user", content: "never admit" }];
     backend.state = { unsafe: true };
-    const runtime = { openGenerativeUI: { readOnly: true } } as unknown as CopilotRuntimeLike;
+    const runtime = {
+      openGenerativeUI: { readOnly: true },
+    } as unknown as CopilotRuntimeLike;
 
     configureAgentForRequest({
       runtime,
@@ -223,7 +465,13 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
       tools: [{ name: "unsafe", description: "unsafe", parameters: {} }],
       context: [{ description: "unsafe", value: "unsafe" }],
       forwardedProps: { unsafe: true },
-      resume: [{ status: "resolved", interruptId: "unsafe", payload: { approve: true } }],
+      resume: [
+        {
+          status: "resolved",
+          interruptId: "unsafe",
+          payload: { approve: true },
+        },
+      ],
     });
 
     expect(backend.receivedInput).toEqual(replayInput);

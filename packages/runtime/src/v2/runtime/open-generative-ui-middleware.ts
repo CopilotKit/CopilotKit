@@ -1,4 +1,11 @@
-import type { ActivityMessage, Message, MessagesSnapshotEvent, ToolMessage } from "@ag-ui/client";
+import type {
+  ActivityMessage,
+  AssistantMessage,
+  ToolCall,
+  Message,
+  MessagesSnapshotEvent,
+  ToolMessage,
+} from "@ag-ui/client";
 import { map } from "rxjs/operators";
 import type {
   RunAgentInput,
@@ -6,6 +13,7 @@ import type {
   BaseEvent,
   ToolCallStartEvent,
   ToolCallArgsEvent,
+  ToolCallResultEvent,
   ActivitySnapshotEvent,
   ActivityDeltaEvent,
 } from "@ag-ui/client";
@@ -43,6 +51,7 @@ export class ArgsParser {
   private depth = 0;
   private currentArrayKey: string | null = null;
   private snapshotEmitted = false;
+  private content: Record<string, unknown> = { generating: true };
 
   // Streaming html state — reads parser.textNode to emit incremental chunks
   private streamingHtmlKey = false;
@@ -142,6 +151,20 @@ export class ArgsParser {
     this.flushHtmlChunks();
   }
 
+  /** The presentation already emitted by this parser, including partial HTML. */
+  activity(): ActivityMessage {
+    return {
+      id: this.messageId,
+      role: "activity",
+      activityType: ACTIVITY_TYPE,
+      content: this.content,
+    };
+  }
+
+  finish(): void {
+    this.emitParamDelta("generating", false);
+  }
+
   private initHtmlStreaming(key: string): void {
     if (key === "html") {
       this.streamingHtmlKey = true;
@@ -209,11 +232,15 @@ export class ArgsParser {
     if (this.snapshotEmitted) return;
     this.snapshotEmitted = true;
 
+    this.content = {
+      ...this.content,
+      initialHeight: this.params.initialHeight,
+    };
     const event: ActivitySnapshotEvent = {
       type: EventType.ACTIVITY_SNAPSHOT,
       messageId: this.messageId,
       activityType: ACTIVITY_TYPE,
-      content: { initialHeight: this.params.initialHeight, generating: true },
+      content: this.content,
     };
     this.onEvent(event);
   }
@@ -229,6 +256,7 @@ export class ArgsParser {
     // no prior ACTIVITY_SNAPSHOT. The LLM controls the key order of the
     // streamed args, so the snapshot cannot wait for initialHeight.
     this.emitSnapshot();
+    this.content = { ...this.content, [key]: value };
     const event: ActivityDeltaEvent = {
       type: EventType.ACTIVITY_DELTA,
       messageId: this.messageId,
@@ -240,6 +268,11 @@ export class ArgsParser {
 
   private emitArrayItemDelta(arrayKey: string, value: string): void {
     this.emitSnapshot();
+    const prior = this.content[arrayKey];
+    this.content = {
+      ...this.content,
+      [arrayKey]: [...(Array.isArray(prior) ? prior : []), value],
+    };
     const event: ActivityDeltaEvent = {
       type: EventType.ACTIVITY_DELTA,
       messageId: this.messageId,
@@ -263,12 +296,19 @@ type EventWithState = ExtractObservableType<RunNextWithStateReturn>;
  * key replaces just this activity type; older clients ignore the metadata and
  * keep their all-or-nothing activity rule.
  */
-function ownActivityType(event: MessagesSnapshotEvent, messages: Message[]): MessagesSnapshotEvent {
+function ownActivityType(
+  event: MessagesSnapshotEvent,
+  messages: Message[],
+): MessagesSnapshotEvent {
   const prior = event.metadata?.["@ag-ui/client"];
   const priorRecord: Record<string, unknown> =
-    prior && typeof prior === "object" && !Array.isArray(prior) ? (prior as Record<string, unknown>) : {};
+    prior && typeof prior === "object" && !Array.isArray(prior)
+      ? (prior as Record<string, unknown>)
+      : {};
   const priorTypes = Array.isArray(priorRecord.authoritativeActivityTypes)
-    ? priorRecord.authoritativeActivityTypes.filter((type): type is string => typeof type === "string")
+    ? priorRecord.authoritativeActivityTypes.filter(
+        (type): type is string => typeof type === "string",
+      )
     : [];
   return {
     ...event,
@@ -277,7 +317,9 @@ function ownActivityType(event: MessagesSnapshotEvent, messages: Message[]): Mes
       ...event.metadata,
       "@ag-ui/client": {
         ...priorRecord,
-        authoritativeActivityTypes: [...new Set([...priorTypes, ACTIVITY_TYPE])],
+        authoritativeActivityTypes: [
+          ...new Set([...priorTypes, ACTIVITY_TYPE]),
+        ],
       },
     },
   };
@@ -289,31 +331,105 @@ function ownActivityType(event: MessagesSnapshotEvent, messages: Message[]): Mes
  * same parser as streaming, runs no host functions and never invents a tool
  * result: a call without a result restores as `interrupted`.
  */
-export function projectOpenGenerativeUIHistory(event: MessagesSnapshotEvent): MessagesSnapshotEvent {
+export function projectOpenGenerativeUIHistory(
+  event: MessagesSnapshotEvent,
+): MessagesSnapshotEvent {
+  return projectHistory(event);
+}
+
+interface LiveCall {
+  parser: ArgsParser;
+  owner: AssistantMessage;
+  call: ToolCall;
+  result?: ToolMessage;
+}
+
+function projectHistory(
+  event: MessagesSnapshotEvent,
+  activeParsers = new Map<string, LiveCall>(),
+): MessagesSnapshotEvent {
   const results = new Map<string, ToolMessage>();
-  for (const message of event.messages) if (message.role === "tool") results.set(message.toolCallId, message);
+  for (const message of event.messages)
+    if (message.role === "tool") results.set(message.toolCallId, message);
+  const sourceMessages = [...event.messages];
+  for (const [id, live] of activeParsers) {
+    if (results.has(id)) {
+      activeParsers.delete(id);
+      continue;
+    }
+    const index = sourceMessages.findIndex(
+      (message) =>
+        message.role === "assistant" &&
+        (message.id === live.owner.id ||
+          message.toolCalls?.some((call) => call.id === id)),
+    );
+    const owner = sourceMessages[index];
+    if (owner?.role === "assistant") {
+      const calls = owner.toolCalls ?? [];
+      sourceMessages[index] = {
+        ...owner,
+        toolCalls: calls.some((call) => call.id === id)
+          ? calls.map((call) => (call.id === id ? live.call : call))
+          : [...calls, live.call],
+      };
+    } else {
+      sourceMessages.push({ ...live.owner, toolCalls: [live.call] });
+    }
+    if (live.result) {
+      let resultIndex = (index >= 0 ? index : sourceMessages.length - 1) + 1;
+      while (sourceMessages[resultIndex]?.role === "tool") resultIndex++;
+      sourceMessages.splice(resultIndex, 0, live.result);
+    }
+  }
   const messages: Message[] = [];
-  for (const message of event.messages) {
-    if (message.role === "activity" && message.activityType === ACTIVITY_TYPE) continue;
+  for (const message of sourceMessages) {
+    if (message.role === "activity" && message.activityType === ACTIVITY_TYPE)
+      continue;
     messages.push(message);
     if (message.role !== "assistant") continue;
     for (const call of message.toolCalls ?? []) {
       if (call.function.name !== TOOL_NAME) continue;
+      const live = activeParsers.get(call.id);
+      if (live && !results.has(call.id)) {
+        messages.push(live.parser.activity());
+        continue;
+      }
       const parser = new ArgsParser(call.id, () => {});
       parser.write(call.function.arguments);
       const result = results.get(call.id);
       const params = parser.params;
       const activity: ActivityMessage = {
-        id: parser.messageId, role: "activity", activityType: ACTIVITY_TYPE,
+        id: parser.messageId,
+        role: "activity",
+        activityType: ACTIVITY_TYPE,
         content: {
-          ...(params.initialHeight === undefined ? {} : { initialHeight: params.initialHeight }),
-          ...(params.placeholderMessages === undefined ? {} : { placeholderMessages: params.placeholderMessages }),
-          ...(params.html === undefined ? {} : { html: [params.html], htmlComplete: true }),
-          ...(params.css === undefined ? {} : { css: params.css, cssComplete: true }),
-          ...(params.jsFunctions === undefined ? {} : { jsFunctions: params.jsFunctions, jsFunctionsComplete: true }),
-          ...(params.jsExpressions === undefined ? {} : { jsExpressions: params.jsExpressions, jsExpressionsComplete: true }),
+          ...(params.initialHeight === undefined
+            ? {}
+            : { initialHeight: params.initialHeight }),
+          ...(params.placeholderMessages === undefined
+            ? {}
+            : { placeholderMessages: params.placeholderMessages }),
+          ...(params.html === undefined
+            ? {}
+            : { html: [params.html], htmlComplete: true }),
+          ...(params.css === undefined
+            ? {}
+            : { css: params.css, cssComplete: true }),
+          ...(params.jsFunctions === undefined
+            ? {}
+            : { jsFunctions: params.jsFunctions, jsFunctionsComplete: true }),
+          ...(params.jsExpressions === undefined
+            ? {}
+            : {
+                jsExpressions: params.jsExpressions,
+                jsExpressionsComplete: true,
+              }),
           generating: false,
-          status: result ? result.error ? "failed" : "complete" : "interrupted",
+          status: result
+            ? result.error
+              ? "failed"
+              : "complete"
+            : "interrupted",
           ...(result?.error ? { error: result.error } : {}),
         },
       };
@@ -334,7 +450,9 @@ export interface OpenGenerativeUIMiddlewareOptions {
 }
 
 export class OpenGenerativeUIMiddleware extends Middleware {
-  constructor(private readonly options: OpenGenerativeUIMiddlewareOptions = {}) {
+  constructor(
+    private readonly options: OpenGenerativeUIMiddlewareOptions = {},
+  ) {
     super();
   }
 
@@ -366,7 +484,7 @@ export class OpenGenerativeUIMiddleware extends Middleware {
     return new Observable<BaseEvent>((subscriber) => {
       let heldRunFinished: EventWithState | null = null;
       // Track active generateSandboxedUi tool call IDs → their streaming parser
-      const activeParsers = new Map<string, ArgsParser>();
+      const activeParsers = new Map<string, LiveCall>();
       // Hold genui tool call events until the first activity event is emitted
       const heldToolCallEvents = new Map<string, BaseEvent[]>();
       const flushedToolCalls = new Set<string>();
@@ -385,13 +503,25 @@ export class OpenGenerativeUIMiddleware extends Middleware {
 
       const subscription = source.subscribe({
         next: (eventWithState) => {
-          const event = eventWithState.event.type === EventType.MESSAGES_SNAPSHOT
-            ? projectOpenGenerativeUIHistory(eventWithState.event as MessagesSnapshotEvent)
-            : eventWithState.event;
+          const event =
+            eventWithState.event.type === EventType.MESSAGES_SNAPSHOT
+              ? projectHistory(
+                  eventWithState.event as MessagesSnapshotEvent,
+                  activeParsers,
+                )
+              : eventWithState.event;
 
           if (heldRunFinished) {
             subscriber.next(heldRunFinished.event);
             heldRunFinished = null;
+          }
+
+          if (
+            event.type === EventType.RUN_FINISHED ||
+            event.type === EventType.RUN_ERROR
+          ) {
+            for (const { parser } of activeParsers.values()) parser.finish();
+            activeParsers.clear();
           }
 
           if (event.type === EventType.RUN_FINISHED) {
@@ -404,13 +534,39 @@ export class OpenGenerativeUIMiddleware extends Middleware {
             const startEvent = event as ToolCallStartEvent;
             if (startEvent.toolCallName === TOOL_NAME) {
               heldToolCallEvents.set(startEvent.toolCallId, [event]);
-              activeParsers.set(
-                startEvent.toolCallId,
-                new ArgsParser(startEvent.toolCallId, (activityEvent) => {
-                  subscriber.next(activityEvent);
-                  flushHeldEvents(startEvent.toolCallId);
-                }),
+              const owner = eventWithState.messages.find(
+                (message): message is AssistantMessage =>
+                  message.role === "assistant" &&
+                  !!message.toolCalls?.some(
+                    (call) => call.id === startEvent.toolCallId,
+                  ),
               );
+              const call = owner?.toolCalls?.find(
+                (call) => call.id === startEvent.toolCallId,
+              ) ?? {
+                id: startEvent.toolCallId,
+                type: "function" as const,
+                function: { name: startEvent.toolCallName, arguments: "" },
+              };
+              activeParsers.set(startEvent.toolCallId, {
+                owner: {
+                  ...owner,
+                  id:
+                    owner?.id ??
+                    startEvent.parentMessageId ??
+                    startEvent.toolCallId,
+                  role: "assistant",
+                  toolCalls: [],
+                },
+                call: { ...call, function: { ...call.function } },
+                parser: new ArgsParser(
+                  startEvent.toolCallId,
+                  (activityEvent) => {
+                    subscriber.next(activityEvent);
+                    flushHeldEvents(startEvent.toolCallId);
+                  },
+                ),
+              });
               return;
             }
           }
@@ -418,14 +574,21 @@ export class OpenGenerativeUIMiddleware extends Middleware {
           // Hold or emit TOOL_CALL_ARGS for genui tool calls
           if (event.type === EventType.TOOL_CALL_ARGS) {
             const argsEvent = event as ToolCallArgsEvent;
-            const parser = activeParsers.get(argsEvent.toolCallId);
-            if (parser) {
+            const live = activeParsers.get(argsEvent.toolCallId);
+            if (live) {
               if (!flushedToolCalls.has(argsEvent.toolCallId)) {
                 heldToolCallEvents.get(argsEvent.toolCallId)!.push(event);
               } else {
                 subscriber.next(event);
               }
-              parser.write(argsEvent.delta);
+              live.call = {
+                ...live.call,
+                function: {
+                  ...live.call.function,
+                  arguments: live.call.function.arguments + argsEvent.delta,
+                },
+              };
+              live.parser.write(argsEvent.delta);
               return;
             }
           }
@@ -433,16 +596,9 @@ export class OpenGenerativeUIMiddleware extends Middleware {
           // Hold or emit TOOL_CALL_END for genui tool calls
           if (event.type === EventType.TOOL_CALL_END) {
             const endEvent = event as { toolCallId: string } & BaseEvent;
-            const parser = activeParsers.get(endEvent.toolCallId);
+            const parser = activeParsers.get(endEvent.toolCallId)?.parser;
             if (parser) {
-              // Mark generation complete
-              const completeEvent: ActivityDeltaEvent = {
-                type: EventType.ACTIVITY_DELTA,
-                messageId: parser.messageId,
-                activityType: ACTIVITY_TYPE,
-                patch: [{ op: "add", path: "/generating", value: false }],
-              };
-              subscriber.next(completeEvent);
+              parser.finish();
 
               if (!flushedToolCalls.has(endEvent.toolCallId)) {
                 heldToolCallEvents.get(endEvent.toolCallId)!.push(event);
@@ -453,9 +609,23 @@ export class OpenGenerativeUIMiddleware extends Middleware {
             }
           }
 
+          if (event.type === EventType.TOOL_CALL_RESULT) {
+            const result = event as ToolCallResultEvent;
+            const live = activeParsers.get(result.toolCallId);
+            if (live)
+              live.result = {
+                id: result.messageId,
+                role: "tool",
+                toolCallId: result.toolCallId,
+                content: result.content,
+                metadata: result.metadata,
+              };
+          }
+
           subscriber.next(event);
         },
         error: (err) => {
+          for (const { parser } of activeParsers.values()) parser.finish();
           // Flush any held tool call events so downstream sees them before the error
           for (const [, events] of heldToolCallEvents) {
             for (const event of events) {
@@ -468,6 +638,7 @@ export class OpenGenerativeUIMiddleware extends Middleware {
             subscriber.next(heldRunFinished.event);
             heldRunFinished = null;
           }
+          activeParsers.clear();
           subscriber.error(err);
         },
         complete: () => {
@@ -485,7 +656,11 @@ export class OpenGenerativeUIMiddleware extends Middleware {
         },
       });
 
-      return () => subscription.unsubscribe();
+      return () => {
+        subscription.unsubscribe();
+        activeParsers.clear();
+        heldToolCallEvents.clear();
+      };
     });
   }
 }
