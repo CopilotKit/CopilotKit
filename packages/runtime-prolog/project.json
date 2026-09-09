@@ -49,8 +49,5 @@
       "dependsOn": []
     }
   },
-  "tags": [
-    "scope:runtime",
-    "lang:prolog"
-  ]
+  "tags": ["scope:runtime", "lang:prolog"]
 }
