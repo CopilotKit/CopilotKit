@@ -13,6 +13,7 @@ import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
+import { ɵdetachActiveRunWhenReady } from "../utils/active-run";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
@@ -417,8 +418,9 @@ export class RunHandler {
       // Detach any active run before connecting to avoid previous runs
       // interfering. This stays unconditional — both fresh restores and
       // churn re-connects need the previous socket torn down before a new
-      // one can open.
-      await agent.detachActiveRun();
+      // one can open. Wait out the onInitialize window so detach does not
+      // no-op while `activeRunDetach$` is still unset (#6937).
+      await ɵdetachActiveRunWhenReady(agent);
 
       // State reset + replay-cursor clear are gated on actually moving
       // to a different thread. On same-thread churn, the local
@@ -526,13 +528,16 @@ export class RunHandler {
     // was resolved in @ag-ui/client ≥0.0.42 where the catchError path
     // (ConnectNotImplementedError → EMPTY) always runs the finalize block,
     // so the completion promise now resolves reliably.
-    if (agent.detachActiveRun) {
-      try {
-        await agent.detachActiveRun();
-      } catch (error) {
-        continuationHandoff?.cancel();
-        throw error;
-      }
+    //
+    // `detachActiveRun()` itself no-ops while `activeRunDetach$` is still
+    // unset — the window after `isRunning = true` and before
+    // `await onInitialize` returns. Wait for the handle so we actually
+    // detach instead of starting a second concurrent run (#6937).
+    try {
+      await ɵdetachActiveRunWhenReady(agent);
+    } catch (error) {
+      continuationHandoff?.cancel();
+      throw error;
     }
 
     // Set up abort controller and agent.abortRun() intercept only for the
