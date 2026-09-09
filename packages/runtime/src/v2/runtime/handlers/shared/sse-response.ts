@@ -1,6 +1,10 @@
 import type { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Observable, Subscription } from "rxjs";
+import {
+  DEFAULT_SSE_KEEP_ALIVE_INTERVAL_SECONDS,
+  keepAliveSse,
+} from "./sse-keep-alive";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
 import { createLogger } from "../../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLogger } from "../../../../v1-deprecated/lib/logger";
@@ -41,6 +45,12 @@ interface CreateSseEventResponseParams {
   captureTelemetry?: boolean;
   runtimeErrorReporter?: RuntimeErrorReporter;
   startTime?: number;
+  /**
+   * Seconds of silence before a `: keep-alive` SSE comment is written.
+   * `0` disables the keep-alive. Defaults to
+   * {@link DEFAULT_SSE_KEEP_ALIVE_INTERVAL_SECONDS}.
+   */
+  keepAliveIntervalSeconds?: number;
 }
 
 export function createSseEventResponse({
@@ -55,6 +65,7 @@ export function createSseEventResponse({
   captureTelemetry = true,
   runtimeErrorReporter,
   startTime,
+  keepAliveIntervalSeconds = DEFAULT_SSE_KEEP_ALIVE_INTERVAL_SECONDS,
 }: CreateSseEventResponseParams): Response {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
@@ -266,7 +277,12 @@ export function createSseEventResponse({
     subscription?.unsubscribe();
   });
 
-  return new Response(stream.readable, {
+  const body =
+    keepAliveIntervalSeconds > 0
+      ? keepAliveSse(stream.readable, keepAliveIntervalSeconds * 1_000)
+      : stream.readable;
+
+  return new Response(body, {
     status: 200,
     headers: {
       "Content-Type": "text/event-stream",

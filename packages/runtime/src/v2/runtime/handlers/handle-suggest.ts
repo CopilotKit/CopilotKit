@@ -107,6 +107,7 @@ export async function handleSuggestAgent({
     request,
     agentId,
     captureTelemetry: false,
+    keepAliveIntervalSeconds: runtime.sseKeepAliveIntervalSeconds,
     observableFactory: () =>
       new Observable<BaseEvent>((subscriber) => {
         // Collected so `finalizeRunEvents` can append any missing terminal
