@@ -182,11 +182,13 @@ export const appConfig = {
 </FrontendOnly>
 
 <Callout type="info">
-The runtime constructs the agents it discovers from `runtimeUrl` inside
-CopilotKit, so the browser cannot attach middleware to those agents today.
-Follow
+CopilotKit constructs the agents it discovers from `runtimeUrl`, and no
+configuration option attaches middleware to them. The instances also belong to
+CopilotKit. A change to the runtime URL or the transport replaces one, and the
+replacement carries over the thread, the state and the messages, but not
+anything you attached yourself. Trim inside the runtime instead. Follow
 [CopilotKit#1482](https://github.com/CopilotKit/CopilotKit/issues/1482) for a
-configuration option that reaches them.
+supported browser-side option.
 </Callout>
 
 ## What trimming does not change
