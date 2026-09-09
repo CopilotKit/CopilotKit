@@ -21,6 +21,9 @@ env:
 
 jobs:
   build:
+    # Opt out of package snapshots without disabling tests. Pushes use a commit
+    # message marker; PRs use the same marker in their body (an HTML comment is OK).
+    if: ${{ !contains(github.event.head_commit.message, '[skip package preview]') && !contains(github.event.pull_request.body, '[skip package preview]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # NOTE: deliberately NOT in the `npm` environment. pkg-pr-new publishes to
