@@ -171,16 +171,18 @@ class MyAgent extends AbstractAgent {
 ```
 
 Nothing validates the return value, so returning `this` fails silently rather
-than throwing. The suggestion engine clones the provider agent and then writes
-a suggestion thread id, seeded messages, and seeded state onto the copy — given
-`this`, it writes all three onto the live agent the user is talking to.
-Delegate cloning aliases the same way.
+than throwing. On the stateful suggestions path the engine clones the provider
+agent and then writes a suggestion thread id, seeded messages, and seeded state
+onto the copy — given `this`, it writes all three onto the live agent the user
+is talking to. (With `suggestions: true` on a multi-route runtime it builds a
+fresh `HttpAgent` instead and never clones, so the fault is configuration
+dependent.) Delegate cloning aliases the same way.
 
 `useAgent` itself does not clone. It either binds the shared registry instance
 or registers a private proxied agent; see the two shapes above.
 
-Source: `packages/core/src/core/suggestion-engine.ts:244-249` (clone, then
-seed onto the copy); `packages/core/src/agent.ts:448-472`
+Source: `packages/core/src/core/suggestion-engine.ts:218-249` (the branch, the
+clone, then the seeding); `packages/core/src/agent.ts:448-472`
 (`ProxiedCopilotRuntimeAgent.clone`, the reference implementation — it rebuilds
 field by field, then copies threadId, state, and messages)
 
