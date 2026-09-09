@@ -1,7 +1,25 @@
 import type { RunAgentInput } from "@ag-ui/client";
+import type * as AgUiClient from "@ag-ui/client";
+import { EventType, HttpAgent } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  BuiltInAgent,
+  mockCustomStream,
+} from "../../../../agent/__tests__/agent-test-helpers";
+import { CopilotRuntime } from "../../core/runtime";
+import { handleRunAgent } from "../handle-run";
 import { parseConnectRequest, parseRunRequest } from "../shared/agent-utils";
+
+// Request parsing must work without adding a compatibility helper to AG-UI's
+// public API, including while this checkout still pins the previous preview.
+vi.mock("@ag-ui/client", async (importOriginal) => {
+  const client = {
+    ...(await importOriginal<typeof AgUiClient>()),
+  };
+  Reflect.deleteProperty(client, "normalizeLegacyRunAgentInput");
+  return client;
+});
 
 function inputBody(fields: object = {}) {
   return {
@@ -76,6 +94,80 @@ const legacyNullCases = [
     path: "messages.0.content.0.metadata",
   })),
 ];
+
+describe.each(["http", "built-in"])(
+  "legacy requests executed by a %s agent",
+  (kind) => {
+    it.each(legacyNullCases)(
+      "normalizes $name before execution and completes",
+      async ({ fields }) => {
+        const receivedInput = vi.fn<(input: unknown) => void>();
+        const agent =
+          kind === "http"
+            ? new HttpAgent({
+                url: "https://example.test/agent",
+                fetch: async (_url, init) => {
+                  if (typeof init?.body !== "string")
+                    throw new Error("Expected a JSON request body");
+                  const input = RunAgentInputSchema.parse(
+                    JSON.parse(init.body),
+                  );
+                  receivedInput(input);
+                  const ids = { threadId: input.threadId, runId: input.runId };
+                  const events = [
+                    { type: EventType.RUN_STARTED, ...ids },
+                    { type: EventType.RUN_FINISHED, ...ids },
+                  ];
+                  return new Response(
+                    events
+                      .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+                      .join(""),
+                    {
+                      headers: { "Content-Type": "text/event-stream" },
+                    },
+                  );
+                },
+              })
+            : new BuiltInAgent({
+                type: "custom",
+                factory: ({ input }) => {
+                  receivedInput(input);
+                  return mockCustomStream([]);
+                },
+              });
+        const runtime = new CopilotRuntime({ agents: { legacy: agent } });
+
+        const response = await handleRunAgent({
+          runtime,
+          request: requestFor(inputBody(fields)),
+          agentId: "legacy",
+        });
+
+        expect(response.status).toBe(200);
+        // The runtime SSE response can contain string chunks before a server
+        // adapter encodes them, matching the existing handler integration tests.
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let stream = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          stream +=
+            typeof value === "string"
+              ? value
+              : decoder.decode(value, { stream: true });
+        }
+        stream += decoder.decode();
+        expect(stream).toContain(EventType.RUN_FINISHED);
+        expect(stream).not.toContain(EventType.RUN_ERROR);
+        expect(receivedInput).toHaveBeenCalledTimes(1);
+        expect(
+          RunAgentInputSchema.safeParse(receivedInput.mock.calls[0][0]).success,
+        ).toBe(true);
+      },
+    );
+  },
+);
 
 describe.each(parsers)("$name request parsing", ({ parse }) => {
   it.each(legacyNullCases)(
