@@ -4,9 +4,19 @@ Same dynamic-schema A2UI setup as `a2ui_dynamic.py` (declarative-gen-ui), but
 with the toolkit's validate->retry recovery loop made *visible*. The two aimock
 pills drive the inner `render_a2ui` sub-agent two ways:
 
-  - HEAL pill: the model emits FREE-FORM / sloppy A2UI args (components and data
-    as JSON strings rather than structured arrays) — the toolkit heals them via
-    `parse_and_fix` into a valid surface in a single pass, which paints.
+  - HEAL pill: attempt 1 (aimock `sequenceIndex` 0) is structurally INVALID
+    (the root references a missing child) — the validate->retry loop rejects it
+    and retries; attempt 2 (`sequenceIndex` 1) is VALID and paints. A
+    NON-SEQUENCED fallback fixture serving that same valid surface follows the
+    two sequenced variants, so a REPEAT heal still paints: aimock buckets
+    `sequenceIndex` counters per `X-Test-Id` and never resets a bucket, and a
+    real browser sends no `X-Test-Id`, so slots 0 and 1 are spent by the first
+    heal. Without the fallback, later inner calls skipped both sequence gates
+    and fell through to the userMessage-only outer-emit fixture (which serves
+    `generate_a2ui`, not `render_a2ui`), so the recovery loop saw
+    `empty_components` on all 3 attempts and the demo painted the amber
+    "Couldn't generate the UI" card while this agent's narration still claimed
+    success. See `showcase/aimock/d6/langgraph-fastapi/a2ui-recovery.json`.
   - EXHAUST pill: every attempt is structurally invalid (the root references a
     missing child), so the validate->retry loop hits the cap and the tool
     returns the `a2ui_recovery_exhausted` hard-fail envelope, which the renderer

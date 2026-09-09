@@ -1,7 +1,7 @@
 {
  "_meta": {
   "description": "D6 fixtures for langgraph-fastapi / a2ui-recovery (A2UI error recovery)",
-  "_note": "Backend-owned A2UI (get_a2ui_tools, injectA2UITool=false). NO `context` match field: a real browser (the dojo) does not send x-aimock-context, so context-scoped fixtures would 404 in-browser; the recovery pills' prompts are UNIQUE per framework, so userMessage alone disambiguates. HEAL: seq 0 invalid -> retry -> seq 1 valid -> paints. EXHAUST: invalid every attempt -> exhausts. Mirrors langgraph-python/a2ui-recovery.json.",
+  "_note": "Backend-owned A2UI (get_a2ui_tools, injectA2UITool=false). NO `context` match field: a real browser (the dojo) does not send x-aimock-context, so context-scoped fixtures would 404 in-browser; the recovery pills' prompts are UNIQUE per framework, so userMessage alone disambiguates. HEAL: seq 0 invalid -> retry -> seq 1 valid -> paints. EXHAUST: invalid every attempt -> exhausts. Mirrors langgraph-python/a2ui-recovery.json. Repeat invocations: the HEAL sequenceIndex variants are followed by a NON-SEQUENCED fallback serving the same valid surface, so once slots 0 and 1 are spent (counters are per-X-Test-Id and never reset; a real browser sends no X-Test-Id) the inner render call still paints instead of falling through to the userMessage-only outer-emit fixture and exhausting. GOTCHAS.md's sanctioned repeat-invocation pattern.",
   "created": "2026-06-26"
  },
  "fixtures": [
@@ -34,6 +34,23 @@
     "toolCalls": [
      {
       "id": "call_d6_fa_recover_heal_good",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \"$4.2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - inner render_a2ui repeat-invocation FALLBACK. No sequenceIndex, ordered AFTER the two sequenced variants, serving the SAME valid surface as sequenceIndex 1. Load-bearing: aimock's sequenceIndex counters are bucketed per X-Test-Id and never reset within a bucket, and a real browser sends no X-Test-Id, so slots 0 and 1 are spent by the FIRST heal and every later heal skipped both gates and fell through to the userMessage-only outer-emit fixture below -- which serves generate_a2ui, not render_a2ui, so the recovery loop saw empty_components on all 3 attempts and painted the amber \"Couldn't generate the UI\" card while the narration still claimed success. With this fallback the first heal still stages invalid->retry->valid and every heal after it paints immediately. This is GOTCHAS.md's sanctioned repeat-invocation pattern (sequenceIndex variants + a non-sequenced fallback ordered after them) and the same stateless shape the EXHAUST pill above/below already uses.",
+   "match": {
+    "userMessage": "Put together a quarterly metrics overview and repair a malformed first attempt.",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_fa_recover_heal_good_repeat",
       "name": "render_a2ui",
       "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \"$4.2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
      }
