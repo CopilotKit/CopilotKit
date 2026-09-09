@@ -56,10 +56,11 @@ The callback uses `x-test-user-id` and `x-test-user-name`, with defaults `test-u
 These headers exist only in the test driver. They are not a production authentication scheme.
 The driver mounts the library without reimplementing routes, middleware, telemetry, or persistence.
 
-## Current coverage limit
+## Coverage
 
-The suite has 71 cases. These include 16 initial cases, 16 UI cases, and 18 additional analytics cases.
+The suite has 77 cases. These include 16 initial cases, 16 UI cases, and 18 additional analytics cases.
 Eleven runner cases, nine access cases, and one frontend-client case cover the remaining requirements.
+Six Inspector metadata cases cover discovery, independent module validation, action URLs, private responses, server credentials, and the five-second deadline.
 The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
 Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
 Seven cases cover legacy license identity, environment fallback, whitespace rules, standalone identity precedence, malformed tokens, and opt-out precedence.
@@ -89,7 +90,10 @@ Phoenix delivery lives in `runner/intelligence.ts`.
 Analytics contracts live in `telemetry/` and `packages/shared/src/telemetry/lambda-client.ts`.
 
 The fixture makes one deliberate security requirement stronger than a route stub:
-all runtimes must verify app-user ownership before exposing key-scoped inspector data.
+all runtimes must verify app-user ownership before exposing thread inspection data.
+Account display metadata remains public and uses server credentials with private no-store responses.
+Its source contract is `packages/shared/src/utils/inspector-metadata.ts` and the TypeScript SDK's `getInspectorMetadata` method.
+The public route follows `packages/runtime/src/v2/runtime/handlers/handle-inspector-metadata.ts`.
 The suite also requires trusted MCP HTTP headers, explicit session deletion, and blocked-method rejection before a connection.
 These MCP requirements improve the pinned TypeScript middleware and must apply to TypeScript too.
 Future case changes must cite their reference behavior or explain an intentional correction.
