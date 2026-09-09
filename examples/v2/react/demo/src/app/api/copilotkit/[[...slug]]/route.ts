@@ -83,7 +83,12 @@ class DemoAgent extends BuiltInAgent {
 
 const builtInAgent = new DemoAgent({
   model: determineModel(),
-  prompt: "You are a helpful assistant.",
+  prompt: [
+    "You are a helpful assistant.",
+    "When asked to write code, including linear regression in Python, output the complete code in a fenced Markdown code block using triple backticks and the language tag (```python for Python).",
+    "When asked for code followed by a chart, write the code and any explanation first, then invoke the showDemoChart tool in the same response. The request is not complete until you have called the tool: do not merely promise a chart, describe one, or stop after the code. Do not replace the code with a tool call or put the chart inside the code fence.",
+    "For a breakdown of keywords used in Python code, count actual Python keyword tokens in the code you just wrote, excluding comments and strings. Chart the three or four most frequent keywords present, with keyword labels and occurrence counts; label the chart as a top-keyword breakdown. Do not invent counts or use unrelated sample data.",
+  ].join("\n"),
   providerOptions: {
     ...(openAIApiKey
       ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
