@@ -26,4 +26,24 @@ describe("extract-starter", () => {
       fs.rmSync(outDir, { recursive: true, force: true });
     }
   });
+
+  it("disables agent follow-ups for rendered starter charts", () => {
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "starter-"));
+
+    try {
+      execFileSync(
+        "npx",
+        ["tsx", "extract-starter.ts", "claude-sdk-typescript", outDir],
+        execOptsFor(SCRIPTS_DIR),
+      );
+
+      const hooks = fs.readFileSync(
+        path.join(outDir, "src/hooks/use-showcase-hooks.tsx"),
+        "utf-8",
+      );
+      expect(hooks.match(/followUp: false/g)).toHaveLength(2);
+    } finally {
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
+  });
 });
