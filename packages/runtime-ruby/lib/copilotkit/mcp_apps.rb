@@ -12,9 +12,9 @@ module CopilotKit
     end
 
     def connect
-      result = rpc('initialize', 'protocolVersion' => @version,
+      result = rpc('initialize', { 'protocolVersion' => @version,
                    'capabilities' => { 'extensions' => { 'io.modelcontextprotocol/ui' => { 'mimeTypes' => ['text/html+mcp'] } } },
-                   'clientInfo' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0' })
+                   'clientInfo' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0' } })
       raise Error.new(502, 'Malformed MCP initialization') unless result.is_a?(Hash) && result['protocolVersion'].is_a?(String)
       @version = result['protocolVersion']
       rpc('notifications/initialized', nil, notification: true)
@@ -166,7 +166,7 @@ module CopilotKit
         begin
           arguments = JSON.parse(call[:args].empty? ? '{}' : call[:args])
           raise Error.new(400, 'MCP tool arguments must be an object') unless arguments.is_a?(Hash)
-          result = with_client(info[:server]) { |client| client.rpc('tools/call', 'name' => call[:name], 'arguments' => arguments) }
+          result = with_client(info[:server]) { |client| client.rpc('tools/call', { 'name' => call[:name], 'arguments' => arguments }) }
           content = result['content']
           text = content.is_a?(Array) ? content.filter_map { |entry| entry['text'] if entry.is_a?(Hash) && entry['type'] == 'text' }.join("\n") : ''
           yield({ 'type' => 'TOOL_CALL_RESULT', 'messageId' => SecureRandom.uuid, 'toolCallId' => id, 'content' => text.empty? ? JSON.generate(content) : text })
