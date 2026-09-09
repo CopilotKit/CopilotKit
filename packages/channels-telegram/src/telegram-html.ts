@@ -14,7 +14,9 @@
  *   [text](url)      →  <a href="url">text</a>
  *   - bullet         →  •  bullet
  *   `code`           →  <code>code</code>
- *   ```…```          →  <pre>…</pre>
+ *   ```\n…```         →  <pre>…</pre>
+ *   ```lang\n…```     →  <pre><code class="language-lang">…</code></pre>
+ *   ```…``` (1 line)  →  <code>…</code>
  */
 
 /** Escape & < > " for use inside Telegram HTML text nodes and attributes. */
@@ -48,7 +50,11 @@ export function telegramHtml(input: string): string {
   let body = input.replace(
     /```([^\n`]*)\n([\s\S]*?)```/g,
     (_match, info: string, inner: string) => {
-      const lang = info.trim().split(/\s+/)[0] ?? "";
+      const rawLang = info.trim().split(/\s+/)[0] ?? "";
+      // Only a plausible language token becomes a class name. An arbitrary
+      // info string would otherwise land in the attribute (escaped, so not
+      // injectable, but meaningless to Telegram).
+      const lang = /^[\w+#.-]+$/.test(rawLang) ? rawLang : "";
       const escaped = escapeHtml(inner.replace(/\n$/, ""));
       codeRegions.push(
         lang

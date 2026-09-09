@@ -86,4 +86,21 @@ describe("telegramHtml: fenced code language tags (#6602)", () => {
   it("single-line ```code``` fences become inline <code>", () => {
     expect(telegramHtml("```code```")).toBe("<code>code</code>");
   });
+  it("keeps language tokens that contain +, -, . or #", () => {
+    expect(telegramHtml("```c++\nx\n```")).toBe(
+      '<pre><code class="language-c++">x</code></pre>',
+    );
+    expect(telegramHtml("```objective-c\nx\n```")).toBe(
+      '<pre><code class="language-objective-c">x</code></pre>',
+    );
+    expect(telegramHtml("```asp.net\nx\n```")).toBe(
+      '<pre><code class="language-asp.net">x</code></pre>',
+    );
+  });
+  it("falls back to plain <pre> when the info string is not a language token", () => {
+    // An arbitrary info string must not become a class name. It is escaped
+    // either way, so this is about not emitting a meaningless attribute.
+    expect(telegramHtml("```<script>\nx\n```")).toBe("<pre>x</pre>");
+    expect(telegramHtml('```a"b\nx\n```')).toBe("<pre>x</pre>");
+  });
 });
