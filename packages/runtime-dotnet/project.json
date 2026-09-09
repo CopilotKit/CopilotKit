@@ -6,7 +6,11 @@
     "pack": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "dotnet pack packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj --configuration Release --output packages/runtime-dotnet/src/bin/packages"
+        "commands": [
+          "dotnet pack packages/runtime-dotnet/sdk/CopilotKit.Intelligence.csproj --configuration Release --output packages/runtime-dotnet/src/bin/packages",
+          "dotnet pack packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj --configuration Release --output packages/runtime-dotnet/src/bin/packages"
+        ],
+        "parallel": false
       },
       "outputs": ["{projectRoot}/src/bin/packages"],
       "cache": false,
@@ -15,7 +19,11 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "dotnet run --project packages/runtime-dotnet/tests/Runtime.Tests.csproj"
+        "commands": [
+          "dotnet run --project packages/runtime-dotnet/sdk-tests/Intelligence.Tests.csproj",
+          "dotnet run --project packages/runtime-dotnet/tests/Runtime.Tests.csproj"
+        ],
+        "parallel": false
       },
       "cache": false,
       "dependsOn": []
@@ -23,16 +31,28 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "dotnet build packages/runtime-dotnet/driver/Runtime.Driver.csproj --configuration Release"
+        "commands": [
+          "dotnet build packages/runtime-dotnet/sdk/CopilotKit.Intelligence.csproj --configuration Release",
+          "dotnet build packages/runtime-dotnet/driver/Runtime.Driver.csproj --configuration Release"
+        ],
+        "parallel": false
       },
-      "outputs": ["{projectRoot}/src/bin", "{projectRoot}/driver/bin"],
+      "outputs": [
+        "{projectRoot}/sdk/bin",
+        "{projectRoot}/src/bin",
+        "{projectRoot}/driver/bin"
+      ],
       "cache": false,
       "dependsOn": []
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "dotnet build packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj -warnaserror"
+        "commands": [
+          "dotnet build packages/runtime-dotnet/sdk/CopilotKit.Intelligence.csproj -warnaserror",
+          "dotnet build packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj -warnaserror"
+        ],
+        "parallel": false
       },
       "cache": false,
       "dependsOn": []
@@ -40,7 +60,11 @@
     "check-types": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "dotnet build packages/runtime-dotnet/driver/Runtime.Driver.csproj -warnaserror"
+        "commands": [
+          "dotnet build packages/runtime-dotnet/sdk-tests/Intelligence.Tests.csproj -warnaserror",
+          "dotnet build packages/runtime-dotnet/driver/Runtime.Driver.csproj -warnaserror"
+        ],
+        "parallel": false
       },
       "cache": false,
       "dependsOn": []

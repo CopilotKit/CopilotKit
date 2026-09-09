@@ -4,6 +4,9 @@ Host the CopilotKit browser API in an ASP.NET Core application with .NET 9.
 The library implements the Intelligence Runner and sends agent events to the Intelligence gateway for persistence and replay.
 Agents can run in your .NET process or at a remote AG-UI endpoint.
 
+For scripts and workers, use the separate [Intelligence SDK](sdk/README.md).
+It provides direct thread, Memory, and annotation methods without an ASP.NET Core host or Runtime routes.
+
 ## Install from a local package
 
 The package requires the .NET 9 SDK and an ASP.NET Core host.
