@@ -825,6 +825,14 @@ const nextConfig: NextConfig = {
         destination: "/reference/v2/hooks/useSuggestions",
         permanent: true,
       },
+      // The v1 Python SDK class was renamed upstream (langgraph_agent.py ->
+      // langgraph_agui_agent.py, LangGraphAgent -> LangGraphAGUIAgent), so the
+      // generated reference page moved with it.
+      {
+        source: "/reference/v1/sdk/python/LangGraphAgent",
+        destination: "/reference/v1/sdk/python/LangGraphAGUIAgent",
+        permanent: true,
+      },
       // AI-slop placeholder pulled from nav until properly authored;
       // file stays on disk for rewrite.
       {
