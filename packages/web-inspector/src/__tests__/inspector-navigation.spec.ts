@@ -1340,11 +1340,11 @@ test("Home feature actions copy correlated onboarding prompts", async () => {
       expect(prompt).toContain(
         "never reveal credentials or send optional diagnostic feedback reports",
       );
-      expect(prompt).toContain(
-        "local validation proves A2UI works—not merely that the code compiles",
-      );
-      expect(prompt).toContain("A2UI guide");
-      expect(prompt).not.toContain("--intent");
+      // The A2UI route owns the guide link, the plan and the proof step. The
+      // button's whole job is to name the outcome.
+      expect(prompt).toContain("--intent add-a2ui");
+      expect(prompt).not.toContain("A2UI guide");
+      expect(prompt).not.toContain("not merely that the code compiles");
       const match = prompt.match(
         /--run ([A-Za-z0-9_-]{12}) --coding-agent <coding-agent-slug>/,
       );

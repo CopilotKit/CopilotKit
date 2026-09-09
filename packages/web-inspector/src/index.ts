@@ -98,7 +98,6 @@ import type {
 } from "./lib/inspector-metadata.js";
 import {
   buildHomeModel,
-  homeFeatureImplementationPrompt,
   runtimeConnectionNeedsAttention,
 } from "./lib/home-briefing.js";
 import type {
@@ -161,6 +160,7 @@ import {
   trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import {
+  createFeatureOnboardingPrompt,
   createOnboardingPrompt,
   createOnboardingRunId,
 } from "./lib/onboarding-prompt.js";
@@ -412,7 +412,6 @@ type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
   id: HomeFeaturePromptId;
   label: string;
-  docsUrl: string;
 }>;
 
 const LAUNCHER_SIGNALS: Readonly<
@@ -8144,9 +8143,7 @@ export class WebInspectorElement extends LitElement {
     if (!clipboard?.writeText) return false;
     try {
       await clipboard.writeText(
-        homeFeatureImplementationPrompt(service, {
-          onboardingRunId,
-        }),
+        createFeatureOnboardingPrompt(service.id, onboardingRunId),
       );
       return true;
     } catch {
@@ -18422,14 +18419,10 @@ export class WebInspectorElement extends LitElement {
         .setupActive=${this.isLearningSetupActive()}
         .copyState=${this.learningPromptCopyState}
         .recopyState=${this.learningPromptRecopyState}
-        .setupPrompt=${
-          this.getHomeFeaturePromptTarget("threads")
-            ? homeFeatureImplementationPrompt(
-                this.getHomeFeaturePromptTarget("threads")!,
-                { onboardingRunId: this.getOnboardingRunId() },
-              )
-            : ""
-        }
+        .setupPrompt=${createFeatureOnboardingPrompt(
+          "threads",
+          this.getOnboardingRunId(),
+        )}
         @learning-retry=${() =>
           this.refreshLearningSnapshot({
             preserve: this.learningSnapshot !== null,
