@@ -106,16 +106,29 @@ const VideoAttachment = memo(function VideoAttachment({
 });
 
 const DocumentAttachment = memo(function DocumentAttachment({
+  src,
   source,
   filename,
   className,
 }: {
+  src: string;
   source: InputContentSource;
   filename?: string;
   className?: string;
 }) {
+  const label = filename || source.mimeType || "Document attachment";
+
+  // `download` is honoured for same-origin, data: and blob: URLs. Browsers
+  // ignore it for cross-origin URLs unless the server sends
+  // `Content-Disposition: attachment`; `target="_blank"` keeps those from
+  // navigating the chat away and lets the file open in a new tab instead.
   return (
-    <div
+    <a
+      href={src}
+      download={filename ?? ""}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
       className={cn(
         "cpk:inline-flex cpk:max-w-full cpk:items-center cpk:gap-2 cpk:px-3 cpk:py-2 cpk:border cpk:border-border cpk:rounded-lg cpk:bg-muted",
         className,
@@ -127,7 +140,7 @@ const DocumentAttachment = memo(function DocumentAttachment({
       <span className="cpk:text-sm cpk:text-muted-foreground cpk:truncate">
         {filename || source.mimeType || "Unknown type"}
       </span>
-    </div>
+    </a>
   );
 });
 
@@ -148,6 +161,7 @@ export const CopilotChatAttachmentRenderer: React.FC<
     case "document":
       return (
         <DocumentAttachment
+          src={src}
           source={source}
           filename={filename}
           className={className}
