@@ -30,16 +30,16 @@ React Native's `useRenderTool` was previously an alias that forwarded to `useFro
 
 **Migration:**
 
-| Before | After |
-| --- | --- |
+| Before                                                                    | After                                                                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `useRenderTool({ name, description, parameters, handler, render }, deps)` | `useFrontendTool({ …identical object }, deps)` — the shim keeps this working with a warning this release |
-| renderer-only registration (previously impossible) | `useRenderTool({ name, parameters, render, agentId? }, deps)` |
-| wildcard registered a tool named `*` | `useRenderTool({ name: "*", render })` — now works like the web |
-| render props `{ args, status, … }` | `{ parameters, status, … }` — **not** covered by the shim; the render body still needs the rename |
-| `RenderToolProps<T>` (args-shaped) | `RenderToolProps<S>` (parameters-shaped, generic over schema) |
-| bare `RenderToolProps` | now requires the schema type argument (`TS2314`) |
-| `UseRenderToolOptions<T>` | gone — write the config inline |
-| `RenderToolFunction<T>` | gone — use the opt-in `FrontendToolRenderFunction<T>` from `/headless` to narrow renderer return types |
+| renderer-only registration (previously impossible)                        | `useRenderTool({ name, parameters, render, agentId? }, deps)`                                            |
+| wildcard registered a tool named `*`                                      | `useRenderTool({ name: "*", render })` — now works like the web                                          |
+| render props `{ args, status, … }`                                        | `{ parameters, status, … }` — **not** covered by the shim; the render body still needs the rename        |
+| `RenderToolProps<T>` (args-shaped)                                        | `RenderToolProps<S>` (parameters-shaped, generic over schema)                                            |
+| bare `RenderToolProps`                                                    | now requires the schema type argument (`TS2314`)                                                         |
+| `UseRenderToolOptions<T>`                                                 | gone — write the config inline                                                                           |
+| `RenderToolFunction<T>`                                                   | gone — use the opt-in `FrontendToolRenderFunction<T>` from `/headless` to narrow renderer return types   |
 
 Note that some call shapes (hoisted configs, spread props, and untyped/`@ts-nocheck` call sites) will not be caught by the compiler — the shim's development warning is the only signal for those, so audit them by hand. `status` also moves from the `ToolCallStatus` enum to core's string-literal union; this is not a break, as enum members remain assignable to their own literal types.
 
