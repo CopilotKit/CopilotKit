@@ -3,6 +3,7 @@ require 'json'
 require 'net/http'
 require 'uri'
 require 'securerandom'
+require 'thread'
 
 module CopilotKit
   # Safe platform error. Response bodies and credentials are not included.
@@ -72,11 +73,30 @@ module CopilotKit
       @api_key, @api_url = api_key.dup.freeze, api_url.sub(%r{/$}, '').freeze
       @runner_url, @client_url = runner_url.dup.freeze, client_url.dup.freeze
       @transport = transport || Platform.new(@api_url, api_key)
+      @listeners = { created: [], updated: [], deleted: [] }
+      @listener_mutex = Mutex.new
     end
 
     # Shared SDK transport used by Runtime. Credentials always come from this client.
     def request(method, path, payload = nil, headers = {})
-      @transport.request(method, path, payload, headers)
+      result = @transport.request(method, path, payload, headers)
+      notify_thread_mutation(method, path, payload, result)
+      result
+    end
+
+    # Register a creation listener; the returned Proc removes it.
+    def on_thread_created(&callback)
+      subscribe(:created, callback)
+    end
+
+    # Register a listener for thread updates and archives.
+    def on_thread_updated(&callback)
+      subscribe(:updated, callback)
+    end
+
+    # Register a listener with the deleted thread and explicit caller identity.
+    def on_thread_deleted(&callback)
+      subscribe(:deleted, callback)
     end
 
     # List a user's threads for one agent, retaining the platform pagination cursor.
@@ -183,6 +203,40 @@ module CopilotKit
     end
 
     private
+
+    # Synchronize registration without holding the mutex during application callbacks.
+    def subscribe(event, callback)
+      raise ArgumentError, 'A thread listener block is required' unless callback
+      @listener_mutex.synchronize do
+        @listeners[event] << callback unless @listeners[event].any? { |listener| listener.equal?(callback) }
+      end
+      -> { @listener_mutex.synchronize { @listeners[event].delete_if { |listener| listener.equal?(callback) } }; nil }
+    end
+
+    # Observe SDK and Runtime writes once; locks and subscriptions are not thread mutations.
+    def notify_thread_mutation(method, path, body, result)
+      target = %r{\A/api/threads/([^/?]+)\z}.match(path)
+      event = payload = nil
+      if (method == 'POST' && path == '/api/threads') || (method == 'PATCH' && target)
+        thread = result['thread'] if result.is_a?(Hash)
+        if thread.is_a?(Hash) && thread['id'].is_a?(String) && !thread['id'].strip.empty?
+          event = method == 'POST' ? :created : :updated
+          payload = thread
+        end
+      elsif method == 'DELETE' && target && body.is_a?(Hash) && body['userId'].is_a?(String) && body['agentId'].is_a?(String)
+        event = :deleted
+        payload = { 'threadId' => URI.decode_www_form_component(target[1]), 'userId' => body['userId'], 'agentId' => body['agentId'] }
+      end
+      return unless event
+      listeners = @listener_mutex.synchronize { @listeners[event].dup }
+      listeners.each do |callback|
+        begin
+          callback.call(payload)
+        rescue StandardError => error
+          warn "Intelligence thread #{event} listener failed (#{error.class})"
+        end
+      end
+    end
 
     def segment(value)
       raise ArgumentError, 'A nonempty identifier is required' unless value.is_a?(String) && !value.strip.empty?

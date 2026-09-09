@@ -41,6 +41,26 @@ It closes each connection after the call, does not retry requests, and does not 
 Pass the same SDK client to `CopilotKit::Runtime.new(intelligence: intelligence, identify_user: identify_user, agents: agents)` to mount Runtime routes.
 The Runtime borrows the SDK. Existing `api_key:` constructors remain valid.
 
+## Handle thread changes
+
+Register a block on the SDK:
+
+```ruby
+unsubscribe = intelligence.on_thread_created { |thread| puts thread.fetch('id') }
+# To stop this listener:
+unsubscribe.call
+```
+
+`on_thread_created` receives the canonical thread after creation.
+`on_thread_updated` receives the thread after an update or archive.
+`on_thread_deleted` receives `threadId`, `userId`, and `agentId` after deletion.
+Listeners receive changes from direct SDK calls and from a Runtime that shares the SDK.
+
+The SDK synchronizes registration across threads and calls listeners outside its mutex.
+Failed requests and concurrent-create conflicts emit no success event.
+A failed listener does not stop other listeners or replace a completed platform write.
+The SDK writes a warning with the event and exception class, without the exception message or thread payload.
+
 ## Install
 
 1. Add the gem from your checkout to your application's `Gemfile`:
