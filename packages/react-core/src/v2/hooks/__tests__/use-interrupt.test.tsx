@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInterrupt } from "../use-interrupt";
 import { useCopilotKit } from "../../context";
 import { useAgent } from "../use-agent";
-import type { Interrupt, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, Interrupt, RunAgentInput } from "@ag-ui/client";
+import { CopilotKitCore } from "@copilotkit/core";
+import { from } from "rxjs";
+import type { Observable } from "rxjs";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -34,6 +38,47 @@ type SubscriptionHandlers = {
   onRunFinalized?: (params: { input: TestRunInput }) => void;
   onRunFailed?: () => void;
 };
+
+/** Captures the wire input after CopilotKit and AG-UI have prepared it. */
+class InterruptingAgent extends AbstractAgent {
+  readonly inputs: RunAgentInput[] = [];
+
+  constructor(private readonly kind: "standard" | "legacy") {
+    super({ agentId: "test-agent", threadId: "test-thread" });
+  }
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    this.inputs.push(input);
+    const events: BaseEvent[] = [
+      {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+    ];
+    if (this.inputs.length === 1 && this.kind === "legacy") {
+      events.push({
+        type: EventType.CUSTOM,
+        name: "on_interrupt",
+        value: { question: "Proceed?" },
+      });
+    }
+    events.push({
+      type: EventType.RUN_FINISHED,
+      threadId: input.threadId,
+      runId: input.runId,
+      ...(this.inputs.length === 1 && this.kind === "standard"
+        ? {
+            outcome: {
+              type: "interrupt",
+              interrupts: [{ id: "approve-action", reason: "approval" }],
+            },
+          }
+        : {}),
+    });
+    return from(events);
+  }
+}
 
 describe("useInterrupt", () => {
   let runAgentMock: ReturnType<typeof vi.fn>;
@@ -195,6 +240,87 @@ describe("useInterrupt", () => {
       finalizeRun();
     });
   }
+
+  it.each(["resolve", "cancel"] as const)(
+    "%s sends a new wire runId while keeping the interrupted thread and interruptId",
+    async (action) => {
+      const agent = new InterruptingAgent("standard");
+      const core = new CopilotKitCore({});
+      mockUseAgent.mockReturnValue({ agent });
+      mockUseCopilotKit.mockReturnValue({
+        copilotkit: {
+          runAgent: core.runAgent.bind(core),
+          setInterruptElement: setInterruptElementMock,
+        },
+      });
+      function WireHarness() {
+        return useInterrupt({
+          renderInChat: false,
+          render: ({ resolve, cancel }) => (
+            <button
+              onClick={() =>
+                action === "resolve" ? resolve({ approved: true }) : cancel()
+              }
+            >
+              Respond
+            </button>
+          ),
+        });
+      }
+      render(<WireHarness />);
+      await act(async () => {
+        await core.runAgent({ agent, runId: "run-original" });
+      });
+      await act(async () => {
+        screen.getByText("Respond").click();
+      });
+      await waitFor(() => expect(agent.inputs).toHaveLength(2));
+      const resumed = agent.inputs[1]!;
+      expect(resumed.runId).toEqual(expect.any(String));
+      expect(resumed.runId).not.toBe("run-original");
+      expect(resumed.threadId).toBe("test-thread");
+      expect(resumed.resume).toEqual([
+        action === "resolve"
+          ? {
+              interruptId: "approve-action",
+              status: "resolved",
+              payload: { approved: true },
+            }
+          : { interruptId: "approve-action", status: "cancelled" },
+      ]);
+    },
+  );
+
+  it("keeps the legacy command.resume wire runId", async () => {
+    const agent = new InterruptingAgent("legacy");
+    const core = new CopilotKitCore({});
+    mockUseAgent.mockReturnValue({ agent });
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runAgent: core.runAgent.bind(core),
+        setInterruptElement: setInterruptElementMock,
+      },
+    });
+    render(<Harness renderInChat={false} />);
+    await act(async () => {
+      await core.runAgent({ agent, runId: "legacy-original" });
+    });
+    await act(async () => {
+      screen.getByTestId("interrupt").click();
+    });
+    await waitFor(() => expect(agent.inputs).toHaveLength(2));
+    expect(agent.inputs[1]).toMatchObject({
+      threadId: "test-thread",
+      runId: "legacy-original",
+      forwardedProps: {
+        command: {
+          resume: { approved: true, value: { question: "Proceed?" } },
+          interruptEvent: { question: "Proceed?" },
+        },
+      },
+    });
+    expect(agent.inputs[1]!.resume).toBeUndefined();
+  });
 
   it("subscribes on mount and unsubscribes on unmount", () => {
     const { unmount } = render(<Harness renderInChat={false} />);
@@ -867,7 +993,6 @@ describe("useInterrupt", () => {
 
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
-        runId: "standard-run",
         resume: [
           { interruptId: "int-1", status: "resolved", payload: { ok: true } },
         ],
@@ -886,7 +1011,6 @@ describe("useInterrupt", () => {
 
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
-        runId: "standard-run",
         resume: [{ interruptId: "int-1", status: "cancelled" }],
       });
     });
@@ -928,7 +1052,6 @@ describe("useInterrupt", () => {
       );
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
-        runId: "standard-run",
         resume: [
           {
             interruptId: "int-1",
@@ -958,7 +1081,7 @@ describe("useInterrupt", () => {
       expect(mockAgent.addMessage).not.toHaveBeenCalled();
     });
 
-    it("forwards the interrupting runId and suppresses duplicate resolves", async () => {
+    it("suppresses duplicate resolves without pinning the interrupting runId", async () => {
       const events: string[] = [];
       runAgentMock.mockImplementation(async () => {
         events.push("resume");
@@ -1008,7 +1131,6 @@ describe("useInterrupt", () => {
       expect(runAgentMock).toHaveBeenCalledTimes(1);
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
-        runId: "run-original",
         resume: [
           {
             interruptId: "int-run-id",
@@ -1019,7 +1141,7 @@ describe("useInterrupt", () => {
       });
     });
 
-    it("preserves each run ID when interrupt resolutions overlap", async () => {
+    it("preserves each interrupt ID when resolutions overlap", async () => {
       let releaseRunAgent!: () => void;
       const runAgentGate = new Promise<void>((resolve) => {
         releaseRunAgent = resolve;
@@ -1058,14 +1180,12 @@ describe("useInterrupt", () => {
       expect(runAgentMock).toHaveBeenCalledTimes(2);
       expect(runAgentMock).toHaveBeenNthCalledWith(1, {
         agent: mockAgent,
-        runId: "run-a",
         resume: [
           { interruptId: "int-1", status: "resolved", payload: { a: 1 } },
         ],
       });
       expect(runAgentMock).toHaveBeenNthCalledWith(2, {
         agent: mockAgent,
-        runId: "run-b",
         resume: [
           { interruptId: "int-2", status: "resolved", payload: { b: 2 } },
         ],
@@ -1126,7 +1246,6 @@ describe("useInterrupt", () => {
       });
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
-        runId: "standard-run",
         resume: [
           { interruptId: "int-1", status: "resolved", payload: { a: 1 } },
           { interruptId: "int-2", status: "resolved", payload: { b: 2 } },
