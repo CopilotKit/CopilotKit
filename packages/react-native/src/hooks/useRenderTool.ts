@@ -13,6 +13,7 @@ import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
 
 /**
  * TEMPORARY COMPATIBILITY SHIM — scheduled for removal in the next minor.
+ * Removal is tracked in CopilotKit/CopilotKit#6976 (Linear OSS-1148).
  *
  * ─── Why this exists at all ──────────────────────────────────────────────────
  *

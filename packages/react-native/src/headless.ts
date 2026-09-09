@@ -121,7 +121,8 @@ export type {
 
 // Render tool registration. `useRenderTool` is a TEMPORARY, deprecated
 // COMPATIBILITY SHIM over BOTH core hooks — routing rules and reasoning in
-// src/hooks/useRenderTool.ts — scheduled for removal in the next minor, after
+// src/hooks/useRenderTool.ts — scheduled for removal in the next minor (tracked
+// in CopilotKit/CopilotKit#6976, Linear OSS-1148), after
 // which this line goes back to a plain re-export from
 // @copilotkit/react-core/v2/headless. Contract and migration notes:
 // /reference/react-native/hooks/useRenderTool.

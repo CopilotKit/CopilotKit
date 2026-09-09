@@ -27,7 +27,7 @@ only the import path differs.
   forwarded to `useFrontendTool`, so it shipped one capability under the other's
   name. `@copilotkit/react-native` now exports `useRenderTool` as a **temporary
   compatibility shim** over react-core's two render-tool hooks — deprecated, and
-  scheduled for removal in the next minor.
+  scheduled for removal in the next minor ([#6976](https://github.com/CopilotKit/CopilotKit/issues/6976)).
 
   Your existing call still works. It is routed by shape, and warns in
   development when it carries a field only the old hook accepted:
