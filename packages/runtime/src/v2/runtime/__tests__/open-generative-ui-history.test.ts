@@ -336,6 +336,10 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
         content: "ok",
       } as BaseEvent,
       snapshot([call, later]),
+      snapshot([call, result, later]),
+      snapshot([call, result, later]),
+      snapshot([result, later]),
+      snapshot([call, { ...result, error: "Render failed" }, later]),
       snapshot([sandboxCall("live"), result]),
       {
         type: EventType.RUN_FINISHED,
@@ -379,7 +383,29 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
       htmlComplete: true,
       generating: false,
     });
-    expect(snapshots[3]).toEqual(
+    for (const current of snapshots.slice(2, 6)) {
+      expect(activities(current.messages)[0]?.content).toMatchObject({
+        html: ["<main>Live", "</main>"],
+        generating: false,
+        status: "complete",
+      });
+      const owner = current.messages.find(
+        (message) => message.id === "assistant",
+      );
+      expect(owner).toMatchObject({
+        toolCalls: [{ function: { arguments: prefix + '</main>"}' } }],
+      });
+      expect(
+        current.messages.filter((message) => message.id === "result"),
+      ).toHaveLength(1);
+    }
+    expect(activities(snapshots[6].messages)[0]?.content).toMatchObject({
+      status: "failed",
+      error: "Render failed",
+      generating: false,
+      html: ["<main>Live", "</main>"],
+    });
+    expect(snapshots[7]).toEqual(
       projectOpenGenerativeUIHistory(snapshot([sandboxCall("live"), result])),
     );
   });
