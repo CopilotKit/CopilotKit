@@ -231,10 +231,6 @@ function ChatContent({
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Show me an agent error",
-        message: "Show me an agent error.",
-      },
-      {
         title: "Show me a chart",
         message:
           "Please write a linear regression in python, and then show me a chart breaking down the keywords you used.",
@@ -242,6 +238,10 @@ function ChatContent({
       {
         title: "Ask for approval",
         message: "Ask for my approval before completing an action.",
+      },
+      {
+        title: "Show me an agent error",
+        message: "Show me an agent error.",
       },
     ],
     available: "always",
