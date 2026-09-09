@@ -326,15 +326,19 @@ function Chat({
                 }}
               >
                 <div style={{ width: "100%", maxWidth: 768 }}>
-                  <CopilotChatAssistantMessage
-                    message={{
-                      id: "local-inspector-preview",
-                      role: "assistant",
-                      content:
-                        "This local preview lets you open the CopilotKit Inspector directly from an assistant response. Hover over the wrench icon below, then click it to inspect the current run.",
-                    }}
-                  />
-                  <div style={{ marginTop: 32 }}>{input}</div>
+                  {selectedThreadId && (
+                    <CopilotChatAssistantMessage
+                      message={{
+                        id: "local-inspector-preview",
+                        role: "assistant",
+                        content:
+                          "This local preview lets you open the CopilotKit Inspector directly from an assistant response. Hover over the wrench icon below, then click it to inspect the current run.",
+                      }}
+                    />
+                  )}
+                  <div style={{ marginTop: selectedThreadId ? 32 : 0 }}>
+                    {input}
+                  </div>
                   <div
                     style={{
                       display: "flex",
