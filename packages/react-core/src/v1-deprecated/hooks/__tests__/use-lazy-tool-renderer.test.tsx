@@ -69,6 +69,35 @@ describe("useLazyToolRenderer", () => {
     expect(renderToolCall).toHaveBeenCalledTimes(2);
   });
 
+  it("renders a completed parallel tool call while another is still pending", () => {
+    const renderToolCall = vi.fn(({ toolCall, toolMessage }) => {
+      if (!toolMessage) return null;
+      return (
+        <div data-testid="tool-call">
+          {toolCall.function.name}:{toolMessage.content}
+        </div>
+      );
+    });
+    vi.mocked(useRenderToolCall).mockReturnValue(renderToolCall);
+
+    const messages = [
+      message,
+      {
+        id: "time-result",
+        role: "tool",
+        toolCallId: "time-call",
+        content: "noon",
+      },
+    ] as Message[];
+    const { result } = renderHook(() => useLazyToolRenderer());
+
+    render(result.current(message, messages)!());
+
+    expect(screen.getByText("get_time:noon")).toBeTruthy();
+    expect(screen.queryByText("get_weather:")).toBeNull();
+    expect(renderToolCall).toHaveBeenCalledTimes(2);
+  });
+
   it("returns null when none of the tool calls have a renderer", () => {
     vi.mocked(useRenderToolCall).mockReturnValue(vi.fn(() => null));
     const { result } = renderHook(() => useLazyToolRenderer());
