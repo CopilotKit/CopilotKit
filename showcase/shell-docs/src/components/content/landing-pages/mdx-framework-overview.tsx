@@ -4,6 +4,7 @@ import { FrameworkOverview } from "./framework-overview";
 import type {
   FrameworkOverviewData,
   LiveDemo,
+  OpsPlatformCTAData,
   SupportedFeature,
 } from "@/data/frameworks/types";
 
@@ -62,6 +63,26 @@ export interface MdxFrameworkOverviewProps {
   liveDemos?: LiveDemo[];
   tutorialLink?: string;
   /**
+   * Structured call-to-action rendered below the supported-features
+   * section. `FrameworkOverview` uses it as the fallback when no
+   * `afterFeatures` node is supplied.
+   */
+  cta?: OpsPlatformCTAData;
+  /**
+   * Free-form slot rendered below the supported-features section, taking
+   * precedence over `cta`. Authored `index.mdx` files pass JSX here, e.g.
+   * `afterFeatures={<OpsPlatformCTA … />}`.
+   *
+   * Both this and `cta` used to be missing from this interface while the
+   * authored MDX already set them, so `synthData` was built without them
+   * and the nodes were dropped without any error — the Intelligence CTA on
+   * the Microsoft Agent Framework pages never reached the page. Every prop
+   * an authored file can set has to be forwarded explicitly, because this
+   * adapter assembles `FrameworkOverviewData` field by field rather than
+   * spreading.
+   */
+  afterFeatures?: ReactNode;
+  /**
    * URL framework slug bound by the per-render override in
    * `app/[framework]/[[...slug]]/page.tsx` (see header comment). Authored
    * MDX never sets this directly — the render site injects it via the
@@ -100,6 +121,7 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
     architectureVideo: props.architectureVideo,
     liveDemos: props.liveDemos ?? [],
     tutorialLink: props.tutorialLink,
+    cta: props.cta,
   };
   return (
     <FrameworkOverview
@@ -107,6 +129,7 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
       currentFramework={currentFramework}
       hrefPrefix={props.hrefPrefix}
       iconOverride={props.frameworkIcon}
+      afterFeatures={props.afterFeatures}
     />
   );
 }
