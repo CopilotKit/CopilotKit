@@ -16,7 +16,11 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 // Context extracted to ../context.ts for cross-platform reuse (React Native)
-import { CopilotKitContext, LicenseContext } from "../context";
+import {
+  CopilotKitAgentIdContext,
+  CopilotKitContext,
+  LicenseContext,
+} from "../context";
 import type { CopilotKitContextValue } from "../context";
 export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
@@ -139,6 +143,15 @@ export interface CopilotKitProviderProps {
    */
   licenseToken?: string;
   properties?: Record<string, unknown>;
+  /**
+   * The id of the agent every `<CopilotChat>` under this provider talks to,
+   * unless a chat names its own with the `agentId` prop.
+   *
+   * This is the v2 replacement for the v1 `<CopilotKit agent="...">` prop. Set
+   * it here and you never need the v1 compatibility provider just to name an
+   * agent. Defaults to `"default"`.
+   */
+  agentId?: string;
   useSingleEndpoint?: boolean;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   selfManagedAgents?: Record<string, AbstractAgent>;
@@ -300,6 +313,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   humanInTheLoop,
   openGenerativeUI,
   enableInspector,
+  agentId,
   useSingleEndpoint,
   onError,
   a2ui,
@@ -1046,7 +1060,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             />
           )}
           <CopilotKitInspectorContextProvider value={inspectorContextValue}>
-            {children}
+            {/*
+              Publish the provider-level agent default. This is a bare string
+              context, NOT a `CopilotChatConfigurationProvider`: that provider
+              also owns a thread, so wrapping the application in one would give
+              every descendant chat the same inherited threadId. See the
+              `CopilotKitAgentIdContext` comment in `../context`.
+            */}
+            <CopilotKitAgentIdContext.Provider value={agentId}>
+              {children}
+            </CopilotKitAgentIdContext.Provider>
             {shouldRenderInspector ? (
               <CopilotKitInspector
                 core={copilotkit}
