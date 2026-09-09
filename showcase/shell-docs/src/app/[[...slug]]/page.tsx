@@ -7,10 +7,8 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DocsProductMap } from "@/components/docs-product-map";
-import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
-import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
-import { HeroStartActions } from "@/components/hero-start-commands";
+import { DocsSetupWizard } from "@/components/docs-setup-wizard";
+import { MapIntro } from "@/components/docs-map-parts";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -19,8 +17,6 @@ import {
   buildRootSurfaceNav,
   loadDoc,
 } from "@/lib/docs-render";
-import { compareByDisplayOrder } from "@/lib/framework-order";
-import { visibleIntegrations } from "@/lib/homepage-map";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
   getDocsFolder,
@@ -43,16 +39,6 @@ export const dynamic = "force-dynamic";
 // tree on `/` is identical to what the user sees after clicking any
 // Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = ROOT_FRAMEWORK;
-
-// The three starting points a visitor recognises themselves in. They are
-// reassurance, not navigation: one prompt serves all three, because the CLI
-// classifies the starting state itself. The Start section they used to link
-// at duplicated the hero and has been removed.
-const HERO_STARTING_POINTS = [
-  "New project",
-  "Existing app or agent",
-  "Already on CopilotKit → add Intelligence",
-];
 
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
@@ -115,26 +101,6 @@ function DocsOverview() {
       : buildFrameworkNav(docsFolder, integrationName, HOME_DEFAULT_FRAMEWORK);
   const pageTree = navTreeToPageTree(navTree, "");
 
-  // The home hero has no framework context, so its quickstart CTA is the
-  // framework picker dropdown (same accent treatment as the framework pages'
-  // direct quickstart link). The default framework sorts first; its
-  // quickstart lives at the root.
-  const quickstartOptions = visibleIntegrations()
-    .slice()
-    .sort((a, b) => {
-      if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
-      if (b.slug === HOME_DEFAULT_FRAMEWORK) return 1;
-      return compareByDisplayOrder(a.slug, b.slug);
-    })
-    .map((i) => ({
-      slug: i.slug,
-      name: i.slug === HOME_DEFAULT_FRAMEWORK ? "CopilotKit (Default)" : i.name,
-      logo: i.logo ?? null,
-      href:
-        i.slug === HOME_DEFAULT_FRAMEWORK
-          ? "/quickstart"
-          : `/${i.slug}/quickstart`,
-    }));
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
       <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
@@ -157,7 +123,9 @@ function DocsOverview() {
               </p>
               {/* Intelligence belongs in the hero: without it, the first
                   answer to "what is this" describes only half the product.
-                  Section 3 is where it is actually explained. */}
+                  Intelligence has no block of its own further down this
+                  page — this sentence is what keeps the page honest about
+                  the whole product. */}
               <p className="mt-3 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
                 Add{" "}
                 <Link
@@ -170,42 +138,28 @@ function DocsOverview() {
                 agents that learn from real use.
               </p>
             </div>
-            <div className="mt-7">
-              <HeroStartActions
-                prompt={
-                  <HeroOnboardingPromptButton surface="docs_landing_hero" />
-                }
-                quickstart={
-                  <HeroQuickstartDropdown options={quickstartOptions} />
-                }
-              />
-            </div>
-            {/* Quiet reassurance, not navigation — see the constant above for
-                why these are plain text rather than links.
-                A list, not a paragraph of spans: the middot separators are
-                `aria-hidden` so nobody hears "middle dot", and list items are
-                then what gives a screen reader the boundary between the three
-                labels. Spans alone announced them as one run-on string. */}
-            {/* `role="list"` is not redundant: Safari drops the list role when
-                `list-style: none` is set, which would undo the whole reason
-                this is a list. Inline items keep the single flowing line the
-                paragraph had — a flex row wrapped it onto two. */}
-            <ul
-              role="list"
-              className="mt-4 block list-none p-0 text-xs leading-relaxed text-[var(--text-muted)]"
-            >
-              {HERO_STARTING_POINTS.map((label, index) => (
-                <li key={label} className="inline">
-                  {index > 0 ? <span aria-hidden="true"> · </span> : null}
-                  {label}
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
 
+        {/* Placeholder for a product walkthrough video: no such recording
+            exists yet, and the only footage on hand today is per-feature
+            clips and a partner-page banner, neither of which belongs here.
+            Kept deliberately inert — no poster image, no play button — so
+            nobody mistakes it for a broken player. Swap this block for a
+            real embed once a walkthrough is recorded. */}
+        <div
+          className="mt-8 flex aspect-video w-full items-center justify-center border border-dashed border-[var(--border)] text-sm text-[var(--text-muted)] shell-docs-radius-surface"
+          data-testid="video-placeholder"
+        >
+          Product walkthrough video coming soon
+        </div>
+
         <div className="pt-8">
-          <DocsProductMap />
+          <MapIntro
+            heading="Set up CopilotKit for your project"
+            body="Answer three quick questions about your frontend, the features you want, and your agent backend. We turn your answers into a prompt — paste it into your coding agent, and it does the setup."
+          />
+          <DocsSetupWizard />
         </div>
       </div>
     </ShellDocsLayout>
