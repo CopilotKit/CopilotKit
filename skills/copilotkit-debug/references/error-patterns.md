@@ -74,7 +74,7 @@ Legacy error codes from the v1 runtime layer. These still surface in `@copilotki
 - **HTTP Status**: 400
 - **Severity**: CRITICAL (banner)
 - **Cause**: The provider was mounted with no `runtimeUrl` and no public key. This is a **CopilotKit Cloud** error code, not an Intelligence one — the public key routes a runtime-less client at `api.cloud.copilotkit.ai`.
-- **Resolution**: Set `runtimeUrl`. Intelligence is configured on the runtime via `INTELLIGENCE_API_KEY`, so no client-side key is involved.
+- **Resolution**: Set `runtimeUrl`. Intelligence is configured on the runtime via `CPK_INTELLIGENCE_API_KEY`, so no client-side key is involved.
 
 ### UPGRADE_REQUIRED_ERROR
 

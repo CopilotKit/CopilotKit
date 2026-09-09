@@ -22,7 +22,9 @@ connect or disconnect Intelligence.
 
 Do not reach for `publicApiKey` or `publicLicenseKey` for this. Those props
 route a runtime-less client at **CopilotKit Cloud**
-(`api.cloud.copilotkit.ai`), which is a different product.
+(`api.cloud.copilotkit.ai`), a different product. `publicLicenseKey` is also
+read as an advisory licence signal for `selfManagedAgents`, which only warns
+and is never enforced. Neither role configures Intelligence.
 
 ## The CLI flow
 
@@ -43,14 +45,16 @@ There is no `copilotkit auth` command. The command is `login`.
 ## What the CLI writes
 
 ```
-INTELLIGENCE_API_URL=https://...
-INTELLIGENCE_GATEWAY_WS_URL=wss://...
-INTELLIGENCE_API_KEY=cpk_...
+CPK_INTELLIGENCE_API_KEY=cpk_...
 ```
 
-Keep `INTELLIGENCE_API_KEY` server-side. It is a runtime key for the selected
-project, not a frontend token, so it takes **no** `NEXT_PUBLIC_` or `VITE_`
-prefix. A prefixed copy would ship the credential in the browser bundle.
+`CPK_INTELLIGENCE_API_KEY` is the canonical name and the only one the CLI
+writes. Keep it server-side: it is a runtime key for the selected project, not
+a frontend token, so it takes **no** `NEXT_PUBLIC_` or `VITE_` prefix. A
+prefixed copy would ship the credential in the browser bundle.
+
+Do not set the platform URLs. They default to the managed hosts when omitted,
+so any value you supply can only replace a correct default with a worse one.
 
 ## Verifying the connection
 

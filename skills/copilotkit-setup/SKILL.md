@@ -403,12 +403,13 @@ If you need to pass `apiKey` explicitly, always source it from the environment (
 
 Skip this step only if the user chose self-hosted SSE in Step 2.
 
-Intelligence has two halves and they use different credentials. Getting them mixed up is the most common setup mistake here.
+Intelligence takes one credential and it is server-side. Nothing about it reaches the browser, and no provider prop configures it.
 
-| Credential                  | Where it lives | Secret? | Purpose                                       |
-| --------------------------- | -------------- | ------- | --------------------------------------------- |
-| Project API key (`cpk-...`) | Server only    | **Yes** | The runtime authenticates to Intelligence     |
-| Public license key          | Client         | No      | Enables licensed frontend features, telemetry |
+| Credential                  | Where it lives | Secret? | Purpose                                   |
+| --------------------------- | -------------- | ------- | ----------------------------------------- |
+| Project API key (`cpk-...`) | Server only    | **Yes** | The runtime authenticates to Intelligence |
+
+Do not reach for `publicApiKey` or `publicLicenseKey`. Those route a runtime-less client at CopilotKit Cloud, a different product.
 
 1. **Sign in and create a project.**
 
@@ -430,17 +431,13 @@ Intelligence has two halves and they use different credentials. Getting them mix
 
    `CPK_INTELLIGENCE_API_KEY` is the canonical name — it is what `copilotkit project select` provisions and what every CopilotKit surface documents. `COPILOTKIT_API_KEY` is a deprecated alias that some older examples still read.
 
-3. **Set the public license key** and pass it to the provider. Unlike the API key, this one is a public project identifier and is meant to reach the client:
+3. **Confirm the wiring.**
 
-   ```
-   NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=<your-license-key>
-   ```
-
-   ```tsx
-   <CopilotKit runtimeUrl="/api/copilotkit">
+   ```bash
+   npx copilotkit verify
    ```
 
-   The `NEXT_PUBLIC_`/`VITE_` prefix is required because the key is read on the client.
+   It reports whether a project is selected, whether the key loads and authenticates, whether the runtime is actually using the credential, and whether the runtime serves the thread routes saved threads need.
 
 4. **Confirm durable threads actually work.** Send a message, restart the dev server, and reload. The thread should still be there. If it is not, the runtime is still in SSE mode -- check that `intelligence` is passed and that no `runner` overrides it.
 
@@ -466,7 +463,7 @@ For a new managed Teams app, create the Channel draft in Intelligence first and 
 
 Keep these in mind as you wire up a real deployment:
 
-- **Secrets stay server-side and in env vars.** Provider API keys (`OPENAI_API_KEY`, etc.) are read by the runtime/agent on the server. Never expose them to the browser, hardcode them, or commit them -- store them in environment variables or a secret manager (see Step 5). The CopilotKit license key is the one client-side value, and it is a public project identifier, not a secret.
+- **Secrets stay server-side and in env vars.** Provider API keys (`OPENAI_API_KEY`, etc.) are read by the runtime/agent on the server. Never expose them to the browser, hardcode them, or commit them -- store them in environment variables or a secret manager (see Step 5). CopilotKit Intelligence adds no client-side value: its credential is read by the runtime on the server.
 - **Treat all chat input as untrusted.** Chat messages flow from the frontend through the `CopilotRuntime` endpoint into the agent's LLM context. They are user-controlled and can attempt prompt injection -- including indirect injection via content the agent fetches (web pages, documents, tool results). Do not assume the model will only do what your system prompt intends.
 - **Give server-side tools least privilege.** A `defineTool`'s `execute` function runs with your server's authority. Validate every argument (the `zod` `parameters` schema is your first gate), scope each tool to the narrowest action it needs, and enforce your own authorization inside the `execute` function for anything sensitive (database writes, payments, file access) rather than trusting that the model called it correctly.
 - **Authenticate the runtime endpoint.** The runtime route is a public HTTP endpoint by default. Put your app's auth in front of it so only authorized users can drive the agent and consume provider credits.

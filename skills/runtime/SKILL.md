@@ -83,7 +83,7 @@ export default { fetch: handler };
 ## Invariants and gotchas (load-once, before any reference)
 
 - `createCopilotRuntimeHandler` is the canonical primitive. `createCopilotExpressHandler` / `createCopilotHonoHandler` exist but are **avoid at all costs** — delegate from Express/Hono routes to the fetch primitive instead.
-- Intelligence credentials are server-side. The CLI writes `INTELLIGENCE_API_KEY` into the runtime's environment; no client-side key is involved.
+- Intelligence credentials are server-side. The CLI writes `CPK_INTELLIGENCE_API_KEY` into the runtime's environment; no client-side key is involved.
 - Intelligence mode auto-wires `IntelligenceAgentRunner`. Passing both `runner` and `intelligence` to `CopilotRuntime` is rejected at construction.
 - Intelligence mode targets the managed CopilotKit Intelligence service (`api.cloud.copilotkit.ai`) and is **not self-hostable**.
 - `hooks.onRequest` runs **before** `beforeRequestMiddleware` (hook-based middleware wins for Response short-circuits). `beforeRequestMiddleware` runs **after** `hooks.onRequest` (see `fetch-handler.ts:136-147`).

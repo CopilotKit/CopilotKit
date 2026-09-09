@@ -100,18 +100,21 @@ export function App({ children }: { children: React.ReactNode }) {
 
 ### An SPA still needs a runtime URL
 
-There is no client-only path. `runtimeUrl` is required: without it the
-provider throws in production. CopilotKit Intelligence is configured on the
-runtime, not on the provider — the CLI writes `INTELLIGENCE_API_KEY` into the
-server's environment and it never reaches the browser.
+There is no client-only path to Intelligence. Intelligence is configured on
+the runtime, never on the provider: the CLI writes `CPK_INTELLIGENCE_API_KEY`
+into the server's environment and it never reaches the browser. So the
+provider needs `runtimeUrl`.
+
+Mounted with none of `runtimeUrl`, a Cloud public key, or dev-only local
+agents, the provider throws in production and warns in development.
 
 ```tsx
 // Point at wherever the runtime is served from, same origin or not.
 <CopilotKit runtimeUrl="https://api.example.com/api/copilotkit" />
 ```
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:524-535`
-(the throw, and the endpoint resolution)
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:524-536`
+(the throw, then the endpoint resolution)
 
 ## Core Patterns
 
@@ -129,7 +132,7 @@ export function AuthTokenSync({ token }: { token: string | null }) {
   const { copilotkit } = useCopilotKit();
   useEffect(() => {
     // setHeaders is an overwrite, not a merge — spread the current headers so
-    // entries set elsewhere (e.g. the public license key) survive. A `null`
+    // entries set elsewhere (a tenant id, a trace header) survive. A `null`
     // value clears that header, so logging out removes `Authorization` instead
     // of sending an empty one.
     copilotkit.setHeaders({
@@ -239,10 +242,12 @@ Correct:
 <CopilotKit runtimeUrl="/api/copilotkit" />
 ```
 
-`agents__unsafe_dev_only` and `selfManagedAgents` are aliases for the same
-dev-only mechanism and ship any embedded credentials to the browser bundle.
-Never use either for production agents. A runtime is the only supported
-production path.
+Both props put agent instances in the browser bundle, along with any
+credentials they close over. They are not the same thing:
+`agents__unsafe_dev_only` is the free local-dev escape hatch, while
+`selfManagedAgents` is an Enterprise Intelligence tier feature that warns
+(advisory only, never enforced) when used without a license key. Neither is a
+production path for an agent holding a secret; a runtime is.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:156,497`
 
