@@ -10,23 +10,40 @@ somebody else owns — a server-side tool, or, with `name: "*"`, every tool call
 that has no renderer of its own. It does not register a tool: nothing is
 advertised to the model and nothing becomes callable.
 
-The hook exported from `@copilotkit/react-native` **is** react-core's
-`useRenderTool`, re-exported unchanged. React Native has no render-tool API of
-its own, so this page and the [React (V2)
-`useRenderTool`](/reference/v2/hooks/useRenderTool) document the same hook; only
-the import path differs.
+That contract is react-core's, so this page and the [React (V2)
+`useRenderTool`](/reference/v2/hooks/useRenderTool) describe the same behaviour;
+only the import path differs.
 
 <Callout type="warn" title="Registering a tool is a different hook">
   If you want the agent to be able to *call* your function and draw its UI, that
   is [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) — it
   accepts `description`, `handler` and `render`, and it advertises the tool to
-  the model on every run. `useRenderTool` does neither: no `description`, no
-  `handler`, nothing offered to the model.
+  the model on every run. A renderer-only registration does neither: nothing
+  offered to the model, nothing callable.
+</Callout>
 
+<Callout type="warn" title="On React Native this name is a deprecated shim">
   React Native used to export a **local** hook under this name whose whole body
   forwarded to `useFrontendTool`, so it shipped one capability under the other's
-  name. See [Migrating from the old React Native
-  `useRenderTool`](#migrating-from-the-old-react-native-userendertool).
+  name. `@copilotkit/react-native` now exports `useRenderTool` as a **temporary
+  compatibility shim** over react-core's two render-tool hooks — deprecated, and
+  scheduled for removal in the next minor.
+
+  Your existing call still works. It is routed by shape, and warns in
+  development when it carries a field only the old hook accepted:
+
+  - `name: "*"` always registers a **renderer-only** fallback, whatever else the
+    config carries. The old fields are ignored, and warned about.
+  - otherwise, a config carrying `description` or `handler` is routed to
+    `useFrontendTool` — a tool *and* its renderer, which is what the old hook
+    did — and warned about.
+  - otherwise, react-core's `useRenderTool`, silently: that is the call this
+    page documents.
+
+  See [Migrating from the old React Native
+  `useRenderTool`](#migrating-from-the-old-react-native-userendertool) for the
+  warnings, the two things that still fail to compile, and what to change the
+  call to.
 </Callout>
 
 <Callout type="info">
@@ -79,6 +96,13 @@ useRenderTool<S extends StandardSchemaV1>(
 `S` is the **schema** type, not the parsed argument object — the shape of
 `props.parameters` inside `render` is inferred from it.
 
+Both overloads additionally accept `description` and `handler` for as long as the
+shim is in place. Both are `@deprecated`, both route the call to
+`useFrontendTool` on the named overload, both are ignored on the wildcard, and
+supplying either warns in development. They are not part of the contract this
+page documents — see [Migrating from the old React Native
+`useRenderTool`](#migrating-from-the-old-react-native-userendertool).
+
 ## Parameters
 
 <PropertyReference name="config" type="object" required>
@@ -107,6 +131,12 @@ useRenderTool<S extends StandardSchemaV1>(
     matters on React Native: `FlatList` cannot render a bare string, so a
     renderer that returned one would typecheck and then throw at runtime. This
     hook's signature rejects it.
+
+    [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool)'s `render`
+    is **not** narrowed this way — it is a `React.ComponentType`, so it returns
+    `ReactNode` and a bare string compiles there. Annotate that renderer with
+    [`FrontendToolRenderFunction<T>`](/reference/react-native/hooks/useFrontendTool#the-render-type-react-native-needs)
+    to get the same protection.
   </PropertyReference>
 
   <PropertyReference name="agentId" type="string">
@@ -150,6 +180,11 @@ It is a three-arm union discriminated on `status`. `parameters` is
 `string` only on the complete arm. Narrow on `status` before reading
 `parameters` fields or `result`.
 
+`S` has **no default**, so the type argument is required: a bare
+`RenderToolProps` is `TS2314: Generic type 'RenderToolProps' requires 1 type
+argument(s)`. Pass the schema's type — `RenderToolProps<typeof mySchema>` — or,
+for a renderer with no schema of its own, `RenderToolProps<z.ZodTypeAny>`.
+
 <PropertyReference name="name" type="string">
   The tool name being rendered.
 </PropertyReference>
@@ -158,7 +193,7 @@ It is a three-arm union discriminated on `status`. `parameters` is
   Unique ID of this tool call.
 </PropertyReference>
 
-<PropertyReference name="parameters" type="Partial<T> | T">
+<PropertyReference name="parameters" type="Partial<InferSchemaOutput<S>> | InferSchemaOutput<S>">
   Tool-call arguments, typed from your `parameters` schema: partial on the
   in-progress arm (the agent is still writing the call), complete on the
   executing and complete arms.
@@ -418,18 +453,78 @@ function ToolCallStage({ agentId = "default" }: { agentId?: string }) {
 React Native used to export a **local** hook under this name. It was not
 react-core's `useRenderTool`: its whole body forwarded to react-core's *other*
 hook, `useFrontendTool`, so it registered a tool **and** a renderer while
-carrying the renderer-only hook's name. `@copilotkit/react-native` now
-re-exports react-core's hook directly and has no render-tool API of its own.
+carrying the renderer-only hook's name.
 
-| Before (RN) | After |
-| --- | --- |
-| `useRenderTool({ name, description, parameters, handler, render }, deps)` | `useFrontendTool({ …identical object }, deps)` — rename only |
-| renderer-only registration: impossible | `useRenderTool({ name, parameters, render, agentId? }, deps)` — `parameters` required on a named renderer |
-| wildcard: registers a tool named `*` | `useRenderTool({ name: "*", render })` — works, same as web; the one case that takes no schema |
-| render props `{ args, status, … }` | `{ parameters, status, … }` |
-| `RenderToolProps<T>` (args-shaped, generic over parsed args) | `RenderToolProps<S>` (parameters-shaped, generic over schema) |
-| `UseRenderToolOptions<T>` | gone — write the config inline (`RenderToolConfig` is core-internal) |
-| `RenderToolFunction<T>` | gone |
+That hook is now a **deprecated compatibility shim** rather than a removed API.
+`@copilotkit/react-native` still exports `useRenderTool`; it owns no render-tool
+registry of its own, and every path through the shim delegates to one of
+react-core's two hooks. **Your existing call still works this release.** The shim
+is scheduled for removal in the **next minor**, so this is a migration you have
+one release to do rather than one you must finish before upgrading.
+
+### What your existing call does this release
+
+The shim routes by the shape of the config, and the route is fixed at the
+component's first render:
+
+| Your call | Routed to | Warns in development |
+| --- | --- | --- |
+| `name: "*"`, whatever else the config carries | react-core's `useRenderTool` — a **renderer-only** fallback | yes, if `description`, `handler` or `parameters` is present (all three are ignored on this path) |
+| any other name, carrying `description` or `handler` | `useFrontendTool` — the tool **and** its renderer, which is what the old hook did | yes |
+| any other name, carrying neither | react-core's `useRenderTool` | no — this is the call this page documents |
+
+The wildcard rule is unconditional on purpose. `description` was **required** on
+the old hook, so every wildcard renderer anyone ever wrote necessarily carries
+it; routing "has the old fields" to `useFrontendTool` would recreate the old
+`*`-named-tool bug for exactly the people who had been trying to use the
+wildcard.
+
+The warning names what it received, which hook the call was routed to, and what
+to change the call to. For a named tool:
+
+```text
+[CopilotKit] `useRenderTool({ name: "showWeather" })` from @copilotkit/react-native
+received `description`, `handler`. Those are TOOL fields, so this call was routed to
+`useFrontendTool` — the hook that registers a tool AND its renderer, which is what
+the old React Native `useRenderTool` did. React Native's `useRenderTool` is a
+temporary compatibility shim (deprecated, scheduled for removal in the next minor).
+Rename the call to `useFrontendTool` (same config object; render props rename `args`
+to `parameters`). If you only meant to supply UI for a tool somebody else owns, drop
+`description`, `handler` and keep `useRenderTool`.
+```
+
+For a wildcard it says instead that the fields were **ignored**, that no tool
+named `*` is registered or advertised to the model, and that a real frontend tool
+needs a real name and `useFrontendTool`.
+
+It fires **once per distinct tool name** — from an effect, not from the render
+path — and only outside production. See [What the warning does not
+cover](#what-the-warning-does-not-cover).
+
+A config whose shape *changes* between renders (`handler: enabled ? fn :
+undefined`) keeps the route it was first registered under, because a hook cannot
+be called conditionally unless the condition is stable for the component's
+lifetime. That is reported rather than acted on: you get a separate warning
+saying the call "changed shape between renders" and that it stays where it
+started. Call the hook you actually want instead of varying `description` /
+`handler`.
+
+### What to change, and by when
+
+All of this is due before the next minor, when the shim goes away. Two rows are
+compile errors **today**, so the compiler will bring you here for those two
+whether or not you read this page first.
+
+| Before (old RN hook) | Change it to | Where it stands today |
+| --- | --- | --- |
+| `useRenderTool({ name, description, parameters, handler, render }, deps)` | `useFrontendTool({ …identical object }, deps)` — rename only | still registers the tool *and* the renderer, through the shim; warns |
+| renderer-only registration: impossible (`description` was required) | `useRenderTool({ name, parameters, render, agentId? }, deps)` — `parameters` required on a named renderer | works, and is silent |
+| wildcard: registers a tool named `*` | `useRenderTool({ name: "*", render })` — the one case that takes no schema | already renderer-only; `description` / `handler` / `parameters` are ignored and warned about |
+| render props `{ args, status, … }` | `{ parameters, status, … }` | **`TS2339: Property 'args' does not exist on type 'RenderToolProps<…>'`.** The shim restores the old *config* fields, not the old render-prop names. (The wildcard overload types its props as `any`, so `args` still compiles there.) |
+| `RenderToolProps<T>` (args-shaped, generic over parsed args) | `RenderToolProps<S>` (parameters-shaped, generic over schema) | re-exported from react-core |
+| bare `RenderToolProps` — RN's had `T = Record<string, unknown>` | `RenderToolProps<typeof mySchema>` | **`TS2314: Generic type 'RenderToolProps' requires 1 type argument(s)`.** core's `S` has no default, so the natural spelling for an untyped renderer no longer compiles |
+| `UseRenderToolOptions<T>` | gone — write the config inline (`RenderToolConfig` is core-internal) | not reintroduced by the shim |
+| `RenderToolFunction<T>` | for a `useRenderTool` renderer, nothing: the hook already declares `render` as `ReactElement \| null`. For a `useFrontendTool` renderer, [`FrontendToolRenderFunction<T>`](/reference/react-native/hooks/useFrontendTool#the-render-type-react-native-needs) | not reintroduced under its old name |
 
 There is no exported config type to annotate a call with, and that is deliberate
 rather than an oversight. `RenderToolConfig` — core's internal name for the
@@ -441,33 +536,29 @@ describes calls the compiler refuses. Write the config as an inline object liter
 and let the overload infer it. `RenderToolProps<S>` **is** exported, and is what
 you annotate a standalone render function with.
 
-**A type-checked call site that writes its old fields inline in a fresh object
-literal — which is how essentially every call site in the wild is written — fails
-loudly at `check-types`.** That is the property the deletion was for:
-
-- `description` was **required** on the old hook and does not exist on core's
-  config, so TypeScript's excess-property check rejects the call with
-  `TS2769: No overload matches this call … 'description' does not exist in
-  type '{ name; parameters; render; agentId? }'`. This is what most consumers
-  hit, `name: "*"` call sites included.
-- The renamed render prop is `TS2339: Property 'args' does not exist`.
-
 If your call site wanted a **callable** tool, `useFrontendTool` is a rename and
 nothing else — it takes the same object, `description` and `handler` included.
 If it only ever drew UI for a tool the agent already had, drop `description`
 (and `handler`, if you passed one) and rename `args` to `parameters`.
 
-The wildcard is the case that changes behaviour for the better rather than
-merely compiling differently. `name: "*"` on the old hook registered a frontend
-tool **literally named** `*`, with no description and no schema, and advertised
-it to the model on every run. On core's hook `"*"` is what it is on the web: a
-schema-less fallback renderer that registers no tool at all.
+The wildcard is the case that changed behaviour for the better rather than merely
+routing differently. `name: "*"` on the old hook registered a frontend tool
+**literally named** `*`, with no description and no schema, and advertised it to
+the model on every run. Through the shim, and on core's hook afterwards, `"*"` is
+what it is on the web: a schema-less fallback renderer that registers no tool at
+all.
 
-### Three shapes the compiler does not catch
+### Three shapes the compiler cannot see
 
-Excess-property checking is what rejects the old `description`, and it reaches
-only properties **written inline** in a **fresh** object literal. Three shapes
-therefore slip through, and all three are worth auditing for by hand:
+These three are why the shim exists. A call whose old fields the compiler cannot
+see is a call that could reach react-core's renderer-only hook without anyone
+having been told — so the shim routes them the way the old hook did, and warns.
+They are still worth auditing by hand, for two reasons: the warning is
+[development-only](#what-the-warning-does-not-cover), and when the shim is
+removed all three go back to compiling clean and degrading silently.
+
+Excess-property checking is what would otherwise reject the old `description`,
+and it reaches only properties **written inline** in a **fresh** object literal:
 
 1. **A hoisted config object.** Assign the config to a variable first and pass
    the variable, and the excess `description` is no longer excess:
@@ -483,11 +574,14 @@ therefore slip through, and all three are worth auditing for by hand:
    useRenderTool(cfg); // compiles clean
    ```
 
-   The call silently becomes renderer-only: the tool stops being registered and
-   advertised to the model, and `handler` never runs again. A hoisted config
-   whose `render` *does* destructure `args` is still caught — the render
-   parameter is contravariant, so it fails `TS2769` on `render` — so this is
-   specifically the "hoisted **and** `render` ignores its props" combination.
+   Through the shim this call is routed to `useFrontendTool`, so the tool stays
+   registered and `handler` keeps running, and you get the warning above instead
+   of nothing. Without the shim it would silently become renderer-only: the tool
+   would stop being registered and advertised to the model, and `handler` would
+   never run again. A hoisted config whose `render` *does* destructure `args` is
+   caught by the compiler either way — the render parameter is contravariant, so
+   it fails on `render` — so this is specifically the "hoisted **and** `render`
+   ignores its props" combination.
 
 2. **Spread-carried fields.** Same cause, and it survives a fresh literal at the
    call site: excess-property checking does not reach a property that arrives via
@@ -502,19 +596,40 @@ therefore slip through, and all three are worth auditing for by hand:
    useRenderTool({ ...base, render: () => <WeatherCard city="Berlin" /> }); // compiles clean
    ```
 
-   Silently renderer-only, exactly as above — and, exactly as above, a `render`
-   that *does* destructure `args` is still caught on contravariance.
+   Routed and warned about exactly as above — and, exactly as above, a `render`
+   that *does* destructure `args` is caught on contravariance.
 
 3. **An untyped call site.** A plain-JavaScript screen, or one under
    `@ts-nocheck`, is checked by nothing at all. Here the runtime detail matters:
-   core's bridge spreads `{ ...props, parameters: props.args }` into your
-   renderer, so `args` **still arrives at runtime**. An old
-   `render: ({ args }) => …` keeps painting exactly as it did. The UI looks
-   identical while the tool has silently stopped existing.
+   both the shim's and core's renderer bridge spread
+   `{ ...props, parameters: props.args }` into your renderer, so `args`
+   **still arrives at runtime**. An old `render: ({ args }) => …` keeps painting
+   exactly as it did. The shim's warning is the only thing that distinguishes a
+   correctly routed call from a silently renderer-only one here — without it, the
+   UI looks identical while the tool has stopped existing.
 
 If you have JavaScript React Native screens, grep them for `useRenderTool` and
 decide per call site whether it wanted a tool (`useFrontendTool`) or only a
-renderer.
+renderer. The compiler will never do it for you on those files.
+
+### What the warning does not cover
+
+The routing is unconditional, but the notice is not. Four gaps, all worth
+knowing before you treat a quiet console as "nothing to migrate":
+
+- **Development only.** The warning is gated on
+  `process.env.NODE_ENV !== "production"`, so a release bundle prints nothing.
+  The call is still routed the same way — what a production build loses is the
+  signal, not the behaviour. A team that only ever runs release builds gets no
+  notice at all and has to audit by hand.
+- **Once per tool name, for the process's lifetime.** The dedup key is the tool
+  name and it lives as long as the module, so remounting the screen does not
+  re-warn. Scrollback that has been cleared has been lost.
+- **Only when an old field is actually present.** A call with neither
+  `description` nor `handler` is routed to react-core's `useRenderTool` and says
+  nothing, because there is nothing to say.
+- **Only for screens you actually mount.** The warning is emitted from an
+  effect, so a screen you did not navigate to in development never warns.
 
 ### `status` is not a break
 

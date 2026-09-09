@@ -93,8 +93,8 @@ import { AssistantMessage, UserMessage } from "@copilotkit/react-native";
 
 ## Hooks
 
-The package re-exports react-core's hooks unchanged — it has no render-tool API
-of its own. The two that draw tool calls are worth telling apart.
+The package re-exports react-core's hooks. The two that draw tool calls are
+worth telling apart.
 
 ### useFrontendTool
 
@@ -112,12 +112,34 @@ useFrontendTool({
 });
 ```
 
+Its `render` is a `React.ComponentType`, so the return type is `ReactNode` and a
+bare string typechecks — then throws _Text strings must be rendered within a
+`<Text>` component_ on a device. `FrontendToolRenderFunction<T>` is an opt-in
+type that narrows the return to `ReactElement | null`; annotate the renderer with
+it and the compiler rejects the string:
+
+```tsx
+import type { FrontendToolRenderFunction } from "@copilotkit/react-native";
+
+const renderChart: FrontendToolRenderFunction<{
+  data: Record<string, unknown>;
+}> = ({ args }) => <ChartView data={args.data ?? {}} />;
+
+useFrontendTool({
+  name: "showChart",
+  description: "Display a chart",
+  parameters: z.object({ data: z.record(z.unknown()) }),
+  render: renderChart,
+});
+```
+
 ### useRenderTool
 
 Registers a **renderer only** — nothing is advertised to the model and nothing
 becomes callable. Use it to draw a tool call somebody else owns, such as a
 server-side tool. Render props carry the parsed arguments as `parameters`, and
-`parameters` is required on a named renderer.
+`parameters` is required on a named renderer. `render` is already narrowed to
+`ReactElement | null` here, so no annotation is needed.
 
 ```tsx
 useRenderTool({
@@ -141,9 +163,20 @@ useRenderTool({
 });
 ```
 
+**Deprecated on React Native, for one release.** React Native used to export a
+_different_ hook under this name — one that registered a tool as well as a
+renderer — so `useRenderTool` here is currently a compatibility shim over both
+react-core hooks, scheduled for removal in the next minor. Your existing call
+still works: `name: "*"` always registers a renderer only, and any other name
+carrying `description` or `handler` is routed to `useFrontendTool` the way the
+old hook did. Either way it warns in development (dev only, once per tool name)
+and tells you what to rename the call to. One thing does not carry over: on a
+named renderer the render props are `parameters`, not `args`, so a typed
+`render: ({ args }) => …` fails with `TS2339` (the wildcard's props are untyped,
+so it still compiles there).
+
 See the [`useRenderTool` reference](https://docs.copilotkit.ai/reference/react-native/hooks/useRenderTool)
-for the full contract, including migration notes if you used React Native's older
-local hook of the same name.
+for the routing rules, the warnings, and the full migration table.
 
 ## Alternative Import Path
 
