@@ -45,8 +45,11 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
 };
 
 class DemoAgent extends BuiltInAgent {
-  constructor(private demoConfig: BuiltInAgentClassicConfig) {
+  private demoConfig: BuiltInAgentClassicConfig;
+
+  constructor(demoConfig: BuiltInAgentClassicConfig) {
     super(demoConfig);
+    this.demoConfig = demoConfig;
   }
 
   override run(input: RunAgentInput) {
