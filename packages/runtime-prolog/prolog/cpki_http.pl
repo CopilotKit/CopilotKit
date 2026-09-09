@@ -8,6 +8,7 @@
 :- use_module(library(uri)).
 :- use_module(library(uuid)).
 :- use_module(library(readutil)).
+:- use_module(library(option)).
 :- meta_predicate sse_events(+, 1), with_response(+, +, -, 0).
 
 %! value(+Dict, +Key, +Default, -Value) is det.
@@ -34,7 +35,8 @@ platform(C,M,P,B,Headers,R) :- atomics_to_string([C.api_url,P],URL),
 %  Never follow redirects with credentials; use none for a bodyless request.
 json_request(Method,URL,Body,Options,Status,Reply) :-
     (Body==none -> Post=[]; json_text(Body,Text),Post=[post(string('application/json',Text))]),
-    append([method(Method),status_code(Status),timeout(10),redirect(false),
+    option(timeout(Timeout),Options,10),
+    append([method(Method),status_code(Status),timeout(Timeout),redirect(false),
             request_header('Accept'='application/json')|Post],Options,Opts),
     with_response(URL,Opts,Stream,
         (set_stream(Stream,encoding(utf8)),read_string(Stream,4194305,Raw),string_length(Raw,N),

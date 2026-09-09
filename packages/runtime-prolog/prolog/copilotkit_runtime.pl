@@ -66,7 +66,7 @@ public_error(_,502,_{error:"Runtime dependency failed"}).
 runtime_dispatch(_,options,_,_,_,_,204,null) :- !.
 runtime_dispatch(R,M,['inspector-metadata'],_,_,_,Status,Metadata) :- !,
     method(M,get),configuration(R,C),
-    (catch(call_with_time_limit(5,(platform(C,get,'/api/inspector/metadata',none,Raw),inspector_metadata(Raw,Metadata))),_,fail)->Status=200;Status=204,Metadata=null).
+    (catch(call_with_time_limit(5,(platform(C,get,'/api/inspector/metadata',none,[timeout(5)],Raw),inspector_metadata(Raw,Metadata))),_,fail)->Status=200;Status=204,Metadata=null).
 runtime_dispatch(R,M,[info],_,_,_,200,Info) :- !,
     method(M,get),configuration(R,C),runtime_info(C,Info).
 runtime_dispatch(R,M,Segments,Q,B,Request,S,Reply) :-
