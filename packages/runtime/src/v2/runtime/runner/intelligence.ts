@@ -253,6 +253,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
       const channel = socket.channel(`ingestion:${input.runId}`, {
         thread_id: threadId,
         run_id: input.runId,
+        // New gateways defer disconnect errors while this runner rejoins and
+        // replays its pending events. Older gateways ignore the capability.
+        capabilities: ["runner_reconnect_v1"],
       });
 
       let cancelRun!: () => void;
@@ -306,7 +309,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
           return;
         }
         plannedRestart = plannedRestart || event?.code === 1012;
-        if (event?.code !== 1000 && state.socketReconnectWatchdog === null) {
+        // Phoenix does not retry a normal (1000) close. A live run still
+        // needs its transport; removeThread marks intentional cleanup inactive.
+        if (state.socketReconnectWatchdog === null) {
           state.socketReconnectWatchdog = setTimeout(() => {
             state.socketReconnectWatchdog = null;
             if (!state.isRunning || socket.isConnected()) {

@@ -192,3 +192,16 @@ See [Skill delivery](https://docs.copilotkit.ai/intelligence/learned-skills) for
 Explicit `containers` accepts 1–50 unique container IDs and sends one batch request for all sources that need a refresh. This also applies to a list with one entry.
 The server must support `POST /api/v1/learning/skills/batch` before you use this configuration. The SDK does not fall back to separate requests.
 Legacy `containerId` configuration keeps its existing single-container request. Both interfaces use the same authentication configuration.
+## Intelligence runner reconnects
+
+`IntelligenceAgentRunner` retains unacknowledged events and retries them with the
+same IDs after reconnect. An unexpected normal WebSocket close (`1000`) also
+reconnects while the run remains active. Intentional cleanup does not reconnect.
+The runner advertises `runner_reconnect_v1` when it joins the
+gateway. Supporting gateways allow 60 seconds for a replacement connection
+before recording `RUNNER_CONNECTION_DROPPED`. Older gateways ignore the added
+capability and keep their existing disconnect behavior.
+
+This recovers a lost WebSocket while the agent runtime remains alive. It does
+not restart an agent after its runtime process exits. The existing 60-second
+event acknowledgment deadline still applies.
