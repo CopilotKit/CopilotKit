@@ -99,7 +99,9 @@ public sealed partial class IntelligenceClient : IDisposable
                     throw new IntelligenceException(502, "Intelligence response exceeds 16 MiB");
                 bytes.Write(buffer, 0, count);
             }
-            return bytes.Length == 0 ? null : JsonNode.Parse(bytes.GetBuffer().AsSpan(0, (int)bytes.Length));
+            var result = bytes.Length == 0 ? null : JsonNode.Parse(bytes.GetBuffer().AsSpan(0, (int)bytes.Length));
+            NotifyThreadMutation(method, path, body, result);
+            return result;
         }
         catch (JsonException) { throw new IntelligenceException(502, "Invalid Intelligence response"); }
         catch (HttpRequestException) { throw new IntelligenceException(502, "Intelligence connection failed"); }

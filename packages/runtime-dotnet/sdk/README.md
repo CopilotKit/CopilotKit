@@ -60,6 +60,37 @@ The container must already exist.
 `GetOrCreateThreadAsync` returns the thread and a `Created` flag.
 After a concurrent creation conflict, the SDK reads the thread with the same user scope.
 
+## Observe thread changes
+
+Subscribe to events on the SDK instance that makes your requests:
+
+```csharp
+EventHandler<ThreadEventArgs> onCreated = (_, args) =>
+    Console.WriteLine(args.Thread["id"]);
+intelligence.ThreadCreated += onCreated;
+intelligence.ThreadUpdated += (_, args) => Console.WriteLine(args.Thread["name"]);
+intelligence.ThreadDeleted += (_, args) => Console.WriteLine(args.ThreadId);
+
+// Remove a subscription when its owner stops.
+intelligence.ThreadCreated -= onCreated;
+```
+
+Create and update events contain the canonical thread from the platform.
+Archive emits `ThreadUpdated`. Delete events contain `ThreadId`, `UserId`, and `AgentId`.
+`GetOrCreateThreadAsync` emits creation only when this client creates the thread.
+The same events cover Runtime mutations through a shared SDK instance.
+These events report this client's writes, not changes from other clients.
+
+Handlers run synchronously in registration order before the request returns.
+Keep handlers short and synchronous. Do not use `async void` handlers.
+Concurrent requests can call handlers concurrently. Protect shared application state.
+Each `+=` adds a registration. Each `-=` removes one matching registration.
+Changes to subscriptions take effect on the next notification.
+
+A handler exception does not fail a completed write or stop other handlers.
+The SDK reports the event name and exception type through `System.Diagnostics.Trace` warnings.
+It excludes exception messages and thread content from these warnings.
+
 ## Use Memory
 
 ```csharp

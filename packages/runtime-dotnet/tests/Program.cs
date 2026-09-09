@@ -92,6 +92,7 @@ Check(mcpWire.Calls.Count == previousCalls, "MCP forbidden proxy method causes n
 await TelemetryTests.RunAsync();
 await RunnerTests.RunAsync();
 await SdkInjectionTests.RunAsync();
+await SdkLifecycleTests.RunAsync();
 
 sealed class CaptureAgent : IRuntimeAgent
 {
