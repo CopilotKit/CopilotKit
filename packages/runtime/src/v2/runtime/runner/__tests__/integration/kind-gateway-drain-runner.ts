@@ -8,11 +8,13 @@ const chunks = Number(process.env.CPKI_KIND_EVENT_CHUNKS ?? "400");
 const resultPath = process.env.CPKI_KIND_RESULT_PATH;
 const closeMode = process.env.CPKI_KIND_CLOSE_MODE ?? "planned";
 const closeCodes: number[] = [];
+let interruptTransport: (() => void) | undefined;
 const NativeWebSocket = globalThis.WebSocket;
 
 class ObservedWebSocket extends NativeWebSocket {
   constructor(address: string | URL, protocols?: string | string[]) {
     super(address, protocols);
+    interruptTransport = () => this.close(1000, "test transport interruption");
     this.addEventListener("close", (event) => closeCodes.push(event.code));
   }
 }
@@ -45,6 +47,10 @@ class SlowLifecycleAgent extends AbstractAgent {
     } as BaseEvent);
 
     for (let index = 0; index < chunks; index += 1) {
+      if (closeMode === "transport" && index === 20) {
+        // Close only the transport. The gateway and agent remain alive.
+        interruptTransport?.();
+      }
       emit({
         type: EventType.TEXT_MESSAGE_CONTENT,
         messageId: "message-kind-handoff",
@@ -130,6 +136,11 @@ async function main(): Promise<void> {
   if (closeMode === "abrupt" && !closeCodes.includes(1006)) {
     throw new Error(
       `expected abnormal close 1006, observed ${closeCodes.join(",")}`,
+    );
+  }
+  if (closeMode === "transport" && !closeCodes.includes(1000)) {
+    throw new Error(
+      `expected transport close 1000, observed ${closeCodes.join(",")}`,
     );
   }
   if (agent.runCount !== 1) {
