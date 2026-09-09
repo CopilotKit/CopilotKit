@@ -1,17 +1,21 @@
 """Runtime-independent, asynchronous Intelligence API client."""
 
 import json
+import logging
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from types import TracebackType
 from typing import Any, Literal, Self
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from uuid import uuid4
 
 import httpx
 
 Json = dict[str, Any]
 Access = Literal["none", "read", "read-write"]
+ThreadListener = Callable[[Json], None]
+logger = logging.getLogger(__name__)
 
 
 class IntelligenceError(Exception):
@@ -89,10 +93,70 @@ class Intelligence:
         self.request_timeout = request_timeout
         self.http_client = http_client or httpx.AsyncClient()
         self._owns_http_client = http_client is None
+        self._listeners: dict[str, list[ThreadListener]] = {
+            "created": [],
+            "updated": [],
+            "deleted": [],
+        }
 
     async def __aenter__(self) -> Self:
         """Use this client within an asynchronous context."""
         return self
+
+    def on_thread_created(self, callback: ThreadListener) -> Callable[[], None]:
+        """Register a synchronous creation listener and return its unsubscribe function."""
+        return self._subscribe("created", callback)
+
+    def on_thread_updated(self, callback: ThreadListener) -> Callable[[], None]:
+        """Register a synchronous update or archive listener."""
+        return self._subscribe("updated", callback)
+
+    def on_thread_deleted(self, callback: ThreadListener) -> Callable[[], None]:
+        """Register a synchronous deletion listener with the explicit caller identity."""
+        return self._subscribe("deleted", callback)
+
+    def _subscribe(self, event: str, callback: ThreadListener) -> Callable[[], None]:
+        """Keep registration order and make repeated unsubscribe calls harmless."""
+        if not callable(callback):
+            raise TypeError("A thread listener must be callable")
+        if not any(listener is callback for listener in self._listeners[event]):
+            self._listeners[event].append(callback)
+
+        def unsubscribe() -> None:
+            self._listeners[event] = [
+                listener for listener in self._listeners[event] if listener is not callback
+            ]
+
+        return unsubscribe
+
+    def _notify_thread_mutation(
+        self, method: str, path: str, body: Json | None, result: Any
+    ) -> None:
+        """Notify SDK and Runtime mutations once, excluding locks and subscriptions."""
+        prefix = "/api/threads/"
+        thread_path = path.startswith(prefix) and "/" not in path[len(prefix) :]
+        event = None
+        payload = None
+        if (method == "POST" and path == "/api/threads") or (method == "PATCH" and thread_path):
+            thread = result.get("thread") if isinstance(result, dict) else None
+            if isinstance(thread, dict) and isinstance(thread.get("id"), str):
+                event = "created" if method == "POST" else "updated"
+                payload = thread
+        elif method == "DELETE" and thread_path and body is not None:
+            if isinstance(body.get("userId"), str) and isinstance(body.get("agentId"), str):
+                event = "deleted"
+                payload = {
+                    "threadId": unquote(path[len(prefix) :]),
+                    "userId": body["userId"],
+                    "agentId": body["agentId"],
+                }
+        if event is None or payload is None:
+            return
+        for callback in tuple(self._listeners[event]):
+            try:
+                callback(payload)
+            except Exception:
+                logger.exception("Intelligence thread %s listener failed", event)
 
     async def __aexit__(
         self,
@@ -135,12 +199,14 @@ class Intelligence:
             raise IntelligenceError(502, "Intelligence connection failed") from error
         if not 200 <= response.status_code < 300:
             raise IntelligenceError(response.status_code, "Intelligence request rejected")
-        if not response.content:
-            return None
-        try:
-            return response.json()
-        except ValueError as error:
-            raise IntelligenceError(502, "Invalid Intelligence response") from error
+        result = None
+        if response.content:
+            try:
+                result = response.json()
+            except ValueError as error:
+                raise IntelligenceError(502, "Invalid Intelligence response") from error
+        self._notify_thread_mutation(method, path, body, result)
+        return result
 
     async def _object(
         self,

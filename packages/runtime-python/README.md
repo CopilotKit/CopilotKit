@@ -54,6 +54,24 @@ Pass the same client to `IntelligenceRuntime(intelligence=intelligence, agents=a
 The Runtime borrows that client. Close the Runtime before leaving the SDK context.
 If you supply an `httpx.AsyncClient`, you retain ownership of its pool.
 
+## Handle thread changes
+
+Register synchronous listeners on the SDK:
+
+```python
+unsubscribe = intelligence.on_thread_created(lambda thread: print(thread["id"]))
+```
+
+`on_thread_created` receives the canonical thread after creation.
+`on_thread_updated` receives the thread after an update or archive.
+`on_thread_deleted` receives `threadId`, `userId`, and `agentId` after deletion.
+Each registration returns an unsubscribe function. Call it to stop that listener.
+
+Listeners receive changes from direct SDK calls and from a Runtime that shares the SDK.
+Failed requests and concurrent-create conflicts emit no success event.
+Listener exceptions do not stop other listeners or replace a successful platform response.
+The SDK reports these exceptions through the standard Python logging module.
+
 ## Install and start
 
 1. From the repository root, install the package and an ASGI server:
