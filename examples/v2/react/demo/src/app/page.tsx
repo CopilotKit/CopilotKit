@@ -292,19 +292,39 @@ function Chat({
           <button
             type="button"
             onClick={() => setIsThreadsMenuOpen((open) => !open)}
+            aria-label="Threads"
             aria-expanded={isThreadsMenuOpen}
             aria-haspopup="menu"
+            title="Threads"
             style={{
-              padding: "8px 14px",
-              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 36,
+              height: 36,
+              padding: 0,
+              borderRadius: "50%",
               border: `1px solid ${colors.border}`,
               backgroundColor: colors.muted,
               color: colors.text,
-              fontWeight: 600,
               cursor: "pointer",
             }}
           >
-            Threads
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.38 8.38 0 0 1 12.5 3h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              <path d="M12 8v6" />
+              <path d="M9 11h6" />
+            </svg>
           </button>
           {isThreadsMenuOpen && (
             <div
@@ -330,11 +350,11 @@ function Chat({
                 style={{
                   width: "100%",
                   padding: "9px 10px",
-                  border: 0,
+                  border: `1px solid ${colors.border}`,
                   borderRadius: 8,
-                  backgroundColor: colors.text,
-                  color: colors.bg,
-                  fontWeight: 600,
+                  backgroundColor: colors.muted,
+                  color: colors.text,
+                  fontWeight: 500,
                   textAlign: "left",
                   cursor: "pointer",
                 }}
