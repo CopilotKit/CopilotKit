@@ -63,16 +63,28 @@ export function aggregateRunUsage(
   }
 }
 
-/** Keeps the latest AG-UI terminal metadata and accumulates usage across runs. */
+/** Keeps terminal metadata and the last supplied string reason; accumulates usage. */
 export function collectStandardRunFinishedDetails(
   event: Record<string, unknown>,
   details: AgentRunFinishedDetails,
   fallbackIdentity: { provider?: string; model?: string } = {},
 ): void {
+  const previousFinishReason = details.metadata?.finishReason;
   if (isRecord(event.metadata)) {
     details.metadata = { ...event.metadata };
   } else {
     delete details.metadata;
+  }
+  // Match the previous top-level finishReason behavior: only a new string
+  // replaces the reason, while other metadata comes from the latest event.
+  if (
+    typeof details.metadata?.finishReason !== "string" &&
+    typeof previousFinishReason === "string"
+  ) {
+    details.metadata = {
+      ...details.metadata,
+      finishReason: previousFinishReason,
+    };
   }
 
   if (!Array.isArray(event.usage)) return;

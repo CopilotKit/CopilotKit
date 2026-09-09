@@ -227,14 +227,31 @@ test("custom factory runs retain standard usage on one outer terminal event", as
 });
 
 const latestMetadataCases = [
-  { finishReason: "stop", traceId: "last-turn" },
-  { traceId: "last-turn" },
-  undefined,
+  {
+    metadata: { finishReason: "stop", traceId: "last-turn" },
+    expectedMetadata: { finishReason: "stop", traceId: "last-turn" },
+  },
+  {
+    metadata: { finishReason: "" },
+    expectedMetadata: { finishReason: "" },
+  },
+  {
+    metadata: { traceId: "last-turn" },
+    expectedMetadata: { finishReason: "length", traceId: "last-turn" },
+  },
+  {
+    metadata: { finishReason: null, traceId: "last-turn" },
+    expectedMetadata: { finishReason: "length", traceId: "last-turn" },
+  },
+  {
+    metadata: undefined,
+    expectedMetadata: { finishReason: "length" },
+  },
 ];
 
 test.each(latestMetadataCases)(
-  "custom runs forward only the latest terminal metadata: %j",
-  async (metadata) => {
+  "custom runs retain the last supplied reason with the latest other metadata: %j",
+  async ({ metadata, expectedMetadata }) => {
     const agent = new BuiltInAgent({
       type: "custom",
       factory: () =>
@@ -255,11 +272,11 @@ test.each(latestMetadataCases)(
     });
 
     const finished = await runAndCollectFinished(agent);
-    expect(finished.metadata).toEqual(metadata);
+    expect(finished.metadata).toEqual(expectedMetadata);
   },
 );
 
-test.each([
+const tanStackTerminalCases = [
   {
     terminal: { finishReason: "stop", metadata: { traceId: "last-turn" } },
     expectedMetadata: { finishReason: "stop", traceId: "last-turn" },
@@ -270,12 +287,27 @@ test.each([
   },
   {
     terminal: { metadata: { traceId: "last-turn" } },
-    expectedMetadata: { traceId: "last-turn" },
+    expectedMetadata: { finishReason: "tool-calls", traceId: "last-turn" },
   },
-  { terminal: {}, expectedMetadata: undefined },
-])(
-  "TanStack standard usage retains terminal metadata and maps native finish reasons: %j",
-  async ({ terminal, expectedMetadata }) => {
+  { terminal: {}, expectedMetadata: { finishReason: "tool-calls" } },
+  {
+    terminal: { finishReason: "", metadata: { traceId: "last-turn" } },
+    expectedMetadata: { finishReason: "", traceId: "last-turn" },
+  },
+  {
+    terminal: { finishReason: null, metadata: { traceId: "last-turn" } },
+    expectedMetadata: { finishReason: "tool-calls", traceId: "last-turn" },
+  },
+];
+
+test.each(
+  tanStackTerminalCases.flatMap((testCase) => [
+    { ...testCase, usage: [{ inputTokens: 10 }] },
+    { ...testCase, usage: { promptTokens: 10 } },
+  ]),
+)(
+  "TanStack runs retain the last supplied reason with standard or native usage: %j",
+  async ({ terminal, expectedMetadata, usage }) => {
     const agent = new BuiltInAgent({
       type: "tanstack",
       factory: () =>
@@ -288,7 +320,7 @@ test.each([
           yield {
             type: "RUN_FINISHED",
             ...terminal,
-            usage: [{ inputTokens: 10 }],
+            usage,
           };
         })(),
     });
