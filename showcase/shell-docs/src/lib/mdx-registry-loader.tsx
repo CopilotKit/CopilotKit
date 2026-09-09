@@ -32,6 +32,7 @@ import {
 import { transformerMeta } from "./rehype-code-meta";
 import { inlineSnippets, convertTablesInJSX } from "./docs-render";
 import { resolveWithinDir } from "./safe-fs";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 
 const SNIPPETS_DIR = path.join(process.cwd(), "src/content/snippets");
 
@@ -128,7 +129,10 @@ export async function PartialLoader({
     <MDXRemote
       source={preprocessed}
       components={
-        components as React.ComponentProps<typeof MDXRemote>["components"]
+        {
+          ...components,
+          pre: MdxCodeBlock,
+        } as React.ComponentProps<typeof MDXRemote>["components"]
       }
       options={{
         scope,
