@@ -170,7 +170,9 @@ function ChatContent({
   const selectThread = useCallback(
     (threadId: string, isDraft: boolean) => {
       configuration?.setActiveThreadId(threadId, { explicit: !isDraft });
-      setDraftThreadId(isDraft ? threadId : undefined);
+      if (isDraft) {
+        setDraftThreadId(threadId);
+      }
       setIsThreadsMenuOpen(false);
     },
     [configuration],
