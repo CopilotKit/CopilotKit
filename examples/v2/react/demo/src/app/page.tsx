@@ -164,7 +164,6 @@ function ChatContent({
   const colors = themeColors[theme];
   const [isThreadsMenuOpen, setIsThreadsMenuOpen] = useState(false);
   const [draftThreadId, setDraftThreadId] = useState<string>();
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
   const [deletingThreadId, setDeletingThreadId] = useState<string>();
   const [deleteError, setDeleteError] = useState<string>();
   const [approvalResponses, setApprovalResponses] = useState<
@@ -218,7 +217,6 @@ function ChatContent({
       }
       if (draftThreadId === id) setDraftThreadId(undefined);
       if (configuration?.threadId === id) startNewThread();
-      setConfirmDeleteId(undefined);
     } catch (error) {
       setDeleteError(
         error instanceof Error
@@ -591,7 +589,15 @@ function ChatContent({
                 <div
                   key={id}
                   role="none"
-                  style={{ display: "flex", alignItems: "center" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    borderRadius: 8,
+                    backgroundColor:
+                      id === configuration?.threadId
+                        ? colors.muted
+                        : "transparent",
+                  }}
                 >
                   <button
                     type="button"
@@ -599,14 +605,15 @@ function ChatContent({
                     disabled={!!deletingThreadId}
                     onClick={() => selectThread(id, isDraft)}
                     style={{
-                      width: "100%",
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                       padding: "9px 10px",
                       border: 0,
                       borderRadius: 8,
-                      backgroundColor:
-                        id === configuration?.threadId
-                          ? colors.muted
-                          : "transparent",
+                      backgroundColor: "transparent",
                       color: colors.text,
                       textAlign: "left",
                       cursor: "pointer",
@@ -617,49 +624,39 @@ function ChatContent({
                   <button
                     type="button"
                     role="menuitem"
-                    aria-label={`${confirmDeleteId === id ? "Confirm delete" : "Delete"} ${label}`}
+                    aria-label={`Delete ${label}`}
+                    title="Delete thread"
+                    aria-busy={deletingThreadId === id}
                     disabled={!!deletingThreadId}
-                    onClick={() => {
-                      if (confirmDeleteId === id) void removeThread(id);
-                      else {
-                        setDeleteError(undefined);
-                        setConfirmDeleteId(id);
-                      }
-                    }}
+                    onClick={() => void removeThread(id)}
                     style={{
                       padding: "8px",
                       border: 0,
                       borderRadius: 6,
-                      background: colors.muted,
+                      background: "transparent",
                       color: colors.text,
-                      cursor: "pointer",
-                      fontSize: 12,
-                      whiteSpace: "nowrap",
+                      cursor: deletingThreadId ? "wait" : "pointer",
+                      opacity: deletingThreadId ? 0.35 : 0.6,
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {deletingThreadId === id
-                      ? "Deleting…"
-                      : confirmDeleteId === id
-                        ? "Confirm delete"
-                        : "Delete"}
-                  </button>
-                  {confirmDeleteId === id && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={!!deletingThreadId}
-                      onClick={() => setConfirmDeleteId(undefined)}
-                      style={{
-                        padding: 8,
-                        border: 0,
-                        background: "transparent",
-                        color: colors.text,
-                        cursor: "pointer",
-                      }}
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
                     >
-                      Cancel
-                    </button>
-                  )}
+                      <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" />
+                    </svg>
+                  </button>
                 </div>
               ))}
               {deleteError && (
