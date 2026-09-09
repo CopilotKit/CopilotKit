@@ -1881,7 +1881,11 @@ describe("IntelligenceAgentRunner", () => {
       );
       const ch = mockChannels[0];
       expect(ch.topic).toBe("ingestion:r-jc");
-      expect(ch.params).toEqual({ thread_id: threadId, run_id: "r-jc" });
+      expect(ch.params).toEqual({
+        thread_id: threadId,
+        run_id: "r-jc",
+        capabilities: ["runner_reconnect_v1"],
+      });
       ch.triggerJoin("ok");
       await eventsPromise;
     });
