@@ -151,6 +151,47 @@ interface InnerProps {
   content: OpenGenerativeUIContent;
 }
 
+/* Runs inside the sandbox once it is ready. Reports the content height to the
+   host whenever it changes (late fonts, charts, reflow when the host narrows).
+   A single measurement when generation ends could not follow those changes, and
+   it was skipped when the HTML and `generating: false` arrived in one render,
+   because the sandbox did not exist yet.
+   The body height override exists only for the duration of one measurement, so
+   generated full-height layouts (`html, body { height: 100% }`) keep working
+   between measurements. Uses body.scrollHeight because documentElement's is
+   clamped to the iframe viewport and can never shrink below it. */
+const CK_MEASURE_AND_WATCH = `
+(function() {
+  if (window.__ckResizeWatch) return;
+  var last = -1;
+  var raf = 0;
+  function measure() {
+    var s = document.createElement('style');
+    s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
+    document.head.appendChild(s);
+    var h = document.body.scrollHeight;
+    var cs = getComputedStyle(document.body);
+    h += parseFloat(cs.marginTop) || 0;
+    h += parseFloat(cs.marginBottom) || 0;
+    s.remove();
+    return Math.ceil(h);
+  }
+  function report() {
+    raf = 0;
+    var h = measure();
+    if (h < 1 || Math.abs(h - last) < 2) return;
+    last = h;
+    parent.postMessage({ type: "__ck_resize", height: h }, "*");
+  }
+  function schedule() { if (!raf) raf = requestAnimationFrame(report); }
+  window.__ckResizeWatch = new ResizeObserver(schedule);
+  window.__ckResizeWatch.observe(document.documentElement);
+  window.__ckResizeWatch.observe(document.body);
+  window.addEventListener('load', schedule);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+  report();
+})();
+`;
 function ensureHead(html: string): string {
   if (/<head[\s>]/i.test(html)) return html;
   return `<head></head>${html}`;
@@ -366,6 +407,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
             for (const code of queue) {
               sandbox.run(code);
             }
+            sandbox.run(CK_MEASURE_AND_WATCH);
           });
         })
         .catch((err: unknown) => {
@@ -428,52 +470,23 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       }
     }, [content.jsExpressions?.length]);
 
-    // Effect 4 — One-shot height measurement (fires once when generation completes)
-    // Uses body.scrollHeight (not documentElement.scrollHeight) because the latter
-    // is clamped to the iframe viewport and can never shrink below the current size.
-    const generationDone = content.generating === false;
+    // Listen before the asynchronous sandbox creation. The observer starts after
+    // sandbox readiness and follows late content and host-width changes.
     useEffect(() => {
-      const sandbox = sandboxRef.current;
-      if (!generationDone || !sandbox) return;
-
-      let handled = false;
       const onMessage = (e: MessageEvent) => {
-        if (handled) return;
+        const sandbox = sandboxRef.current;
         if (
+          sandbox &&
           e.source === sandbox.iframe.contentWindow &&
-          e.data?.type === "__ck_resize"
-        ) {
-          handled = true;
+          e.data?.type === "__ck_resize" &&
+          typeof e.data.height === "number" &&
+          e.data.height > 0
+        )
           setAutoHeight(e.data.height);
-          window.removeEventListener("message", onMessage);
-        }
       };
       window.addEventListener("message", onMessage);
-
-      const measureOnce = `
-        (function() {
-          var s = document.createElement('style');
-          s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
-          document.head.appendChild(s);
-          var h = document.body.scrollHeight;
-          var cs = getComputedStyle(document.body);
-          h += parseFloat(cs.marginTop) || 0;
-          h += parseFloat(cs.marginBottom) || 0;
-          s.remove();
-          parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
-        })();
-      `;
-
-      if (sandboxReadyRef.current) {
-        sandbox.run(measureOnce);
-      } else {
-        pendingQueueRef.current.push(measureOnce);
-      }
-
-      return () => {
-        window.removeEventListener("message", onMessage);
-      };
-    }, [generationDone]);
+      return () => window.removeEventListener("message", onMessage);
+    }, []);
 
     const height = autoHeight ?? initialHeight;
 
