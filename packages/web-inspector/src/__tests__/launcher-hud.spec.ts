@@ -9,6 +9,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type {
+  InspectorLearningSnapshotV1,
   IntelligenceRuntimeInfo,
   RuntimeLicenseStatus,
   ThreadEndpointRuntimeInfo,
@@ -31,9 +32,12 @@ type Options = Readonly<{
   endpoints?: ThreadEndpointRuntimeInfo;
   intelligence?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
+  learningSnapshot?: InspectorLearningSnapshotV1;
+  learningStatus?: number;
 }>;
 
 class HudTestCore extends CopilotKitCore {
+  private readonly learningSupported: boolean;
   private readonly endpointsValue: ThreadEndpointRuntimeInfo | undefined;
   private readonly intelligenceValue: IntelligenceRuntimeInfo | undefined;
   private readonly licenseStatusValue: RuntimeLicenseStatus | undefined;
@@ -44,12 +48,17 @@ class HudTestCore extends CopilotKitCore {
       runtimeTransport: "rest",
       deferInitialConnection: true,
     });
+    this.learningSupported = options.learningSnapshot !== undefined;
     this.endpointsValue = options.endpoints;
     this.intelligenceValue =
       options.intelligence === true
         ? { wsUrl: "wss://intelligence.launcher-hud.test" }
         : undefined;
     this.licenseStatusValue = options.licenseStatus;
+  }
+
+  override get inspectorLearning(): boolean {
+    return this.learningSupported;
   }
 
   override get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
@@ -154,6 +163,11 @@ async function setup(options: Options = {}): Promise<{
           input instanceof Request ? input.url : String(input),
           window.location.href,
         ).href;
+        if (href.startsWith(`${RUNTIME_URL}/inspector-learning`)) {
+          return new Response(JSON.stringify(options.learningSnapshot), {
+            status: options.learningStatus ?? 200,
+          });
+        }
         if (href === ANNOUNCEMENT_URL) {
           return new Response(null, { status: 404 });
         }
@@ -519,4 +533,80 @@ test("focusing the launcher opens the HUD; Escape closes it", async () => {
   );
   await settle(inspector);
   expect(hudOpen(inspector)).toBe(false);
+});
+
+const configuredLearning: InspectorLearningSnapshotV1 = {
+  schemaVersion: 1,
+  projectKey: "project",
+  snapshotVersion: "1",
+  webAppOrigin: "https://app.copilotkit.ai",
+  configuration: {
+    state: "configured",
+    container: { id: "support", name: "Support" },
+  },
+  pendingThreadCount: 0,
+  pendingCandidateCount: 0,
+  run: { hasActiveRun: false, hasEverSucceeded: false, latest: null },
+  skillsPage: { page: 1, pageSize: 3, total: 0, totalPages: 0, items: [] },
+  insightsPage: { page: 1, pageSize: 4, total: 0, totalPages: 0, items: [] },
+  links: {
+    learning: "https://app.copilotkit.ai/learning",
+    candidates: null,
+    runs: null,
+  },
+};
+
+test("launcher shows configured Learning as enabled before any runs, without probing Memory", async () => {
+  const memoryProbe = vi.spyOn(CopilotKitCore.prototype, "getMemoryStore");
+  const { inspector, openHud } = await setup({
+    intelligence: true,
+    endpoints: ENABLED_ENDPOINTS,
+    learningSnapshot: configuredLearning,
+  });
+  await openHud();
+  await vi.waitFor(() => {
+    expect(
+      root(inspector)
+        .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
+        ?.getAttribute("data-enabled"),
+    ).toBe("true");
+  });
+  expect(
+    root(inspector)
+      .querySelector('[data-cpk-hud-row="threads"] [data-cpk-hud-toggle]')
+      ?.getAttribute("data-enabled"),
+  ).toBe("true");
+  expect(memoryProbe).not.toHaveBeenCalled();
+});
+
+test.each(["not_configured", "selection_required"] as const)(
+  "launcher does not show %s Learning as enabled",
+  async (state) => {
+    const { inspector, openHud } = await setup({
+      intelligence: true,
+      learningSnapshot: { ...configuredLearning, configuration: { state } },
+    });
+    await openHud();
+    await settle(inspector);
+    expect(
+      root(inspector)
+        .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
+        ?.getAttribute("data-enabled"),
+    ).toBe("false");
+  },
+);
+
+test("launcher does not treat an advertised endpoint with a failed Learning read as enabled", async () => {
+  const { inspector, openHud } = await setup({
+    intelligence: true,
+    learningSnapshot: configuredLearning,
+    learningStatus: 503,
+  });
+  await openHud();
+  await settle(inspector);
+  expect(
+    root(inspector)
+      .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
+      ?.getAttribute("data-enabled"),
+  ).toBe("false");
 });

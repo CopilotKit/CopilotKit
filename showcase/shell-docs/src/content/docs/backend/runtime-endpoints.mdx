@@ -23,40 +23,44 @@ mapping:
 
 <FrontendOnly frontend="react">
 
-| Provider                                 | `useSingleEndpoint` | Transport                                 | Needs handler | Route file                      |
-| ---------------------------------------- | ------------------- | ----------------------------------------- | ------------- | ------------------------------- |
-| `<CopilotKitProvider>`                   | omitted             | `auto` — detected from `/info`            | either        | matches the handler             |
-| `<CopilotKit>`                           | omitted             | `single` in released versions — see below | single-route  | `route.ts`, `POST`              |
-| `<CopilotKit>` or `<CopilotKitProvider>` | `{true}`            | `single`                                  | single-route  | `route.ts`, `POST`              |
-| `<CopilotKit>` or `<CopilotKitProvider>` | `{false}`           | `rest`                                    | multi-route   | `[[...slug]]/route.ts`, 4 verbs |
+| Provider                                 | `useSingleEndpoint` | Transport                          | Needs handler | Route file                      |
+| ---------------------------------------- | ------------------- | ---------------------------------- | ------------- | ------------------------------- |
+| `<CopilotKit>` or `<CopilotKitProvider>` | omitted             | `auto` — detected from the Runtime | either        | matches the handler             |
+| `<CopilotKit>` or `<CopilotKitProvider>` | `{true}`            | `single`                           | single-route  | `route.ts`, `POST`              |
+| `<CopilotKit>` or `<CopilotKitProvider>` | `{false}`           | `rest`                             | multi-route   | `[[...slug]]/route.ts`, 4 verbs |
 
 `<CopilotKit>` is a backward-compatible wrapper that renders
 `<CopilotKitProvider>` internally. Both are exported from
-`@copilotkit/react-core/v2`, but they do not treat an omitted
-`useSingleEndpoint` the same way, and that difference is what decides whether
-your app connects:
-
-- On `<CopilotKitProvider>`, omitting the prop gives `auto`: the client probes
-  `GET /info` and matches whichever mode your Runtime serves.
-- On `<CopilotKit>`, every released version still pins the flag to `true`
-  internally, so omitting it selects the **single-route** transport regardless
-  of what your Runtime serves. Against a multi-route handler that 404s.
-
-**So: with `<CopilotKit>` and a multi-route handler, pass
-`useSingleEndpoint={false}` explicitly.** The pin is removed on `main` and will
-ship in a future release, at which point the prop stays correct but stops being
-required — passing it is the forward-compatible choice either way.
+`@copilotkit/react-core/v2`, and since 1.70.2 both treat an omitted
+`useSingleEndpoint` the same way: the transport is `auto`, so the client probes
+the Runtime and matches whichever mode it serves.
 
 <Callout type="warn" title="Pinning the wrong mode 404s silently">
   Passing `useSingleEndpoint={true}` to a multi-route Runtime sends an envelope
   that matches no route, so the Runtime 404s while `GET /info` still returns 200
-  and the app looks connected. The same thing happens when you *omit* the prop
-  on `<CopilotKit>` in a released version, because that is what the pin above
-  does — the Runtime's error body names the fix in both cases.
+  and the app looks connected. The Runtime's error body names the fix.
+
+Before 1.70.2, `<CopilotKit>` pinned the flag to `true` internally, so omitting
+it selected the single-route transport and 404'd against a multi-route handler.
+On those versions, pass `useSingleEndpoint={false}` explicitly.
+
 </Callout>
 
 Both ship from the same package entry point, so moving between them is an import
-change, not a migration.
+change, not a migration. One prop does get renamed: `<CopilotKit>` names the
+agent with `agent`, and `<CopilotKitProvider>` names it with `agentId`.
+
+```tsx
+// v1 wrapper
+<CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+
+// v2 provider
+<CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
+```
+
+You can also name the agent per chat with `<CopilotChat agentId="my_agent">`, or
+for a subtree with `<CopilotChatConfigurationProvider agentId="my_agent">`. A
+provider-level `agentId` is the default that those two override.
 
 </FrontendOnly>
 

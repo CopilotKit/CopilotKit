@@ -50,12 +50,14 @@ const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
     "1.62.3": false,
     "1.68.1": false,
     "1.70.0": true,
+    "1.70.2": true,
   },
   "@copilotkit/react-core": {
     "1.62.2": false,
     "1.62.3": false,
     "1.68.1": false,
     "1.70.0": true,
+    "1.70.2": true,
   },
 } as const satisfies Readonly<
   Record<ManagedSdkPackageName, Readonly<Record<string, boolean>>>

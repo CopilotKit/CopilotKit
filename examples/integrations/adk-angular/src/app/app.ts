@@ -4,7 +4,7 @@ import {
   CopilotThreadsDrawer,
   registerFrontendTool,
 } from "@copilotkit/angular";
-import { LucideAngularModule, MessageCircle, X } from "lucide-angular";
+import { LucideMessageCircle, LucideX } from "@lucide/angular";
 import { z } from "zod";
 import { AGENT_ID } from "./app.config";
 import { MainContent } from "./main-content";
@@ -23,7 +23,8 @@ const DOCK_BREAKPOINT_PX = 1200;
     CopilotChat,
     CopilotThreadsDrawer,
     MainContent,
-    LucideAngularModule,
+    LucideMessageCircle,
+    LucideX,
   ],
   // Expose the theme on the HOST (an ancestor of both the layout and the
   // floating chat) via a demo-specific variable so the generative-UI weather
@@ -63,7 +64,7 @@ const DOCK_BREAKPOINT_PX = 1200;
           (click)="chatOpen.set(false)"
           aria-label="Close chat"
         >
-          <lucide-angular [img]="CloseIcon" [size]="20" />
+          <svg lucideX [size]="20"></svg>
         </button>
       </header>
       <copilot-chat [agentId]="AGENT_ID" />
@@ -79,7 +80,7 @@ const DOCK_BREAKPOINT_PX = 1200;
       (click)="chatOpen.set(!chatOpen())"
       [attr.aria-label]="chatOpen() ? 'Close chat' : 'Open chat'"
     >
-      <lucide-angular [img]="ChatIcon" [size]="24" />
+      <svg lucideMessageCircle [size]="24"></svg>
     </button>
   `,
   styles: [
@@ -212,8 +213,6 @@ export class App {
       : true,
   );
   /** lucide icons matching React's sidebar (X for close, MessageCircle to open). */
-  protected readonly CloseIcon = X;
-  protected readonly ChatIcon = MessageCircle;
   constructor() {
     // 🪁 Frontend tool: recolor the center panel (and, via --app-theme-color on
     // the host, the generative-UI weather card in the chat).

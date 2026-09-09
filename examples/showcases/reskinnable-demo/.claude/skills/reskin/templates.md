@@ -3,7 +3,7 @@
 Copy each block into `src/skins/<id>/<file>` and replace `<id>` / `<Brand>` /
 domain specifics. These are written against this app's frozen `Skin` contract
 (`src/shell/skin-contract.ts`) and mirror every shipped skin
-(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore}/`) — see
+(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec}/`) — see
 [demo-beats.md](./demo-beats.md) § "Which skin to copy for what" for which one to
 open for which problem.
 
@@ -807,7 +807,10 @@ depend on it.
 
 ## `catalog/index.tsx`
 
-Minimal (no a2ui report surface): pass empty definitions/renderers. For a real
+Minimal (no a2ui AT ALL): pass empty definitions/renderers. "No a2ui" means
+neither a `CanvasSurface` report nor the inline `block:` path — the inline path
+mounts `<A2UIProvider catalog={useSkin().catalog}>` and renders nothing against
+an empty catalog (see the `block:` note in the agent section above). For a real
 catalog with Zod definitions + React renderers, mirror
 `src/skins/airline/catalog/index.tsx`.
 
@@ -1303,6 +1306,36 @@ export const <id>Agent = () =>
     tools: [renderReportTool],
   });
 ```
+
+**Want the visual inline in the chat instead of a full canvas takeover?** Skip
+`CanvasSurface` entirely and prefix the surface id your op-builder mints with
+`block:` — the shell's chat renderer recognizes that prefix and renders the
+surface right in the transcript (`src/shell/chat/inline-block-surface.tsx`)
+instead of falling back to the handoff pill; SKILL.md's "A `block:`-prefixed
+a2ui surface…" note has the full dispatch. The tool-side mechanism is
+otherwise identical to the canvas case above: still a SERVER `defineTool`
+returning `{ [A2UI_OPERATIONS_KEY]: buildOps(spec) }`. `src/skins/exec/blocks/build-block-ops.ts`
+is the worked example (`BLOCK_SURFACE_PREFIX = "block:"`).
+
+**This path is NOT catalog-free.** `InlineBlockSurface` mounts its own
+`<A2UIProvider catalog={useSkin().catalog}>`
+(`src/shell/chat/inline-block-surface.tsx:180,193`), so the empty
+definitions/renderers under "`catalog/index.tsx`" above are for a skin with NO
+a2ui at all — inline or canvas. If you mint `block:` ids you must ship a real
+catalog whose `catalogId` matches the one your `createSurface` op names; exec's
+(`src/skins/exec/catalog/index.ts`) is the worked example, and it registers zero
+`useComponent` renderers, so a catalog is not the same thing as transcript
+gen-UI.
+
+**Match the prefix in BOTH places.** The shell keeps its own copy of that
+exact string, because it must not import from `src/skins/`:
+`src/skins/exec/blocks/build-block-ops.ts:22` (the write side you copy) and
+`src/shell/canvas/canvas-context.tsx` (the shell's single reader-side
+decision, `decideA2uiSurface` — the chat's `inline-block-surface.tsx`
+delegates to it rather than keeping a third copy). Both ARE checked against
+each other — the drift guard in `src/skins/exec/blocks/build-block-ops.test.ts`
+runs minted ops through the shell's classifier. Grep for
+`BLOCK_SURFACE_PREFIX` and read both before you settle on a spelling.
 
 **De-duplicate every array selection at the top of your op-builder.** zod arrays
 do not deduplicate, and the spec comes from the MODEL: `kpis:["valueAtRisk",
