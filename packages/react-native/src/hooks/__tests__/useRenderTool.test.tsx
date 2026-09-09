@@ -511,6 +511,26 @@ function WarningProbe({ name }: { name: string }) {
   return null;
 }
 
+/**
+ * A call whose SHAPE changes between renders — `handler`/`description` appear
+ * only once `legacy` is true, which is what a `handler: enabled ? fn : undefined`
+ * call site looks like from the shim's side.
+ */
+function ShapeShiftingProbe({ legacy }: { legacy: boolean }) {
+  useRenderTool(
+    {
+      name: "shapeShifter",
+      parameters: z.object({ x: z.string() }),
+      render: () => null,
+      ...(legacy
+        ? { description: "now a tool as well", handler: async () => "ok" }
+        : {}),
+    },
+    [],
+  );
+  return null;
+}
+
 describe("the shim's deprecation warning", () => {
   // The dedup key is the tool NAME and it lives as long as the module, so
   // without this the wildcard's warning (always `"*"`) would already have been
@@ -523,7 +543,7 @@ describe("the shim's deprecation warning", () => {
   it("fires once per distinct tool name, not once per render", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      const { rerender } = render(
+      const { rerender, unmount } = render(
         <TestCopilotKit messages={[]}>
           <WarningProbe name="warnOnceTool" />
         </TestCopilotKit>,
@@ -532,7 +552,7 @@ describe("the shim's deprecation warning", () => {
 
       // Re-render the same tree several times. A warning emitted from the
       // render path — or keyed on anything per-render — shows up here as a
-      // growing count; the point of the module-level dedup is that it does not.
+      // growing count.
       for (let i = 0; i < 3; i++) {
         rerender(
           <TestCopilotKit messages={[]}>
@@ -540,6 +560,18 @@ describe("the shim's deprecation warning", () => {
           </TestCopilotKit>,
         );
       }
+      await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+
+      // Then MOUNT IT AGAIN, which is what makes the module-level dedup set the
+      // load-bearing part rather than the effect's dependency array: a fresh
+      // mount runs a fresh effect. On a real device this is navigating back to
+      // a screen, and re-warning there would put the notice in a loop.
+      unmount();
+      render(
+        <TestCopilotKit messages={[]}>
+          <WarningProbe name="warnOnceTool" />
+        </TestCopilotKit>,
+      );
       await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
 
       const message = String(warn.mock.calls[0]![0]);
@@ -572,6 +604,51 @@ describe("the shim's deprecation warning", () => {
       expect(message).toContain("`handler`");
       expect(message).toContain("`parameters`");
       expect(message).toContain("RENDERER ONLY");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("reports, rather than silently acts on, a config that changes shape mid-life", async () => {
+    // The route is frozen at first render because a hook cannot be called
+    // conditionally unless the condition is stable for the component's
+    // lifetime. That is a real limitation, so it is stated out loud rather than
+    // papered over: the registration stays where it started (renderer-only
+    // here, so `shapeShifter` never becomes a tool) and the consumer is told to
+    // call the hook they actually want.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const coreRef: { current: Core | null } = { current: null };
+      const { rerender } = render(
+        <TestCopilotKit messages={[]}>
+          <CaptureCore into={coreRef} />
+          <ShapeShiftingProbe legacy={false} />
+        </TestCopilotKit>,
+      );
+      await waitFor(() =>
+        expect(coreRef.current!.renderToolCalls.map((r) => r.name)).toContain(
+          "shapeShifter",
+        ),
+      );
+      // Rule 3 on the first render: nothing was supplied, nothing is warned.
+      expect(warn).not.toHaveBeenCalled();
+
+      rerender(
+        <TestCopilotKit messages={[]}>
+          <CaptureCore into={coreRef} />
+          <ShapeShiftingProbe legacy />
+        </TestCopilotKit>,
+      );
+
+      await waitFor(() => expect(warn).toHaveBeenCalled());
+      const messages = warn.mock.calls.map((call) => String(call[0]));
+      expect(
+        messages.some((m) => m.includes("changed shape between renders")),
+      ).toBe(true);
+      // And the frozen route is the observable consequence: still no tool.
+      expect(
+        coreRef.current!.getTool({ toolName: "shapeShifter" }),
+      ).toBeUndefined();
     } finally {
       warn.mockRestore();
     }
