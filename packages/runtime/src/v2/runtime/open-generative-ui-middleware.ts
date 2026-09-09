@@ -353,17 +353,29 @@ function projectHistory(
     if (message.role === "tool") results.set(message.toolCallId, message);
   const sourceMessages = [...event.messages];
   for (const [id, live] of activeParsers) {
-    if (results.has(id)) {
-      activeParsers.delete(id);
-      continue;
-    }
-    const index = sourceMessages.findIndex(
+    let index = sourceMessages.findIndex(
       (message) =>
         message.role === "assistant" &&
         (message.id === live.owner.id ||
           message.toolCalls?.some((call) => call.id === id)),
     );
     const owner = sourceMessages[index];
+    const persistedCall =
+      owner?.role === "assistant"
+        ? owner.toolCalls?.find((call) => call.id === id)
+        : undefined;
+    const result = results.get(id);
+    const pendingArguments =
+      !persistedCall ||
+      (persistedCall.function.arguments !== live.call.function.arguments &&
+        live.call.function.arguments.startsWith(
+          persistedCall.function.arguments,
+        ));
+    if (result && !pendingArguments) {
+      activeParsers.delete(id);
+      continue;
+    }
+    if (result) live.result = result;
     if (owner?.role === "assistant") {
       const calls = owner.toolCalls ?? [];
       sourceMessages[index] = {
@@ -373,10 +385,17 @@ function projectHistory(
           : [...calls, live.call],
       };
     } else {
-      sourceMessages.push({ ...live.owner, toolCalls: [live.call] });
+      const resultIndex = sourceMessages.findIndex(
+        (message) => message.role === "tool" && message.toolCallId === id,
+      );
+      index = resultIndex >= 0 ? resultIndex : sourceMessages.length;
+      sourceMessages.splice(index, 0, {
+        ...live.owner,
+        toolCalls: [live.call],
+      });
     }
-    if (live.result) {
-      let resultIndex = (index >= 0 ? index : sourceMessages.length - 1) + 1;
+    if (live.result && !result) {
+      let resultIndex = index + 1;
       while (sourceMessages[resultIndex]?.role === "tool") resultIndex++;
       sourceMessages.splice(resultIndex, 0, live.result);
     }
@@ -390,8 +409,22 @@ function projectHistory(
     for (const call of message.toolCalls ?? []) {
       if (call.function.name !== TOOL_NAME) continue;
       const live = activeParsers.get(call.id);
-      if (live && !results.has(call.id)) {
-        messages.push(live.parser.activity());
+      if (live) {
+        const activity = live.parser.activity();
+        const result = results.get(call.id) ?? live.result;
+        messages.push(
+          result
+            ? {
+                ...activity,
+                content: {
+                  ...activity.content,
+                  generating: false,
+                  status: result.error ? "failed" : "complete",
+                  ...(result.error ? { error: result.error } : {}),
+                },
+              }
+            : activity,
+        );
         continue;
       }
       const parser = new ArgsParser(call.id, () => {});
