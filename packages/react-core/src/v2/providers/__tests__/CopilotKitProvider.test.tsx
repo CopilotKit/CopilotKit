@@ -76,8 +76,8 @@ describe("CopilotKitProvider", () => {
       vi.mocked(defineWebInspector).mockClear();
     });
 
-    it("renders by default on any development host and passes the provider core before connection", async () => {
-      const restoreLocation = stubWindowLocation("http://192.168.1.25:3000");
+    it("renders by default on a local development host and passes the provider core before connection", async () => {
+      const restoreLocation = stubWindowLocation("http://localhost:3000");
       let providerCore: ReturnType<typeof useCopilotKit>["copilotkit"] | null =
         null;
       const Probe = () => {
