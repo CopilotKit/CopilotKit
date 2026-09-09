@@ -592,6 +592,8 @@ export function CopilotChatMessageView({
     // count=0 disables the virtualizer without changing hook call order.
     count: shouldVirtualize ? deduplicatedMessages.length : 0,
     getScrollElement: () => scrollElement,
+    // Measurement in a layout effect must not synchronously re-enter React.
+    useFlushSync: false,
     // Conservative height estimate. Items are measured by ResizeObserver after
     // first render so the estimate only affects the initial total height.
     estimateSize: () => 100,
