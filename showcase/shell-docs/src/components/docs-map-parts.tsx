@@ -8,17 +8,65 @@
 //   choice → dashed, flat, near-transparent. "This is your pick, not our
 //            product." Used by the Frontend and Agent blocks.
 //   core   → solid border, elevated surface, panel shadow. The product.
-//   plus   → accent border and gradient. The added, hosted layer.
+//   plus   → flat accent border and accent-tinted fill. The added, hosted
+//            layer.
 //
 // Nothing here animates. An earlier draft ran dots along the connectors; on a
 // page whose job is orientation, permanent motion pulls the eye off the text.
 
 import React from "react";
 import Link from "next/link";
-import * as icons from "lucide-react";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  Brain,
+  MessageSquare,
+  MessageSquareMore,
+  Paintbrush,
+  Repeat,
+  SearchCheck,
+  Server,
+  Settings,
+  Sparkles,
+  User,
+  Wrench,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-import type { MapCapability, MapPick } from "@/lib/homepage-map";
+import type {
+  LucideIconName,
+  MapCapability,
+  MapPick,
+} from "@/lib/homepage-map";
+
+// Named imports in an explicit record, never `import * as icons` with a
+// dynamic index: a namespace object indexed at runtime forces the bundler to
+// retain every lucide export, and Next's optimizePackageImports cannot
+// rewrite it. Same idiom as FRAMEWORK_ICONS in ./icons/framework-icons.tsx.
+const CAPABILITY_ICONS: Record<LucideIconName, LucideIcon> = {
+  MessageSquare,
+  Paintbrush,
+  User,
+  Settings,
+  Repeat,
+  Wrench,
+  MessageSquareMore,
+  Brain,
+  Sparkles,
+  SearchCheck,
+  BarChart3,
+  Server,
+};
+
+/**
+ * Shared by the map's server-rendered Intelligence grid and its client-rendered
+ * CopilotKit grid. It lives in this boundary-neutral module on purpose: a
+ * `"use client"` module's named exports are replaced by client references in
+ * the server layer, so exporting it from the client child would hand the
+ * server a throwing function instead of a class string.
+ */
+export const MAP_TILE_GRID_CLASS =
+  "grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3";
 
 type BlockVariant = "choice" | "core" | "plus";
 
@@ -141,13 +189,7 @@ export function CapabilityTile({
   href: string;
   tone: "core" | "plus";
 }): React.JSX.Element {
-  // The icon name is a narrow union validated in homepage-map's tests, so the
-  // lookup cannot miss; the fallback only exists to keep the type honest.
-  const Icon =
-    (icons[capability.icon] as React.ComponentType<{
-      className?: string;
-      "aria-hidden"?: boolean;
-    }>) ?? icons.Circle;
+  const Icon = CAPABILITY_ICONS[capability.icon];
 
   const plus = tone === "plus";
 
