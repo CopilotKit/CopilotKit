@@ -39,7 +39,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e705dcf27e3768f93352b7167be5e822a3c62e71",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@390d432a0ed01ca4ddcee8165b6c6f7f22045c4e",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "lit": "^3.2.0",

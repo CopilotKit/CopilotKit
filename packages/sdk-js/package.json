@@ -59,8 +59,8 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@e705dcf27e3768f93352b7167be5e822a3c62e71",
-    "@ag-ui/langgraph": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@e705dcf27e3768f93352b7167be5e822a3c62e71",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@390d432a0ed01ca4ddcee8165b6c6f7f22045c4e",
+    "@ag-ui/langgraph": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@390d432a0ed01ca4ddcee8165b6c6f7f22045c4e",
     "@copilotkit/shared": "workspace:*",
     "@standard-schema/spec": "^1.0.0"
   },
