@@ -6754,6 +6754,7 @@ export class WebInspectorElement extends LitElement {
   private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
   /** Host-wide deadline that suppresses both the Inspector and its launcher. */
   private inspectorDismissedUntil: number | null = null;
+  private lastReportedInspectorVisibility: boolean | null = null;
   private inspectorDismissalTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
@@ -11532,6 +11533,17 @@ export class WebInspectorElement extends LitElement {
   }
 
   protected updated(): void {
+    // Host message shortcuts follow the actual Inspector, including persisted
+    // dismissals and their expiry. Closing the panel still leaves it available.
+    const visible = !this.isInspectorDismissed;
+    if (visible !== this.lastReportedInspectorVisibility) {
+      this.lastReportedInspectorVisibility = visible;
+      this.dispatchEvent(
+        new CustomEvent("cpk-inspector-visibility-change", {
+          detail: { visible },
+        }),
+      );
+    }
     this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
