@@ -43,7 +43,7 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain("Copy onboarding prompt");
     expect(markup).toContain('data-surface="docs_framework_hero"');
     expect(markup).toContain("shell-docs-primary-cta");
-    expect(markup).toContain("bg-[var(--accent)]");
+    expect(markup).toContain("bg-[var(--accent-fill)]");
     expect(markup).toContain("text-[var(--primary-foreground)]");
 
     // ...and Quickstart keeps its place beside it in the bordered treatment.

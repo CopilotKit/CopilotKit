@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import type React from "react";
-import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import matter from "gray-matter";
-import { ChevronRight, LinkIcon } from "lucide-react";
+import { LinkIcon } from "lucide-react";
 import remarkGfm from "remark-gfm";
 import {
   rehypeCode,
@@ -21,18 +20,11 @@ import {
   Accordions,
   Accordion,
 } from "@/components/mdx-components";
-import {
-  MarkdownCopyButton,
-  ViewOptionsPopover,
-} from "@/components/ai/page-actions";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
-import {
-  DocsPage,
-  DocsBody,
-  DocsTitle,
-  DocsDescription,
-} from "fumadocs-ui/page";
+import { DocsPage, DocsBody } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { DocsContentHeader } from "@/components/docs-content-header";
+import { DocsPageTools } from "@/components/docs-page-tools";
 import { ReferenceVersionSelector } from "@/components/reference-version-selector";
 import {
   REFERENCE_VERSIONS,
@@ -159,7 +151,6 @@ export default async function ReferenceSlugPage({
   const description =
     typeof data.description === "string" ? data.description : undefined;
   const pageTree = buildReferencePageTree(version);
-  const markdownUrl = `${referenceHref(version, pageSlug).replace(/\/$/, "")}.mdx`;
   const versionOptions = REFERENCE_VERSIONS.map((referenceVersion) => ({
     version: referenceVersion,
     href: referenceVersionHref(referenceVersion, pageSlug),
@@ -189,45 +180,21 @@ export default async function ReferenceSlugPage({
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-          <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
-            {breadcrumbs.map((crumb, i) => {
-              const isLast = i === breadcrumbs.length - 1;
-              const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
-              return (
-                <Fragment key={`${crumb.label}-${i}`}>
-                  {i > 0 && (
-                    <ChevronRight
-                      className="size-3 shrink-0"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {crumb.href && !isLast ? (
-                    <Link
-                      href={crumb.href}
-                      className={`${labelClass} transition-opacity hover:opacity-80`}
-                    >
-                      {crumb.label}
-                    </Link>
-                  ) : (
-                    <span className={labelClass}>{crumb.label}</span>
-                  )}
-                </Fragment>
-              );
-            })}
-          </nav>
-
-          <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
-            {title}
-          </DocsTitle>
-          {description && (
-            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
-              {description}
-            </DocsDescription>
-          )}
+        <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
+          <DocsContentHeader
+            ancestorBreadcrumbs={breadcrumbs}
+            title={title}
+            description={description}
+          >
+            <DocsPageTools
+              slugPath={pageSlug}
+              slugHrefPrefix={`/reference/${version}`}
+              githubUrl={buildGitHubUrl(filePath)}
+            />
+          </DocsContentHeader>
 
           {version === "v1" && (
-            <div className="my-6">
+            <div className="mb-6">
               <Callout type="warning">
                 <strong>{V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.title}</strong>{" "}
                 {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.summary}{" "}
@@ -245,16 +212,6 @@ export default async function ReferenceSlugPage({
               </Callout>
             </div>
           )}
-
-          <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
-            <MarkdownCopyButton markdownUrl={markdownUrl} />
-            <ViewOptionsPopover
-              markdownUrl={markdownUrl}
-              githubUrl={buildGitHubUrl(filePath)}
-            />
-          </div>
-
-          <hr className="border-t border-[var(--border)] mt-2 mb-6" />
 
           <DocsBody className="reference-content">
             <MDXRemote

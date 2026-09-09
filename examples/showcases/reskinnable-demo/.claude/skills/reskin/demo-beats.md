@@ -59,6 +59,19 @@ row, card) from live skin data, as the answer to the very first pill. Pair the
 visual with one or two sentences of prose — a chart with no words reads as a
 glitch, and prose with no chart wastes the beat.
 
+**The sanctioned alternative: a server-driven a2ui surface.** `useComponent` is
+the default and what most skins should reach for. But the beat asks for a real
+visual as the answer to the first pill, and a server tool that returns
+`{ [A2UI_OPERATIONS_KEY]: … }` satisfies it too — the operations become an
+`a2ui-surface` activity that renders as a catalog-bound surface, either
+full-region on the shared canvas (`CanvasSurface`) or inline in the transcript
+(the `block:` prefix). `exec` is the worked example of the inline form: its
+`render_metric_block` (`src/skins/exec/agent.ts`) is a server `defineTool`, it
+registers NO `useComponent` at all, and its first pill still answers with a
+rendered metric block. Pick this path when the AGENT should compose the visual
+out of a catalog rather than call a fixed component; pick `useComponent` when
+the visual is a component you already wrote. Either way the prose rule stands.
+
 **Banking:** pill `"Show the spending trend"` → `showSpendingTrend`
 (`tools.tsx:797`) renders a hand-rolled SVG chart from the live ledger. Its
 sibling charts (`showBudgetUsage`, `showSpendBreakdown`,
@@ -89,6 +102,16 @@ written to be replay-safe.** This is the part that silently breaks:
 - **Re-derive display state from the replayed result.** Never depend on client
   state that only existed during the live call.
 - **Keep secrets out of what you re-derive** (see beat 3a).
+
+**On the a2ui path (beat 1's alternative), replay works differently and the
+burden moves.** An `a2ui-surface` is an ACTIVITY MESSAGE in the thread, not a
+tool-call render, so it replays with the thread without any `useComponent`
+registration — there is no `status`-vs-`result` trap to fall into. What replaces
+it: the operations must be built DETERMINISTICALLY server-side from the tool's
+own spec (`exec`'s `buildBlockOps` in `src/skins/exec/blocks/build-block-ops.ts`),
+and the catalog renderers must re-bind live figures on the client rather than
+bake numbers into the ops — otherwise a reopened thread shows a card of stale
+values with total confidence, which is the same defect wearing a different hat.
 
 **Banking:** `setCardPin` re-derives its resolved card from the replayed tool
 result plus a module-level map holding only `brand`/`last4` — never the PIN
@@ -355,10 +378,16 @@ Three mechanics worth copying verbatim:
     sendMessageWithAttachment(DOC, <ID>_ATTACHMENT_MESSAGE);
   ```
 
-  That is the whole file. Every shipped wrapper that runs this beat
-  (`banking/attach-invoice.ts`, `people/attach-offer-letter.ts`,
-  `commerce/attach-price-sheet.ts`, `logistics/attach-rate-sheet.ts`) is about 45
-  lines, most of it comment.
+  That is the whole file — the two exports and the document constant. The shipped
+  wrappers are all small and mostly comment, but "about 45 lines" is not the
+  measure: derive the roster and the sizes together with
+  `wc -l src/skins/*/attach-*.ts | grep -v test`, which today spans the low
+  forties (`banking/attach-invoice.ts`, `people/attach-offer-letter.ts`,
+  `commerce/attach-price-sheet.ts`) through the high eighties
+  (`keel/attach-bulletin.ts`), with `exec/attach-memo.ts`,
+  `logistics/attach-rate-sheet.ts` and `airline/attach-hotel-confirmation.ts` in
+  between. The longer ones are longer because their document is generated or
+  their staging has more to explain, not because the shape changed.
 
   **The attachment chain must fail LOUD, and must never send without the file.**
   This is not defensive polish; it is what makes the beat honest. If any failure
@@ -415,9 +444,13 @@ Three mechanics worth copying verbatim:
   - **The `[attach:<cause>]` prefix on the `console.error` line is load-bearing,
     not decoration.** `attachByHand` and `sendMessageWithAttachment` return bare
     booleans, so the tagged log line is the ONLY place a send-path cause is
-    observable; the test helper parses it with
-    `/^\[attach:([a-z-]+)]\s+([\s\S]*)$/`, and seventeen cases across ten blocks
-    depend on it. Tidying the tag out of the message silently blinds all of them.
+    observable. Exactly one helper parses it —
+    `reportedFailure()` in `src/shell/attach/stage-attachment.test.ts:441`, with
+    `/^\[attach:([a-z-]+)]\s+([\s\S]*)$/` — and every tagged-failure assertion in
+    that file goes through it, directly or via the `observedReport()` wrapper
+    beneath it. The `describe("the failure contract")` block at the end of the
+    file then counts what those assertions recorded, so it fails too. Tidying the
+    tag out of the message silently blinds all of them at once.
   - **Both entry points take an optional `Beat3dTimings`** (`acceptMs`, `readyMs`,
     `sendableMs`, `consumedMs`, `pollMs`), so a test can force a budget to expire
     deterministically instead of sleeping a production budget. Your skin's own
@@ -759,11 +792,14 @@ it entirely, and the preference persists shell-global.
 If nobody named a domain, pick one that a Fortune 500 buyer sees themselves in.
 The ask is 8–12 skins spanning that space. Two are called out explicitly:
 
-- **Business intelligence / executive analytics — the highest-stakes skin.**
-  "Take my data and show it real pretty for me, and then manipulate and do stuff
-  with it." This is the one that opens doors at CEO / CFO / COO / VP level, and
-  it has to be **the prettiest thing we ship** — "ultra, ultra pretty, as pretty
-  as we can possibly make it."
+- **Business intelligence / executive analytics — the highest-stakes skin,
+  shipped as `exec` (brand "Vantage").** "Take my data and show it real pretty
+  for me, and then manipulate and do stuff with it." This is the one that opens
+  doors at CEO / CFO / COO / VP level, and it has to be **the prettiest thing we
+  ship** — "ultra, ultra pretty, as pretty as we can possibly make it." Its
+  block op-builder (`src/skins/exec/blocks/`) is also the worked example of the
+  `block:`-prefixed inline a2ui convention — SKILL.md's "A `block:`-prefixed
+  a2ui surface…" note and templates.md's `agent.ts` section have the mechanism.
 - **Real-time collaborative editing with AI.** Notoriously painful to build
   yourself, which is exactly why showing it working closes people.
 
@@ -809,6 +845,7 @@ instead, because a set rots and a command does not.
 | Seeded memories (beats 4, 5)              | `ls src/skins/*/intelligence/seed-memories.ts` — copy any one that scopes `user`      |
 | Debugged layout + meta-utility strip      | `logistics`, `people`, `commerce`                                                     |
 | Server-emitted a2ui canvas                | `logistics` (`renderBrief`), `banking` (`render_report`)                              |
+| An INLINE (non-canvas) a2ui surface       | `exec` — `block:`-prefixed surface ids render in chat; `blocks/build-block-ops.ts`    |
 | Per-user identity plumbing                | `ls src/skins/*/intelligence/user-id.ts` — all of them; `commerce`'s is the `Map` one |
 | Runtime identity with NO context to read  | `airline` — `useRuntimeProperties` + `identifyUser`, no `RuntimeProviders`            |
 | Parameterized routes in `resolvePage`     | `keel` (`knowledge/<docId>`, `runs/<runId>`), `bookstore` (`book/<slug>`)             |
@@ -819,10 +856,12 @@ instead, because a set rots and a command does not.
 
 > **Generating a PDF? Do NOT write the bytes — call `@/shell/documents`.**
 > `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct
-> xref, and your file supplies CONTENT only. Both shipped builders
-> (`commerce/data/price-sheet-pdf.ts`, `people/data/offer-letter-pdf.ts`,
-> `logistics/data/rate-sheet-pdf.ts`) are nothing but content, and they are
-> the shape to copy.
+> xref, and your file supplies CONTENT only. Every shipped builder is nothing but
+> content, and they are the shape to copy — derive the set rather than trusting a
+> list here: `ls src/skins/*/data/*-pdf.ts` returns all of them (airline's hotel
+> confirmation, commerce's price sheet, exec's budget memo, keel's bulletin,
+> logistics' rate sheet and people's offer letter today).
+> `people/data/offer-letter-pdf.ts` is the smallest one to read first.
 >
 > The three traps below are FIXED IN THE PRIMITIVE, so you inherit all three. They
 > are still written down, because each produces a VALID PDF that is wrong on screen

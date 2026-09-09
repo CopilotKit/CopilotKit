@@ -1,6 +1,9 @@
 import { expect, test } from "vitest";
 import { createLicenseContextValue } from "../index";
-import type { RuntimeLicenseStatus } from "../utils/types";
+import type {
+  RuntimeEntitlementResponse,
+  RuntimeLicenseStatus,
+} from "../utils/types";
 
 test("license context fails open when no status is known", () => {
   for (const status of [null, undefined] as const) {
@@ -159,6 +162,24 @@ test("license context denies features and limits for a ready inactive entitlemen
   });
 
   expect(ctx.checkFeature("chat")).toBe(false);
+  expect(ctx.getLimit("threads")).toBeNull();
+});
+
+test("license context does not fall back for an inactive AWS Marketplace entitlement", () => {
+  const marketplaceEntitlements = {
+    status: "ready",
+    entitlement: {
+      active: false,
+      source: "awsMarketplaceDeploymentLicense",
+      features: {},
+      limits: {},
+    },
+  } as const satisfies RuntimeEntitlementResponse;
+
+  const ctx = createLicenseContextValue("valid", marketplaceEntitlements);
+
+  expect(ctx.status).toBe("none");
+  expect(ctx.checkFeature("threads")).toBe(false);
   expect(ctx.getLimit("threads")).toBeNull();
 });
 

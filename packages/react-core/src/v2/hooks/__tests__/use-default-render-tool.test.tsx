@@ -138,6 +138,54 @@ describe("useDefaultRenderTool", () => {
     expect(forwardedDeps).toBe(deps);
   });
 
+  it("lets a custom catch-all renderer suppress output by returning null", () => {
+    // A caller who only wants to render *some* tool calls needs the catch-all
+    // render to be allowed to return nothing. Adapted from #5509.
+    const customRender = vi.fn(({ status }: DefaultRenderProps) => {
+      expect(status).toBe("inProgress");
+      return null;
+    });
+
+    const Harness: React.FC = () => {
+      useDefaultRenderTool({ render: customRender });
+      return null;
+    };
+
+    render(<Harness />);
+
+    expect(mockUseRenderTool).toHaveBeenCalledTimes(1);
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        name: string;
+        render: (props: {
+          name: string;
+          toolCallId: string;
+          args: unknown;
+          status: string;
+          result: string | undefined;
+        }) => React.ReactElement | null;
+      },
+    ];
+
+    const rendered = config.render({
+      name: "searchDocs",
+      toolCallId: "tc-null-catchall",
+      args: { query: "copilot" },
+      status: "inProgress",
+      result: undefined,
+    });
+
+    expect(rendered).toBeNull();
+    expect(customRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "searchDocs",
+        toolCallId: "tc-null-catchall",
+        parameters: { query: "copilot" },
+        status: "inProgress",
+      }),
+    );
+  });
+
   it("default renderer shows status and expands to show parameters/result", () => {
     // Render DefaultToolCallRenderer directly with the documented prop shape.
     // (The registered `*` render wraps the framework-internal RawRendererProps;

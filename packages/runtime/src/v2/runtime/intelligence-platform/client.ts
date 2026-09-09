@@ -1,5 +1,11 @@
-import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
+import {
+  logger,
+  parseInspectorLearningSnapshotV1,
+  parseInspectorMetadataV1,
+} from "@copilotkit/shared";
 import type {
+  InspectorLearningRequestV1,
+  InspectorLearningSnapshotV1,
   InspectorMetadataV1,
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
@@ -34,7 +40,11 @@ function isRetryableRuntimeEntitlementStatus(status: number): boolean {
 const runtimeEntitlementSchema = z
   .object({
     active: z.boolean(),
-    source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
+    source: z.enum([
+      "managedOrgSubscription",
+      "selfHostedDeploymentLicense",
+      "awsMarketplaceDeploymentLicense",
+    ]),
     features: z.record(z.string(), z.boolean()),
     limits: z.record(z.string(), z.number()),
     planCode: z.string().optional(),
@@ -159,6 +169,7 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 
 /** Maximum time spent on the optional Inspector metadata provider request. */
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
+const INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
  * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
@@ -665,6 +676,7 @@ export class CopilotKitIntelligence {
         "CopilotKitIntelligence `getLearningContainerId` must be a callback",
       );
     }
+    assertConfiguredApiKey(config.apiKey);
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -855,6 +867,58 @@ export class CopilotKitIntelligence {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+    }
+  }
+
+  /** Fetches one credential-scoped, bounded Learning projection for Inspector. */
+  async getInspectorLearning(
+    request: InspectorLearningRequestV1 & {
+      readonly runtimeContainerId?: string;
+    },
+  ): Promise<InspectorLearningSnapshotV1> {
+    const path = "/api/inspector/learning";
+    const url = new URL(`${this.#apiUrl}${path}`);
+    if (request.agentId) url.searchParams.set("agentId", request.agentId);
+    if (request.skillsPage)
+      url.searchParams.set("skillsPage", String(request.skillsPage));
+    if (request.insightsPage) {
+      url.searchParams.set("insightsPage", String(request.insightsPage));
+    }
+    if (request.runtimeContainerId) {
+      url.searchParams.set("runtimeContainerId", request.runtimeContainerId);
+    }
+    const controller = new AbortController();
+    const timeoutError = new Error(
+      "Intelligence Inspector Learning request timed out",
+    );
+    const timeout = setTimeout(
+      () => controller.abort(timeoutError),
+      INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${this.#apiKey}` },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new PlatformRequestError(
+          `Intelligence platform error ${response.status}`,
+          response.status,
+          response.status === 429 || response.status >= 500,
+        );
+      }
+      const snapshot = parseInspectorLearningSnapshotV1(await response.json());
+      if (!snapshot) {
+        throw new PlatformRequestError(
+          "Invalid Inspector Learning response",
+          502,
+          true,
+        );
+      }
+      return snapshot;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -1650,6 +1714,35 @@ export class CopilotKitIntelligence {
 function configuredUrl(url: string | undefined): string | undefined {
   const trimmed = url?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+/**
+ * Reject an Intelligence project API key that carries no credential.
+ *
+ * `apiKey` is required on the config type, so TypeScript catches an absent
+ * property. It does not catch an empty one, and the common shape is a
+ * `process.env` read that TypeScript is told to trust — `?? ""` in the starter
+ * wiring block, `!` in this file's own examples. When the variable is unset,
+ * both produce a blank key that is sent verbatim as `Authorization: Bearer `
+ * and fails much later as a 401 that points at nothing.
+ *
+ * A runtime with no credential cannot serve managed Intelligence, so this
+ * throws at construction: callers build the client during boot, which puts the
+ * error at startup rather than on a user's first message.
+ */
+function assertConfiguredApiKey(apiKey: string): void {
+  if (typeof apiKey === "string" && apiKey.trim() !== "") {
+    return;
+  }
+  // The whole key is a `cpk-…` secret, so name the variable that carries it
+  // and echo none of the value — the same rule `parseProjectIdFromApiKey`
+  // follows for a malformed key.
+  throw new Error(
+    "CopilotKitIntelligence `apiKey` is required and cannot be blank. It is " +
+      "the CopilotKit Intelligence project API key, normally read from the " +
+      "CPK_INTELLIGENCE_API_KEY environment variable. Run `copilotkit " +
+      "project select` to provision one for your project.",
+  );
 }
 
 /**

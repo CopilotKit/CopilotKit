@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import {
   Check,
@@ -84,12 +84,15 @@ async function fetchMarkdown(url: string): Promise<string> {
  */
 export function MarkdownCopyButton({
   markdownUrl,
+  appearance = "button",
   ...props
 }: ComponentProps<"button"> & {
   /**
    * A URL to fetch the raw Markdown/MDX content of page
    */
   markdownUrl: string;
+  /** Render as a full-width popover action instead of standalone chrome. */
+  appearance?: "button" | "menu-item";
 }) {
   const [isLoading, setLoading] = useState(false);
   const pathname = usePathname();
@@ -148,11 +151,14 @@ export function MarkdownCopyButton({
       disabled={isLoading}
       onClick={onClick}
       className={cn(
-        buttonVariants({
-          color: "secondary",
-          size: "sm",
-          className: "gap-2 [&_svg]:size-3.5 [&_svg]:text-[var(--text-muted)]",
-        }),
+        appearance === "menu-item"
+          ? "shell-docs-radius-control inline-flex w-full items-center gap-2 p-2 text-left text-sm font-normal text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:text-[var(--text-muted)]"
+          : buttonVariants({
+              color: "secondary",
+              size: "sm",
+              className:
+                "gap-2 [&_svg]:size-3.5 [&_svg]:text-[var(--text-muted)]",
+            }),
         props.className,
       )}
     >
@@ -173,6 +179,8 @@ type OnboardingCopyState = "idle" | "copied" | "error";
  * `CHANNELS_ACTIVATION_SURFACES` in `lib/channels-activation-contracts.ts`).
  */
 const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
+const ONBOARDING_PROMPT_TOOLTIP =
+  "Copy a prompt that guides your coding agent through CopilotKit setup.";
 
 /**
  * Copies the canonical CopilotKit onboarding prompt so a reader can paste it
@@ -236,6 +244,7 @@ export function OnboardingPromptCopyButton({
    */
   markdownUrl: string;
 }) {
+  const tooltipId = useId();
   const pathname = usePathname();
   const posthog = usePostHog();
   const [copyState, setCopyState] = useState<OnboardingCopyState>("idle");
@@ -391,13 +400,18 @@ export function OnboardingPromptCopyButton({
         // in the page-tools row that should count as this surface, and its
         // two neighbours copy something else entirely.
         data-docs-copy-surface={ONBOARDING_COPY_SURFACE}
+        data-tooltip={ONBOARDING_PROMPT_TOOLTIP}
+        aria-describedby={[props["aria-describedby"], tooltipId]
+          .filter(Boolean)
+          .join(" ")}
         disabled={isCopying}
         onClick={copyPrompt}
         className={cn(
           buttonVariants({
-            // The primary action of the row — the two neighbours are
-            // deliberately `secondary`. `size: "sm"` keeps the heights equal.
-            color: "primary",
+            // Page reading is the primary task. Keep this useful action at the
+            // same visual weight as its neighbours so it does not compete with
+            // the article title for attention.
+            color: "secondary",
             size: "sm",
             className: "gap-2 [&_svg]:size-3.5",
           }),
@@ -421,6 +435,9 @@ export function OnboardingPromptCopyButton({
           ? "Copy blocked"
           : (props.children ?? "Copy agent prompt")}
       </button>
+      <span id={tooltipId} className="sr-only">
+        {ONBOARDING_PROMPT_TOOLTIP}
+      </span>
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"
           ? "Prompt copied"
@@ -438,6 +455,8 @@ export function OnboardingPromptCopyButton({
 export function ViewOptionsPopover({
   markdownUrl,
   githubUrl,
+  condensed = false,
+  includeCopyPage = false,
   ...props
 }: ComponentProps<typeof PopoverTrigger> & {
   /**
@@ -449,6 +468,12 @@ export function ViewOptionsPopover({
    * Source file URL on GitHub
    */
   githubUrl?: string;
+
+  /** Use an icon-only trigger designed to join a split primary action. */
+  condensed?: boolean;
+
+  /** Put the Markdown copy action at the top of the condensed menu. */
+  includeCopyPage?: boolean;
 }) {
   const pathname = usePathname();
   const posthog = usePostHog();
@@ -476,12 +501,13 @@ export function ViewOptionsPopover({
           </svg>
         ),
       },
-      markdownUrl && {
-        title: "View as Markdown",
-        target: "view-as-markdown",
-        href: markdownUrl,
-        icon: <TextIcon />,
-      },
+      !condensed &&
+        markdownUrl && {
+          title: "View as Markdown",
+          target: "view-as-markdown",
+          href: markdownUrl,
+          icon: <TextIcon />,
+        },
       {
         title: "Open in Windsurf",
         target: "windsurf",
@@ -552,25 +578,50 @@ export function ViewOptionsPopover({
         })}`,
       },
     ].filter((v) => !!v);
-  }, [githubUrl, markdownUrl, pathname]);
+  }, [condensed, githubUrl, markdownUrl, pathname]);
 
   return (
     <Popover>
       <PopoverTrigger
         {...props}
+        aria-label={
+          condensed
+            ? (props["aria-label"] ?? "More page actions")
+            : props["aria-label"]
+        }
         className={cn(
           buttonVariants({
             color: "secondary",
             size: "sm",
           }),
           "gap-2 data-[state=open]:border-[var(--accent)] data-[state=open]:bg-[var(--accent-dim)] data-[state=open]:text-[var(--accent)]",
+          condensed && "docs-page-actions-trigger",
           props.className,
         )}
       >
-        {props.children ?? "Open"}
+        {!condensed && (props.children ?? "Open")}
         <ChevronDown className="size-3.5 text-[var(--text-muted)]" />
       </PopoverTrigger>
-      <PopoverContent className="flex flex-col">
+      <PopoverContent
+        align={condensed ? "end" : "center"}
+        className={cn("flex flex-col", condensed && "w-72 p-1.5")}
+      >
+        {includeCopyPage && markdownUrl && (
+          <>
+            <MarkdownCopyButton
+              markdownUrl={markdownUrl}
+              appearance="menu-item"
+              title="Copy page as Markdown"
+            >
+              Copy page
+            </MarkdownCopyButton>
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              className="mx-2 my-1 border-t border-[var(--border)]"
+            />
+          </>
+        )}
         {items.map((item) => (
           <a
             key={item.href}

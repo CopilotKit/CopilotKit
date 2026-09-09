@@ -168,6 +168,29 @@ test("maps active Runtime entitlements to the compatible valid license status", 
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });
 
+test("keeps an inactive AWS Marketplace entitlement authoritative over a legacy license", async () => {
+  const marketplaceEntitlements = {
+    status: "ready",
+    entitlement: {
+      source: "awsMarketplaceDeploymentLicense",
+      active: false,
+      features: {},
+      limits: {},
+    },
+  } as const;
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(marketplaceEntitlements);
+  const { data, response } = await requestRuntimeInfoWithLookup(
+    getRuntimeEntitlements,
+    { licenseToken: INVALID_LEGACY_LICENSE_TOKEN },
+  );
+
+  expect(response.status).toBe(200);
+  expect(data.runtimeEntitlements).toEqual(marketplaceEntitlements);
+  expect(data.licenseStatus).toBe("none");
+});
+
 test.each([
   {
     label: "degraded",
@@ -584,6 +607,21 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.intelligence).toEqual({
       wsUrl: "wss://runtime.example/client",
     });
+    expect(data.inspectorLearning).not.toBe(true);
+  });
+
+  it("advertises configured Learning without debug mode or an opt-in and does not invoke the selector", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+    const selector = vi.fn(() => "support");
+    vi.spyOn(runtime.intelligence, "ɵgetLearningContainerId").mockReturnValue(
+      selector,
+    );
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    expect(await response.json()).toHaveProperty("inspectorLearning", true);
+    expect(selector).not.toHaveBeenCalled();
   });
 
   it("should return a2uiEnabled: true when runtime has a2ui configured", async () => {

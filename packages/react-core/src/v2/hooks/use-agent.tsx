@@ -1,4 +1,4 @@
-import { useCopilotKit } from "../context";
+import { useCopilotKit, useDefaultAgentId } from "../context";
 import { useMemo, useEffect, useReducer, useRef, useState } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -203,7 +203,9 @@ export function useAgent({
   // <CopilotChat agentId="..."> subtree resolves to 'default' and throws once
   // the runtime has synced only a non-default agent (#5533).
   const chatConfig = useCopilotChatConfiguration();
-  const resolvedAgentId = agentId ?? chatConfig?.agentId ?? DEFAULT_AGENT_ID;
+  const providerAgentId = useDefaultAgentId();
+  const resolvedAgentId =
+    agentId ?? chatConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
   // Read the provider-level default so it appears in the effect's dep array.

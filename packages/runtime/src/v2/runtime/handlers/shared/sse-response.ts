@@ -181,7 +181,7 @@ export function createSseEventResponse({
                 );
               }
             }
-            await writer.write(encoder.encode(event));
+            await writer.write(encoder.encodeBinary(event));
           } catch (error) {
             if (error instanceof Error && error.name === "AbortError") {
               streamClosed = true;

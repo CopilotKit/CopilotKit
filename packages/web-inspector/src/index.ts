@@ -36,6 +36,9 @@ import type {
   RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
+import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
+import { deriveLearningViewState } from "./components/learning-view.js";
+import type { LearningViewState } from "./components/learning-view.js";
 import type {
   Anchor,
   ContextKey,
@@ -70,6 +73,18 @@ import {
   isValidDockMode,
 } from "./lib/persistence.js";
 import type { PersistedState } from "./lib/persistence.js";
+import {
+  clearLearningSetupMarker,
+  learningSetupMarkerMatches,
+  readLearningSetupMarker,
+  subscribeToLearningSetupMarker,
+  writeLearningSetupMarker,
+} from "./lib/learning-setup.js";
+import type { LearningSetupMarker } from "./lib/learning-setup.js";
+import {
+  fetchInspectorLearning,
+  InspectorLearningUnsupportedError,
+} from "./lib/inspector-learning.js";
 import {
   buildPopOutFeatures,
   ensureBrandFont,
@@ -114,6 +129,15 @@ import {
   trackHomeStoryBeatSelected,
   trackHomeViewed,
   trackInspectorOpened,
+  learningCountBucket,
+  learningDurationBucket,
+  trackLearningEvidenceOpened,
+  trackLearningPageChanged,
+  trackLearningPaneViewed,
+  trackLearningSetupPromptClicked,
+  trackLearningSkillToggled,
+  trackLearningSnapshotLoaded,
+  trackLearningWebAppOpened,
   trackMetadataActionClicked,
   trackMetadataModuleViewed,
   trackTalkToEngineerClicked,
@@ -192,17 +216,6 @@ const WHATS_NEW_VIEW_LABEL = "What's new";
 
 /** Menu key of the What's new leaf — the news signal's destination. */
 const WHATS_NEW_MENU_KEY = "whats-new";
-
-interface RuntimeEntitlementDisplayDiagnostic {
-  status: "ready" | "degraded" | "misconfigured" | "unavailable";
-  error?: {
-    code: string;
-    message: string;
-    retryable: boolean;
-    requestId?: string;
-    traceId?: string;
-  };
-}
 
 type LucideIconName = keyof typeof icons;
 
@@ -823,6 +836,67 @@ const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
   "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
+const THREADS_LOCKED_VIDEO_URL =
+  "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
+const LEARNING_LOCKED_VIDEO_URL =
+  "https://www.loom.com/embed/2978fbfe42324e509057ac5fd46b7a70?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
+type LockedFeatureOutlineItem = Readonly<{
+  icon: LucideIconName;
+  title: string;
+  description: string;
+}>;
+const THREADS_LOCKED_FEATURE_OUTLINE = [
+  {
+    icon: "MessagesSquare",
+    title: "The whole conversation comes back",
+    description:
+      "Rich Threads restores the complete interaction, not just a transcript. Messages, tool calls, shared state, generated interfaces, and supported files return together when a user reopens the thread.",
+  },
+  {
+    icon: "LayoutGrid",
+    title: "Generated UI stays in the thread",
+    description:
+      "Cards, charts, A2UI surfaces, MCP Apps, and tool renderers remain part of the conversation. The demo above shows a generated spending chart returning after a reload.",
+  },
+  {
+    icon: "RefreshCw",
+    title: "Return without starting over",
+    description:
+      "Users can move across sessions and devices while thread lists stay synchronized across open tabs. Rich Threads replays missed events and reconnects to work already in progress.",
+  },
+  {
+    icon: "Server",
+    title: "Infrastructure you do not have to rebuild",
+    description:
+      "CopilotKit handles durable event storage, replay, synchronization, lifecycle APIs, and thread locks on one portable AG-UI history model. Use CopilotKit Cloud or deploy Intelligence in your own Kubernetes environment.",
+  },
+] as const satisfies ReadonlyArray<LockedFeatureOutlineItem>;
+const LEARNING_LOCKED_FEATURE_OUTLINE = [
+  {
+    icon: "History",
+    title: "Memory across sessions",
+    description:
+      "Keep useful facts, preferences, and decisions after the thread closes. Learning gives future conversations the context they need without asking users to repeat themselves.",
+  },
+  {
+    icon: "Search",
+    title: "Recall by meaning",
+    description:
+      "Surface relevant memories by what they mean, not by an exact phrase. Your agent can bring the right context into a new interaction even when the user asks in a completely different way.",
+  },
+  {
+    icon: "Layers",
+    title: "Built-in structure",
+    description:
+      "Turn raw interactions into organized topical, episodic, and operational knowledge. Learning separates enduring facts from individual experiences and useful instructions automatically.",
+  },
+  {
+    icon: "Eye",
+    title: "Full visibility",
+    description:
+      "Inspect exactly what your agent learned and trace each memory back to the threads that shaped it. Review the stored context instead of treating memory like a black box.",
+  },
+] as const satisfies ReadonlyArray<LockedFeatureOutlineItem>;
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
@@ -6395,6 +6469,21 @@ export class WebInspectorElement extends LitElement {
   // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
   // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
   private _memoryStoreUnsupported = false;
+  private learningSnapshot: InspectorLearningSnapshotV1 | null = null;
+  private learningSnapshotScope: string | null = null;
+  private learningProjectIdentity: string | null = null;
+  private learningLoading = false;
+  private learningRefreshing = false;
+  private learningError: string | null = null;
+  private learningSupported = false;
+  private learningRequestGeneration = 0;
+  private learningAbortController: AbortController | null = null;
+  private learningPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private learningPollFailureCount = 0;
+  private learningSetupMarker: LearningSetupMarker | null = null;
+  private learningSetupUnsubscribe: (() => void) | null = null;
+  private learningPromptCopyState: "idle" | "copied" | "error" = "idle";
+  private learningViewedState: LearningViewState | null = null;
   // ── Semantic recall (B3) ──────────────────────────────────────────────
   // `null` = no recall run yet (section hidden). `[]` = ran, no matches.
   private _recallResults: Memory[] | null = null;
@@ -7167,6 +7256,14 @@ export class WebInspectorElement extends LitElement {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this.rebuildFlattenedThreads();
       this.autoSelectLatestThread();
+      if (
+        this.selectedMenu === "memories" &&
+        this.shouldPollLearningSetup() &&
+        !this.learningLoading &&
+        !this.learningRefreshing
+      ) {
+        void this.refreshLearningSnapshot({ preserve: true });
+      }
       this.requestUpdate();
     });
     const statusSub = store
@@ -7455,6 +7552,10 @@ export class WebInspectorElement extends LitElement {
     this.updateInspectorMetadataProjection(
       this.readCoreInspectorMetadata(core),
     );
+    this.learningSupported = core.inspectorLearning;
+    this.learningProjectIdentity = JSON.stringify(
+      this.inspectorMetadataProjection.identity ?? null,
+    );
 
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
@@ -7464,11 +7565,16 @@ export class WebInspectorElement extends LitElement {
           this.threadCapabilityEnabled === true;
         this.synchronizeThreadCapability();
         if (status === "connected") {
+          this.learningSupported = core.inspectorLearning;
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
           this.flushPendingWhatsNewTelemetry();
+          if (this.isLearningStatusVisible()) {
+            this.clearLearningSnapshot();
+            void this.refreshLearningSnapshot({ preserve: false });
+          }
           if (
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
@@ -7482,6 +7588,7 @@ export class WebInspectorElement extends LitElement {
           this._threadsByAgent.clear();
           this._threads = [];
           this.clearInspectorUsageRefresh();
+          this.clearLearningSnapshot();
         }
         this.requestUpdate();
       },
@@ -7500,6 +7607,16 @@ export class WebInspectorElement extends LitElement {
                 return;
               }
               this.updateInspectorMetadataProjection(inspectorMetadata);
+              const identity = JSON.stringify(
+                this.inspectorMetadataProjection.identity ?? null,
+              );
+              if (identity !== this.learningProjectIdentity) {
+                this.learningProjectIdentity = identity;
+                this.clearLearningSnapshot();
+                if (this.isLearningStatusVisible()) {
+                  void this.refreshLearningSnapshot({ preserve: false });
+                }
+              }
               this.requestUpdate();
             },
           }
@@ -7720,6 +7837,381 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
+  private getLearningAgentId(): string | null {
+    if (
+      this.selectedContext !== "all-agents" &&
+      this.core?.agents[this.selectedContext]
+    ) {
+      return this.selectedContext;
+    }
+    // `all-agents` is intentionally unscoped. Choosing the first object key
+    // silently binds Learning to whichever agent happened to be enumerated
+    // first and can select the wrong container. Omit agentId so Intelligence
+    // applies its deterministic sole-container / selection-required rules.
+    return null;
+  }
+
+  /** Whether a visible surface needs the current Learning connection status. */
+  private isLearningStatusVisible(): boolean {
+    return (
+      this.launcherHudOpen ||
+      (this.isOpen &&
+        (this.selectedMenu === "home" || this.selectedMenu === "memories"))
+    );
+  }
+
+  private isLearningSetupActive(): boolean {
+    const runtimeUrl = this.core?.runtimeUrl;
+    if (!runtimeUrl) return false;
+    return learningSetupMarkerMatches(
+      this.learningSetupMarker,
+      runtimeUrl,
+      this.getLearningAgentId(),
+    );
+  }
+
+  private trackLearningViewState(): void {
+    if (
+      !this.isOpen ||
+      this.selectedMenu !== "memories" ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+    const state = deriveLearningViewState({
+      supported: this.learningSupported,
+      loading: this.learningLoading,
+      error: this.learningError,
+      snapshot: this.learningSnapshot,
+      setupActive: this.isLearningSetupActive(),
+    });
+    if (state === this.learningViewedState) return;
+    this.learningViewedState = state;
+    trackLearningPaneViewed({ state });
+  }
+
+  private cancelLearningPoll(): void {
+    if (this.learningPollTimer !== null) {
+      clearTimeout(this.learningPollTimer);
+      this.learningPollTimer = null;
+    }
+  }
+
+  private shouldPollLearningSetup(): boolean {
+    if (
+      !this.isOpen ||
+      this.selectedMenu !== "memories" ||
+      document.visibilityState !== "visible" ||
+      !this.learningSupported
+    ) {
+      return false;
+    }
+    const snapshot = this.learningSnapshot;
+    if (!snapshot) return this.isLearningSetupActive();
+    if (snapshot.configuration.state === "not_configured") {
+      return this.isLearningSetupActive();
+    }
+    return (
+      snapshot.configuration.state === "configured" &&
+      !snapshot.run.hasEverSucceeded &&
+      !snapshot.run.hasActiveRun &&
+      snapshot.pendingThreadCount === 0 &&
+      snapshot.skillsPage.total === 0 &&
+      snapshot.insightsPage.total === 0
+    );
+  }
+
+  private scheduleLearningPoll(): void {
+    this.cancelLearningPoll();
+    if (!this.shouldPollLearningSetup()) return;
+    const delay =
+      this.learningPollFailureCount === 0
+        ? 5_000
+        : this.learningPollFailureCount === 1
+          ? 10_000
+          : 30_000;
+    this.learningPollTimer = setTimeout(() => {
+      this.learningPollTimer = null;
+      void this.refreshLearningSnapshot({ preserve: true });
+    }, delay);
+  }
+
+  private clearLearningSnapshot(): void {
+    this.cancelLearningRequest();
+    this.learningSnapshot = null;
+    this.learningSnapshotScope = null;
+    this.learningError = null;
+    this.learningLoading = false;
+    this.learningRefreshing = false;
+    this.cancelLearningPoll();
+  }
+
+  private cancelLearningRequest(): void {
+    this.learningRequestGeneration += 1;
+    this.learningAbortController?.abort();
+    this.learningAbortController = null;
+  }
+
+  private refreshLearningSnapshot = async (
+    options: {
+      preserve?: boolean;
+      skillsPage?: number;
+      insightsPage?: number;
+    } = {},
+  ): Promise<void> => {
+    const core = this.core;
+    const runtimeUrl = core?.runtimeUrl;
+    this.learningSupported = Boolean(core?.inspectorLearning);
+    if (!core || !runtimeUrl || !this.learningSupported) {
+      this.clearLearningSnapshot();
+      this.requestUpdate();
+      this.trackLearningViewState();
+      return;
+    }
+    this.cancelLearningPoll();
+    const startedAt = performance.now();
+    let loadOutcome: "success" | "unsupported" | "failure" = "failure";
+    let loadedSkills = 0;
+    let loadedInsights = 0;
+    let loadedPendingThreads = 0;
+    let resetSkillsPage = false;
+    let resetInsightsPage = false;
+    const previousSnapshot = this.learningSnapshot;
+    const agentId = this.getLearningAgentId();
+    const requestContext = `${runtimeUrl.replace(/\/+$/u, "")}|${agentId ?? ""}`;
+    if (
+      this.learningSnapshotScope &&
+      !this.learningSnapshotScope.startsWith(`${requestContext}|`)
+    ) {
+      this.clearLearningSnapshot();
+    }
+    const generation = ++this.learningRequestGeneration;
+    this.learningAbortController?.abort();
+    const controller = new AbortController();
+    this.learningAbortController = controller;
+    const preserve =
+      options.preserve === true && this.learningSnapshot !== null;
+    this.learningLoading = !preserve;
+    this.learningRefreshing = preserve;
+    this.learningError = null;
+    this.requestUpdate();
+    try {
+      const snapshot = await fetchInspectorLearning({
+        runtimeUrl,
+        runtimeTransport: core.runtimeTransport,
+        request: {
+          ...(agentId ? { agentId } : {}),
+          skillsPage:
+            options.skillsPage ?? this.learningSnapshot?.skillsPage.page ?? 1,
+          insightsPage:
+            options.insightsPage ??
+            this.learningSnapshot?.insightsPage.page ??
+            1,
+        },
+        fetch: core.ɵruntimeFetch,
+        headers: core.headers,
+        credentials: core.credentials,
+        signal: controller.signal,
+      });
+      if (generation !== this.learningRequestGeneration) return;
+      if (
+        (snapshot.pendingThreadCount > 0 && !snapshot.links.runs) ||
+        (snapshot.pendingCandidateCount > 0 && !snapshot.links.candidates)
+      ) {
+        throw new Error(
+          "Learning snapshot is missing a required web-app link.",
+        );
+      }
+      const containerId =
+        snapshot.configuration.state === "configured"
+          ? snapshot.configuration.container.id
+          : "";
+      const previousContainerId =
+        previousSnapshot?.configuration.state === "configured"
+          ? previousSnapshot.configuration.container.id
+          : "";
+      const scopeChanged =
+        previousSnapshot !== null &&
+        (previousSnapshot.projectKey !== snapshot.projectKey ||
+          previousContainerId !== containerId);
+      const isBackgroundRefresh =
+        options.skillsPage === undefined && options.insightsPage === undefined;
+      resetSkillsPage = Boolean(
+        isBackgroundRefresh &&
+        previousSnapshot &&
+        previousSnapshot.skillsPage.page > 1 &&
+        (scopeChanged ||
+          JSON.stringify([
+            previousSnapshot.skillsPage.total,
+            previousSnapshot.skillsPage.items.map((skill) => [
+              skill.id,
+              skill.revision,
+            ]),
+          ]) !==
+            JSON.stringify([
+              snapshot.skillsPage.total,
+              snapshot.skillsPage.items.map((skill) => [
+                skill.id,
+                skill.revision,
+              ]),
+            ])),
+      );
+      resetInsightsPage = Boolean(
+        isBackgroundRefresh &&
+        previousSnapshot &&
+        previousSnapshot.insightsPage.page > 1 &&
+        (scopeChanged ||
+          JSON.stringify([
+            previousSnapshot.insightsPage.total,
+            previousSnapshot.insightsPage.items.map((insight) => insight.id),
+          ]) !==
+            JSON.stringify([
+              snapshot.insightsPage.total,
+              snapshot.insightsPage.items.map((insight) => insight.id),
+            ])),
+      );
+      this.learningSnapshot = snapshot;
+      loadOutcome = "success";
+      loadedSkills = snapshot.skillsPage.total;
+      loadedInsights = snapshot.insightsPage.total;
+      loadedPendingThreads = snapshot.pendingThreadCount;
+      this.learningSnapshotScope = `${requestContext}|${snapshot.projectKey}|${containerId}`;
+      this.learningError = null;
+      this.learningPollFailureCount = 0;
+      if (snapshot.configuration.state === "configured") {
+        clearLearningSetupMarker();
+        this.learningSetupMarker = null;
+      }
+    } catch (error) {
+      if (
+        generation !== this.learningRequestGeneration ||
+        controller.signal.aborted
+      )
+        return;
+      if (error instanceof InspectorLearningUnsupportedError) {
+        loadOutcome = "unsupported";
+        this.learningSupported = false;
+        this.learningSnapshot = null;
+      } else {
+        this.learningError =
+          error instanceof Error
+            ? error.message
+            : "Learning data is unavailable.";
+        this.learningPollFailureCount += 1;
+      }
+    } finally {
+      if (generation === this.learningRequestGeneration) {
+        this.learningLoading = false;
+        this.learningRefreshing = false;
+        this.learningAbortController = null;
+        if (!core.telemetryDisabled) {
+          trackLearningSnapshotLoaded({
+            outcome: loadOutcome,
+            duration_bucket: learningDurationBucket(
+              performance.now() - startedAt,
+            ),
+            skills_bucket: learningCountBucket(loadedSkills),
+            insights_bucket: learningCountBucket(loadedInsights),
+            pending_threads_bucket: learningCountBucket(loadedPendingThreads),
+          });
+        }
+        this.scheduleLearningPoll();
+        this.requestUpdate();
+        this.trackLearningViewState();
+        if (resetSkillsPage || resetInsightsPage) {
+          void this.refreshLearningSnapshot({
+            preserve: true,
+            ...(resetSkillsPage ? { skillsPage: 1 } : {}),
+            ...(resetInsightsPage ? { insightsPage: 1 } : {}),
+          });
+        }
+      }
+    }
+  };
+
+  private copyFeaturePromptToClipboard = async (
+    service: HomeFeaturePromptTarget,
+    event?: Event,
+    onboardingRunId = createOnboardingRunId(),
+  ): Promise<boolean> => {
+    const clipboard = this.getClipboard(event);
+    if (!clipboard?.writeText) return false;
+    try {
+      await clipboard.writeText(
+        homeFeatureImplementationPrompt(service, {
+          onboardingRunId,
+        }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  private handleLearningSetupCopy = async (event?: Event): Promise<void> => {
+    const service = this.getHomeFeaturePromptTarget("threads");
+    if (!service || !this.core?.runtimeUrl) return;
+    const copied = await this.copyFeaturePromptToClipboard(
+      service,
+      event,
+      this.getOnboardingRunId(),
+    );
+    if (!this.core.telemetryDisabled) {
+      trackLearningSetupPromptClicked({
+        outcome: copied ? "success" : "failure",
+      });
+    }
+    if (!copied) {
+      this.learningPromptCopyState = "error";
+      this.requestUpdate();
+      return;
+    }
+    this.learningPromptCopyState = "copied";
+    this.learningSetupMarker = writeLearningSetupMarker({
+      runtimeUrl: this.core.runtimeUrl,
+      agentId: this.getLearningAgentId(),
+    });
+    this.selectedMenu = "memories";
+    this.persistState();
+    this.requestUpdate();
+    void this.refreshLearningSnapshot({ preserve: false });
+  };
+
+  private handleLearningPage = (
+    event: CustomEvent<{
+      section: "skills" | "insights";
+      page: number;
+    }>,
+  ): void => {
+    const { section, page } = event.detail;
+    const currentPage =
+      section === "skills"
+        ? (this.learningSnapshot?.skillsPage.page ?? 1)
+        : (this.learningSnapshot?.insightsPage.page ?? 1);
+    if (!this.core?.telemetryDisabled) {
+      trackLearningPageChanged({
+        section,
+        direction: page < currentPage ? "previous" : "next",
+      });
+    }
+    void this.refreshLearningSnapshot({
+      preserve: true,
+      ...(section === "skills" ? { skillsPage: page } : { insightsPage: page }),
+    });
+  };
+
+  private handleLearningEvidence = (
+    event: CustomEvent<{
+      threadId: string;
+      messageId?: string;
+    }>,
+  ): void => {
+    this.focusThread({
+      threadId: event.detail.threadId,
+      ...(event.detail.messageId ? { messageId: event.detail.messageId } : {}),
+    });
+  };
+
   private detachFromCore(): void {
     this.threadCapabilityGeneration += 1;
     this.threadCapabilityEnabled = null;
@@ -7750,6 +8242,8 @@ export class WebInspectorElement extends LitElement {
     this._recallLoading = false;
     this._recallError = null;
     this._recallQuery = "";
+    this.clearLearningSnapshot();
+    this.learningSupported = false;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.cancelThreadRefreshDebounce();
@@ -7785,6 +8279,7 @@ export class WebInspectorElement extends LitElement {
   private processAgentsChanged(
     agents: Readonly<Record<string, AbstractAgent>>,
   ): void {
+    const previousLearningAgentId = this.getLearningAgentId();
     this.synchronizeThreadCapability();
     const seenAgentIds = new Set<string>();
 
@@ -7811,6 +8306,29 @@ export class WebInspectorElement extends LitElement {
     }
 
     this.updateContextOptions(seenAgentIds);
+    const learningAgentId = this.getLearningAgentId();
+    if (
+      learningAgentId &&
+      this.core?.runtimeUrl &&
+      this.learningSetupMarker?.agentId === null &&
+      learningSetupMarkerMatches(
+        this.learningSetupMarker,
+        this.core.runtimeUrl,
+        null,
+      )
+    ) {
+      this.learningSetupMarker = writeLearningSetupMarker({
+        runtimeUrl: this.core.runtimeUrl,
+        agentId: learningAgentId,
+      });
+    }
+    if (
+      previousLearningAgentId !== learningAgentId &&
+      this.isLearningStatusVisible()
+    ) {
+      this.clearLearningSnapshot();
+      void this.refreshLearningSnapshot({ preserve: false });
+    }
     this.refreshToolsSnapshot();
     this.requestUpdate();
   }
@@ -10230,8 +10748,8 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: var(--hud-accent);
-        background: color-mix(in srgb, var(--hud-accent) 76%, transparent);
+        border-color: #087653;
+        background: #087653;
       }
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
@@ -10254,8 +10772,8 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: #6757b0;
-        background: #7563c7;
+        border-color: #087653;
+        background: #087653;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"]
@@ -10500,6 +11018,11 @@ export class WebInspectorElement extends LitElement {
         width: 100%;
         height: 100%;
         object-fit: cover;
+      }
+      .cpk-threads-overview-video-embed {
+        width: 100%;
+        height: 100%;
+        border: 0;
       }
 
       /* ── Header controls on the branded account strip ──────────── */
@@ -10821,6 +11344,14 @@ export class WebInspectorElement extends LitElement {
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.learningSetupMarker = readLearningSetupMarker();
+      this.learningSetupUnsubscribe = subscribeToLearningSetupMarker(
+        (marker) => {
+          this.learningSetupMarker = marker;
+          this.requestUpdate();
+          this.scheduleLearningPoll();
+        },
+      );
       this.refreshInspectorDismissalState();
       this.subscribeToSystemColorScheme();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
@@ -10853,6 +11384,15 @@ export class WebInspectorElement extends LitElement {
     ) {
       this.flushPendingSignalPulse();
     }
+    if (
+      document.visibilityState === "visible" &&
+      this.isOpen &&
+      this.selectedMenu === "memories"
+    ) {
+      void this.refreshLearningSnapshot({ preserve: true });
+    } else {
+      this.cancelLearningPoll();
+    }
     this.requestUpdate();
   };
 
@@ -10883,6 +11423,9 @@ export class WebInspectorElement extends LitElement {
     }
     this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
+    this.learningSetupUnsubscribe?.();
+    this.learningSetupUnsubscribe = null;
+    this.clearLearningSnapshot();
     this.stopIntelligenceStory();
     this.clearIntelligencePromptReset();
     this.homeFeaturePromptCopyGeneration += 1;
@@ -11351,6 +11894,7 @@ export class WebInspectorElement extends LitElement {
       this.resolveLauncherHudSide();
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
+      void this.refreshLearningSnapshot({ preserve: true });
       this.requestUpdate();
       this.launcherHudIntroEndTimer = setTimeout(() => {
         this.launcherHudIntroEndTimer = null;
@@ -11405,6 +11949,7 @@ export class WebInspectorElement extends LitElement {
     }
     if (this.launcherHudOpen) return;
     this.launcherHudOpen = true;
+    void this.refreshLearningSnapshot({ preserve: true });
     this.requestUpdate();
   }
 
@@ -12074,13 +12619,12 @@ export class WebInspectorElement extends LitElement {
             timestamp: lastRuntimeEvent.timestamp,
           }
         : undefined,
-      // `available` begins optimistic inside the lazy Memory store. Until the
-      // first capability probe has actually settled, showing Learning as on
-      // would be a false positive that corrects itself only after navigation.
-      memoriesOn:
-        this._memorySubscribed &&
-        !this._memoriesLoading &&
-        this._memoriesAvailable,
+      // A capability advertises the endpoint, not a configured Learning
+      // container. Use its successful snapshot for Home and launcher status.
+      learningOn:
+        this.learningSupported &&
+        this.learningError === null &&
+        this.learningSnapshot?.configuration.state === "configured",
       a2uiOn: this._core?.a2uiEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
@@ -12854,20 +13398,11 @@ export class WebInspectorElement extends LitElement {
       });
     }
 
-    const clipboard = this.getClipboard(event);
-    if (!clipboard?.writeText) {
-      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
-      return;
-    }
-
-    try {
-      await clipboard.writeText(
-        homeFeatureImplementationPrompt(service, {
-          onboardingRunId,
-        }),
-      );
+    if (
+      await this.copyFeaturePromptToClipboard(service, event, onboardingRunId)
+    ) {
       this.showHomeFeaturePromptCopyState(service.id, "copied", generation);
-    } catch {
+    } else {
       this.showHomeFeaturePromptCopyState(service.id, "error", generation);
     }
   };
@@ -12883,13 +13418,18 @@ export class WebInspectorElement extends LitElement {
   private renderFeatureSetupPrompt(
     serviceId: HomeFeaturePromptId,
     className: string,
+    options?: Readonly<{
+      copyState?: HomeFeaturePromptCopyState;
+      onClick?: (event: Event) => void;
+    }>,
   ): TemplateResult | typeof nothing {
     const service = this.getHomeFeaturePromptTarget(serviceId);
     if (!service) return nothing;
     const copyState =
-      this.homeFeaturePromptCopyState?.serviceId === service.id
+      options?.copyState ??
+      (this.homeFeaturePromptCopyState?.serviceId === service.id
         ? this.homeFeaturePromptCopyState.state
-        : "idle";
+        : "idle");
     const label =
       copyState === "copied"
         ? "Copied"
@@ -12913,7 +13453,9 @@ export class WebInspectorElement extends LitElement {
               : `Copy setup prompt for ${service.label}`
         }
         @click=${(event: Event) =>
-          this.handleHomeFeaturePromptCopy(service, event)}
+          options?.onClick
+            ? options.onClick(event)
+            : this.handleHomeFeaturePromptCopy(service, event)}
       >
         ${this.renderIcon(copyState === "copied" ? "Check" : "Copy")}
         ${label}
@@ -14829,6 +15371,11 @@ export class WebInspectorElement extends LitElement {
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
+    if (this.isLearningStatusVisible()) {
+      void this.refreshLearningSnapshot({
+        preserve: this.learningSnapshot !== null,
+      });
+    }
     // The launcher is gone, so its gesture is gone with it — and the slot it
     // was holding is free again for whatever beats after the panel closes.
     this.cancelGestureTail();
@@ -14872,6 +15419,9 @@ export class WebInspectorElement extends LitElement {
     }
 
     this.isOpen = false;
+    this.cancelLearningPoll();
+    this.cancelLearningRequest();
+    this.learningViewedState = null;
 
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
@@ -16489,22 +17039,14 @@ export class WebInspectorElement extends LitElement {
         placement: "threads-footer" | "locked";
       }>
     | undefined {
-    const { threadsFooterAction, lockedAction } =
-      this.inspectorMetadataProjection;
+    const { threadsFooterAction } = this.inspectorMetadataProjection;
     if (
       threadsFooterAction &&
       !this.settingsOpen &&
-      this.selectedMenu === "threads"
+      this.selectedMenu === "threads" &&
+      this.areThreadEndpointsAvailable()
     ) {
       return { action: threadsFooterAction, placement: "threads-footer" };
-    }
-    if (
-      lockedAction &&
-      !this.settingsOpen &&
-      this.selectedMenu === "threads" &&
-      !this.areThreadEndpointsAvailable()
-    ) {
-      return { action: lockedAction, placement: "locked" };
     }
     return undefined;
   }
@@ -16744,14 +17286,12 @@ export class WebInspectorElement extends LitElement {
   }
 
   private shouldRenderExampleThreads(
-    locked: boolean,
     displayThreads: ɵThread[],
     threadsErrorMessage: string | null,
     threadsLoading: boolean,
   ): boolean {
     return (
-      locked ||
-      (!threadsErrorMessage && !threadsLoading && displayThreads.length === 0)
+      !threadsErrorMessage && !threadsLoading && displayThreads.length === 0
     );
   }
 
@@ -17496,67 +18036,147 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  private renderThreadsExampleOverview(locked: boolean) {
-    const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
-    const { lockedAction } = this.inspectorMetadataProjection;
+  private renderThreadsExampleOverview() {
     const onboardingAction = this.getThreadsEmptyOnboardingAction();
     return html`
       <div class="cpk-threads-overview">
         <div class="cpk-threads-overview-content">
           <h2 class="cpk-threads-overview-title">
-            ${
-              lockedCopy?.heading ??
-              "Threads are persistent, inspectable conversations"
-            }
+            Threads are persistent, inspectable conversations
           </h2>
           ${this.renderThreadsExampleOverviewVideo()}
           <p class="cpk-threads-overview-copy">
-            ${
-              lockedCopy?.description ??
-              "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
-            }
+            Take a tour with the example threads in the sidebar. Then, start
+            chatting in your app to create the first real thread.
           </p>
-          ${
-            locked
-              ? this.renderRuntimeEntitlementDiagnostic(
-                  this.getRuntimeEntitlementDiagnostic(),
-                )
-              : nothing
-          }
           <div class="cpk-threads-overview-actions">
-            ${
-              locked
-                ? html`
-                  ${this.renderFeatureSetupPrompt(
-                    "threads",
-                    "cpk-threads-overview-action cpk-threads-overview-action-primary",
-                  )}
-                  ${
-                    lockedAction
-                      ? this.renderInspectorAction(lockedAction, "locked")
-                      : nothing
-                  }
-                `
-                : html`
-                  <a
-                    href=${this.getThreadsDocsUrl()}
-                    target="_blank"
-                    rel="noopener"
-                    class="cpk-threads-overview-action cpk-threads-overview-action-primary"
-                  >
-                    Learn how Threads work
-                  </a>
-                  <a
-                    href=${onboardingAction.href}
-                    target="_blank"
-                    rel="noopener"
-                    class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
-                  >
-                    ${onboardingAction.label}
-                  </a>
-                `
-            }
+            <a
+              href=${this.getThreadsDocsUrl()}
+              target="_blank"
+              rel="noopener"
+              class="cpk-threads-overview-action cpk-threads-overview-action-primary"
+            >
+              Learn how Threads work
+            </a>
+            <a
+              href=${onboardingAction.href}
+              target="_blank"
+              rel="noopener"
+              class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
+            >
+              ${onboardingAction.label}
+            </a>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderLockedFeatureOverview({
+    serviceId,
+    featureName,
+    heading,
+    description,
+    videoUrl,
+    videoTitle,
+    outlineItems,
+    setupPrompt,
+  }: {
+    serviceId: HomeFeaturePromptId;
+    featureName: string;
+    heading: string;
+    description: string;
+    videoUrl: string;
+    videoTitle: string;
+    outlineItems: ReadonlyArray<LockedFeatureOutlineItem>;
+    setupPrompt?: Readonly<{
+      serviceId: HomeFeaturePromptId;
+      copyState: HomeFeaturePromptCopyState;
+      onClick: (event: Event) => void;
+    }>;
+  }) {
+    return html`
+      <div
+        class="cpk-locked-feature"
+        data-inspector-locked-feature=${serviceId}
+      >
+        <div class="cpk-locked-feature-layout">
+          <div class="cpk-locked-feature-hero">
+            <div class="cpk-locked-feature-copy">
+              <div class="cpk-locked-feature-name">
+                <span class="cpk-locked-feature-icon" aria-hidden="true">
+                  ${
+                    serviceId === "threads"
+                      ? unsafeHTML(this.customTabIcons.threads)
+                      : this.renderIcon("Brain")
+                  }
+                </span>
+                ${featureName}
+              </div>
+              <h2 class="cpk-locked-feature-title">${heading}</h2>
+              <p class="cpk-locked-feature-description">${description}</p>
+              <div class="cpk-threads-overview-actions">
+                ${this.renderFeatureSetupPrompt(
+                  setupPrompt?.serviceId ?? serviceId,
+                  "inspector-account-cta cpk-locked-feature-setup-cta",
+                  setupPrompt
+                    ? {
+                        copyState: setupPrompt.copyState,
+                        onClick: setupPrompt.onClick,
+                      }
+                    : undefined,
+                )}
+                <a
+                  data-inspector-locked-feature-talk=${serviceId}
+                  href=${this.getTalkToEngineerUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Talk to an Engineer (opens in a new tab)"
+                  class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
+                  @click=${this.handleThreadsTalkToEngineerClick}
+                >
+                  Talk to an Engineer
+                </a>
+              </div>
+            </div>
+            <div class="cpk-locked-feature-media">
+              <div class="cpk-threads-overview-video-frame cpk-locked-feature-video">
+                <iframe
+                  class="cpk-threads-overview-video-embed"
+                  data-inspector-feature-video=${serviceId}
+                  src=${videoUrl}
+                  title=${videoTitle}
+                  loading="lazy"
+                  allow="fullscreen; picture-in-picture"
+                  allowfullscreen
+                ></iframe>
+              </div>
+            </div>
+          </div>
+          <section
+            class="cpk-locked-feature-outline"
+            data-inspector-feature-outline=${serviceId}
+            aria-label="${featureName} capabilities"
+          >
+            <div class="cpk-locked-feature-outline-list">
+              ${outlineItems.map(
+                (item) => html`
+                  <section class="cpk-locked-feature-outline-item">
+                    <h3>
+                      <span
+                        class="cpk-locked-feature-outline-icon"
+                        aria-hidden="true"
+                      >
+                        ${this.renderIcon(item.icon)}
+                      </span>
+                      ${item.title}
+                    </h3>
+                    <p>${item.description}</p>
+                  </section>
+                `,
+              )}
+            </div>
+          </section>
         </div>
       </div>
     `;
@@ -17634,58 +18254,6 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  private renderThreadsLockedBackgroundMockup() {
-    const threadRows = [
-      { width: 74, accent: true },
-      { width: 92 },
-      { width: 68 },
-      { width: 84 },
-      { width: 58 },
-      { width: 76 },
-    ];
-
-    return html`
-      <div aria-hidden="true" class="cpk-locked-preview">
-        <div class="cpk-locked-preview-sidebar">
-          ${threadRows.map(
-            (row) => html`
-              <div
-                class="cpk-locked-preview-row"
-                data-accent=${row.accent ? "true" : "false"}
-              >
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-title"
-                  style="--preview-width: ${row.width}%;"
-                ></div>
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-line"
-                ></div>
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-line"
-                ></div>
-              </div>
-            `,
-          )}
-        </div>
-        <div class="cpk-locked-preview-main">
-          <div class="cpk-locked-preview-bar cpk-locked-preview-heading"></div>
-          <div class="cpk-locked-preview-bar cpk-locked-preview-copy"></div>
-          <div class="cpk-locked-preview-bar cpk-locked-preview-copy"></div>
-          <div class="cpk-locked-preview-cards">
-            <div class="cpk-locked-preview-card"></div>
-            <div class="cpk-locked-preview-card"></div>
-          </div>
-          <div
-            class="cpk-locked-preview-bar cpk-locked-preview-footer-line"
-          ></div>
-          <div
-            class="cpk-locked-preview-bar cpk-locked-preview-footer-line"
-          ></div>
-        </div>
-      </div>
-    `;
-  }
-
   private getThreadsLockedCopy(): {
     heading: string;
     description: string;
@@ -17698,10 +18266,12 @@ export class WebInspectorElement extends LitElement {
             "Copy this prompt into your coding agent to finish the setup.",
         };
       case "none":
+      case "unknown":
         return {
-          heading: "Enable Intelligence to inspect Threads.",
+          heading:
+            "Production-grade chat threads without the complexity. Self hostable.",
           description:
-            "Persist conversations and inspect saved thread history from the Inspector.",
+            "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
         };
       case "expired":
         return {
@@ -17709,111 +18279,7 @@ export class WebInspectorElement extends LitElement {
           description:
             "Your Intelligence access has expired. Renew it to inspect saved thread history.",
         };
-      case "unknown":
-        return {
-          heading: "Threads are unavailable.",
-          description:
-            "This runtime does not expose Threads for the Inspector.",
-        };
     }
-  }
-
-  /**
-   * Prefer the Runtime's structured entitlement diagnostic and derive a
-   * compatibility diagnostic only when an older Core exposes legacy status.
-   */
-  private getRuntimeEntitlementDiagnostic(): RuntimeEntitlementDisplayDiagnostic | null {
-    const runtimeEntitlements = this.core?.runtimeEntitlements;
-    if (runtimeEntitlements) {
-      return runtimeEntitlements.status === "ready"
-        ? { status: runtimeEntitlements.status }
-        : {
-            status: runtimeEntitlements.status,
-            error: runtimeEntitlements.error,
-          };
-    }
-
-    switch (this.core?.licenseStatus) {
-      case "valid":
-        return { status: "ready" };
-      case "expired":
-        return {
-          status: "degraded",
-          error: {
-            code: "legacy_license_expired",
-            message: "Legacy Runtime license has expired.",
-            retryable: false,
-          },
-        };
-      case "expiring":
-        return {
-          status: "degraded",
-          error: {
-            code: "legacy_license_expiring",
-            message: "Legacy Runtime license is expiring.",
-            retryable: false,
-          },
-        };
-      case "invalid":
-        return {
-          status: "misconfigured",
-          error: {
-            code: "legacy_license_invalid",
-            message: "Legacy Runtime license is invalid.",
-            retryable: false,
-          },
-        };
-      case "none":
-      case "unknown":
-        return { status: "unavailable" };
-      default:
-        return null;
-    }
-  }
-
-  /** Render exact Runtime entitlement correlation details without gating UI. */
-  private renderRuntimeEntitlementDiagnostic(
-    diagnostic: RuntimeEntitlementDisplayDiagnostic | null,
-  ) {
-    if (!diagnostic) {
-      return nothing;
-    }
-
-    return html`
-      <div
-        role="status"
-        data-runtime-entitlement-status=${diagnostic.status}
-        style="
-          margin: -8px auto 18px;
-          max-width: 380px;
-          font-size: 11px;
-          line-height: 1.5;
-          color: #57575b;
-        "
-      >
-        <div style="font-weight: 600;">
-          Runtime entitlement: ${diagnostic.status}
-        </div>
-        ${
-          diagnostic.error
-            ? html`
-              <div>${diagnostic.error.message}</div>
-              <div>Code: ${diagnostic.error.code}</div>
-              ${
-                diagnostic.error.requestId
-                  ? html`<div>Request ID: ${diagnostic.error.requestId}</div>`
-                  : nothing
-              }
-              ${
-                diagnostic.error.traceId
-                  ? html`<div>Trace ID: ${diagnostic.error.traceId}</div>`
-                  : nothing
-              }
-            `
-            : nothing
-        }
-      </div>
-    `;
   }
 
   /**
@@ -17863,6 +18329,93 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderMemoriesView() {
+    const state = deriveLearningViewState({
+      supported: this.learningSupported,
+      loading: this.learningLoading,
+      error: this.learningError,
+      snapshot: this.learningSnapshot,
+      setupActive: this.isLearningSetupActive(),
+    });
+    if (state === "landing") {
+      return this.renderLockedFeatureOverview({
+        serviceId: "memory",
+        featureName: "Learning",
+        heading: "Turn every interaction into reusable context.",
+        description:
+          "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
+        videoUrl: LEARNING_LOCKED_VIDEO_URL,
+        videoTitle: "CopilotKit Learning overview",
+        outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
+        setupPrompt: {
+          serviceId: "threads",
+          copyState: this.learningPromptCopyState,
+          onClick: (event) => void this.handleLearningSetupCopy(event),
+        },
+      });
+    }
+    return html`
+      <cpk-learning-view
+        data-color-scheme=${this.colorScheme}
+        .supported=${this.learningSupported}
+        .loading=${this.learningLoading}
+        .refreshing=${this.learningRefreshing}
+        .error=${this.learningError}
+        .snapshot=${this.learningSnapshot}
+        .setupActive=${this.isLearningSetupActive()}
+        .copyState=${this.learningPromptCopyState}
+        .setupPrompt=${
+          this.getHomeFeaturePromptTarget("threads")
+            ? homeFeatureImplementationPrompt(
+                this.getHomeFeaturePromptTarget("threads")!,
+                { onboardingRunId: this.getOnboardingRunId() },
+              )
+            : ""
+        }
+        @learning-retry=${() =>
+          this.refreshLearningSnapshot({
+            preserve: this.learningSnapshot !== null,
+          })}
+        @learning-copy-setup=${(event: Event) =>
+          this.handleLearningSetupCopy(event)}
+        @learning-page=${(event: CustomEvent) =>
+          this.handleLearningPage(
+            event as CustomEvent<{
+              section: "skills" | "insights";
+              page: number;
+            }>,
+          )}
+        @learning-open-evidence=${(event: CustomEvent) =>
+          this.handleLearningEvidence(
+            event as CustomEvent<{
+              threadId: string;
+              messageId?: string;
+            }>,
+          )}
+        @learning-evidence-opened=${() => {
+          if (!this.core?.telemetryDisabled) trackLearningEvidenceOpened();
+        }}
+        @learning-skill-toggle=${(
+          event: CustomEvent<{ action: "expanded" | "collapsed" }>,
+        ) => {
+          if (!this.core?.telemetryDisabled) {
+            trackLearningSkillToggled({ action: event.detail.action });
+          }
+        }}
+        @learning-web-link=${(
+          event: CustomEvent<{
+            category: "learning" | "runs" | "candidates";
+          }>,
+        ) => {
+          if (!this.core?.telemetryDisabled) {
+            trackLearningWebAppOpened({ category: event.detail.category });
+          }
+        }}
+      ></cpk-learning-view>
+    `;
+  }
+
+  /** Legacy Memory rendering kept isolated while published Memory APIs remain. */
+  private renderLegacyMemoriesView() {
     // Once the user enters Learning, its lazy subscription is the capability
     // probe. Preserve the loading state while that request is in flight, then
     // let an unavailable response fall through to the setup gate.
@@ -17873,51 +18426,19 @@ export class WebInspectorElement extends LitElement {
     // as Home and the launcher so an unavailable feature always lands on its
     // setup path instead of an enabled-looking empty state.
     if (!learningEnabled) {
-      return html`
-        <div class="cpk-memory-locked">
-          ${this.renderThreadsLockedBackgroundMockup()}
-          <div aria-hidden="true" class="cpk-memory-locked-scrim"></div>
-          <div class="cpk-memory-locked-content">
-            <div aria-hidden="true" class="cpk-memory-locked-icon-wrap">
-              <div class="cpk-memory-locked-icon">
-                ${this.renderIcon("Lock")}
-              </div>
-            </div>
-            <h2 class="cpk-memory-locked-title">Learning</h2>
-            <p class="cpk-memory-locked-copy">
-              ${
-                this._memoryStoreUnsupported
-                  ? "Learning is unavailable in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports long-term memory."
-                  : "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment."
-              }
-            </p>
-            <div class="cpk-memory-locked-actions">
-              ${this.renderFeatureSetupPrompt(
-                "memory",
-                "cpk-memory-locked-action",
-              )}
-              <a
-                href=${this.getTalkToEngineerUrl()}
-                target="_blank"
-                rel="noopener"
-                class="cpk-memory-locked-action"
-                @click=${this.handleThreadsTalkToEngineerClick}
-              >
-                Talk to an Engineer
-              </a>
-              <a
-                href=${this.getIntelligenceSignupUrl()}
-                target="_blank"
-                rel="noopener"
-                class="cpk-memory-locked-action cpk-memory-locked-action-secondary"
-                @click=${this.handleThreadsIntelligenceSignupClick}
-              >
-                Sign up for Intelligence
-              </a>
-            </div>
-          </div>
-        </div>
-      `;
+      return this.renderLockedFeatureOverview({
+        serviceId: "memory",
+        featureName: "Learning",
+        heading: this._memoryStoreUnsupported
+          ? "Upgrade to enable Learning"
+          : "Turn every interaction into reusable context.",
+        description: this._memoryStoreUnsupported
+          ? "Learning requires a newer version of @copilotkit/core and @copilotkit/react. Copy the setup prompt to upgrade and add long-term memory."
+          : "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
+        videoUrl: LEARNING_LOCKED_VIDEO_URL,
+        videoTitle: "CopilotKit Learning overview",
+        outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
+      });
     }
 
     // 2. Full-screen error — only for a snapshot-LOAD failure (no memories
@@ -18189,22 +18710,32 @@ export class WebInspectorElement extends LitElement {
 
   private renderThreadsView() {
     const locked = !this.areThreadEndpointsAvailable();
+    if (locked) {
+      this.trackThreadsViewStateOnce("locked");
+      const lockedCopy = this.getThreadsLockedCopy();
+      return this.renderLockedFeatureOverview({
+        serviceId: "threads",
+        featureName: "Rich Threads",
+        heading: lockedCopy.heading,
+        description: lockedCopy.description,
+        videoUrl: THREADS_LOCKED_VIDEO_URL,
+        videoTitle: "Rich Threads overview",
+        outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
+      });
+    }
+
     const { displayThreads, threadsErrorMessage, threadsLoading } =
       this.getActiveThreadsState();
     const loadingWithoutRows =
-      !locked &&
-      threadsLoading &&
-      !threadsErrorMessage &&
-      displayThreads.length === 0;
+      threadsLoading && !threadsErrorMessage && displayThreads.length === 0;
 
     const showingExamples = this.shouldRenderExampleThreads(
-      locked,
       displayThreads,
       threadsErrorMessage,
       threadsLoading,
     );
     const visibleThreads =
-      !locked && (threadsErrorMessage || loadingWithoutRows)
+      threadsErrorMessage || loadingWithoutRows
         ? []
         : showingExamples
           ? THREADS_EXAMPLE_THREADS
@@ -18221,9 +18752,7 @@ export class WebInspectorElement extends LitElement {
       selectedThread !== null &&
       selectedThread.id === this.selectedLocalExampleThreadId;
 
-    if (locked) {
-      this.trackThreadsViewStateOnce("locked");
-    } else if (
+    if (
       !threadsErrorMessage &&
       (!threadsLoading || displayThreads.length > 0)
     ) {
@@ -18272,7 +18801,7 @@ export class WebInspectorElement extends LitElement {
             style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;"
           >
             ${
-              !locked && threadsErrorMessage
+              threadsErrorMessage
                 ? html`
                   <div
                     role="alert"
@@ -18375,7 +18904,7 @@ export class WebInspectorElement extends LitElement {
                           : nothing
                       }`
                     : showingExamples
-                      ? this.renderThreadsExampleOverview(locked)
+                      ? this.renderThreadsExampleOverview()
                       : html`
                         <div
                           style="
@@ -19334,16 +19863,23 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (key === "memories") {
-      // Lazily create + subscribe to the memory store on first activation. This
-      // is the only place that touches getMemoryStore(), so the store/realtime
-      // are never started just by attaching the inspector.
-      this.ensureMemorySubscription();
+      this.learningSupported = Boolean(this.core?.inspectorLearning);
+      if (previousMenu !== "memories" || this.learningSnapshot === null) {
+        void this.refreshLearningSnapshot({
+          preserve: previousMenu === "memories",
+        });
+      }
       if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
         trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
       }
+    } else if (previousMenu === "memories") {
+      this.learningViewedState = null;
+      this.cancelLearningPoll();
+      this.cancelLearningRequest();
     }
 
     if (key === "home" && previousMenu !== "home") {
+      void this.refreshLearningSnapshot({ preserve: true });
       this.homeViewedThisOpen = false;
     }
 
@@ -19450,6 +19986,9 @@ export class WebInspectorElement extends LitElement {
       this.autoSelectLatestThread();
       if (this.selectedMenu === "playground") {
         this.startPlaygroundSession(false);
+      } else if (this.isLearningStatusVisible()) {
+        this.clearLearningSnapshot();
+        void this.refreshLearningSnapshot({ preserve: false });
       }
     }
 

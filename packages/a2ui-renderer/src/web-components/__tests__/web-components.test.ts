@@ -196,6 +196,74 @@ describe("A2UI Lit Web Components", () => {
     expect(element.querySelector('[data-surface-id="default"]')).toBeTruthy();
   });
 
+  // Both renderer paths have to resolve a surface id by the same rule, or the
+  // same payload groups one way in React and another way here. (OSS-1048)
+  it("prefers a nested surface id over a top-level one", async () => {
+    const element = createSurfaceElement();
+    element.operations = [
+      {
+        version: "v0.9",
+        surfaceId: "top-level",
+        createSurface: {
+          surfaceId: "nested",
+          catalogId: BASIC_CATALOG_ID,
+        },
+      },
+      {
+        version: "v0.9",
+        surfaceId: "top-level",
+        updateComponents: {
+          surfaceId: "nested",
+          components: [
+            {
+              id: "root",
+              component: "Text",
+              text: "Nested wins",
+            },
+          ],
+        },
+      },
+    ];
+
+    await waitForRender(element);
+
+    expect(element.textContent).toContain("Nested wins");
+    expect(element.querySelector('[data-surface-id="nested"]')).toBeTruthy();
+    expect(element.querySelector('[data-surface-id="top-level"]')).toBeNull();
+  });
+
+  it("falls back to a top-level surface id when the payload carries none", async () => {
+    const element = createSurfaceElement();
+    element.operations = [
+      {
+        version: "v0.9",
+        surfaceId: "top-level",
+        createSurface: {
+          catalogId: BASIC_CATALOG_ID,
+        },
+      },
+      {
+        version: "v0.9",
+        surfaceId: "top-level",
+        updateComponents: {
+          components: [
+            {
+              id: "root",
+              component: "Text",
+              text: "Top-level id",
+            },
+          ],
+        },
+      },
+    ];
+
+    await waitForRender(element);
+
+    expect(element.textContent).toContain("Top-level id");
+    expect(element.querySelector('[data-surface-id="top-level"]')).toBeTruthy();
+    expect(element.querySelector('[data-surface-id="default"]')).toBeNull();
+  });
+
   it("exports minimal, basic, and full catalogs", () => {
     expect(minimalCatalog.components.has("Text")).toBe(true);
     expect(minimalCatalog.components.has("TextField")).toBe(true);

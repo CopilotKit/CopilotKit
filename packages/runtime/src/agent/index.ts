@@ -572,7 +572,14 @@ export function convertMessagesToVercelAISDKMessages(
  * JSON Schema type definition
  */
 interface JsonSchema {
-  type?: "object" | "string" | "number" | "integer" | "boolean" | "array";
+  type?:
+    | "object"
+    | "string"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "array"
+    | "null";
   description?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
@@ -592,6 +599,11 @@ export function convertJsonSchemaToZodSchema(
   jsonSchema: JsonSchema,
   required: boolean,
 ): z.ZodSchema {
+  if (jsonSchema.type === "null") {
+    const schema = z.null().describe(jsonSchema.description ?? "");
+    return required ? schema : schema.optional();
+  }
+
   // Handle `anyOf` / `oneOf` unions (e.g. `z.discriminatedUnion` or `z.union`
   // on a frontend tool) as `z.union`. These nodes usually carry no top-level
   // `type`, so they MUST be handled before the empty-schema guard below —

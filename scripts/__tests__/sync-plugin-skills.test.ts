@@ -189,7 +189,8 @@ describe("syncPluginSkills", () => {
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("channels-setup");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("inspector-docs");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("inspector-workbench");
-    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(13);
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("intelligence-docs");
+    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(14);
   });
 
   // Version sync — the plugin version tracks packages/runtime/package.json.

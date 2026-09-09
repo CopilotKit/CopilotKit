@@ -128,7 +128,7 @@ export function HeroOnboardingPromptButton({
         type="button"
         onClick={copyPrompt}
         data-surface={surface}
-        className="shell-docs-primary-cta shell-docs-radius-control inline-flex h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-fit"
+        className="shell-docs-primary-cta shell-docs-radius-control inline-flex h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-fit"
       >
         <Copy aria-hidden="true" className="h-4 w-4" />
         {/* The status labels are far shorter than the idle one, so rendering

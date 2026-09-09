@@ -113,6 +113,76 @@ describe("seoRedirects", () => {
     );
   });
 
+  it("redirects the moved Intelligence inspector page instead of 404ing", () => {
+    // cc8c945893 renamed `(root)/premium/inspector.mdx` to
+    // `(root)/inspector.mdx` and added no redirect, so `/premium/inspector`
+    // 404'd from 2026-02-23 on. The page still exists, so these forward to it
+    // rather than falling back to the overview.
+    expect(seoRedirects).toEqual(
+      expect.arrayContaining([
+        {
+          id: "INTEL-inspector-root",
+          source: "/premium/inspector",
+          destination: "/inspector",
+        },
+        {
+          id: "INTEL-inspector×langgraph-python",
+          source: "/langgraph-python/premium/inspector",
+          destination: "/langgraph-python/inspector",
+        },
+        {
+          // Built-in Agent is served at the root, so its destination carries
+          // no framework prefix.
+          id: "INTEL-inspector×built-in-agent",
+          source: "/built-in-agent/premium/inspector",
+          destination: "/inspector",
+        },
+      ]),
+    );
+  });
+
+  it("redirects the deleted /direct-to-llm/guides/premium pages to their current equivalents", () => {
+    // Deleted in cc8c945893 without redirects. The R16
+    // `/direct-to-llm/:path*` wildcard drops them on the docs home, which
+    // reads as a working link while serving the wrong page.
+    expect(seoRedirects).toEqual(
+      expect.arrayContaining([
+        {
+          id: "INTEL-d2l-guides-overview",
+          source: "/direct-to-llm/guides/premium/overview",
+          destination: "/intelligence/overview",
+        },
+        {
+          id: "INTEL-d2l-guides-headless-ui",
+          source: "/direct-to-llm/guides/premium/headless-ui",
+          destination: "/intelligence/headless-ui",
+        },
+        {
+          id: "INTEL-d2l-guides-observability",
+          source: "/direct-to-llm/guides/premium/observability",
+          destination: "/intelligence/overview",
+        },
+        {
+          id: "INTEL-d2l-guides-inspector",
+          source: "/direct-to-llm/guides/premium/inspector",
+          destination: "/inspector",
+        },
+      ]),
+    );
+  });
+
+  it("matches the new exact sources before the premium rename wildcard", () => {
+    // The whole point of exact entries here: INTEL-rename-wild would rewrite
+    // these to `/intelligence/inspector`, which does not exist.
+    expect(matchesSeoRedirectSource("/premium/inspector")).toBe(true);
+    expect(
+      matchesSeoRedirectSource("/langgraph-python/premium/inspector"),
+    ).toBe(true);
+    expect(
+      matchesSeoRedirectSource("/direct-to-llm/guides/premium/headless-ui"),
+    ).toBe(true);
+  });
+
   it("serves the Built-in Agent docs at the root: no redirect may capture a bare BIA page URL", () => {
     // These bare URLs render BIA-authored pages directly now. A
     // middleware entry whose source matches one of them would either

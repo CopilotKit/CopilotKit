@@ -1633,7 +1633,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
     {
       leaf: "threads",
       group: "workbench",
-      marker: "Threads are unavailable.",
+      marker:
+        "Production-grade chat threads without the complexity. Self hostable.",
     },
     { leaf: "memories", group: "workbench", marker: "Learning" },
     { leaf: "home", group: "home", marker: "System Health" },
@@ -1660,9 +1661,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
         "Web Inspector shadow root was not rendered",
       );
       expectCurrentNavigation(root, expected.group, expected.leaf);
-      expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-        expected.marker,
-      );
+      const renderedText = root.querySelector("#cpk-main-scroll")?.textContent;
+      expect(renderedText).toContain(expected.marker);
       expect(storedSelectedMenu()).toBe(expected.leaf);
     } finally {
       context.teardown();

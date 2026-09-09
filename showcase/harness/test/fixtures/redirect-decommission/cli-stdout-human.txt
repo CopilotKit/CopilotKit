@@ -1,8 +1,8 @@
 === SEO Redirect Decommission Report (last 30 days) ===
-Total redirects defined: 390
+Total redirects defined: 395
 Total hits: 12,537
 Redirects with hits: 13
-Zero-hit candidates: 377
+Zero-hit candidates: 382
 
 Top 10 most-hit redirects:
   D1                        5,432 hits
@@ -97,6 +97,11 @@ Decommission candidates (zero hits):
   FI-premium                /premium → /intelligence/overview
   FI-reference              /reference → /reference/v2
   FI-troubleshooting        /troubleshooting → /troubleshooting/common-issues
+  INTEL-d2l-guides-headless-ui /direct-to-llm/guides/premium/headless-ui → /intelligence/headless-ui
+  INTEL-d2l-guides-inspector /direct-to-llm/guides/premium/inspector → /inspector
+  INTEL-d2l-guides-observability /direct-to-llm/guides/premium/observability → /intelligence/overview
+  INTEL-d2l-guides-overview /direct-to-llm/guides/premium/overview → /intelligence/overview
+  INTEL-inspector-root      /premium/inspector → /inspector
   INTEL-observability-root  /premium/observability → /intelligence/overview
   L10                       /coagents/tutorials → /langgraph-python/tutorials
   L11                       /coagents/videos → /langgraph-python/videos

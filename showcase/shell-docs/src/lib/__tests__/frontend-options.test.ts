@@ -28,7 +28,12 @@ import {
   getFrontendQuickstartNavTree,
   getFrontendUsingTheseDocsPath,
 } from "../frontend-page-content";
-import { buildBreadcrumbs, loadDoc } from "../docs-render";
+import {
+  buildBreadcrumbs,
+  loadDoc,
+  navSectionTitleForSlug,
+  visibleGuideBreadcrumbs,
+} from "../docs-render";
 import type { NavNode } from "../docs-render";
 import { resolveFrontendDocPage } from "../frontend-doc-policy";
 import { resolveDocsHref } from "../docs-link-rewrite";
@@ -527,6 +532,72 @@ test("does not link breadcrumbs for section-only paths", () => {
     { label: "Docs", href: "/angular" },
     { label: "Runtime", href: null },
     { label: "Copilot Runtime", href: null },
+  ]);
+});
+
+test("omits only the generic Docs root from visible guide breadcrumbs", () => {
+  expect(
+    visibleGuideBreadcrumbs([
+      { label: "Docs", href: "/" },
+      { label: "Concepts", href: null },
+      { label: "Architecture", href: null },
+    ]),
+  ).toEqual([{ label: "Concepts", href: null }]);
+
+  expect(
+    visibleGuideBreadcrumbs([
+      { label: "LangGraph", href: "/langgraph" },
+      { label: "Concepts", href: null },
+      { label: "Architecture", href: null },
+    ]),
+  ).toEqual([
+    { label: "LangGraph", href: "/langgraph" },
+    { label: "Concepts", href: null },
+  ]);
+
+  expect(
+    visibleGuideBreadcrumbs([
+      { label: "Docs", href: "/" },
+      { label: "Cookbook", href: "/cookbook" },
+      { label: "Recipe", href: null },
+    ]),
+  ).toEqual([{ label: "Cookbook", href: "/cookbook" }]);
+});
+
+test("keeps the sidebar section in nested guide breadcrumbs", () => {
+  const navTree = [
+    { type: "section" as const, title: "Concepts" },
+    {
+      type: "group" as const,
+      title: "Agentic Protocols",
+      slug: "agentic-protocols",
+      children: [
+        {
+          type: "page" as const,
+          title: "AG-UI",
+          slug: "agentic-protocols/ag-ui",
+        },
+      ],
+    },
+  ];
+  const sectionTitle = navSectionTitleForSlug(
+    navTree,
+    "agentic-protocols/ag-ui",
+  );
+
+  expect(sectionTitle).toBe("Concepts");
+  expect(
+    visibleGuideBreadcrumbs(
+      [
+        { label: "Docs", href: "/" },
+        { label: "Agentic Protocols", href: "/agentic-protocols" },
+        { label: "AG-UI", href: null },
+      ],
+      sectionTitle,
+    ),
+  ).toEqual([
+    { label: "Concepts", href: null },
+    { label: "Agentic Protocols", href: "/agentic-protocols" },
   ]);
 });
 
