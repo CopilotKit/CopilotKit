@@ -82,6 +82,20 @@ describe("ScopedCapabilities", () => {
     expect(markup).toContain("Scoped to Mastra.");
   });
 
+  it("ignores a prototype-inherited key as a remembered framework", () => {
+    // `frameworks` is built with `Object.fromEntries`, so bare `in`/bracket
+    // access on it is satisfied by inherited `Object.prototype` members —
+    // "constructor", "toString", "valueOf", "__proto__" all read as
+    // truthy even though `Object.keys(frameworks)` doesn't contain them.
+    // The validation must be `Object.hasOwn`, prototype-safe like the old
+    // `knownFrameworks.includes(storedFramework)` array check it replaced.
+    setFramework({ storedFramework: "constructor" });
+    const markup = render();
+
+    expect(markup).not.toContain("Scoped to Object.");
+    expect(markup).not.toMatch(/href="[^"]*undefined[^"]*"/);
+  });
+
   it("ignores a remembered slug absent from the frameworks record", () => {
     setFramework({ storedFramework: "vue" });
     const markup = render();

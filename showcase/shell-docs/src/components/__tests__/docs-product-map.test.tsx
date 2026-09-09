@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   COPILOTKIT_CAPABILITIES,
@@ -23,14 +23,12 @@ vi.mock("next/link", () => ({
 // `ScopedCapabilities` (the client leaf composed as this file's child) calls
 // `useFramework`, which throws outside a `FrameworkProvider`. Mock it so the
 // server tree can render standalone, the same way
-// docs-map-scoped-capabilities.test.tsx does.
+// docs-map-scoped-capabilities.test.tsx does. Routed through a `vi.fn()`
+// (same shape as docs-map-scoped-capabilities.test.tsx's `useFrameworkMock`)
+// so one test can swap in a hidden slug without disturbing the rest.
+const useFrameworkMock = vi.fn();
 vi.mock("../framework-provider", () => ({
-  useFramework: () => ({
-    framework: null,
-    storedFramework: "mastra",
-    effectiveFramework: "built-in-agent",
-    knownFrameworks: ["built-in-agent", "mastra"],
-  }),
+  useFramework: () => useFrameworkMock(),
 }));
 
 // Import after the mocks are registered so the component tree picks them up.
@@ -47,21 +45,90 @@ function render() {
 }
 
 describe("DocsProductMap", () => {
+  beforeEach(() => {
+    useFrameworkMock.mockReturnValue({
+      framework: null,
+      storedFramework: "mastra",
+      effectiveFramework: "built-in-agent",
+      knownFrameworks: ["built-in-agent", "mastra"],
+    });
+  });
+
   it("renders the four block names in story order", () => {
     const markup = render();
 
-    const names = [
+    // Match on the `<h2>` heading markup `MapBlock` renders for `name`,
+    // not bare substrings: "Frontend" also appears inside the CopilotKit
+    // block's "Frontend tools" capability tile, and "CopilotKit" appears
+    // inside the Frontend block's own description ("CopilotKit ships the
+    // same primitives…"). An `indexOf` walk over those substrings stays
+    // green even when the Frontend and CopilotKit blocks are swapped, so
+    // this asserts exact equality on the ordered list of heading text
+    // instead.
+    const headings = Array.from(markup.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)).map(
+      (match) => match[1],
+    );
+
+    expect(headings).toEqual([
       "Frontend",
       "CopilotKit",
       "CopilotKit Intelligence",
       "Agent",
-    ];
-    let cursor = -1;
-    for (const name of names) {
-      const index = markup.indexOf(name, cursor + 1);
-      expect(index).toBeGreaterThan(cursor);
-      cursor = index;
-    }
+    ]);
+  });
+
+  it("gives the CopilotKit block the core treatment and Intelligence the plus treatment", () => {
+    const markup = render();
+
+    // Each `MapBlock` renders one `<section class="...">` whose class
+    // attribute carries its variant's distinguishing classes before any
+    // nested markup. Look each section up by its own `<h2>` text (not by
+    // position) so a variant swap between the CopilotKit and Intelligence
+    // blocks flips which name sees which classes and fails this.
+    const sections = Array.from(
+      markup.matchAll(
+        /<section[^>]*class="([^"]*)"[^>]*>[\s\S]*?<h2[^>]*>([^<]*)<\/h2>/g,
+      ),
+    ).map((match) => ({ classes: match[1], name: match[2] }));
+
+    const copilotKit = sections.find(
+      (section) => section.name === "CopilotKit",
+    );
+    const intelligence = sections.find(
+      (section) => section.name === "CopilotKit Intelligence",
+    );
+
+    // core: solid border + `bg-[var(--bg-surface)]`.
+    expect(copilotKit?.classes).toContain("bg-[var(--bg-surface)]");
+    expect(copilotKit?.classes).not.toContain("bg-[var(--accent-dim)]");
+    expect(copilotKit?.classes).not.toContain("border-[var(--accent)]");
+
+    // plus: `border-[var(--accent)]` + `bg-[var(--accent-dim)]`.
+    expect(intelligence?.classes).toContain("border-[var(--accent)]");
+    expect(intelligence?.classes).toContain("bg-[var(--accent-dim)]");
+  });
+
+  it("gives the + adds connector the accent treatment and AG-UI the plain one", () => {
+    const markup = render();
+
+    const adds = markup.match(/<span class="([^"]*)">\+ adds<\/span>/);
+    const agUi = markup.match(/<span class="([^"]*)">AG-UI<\/span>/);
+
+    expect(adds?.[1]).toContain("border-[var(--accent)]");
+    expect(adds?.[1]).toContain("bg-[var(--accent-dim)]");
+
+    expect(agUi?.[1]).toContain("border-dashed");
+    expect(agUi?.[1]).not.toContain("bg-[var(--accent-dim)]");
+  });
+
+  it("scopes a CopilotKit capability href to exactly /mastra/generative-ui for the remembered framework", () => {
+    const markup = render();
+
+    // The mocked `storedFramework` is "mastra". A doubled or missing slash
+    // in the `hrefPrefix` contract (e.g. `scopedHref("/", slug)` instead of
+    // `scopedHref("", slug)`) would produce `/mastra//generative-ui`
+    // instead of this exact string.
+    expect(markup).toContain('href="/mastra/generative-ui"');
   });
 
   it("renders all twelve capability titles", () => {
@@ -88,6 +155,54 @@ describe("DocsProductMap", () => {
 
     expect(markup).toContain("Free to start · cloud or self-hosted");
     expect(markup.toLowerCase()).not.toContain("premium");
+
+    // The four blocks' kickers. Frontend and Agent deliberately share the
+    // same kicker text.
+    expect(markup).toContain("Bring your own · your choice");
+    expect(markup).toContain("Open source · the product");
+    expect(markup).toContain("When real users arrive");
+
+    // The four blocks' description lines, copied verbatim (middots and em
+    // dashes included) so a copy edit that drifts from the spec fails.
+    expect(markup).toContain(
+      "CopilotKit ships the same primitives for every one of these. Pick the one you already use — nothing else on this page changes.",
+    );
+    expect(markup).toContain(
+      "The SDK in your app and the runtime on your server. Everything your users actually touch, running entirely on your side.",
+    );
+    expect(markup).toContain(
+      "The platform your runtime talks to. Remembers, learns, and shows you what happened — without changing your frontend or your agent framework.",
+    );
+    // `renderToStaticMarkup` escapes the apostrophe in text content.
+    expect(markup).toContain(
+      "Any framework that speaks AG-UI, or CopilotKit&#x27;s own built-in agent.",
+    );
+
+    // The two blocks' action labels.
+    expect(markup).toContain("Quickstart");
+    expect(markup).toContain("Connect in 5 minutes");
+  });
+
+  it("falls back to an unprefixed scope when the remembered slug is docs_mode: hidden", () => {
+    // "spring-ai" is one of today's `docs_mode: "hidden"` integrations (see
+    // the comment above the `frameworks` record in docs-product-map.tsx).
+    // `DocsProductMap` builds `frameworks` from the real registry, so this
+    // exercises the actual filter rather than a hand-built stand-in: with
+    // the filter in place, "spring-ai" is missing from the record,
+    // `remembered` resolves to null, and the scope falls back to
+    // `effectiveFramework` ("built-in-agent", the root framework) —
+    // unprefixed links, not a scope pointed at pages that 404.
+    useFrameworkMock.mockReturnValue({
+      framework: null,
+      storedFramework: "spring-ai",
+      effectiveFramework: "built-in-agent",
+      knownFrameworks: ["built-in-agent", "spring-ai"],
+    });
+
+    const markup = render();
+
+    expect(markup).toContain('href="/generative-ui"');
+    expect(markup).not.toContain('href="/spring-ai/generative-ui"');
   });
 
   it("carries the frameworks anchor and the intelligence anchor", () => {
