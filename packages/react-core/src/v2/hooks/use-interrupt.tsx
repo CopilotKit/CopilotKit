@@ -188,19 +188,28 @@ export function useInterrupt<
   const interruptStateRef = useRef(new ɵInterruptState());
   const interruptRunIdsRef = useRef(new Map<string, string>());
   const legacyRunIdRef = useRef<string | undefined>(undefined);
+  /**
+   * The thread the pending gate belongs to. The app can switch threads on the
+   * same agent instance without remounting this hook, so a submit has to prove
+   * the gate still belongs to the conversation on screen.
+   */
+  const pendingThreadIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const interruptState = interruptStateRef.current;
     let localLegacy: InterruptEvent | null = null;
     let localStandard: Interrupt[] | null = null;
+    let lastFinishedRunId: string | undefined;
 
     // Publish whatever this run collected. Standard wins if both somehow
     // appear for one run.
     const commit = (runId: string | undefined) => {
       if (localStandard && localStandard.length > 0) {
+        pendingThreadIdRef.current = agent.threadId;
         interruptState.setStandard(localStandard);
         setPending(interruptState.pending);
       } else if (localLegacy) {
+        pendingThreadIdRef.current = agent.threadId;
         legacyRunIdRef.current = runId;
         // Record the legacy interrupt on the agent too. Standard interrupts
         // get this for free from `agent.pendingInterrupts`; without it the
@@ -208,6 +217,7 @@ export function useInterrupt<
         // gate whose event was already delivered.
         ɵrecordLegacyInterrupt(agent, {
           event: localLegacy,
+          threadId: agent.threadId,
           ...(runId === undefined ? {} : { runId }),
         });
         interruptState.setLegacy(localLegacy);
@@ -220,8 +230,10 @@ export function useInterrupt<
     const forget = () => {
       localLegacy = null;
       localStandard = null;
+      lastFinishedRunId = undefined;
       interruptRunIdsRef.current.clear();
       legacyRunIdRef.current = undefined;
+      pendingThreadIdRef.current = undefined;
       ɵclearLegacyInterrupt(agent);
       interruptState.clear();
       setPending(null);
@@ -234,8 +246,13 @@ export function useInterrupt<
         }
       },
       onRunFinishedEvent: (params) => {
+        // `params.event.runId` names the run that paused. `params.input.runId`
+        // names the request that opened the stream, and on the connect path
+        // that is the long-lived connection, not the replayed run. Resuming
+        // under the connection id addresses a run the backend never paused.
+        const runId = params.event.runId;
+        lastFinishedRunId = runId;
         if (params.outcome === "interrupt") {
-          const runId = params.input.runId;
           for (const interrupt of params.interrupts) {
             interruptRunIdsRef.current.set(interrupt.id, runId);
           }
@@ -245,26 +262,40 @@ export function useInterrupt<
         // path `onRunFinalized` fires when the long-lived socket stream tears
         // down, not once per replayed run, so a reconnect that replays an
         // interrupt would otherwise surface nothing.
-        commit(params.input.runId);
+        commit(runId);
       },
       onRunStartedEvent: forget,
       // Fallback for a stream that ends without a RUN_FINISHED event. When
       // RUN_FINISHED did arrive, `commit` already ran and left nothing to do.
-      onRunFinalized: (params) => commit(params.input.runId),
+      // `onRunFinalized` carries no event, so it falls back to the last run id
+      // RUN_FINISHED named and only then to the id of the opening request.
+      onRunFinalized: (params) =>
+        commit(lastFinishedRunId ?? params.input.runId),
       onRunFailed: forget,
     });
 
     // Seed from what the client already knows this thread is waiting on, so a
     // mount, a remount or a reconnect surfaces a gate whose event arrived
     // before this subscription existed.
-    const recordedLegacy = ɵreadLegacyInterrupt(agent);
+    const recordedLegacy = ɵreadLegacyInterrupt(agent, agent.threadId);
     if (agent.pendingInterrupts.length > 0) {
+      pendingThreadIdRef.current = agent.threadId;
       interruptState.setStandard(agent.pendingInterrupts);
       setPending(interruptState.pending);
     } else if (recordedLegacy) {
+      pendingThreadIdRef.current = recordedLegacy.threadId;
       legacyRunIdRef.current = recordedLegacy.runId;
       interruptState.setLegacy(recordedLegacy.event);
       setPending(interruptState.pending);
+    } else {
+      // This agent waits on nothing. State left over from the agent this hook
+      // watched before must not survive the switch: the prompt would stay on
+      // screen and send its answer to an agent that never asked.
+      interruptRunIdsRef.current.clear();
+      legacyRunIdRef.current = undefined;
+      pendingThreadIdRef.current = undefined;
+      interruptState.clear();
+      setPending(null);
     }
 
     return () => {
@@ -274,17 +305,36 @@ export function useInterrupt<
       // interrupted thread unrecoverable.
       if (
         agent.pendingInterrupts.length === 0 &&
-        !ɵreadLegacyInterrupt(agent)
+        !ɵreadLegacyInterrupt(agent, agent.threadId)
       ) {
         interruptState.clear();
       }
     };
   }, [agent]);
 
+  /**
+   * Drop a gate the conversation on screen no longer owns.
+   *
+   * One agent instance serves every thread an app opens, and a thread switch
+   * mutates `agent.threadId` in place without remounting this hook. Submitting
+   * then resumes a conversation the reader is not looking at.
+   */
+  const abandonIfThreadChanged = useCallback((): boolean => {
+    const owner = pendingThreadIdRef.current;
+    if (owner === undefined || owner === agent.threadId) return false;
+    interruptRunIdsRef.current.clear();
+    legacyRunIdRef.current = undefined;
+    pendingThreadIdRef.current = undefined;
+    interruptStateRef.current.clear();
+    setPending(null);
+    return true;
+  }, [agent]);
+
   const resolve: InterruptResolveFn = useCallback(
     async (payload, interruptId) => {
       const current = pendingRef.current;
       if (!current) return;
+      if (abandonIfThreadChanged()) return;
 
       if (
         current.kind === "standard" &&
@@ -355,13 +405,14 @@ export function useInterrupt<
         throw err;
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, abandonIfThreadChanged],
   );
 
   const cancel: InterruptCancelFn = useCallback(
     async (interruptId) => {
       const current = pendingRef.current;
       if (!current) return;
+      if (abandonIfThreadChanged()) return;
 
       if (
         current.kind === "standard" &&
@@ -421,7 +472,7 @@ export function useInterrupt<
         throw err;
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, abandonIfThreadChanged],
   );
 
   // Stabilize consumer-supplied callbacks behind refs so inline lambdas do not

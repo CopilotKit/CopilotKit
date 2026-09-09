@@ -141,6 +141,37 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 
   // Accumulated per-interrupt responses for the current standard interrupt set.
   const responses: Record<string, ResumeResponse> = {};
+  // The run each open interrupt paused, so a resume addresses that run rather
+  // than whichever request happened to open the stream.
+  const interruptRunIds = new Map<string, string>();
+  let legacyRunId: string | undefined;
+  /**
+   * The thread the pending gate belongs to. The app can switch threads on the
+   * same agent instance without re-running the watcher, so a submit has to
+   * prove the gate still belongs to the conversation on screen.
+   */
+  let pendingThreadId: string | undefined;
+
+  /** Forget a gate the conversation on screen no longer owns. */
+  const abandonIfThreadChanged = (resolvedAgent: {
+    threadId: string;
+  }): boolean => {
+    if (
+      pendingThreadId === undefined ||
+      pendingThreadId === resolvedAgent.threadId
+    ) {
+      return false;
+    }
+    pendingThreadId = undefined;
+    legacyRunId = undefined;
+    interruptRunIds.clear();
+    for (const k of Object.keys(responses)) {
+      delete responses[k];
+    }
+    pending.value = null;
+    result.value = null;
+    return true;
+  };
 
   watch(
     agent,
@@ -153,18 +184,26 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 
       let localLegacy: InterruptEvent<TValue> | null = null;
       let localStandard: Interrupt[] | null = null;
+      let lastFinishedRunId: string | undefined;
 
       // Publish whatever this run collected. Standard wins if both somehow
       // appear for one run.
-      const commit = () => {
+      const commit = (runId: string | undefined) => {
         if (localStandard && localStandard.length > 0) {
+          pendingThreadId = resolvedAgent.threadId;
           pending.value = { kind: "standard", interrupts: localStandard };
         } else if (localLegacy) {
+          pendingThreadId = resolvedAgent.threadId;
+          legacyRunId = runId;
           // Record the legacy interrupt on the agent too. Standard interrupts
           // get this for free from `agent.pendingInterrupts`; without it the
           // legacy path cannot recover a gate whose event was already
           // delivered.
-          ɵrecordLegacyInterrupt(resolvedAgent, { event: localLegacy });
+          ɵrecordLegacyInterrupt(resolvedAgent, {
+            event: localLegacy,
+            threadId: resolvedAgent.threadId,
+            ...(runId === undefined ? {} : { runId }),
+          });
           pending.value = { kind: "legacy", event: localLegacy };
         }
         localLegacy = null;
@@ -174,6 +213,10 @@ export function useInterrupt<TValue = unknown, TResult = never>(
       const forget = () => {
         localLegacy = null;
         localStandard = null;
+        lastFinishedRunId = undefined;
+        legacyRunId = undefined;
+        pendingThreadId = undefined;
+        interruptRunIds.clear();
         ɵclearLegacyInterrupt(resolvedAgent);
         // Reset accumulated responses for the new run.
         for (const k of Object.keys(responses)) {
@@ -192,33 +235,62 @@ export function useInterrupt<TValue = unknown, TResult = never>(
           }
         },
         onRunFinishedEvent: (params) => {
+          // `params.event.runId` names the run that paused. `params.input.runId`
+          // names the request that opened the stream, and on the connect path
+          // that is the long-lived connection, not the replayed run.
+          const runId = params.event.runId;
+          lastFinishedRunId = runId;
           if (params.outcome === "interrupt") {
+            for (const interrupt of params.interrupts) {
+              interruptRunIds.set(interrupt.id, runId);
+            }
             localStandard = params.interrupts;
           }
           // Commit here rather than only at `onRunFinalized`. On the connect
           // path `onRunFinalized` fires when the long-lived socket stream tears
           // down, not once per replayed run, so a reconnect that replays an
           // interrupt would otherwise surface nothing.
-          commit();
+          commit(runId);
         },
         onRunStartedEvent: forget,
         // Fallback for a stream that ends without a RUN_FINISHED event. When
         // RUN_FINISHED did arrive, `commit` already ran and left nothing to do.
-        onRunFinalized: commit,
+        // `onRunFinalized` carries no event, so it falls back to the last run
+        // id RUN_FINISHED named and only then to the opening request.
+        onRunFinalized: (params) =>
+          commit(lastFinishedRunId ?? params.input.runId),
         onRunFailed: forget,
       });
 
       // Seed from what the client already knows this thread is waiting on, so
       // a mount or a reconnect surfaces a gate whose event arrived before this
       // subscription existed.
-      const recordedLegacy = ɵreadLegacyInterrupt<TValue>(resolvedAgent);
+      const recordedLegacy = ɵreadLegacyInterrupt<TValue>(
+        resolvedAgent,
+        resolvedAgent.threadId,
+      );
       if (resolvedAgent.pendingInterrupts.length > 0) {
+        pendingThreadId = resolvedAgent.threadId;
         pending.value = {
           kind: "standard",
           interrupts: [...resolvedAgent.pendingInterrupts],
         };
       } else if (recordedLegacy) {
+        pendingThreadId = recordedLegacy.threadId;
+        legacyRunId = recordedLegacy.runId;
         pending.value = { kind: "legacy", event: recordedLegacy.event };
+      } else {
+        // This agent waits on nothing. State left over from the agent this
+        // hook watched before must not survive the switch: the prompt would
+        // stay on screen and send its answer to an agent that never asked.
+        legacyRunId = undefined;
+        pendingThreadId = undefined;
+        interruptRunIds.clear();
+        for (const k of Object.keys(responses)) {
+          delete responses[k];
+        }
+        pending.value = null;
+        result.value = null;
       }
 
       onCleanup(() => subscription.unsubscribe());
@@ -249,10 +321,17 @@ export function useInterrupt<TValue = unknown, TResult = never>(
     for (const k of Object.keys(responses)) {
       delete responses[k];
     }
+    const runId = resume
+      .map((entry) => interruptRunIds.get(entry.interruptId))
+      .find((candidate): candidate is string => candidate !== undefined);
     const resolvedAgent = agent.value;
     if (!resolvedAgent) return;
     try {
-      return await copilotkit.value.runAgent({ agent: resolvedAgent, resume });
+      return await copilotkit.value.runAgent({
+        agent: resolvedAgent,
+        resume,
+        ...(runId === undefined ? {} : { runId }),
+      });
     } catch (err) {
       console.error(
         "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
@@ -269,12 +348,15 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 
     const resolvedAgent = agent.value;
     if (!resolvedAgent) return;
+    if (abandonIfThreadChanged(resolvedAgent)) return;
 
     if (current.kind === "legacy") {
       const interruptEventValue = current.event.value;
+      const runId = legacyRunId;
       try {
         return await copilotkit.value.runAgent({
           agent: resolvedAgent,
+          ...(runId === undefined ? {} : { runId }),
           forwardedProps: {
             command: {
               resume: payload,
@@ -306,6 +388,9 @@ export function useInterrupt<TValue = unknown, TResult = never>(
   const cancel: InterruptCancelFn = async (interruptId?) => {
     const current = pending.value;
     if (!current) return;
+
+    const currentAgent = agent.value;
+    if (currentAgent && abandonIfThreadChanged(currentAgent)) return;
 
     if (current.kind === "legacy") {
       // Legacy interrupts have no cancel semantics; dismiss without resuming.
