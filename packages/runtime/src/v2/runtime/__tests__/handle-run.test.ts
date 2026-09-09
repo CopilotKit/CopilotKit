@@ -1555,14 +1555,23 @@ describe("handleRunAgent", () => {
       expect(platform.updateThread).not.toHaveBeenCalled();
     });
 
-    it("retries thread naming three times and falls back to Untitled", async () => {
+    it("falls back to the first user message after three invalid generated titles", async () => {
       const namingAgent = {
         clone: vi.fn(),
         setMessages: vi.fn(),
         setState: vi.fn(),
         threadId: undefined,
         headers: {},
-        runAgent: vi.fn().mockRejectedValue(new Error("naming failed")),
+        runAgent: vi.fn().mockResolvedValue({
+          newMessages: [
+            {
+              id: "assistant-1",
+              role: "assistant",
+              content:
+                "Incident triage result: sev3. File a ticket for the next working day.",
+            },
+          ],
+        }),
       } as unknown as AbstractAgent;
       const baseAgent = {
         clone: vi
@@ -1618,7 +1627,8 @@ describe("handleRunAgent", () => {
                 {
                   id: "user-1",
                   role: "user",
-                  content: "Please help me name this failed thread.",
+                  content:
+                    "Please help me name this failed thread from the first user message.",
                 },
               ],
               tools: [],
@@ -1635,7 +1645,9 @@ describe("handleRunAgent", () => {
             threadId: "thread-1",
             userId: "user-1",
             agentId: "my-agent",
-            updates: { name: "Untitled" },
+            updates: {
+              name: "Please help me name this failed thread from",
+            },
           }),
         );
         expect(namingAgent.runAgent).toHaveBeenCalledTimes(3);
