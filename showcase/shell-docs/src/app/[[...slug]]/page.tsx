@@ -7,12 +7,15 @@
 
 import React from "react";
 import type { Metadata } from "next";
-import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
+import Link from "next/link";
+import { DocsBuildWith } from "@/components/docs-build-with";
+import { DocsIntelligenceAdds } from "@/components/docs-intelligence-adds";
 import { DocsLandingNext } from "@/components/docs-landing-next";
+import { DocsLayerDiagram } from "@/components/docs-layer-diagram";
+import { DocsStart, DOCS_START_SECTION_ID } from "@/components/docs-start";
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
 import { HeroStartActions } from "@/components/hero-start-commands";
-import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -46,6 +49,15 @@ export const dynamic = "force-dynamic";
 // Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = ROOT_FRAMEWORK;
 
+// The three starting points a visitor recognises themselves in. They are
+// labels, not routes: every one of them links to the same Start section,
+// because one prompt covers all three (the CLI classifies the starting state).
+const HERO_PATH_ANCHORS = [
+  "New project",
+  "Existing app or agent",
+  "Already on CopilotKit → add Intelligence",
+];
+
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
 // (etc.) at its own URL rather than collapsing them all onto the bare
@@ -66,9 +78,13 @@ export async function generateMetadata({
   // /quickstart, /concepts/architecture) read frontmatter via loadDoc.
   if (!slugPath) {
     return buildDocMetadata({
-      title: "CopilotKit: the frontend stack for agents",
+      // Kept in step with the hero copy below. The previous title and
+      // description were written against the old "frontend stack for agentic
+      // user experience" positioning and named neither Intelligence nor a
+      // benefit, so the tab, the search result and the page disagreed.
+      title: "CopilotKit: give your app an agent your users can use",
       description:
-        "Connect any agent framework or model to your React app for chat, generative UI, canvas, and human-in-the-loop workflows.",
+        "Build chat, generative UI, and approval steps into your React app on any agent framework — then add CopilotKit Intelligence for threads that persist, memory, and agents that learn from real use.",
       canonicalPath: "/",
     });
   }
@@ -133,12 +149,30 @@ function DocsOverview() {
               <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
                 CopilotKit
               </h1>
+              {/* Names a benefit rather than a category. The previous line,
+                  "The frontend stack for agentic user experience", is jargon
+                  to a first-time reader — it says what shelf the product sits
+                  on, not what it does for them. */}
               <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
-                The frontend stack for agentic user experience.
+                Give your app an agent your users can actually use.
               </p>
               <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Build production chat, generative UI, shared state, and
-                human-in-the-loop workflows on any AG-UI compatible backend.
+                Chat, generative UI, and approval steps inside your own React
+                app — connected to whatever agent framework you already run.
+              </p>
+              {/* Intelligence belongs in the hero: without it, the first
+                  answer to "what is this" describes only half the product.
+                  Section 3 is where it is actually explained. */}
+              <p className="mt-3 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
+                Add{" "}
+                <Link
+                  href="/intelligence/overview"
+                  className="font-medium text-[var(--text)] underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--accent)]"
+                >
+                  CopilotKit Intelligence
+                </Link>{" "}
+                when it goes to production: threads that persist, memory, and
+                agents that learn from real use.
               </p>
             </div>
             <div className="mt-7">
@@ -151,17 +185,31 @@ function DocsOverview() {
                 }
               />
             </div>
+            {/* Quiet path anchors. All three point at the same section
+                because the CLI classifies the starting state itself — see
+                `onboarding-classification.ts` in the Intelligence repo, which
+                has five starting states. Three separate buttons here would be
+                a fake choice; naming the paths is what the reader needs. */}
+            <p className="mt-4 text-xs leading-relaxed text-[var(--text-muted)]">
+              {HERO_PATH_ANCHORS.map((label, index) => (
+                <React.Fragment key={label}>
+                  {index > 0 ? <span aria-hidden="true"> · </span> : null}
+                  <Link
+                    href={`#${DOCS_START_SECTION_ID}`}
+                    className="text-[var(--text-muted)] underline decoration-[var(--border)] underline-offset-2 hover:text-[var(--accent)] hover:decoration-[var(--accent)]"
+                  >
+                    {label}
+                  </Link>
+                </React.Fragment>
+              ))}
+            </p>
           </div>
         </section>
 
-        <div className="space-y-10 pt-4">
-          <div className="[&>section]:!my-0">
-            <IntelligenceOnboardingPrompt
-              feature="learning"
-              surface="docs_landing_learning"
-            />
-          </div>
-          <LandingSampleTabs />
+        <div className="space-y-12 pt-8">
+          <DocsBuildWith />
+          <DocsIntelligenceAdds diagram={<DocsLayerDiagram />} />
+          <DocsStart />
           <DocsLandingNext />
         </div>
       </div>
