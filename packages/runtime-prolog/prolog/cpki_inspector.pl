@@ -26,7 +26,7 @@ safe_url(Raw,URL) :- text(Raw,URL),\+re_match('[?#\\\\\\x00-\\x20]',URL),
     catch((uri_components(URL,C),uri_data(scheme,C,Scheme),memberchk(Scheme,[http,https]),
       uri_data(authority,C,Authority),atom(Authority),Authority\=='',\+sub_atom(Authority,_,_,_,'@'),
       authority_host_port(Authority,Host,Port),Host\=='',
-      \+re_match('[%#/<>?@\\\\^|]',Host),
+      \+re_match('[%#/<>?@\\\\^|\\x00-\\x20]',Host),
       (var(Port)->true;integer(Port),between(0,65535,Port)),
       (Scheme==https->true;downcase_atom(Host,Lower),memberchk(Lower,[localhost,'127.0.0.1','::1','[::1]']))),_,fail).
 

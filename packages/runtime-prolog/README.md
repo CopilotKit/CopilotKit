@@ -142,6 +142,7 @@ Browser URLs and credentials cannot override that configuration.
 `GET /copilotkit/inspector-metadata` returns sanitized V1 project display metadata.
 The runtime uses its project key and sends `Cache-Control: no-store, private`.
 An unsupported response or an unavailable provider returns an empty 204 response.
+The request has a five-second deadline.
 Display metadata never grants access to threads or memories.
 
 ## Durable runs and telemetry
