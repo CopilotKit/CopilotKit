@@ -211,7 +211,8 @@ function ChatContent({
       },
       {
         title: "Show me a chart",
-        message: "Show me a chart.",
+        message:
+          "Please write a linear regression in python, and then show me a chart breaking down the keywords you used.",
       },
       {
         title: "Ask for approval",
