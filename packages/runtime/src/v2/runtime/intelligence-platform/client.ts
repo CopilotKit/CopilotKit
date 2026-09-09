@@ -1315,6 +1315,8 @@ export class CopilotKitIntelligence {
   /**
    * Update thread metadata (e.g. name).
    *
+   * Explicit userId and agentId take precedence over fields in updates.
+   *
    * Triggers the `onThreadUpdated` lifecycle callback on success.
    *
    * @returns The updated thread summary.
@@ -1330,9 +1332,9 @@ export class CopilotKitIntelligence {
       "PATCH",
       `/api/threads/${encodeURIComponent(params.threadId)}`,
       {
+        ...params.updates,
         userId: params.userId,
         agentId: params.agentId,
-        ...params.updates,
       },
     );
     this.#invokeLifecycleCallback("onThreadUpdated", response.thread);
