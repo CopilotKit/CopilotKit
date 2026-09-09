@@ -1,5 +1,6 @@
 import {
   CopilotRuntime,
+  CopilotKitIntelligence,
   createCopilotEndpoint,
   InMemoryAgentRunner,
   BuiltInAgent,
@@ -136,7 +137,23 @@ const honoRuntime = new CopilotRuntime({
   agents: {
     default: builtInAgent,
   },
-  runner: new InMemoryAgentRunner(),
+  ...(process.env.CPK_INTELLIGENCE_API_KEY?.trim()
+    ? {
+        intelligence: new CopilotKitIntelligence({
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY.trim(),
+        }),
+        identifyUser: () => {
+          // Single-user local demo only. Replace with real auth before deploying.
+          const id = process.env.CPK_DEMO_USER_ID?.trim();
+          if (process.env.NODE_ENV !== "development" || !id) {
+            throw new Error(
+              "Intelligence demo requires development mode and CPK_DEMO_USER_ID. Configure real authentication before deploying.",
+            );
+          }
+          return { id, name: "Demo user" };
+        },
+      }
+    : { runner: new InMemoryAgentRunner() }),
   transcriptionService,
   a2ui: {},
   openGenerativeUI: false,
@@ -149,3 +166,5 @@ const app = createCopilotEndpoint({
 
 export const GET = handle(app);
 export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);

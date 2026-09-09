@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Added by CopilotKit CLI: credential files, which must never be committed.
+.env
+.env.*
+!.env.example
