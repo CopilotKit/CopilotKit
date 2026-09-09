@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { uiCases } from "./ui-cases.mjs";
+import { telemetryCases } from "./telemetry-cases.mjs";
 
 /** A complete AG-UI input accepted by the reference RunAgentInput schema. */
 export function runInput(overrides = {}) {
@@ -17,6 +19,8 @@ export function runInput(overrides = {}) {
 
 /** Inspect both the browser response and platform effects for every case. */
 export const cases = [
+  ...uiCases,
+  ...telemetryCases,
   {
     id: "discovery.intelligence",
     async run({ request, platform }) {

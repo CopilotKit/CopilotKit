@@ -4,6 +4,51 @@ import test from "node:test";
 import { WebSocket } from "ws";
 import { startPlatform } from "../platform.mjs";
 
+test("MCP fixture preserves UI metadata and enforces configured server auth", async (t) => {
+  const platform = await startPlatform();
+  t.after(() => platform.close());
+  const rpc = (method, params, headers = {}) =>
+    fetch(platform.mcpUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        ...headers,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+  assert.equal((await rpc("initialize", {})).status, 401);
+  const auth = { "x-fixture-auth": "mcp-fixture-token" };
+  const initialized = await rpc(
+    "initialize",
+    {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "fixture-test", version: "1" },
+    },
+    auth,
+  );
+  assert.equal(initialized.status, 200);
+  const session = initialized.headers.get("mcp-session-id");
+  const headers = { ...auth, "mcp-session-id": session };
+  await rpc("notifications/initialized", {}, headers);
+  const listed = await rpc("tools/list", {}, headers);
+  const data = await listed.json();
+  assert.equal(
+    data.result.tools.find((tool) => tool.name === "show_card")._meta[
+      "ui/resourceUri"
+    ],
+    "ui://fixture/card",
+  );
+  const called = await rpc(
+    "tools/call",
+    { name: "show_card", arguments: { title: "Example" } },
+    headers,
+  );
+  assert.equal((await called.json()).result.content[0].text, "Card: Example");
+  assert.deepEqual(platform.mcpCalls, [{ title: "Example" }]);
+});
+
 test("platform rejects foreign identity and never creates a thread during connect", async (t) => {
   const platform = await startPlatform();
   t.after(() => platform.close());

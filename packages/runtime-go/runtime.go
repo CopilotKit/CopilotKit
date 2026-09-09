@@ -46,8 +46,12 @@ type Config struct {
 	LearningContainer                              func(*http.Request, User, map[string]any) (string, error)
 	TelemetryURL, TelemetryID                      string
 	TelemetryDisabled                              bool
+	TelemetrySampleRate                            *float64
+	OnError                                        func(RuntimeError)
 	AllowedOrigins                                 []string
 	LockTTL, HeartbeatInterval                     time.Duration
+	A2UI                                           *A2UIConfig
+	MCPApps                                        *MCPAppsConfig
 }
 type activeRun struct {
 	cancel context.CancelFunc
@@ -56,13 +60,15 @@ type activeRun struct {
 
 // Runtime implements http.Handler. Close drains its background work.
 type Runtime struct {
-	config Config
-	client *http.Client
-	ctx    context.Context
-	cancel context.CancelFunc
-	mu     sync.Mutex
-	active map[string]activeRun
-	wg     sync.WaitGroup
+	config    Config
+	client    *http.Client
+	ctx       context.Context
+	cancel    context.CancelFunc
+	mu        sync.Mutex
+	active    map[string]activeRun
+	wg        sync.WaitGroup
+	telemetry *telemetryExporter
+	closed    bool
 }
 
 // New validates configuration before accepting requests.
@@ -102,9 +108,54 @@ func New(c Config) (*Runtime, error) {
 		client = &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 	c.Agents = cloneAgents(c.Agents)
+	if c.A2UI != nil {
+		raw, err := json.Marshal(c.A2UI)
+		if err != nil {
+			return nil, errors.New("invalid A2UI configuration")
+		}
+		var copy A2UIConfig
+		if err = json.Unmarshal(raw, &copy); err != nil {
+			return nil, err
+		}
+		c.A2UI = &copy
+		switch c.A2UI.InjectA2UITool.(type) {
+		case nil, bool, string:
+		default:
+			return nil, errors.New("injectA2UITool must be a boolean or tool name")
+		}
+	}
+	if c.MCPApps != nil {
+		raw, err := json.Marshal(c.MCPApps)
+		if err != nil {
+			return nil, err
+		}
+		var copy MCPAppsConfig
+		if err = json.Unmarshal(raw, &copy); err != nil {
+			return nil, err
+		}
+		c.MCPApps = &copy
+		ids := map[string]bool{}
+		for _, server := range c.MCPApps.Servers {
+			u, err := url.Parse(server.URL)
+			if err != nil || u.Host == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") || server.Type != "http" {
+				return nil, errors.New("MCP Apps requires a configured HTTP endpoint")
+			}
+			if server.ServerID != "" {
+				if ids[server.ServerID] {
+					return nil, errors.New("duplicate MCP server ID")
+				}
+				ids[server.ServerID] = true
+			}
+		}
+	}
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &Runtime{config: c, client: client, ctx: ctx, cancel: cancel, active: map[string]activeRun{}}
-	r.capture("oss.runtime.instance_created", map[string]any{"agentsAmount": len(c.Agents)})
+	exporter, err := newTelemetry(c)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	r := &Runtime{config: c, client: client, ctx: ctx, cancel: cancel, active: map[string]activeRun{}, telemetry: exporter}
+	r.capture("oss.runtime.instance_created", map[string]any{"actionsAmount": 0, "endpointTypes": []string{}, "endpointsAmount": 0, "agentsAmount": len(c.Agents), "cloud.api_key_provided": false})
 	return r, nil
 }
 func cloneAgents(m map[string]Agent) map[string]Agent {
@@ -116,7 +167,30 @@ func cloneAgents(m map[string]Agent) map[string]Agent {
 }
 
 // Close cancels running agents and waits for event publishers and telemetry.
-func (r *Runtime) Close() error { r.cancel(); r.wg.Wait(); return nil }
+func (r *Runtime) Close() error {
+	r.mu.Lock()
+	r.closed = true
+	r.cancel()
+	r.mu.Unlock()
+	r.wg.Wait()
+	r.telemetry.close()
+	return nil
+}
+
+// RuntimeError is delivered only to the application, never to the analytics sink.
+type RuntimeError struct {
+	Operation, AgentID, ThreadID, RunID string
+	Err                                 error
+}
+
+// reportError isolates application callback panics from request/run cleanup.
+func (r *Runtime) reportError(event RuntimeError) {
+	if r.config.OnError == nil {
+		return
+	}
+	defer func() { recover() }()
+	r.config.OnError(event)
+}
 
 type platformError struct{ status int }
 
@@ -216,6 +290,15 @@ func decode(r *http.Request) (map[string]any, error) {
 
 // ServeHTTP routes the multi-route browser protocol.
 func (r *Runtime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		bad(w, 503, "Runtime shutting down")
+		return
+	}
+	r.wg.Add(1)
+	r.mu.Unlock()
+	defer r.wg.Done()
 	if r.ctx.Err() != nil {
 		bad(w, 503, "Runtime shutting down")
 		return
@@ -238,7 +321,6 @@ func (r *Runtime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		bad(w, 404, "Not found")
 		return
 	}
-	r.capture("oss.runtime.copilot_request_created", map[string]any{"requestType": req.Method})
 	if path == "/info" {
 		if req.Method != "GET" {
 			bad(w, 405, "Method not allowed")
@@ -249,6 +331,7 @@ func (r *Runtime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	user, e := r.config.IdentifyUser(req)
 	if e != nil {
+		r.reportError(RuntimeError{Operation: "identify_user", Err: e})
 		bad(w, 401, "Failed to identify user")
 		return
 	}
@@ -274,9 +357,11 @@ func (r *Runtime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		switch parts[2] {
 		case "run":
+			r.capture("oss.runtime.copilot_request_created", map[string]any{"requestType": "run", "cloud.guardrails.enabled": false, "cloud.api_key_provided": false})
 			r.run(w, req, user, parts[1], agent, body)
 			return
 		case "connect":
+			r.capture("oss.runtime.copilot_request_created", map[string]any{"requestType": "connect", "cloud.guardrails.enabled": false, "cloud.api_key_provided": false})
 			r.connect(w, req, user, parts[1], body)
 			return
 		case "stop":
@@ -308,7 +393,16 @@ func (r *Runtime) info(w http.ResponseWriter, req *http.Request) {
 	for id := range r.config.Agents {
 		agents[id] = map[string]any{"name": id, "description": "", "className": "Agent"}
 	}
-	reply(w, 200, map[string]any{"version": "0.1.0", "mode": "intelligence", "agents": agents, "intelligence": map[string]any{"wsUrl": r.config.ClientURL}, "runtimeEntitlements": ent, "threadEndpoints": map[string]any{"list": true, "inspect": true, "mutations": true, "realtimeMetadata": true}, "a2uiEnabled": false, "audioFileTranscriptionEnabled": false, "openGenerativeUIEnabled": false, "telemetryDisabled": r.config.TelemetryDisabled})
+	info := map[string]any{"version": "0.1.0", "mode": "intelligence", "agents": agents, "intelligence": map[string]any{"wsUrl": r.config.ClientURL}, "runtimeEntitlements": ent, "threadEndpoints": map[string]any{"list": true, "inspect": true, "mutations": true, "realtimeMetadata": true}, "a2uiEnabled": r.config.A2UI != nil && (r.config.A2UI.Enabled == nil || *r.config.A2UI.Enabled), "audioFileTranscriptionEnabled": false, "openGenerativeUIEnabled": false, "telemetryDisabled": r.config.TelemetryDisabled}
+	info["telemetryDisabled"] = r.telemetry.disabled
+	if info["a2uiEnabled"] == true {
+		a2ui := map[string]any{"enabled": true}
+		if len(r.config.A2UI.Agents) > 0 {
+			a2ui["agents"] = r.config.A2UI.Agents
+		}
+		info["a2ui"] = a2ui
+	}
+	reply(w, 200, info)
 }
 func (r *Runtime) connect(w http.ResponseWriter, req *http.Request, u User, id string, b map[string]any) {
 	thread := str(b["threadId"])

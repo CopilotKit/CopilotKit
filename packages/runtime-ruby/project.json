@@ -4,7 +4,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "ruby -Ilib test/runtime_test.rb",
+        "command": "ruby -Ilib -e 'Dir[\"test/*_test.rb\"].sort.each { |file| require File.expand_path(file) }'",
         "cwd": "packages/runtime-ruby"
       },
       "cache": false,
@@ -13,7 +13,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "ruby -c lib/copilotkit/runtime.rb",
+        "command": "ruby -e 'require \"rbconfig\"; abort unless Dir[\"{lib,examples,test}/**/*.rb\"].all? { |file| system(RbConfig.ruby, \"-c\", file) }'",
         "cwd": "packages/runtime-ruby"
       },
       "cache": false,

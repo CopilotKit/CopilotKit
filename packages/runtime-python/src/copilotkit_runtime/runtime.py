@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
-from contextlib import asynccontextmanager, nullcontext
+from contextlib import asynccontextmanager
 from typing import Any
 from uuid import uuid4
 
@@ -18,8 +18,10 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
+from .a2ui import A2UIConfig, A2UIMiddleware
 from .agents import Agent
 from .gateway import Gateway
+from .mcp_apps import MCPAppsConfig, MCPAppsMiddleware, MCPServer
 from .models import Json, PlatformError, RuntimeConfig, RuntimeErrorResponse, User
 from .platform import Platform, segment
 from .telemetry import Telemetry
@@ -27,6 +29,7 @@ from .telemetry import Telemetry
 IdentifyUser = Callable[[Request], Awaitable[User | None] | User | None]
 MemoryPolicy = Callable[[User, Request], Awaitable[Json] | Json]
 LearningSelector = Callable[[User, str, Json], Awaitable[str | None] | str | None]
+ErrorHandler = Callable[[Exception, str], Awaitable[None]]
 
 
 def required(body: Json, key: str) -> str:
@@ -41,7 +44,7 @@ class IntelligenceRuntime:
     """Mount on ASGI directly, or mount its app in FastAPI/Starlette.
 
     Agents receive independent JSON inputs. Identity and memory policy callbacks
-    run on the server for every request. The host owns its OpenTelemetry provider.
+    run on the server for every request. Analytics use a bounded background queue.
     """
 
     def __init__(
@@ -54,12 +57,23 @@ class IntelligenceRuntime:
         learning_container: LearningSelector | None = None,
         telemetry: Telemetry | None = None,
         http_client: httpx.AsyncClient | None = None,
+        a2ui: A2UIConfig | None = None,
+        mcp_apps: MCPAppsConfig | None = None,
+        on_error: ErrorHandler | None = None,
     ) -> None:
         self.config = config
         self.agents = dict(agents)
         self.identify_user = identify_user
         self.memory_policy = memory_policy
         self.learning_container = learning_container
+        self.on_error = on_error
+        if on_error is not None and not (
+            inspect.iscoroutinefunction(on_error)
+            or inspect.iscoroutinefunction(getattr(on_error, "__call__", None))
+        ):
+            raise ValueError("Application error handler must be async")
+        self.a2ui = a2ui
+        self.mcp_apps = MCPAppsMiddleware(mcp_apps) if mcp_apps else None
         self.telemetry = telemetry or Telemetry(config.telemetry_enabled)
         self._owned_client = http_client is None
         self.client = http_client or httpx.AsyncClient()
@@ -107,6 +121,7 @@ class IntelligenceRuntime:
             await asyncio.wait(tasks, timeout=self.config.shutdown_timeout)
         if self._owned_client:
             await self.client.aclose()
+        await self.telemetry.aclose()
 
     async def _body(self, request: Request) -> Json:
         """Read a bounded JSON object without buffering an unbounded request."""
@@ -135,46 +150,40 @@ class IntelligenceRuntime:
 
     async def _handle(self, request: Request) -> Response:
         """Apply consistent errors and payload-free telemetry to every mounted route."""
-        start = time.monotonic()
         if not self._instance_reported:
             self._instance_reported = True
-            await self.telemetry.emit("oss.runtime.instance_created")
-        await self.telemetry.emit("oss.runtime.copilot_request_created")
+            await self.telemetry.emit("oss.runtime.instance_created", agentsAmount=len(self.agents))
         path = request.path_params["path"].strip("/").split("/")
-        operation = (
-            path[0]
-            if path[0] in ("info", "agent", "threads", "memories", "annotate")
-            else "unknown"
-        )
-        status = 500
-        span = (
-            self.telemetry.tracer.start_as_current_span("runtime." + operation)
-            if self.telemetry.enabled
-            else nullcontext()
-        )
-        with span:
-            try:
-                response = await self._dispatch(request, path)
-                status = response.status_code
-                return response
-            except PlatformError as error:
-                status = error.status if 400 <= error.status < 500 else 502
-                if len(path) == 3 and path[0] == "agent" and path[2] == "connect":
-                    status = error.status
-                return JSONResponse({"error": str(error)}, status_code=status)
-            except RuntimeErrorResponse as error:
+        if (
+            len(path) == 3
+            and path[0] == "agent"
+            and path[2] in ("run", "connect")
+            and request.method == "POST"
+        ):
+            await self.telemetry.emit("oss.runtime.copilot_request_created", requestType=path[2])
+        try:
+            return await self._dispatch(request, path)
+        except PlatformError as error:
+            await self._report_error(error, "platform")
+            status = error.status if 400 <= error.status < 500 else 502
+            if len(path) == 3 and path[0] == "agent" and path[2] == "connect":
                 status = error.status
-                return JSONResponse({"error": str(error)}, status_code=status)
+            return JSONResponse({"error": str(error)}, status_code=status)
+        except RuntimeErrorResponse as error:
+            return JSONResponse({"error": str(error)}, status_code=error.status)
+        except Exception as error:
+            await self._report_error(error, "request")
+            logging.getLogger(__name__).error("Runtime request failed")
+            return JSONResponse({"error": "Runtime request failed"}, status_code=500)
+
+    async def _report_error(self, error: Exception, phase: str) -> None:
+        """Call the application's async diagnostic handler, separate from analytics."""
+        if self.on_error:
+            try:
+                async with asyncio.timeout(3):
+                    await self.on_error(error, phase)
             except Exception:
-                logging.getLogger(__name__).error("Runtime request failed")
-                return JSONResponse({"error": "Runtime request failed"}, status_code=500)
-            finally:
-                await self.telemetry.emit(
-                    "runtime.request",
-                    operation=operation,
-                    status=status,
-                    duration_ms=(time.monotonic() - start) * 1000,
-                )
+                logging.getLogger(__name__).warning("Application error handler failed")
 
     async def _dispatch(self, request: Request, path: list[str]) -> Response:
         """Dispatch only known multiroute endpoints; no legacy fallback exists."""
@@ -282,7 +291,21 @@ class IntelligenceRuntime:
                 "runtimeEntitlements": entitlement,
                 "licenseStatus": "valid" if active else "none",
                 "telemetryDisabled": not self.telemetry.enabled,
-                "a2uiEnabled": False,
+                "a2uiEnabled": bool(self.a2ui and self.a2ui.enabled),
+                **(
+                    {
+                        "a2ui": {
+                            "enabled": True,
+                            **(
+                                {"agents": list(self.a2ui.agents)}
+                                if self.a2ui.agents is not None
+                                else {}
+                            ),
+                        }
+                    }
+                    if self.a2ui and self.a2ui.enabled
+                    else {}
+                ),
                 "openGenerativeUIEnabled": False,
                 "audioFileTranscriptionEnabled": False,
                 "suggestions": False,
@@ -374,7 +397,8 @@ class IntelligenceRuntime:
             await self.platform.request(
                 "DELETE", f"/api/threads/{segment(thread_id)}/lock", {"runId": run_id}
             )
-        except Exception:
+        except Exception as error:
+            await self._report_error(error, "lock.cleanup")
             await self.telemetry.emit("runtime.lock.cleanup_failed", outcome="error")
 
     async def _renew(self, gateway: Gateway) -> None:
@@ -401,7 +425,7 @@ class IntelligenceRuntime:
                 keepalive = group.create_task(gateway.keepalive())
                 seen_start = False
                 terminal = False
-                async for event in self.agents[agent_id].run(input):
+                async for event in self._agent_events(agent_id, input):
                     if terminal:
                         raise ValueError("Agent emitted after terminal event")
                     if not seen_start:
@@ -413,6 +437,11 @@ class IntelligenceRuntime:
                         continue
                     await gateway.send(event)
                     terminal = event.get("type") in ("RUN_FINISHED", "RUN_ERROR")
+                    if event.get("type") == "RUN_ERROR":
+                        outcome = "error"
+                        await self._report_error(
+                            RuntimeError("Agent emitted RUN_ERROR"), "agent.event"
+                        )
                 if not seen_start:
                     await gateway.send(
                         {"type": "RUN_STARTED", "input": {**input, "messages": messages}}
@@ -429,7 +458,8 @@ class IntelligenceRuntime:
                 )
             except Exception:
                 pass
-        except Exception:
+        except Exception as error:
+            await self._report_error(error, "agent.execution")
             outcome = "error"
             try:
                 await gateway.send({"type": "RUN_ERROR", "message": "Agent execution failed"})
@@ -447,7 +477,30 @@ class IntelligenceRuntime:
                 else "oss.runtime.agent_execution_stream_errored",
                 outcome=outcome,
                 duration_ms=(time.monotonic() - started) * 1000,
+                error="RUN_STOPPED" if outcome == "cancelled" else "AGENT_EXECUTION_FAILED",
             )
+
+    async def _agent_events(self, agent_id: str, input: Json) -> AsyncIterator[Json]:
+        """Transform configured UI features before canonical Intelligence ingestion."""
+        proxy = input.get("forwardedProps", {}).get("__proxiedMCPRequest")
+        if proxy is not None:
+            if not self.mcp_apps or not isinstance(proxy, dict):
+                raise ValueError("MCP Apps proxy is not configured")
+            async for event in self.mcp_apps.proxy(proxy, agent_id):
+                yield event
+            return
+        a2ui = A2UIMiddleware(self.a2ui) if self.a2ui and self.a2ui.applies(agent_id) else None
+        prepared = a2ui.prepare(input) if a2ui else input
+        ui_tools: dict[str, tuple[MCPServer, str]] = {}
+        if self.mcp_apps:
+            prepared, ui_tools = await self.mcp_apps.discover(prepared, agent_id)
+        source = self.agents[agent_id].run(prepared)
+        if self.mcp_apps:
+            source = self.mcp_apps.transform(source, prepared, ui_tools)
+        if a2ui:
+            source = a2ui.transform(source, input)
+        async for event in source:
+            yield event
 
     async def _threads(self, request: Request, path: list[str], body: Json, user: User) -> Response:
         """Forward thread operations with trusted identity and explicit ownership checks."""

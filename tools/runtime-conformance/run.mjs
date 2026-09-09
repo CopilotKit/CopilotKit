@@ -8,7 +8,13 @@ import { cases } from "./cases.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 /** Start only the chosen driver, with fixture URLs and no live service keys. */
-async function startDriver(command, cwd, platform) {
+async function startDriver(
+  command,
+  cwd,
+  platform,
+  configuration = {},
+  environment = {},
+) {
   const inheritedNames = [
     "PATH",
     "HOME",
@@ -33,10 +39,23 @@ async function startDriver(command, cwd, platform) {
     agentUrl: `${platform.url}/agent`,
     telemetryUrl: `${platform.url}/telemetry`,
     telemetrySampleRate: 1,
+    ...configuration,
   });
   env.OPENAI_API_KEY = "fixture-only";
   env.COPILOTKIT_TELEMETRY_DISABLED = "false";
   env.DO_NOT_TRACK = "false";
+  for (const [name, value] of Object.entries(environment)) {
+    if (
+      ![
+        "DO_NOT_TRACK",
+        "COPILOTKIT_TELEMETRY_DISABLED",
+        "COPILOTKIT_TELEMETRY_SAMPLE_RATE",
+        "CPK_TELEMETRY_ID",
+      ].includes(name)
+    )
+      throw new Error(`Unsupported fixture environment key: ${name}`);
+    env[name] = value;
+  }
   const child = spawn(command[0], command.slice(1), {
     cwd,
     env,
@@ -108,7 +127,17 @@ export async function runSuite(command, { cwd = root, filter = "" } = {}) {
     let driver;
     const start = Date.now();
     try {
-      driver = await startDriver(command, cwd, platform);
+      const configuration =
+        typeof spec.configuration === "function"
+          ? await spec.configuration(platform)
+          : spec.configuration;
+      driver = await startDriver(
+        command,
+        cwd,
+        platform,
+        configuration,
+        spec.environment,
+      );
       const request = async (method, path, body, headers = {}) => {
         const response = await fetch(`${driver.url}${path}`, {
           method,

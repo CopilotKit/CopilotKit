@@ -1,6 +1,6 @@
 # Runtime conformance
 
-Run the same socket tests against each native library:
+Run the same socket tests against each runtime library:
 
 ```sh
 NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- ruby packages/runtime-ruby/examples/conformance.rb
@@ -17,6 +17,9 @@ The Nx target uses the same runner. The direct command also supports external ag
 ## Test boundary
 
 Each case starts a fresh native driver and a fresh platform fixture on loopback ports.
+TypeScript uses the existing public runtime package through `typescript-driver.mjs`.
+It is the fifth supported implementation, not only a reference.
+Only IntelligenceRunner is in scope for all five languages.
 The driver receives configuration through `CPK_CONFIG` and reports its port as one JSON line.
 The harness calls the public runtime API under `/copilotkit`.
 It records the runtime's platform HTTP calls and authenticated Phoenix frames.
@@ -42,6 +45,10 @@ An empty case selection is an error.
 | `agentUrl`            | Fixture AG-UI HTTP agent                                       |
 | `telemetryUrl`        | Fixture analytics collector                                    |
 | `telemetrySampleRate` | One for deterministic lifecycle assertions                     |
+| `telemetryDisabled`   | Explicit analytics opt-out                                     |
+| `telemetryId`         | Header-only analytics identity                                 |
+| `a2ui`                | A2UI configuration for the selected case                       |
+| `mcpApps`             | MCP server configuration for the selected case                 |
 
 Each driver configures agent `default` and a trusted identity callback.
 The callback uses `x-test-user-id` and `x-test-user-name`, with defaults `test-user` and `Test User`.
@@ -50,8 +57,10 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Current coverage limit
 
-The initial 16 cases cover core discovery, routing, connect, runs, thread and memory APIs, annotations, and analytics.
-They do not yet prove MCP Apps, A2UI, browser replay, production telemetry exporters, cancellation, or full recovery deadlines.
+The suite has 43 cases: 16 initial cases, 16 UI cases, and 11 additional analytics cases.
+The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
+Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
+They do not yet prove browser replay, all cancellation paths, shutdown, or full recovery deadlines.
 The fixture's event journal is test evidence, not an implementation of the Intelligence database.
 The wider requirements and remaining release gates live in [PLAN.md](PLAN.md).
 
@@ -64,5 +73,7 @@ Phoenix delivery lives in `runner/intelligence.ts`.
 Analytics contracts live in `telemetry/` and `packages/shared/src/telemetry/lambda-client.ts`.
 
 The fixture makes one deliberate security requirement stronger than a route stub:
-native runtimes must verify app-user ownership before exposing key-scoped inspector data.
+all runtimes must verify app-user ownership before exposing key-scoped inspector data.
+The suite also requires trusted MCP HTTP headers, explicit session deletion, and blocked-method rejection before a connection.
+These MCP requirements improve the pinned TypeScript middleware and must apply to TypeScript too.
 Future case changes must cite their reference behavior or explain an intentional correction.

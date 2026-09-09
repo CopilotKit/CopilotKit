@@ -99,6 +99,23 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 			return
 		}
 	}
+	a2ui := resolveA2UI(r.config.A2UI, agentID, object(input["forwardedProps"])["a2uiCatalogAvailable"] == true)
+	if a2ui != nil {
+		processA2UIAction(input)
+		messages = input["messages"].([]any)
+	}
+	servers := []MCPServer{}
+	if r.config.MCPApps != nil {
+		for _, server := range r.config.MCPApps.Servers {
+			if server.AgentID == "" || server.AgentID == agentID {
+				servers = append(servers, server)
+			}
+		}
+	}
+	_, proxied := object(input["forwardedProps"])["__proxiedMCPRequest"]
+	if a2ui != nil || len(servers) > 0 || proxied {
+		agent = &uiAgent{next: agent, a2ui: a2ui, mcp: servers}
+	}
 	body := map[string]any{"threadId": thread, "runId": runID, "userId": u.ID, "agentId": agentID, "ttlSeconds": int(r.config.LockTTL.Seconds())}
 	if r.config.LearningContainer != nil {
 		container, e := r.config.LearningContainer(req, u, input)
@@ -234,7 +251,11 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 				}
 				started = true
 				copyInput := map[string]any{}
-				for k, v := range input {
+				base := input
+				if source, ok := event["input"].(map[string]any); ok {
+					base = source
+				}
+				for k, v := range base {
 					copyInput[k] = v
 				}
 				copyInput["messages"] = fresh
@@ -288,7 +309,8 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		}
 		if e != nil {
 			cleanup()
-			r.capture("oss.runtime.agent_execution_stream_errored", map[string]any{"error": "agent_execution_failed"})
+			r.reportError(RuntimeError{Operation: "agent.run", AgentID: agentID, ThreadID: canonicalThread, RunID: canonicalRun, Err: e})
+			r.capture("oss.runtime.agent_execution_stream_errored", map[string]any{"error": "AGENT_EXECUTION_FAILED"})
 		} else {
 			r.capture("oss.runtime.agent_execution_stream_ended", map[string]any{})
 		}

@@ -2,13 +2,17 @@
 
 ## Required outcome
 
-Python, Go, Ruby on Rails, and C# libraries mount the Intelligence runtime API.
-Each library runs natively. None uses the open-source runner or a Node sidecar.
-The TypeScript runtime at commit `862ff3c180` is the initial compatibility reference.
+TypeScript, Python, Go, Ruby on Rails, and C# mount the Intelligence runtime API.
+The existing TypeScript implementation is the fifth supported language, not only a reference.
+Every language must pass the same shared tests.
+Only IntelligenceRunner is in scope. Its implementation must be complete.
+The four new libraries run natively without a Node sidecar or another runner.
+The TypeScript runtime at commit `862ff3c180` is the initial compatibility baseline.
 
 The release gate is a reviewed CopilotKit PR with passing checks and a public Sites walkthrough.
 No package release, deployment of a runtime, or merge is authorized.
 The public walkthrough is the explicit exception to the publishing restriction.
+The walkthrough must use the simple-english skill for text and diagram captions.
 
 ## Work sequence
 
@@ -31,13 +35,15 @@ The public walkthrough is the explicit exception to the publishing restriction.
 | Learning    | Annotation API and optional container selection at the run boundary                                                        |
 | MCP Apps    | Tool discovery/execution, UI activity, proxied resource/tool requests, per-agent server configuration                      |
 | A2UI        | Tool/schema context, streamed surface activity, render results, action history, per-agent configuration                    |
-| Telemetry   | Request/run lifecycle, errors, durations, retry/queue metrics, traces, safe attributes, exporter lifecycle and opt-out     |
+| Telemetry   | Full existing analytics: lifecycle events, sampling, identity, safe attributes, bounded export, shutdown, and opt-out      |
 | Hosting     | ASGI Python, Go net/http, Rails/Rack, ASP.NET Core, configurable CORS and authentication callbacks                         |
 
 Voice/transcription, managed Channels, GraphQL, single-route dispatch, provider-specific agent frameworks,
 Open Generative UI, and automatic LLM thread naming are candidates for explicit exclusions.
 The unfinished user bullet (`They do not need`) does not establish an exclusion.
 No listed candidate removes MCP Apps, A2UI, telemetry, or Intelligence persistence from the required outcome.
+The TypeScript baseline has no OpenTelemetry spans or metrics. These are not part of its analytics parity contract.
+Native MCP HTTP headers, explicit session deletion, and pre-connection method validation are documented safety improvements.
 
 ## Factory rules
 

@@ -67,8 +67,9 @@ module CopilotKit
 
   # Owns a single run, including gateway durability, lease renewal, and cleanup.
   class Runner
-    def initialize(platform:, url:, auth_token:, lock:, agent:, input:, messages:, telemetry:)
+    def initialize(platform:, url:, auth_token:, lock:, agent:, input:, messages:, telemetry:, on_error: nil)
       @platform, @lock, @agent, @input, @messages, @telemetry = platform, lock, agent, input, messages, telemetry
+      @on_error = on_error
       @gateway = Gateway.new(url: url, token: auth_token, thread_id: lock.fetch('threadId'), run_id: lock.fetch('runId'))
       @sequence, @stopped = 0, false
       @lock_path = '/api/threads/' + URI.encode_www_form_component(lock.fetch('threadId')) + '/lock'
@@ -80,9 +81,7 @@ module CopilotKit
 
     def start(&finished)
       @thread = Thread.new do
-        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        trace_id = SecureRandom.hex(16)
-        @telemetry.emit('oss.runtime.agent_execution_stream_started', 'traceId' => trace_id)
+        @telemetry.emit('oss.runtime.agent_execution_stream_started')
         heartbeat = Thread.new do
           loop do
             sleep 10
@@ -104,12 +103,18 @@ module CopilotKit
             break if terminal
             next if event['type'] == 'RUN_STARTED'
             terminal ||= %w[RUN_FINISHED RUN_ERROR].include?(event['type'])
+            if event['type'] == 'RUN_ERROR'
+              outcome = 'error'
+              @telemetry.emit('oss.runtime.agent_execution_stream_errored')
+              report_error(Error.new(502, 'Agent run failed'))
+            end
             emit(event)
           end
           emit('type' => 'RUN_FINISHED') unless terminal
-        rescue StandardError
+        rescue StandardError => error
           outcome = 'error'
-          @telemetry.emit('oss.runtime.agent_execution_stream_errored', 'traceId' => trace_id, 'outcome' => outcome)
+          @telemetry.emit('oss.runtime.agent_execution_stream_errored')
+          report_error(error)
           begin
             emit('type' => 'RUN_ERROR', 'message' => 'Agent run failed', 'code' => 'AGENT_RUN_FAILED') unless @stopped
           rescue StandardError
@@ -122,11 +127,10 @@ module CopilotKit
           @gateway.close
           begin
             @platform.request('DELETE', @lock_path, 'runId' => @lock['runId'])
-          rescue StandardError
-            @telemetry.emit('runtime.run.cleanup_error', 'outcome' => 'error')
+          rescue StandardError => error
+            report_error(error)
           end
-          @telemetry.emit('oss.runtime.agent_execution_stream_ended', 'traceId' => trace_id, 'outcome' => outcome, 'eventCount' => @sequence,
-                          'durationMs' => (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000)
+          @telemetry.emit('oss.runtime.agent_execution_stream_ended') if outcome == 'completed'
           finished.call
         end
       end
@@ -146,6 +150,12 @@ module CopilotKit
 
     private
 
+    def report_error(error)
+      @on_error&.call(error)
+    rescue StandardError
+      nil
+    end
+
     def emit(source)
       @sequence += 1
       event = source.merge('threadId' => @lock['threadId'], 'runId' => @lock['runId'], 'thread_id' => @lock['threadId'], 'run_id' => @lock['runId'],
@@ -157,7 +167,6 @@ module CopilotKit
           return
         rescue StandardError
           raise if attempt == 3 || @stopped
-          @telemetry.emit('runtime.gateway.retry', 'retryCount' => attempt + 1, 'queueDepth' => 1)
           sleep(0.1 * (2**attempt))
           @gateway.close
           @gateway.connect

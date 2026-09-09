@@ -15,6 +15,7 @@ def runtime(handler, **kwargs):
             api_url="http://platform",
             runner_url="ws://runner",
             client_url="ws://client",
+            telemetry_enabled=False,
         ),
         agents={},
         identify_user=identify,
@@ -90,7 +91,9 @@ async def test_missing_identity_denies_access():
     async def anonymous(request):
         return None
 
-    app = IntelligenceRuntime(RuntimeConfig(api_key="secret"), agents={}, identify_user=anonymous)
+    app = IntelligenceRuntime(
+        RuntimeConfig(api_key="secret", telemetry_enabled=False), agents={}, identify_user=anonymous
+    )
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://runtime"
     ) as client:
@@ -118,3 +121,21 @@ def test_managed_endpoint_defaults_match_typescript():
     config = RuntimeConfig(api_key="fixture")
     assert config.runner_url == "wss://realtime.intelligence.copilotkit.ai/runner"
     assert config.client_url == "wss://realtime.intelligence.copilotkit.ai/client"
+
+
+async def test_application_error_handler_is_separate_and_failure_isolated():
+    errors = []
+
+    async def on_error(error, phase):
+        errors.append((type(error).__name__, phase))
+        raise ValueError("private handler error")
+
+    app = runtime(lambda request: httpx.Response(503), on_error=on_error)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://runtime"
+    ) as client:
+        response = await client.get("/copilotkit/memories")
+    assert response.status_code == 502
+    assert "private handler" not in response.text
+    assert errors == [("PlatformError", "platform")]
+    await app.aclose()

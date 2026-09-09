@@ -4,6 +4,7 @@ require 'net/http'
 require 'uri'
 require 'securerandom'
 require 'thread'
+require_relative 'telemetry'
 
 module CopilotKit
   # Public error with a safe message and the platform's HTTP status.
@@ -21,36 +22,39 @@ module CopilotKit
                    runner_url: 'wss://realtime.intelligence.copilotkit.ai/runner',
                    client_url: 'wss://realtime.intelligence.copilotkit.ai/client', agents: {},
                    base_path: '', memory_access: nil, telemetry: nil, cors_origins: [],
-                   learning_container: nil)
+                   learning_container: nil, a2ui: nil, mcp_apps: nil, on_error: nil)
       raise ArgumentError, 'api_key is required' if api_key.to_s.strip.empty?
       raise ArgumentError, 'identify_user must be callable' unless identify_user.respond_to?(:call)
       @platform = Platform.new(api_url, api_key)
       @api_key = api_key
       @identify_user, @agents, @base_path = identify_user, agents, base_path.sub(%r{/$}, '')
+      @a2ui = a2ui == true ? {} : a2ui
+      @mcp_servers = (mcp_apps || {}).fetch('servers', [])
       @runner_url, @client_url = runner_url, client_url
       @memory_access = memory_access || ->(_user, _env) { { 'user' => 'none', 'project' => 'none' } }
       @telemetry = telemetry || Telemetry.new
+      @on_error = on_error
       @cors_origins, @learning_container = cors_origins.freeze, learning_container
       @runs, @mutex, @closed = {}, Mutex.new, false
-      @telemetry.emit('oss.runtime.instance_created')
+      @telemetry.emit('oss.runtime.instance_created', 'agentsAmount' => @agents.length)
     end
 
     # Handles one Rack request. Customer authentication receives the real Rack environment.
     def call(env)
-      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      trace_id = SecureRandom.hex(16)
       path = env.fetch('PATH_INFO', '')
       path = path.delete_prefix(@base_path) if path == @base_path || path.start_with?(@base_path + '/')
       method = env.fetch('REQUEST_METHOD', 'GET')
       status, result = dispatch(method, path, env)
       response = [status, { 'content-type' => 'application/json', 'cache-control' => 'no-store' }, status == 204 ? [] : [JSON.generate(result)]]
     rescue Error => error
+      report_error(error) if error.status >= 500
       status = error.status
       response = [status, { 'content-type' => 'application/json' }, [JSON.generate('error' => error.message)]]
     rescue JSON::ParserError, ArgumentError
       status = 400
       response = [400, { 'content-type' => 'application/json' }, [JSON.generate('error' => 'Invalid request body')]]
-    rescue StandardError
+    rescue StandardError => error
+      report_error(error)
       status = 502
       response = [502, { 'content-type' => 'application/json' }, [JSON.generate('error' => 'Runtime dependency failed')]]
     ensure
@@ -63,8 +67,6 @@ module CopilotKit
                             'access-control-allow-methods' => 'GET, POST, PATCH, DELETE, OPTIONS',
                             'access-control-allow-headers' => 'Content-Type, Authorization')
         end
-        @telemetry.emit('oss.runtime.copilot_request_created', 'traceId' => trace_id, 'method' => method, 'status' => status,
-                        'durationMs' => (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000)
         return response
       end
     end
@@ -96,6 +98,7 @@ module CopilotKit
       if (match = %r{\A/agent/([^/]+)/(run|connect)\z}.match(path))
         raise Error.new(405, 'Method not allowed') unless method == 'POST'
         agent_id, action = match.captures
+        @telemetry.emit('oss.runtime.copilot_request_created', 'requestType' => action)
         raise Error.new(404, 'Agent not found') unless @agents.key?(agent_id)
         identifier!(body['threadId'])
         return connect(body['threadId'], user, agent_id) if action == 'connect'
@@ -119,6 +122,12 @@ module CopilotKit
       raise Error.new(400, 'Valid identifier is required') unless value.is_a?(String) && !value.strip.empty? && value.length <= 512
     end
 
+    def report_error(error)
+      @on_error&.call(error)
+    rescue StandardError
+      nil
+    end
+
     def escaped(value)
       URI.encode_www_form_component(value).gsub('+', '%20')
     end
@@ -129,12 +138,14 @@ module CopilotKit
       rescue Error
         { 'status' => 'unavailable', 'error' => { 'code' => 'runtime_entitlements_unavailable', 'message' => 'Runtime entitlement lookup failed', 'retryable' => true } }
       end
-      { 'version' => '0.1.0', 'mode' => 'intelligence', 'agents' => @agents.to_h { |id, agent| [id, { 'name' => id, 'description' => agent.description, 'className' => agent.class.name }] },
+      result = { 'version' => '0.1.0', 'mode' => 'intelligence', 'agents' => @agents.to_h { |id, agent| [id, { 'name' => id, 'description' => agent.description, 'className' => agent.class.name }] },
         'intelligence' => { 'wsUrl' => @client_url }, 'runtimeEntitlements' => entitlement,
         'licenseStatus' => entitlement.dig('entitlement', 'active') ? 'valid' : 'none',
         'threadEndpoints' => { 'list' => true, 'inspect' => true, 'mutations' => true, 'realtimeMetadata' => true },
-        'audioFileTranscriptionEnabled' => false, 'a2uiEnabled' => false, 'openGenerativeUIEnabled' => false,
+        'audioFileTranscriptionEnabled' => false, 'a2uiEnabled' => !!@a2ui && @a2ui['enabled'] != false, 'openGenerativeUIEnabled' => false,
         'suggestions' => false, 'telemetryDisabled' => @telemetry.disabled? }
+      result['a2ui'] = { 'enabled' => true }.merge(@a2ui.slice('agents')) if result['a2uiEnabled']
+      result
     end
 
     def credentials(result)
@@ -239,7 +250,10 @@ module CopilotKit
         prior_ids = history.map { |message| message['id'] }
         fresh = input['messages'].reject { |message| prior_ids.include?(message['id']) }
         canonical['messages'] = history + fresh
-        runner = Runner.new(platform: @platform, url: @runner_url, auth_token: @api_key, lock: lock, agent: @agents.fetch(agent_id), input: canonical, messages: fresh, telemetry: @telemetry)
+        a2ui = @a2ui if @a2ui && @a2ui['enabled'] != false && (!@a2ui['agents'] || @a2ui['agents'].include?(agent_id))
+        servers = @mcp_servers.select { |server| !server['agentId'] || server['agentId'] == agent_id }
+        agent = UIAgent.new(agent: @agents.fetch(agent_id), a2ui: a2ui, mcp_servers: servers)
+        runner = Runner.new(platform: @platform, url: @runner_url, auth_token: @api_key, lock: lock, agent: agent, input: canonical, messages: fresh, telemetry: @telemetry, on_error: @on_error)
         runner.join_gateway
         @mutex.synchronize do
           raise Error.new(503, 'Runtime is shutting down') if @closed
@@ -276,25 +290,8 @@ module CopilotKit
     end
   end
 
-  # Safe, pluggable exporter. Only allowlisted operational fields leave the runtime.
-  class Telemetry
-    ALLOWED = %w[traceId method status durationMs retryCount queueDepth eventCount outcome].freeze
-    def initialize(exporter: nil, disabled: ENV['DO_NOT_TRACK'] == '1' || ENV['COPILOTKIT_TELEMETRY_DISABLED'] == 'true')
-      @exporter, @disabled = exporter, disabled
-    end
-    def disabled?; @disabled; end
-    def emit(name, attributes = {})
-      @exporter&.call({ 'event' => name, 'properties' => attributes.select { |key, _| ALLOWED.include?(key) },
-                       'ts' => (Time.now.utc.to_f * 1000).to_i, 'package' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0' },
-                       'global_properties' => { 'runtime' => 'ruby', 'mode' => 'intelligence' } }) unless @disabled
-    rescue StandardError
-      nil
-    end
-    def close
-      @exporter.close if @exporter.respond_to?(:close)
-    end
-  end
 end
 
 require_relative 'agent'
+require_relative 'ui_agent'
 require_relative 'runner'

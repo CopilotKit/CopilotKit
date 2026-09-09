@@ -78,15 +78,74 @@ failure, and shutdown release the lock.
 
 ## Telemetry
 
-Pass `Telemetry.new(exporter: ->(event) { ... })`. Events use the TypeScript
-runtime's lifecycle names and package/global-properties envelope. Additional
-events report retries and failed cleanup. Attribute allowlisting excludes
-prompts, messages, IDs, credentials, and dependency error bodies. Exporter errors
-do not fail application requests. Exporters can implement `close` to flush.
+Analytics uses the TypeScript runtime's five event names and property shapes.
+Events report instance creation, run/connect requests, and agent start, completion,
+or failure. Failed runs emit an error event with a fixed code, not a completion
+event. Timestamps use integer Unix seconds. Payloads contain no prompts, user IDs,
+thread/run IDs, credentials, route strings, or dependency error messages.
 
-Set `disabled: true`, `DO_NOT_TRACK=1`, or
-`COPILOTKIT_TELEMETRY_DISABLED=true` to suppress export. No network exporter is
-enabled by default. The driver posts telemetry only to the local harness fixture.
+The default HTTP sink is `https://telemetry.copilotkit.ai/ingest`.
+`COPILOTKIT_TELEMETRY_URL` changes it. A server can also pass
+`Telemetry.new(url: endpoint)`, or provide an application exporter with
+`Telemetry.new(exporter: ->(event) { ... })`.
+
+The default sample rate is `0.05`. Set `sample_rate:` to change it;
+`COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides that option. Values must be finite
+numbers from zero through one; invalid values use the default. Events include
+the sample rate and weight. `telemetry_id:` takes precedence over
+`CPK_TELEMETRY_ID`. A valid ID contains 1–128 letters, digits, underscores, or
+hyphens after trimming spaces and tabs. It travels only in the
+`X-CopilotKit-Telemetry-Id` header and does not bypass sampling.
+
+Set `disabled: true`, or set either `DO_NOT_TRACK` or
+`COPILOTKIT_TELEMETRY_DISABLED` to `true` or `1`, to disable analytics.
+Opt-out wins over sample rate and identity. The exporter queues at most 256
+events and drops new events when full. Each export has a three-second timeout,
+does not follow redirects, and cannot fail a runtime request. `flush(timeout:)`
+waits for queued events; `close(timeout:)` drains and stops the worker within
+its deadline. The conformance driver uses the library exporter with a local sink.
+
+Use the separate runtime `on_error:` callback for application error reporting.
+It receives the native exception. Callback failures do not affect HTTP responses
+or agent cleanup. This callback never copies errors into analytics.
+
+## A2UI and MCP Apps
+
+Pass `a2ui: { 'injectA2UITool' => true, 'schema' => catalog }` to inject the
+render tool, usage context, and server-owned component schema. A string value
+for `injectA2UITool` selects a custom tool name. Set `agents` to an array of
+agent IDs to limit A2UI to those agents. `enabled: false` disables it.
+
+The middleware follows A2UI middleware 0.0.10 and toolkit 0.0.4 semantics:
+complete component arrays pass root, ID, type, required-property, reference,
+and cycle checks before painting. Complete data items can then paint during
+streaming. Building, retrying, failure, and painted states share one activity
+ID. Browser actions append synthetic tool history. Adapter-owned model retries
+remain the agent's responsibility; the runtime reports recovery state.
+
+Use `defaultCatalogId` to select the host catalog. Otherwise the runtime uses
+the frontend schema's catalog ID, a streamed non-basic ID, or the basic catalog
+URL, in that order. Binding resolution and general JSON Schema validation are
+not part of the streaming semantic gate, matching the reference middleware.
+
+MCP Apps configuration is server-owned:
+
+```ruby
+mcp_apps: { 'servers' => [{
+  'type' => 'http', 'url' => 'https://mcp.example.com/mcp',
+  'serverId' => 'cards', 'agentId' => 'default',
+  'headers' => { 'authorization' => ENV.fetch('MCP_AUTHORIZATION') }
+}] }
+```
+
+The runtime initializes Streamable HTTP sessions, forwards session credentials,
+discovers UI tools, injects tool schemas, executes pending UI calls, and persists
+`mcp-apps` activity snapshots with the result and resource URI. The iframe can
+reenter through `__proxiedMCPRequest` with a configured server ID/hash. Only
+`tools/call`, `resources/read`, `notifications/message`, and `ping` are allowed.
+Reentry bypasses the agent and cannot select a browser-supplied server URL.
+Session headers stay on MCP HTTP requests. Legacy MCP SSE discovery transport
+is excluded; SSE responses to Streamable HTTP requests are supported.
 
 ## Validation and remaining work
 
@@ -97,13 +156,14 @@ NX_DAEMON=false pnpm nx run-many -t test,lint,build -p runtime-ruby
 node tools/runtime-conformance/run.mjs -- ruby packages/runtime-ruby/examples/conformance.rb
 ```
 
-The initial 16 shared socket cases pass, including lost-ACK reconnect, join
+All 43 shared socket, UI, and analytics cases pass, including lost-ACK reconnect, join
 rejection, ownership, API mutations, validation, and AIMock agent execution.
 Local tests cover denied identity, memory grants, startup validation, and safe
 telemetry. A gem build checks the installable artifact.
 
-MCP Apps, A2UI, user-requested cancellation, distributed stop signaling,
-suggestions, Inspector metadata, and an OpenTelemetry exporter are not yet
-implemented. Rails boots, certificate-failure cases, prolonged lease loss,
+User-requested cancellation, distributed stop signaling, suggestions,
+and Inspector metadata are not yet implemented. Analytics matches the reference
+TypeScript runtime; OpenTelemetry is not a dependency or claimed capability.
+Rails boots, certificate-failure cases, prolonged lease loss,
 high concurrency, and shutdown deadlines need integration coverage before a
 production-readiness claim. The shared suite is one gate, not release approval.

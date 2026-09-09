@@ -6,19 +6,15 @@ require 'webrick'
 require 'stringio'
 
 config = JSON.parse(ENV.fetch('CPK_CONFIG'))
-exporter = if config['telemetryUrl']
-             lambda do |event|
-               uri = URI(config['telemetryUrl'])
-               Net::HTTP.post(uri, JSON.generate(event), 'content-type' => 'application/json')
-             end
-           end
 runtime = CopilotKit::Runtime.new(
   api_key: config.fetch('apiKey'), api_url: config.fetch('apiUrl'),
   runner_url: config.fetch('runnerUrl'), client_url: config.fetch('clientUrl'), base_path: '/copilotkit',
   agents: { 'default' => CopilotKit::HttpAgent.new(url: config.fetch('agentUrl')) },
   identify_user: ->(env) { { 'id' => env['HTTP_X_TEST_USER_ID'] || 'test-user', 'name' => env['HTTP_X_TEST_USER_NAME'] || 'Test User' } },
   memory_access: ->(_user, _env) { { 'user' => 'read-write', 'project' => 'read-write' } },
-  telemetry: CopilotKit::Telemetry.new(exporter: exporter)
+  telemetry: CopilotKit::Telemetry.new(url: config['telemetryUrl'], sample_rate: config.fetch('telemetrySampleRate', 0.05),
+    disabled: config.fetch('telemetryDisabled', false), telemetry_id: config['telemetryId']),
+  a2ui: config['a2ui'], mcp_apps: config['mcpApps']
 )
 server = WEBrick::HTTPServer.new(Port: config.fetch('port', 0), BindAddress: '127.0.0.1', Logger: WEBrick::Log.new(File::NULL), AccessLog: [])
 servlet = Class.new(WEBrick::HTTPServlet::AbstractServlet) do

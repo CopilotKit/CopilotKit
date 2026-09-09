@@ -51,7 +51,7 @@ func TestThreadIdentityCannotBeSpoofed(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{"threads": []any{}})
 	}))
 	defer platform.Close()
-	rt, err := New(Config{APIKey: "secret", APIURL: platform.URL, IdentifyUser: func(*http.Request) (User, error) { return User{ID: "trusted", Name: "Trusted"}, nil }})
+	rt, err := New(Config{APIKey: "secret", APIURL: platform.URL, TelemetryDisabled: true, IdentifyUser: func(*http.Request) (User, error) { return User{ID: "trusted", Name: "Trusted"}, nil }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestThreadIdentityCannotBeSpoofed(t *testing.T) {
 }
 
 func TestMalformedRunNeverCallsPlatform(t *testing.T) {
-	rt, err := New(Config{APIKey: "secret", IdentifyUser: func(*http.Request) (User, error) { return User{ID: "u", Name: "U"}, nil }, Agents: map[string]Agent{"default": &HTTPAgent{URL: "http://127.0.0.1:1"}}})
+	rt, err := New(Config{APIKey: "secret", TelemetryDisabled: true, IdentifyUser: func(*http.Request) (User, error) { return User{ID: "u", Name: "U"}, nil }, Agents: map[string]Agent{"default": &HTTPAgent{URL: "http://127.0.0.1:1"}}})
 	if err != nil {
 		t.Fatal(err)
 	}

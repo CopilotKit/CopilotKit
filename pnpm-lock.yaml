@@ -4030,9 +4030,15 @@ importers:
 
   tools/runtime-conformance:
     dependencies:
+      '@ag-ui/client':
+        specifier: 0.0.59
+        version: 0.0.59
       '@copilotkit/aimock':
         specifier: 1.10.0
         version: 1.10.0
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       ws:
         specifier: 8.18.3
         version: 8.18.3

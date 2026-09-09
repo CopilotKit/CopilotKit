@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { WebSocketServer } from "ws";
-import { LLMock } from "@copilotkit/aimock";
+import { LLMock, MCPMock } from "@copilotkit/aimock";
 
 /** Read bounded JSON from an actual request, preserving empty bodies. */
 async function readBody(request) {
@@ -44,11 +44,39 @@ export async function startPlatform() {
     joinReject: false,
     http: new Map(),
     agentDelayMs: 0,
+    agentEvents: null,
+    agentChunkDelayMs: 0,
   };
   const apiKey = "cpki_fixture_key_never_a_real_secret";
   const mock = new LLMock({ port: 0 });
   mock.onMessage(/.*/, { content: "Hello from AIMock." });
   await mock.start();
+  const mcpCalls = [];
+  const mcp = new MCPMock({ port: 0 });
+  mcp.addTool({
+    name: "show_card",
+    description: "Show a card",
+    inputSchema: {
+      type: "object",
+      properties: { title: { type: "string" } },
+      required: ["title"],
+    },
+    _meta: { "ui/resourceUri": "ui://fixture/card" },
+  });
+  mcp.addTool({
+    name: "internal_tool",
+    description: "Not a UI tool",
+    inputSchema: { type: "object", properties: {} },
+  });
+  mcp.onToolCall("show_card", (args) => {
+    mcpCalls.push(args);
+    return `Card: ${args.title}`;
+  });
+  mcp.addResource(
+    { uri: "ui://fixture/card", name: "Card", mimeType: "text/html+mcp" },
+    { text: "<!doctype html><h1>Fixture card</h1>", mimeType: "text/html+mcp" },
+  );
+  const mcpBase = await mcp.start();
 
   /** Seed a platform-owned thread without making a runtime-side assumption. */
   function seedThread(id, userId = "test-user", extra = {}) {
@@ -99,6 +127,35 @@ export async function startPlatform() {
     };
     requests.push(record);
 
+    if (url.pathname === "/mcp") {
+      if (request.headers["x-fixture-auth"] !== "mcp-fixture-token") {
+        json(response, 401, { error: "MCP server authentication required" });
+        return;
+      }
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      };
+      for (const name of ["mcp-session-id", "mcp-protocol-version"])
+        if (request.headers[name]) headers[name] = request.headers[name];
+      const upstream = await fetch(mcpBase, {
+        method: request.method,
+        headers,
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(5000),
+      });
+      response.writeHead(
+        upstream.status,
+        Object.fromEntries(
+          [...upstream.headers].filter(([name]) =>
+            ["content-type", "mcp-session-id"].includes(name),
+          ),
+        ),
+      );
+      response.end(await upstream.text());
+      return;
+    }
+
     if (url.pathname === "/telemetry") {
       telemetry.push(body);
       json(response, 202, {});
@@ -109,6 +166,23 @@ export async function startPlatform() {
       const agentFault = faults.http.get(`${request.method} /agent`);
       if (agentFault) {
         json(response, agentFault.status, agentFault.body);
+        return;
+      }
+      if (faults.agentEvents) {
+        response.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        });
+        const scripted =
+          typeof faults.agentEvents === "function"
+            ? faults.agentEvents(body)
+            : faults.agentEvents;
+        for (const event of scripted) {
+          if (response.destroyed) break;
+          response.write(`data: ${JSON.stringify(event)}\n\n`);
+          if (faults.agentChunkDelayMs) await delay(faults.agentChunkDelayMs);
+        }
+        response.end();
         return;
       }
       const completion = await fetch(`${mock.url}/v1/chat/completions`, {
@@ -468,6 +542,9 @@ export async function startPlatform() {
     agentInputs,
     faults,
     mock,
+    mcp,
+    mcpUrl: `${url}/mcp`,
+    mcpCalls,
     seedThread,
     /** Await an observable protocol condition with a bounded diagnostic timeout. */
     async waitFor(predicate, timeoutMs = 5000) {
@@ -486,6 +563,7 @@ export async function startPlatform() {
       await Promise.all([
         new Promise((resolve) => server.close(resolve)),
         mock.stop(),
+        mcp.stop(),
       ]);
     },
   };

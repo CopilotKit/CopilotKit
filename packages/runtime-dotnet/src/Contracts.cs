@@ -22,6 +22,8 @@ public sealed class RuntimeOptions
     public required string ApiKey { get; init; }
     public required Func<HttpContext, CancellationToken, ValueTask<RuntimeUser?>> IdentifyUser { get; init; }
     public required IReadOnlyDictionary<string, IRuntimeAgent> Agents { get; init; }
+    public A2UIOptions? A2UI { get; init; }
+    public IReadOnlyList<McpAppServer> McpAppsServers { get; init; } = [];
     public Func<HttpContext, RuntimeUser, CancellationToken, ValueTask<JsonObject?>>? MemoryGrant { get; init; }
     public Func<HttpContext, RuntimeUser, string, JsonObject, CancellationToken, ValueTask<string?>>? LearningContainer { get; init; }
     public IReadOnlySet<string> AllowedOrigins { get; init; } = new HashSet<string>();
@@ -33,7 +35,12 @@ public sealed class RuntimeOptions
     public string? LockKeyPrefix { get; init; }
     public long MaxRequestBytes { get; init; } = 4 * 1024 * 1024;
     public bool TelemetryDisabled { get; init; }
+    public double TelemetrySampleRate { get; init; } = 0.05;
+    public string? TelemetryId { get; init; }
+    public Uri? TelemetryUrl { get; init; }
     public IRuntimeTelemetryExporter? TelemetryExporter { get; init; }
+    /// <summary>Application-owned error reporting, separate from sampled analytics. Callback failures are isolated.</summary>
+    public Action<RuntimeError>? OnError { get; init; }
 
     internal void Validate()
     {
@@ -41,6 +48,8 @@ public sealed class RuntimeOptions
         if (!ApiUrl.IsAbsoluteUri || ApiUrl.Scheme is not ("http" or "https")) throw new ArgumentException("ApiUrl must be HTTP(S).");
         if (!RunnerUrl.IsAbsoluteUri || RunnerUrl.Scheme is not ("ws" or "wss" or "http" or "https")) throw new ArgumentException("RunnerUrl must be a WebSocket URL.");
         if (Agents.Count == 0 || Agents.Any(pair => string.IsNullOrWhiteSpace(pair.Key))) throw new ArgumentException("Register at least one named agent.");
+        if (A2UI is not null && (A2UI.MaxAttempts < 1 || string.IsNullOrWhiteSpace(A2UI.ToolName) || A2UI.DebugExposure is not (null or "hidden" or "collapsed" or "verbose"))) throw new ArgumentException("Invalid A2UI configuration.");
+        foreach (var server in McpAppsServers) if (!server.Url.IsAbsoluteUri || server.Url.Scheme is not ("http" or "https") || !string.IsNullOrEmpty(server.Url.UserInfo)) throw new ArgumentException("MCP URLs must be HTTP(S), without embedded credentials.");
         if (RequestTimeout <= TimeSpan.Zero || AckTimeout <= TimeSpan.Zero || DeliveryTimeout < AckTimeout || LockTtlSeconds < 2 || LockHeartbeatInterval <= TimeSpan.Zero || LockHeartbeatInterval.TotalSeconds >= LockTtlSeconds) throw new ArgumentException("Invalid runtime timing configuration.");
     }
 }
@@ -50,6 +59,9 @@ public sealed class RuntimeRequestException(int statusCode, string message) : Ex
 {
     public int StatusCode { get; } = statusCode;
 }
+
+/// <summary>An error sent only to the host application callback, never to the analytics sink.</summary>
+public sealed record RuntimeError(string Operation, string Code, Exception Exception);
 
 /// <summary>Validates input before acquiring locks or invoking agents.</summary>
 public static class RuntimeValidation

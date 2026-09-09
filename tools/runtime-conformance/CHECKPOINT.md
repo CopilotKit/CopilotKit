@@ -1,4 +1,68 @@
-# Core checkpoint: 2026-09-08
+# Runtime checkpoint: 2026-09-08
+
+## UI and analytics checkpoint
+
+The goal remains active. TypeScript is the fifth supported implementation.
+Only IntelligenceRunner is in scope. The four new libraries do not use other runners.
+The public website must use simple-english for its text and diagram captions.
+
+The shared suite contains 43 cases: 16 initial cases, 16 UI cases, and 11 additional analytics cases.
+Python, Go, Ruby, and C# pass all 43 cases in the language-agent runs.
+The parent reran Python, Go, and Ruby successfully. The first C# parent run found an agent-scope error.
+The C# fix prevents scoped-out MCP requests from reaching the agent. Its final 43-case run passed.
+The parent reran that final C# state successfully before this checkpoint.
+
+The suite covers atomic A2UI component trees, progressive data, action history, catalog selection,
+custom tools, cycles, duplicate IDs, MCP tool calls, iframe requests, server scope, and transport credentials.
+MCP credentials remain outside agent inputs, persisted events, and analytics.
+The fixture verifies session removal, not only receipt of a DELETE request.
+Native authenticated HTTP headers, session deletion, and pre-connection rejection improve the pinned TypeScript behavior.
+
+Analytics uses the existing TypeScript event names and properties, Unix seconds, sampling weights,
+opt-out flags, header-only identity, and safe error codes. Native exporters have bounded queues and shutdown.
+The TypeScript baseline has no OpenTelemetry spans or metrics. No new OTel system is required for analytics parity.
+
+Native checks passed: Python 31 tests, Ruff, mypy, wheel and source distribution;
+Go 21 tests with the race detector, vet, formatting, and build;
+Ruby 26 tests with 79 assertions, syntax, and gem build;
+C# 39 assertions and all four Nx targets with no warnings.
+The parent reran the native Nx targets. Go required the documented Command Line Tools override.
+
+The TypeScript driver mounts the actual public runtime package and auto-wired IntelligenceAgentRunner.
+Its first full run passed 34 of 43 cases. Six MCP cases exposed missing authentication or scope checks.
+One analytics case used an incomplete connect input. That fixture now uses complete RunAgentInput.
+The other failures concern error analytics and strict base-path routing.
+All TypeScript A2UI, discovery, and run cases passed in separate runs.
+The TypeScript stop-ownership fix has 96 passing focused tests and awaits its own commit.
+
+Latest parent commands:
+
+```sh
+NX_DAEMON=false pnpm nx run-many -p runtime-python,runtime-go,runtime-ruby,runtime-dotnet,runtime-conformance -t lint,test,check-types,build --parallel=4
+DEVELOPER_DIR=/Library/Developer/CommandLineTools GOFLAGS=-ldflags=-linkmode=external NX_DAEMON=false pnpm nx run-many -p runtime-go -t lint,test,build
+NX_DAEMON=false pnpm nx run runtime-python:typecheck
+NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- uv run --project packages/runtime-python python packages/runtime-python/examples/conformance.py
+NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- /tmp/cpk-runtime-go-telemetry
+NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- ruby packages/runtime-ruby/examples/conformance.rb
+NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- dotnet packages/runtime-dotnet/driver/bin/Release/net9.0/Runtime.Driver.dll
+NX_DAEMON=false pnpm nx run runtime-conformance:conformance -- -- node tools/runtime-conformance/typescript-driver.mjs
+```
+
+The separate wiki project is `/Users/mikeryan/Repos/cpk/runtime-wiki`.
+Its first local preview is open. Three diagrams and a social image exist.
+The architecture and factory diagrams include all five languages. The text uses simple-english.
+The site is not complete or published. It must explain final APIs, guarantees, evidence, and exclusions.
+There is no PR yet. No packages were published.
+
+Next requirements:
+
+1. Carry MCP safety and analytics fixes into TypeScript, with the same shared tests.
+2. Complete IntelligenceRunner recovery, batching, cancellation, lock renewal, backpressure, and shutdown checks in all five languages.
+3. Finish canonical identity, memory-policy, entitlement, history, and malformed-input checks.
+4. Review library APIs and artifacts. Add CI matrices and browser integration evidence. Complete real Rails run coverage.
+5. Finish the simple-english wiki, publish it publicly, and open the reviewed PR with its link.
+
+## Earlier core checkpoint
 
 ## State
 
