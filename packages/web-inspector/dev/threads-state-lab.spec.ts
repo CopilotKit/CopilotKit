@@ -1335,6 +1335,16 @@ test("runs teardown before real select and reset control navigation", async () =
   }
 });
 
+// The timeout below is 180s, not the 60s this started with.
+//
+// One test drives 34 routes against a real lab server, so its cost is the sum
+// of 34 bounded waits and it lands wherever the runner's load puts it. Measured
+// across `test / unit` shards of the SAME commit: 29.2s (Node 24/React 19),
+// 56.1s (Node 22/React 18), 57.1s (Node 20/React 19), and, on two runs of one
+// commit on Node 20/React 18, 41.4s and then a timeout at the old 60s ceiling.
+// A 5% margin on the slowest shard is not a budget, so this is sized at ~3x the
+// slowest passing run rather than just above it. The number is a ceiling for a
+// hang, not a performance assertion — nothing here asserts elapsed time.
 test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 Thread routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
@@ -1875,7 +1885,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
       Reflect.deleteProperty(window, "matchMedia");
     }
   }
-}, 60_000);
+}, 180_000);
 
 test("freezes media error reduced-motion and telemetry opt-out configuration", () => {
   expect(getThreadsStateScenario("video-error").media).toBe("video_error");
