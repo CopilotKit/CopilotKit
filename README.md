@@ -124,7 +124,7 @@ Free to start on the cloud-hosted Developer tier, with self-service plans for te
 
 https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
-<div align="center"> Add AI to your app in 1 minute</div>
+<div align="center">CopilotKit in action</div>
 
 **Features:**
 
@@ -159,6 +159,7 @@ One agent backend. Every frontend.
 | 📱 React Native                  | ✅ Supported                                             | [Quickstart](https://docs.copilotkit.ai/react-native)                                                   |
 | 💬 Slack / Microsoft Teams       | ✅ Supported                                             | [Channels](https://www.copilotkit.ai/channels) · [Quickstart](https://docs.copilotkit.ai/slack)         |
 | 💬 Discord / WhatsApp / Telegram | ✅ Channels SDK adapter (managed connection coming soon) | [Channels](https://www.copilotkit.ai/channels)                                                          |
+| 🔜 Google Chat / iMessage / SMS  | 🟡 On the roadmap                                        | [Channels](https://www.copilotkit.ai/channels)                                                          |
 
 Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework and channel.
 
