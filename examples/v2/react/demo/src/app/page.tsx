@@ -7,6 +7,7 @@ import {
   CopilotKitProvider,
   defineToolCallRenderer,
   useAgentContext,
+  useComponent,
   useCopilotChatConfiguration,
   useConfigureSuggestions,
   useFrontendTool,
@@ -21,6 +22,45 @@ import { DEMO_RUNTIME_URL } from "./runtime-url";
 export const dynamic = "force-dynamic";
 
 type Theme = "light" | "dark";
+
+function DemoDashboard({
+  title,
+  primaryMetric,
+  secondaryMetric,
+}: {
+  title: string;
+  primaryMetric: string;
+  secondaryMetric: string;
+}) {
+  return (
+    <section
+      style={{
+        display: "grid",
+        gap: 12,
+        padding: 16,
+        border: "1px solid oklch(0.85 0.08 250)",
+        borderRadius: 12,
+        background: "linear-gradient(135deg, oklch(0.97 0.03 250), white)",
+      }}
+    >
+      <strong style={{ fontSize: "1rem" }}>{title}</strong>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ padding: 12, borderRadius: 8, backgroundColor: "white" }}>
+          <div style={{ color: "#64748b", fontSize: "0.8rem" }}>Pipeline</div>
+          <div style={{ fontSize: "1.35rem", fontWeight: 700 }}>
+            {primaryMetric}
+          </div>
+        </div>
+        <div style={{ padding: 12, borderRadius: 8, backgroundColor: "white" }}>
+          <div style={{ color: "#64748b", fontSize: "0.8rem" }}>Completion</div>
+          <div style={{ fontSize: "1.35rem", fontWeight: 700 }}>
+            {secondaryMetric}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 // Match CopilotKit's oklch CSS variables for consistent theming
 const themeColors = {
@@ -179,7 +219,20 @@ function ChatContent({
   );
 
   useConfigureSuggestions({
-    instructions: "Suggest follow-up tasks based on the current page content",
+    suggestions: [
+      {
+        title: "Fail a tool call",
+        message: "Run the intentional failing tool demo.",
+      },
+      {
+        title: "Show generative UI",
+        message: "Show me the generative UI dashboard demo.",
+      },
+      {
+        title: "Inspect this thread",
+        message: "Explain how to inspect and replay this thread in my app.",
+      },
+    ],
     available: "always",
   });
 
@@ -214,6 +267,48 @@ function ChatContent({
       alert(`Hello ${name}`);
       return `Hello ${name}`;
     },
+  });
+
+  useFrontendTool({
+    name: "failDemoTool",
+    description:
+      "Demo-only tool that always fails. Use it only when the user asks to demo, inspect, or troubleshoot a failed tool call.",
+    parameters: z.object({
+      reason: z.string().describe("A short description of the demo failure"),
+    }),
+    handler: async ({ reason }) => {
+      throw new Error(`Intentional demo failure: ${reason}`);
+    },
+    render: ({ args }) => (
+      <div
+        style={{
+          padding: 12,
+          border: "1px solid #fecaca",
+          borderRadius: 10,
+          backgroundColor: "#fef2f2",
+          color: "#991b1b",
+        }}
+      >
+        <strong>Intentional tool failure</strong>
+        <div style={{ marginTop: 4 }}>{args.reason}</div>
+        <div style={{ marginTop: 8, fontSize: "0.8rem" }}>
+          Open the Inspector shortcut on this response to inspect the failed
+          call.
+        </div>
+      </div>
+    ),
+  });
+
+  useComponent({
+    name: "showDemoDashboard",
+    description:
+      "Show a compact generative UI dashboard. Use it when the user asks to demo generative UI, render a dashboard, or inspect rendered UI.",
+    parameters: z.object({
+      title: z.string().describe("A short dashboard title"),
+      primaryMetric: z.string().describe("A pipeline metric"),
+      secondaryMetric: z.string().describe("A completion metric"),
+    }),
+    render: DemoDashboard,
   });
   const toolsMenu = useMemo<(ToolsMenuItem | "-")[]>(
     () => [

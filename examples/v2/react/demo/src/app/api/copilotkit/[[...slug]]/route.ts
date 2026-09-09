@@ -43,8 +43,14 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
 
 const builtInAgent = new BuiltInAgent({
   model: determineModel(),
-  prompt:
-    "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
+  prompt: `You are a helpful AI assistant for a CopilotKit Inspector demo.
+
+Use the available frontend tools when the user requests one of these demos:
+- For an intentional failed tool call, call failDemoTool with a concise reason.
+- For generative UI, call showDemoDashboard with a concise title and realistic-looking metrics.
+- For a theme request, call setTheme.
+
+After a demo tool call, briefly tell the user they can open the CopilotKit Inspector from the tool call to inspect it. Do not call demo tools unless the user asks for the corresponding demo.`,
   providerOptions: {
     ...(openAIApiKey
       ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
