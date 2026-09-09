@@ -232,6 +232,7 @@ function CopilotPopupViewInternal({
   const popupContent = isRendered ? (
     <div
       data-copilotkit
+      data-copilotkit-root
       className={cn(
         "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch",
         "cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end cpk:md:gap-4",
