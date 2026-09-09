@@ -348,7 +348,6 @@ Omitting `useSingleEndpoint` lets the provider negotiate the transport, which wo
 | `useSingleEndpoint` | `boolean`                                                  | Omit to negotiate the transport (works with either handler mode); `true` pins single-route, `false` pins multi-route |
 | `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
 | `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
-| `publicLicenseKey`  | `string`                                                   | CopilotKit Intelligence public license key (`publicApiKey` is a deprecated alias)                                    |
 | `showDevConsole`    | `boolean`                                                  | Show the dev console. Omit it to get the default behavior (shown on `localhost` only)                                |
 | `renderToolCalls`   | `ReactToolCallRenderer[]`                                  | Custom renderers for tool call UI                                                                                    |
 | `frontendTools`     | `ReactFrontendTool[]`                                      | Frontend-defined tools (declarative alternative to `useFrontendTool`)                                                |
@@ -438,17 +437,14 @@ Intelligence has two halves and they use different credentials. Getting them mix
    ```
 
    ```tsx
-   <CopilotKit
-     runtimeUrl="/api/copilotkit"
-     publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
-   >
+   <CopilotKit runtimeUrl="/api/copilotkit">
    ```
 
    The `NEXT_PUBLIC_`/`VITE_` prefix is required because the key is read on the client.
 
 4. **Confirm durable threads actually work.** Send a message, restart the dev server, and reload. The thread should still be there. If it is not, the runtime is still in SSE mode -- check that `intelligence` is passed and that no `runner` overrides it.
 
-See `references/telemetry-setup.md` for what the license key enables and how to opt out.
+See `references/telemetry-setup.md` for what Intelligence enables, the CLI flow that connects it, and how to opt out.
 
 #### Connecting Slack or Microsoft Teams
 

@@ -98,16 +98,20 @@ export function App({ children }: { children: React.ReactNode }) {
 }
 ```
 
-### SPA with CopilotKit Intelligence (no self-hosted runtime)
+### An SPA still needs a runtime URL
+
+There is no client-only path. `runtimeUrl` is required: without it the
+provider throws in production. CopilotKit Intelligence is configured on the
+runtime, not on the provider — the CLI writes `INTELLIGENCE_API_KEY` into the
+server's environment and it never reaches the browser.
 
 ```tsx
-<CopilotKit publicLicenseKey="ck_pub_..." />
+// Point at wherever the runtime is served from, same origin or not.
+<CopilotKit runtimeUrl="https://api.example.com/api/copilotkit" />
 ```
 
-`publicLicenseKey` is the canonical prop for running CopilotKit from a
-pure client bundle. `publicApiKey` is a deprecated alias that resolves to
-the same value — accept it in old code, but always write
-`publicLicenseKey` in new code.
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:524-535`
+(the throw, and the endpoint resolution)
 
 ## Core Patterns
 
@@ -233,13 +237,12 @@ Correct:
 ```tsx
 // Route through a runtime that keeps secrets server-side:
 <CopilotKit runtimeUrl="/api/copilotkit" />
-
-// Or for a pure SPA, use CopilotKit Intelligence:
-<CopilotKit publicLicenseKey="ck_pub_..." />
 ```
 
-Both props are aliases for the same dev-only mechanism and ship any embedded
-credentials to the browser bundle. Never use either for production agents.
+`agents__unsafe_dev_only` and `selfManagedAgents` are aliases for the same
+dev-only mechanism and ship any embedded credentials to the browser bundle.
+Never use either for production agents. A runtime is the only supported
+production path.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:156,497`
 
@@ -303,32 +306,6 @@ instances that never resolve. The chat UI keeps showing "connecting..."
 forever and users never see the actual error.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:214,863-866`
-
-### HIGH — Writing `publicApiKey` in new code
-
-Wrong:
-
-```tsx
-<CopilotKit publicApiKey="ck_pub_..." />
-```
-
-Correct:
-
-```tsx
-<CopilotKit publicLicenseKey="ck_pub_..." />
-```
-
-`publicApiKey` still works as a deprecated alias, but `publicLicenseKey` is
-the canonical name. Always write the canonical form in new code.
-
-Do not set both. Precedence is not consistent across the code paths — three
-sites prefer `publicApiKey` and one prefers `publicLicenseKey` — so which one
-wins depends on which path runs.
-
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:487`
-(`publicApiKey ?? publicLicenseKey`);
-`packages/react-core/src/v1-deprecated/components/copilot-provider/copilotkit.tsx:111,217,883`
-(the three disagreeing sites)
 
 ### MEDIUM — Putting the provider below a layout that uses CopilotKit
 
