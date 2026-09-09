@@ -164,12 +164,15 @@ function ChatContent({
   const colors = themeColors[theme];
   const [isThreadsMenuOpen, setIsThreadsMenuOpen] = useState(false);
   const [draftThreadId, setDraftThreadId] = useState<string>();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
+  const [deletingThreadId, setDeletingThreadId] = useState<string>();
+  const [deleteError, setDeleteError] = useState<string>();
   const [approvalResponses, setApprovalResponses] = useState<
     Record<string, boolean>
   >({});
   const configuration = useCopilotChatConfiguration();
   const agentId = configuration?.agentId ?? "default";
-  const { threads } = useThreads({ agentId });
+  const { threads, deleteThread } = useThreads({ agentId });
   const hasInspectorPreview = configuration?.threadId?.startsWith("thread---");
   const pastThreads = [
     ...(draftThreadId && !threads.some((thread) => thread.id === draftThreadId)
@@ -203,6 +206,29 @@ function ChatContent({
     },
     [configuration],
   );
+
+  const removeThread = async (id: string) => {
+    if (deletingThreadId) return;
+    setDeletingThreadId(id);
+    setDeleteError(undefined);
+    try {
+      // Unsaved drafts exist only in this menu, not in the runtime.
+      if (threads.some((thread) => thread.id === id)) {
+        await deleteThread(id);
+      }
+      if (draftThreadId === id) setDraftThreadId(undefined);
+      if (configuration?.threadId === id) startNewThread();
+      setConfirmDeleteId(undefined);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "Could not delete this thread.",
+      );
+    } finally {
+      setDeletingThreadId(undefined);
+    }
+  };
 
   useConfigureSuggestions({
     suggestions: [
@@ -562,28 +588,85 @@ function ChatContent({
                 Past threads
               </div>
               {pastThreads.map(({ id, label, isDraft }) => (
-                <button
+                <div
                   key={id}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => selectThread(id, isDraft)}
-                  style={{
-                    width: "100%",
-                    padding: "9px 10px",
-                    border: 0,
-                    borderRadius: 8,
-                    backgroundColor:
-                      id === configuration?.threadId
-                        ? colors.muted
-                        : "transparent",
-                    color: colors.text,
-                    textAlign: "left",
-                    cursor: "pointer",
-                  }}
+                  role="none"
+                  style={{ display: "flex", alignItems: "center" }}
                 >
-                  {label}
-                </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!!deletingThreadId}
+                    onClick={() => selectThread(id, isDraft)}
+                    style={{
+                      width: "100%",
+                      padding: "9px 10px",
+                      border: 0,
+                      borderRadius: 8,
+                      backgroundColor:
+                        id === configuration?.threadId
+                          ? colors.muted
+                          : "transparent",
+                      color: colors.text,
+                      textAlign: "left",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-label={`${confirmDeleteId === id ? "Confirm delete" : "Delete"} ${label}`}
+                    disabled={!!deletingThreadId}
+                    onClick={() => {
+                      if (confirmDeleteId === id) void removeThread(id);
+                      else {
+                        setDeleteError(undefined);
+                        setConfirmDeleteId(id);
+                      }
+                    }}
+                    style={{
+                      padding: "8px",
+                      border: 0,
+                      borderRadius: 6,
+                      background: colors.muted,
+                      color: colors.text,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {deletingThreadId === id
+                      ? "Deleting…"
+                      : confirmDeleteId === id
+                        ? "Confirm delete"
+                        : "Delete"}
+                  </button>
+                  {confirmDeleteId === id && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={!!deletingThreadId}
+                      onClick={() => setConfirmDeleteId(undefined)}
+                      style={{
+                        padding: 8,
+                        border: 0,
+                        background: "transparent",
+                        color: colors.text,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               ))}
+              {deleteError && (
+                <p role="alert" style={{ padding: "8px 10px", fontSize: 12 }}>
+                  {deleteError}
+                </p>
+              )}
             </div>
           )}
         </div>
