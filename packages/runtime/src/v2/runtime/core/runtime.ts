@@ -80,7 +80,14 @@ export interface McpAppsConfig {
   servers: McpAppsServerConfig[];
 }
 
-export interface OpenGenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {}
+export interface OpenGenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {
+  /**
+   * Replay stored threads only: the agent receives no messages, tools, context,
+   * state, forwarded props or resume commands from the caller, and Open
+   * Generative UI activity is rebuilt from every MESSAGES_SNAPSHOT it returns.
+   */
+  readOnly?: boolean;
+}
 
 export type OpenGenerativeUIConfig = boolean | OpenGenerativeUIOptions;
 

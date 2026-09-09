@@ -1,3 +1,5 @@
+import type { ActivityMessage, Message, MessagesSnapshotEvent, ToolMessage } from "@ag-ui/client";
+import { map } from "rxjs/operators";
 import type {
   RunAgentInput,
   AbstractAgent,
@@ -255,8 +257,106 @@ type ExtractObservableType<T> = T extends Observable<infer U> ? U : never;
 type RunNextWithStateReturn = ReturnType<Middleware["runNextWithState"]>;
 type EventWithState = ExtractObservableType<RunNextWithStateReturn>;
 
+/**
+ * Marks a snapshot as authoritative for the Open Generative UI activity type
+ * only, under the `@ag-ui/client` metadata key. A client that understands the
+ * key replaces just this activity type; older clients ignore the metadata and
+ * keep their all-or-nothing activity rule.
+ */
+function ownActivityType(event: MessagesSnapshotEvent, messages: Message[]): MessagesSnapshotEvent {
+  const prior = event.metadata?.["@ag-ui/client"];
+  const priorRecord: Record<string, unknown> =
+    prior && typeof prior === "object" && !Array.isArray(prior) ? (prior as Record<string, unknown>) : {};
+  const priorTypes = Array.isArray(priorRecord.authoritativeActivityTypes)
+    ? priorRecord.authoritativeActivityTypes.filter((type): type is string => typeof type === "string")
+    : [];
+  return {
+    ...event,
+    messages,
+    metadata: {
+      ...event.metadata,
+      "@ag-ui/client": {
+        ...priorRecord,
+        authoritativeActivityTypes: [...new Set([...priorTypes, ACTIVITY_TYPE])],
+      },
+    },
+  };
+}
+
+/**
+ * Rebuilds the Open Generative UI activity for every `generateSandboxedUi`
+ * call in a MESSAGES_SNAPSHOT from the call's final arguments. It uses the
+ * same parser as streaming, runs no host functions and never invents a tool
+ * result: a call without a result restores as `interrupted`.
+ */
+export function projectOpenGenerativeUIHistory(event: MessagesSnapshotEvent): MessagesSnapshotEvent {
+  const results = new Map<string, ToolMessage>();
+  for (const message of event.messages) if (message.role === "tool") results.set(message.toolCallId, message);
+  const messages: Message[] = [];
+  for (const message of event.messages) {
+    if (message.role === "activity" && message.activityType === ACTIVITY_TYPE) continue;
+    messages.push(message);
+    if (message.role !== "assistant") continue;
+    for (const call of message.toolCalls ?? []) {
+      if (call.function.name !== TOOL_NAME) continue;
+      const parser = new ArgsParser(call.id, () => {});
+      parser.write(call.function.arguments);
+      const result = results.get(call.id);
+      const params = parser.params;
+      const activity: ActivityMessage = {
+        id: parser.messageId, role: "activity", activityType: ACTIVITY_TYPE,
+        content: {
+          ...(params.initialHeight === undefined ? {} : { initialHeight: params.initialHeight }),
+          ...(params.placeholderMessages === undefined ? {} : { placeholderMessages: params.placeholderMessages }),
+          ...(params.html === undefined ? {} : { html: [params.html], htmlComplete: true }),
+          ...(params.css === undefined ? {} : { css: params.css, cssComplete: true }),
+          ...(params.jsFunctions === undefined ? {} : { jsFunctions: params.jsFunctions, jsFunctionsComplete: true }),
+          ...(params.jsExpressions === undefined ? {} : { jsExpressions: params.jsExpressions, jsExpressionsComplete: true }),
+          generating: false,
+          status: result ? result.error ? "failed" : "complete" : "interrupted",
+          ...(result?.error ? { error: result.error } : {}),
+        },
+      };
+      messages.push(activity);
+    }
+  }
+  return ownActivityType(event, messages);
+}
+
+export interface OpenGenerativeUIMiddlewareOptions {
+  /**
+   * Replay stored threads only. The backend is called with the thread and run
+   * ids and nothing else from the caller (no messages, tools, context, state,
+   * forwarded props or resume commands), and every MESSAGES_SNAPSHOT it returns
+   * is projected with `projectOpenGenerativeUIHistory`.
+   */
+  readOnly?: boolean;
+}
+
 export class OpenGenerativeUIMiddleware extends Middleware {
+  constructor(private readonly options: OpenGenerativeUIMiddlewareOptions = {}) {
+    super();
+  }
+
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
+    if (this.options.readOnly) {
+      const replayInput: RunAgentInput = {
+        threadId: input.threadId,
+        runId: input.runId,
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+        forwardedProps: {},
+      };
+      return this.runNext(replayInput, next).pipe(
+        map((event) =>
+          event.type === EventType.MESSAGES_SNAPSHOT
+            ? projectOpenGenerativeUIHistory(event as MessagesSnapshotEvent)
+            : event,
+        ),
+      );
+    }
     return this.processStream(this.runNextWithState(input, next));
   }
 
@@ -285,7 +385,9 @@ export class OpenGenerativeUIMiddleware extends Middleware {
 
       const subscription = source.subscribe({
         next: (eventWithState) => {
-          const event = eventWithState.event;
+          const event = eventWithState.event.type === EventType.MESSAGES_SNAPSHOT
+            ? projectOpenGenerativeUIHistory(eventWithState.event as MessagesSnapshotEvent)
+            : eventWithState.event;
 
           if (heldRunFinished) {
             subscriber.next(heldRunFinished.event);
