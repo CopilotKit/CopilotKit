@@ -61,6 +61,42 @@ Failed requests and concurrent-create conflicts emit no success event.
 A failed listener does not stop other listeners or replace a completed platform write.
 The SDK writes a warning with the event and exception class, without the exception message or thread payload.
 
+## Read Inspector metadata
+
+Read project display metadata from application code:
+
+```ruby
+metadata = intelligence.get_inspector_metadata
+puts metadata.dig('plan', 'label') if metadata && metadata.key?('plan')
+```
+
+The result is a hash with `schemaVersion: 1` and optional string-keyed modules:
+
+| Module     | Fields                                                                      |
+| ---------- | --------------------------------------------------------------------------- |
+| `identity` | `organizationName`, `projectName`                                           |
+| `plan`     | `code`, `label`                                                             |
+| `license`  | `state`: `valid`, `none`, `expired`, or `unknown`                           |
+| `action`   | `kind`: `manage_plan`, `renew`, or `enable_intelligence`, plus a safe `url` |
+| `usage`    | `used`, `limit`, and optional `expiringSoonCount`                           |
+
+A usage limit has kind `finite`, `unlimited`, or `unknown`. Only a finite limit has a positive `value`.
+Counts preserve known zero values. An absent expiry count has no `expiringSoonCount` key.
+The SDK removes unknown fields and unsafe action URLs.
+Metadata describes the project. It does not grant access to a feature or resource.
+
+The request uses the server API key and a five-second deadline, including the response body.
+Deadline expiry raises `Timeout::Error`. The default transport closes the connection.
+Custom transports must release per-request resources in `ensure` blocks.
+A 204, 404, or unsupported schema returns `nil`.
+Other provider errors raise `CopilotKit::Error` with the HTTP status. Invalid JSON uses status 502.
+
+The Runtime exposes this data at `GET /inspector-metadata`, relative to its mount path.
+Like `/info`, this display route does not require an application-user identity.
+It never forwards browser credentials to Intelligence.
+Responses use `Cache-Control: no-store, private`. Provider errors produce an empty 204 response and call `on_error`.
+The `/info` response advertises the route through `inspectorMetadata: true`.
+
 ## Install
 
 1. Add the gem from your checkout to your application's `Gemfile`:
