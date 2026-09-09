@@ -110,6 +110,41 @@ Failed requests and concurrent-create conflicts emit no success event.
 The SDK recovers listener panics and continues with other listeners.
 It logs the event and panic type through the standard Go logger, without the panic value or thread payload.
 
+## Read Inspector metadata
+
+Read typed project display metadata from application code:
+
+```go
+func printPlan(ctx context.Context, client *intelligence.Client) error {
+    metadata, err := client.GetInspectorMetadata(ctx)
+    if err != nil {
+        return err
+    }
+    if metadata != nil && metadata.Plan != nil {
+        fmt.Println(metadata.Plan.Label)
+    }
+    return nil
+}
+```
+
+`InspectorMetadata` contains optional identity, plan, license, action, and usage structs.
+The SDK removes unknown fields and unsafe action URLs.
+Pointers distinguish absent modules and counts from known zero values.
+Metadata describes the project. It does not grant access to a feature or resource.
+
+The request uses the server API key and a five-second deadline, including the response body.
+A shorter context or HTTP-client deadline also applies.
+Deadline errors remain available through `errors.Is(err, context.DeadlineExceeded)`.
+A 204, 404, or unsupported schema returns `(nil, nil)`.
+Other provider errors return `*intelligence.Error` with the HTTP status. Invalid JSON uses status 502.
+
+The Runtime exposes this data at `GET /copilotkit/inspector-metadata`.
+Like `/info`, this display route does not require an application-user identity.
+It never forwards browser credentials to Intelligence.
+Responses use `Cache-Control: no-store, private`. Provider errors produce an empty 204 response.
+`OnError` receives provider failures with operation `inspector.metadata`.
+The `/info` response advertises the route through `inspectorMetadata: true`.
+
 ## Start a server
 
 1. Set `CPK_INTELLIGENCE_API_KEY` to your project key.
