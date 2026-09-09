@@ -5,6 +5,8 @@ from urllib.parse import quote
 
 import httpx
 
+from copilotkit_intelligence import Intelligence, IntelligenceError
+
 from .models import Json, PlatformError, RuntimeConfig
 
 
@@ -16,9 +18,22 @@ def segment(value: str) -> str:
 class Platform:
     """Use one pooled client with no automatic non-idempotent HTTP retries."""
 
-    def __init__(self, config: RuntimeConfig, client: httpx.AsyncClient) -> None:
+    def __init__(
+        self,
+        config: RuntimeConfig,
+        client: httpx.AsyncClient,
+        intelligence: Intelligence | None = None,
+    ) -> None:
         self.config = config
         self.client = client
+        self.intelligence = intelligence or Intelligence(
+            api_key=config.api_key,
+            api_url=config.api_url,
+            runner_url=config.runner_url,
+            client_url=config.client_url,
+            request_timeout=config.request_timeout,
+            http_client=client,
+        )
 
     async def request(
         self,
@@ -30,28 +45,9 @@ class Platform:
     ) -> Any:
         """Call Intelligence, retaining status but never exposing upstream bodies."""
         try:
-            response = await self.client.request(
-                method,
-                self.config.api_url.rstrip("/") + path,
-                json=body,
-                params=query,
-                headers={
-                    "Authorization": f"Bearer {self.config.api_key}",
-                    "Content-Type": "application/json",
-                    **(headers or {}),
-                },
-                timeout=self.config.request_timeout,
-            )
-        except httpx.HTTPError as error:
-            raise PlatformError(502, "Intelligence connection failed") from error
-        if not 200 <= response.status_code < 300:
-            raise PlatformError(response.status_code, "Intelligence request rejected")
-        if not response.content:
-            return None
-        try:
-            return response.json()
-        except ValueError as error:
-            raise PlatformError(502, "Invalid Intelligence response") from error
+            return await self.intelligence._request(method, path, body, query, headers)
+        except IntelligenceError as error:
+            raise PlatformError(error.status, str(error)) from error
 
     async def get_or_create_thread(self, body: Json) -> None:
         """Read before creating and resolve a concurrent create through a scoped read."""

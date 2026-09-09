@@ -19,6 +19,8 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 from starlette.types import Receive, Scope, Send
 
+from copilotkit_intelligence import Intelligence
+
 from .a2ui import A2UIConfig, A2UIMiddleware
 from .agents import Agent
 from .finalizer import EventFinalizer
@@ -60,10 +62,11 @@ class IntelligenceRuntime:
 
     def __init__(
         self,
-        config: RuntimeConfig,
+        config: RuntimeConfig | None = None,
         *,
         agents: Mapping[str, Agent],
         identify_user: IdentifyUser,
+        intelligence: Intelligence | None = None,
         memory_policy: MemoryPolicy | None = None,
         learning_container: LearningSelector | None = None,
         telemetry: Telemetry | None = None,
@@ -72,6 +75,33 @@ class IntelligenceRuntime:
         mcp_apps: MCPAppsConfig | None = None,
         on_error: ErrorHandler | None = None,
     ) -> None:
+        if config is None:
+            if intelligence is None:
+                raise ValueError("config or intelligence is required")
+            config = RuntimeConfig(
+                api_key=intelligence.api_key,
+                api_url=intelligence.api_url,
+                runner_url=intelligence.runner_url,
+                client_url=intelligence.client_url,
+                request_timeout=intelligence.request_timeout,
+            )
+        if intelligence is not None:
+            if http_client is not None:
+                raise ValueError("Configure the HTTP client on intelligence")
+            if (
+                config.api_key,
+                config.api_url.rstrip("/"),
+                config.runner_url,
+                config.client_url,
+                config.request_timeout,
+            ) != (
+                intelligence.api_key,
+                intelligence.api_url,
+                intelligence.runner_url,
+                intelligence.client_url,
+                intelligence.request_timeout,
+            ):
+                raise ValueError("Runtime transport configuration must match intelligence")
         self.config = config
         self.agents = dict(agents)
         self.identify_user = identify_user
@@ -86,9 +116,14 @@ class IntelligenceRuntime:
         self.a2ui = a2ui
         self.mcp_apps = MCPAppsMiddleware(mcp_apps) if mcp_apps else None
         self.telemetry = telemetry or Telemetry(config.telemetry_enabled)
-        self._owned_client = http_client is None
-        self.client = http_client or httpx.AsyncClient()
-        self.platform = Platform(config, self.client)
+        self._owned_client = intelligence is None and http_client is None
+        self.client = (
+            intelligence.http_client
+            if intelligence is not None
+            else http_client or httpx.AsyncClient()
+        )
+        self.platform = Platform(config, self.client, intelligence)
+        self.intelligence = self.platform.intelligence
         self._runs: dict[str, tuple[asyncio.Task[None], str, str]] = {}
         self._gateways: dict[str, Gateway] = {}
         self._startups: set[asyncio.Task[Any]] = set()

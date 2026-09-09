@@ -3,6 +3,57 @@
 Host Python agents and the CopilotKit Intelligence API in an ASGI application.
 The package requires Python 3.11 or later and an Intelligence project API key.
 
+## Use Intelligence without a server
+
+The `copilotkit_intelligence` SDK is separate from the `copilotkit_runtime` ASGI application.
+Both imports ship in this package. The SDK does not import ASGI, start an agent, or mount routes.
+Use it from a script or worker to manage threads, recall memories, and record annotations.
+
+```python
+import asyncio
+import os
+
+from copilotkit_intelligence import Intelligence
+
+
+async def main():
+    async with Intelligence(api_key=os.environ["CPK_INTELLIGENCE_API_KEY"]) as intelligence:
+        thread = await intelligence.get_or_create_thread(
+            thread_id="support-123",
+            user_id="customer-42",
+            agent_id="support",
+            learning_container_id="support-quality",
+        )
+        memories = await intelligence.recall_memories(
+            user_id="customer-42",
+            query="support preferences",
+            limit=5,
+        )
+        print(thread["thread"]["id"], memories["memories"])
+
+
+asyncio.run(main())
+```
+
+`learning_container_id` assigns a new thread to an existing Learning Container.
+Intelligence owns that binding and rejects attempts to move a bound thread.
+
+The SDK also provides `list_threads`, `get_thread`, `create_thread`, `update_thread`, and `archive_thread`.
+`get_thread_messages`, `get_thread_events`, and `get_thread_state` read persisted thread data.
+`delete_thread` permanently deletes a thread and its history.
+
+Memory methods include `list_memories`, `create_memory`, `update_memory`, `remove_memory`, and `recall_memories`.
+Pass a `MemoryGrant(user="read-write", project="read")` as `memory_grant` to apply explicit limits.
+Without a grant, Intelligence applies its policy. Every Memory call requires the bare application user ID.
+
+`annotate` records an annotation. Reuse `client_event_id` when retrying the same annotation.
+The SDK raises `IntelligenceError` with an HTTP status but no private response body.
+Requests have a 30-second timeout by default. The SDK does not retry writes or follow redirects.
+
+Pass the same client to `IntelligenceRuntime(intelligence=intelligence, agents=agents, identify_user=identify_user)` to mount Runtime routes.
+The Runtime borrows that client. Close the Runtime before leaving the SDK context.
+If you supply an `httpx.AsyncClient`, you retain ownership of its pool.
+
 ## Install and start
 
 1. From the repository root, install the package and an ASGI server:
