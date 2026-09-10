@@ -31,8 +31,8 @@ import {
   MAP_TILE_GRID_CLASS,
   MapAxis,
   MapBlock,
+  MapBranch,
   MapConnector,
-  MapElbow,
   MapGap,
   MapIntro,
   PickGrid,
@@ -118,7 +118,7 @@ export function DocsProductMap(): React.JSX.Element {
         />
       </MapBlock>
 
-      <MapElbow label="+ adds" />
+      <MapBranch label="+ adds" />
 
       <MapBlock
         variant="plus"

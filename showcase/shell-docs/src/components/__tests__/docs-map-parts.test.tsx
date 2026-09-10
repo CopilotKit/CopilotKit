@@ -6,8 +6,8 @@ import {
   CapabilityTile,
   MapAxis,
   MapBlock,
+  MapBranch,
   MapConnector,
-  MapElbow,
   MapGap,
   MapIntro,
   PickGrid,
@@ -192,36 +192,39 @@ describe("MapBlock", () => {
 });
 
 describe("MapConnector", () => {
-  it("renders one decorative rule in a colour that is actually visible", () => {
+  it("draws its rule in the same token the joined blocks use for their border", () => {
     const markup = renderToStaticMarkup(<MapConnector />);
 
     expect(markup).toContain('aria-hidden="true"');
-    // `--border` sits at a fraction of an opacity against this page's
-    // near-black ground, which made the connectors read as missing rather
-    // than as quiet. The muted text token is the visible one.
-    expect(markup).toContain("bg-[var(--text-muted)]");
-    expect(markup).not.toContain("bg-[var(--border)]");
+    // A connector is the same material as the boxes at its ends, so it takes
+    // their border token rather than a colour of its own.
+    expect(markup).toContain("bg-[var(--border)]");
+    expect(markup).not.toContain("bg-[var(--text-muted)]");
   });
 });
 
-describe("MapElbow", () => {
-  it("draws a right-angled elbow with the label on its horizontal run", () => {
-    const markup = renderToStaticMarkup(<MapElbow label="+ adds" />);
+describe("MapBranch", () => {
+  it("drops straight down Intelligence's own columns, with no bend", () => {
+    const markup = renderToStaticMarkup(<MapBranch label="+ adds" />);
 
     expect(markup).toContain("+ adds");
     expect(markup).toContain("var(--accent)");
-    // A stretched stub down from CopilotKit's underside (`md:self-stretch`),
-    // then runs that turn horizontal (`md:h-px`) and land on Intelligence's
-    // top edge (`md:items-end`). No SVG and no offsets, so the elbow cannot
-    // drift when the Intelligence block grows taller.
-    expect(markup).toContain("md:self-stretch");
-    expect(markup).toContain("md:h-px");
-    expect(markup).toContain("md:items-end");
+    // Sharing Intelligence's three columns and centring is what puts the line
+    // on that block's middle, so both must hold.
+    expect(markup).toContain("md:col-start-2");
+    expect(markup).toContain("md:col-span-3");
+    expect(markup).toContain("items-center");
+    // The elbow's horizontal run, its stretched stub and its bottom-edge
+    // landing are what made the connector bend. None may come back.
+    expect(markup).not.toContain("md:h-px");
+    expect(markup).not.toContain("md:self-stretch");
+    expect(markup).not.toContain("md:items-end");
+    expect(markup).not.toContain("md:flex-row");
     expect(markup).not.toContain("<svg");
   });
 
   it("is decorative throughout, so it carries no link", () => {
-    const markup = renderToStaticMarkup(<MapElbow label="+ adds" />);
+    const markup = renderToStaticMarkup(<MapBranch label="+ adds" />);
 
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).not.toContain("<a");
@@ -247,13 +250,28 @@ describe("MapAxis", () => {
   // CopilotKit's bottom edge and runs past Intelligence to the Agent block.
   // It does that by spanning the elbow row, the Intelligence row and the gap
   // row in the grid's first column.
-  it("spans the elbow, Intelligence and gap rows in the first column", () => {
+  it("spans the branch, Intelligence and gap rows in the first column", () => {
     const markup = renderToStaticMarkup(<MapAxis label="AG-UI" href="/x" />);
 
     expect(markup).toContain("md:col-start-1");
     expect(markup).toContain("md:row-start-5");
     expect(markup).toContain("md:row-span-3");
-    expect(markup).toContain("bg-[var(--text-muted)]");
+    // Same rule as every other connector: the joined blocks' border token.
+    expect(markup).toContain("bg-[var(--border)]");
+    expect(markup).not.toContain("bg-[var(--text-muted)]");
+  });
+
+  it("gives the protocol pill more weight than the branch's label", () => {
+    const axis = renderToStaticMarkup(<MapAxis label="AG-UI" href="/x" />);
+    const branch = renderToStaticMarkup(<MapBranch label="+ adds" />);
+
+    // The axis pill is a link and therefore also a hit target, so it is the
+    // larger of the two. Asserted as a difference rather than as literal
+    // sizes, which would only restate the classes.
+    expect(axis).toContain("text-[12px]");
+    expect(axis).toContain("px-3.5");
+    expect(branch).not.toContain("text-[12px]");
+    expect(branch).not.toContain("px-3.5");
   });
 });
 
@@ -398,6 +416,31 @@ describe("PickGrid", () => {
     for (const anchor of anchors) {
       expect(anchor).toMatch(/<svg|<img/);
     }
+  });
+
+  // A reader meets a framework's mark here and in the sidebar's framework
+  // picker, which draws it with `text-[var(--accent)]`. It must not change
+  // colour between the two places.
+  it("draws a framework mark in the accent the sidebar picker uses", () => {
+    const markup = renderToStaticMarkup(
+      <PickGrid
+        picks={[
+          {
+            id: "mastra",
+            name: "Mastra",
+            href: "/mastra",
+            logo: { kind: "framework", slug: "mastra" },
+          },
+        ]}
+      />,
+    );
+
+    // Scoped to the mark itself: the pick's own label is
+    // `text-[var(--text-secondary)]`, so asserting on the whole anchor would
+    // pass whichever colour the logo carried.
+    const mark = /<svg[^>]*class="[^"]*"/.exec(markup)?.[0] ?? "";
+    expect(mark).toContain("text-[var(--accent)]");
+    expect(mark).not.toContain("text-[var(--text-secondary)]");
   });
 
   it("uses the registry logo when no bundled mark matches the slug", () => {

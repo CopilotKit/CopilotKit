@@ -17,13 +17,15 @@
 // talks to Intelligence. It does not: the agent connects to the runtime over
 // AG-UI, and Intelligence hangs off that runtime as a side branch. So
 // Frontend, CopilotKit and Agent take all four columns, Intelligence takes
-// the right three (`inset`), the `+ adds` elbow reaches into it from
-// CopilotKit's underside, and the AG-UI axis runs down column 1 from
-// CopilotKit's bottom edge, past Intelligence, to the Agent block.
+// the right three (`inset`), the `+ adds` branch drops straight down from
+// CopilotKit into Intelligence's middle, and the AG-UI axis runs down
+// column 1 from CopilotKit's bottom edge, past Intelligence, to the Agent
+// block. The branch shares Intelligence's three columns, so centring it is
+// what lands it on that block's middle — no offsets to keep in step.
 //
 // Rows, in document order:
 //   1 intro   2 Frontend   3 rule   4 CopilotKit
-//   5 + adds elbow (inset)   6 Intelligence (inset)   7 gap (inset)
+//   5 + adds branch (inset)   6 Intelligence (inset)   7 gap (inset)
 //   8 Agent
 // Only `MapAxis` is placed explicitly (column 1, rows 5-7): it is the one
 // item that spans rows, and auto-placement would drop it into rows 6-8.
@@ -216,56 +218,57 @@ export function MapBlock({
   );
 }
 
-/** Shared by the elbow and the axis: a pill needs enough weight to be read
+/** Shared by the branch and the axis: a pill needs enough weight to be read
  *  as a label on a line rather than a stray word. */
 const PILL_BASE =
   "shell-docs-radius-control shrink-0 border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.05em]";
 
-/** The plain rule between two stacked full-width blocks. `--text-muted`, not
- *  `--border`: the border token is near-invisible against this page's ground,
- *  which made the connectors read as absent rather than as quiet. */
+/**
+ * Every connector takes the border colour of the blocks it joins, so a line
+ * reads as the same material as the boxes at its ends: the grey `--border`
+ * between the three neutral blocks, `--accent` on the branch into
+ * Intelligence, whose own border is accent. That makes the neutral lines
+ * deliberately quiet — the layout, not the line weight, is what carries the
+ * relationship here.
+ */
+const CONNECTOR_COLOR_CLASS = "bg-[var(--border)]";
+
+/** The plain rule between two stacked full-width blocks. */
 export function MapConnector(): React.JSX.Element {
   return (
     <div aria-hidden="true" className={`flex justify-center ${MAP_SLOT.full}`}>
-      <span className="h-10 w-px bg-[var(--text-muted)] md:h-14" />
+      <span className={`h-10 w-px md:h-14 ${CONNECTOR_COLOR_CLASS}`} />
     </div>
   );
 }
 
 /**
- * The `+ adds` connector from CopilotKit down and rightwards into
- * Intelligence's top edge. A right-angled elbow built from a stretched flex
- * item and two flex-grown rules — no SVG and no offsets, so it survives the
- * Intelligence block growing taller or the map changing width.
+ * The `+ adds` branch from CopilotKit straight down into Intelligence's top
+ * edge. It sits in the same three columns Intelligence does, so centring it
+ * puts the line on that block's horizontal middle without a single measured
+ * offset — the line stays centred when the map changes width or Intelligence
+ * grows taller.
  */
-export function MapElbow({ label }: { label: string }): React.JSX.Element {
+export function MapBranch({ label }: { label: string }): React.JSX.Element {
   return (
     <div
       aria-hidden="true"
-      className={`flex flex-col items-center md:h-20 md:flex-row md:items-end ${MAP_SLOT.inset}`}
+      className={`flex flex-col items-center ${MAP_SLOT.inset}`}
     >
-      {/* The vertical stub, at Intelligence's left edge. Hidden in the
-          stacked layout, where the two runs already form one straight
-          connector and a stub would read as a stray tick. */}
-      <span className="hidden w-px bg-[var(--accent)] md:block md:self-stretch" />
-      <MapElbowRun />
+      <MapBranchRule />
       <span
-        className={`${PILL_BASE} border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]`}
+        className={`${PILL_BASE} my-1.5 border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]`}
       >
         {label}
       </span>
-      <MapElbowRun />
+      <MapBranchRule />
     </div>
   );
 }
 
-/** Vertical when the map is stacked, horizontal when it is wide. One element
- *  switching axis rather than two mutually hidden ones, so the elbow's label
- *  appears exactly once in the document. */
-function MapElbowRun(): React.JSX.Element {
-  return (
-    <span className="h-6 w-px bg-[var(--accent)] md:h-px md:w-auto md:flex-1" />
-  );
+/** One of the two runs the branch's pill sits between. */
+function MapBranchRule(): React.JSX.Element {
+  return <span className="h-6 w-px bg-[var(--accent)] md:h-7" />;
 }
 
 /**
@@ -288,9 +291,11 @@ export function MapAxis({
   return (
     <div className="flex flex-col items-center md:col-start-1 md:row-start-5 md:row-span-3">
       <MapAxisRule />
+      {/* Larger than the branch's pill: this one is a link, so it is also a
+          hit target, and it names the protocol the whole axis stands for. */}
       <Link
         href={href}
-        className={`${PILL_BASE} my-1.5 border-dashed border-[var(--text-muted)] font-mono text-[var(--text-secondary)] no-underline hover:border-[var(--accent)] hover:text-[var(--accent)]`}
+        className={`${PILL_BASE} my-1.5 border-dashed border-[var(--text-muted)] px-3.5 py-1.5 font-mono text-[12px] text-[var(--text-secondary)] no-underline hover:border-[var(--accent)] hover:text-[var(--accent)]`}
       >
         {label}
       </Link>
@@ -303,7 +308,7 @@ function MapAxisRule(): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="min-h-6 w-px flex-1 bg-[var(--text-muted)]"
+      className={`min-h-6 w-px flex-1 ${CONNECTOR_COLOR_CLASS}`}
     />
   );
 }
@@ -379,7 +384,10 @@ function PickLogo({ logo }: { logo: MapPickLogo }): React.JSX.Element {
       slug={logo.slug}
       fallbackSrc={logo.fallbackSrc}
       size={14}
-      className="shrink-0 text-[var(--text-secondary)]"
+      // Accent, matching the same logos in the sidebar's framework picker.
+      // A reader meets a framework's mark in both places, so it should not
+      // change colour between them.
+      className="shrink-0 text-[var(--accent)]"
     />
   );
 }
