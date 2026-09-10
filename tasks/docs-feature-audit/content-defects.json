@@ -159,7 +159,9 @@
         "react/built-in-agent/tool-rendering-default-catchall",
         "react/built-in-agent/tool-rendering-custom-catchall",
         "react/built-in-agent/tool-rendering",
-        "react/built-in-agent/tool-rendering-reasoning-chain"
+        "react/built-in-agent/tool-rendering-reasoning-chain",
+        "react/vue/react-native/agno/frontend-tools",
+        "react/vue/react-native/agno/generative-ui/tool-rendering"
       ],
       "source_evidence": [
         {
@@ -191,6 +193,16 @@
           "path": "showcase/shell-docs/src/lib/llm-text.ts",
           "line": 17,
           "detail": "Raw Markdown only has a conversion path for InlineDemo and keeps other JSX tags verbatim, so IframeSwitcher has no equivalent source extraction."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/agno/frontend-tools.mdx",
+          "line": 9,
+          "detail": "The current AGNO frontend-tools guide directly embeds external Feature Viewer demo/code frames rather than a Showcase-owned source region."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/agno/generative-ui/tool-rendering.mdx",
+          "line": 6,
+          "detail": "The AGNO tool-rendering guide embeds external Feature Viewer frames and then links its implementation callout to a LangGraph viewer page."
         }
       ],
       "root_cause": "Selected guide sources still use the legacy external Feature Viewer through IframeSwitcher instead of Showcase-owned InlineDemo/source regions. The raw Markdown renderer does not convert IframeSwitcher to a provenance-preserving source excerpt.",
@@ -833,6 +845,207 @@
       "root_cause": "The default command selects Turbopack, but only the webpack configuration supplies the extension alias needed for NodeNext-style .js imports to co-located .ts CVDIAG leaves.",
       "impact": "The UI can initially load, then normal API route compilation overlays and returns 500. The first 18 LangGraph TypeScript D6 attempts launched this way are not valid behavior qualification, rather than passing or failing feature evidence.",
       "validation_needed": "Make the checked-in default development command and resolver configuration compatible, then run the complete LangGraph TypeScript D6 matrix from a fresh local service. The observed unchanged-source Webpack control command served /api/health and /demos/agentic-chat with 200 but is not a repair."
+    },
+    {
+      "id": "CONTENT-GEN-018",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "Angular human-in-the-loop guide copy-paste registration",
+      "feature": "Angular human-in-the-loop tools",
+      "affected_contexts": [
+        "54 Angular guide bindings across 18 integrations for gen-ui-interrupt, hitl-in-app, and interrupt-headless"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/frontends/angular/guides/human-in-the-loop.mdx",
+          "line": 71,
+          "detail": "The guide\u2019s only tool-registration example declares ApprovalToolsService with bare @Injectable(), and no component injects it or lists it in providers."
+        },
+        {
+          "path": "packages/angular/src/lib/tools.ts",
+          "line": 211,
+          "detail": "registerHumanInTheLoop performs registration immediately through Angular inject(), so it runs only when an Angular injection context constructs the owner."
+        },
+        {
+          "path": "packages/angular/src/lib/directives/__tests__/copilotkit-frontend-tool.directive.spec.ts",
+          "line": 101,
+          "detail": "The implementation test constructs a host component before asserting registration, demonstrating the required live owner context."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/reference/angular/functions/registerHumanInTheLoop.mdx",
+          "line": 157,
+          "detail": "The API reference correctly places registration in a constructed standalone component, unlike the guide\u2019s uninstantiated service."
+        }
+      ],
+      "root_cause": "The guide presents a service as the registration owner without making it root-provided, providing it from a component, or injecting it from a constructed owner.",
+      "impact": "Copying the shown setup leaves ApprovalToolsService unconstructed, so registerHumanInTheLoop never runs and the agent receives no requestApproval browser tool.",
+      "validation_needed": "Repair the guide\u2019s ownership example with an instantiated provider or a constructed component, then run the Angular human-in-the-loop route and verify the registration reaches CopilotKit."
+    },
+    {
+      "id": "CONTENT-GEN-019",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "AG2 authentication guide current provider contract",
+      "feature": "AG2 authentication",
+      "affected_contexts": [
+        "AG2 auth guide delivery for React, Vue, and React Native routes; the inline frontend setup"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/ag2/auth.mdx",
+          "line": 38,
+          "detail": "The guide instructs readers to put authorization in the provider properties prop and explicitly says that property is forwarded as an AG2 /chat request header."
+        },
+        {
+          "path": "packages/react-core/src/v2/providers/CopilotKitProvider.tsx",
+          "line": 131,
+          "detail": "The v2 provider exposes headers as the runtime-request header contract and lists properties separately."
+        },
+        {
+          "path": "packages/react-core/src/v2/providers/CopilotKitProvider.tsx",
+          "line": 732,
+          "detail": "The provider passes mergedHeaders and properties as distinct values to the core."
+        },
+        {
+          "path": "showcase/integrations/ag2/src/app/api/copilotkit-auth/[[...slug]]/route.ts",
+          "line": 36,
+          "detail": "The runnable AG2 auth route gates request.headers.get(\"authorization\") before dispatch."
+        }
+      ],
+      "root_cause": "The guide retains a v1-style interpretation of provider properties and conflates them with the v2 headers contract.",
+      "impact": "Its supplied frontend does not send an Authorization request header, so the documented server gate rejects the request; it also teaches an unsafe/incorrect authentication transport boundary.",
+      "validation_needed": "Replace the frontend example with the current headers contract and verify the AG2 auth cell accepts a valid header and rejects its absence."
+    },
+    {
+      "id": "CONTENT-GEN-020",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "AG2 frontend-tools guide v2 API contract",
+      "feature": "AG2 frontend tools",
+      "affected_contexts": [
+        "AG2 frontend-tools guide delivery for React, Vue, and React Native routes; the current-v2 frontend example"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/ag2/frontend-tools.mdx",
+          "line": 47,
+          "detail": "The guide links useFrontendTool to /reference/v1 while importing it from the v2 package."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/ag2/frontend-tools.mdx",
+          "line": 57,
+          "detail": "The v2 example uses available: \"remote\" and describes that string as the AG-UI backend-only switch."
+        },
+        {
+          "path": "packages/core/src/types.ts",
+          "line": 90,
+          "detail": "The current FrontendTool contract declares available?: boolean only; its comment states false hides the tool and true/default exposes it."
+        },
+        {
+          "path": "showcase/integrations/ag2/src/app/demos/frontend-tools/page.tsx",
+          "line": 17,
+          "detail": "The runnable AG2 demo imports the same v2 hook but omits the obsolete string setting."
+        }
+      ],
+      "root_cause": "The guide mixes v1 reference/availability terminology into a v2 hook example.",
+      "impact": "The supplied v2 TypeScript code rejects the string availability value and sends readers to the deprecated API reference, preventing a copy-paste frontend tool setup.",
+      "validation_needed": "Use the current v2 reference and boolean availability semantics, then typecheck and exercise the AG2 frontend-tools demo."
+    },
+    {
+      "id": "CONTENT-GEN-021",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "AG2 state-rendering guide current v2 state API",
+      "feature": "AG2 state rendering",
+      "affected_contexts": [
+        "AG2 state-rendering guide delivery for React, Vue, and React Native routes; its in-chat render example"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/ag2/generative-ui/state-rendering.mdx",
+          "line": 107,
+          "detail": "The guide passes render: ({ state }) => ... to useAgent from @copilotkit/react-core/v2."
+        },
+        {
+          "path": "packages/react-core/src/v2/hooks/use-agent.tsx",
+          "line": 25,
+          "detail": "Current UseAgentProps exposes updates/throttle and agent/thread identity only; it has no render or state render callback option."
+        },
+        {
+          "path": "showcase/integrations/ag2/src/app/demos/shared-state-streaming/page.tsx",
+          "line": 25,
+          "detail": "The runnable current AG2 state demo subscribes with UseAgentUpdate.OnStateChanged and renders agent.state in normal React output."
+        }
+      ],
+      "root_cause": "The guide retains an obsolete agent-state render callback shape after the v2 useAgent API changed to expose a subscribable agent.",
+      "impact": "The guide\u2019s primary in-chat example does not typecheck against the current v2 SDK, leaving readers without a runnable state-rendering implementation.",
+      "validation_needed": "Rewrite the guide around current useAgent updates and agent.state rendering (or the current supported renderer API), then typecheck the shown example."
+    },
+    {
+      "id": "CONTENT-GEN-022",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "AG2 tool-rendering guide current v2 hook signature",
+      "feature": "AG2 tool rendering",
+      "affected_contexts": [
+        "AG2 tool-rendering guide delivery for React, Vue, and React Native routes; its named weather renderer example",
+        "AGNO tool-rendering guide delivery for React, Vue, and React Native routes"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/ag2/generative-ui/tool-rendering.mdx",
+          "line": 86,
+          "detail": "The named useRenderTool example omits parameters and destructures args from its render callback."
+        },
+        {
+          "path": "packages/react-core/src/v2/hooks/use-render-tool.tsx",
+          "line": 77,
+          "detail": "The current named renderer overload requires a parameters schema."
+        },
+        {
+          "path": "packages/react-core/src/v2/hooks/use-render-tool.tsx",
+          "line": 31,
+          "detail": "Current render props expose parameters, not args."
+        },
+        {
+          "path": "showcase/integrations/ag2/src/app/demos/tool-rendering/page.tsx",
+          "line": 76,
+          "detail": "The runnable AG2 example uses parameters: z.object(...) and reads parameters in render."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/agno/generative-ui/tool-rendering.mdx",
+          "line": 68,
+          "detail": "The AGNO guide repeats the invalid named v2 renderer sample without a parameters schema and with args instead of parameters."
+        }
+      ],
+      "root_cause": "The guide predates the current v2 named-tool renderer contract.",
+      "impact": "The displayed named renderer does not satisfy the current hook overload and reads a nonexistent callback property, so the central example cannot typecheck or render the documented argument.",
+      "validation_needed": "Update the guide to provide a parameter schema and use RenderToolProps.parameters, then typecheck the example."
+    },
+    {
+      "id": "CONTENT-GEN-023",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "AGNO frontend-tools guide API reference",
+      "feature": "AGNO frontend tools",
+      "affected_contexts": [
+        "AGNO frontend-tools guide delivery for React, Vue, and React Native routes"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/agno/frontend-tools.mdx",
+          "line": 44,
+          "detail": "The guide links useFrontendTool to /reference/v1/hooks/useFrontendTool while its example imports from @copilotkit/react-core/v2."
+        },
+        {
+          "path": "packages/react-core/src/v2/hooks/use-frontend-tool.tsx",
+          "line": 10,
+          "detail": "The current v2 hook implementation is the contract used by the guide\u2019s import."
+        }
+      ],
+      "root_cause": "The guide links the current-v2 example to the deprecated v1 API reference.",
+      "impact": "Readers who follow the guide are taken to a different API generation, making the setup less reliable and obscuring the actual v2 options.",
+      "validation_needed": "Point the guide at the current v2 useFrontendTool reference and verify the rendered/Markdown link target."
     }
   ]
 }
