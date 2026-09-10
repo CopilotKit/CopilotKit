@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-10T20:37:10.596277+00:00",
+  "generated_at_utc": "2026-09-10T20:46:07.966626+00:00",
   "generated_by": "tasks/docs-feature-audit/derive_global_pending_source_units.py",
   "scope": {
     "in_scope_frontends": [
@@ -6792,7 +6792,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "CONTENT-GEN-003 context expanded: direct external IframeSwitcher keeps this guide outside Showcase/Markdown source ownership. The underlying v2 HITL API examples otherwise match current usage."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/agno/quickstart.mdx",
@@ -6858,7 +6859,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "Existing CONTENT-GEN-012, -014, and -015 contexts expanded: unnecessary react-ui install for shown v2 imports, unverified browser-controlled identity headers, and nonportable 0.0.0.0 client-target troubleshooting. No claim is made that its external CLI command is unavailable."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/claude-sdk-python/quickstart.mdx",
@@ -6924,7 +6926,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full guide/source review: starter layout, FastAPI adapter, AG-UI HttpAgent runtime bridge, and current frontend contracts are coherent; no new source-confirmed issue."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/claude-sdk-typescript/quickstart.mdx",
@@ -6990,7 +6993,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "CONTENT-GEN-024: install command pins a reader-facing Claude Agent SDK version range, contrary to latest-stable/no-doc-versioning guidance. Otherwise the adapter/runtime/frontend flow is coherent."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/custom-look-and-feel/slots.mdx",
@@ -7044,7 +7048,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: slots body resolves to previously reviewed shared source; no CrewAI-specific contradiction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/frontend-tools.mdx",
@@ -7154,7 +7159,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: body imports the previously reviewed shared frontend-tools source with CrewAI framework context; no new source-confirmed issue."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/generative-ui/mcp-apps.mdx",
@@ -7208,7 +7214,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: MCPApps resolves through the docs registry to the already-reviewed shared source; no CrewAI-specific instruction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/generative-ui/state-rendering.mdx",
@@ -7262,7 +7269,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "CONTENT-GEN-021 context expanded: in-chat useAgent render callback is not in current v2 UseAgentProps; the example also omits the hook import."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/generative-ui/tool-rendering.mdx",
@@ -7400,7 +7408,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: body imports the already-reviewed shared tool-rendering source with CrewAI framework context; no new CrewAI-specific contradiction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/generative-ui/your-components/display-only.mdx",
@@ -7454,7 +7463,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: DisplayOnly resolves through docs registry to the already-reviewed shared source; no CrewAI-specific instruction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/generative-ui/your-components/interactive.mdx",
@@ -7508,7 +7518,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: body imports the previously reviewed shared interactive source with CrewAI context; no new source-confirmed issue."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/human-in-the-loop/index.mdx",
@@ -7562,7 +7573,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "CONTENT-GEN-025: the route\u2019s nested flow guide retains obsolete v1 useFrontendTool HITL fields. Index-level native interrupt configuration is noted but not independently validated from a local CrewAI adapter source."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/quickstart.mdx",
@@ -7628,7 +7640,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "Existing CONTENT-GEN-024 and -015 contexts expanded: reader-facing CrewAI dependency version range and nonportable 0.0.0.0 client-target troubleshooting. Legacy cloud path was not classified without asserting the remote integration is unavailable."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/shared-state/index.mdx",
@@ -7710,7 +7723,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full overview review: current conversational-state inheritance guidance and two-way state summary are coherent; no new source-confirmed contradiction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/custom-look-and-feel/slots.mdx",
@@ -7764,7 +7778,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: Slots resolves through the docs registry to already-reviewed shared source; no LlamaIndex-specific instruction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/frontend-tools.mdx",
@@ -7874,7 +7889,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: FrontendTools resolves through docs registry to already-reviewed shared frontend-tools source; no LlamaIndex-specific instruction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/mcp-apps.mdx",
@@ -7928,7 +7944,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Full wrapper review: MCPApps resolves through docs registry to already-reviewed shared source; no LlamaIndex-specific instruction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/state-rendering.mdx",
@@ -7982,7 +7999,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "Existing CONTENT-GEN-003 and -021 contexts expanded: external viewer violates Showcase/Markdown ownership; in-chat useAgent render callback is removed from current v2 API."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/tool-rendering.mdx",
@@ -8120,7 +8138,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "External Feature Viewer-only demo/code surface (CONTENT-GEN-003); named current-v2 useRenderTool example omits required parameters and reads obsolete args (CONTENT-GEN-022)."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/your-components/display-only.mdx",
@@ -8174,7 +8193,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin framework wrapper delegates to the already-reviewed registry DisplayOnly component; no unique prose or implementation claim."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/your-components/interactive.mdx",
@@ -8228,7 +8248,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin framework wrapper delegates to the already-reviewed registry Interactive component; no unique prose or implementation claim."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/human-in-the-loop.mdx",
@@ -8282,7 +8303,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "External Feature Viewer-only demo/code surface (CONTENT-GEN-003); remaining prose and current-v2 HITL hook usage reviewed."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/quickstart.mdx",
@@ -8348,7 +8370,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "Client-controlled Intelligence identity guidance (CONTENT-GEN-014) and nonportable 0.0.0.0 client-target troubleshooting (CONTENT-GEN-015); remaining quickstart setup/API claims reviewed."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/shared-state/index.mdx",
@@ -8430,7 +8453,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Conceptual route with no unique setup command or API snippet to contradict; its broad protocol claim was reviewed, but source inspection did not establish a specific incorrect implementation instruction."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/background-tasks.mdx",
@@ -8496,7 +8520,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Reviewed native Mastra background-task lifecycle, storage/worker caveat, React/Angular activity-renderer setup, and out-of-band completion guidance; no source-confirmed mismatch found."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/custom-look-and-feel/slots.mdx",
@@ -8550,7 +8575,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin framework wrapper delegates to the already-reviewed shared Slots snippet; no unique prose or implementation claim."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/frontend-tools.mdx",
@@ -8660,7 +8686,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "External Feature Viewer-only demo/code surface (CONTENT-GEN-003); v2 hook instruction links to v1 API reference (CONTENT-GEN-020)."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/mcp-apps.mdx",
@@ -8714,7 +8741,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin framework wrapper delegates to the already-reviewed shared MCPApps snippet; no unique prose or implementation claim."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/state-rendering.mdx",
@@ -8768,7 +8796,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "External Feature Viewer-only demo/code surface (CONTENT-GEN-003); current-v2 useAgent render option is unsupported (CONTENT-GEN-021)."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/tool-rendering.mdx",
@@ -8906,7 +8935,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "External Feature Viewer-only demo/code surface (CONTENT-GEN-003); named current-v2 useRenderTool example omits required parameters and reads obsolete args (CONTENT-GEN-022)."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/your-components/display-only.mdx",
@@ -8960,7 +8990,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin framework wrapper delegates to the already-reviewed shared DisplayOnly snippet; no unique prose or implementation claim."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/your-components/interactive.mdx",
@@ -9014,7 +9045,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin framework wrapper delegates to the already-reviewed shared Interactive snippet; no unique prose or implementation claim."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/human-in-the-loop/index.mdx",
@@ -9068,7 +9100,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "Root-scoped CTA links drop the Mastra HITL context instead of reaching its supported tool-based and explanatory interrupt-flow routes (CONTENT-GEN-027)."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/quickstart.mdx",
@@ -9134,7 +9167,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "Unnecessary direct dependency installs (CONTENT-GEN-012), client-controlled remote/Intelligence identity guidance (CONTENT-GEN-014), and nonportable 0.0.0.0 client-target troubleshooting (CONTENT-GEN-015)."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/mastra/shared-state/index.mdx",
@@ -9216,7 +9250,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Conceptual route with no unique setup command or API snippet to contradict; source review found no specific actionable mismatch."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/auth.mdx",
@@ -9301,7 +9336,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Read both .NET and Python setup paths against the integration's declared framework variants; authentication boundary and explicit production warning are coherent."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/custom-look-and-feel/slots.mdx",
@@ -9386,7 +9422,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper correctly delegates the framework-agnostic React slots guide through the docs registry."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/frontend-tools.mdx",
@@ -9581,7 +9618,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "The guide is bound to both .NET and Python cells but its only demo/code surface is an external .NET Feature Viewer. It supplies no local exact Python binding; external content was intentionally not fetched."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/a2ui/dynamic-schema.mdx",
@@ -9721,7 +9759,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "The shared guide instructs every mapped MAF context to use auto-injection, but the checked-in .NET runtime explicitly requires injectA2UITool false while the Python runtime uses true. The page needs a per-agent distinction before it can be copyable for both bindings."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/a2ui/fixed-schema.mdx",
@@ -9806,7 +9845,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The page labels its Python-specific SDK limitation and its fixed-schema runtime policy agrees with the checked-in fixed-schema runtime direction. No independent inconsistency found."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/mcp-apps.mdx",
@@ -9891,7 +9931,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper correctly delegates the shared MCP Apps documentation surface."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx",
@@ -9976,7 +10017,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "The backend examples name search_agent while both frontend useAgent examples select sample_agent, so the supplied frontend will not subscribe to the documented agent. The demo is also an external .NET viewer for a page mapped to Python; that context gap is recorded separately from the copy-paste failure."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/tool-rendering.mdx",
@@ -10226,7 +10268,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "The only demo and code links are external Feature Viewer URLs, despite the local guide being mapped to .NET and Python. This is recorded as unverified external presentation, not an asserted remote outage."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/your-components/display-only.mdx",
@@ -10342,7 +10385,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper delegates the shared display-only surface with the docs component registry."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/your-components/interactive.mdx",
@@ -10458,7 +10502,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "This unit maps to ms-agent-python as well as .NET, but hard-codes the .NET Feature Viewer framework argument. The Python route therefore cannot present its own exact demo/context."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/human-in-the-loop/index.mdx",
@@ -10543,7 +10588,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "The cards use unscoped root URLs, which resolve outside the mapped MAF integration context. Treat as context loss, not a missing-page claim."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/quickstart.mdx",
@@ -10691,7 +10737,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "The quickstart is shared by .NET, harness .NET, and Python, but its next-step cards use the unscoped microsoft-agent-framework path. Local redirect verification sends that family path to the .NET quickstart, so Python/harness context is lost."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/custom-look-and-feel/slots.mdx",
@@ -10745,7 +10792,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper correctly delegates the framework-agnostic React slots surface."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/frontend-tools.mdx",
@@ -10855,7 +10903,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The Pydantic AI framework argument is passed to the shared frontend-tools snippet; no source-level mismatch found."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/mcp-apps.mdx",
@@ -10909,7 +10958,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper correctly delegates the shared MCP Apps surface."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/state-rendering.mdx",
@@ -10963,7 +11013,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "The first implementation fence is declared Python agent.py but contains TypeScript/JSX and useAgent; it cannot run as presented. Its iframe also points to LangGraph, so it is not Pydantic AI evidence."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/tool-rendering.mdx",
@@ -11101,7 +11152,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-confirmed-defect",
+      "review_note": "The Pydantic AI guide embeds and describes LangGraph Feature Viewer URLs rather than a Pydantic AI example. Remote viewer availability was not requested or asserted."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/your-components/display-only.mdx",
@@ -11155,7 +11207,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The registry-provided display-only surface is used consistently; no standalone source mismatch found."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/your-components/interactive.mdx",
@@ -11209,7 +11262,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The shared interactive guide receives the Pydantic AI framework identifier."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/human-in-the-loop.mdx",
@@ -11263,7 +11317,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The Pydantic AI-specific viewer identifier and AG-UI adapter example are internally aligned; external viewer content was not fetched."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/quickstart.mdx",
@@ -11329,7 +11384,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Read the AG-UI adapter, runtime, provider, and startup sequence; no independent source inconsistency found."
     },
     {
       "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/shared-state/index.mdx",
@@ -11411,7 +11467,8 @@
           "source_kind": null
         }
       ],
-      "review_status": "pending-manual-content-review"
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The shared-state overview correctly limits itself to concept/setup context and does not make a conflicting API claim."
     }
   ]
 }

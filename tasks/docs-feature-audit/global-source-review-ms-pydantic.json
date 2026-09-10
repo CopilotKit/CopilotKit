@@ -1,0 +1,358 @@
+{
+  "schema_version": 1,
+  "product_source_baseline": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
+  "scope": "All pending Microsoft Agent Framework and Pydantic AI guide source units from global-pending-source-units.json. Local/source review only; external iframe destinations were not fetched.",
+  "counts": {
+    "units": 22,
+    "cells": 169,
+    "by_review_status": {
+      "confirmed-context-defect": 2,
+      "confirmed-copy-paste-defect": 2,
+      "context-gap": 5,
+      "reviewed-no-new-defect": 13
+    }
+  },
+  "units": [
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/auth.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "auth"
+      ],
+      "cell_count": 6,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Read both .NET and Python setup paths against the integration's declared framework variants; authentication boundary and explicit production warning are coherent.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/custom-look-and-feel/slots.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "chat-slots"
+      ],
+      "cell_count": 6,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper correctly delegates the framework-agnostic React slots guide through the docs registry.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/frontend-tools.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "frontend-tools",
+        "frontend-tools-async",
+        "threadid-frontend-tool-roundtrip"
+      ],
+      "cell_count": 18,
+      "review_status": "context-gap",
+      "review_note": "The guide is bound to both .NET and Python cells but its only demo/code surface is an external .NET Feature Viewer. It supplies no local exact Python binding; external content was intentionally not fetched.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/frontend-tools.mdx:6-14",
+        "showcase/shell-docs/src/content/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx:10-17"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/a2ui/dynamic-schema.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "a2ui-recovery",
+        "declarative-gen-ui"
+      ],
+      "cell_count": 12,
+      "review_status": "confirmed-context-defect",
+      "review_note": "The shared guide instructs every mapped MAF context to use auto-injection, but the checked-in .NET runtime explicitly requires injectA2UITool false while the Python runtime uses true. The page needs a per-agent distinction before it can be copyable for both bindings.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/a2ui/dynamic-schema.mdx:16-27",
+        "showcase/integrations/ms-agent-dotnet/src/app/api/copilotkit-declarative-gen-ui/route.ts:3-5",
+        "showcase/integrations/ms-agent-dotnet/src/app/api/copilotkit-declarative-gen-ui/route.ts:27-39",
+        "showcase/integrations/ms-agent-python/src/app/api/copilotkit-declarative-gen-ui/route.ts:33-45"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/a2ui/fixed-schema.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "a2ui-fixed-schema"
+      ],
+      "cell_count": 6,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The page labels its Python-specific SDK limitation and its fixed-schema runtime policy agrees with the checked-in fixed-schema runtime direction. No independent inconsistency found.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/mcp-apps.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "mcp-apps"
+      ],
+      "cell_count": 6,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper correctly delegates the shared MCP Apps documentation surface.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "gen-ui-agent"
+      ],
+      "cell_count": 6,
+      "review_status": "confirmed-copy-paste-defect",
+      "review_note": "The backend examples name search_agent while both frontend useAgent examples select sample_agent, so the supplied frontend will not subscribe to the documented agent. The demo is also an external .NET viewer for a page mapped to Python; that context gap is recorded separately from the copy-paste failure.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx:320",
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx:382",
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx:426",
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx:7-14"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/tool-rendering.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "tool-rendering",
+        "tool-rendering-custom-catchall",
+        "tool-rendering-default-catchall",
+        "tool-rendering-reasoning-chain"
+      ],
+      "cell_count": 24,
+      "review_status": "context-gap",
+      "review_note": "The only demo and code links are external Feature Viewer URLs, despite the local guide being mapped to .NET and Python. This is recorded as unverified external presentation, not an asserted remote outage.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/tool-rendering.mdx:7-28"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/your-components/display-only.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-harness-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "gen-ui-tool-based"
+      ],
+      "cell_count": 9,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper delegates the shared display-only surface with the docs component registry.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/your-components/interactive.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-harness-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "hitl-in-chat"
+      ],
+      "cell_count": 9,
+      "review_status": "confirmed-context-defect",
+      "review_note": "This unit maps to ms-agent-python as well as .NET, but hard-codes the .NET Feature Viewer framework argument. The Python route therefore cannot present its own exact demo/context.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/your-components/interactive.mdx:6-8",
+        "showcase/shell-docs/src/content/snippets/shared/generative-ui/interactive.mdx:3-10"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/human-in-the-loop/index.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "hitl-in-app"
+      ],
+      "cell_count": 6,
+      "review_status": "context-gap",
+      "review_note": "The cards use unscoped root URLs, which resolve outside the mapped MAF integration context. Treat as context loss, not a missing-page claim.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/human-in-the-loop/index.mdx:19-36"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/quickstart.mdx",
+      "integrations": [
+        "ms-agent-dotnet",
+        "ms-agent-harness-dotnet",
+        "ms-agent-python"
+      ],
+      "feature_ids": [
+        "cli-start"
+      ],
+      "cell_count": 12,
+      "review_status": "context-gap",
+      "review_note": "The quickstart is shared by .NET, harness .NET, and Python, but its next-step cards use the unscoped microsoft-agent-framework path. Local redirect verification sends that family path to the .NET quickstart, so Python/harness context is lost.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/quickstart.mdx:522-540",
+        "showcase/shell-docs/src/content/snippets/integrations/microsoft-agent-framework/run-and-connect.mdx:10-17"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/custom-look-and-feel/slots.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "chat-slots"
+      ],
+      "cell_count": 3,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper correctly delegates the framework-agnostic React slots surface.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/frontend-tools.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "frontend-tools",
+        "frontend-tools-async",
+        "threadid-frontend-tool-roundtrip"
+      ],
+      "cell_count": 9,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The Pydantic AI framework argument is passed to the shared frontend-tools snippet; no source-level mismatch found.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/mcp-apps.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "mcp-apps"
+      ],
+      "cell_count": 3,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Thin wrapper correctly delegates the shared MCP Apps surface.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/state-rendering.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "gen-ui-agent"
+      ],
+      "cell_count": 3,
+      "review_status": "confirmed-copy-paste-defect",
+      "review_note": "The first implementation fence is declared Python agent.py but contains TypeScript/JSX and useAgent; it cannot run as presented. Its iframe also points to LangGraph, so it is not Pydantic AI evidence.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/state-rendering.mdx:7-14",
+        "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/state-rendering.mdx:34-71"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/tool-rendering.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "tool-rendering",
+        "tool-rendering-custom-catchall",
+        "tool-rendering-default-catchall",
+        "tool-rendering-reasoning-chain"
+      ],
+      "cell_count": 12,
+      "review_status": "context-gap",
+      "review_note": "The Pydantic AI guide embeds and describes LangGraph Feature Viewer URLs rather than a Pydantic AI example. Remote viewer availability was not requested or asserted.",
+      "citations": [
+        "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/tool-rendering.mdx:12-23"
+      ]
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/your-components/display-only.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "gen-ui-tool-based"
+      ],
+      "cell_count": 3,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The registry-provided display-only surface is used consistently; no standalone source mismatch found.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/your-components/interactive.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "hitl-in-chat"
+      ],
+      "cell_count": 3,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The shared interactive guide receives the Pydantic AI framework identifier.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/human-in-the-loop.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "hitl-in-app"
+      ],
+      "cell_count": 3,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The Pydantic AI-specific viewer identifier and AG-UI adapter example are internally aligned; external viewer content was not fetched.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/quickstart.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "cli-start"
+      ],
+      "cell_count": 4,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "Read the AG-UI adapter, runtime, provider, and startup sequence; no independent source inconsistency found.",
+      "citations": []
+    },
+    {
+      "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/shared-state/index.mdx",
+      "integrations": [
+        "pydantic-ai"
+      ],
+      "feature_ids": [
+        "shared-state-read",
+        "shared-state-read-write"
+      ],
+      "cell_count": 6,
+      "review_status": "reviewed-no-new-defect",
+      "review_note": "The shared-state overview correctly limits itself to concept/setup context and does not make a conflicting API claim.",
+      "citations": []
+    }
+  ]
+}
