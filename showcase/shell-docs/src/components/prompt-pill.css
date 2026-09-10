@@ -214,3 +214,15 @@
   background: #fff !important;
   color: #555561 !important;
 }
+
+/* Keep the page-tools menu alongside the pill on narrow phones. */
+@media (max-width: 360px) {
+  .docs-page-tools-prompt .prompt-pill-copy {
+    gap: 7px;
+    padding-inline: 8px;
+    font-size: 11px;
+  }
+  .docs-page-tools-prompt .prompt-pill-app {
+    width: 38px;
+  }
+}

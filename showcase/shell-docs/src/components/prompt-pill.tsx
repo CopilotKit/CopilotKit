@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import React, { useEffect, useId, useRef, useState } from "react";
-import { Check, Copy, FileText, X } from "lucide-react";
+import { Check, Copy, Eye, X } from "lucide-react";
 import type { PromptApp } from "@/lib/launch-prompt";
 import { launchPrompt } from "@/lib/launch-prompt";
 import "./prompt-pill.css";
@@ -30,7 +30,7 @@ export function PromptPill({
   const trigger = useRef<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef(0);
-  const pending = useRef(false);
+  const pending = useRef<PromptPayload | null>(null);
   const mounted = useRef(true);
   const titleId = useId();
 
@@ -63,19 +63,19 @@ export function PromptPill({
   /** Copy once; a denied clipboard leaves selectable text available. */
   async function copy(payload: PromptPayload): Promise<void> {
     if (pending.current) return;
-    pending.current = true;
+    pending.current = payload;
     setBusy(true);
     const current = ++generation.current;
     if (timer.current) clearTimeout(timer.current);
     setCopied(false);
     try {
       await navigator.clipboard.writeText(payload.text);
+      if (!mounted.current || current !== generation.current) return;
       try {
         payload.onCopied?.();
       } catch {
         /* Analytics cannot break copy. */
       }
-      if (!mounted.current || current !== generation.current) return;
       setCopied(true);
       setMessage("Prompt copied");
       timer.current = setTimeout(() => {
@@ -86,14 +86,14 @@ export function PromptPill({
       setMessage("Copy blocked. Select and copy the prompt below.");
       showPrompt(payload);
     } finally {
-      pending.current = false;
+      pending.current = null;
       if (mounted.current) setBusy(false);
     }
   }
 
   /** Dispatch before any asynchronous clipboard operation loses activation. */
   function openApp(app: PromptApp): void {
-    const payload = createPrompt();
+    const payload = pending.current ?? createPrompt();
     if (app === "claude" && payload.text.length > 5000) {
       setMessage(
         "This prompt is too long for the Claude app link. Copy it below.",
@@ -167,7 +167,7 @@ export function PromptPill({
       </div>
       <div className="prompt-pill-shelf">
         <button type="button" onClick={() => showPrompt(createPrompt())}>
-          <FileText aria-hidden="true" />
+          <Eye aria-hidden="true" />
           View prompt
         </button>
       </div>

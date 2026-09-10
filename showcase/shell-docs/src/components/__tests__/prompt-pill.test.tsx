@@ -98,3 +98,30 @@ it("does not launch an app for the main copy action", async () => {
   expect(writeText).toHaveBeenCalledWith("Use this exact prompt");
   expect(launch).not.toHaveBeenCalled();
 });
+
+it("launches the in-flight payload when another app is clicked before copy resolves", async () => {
+  const launch = vi
+    .spyOn(launcher, "launchPrompt")
+    .mockImplementation(() => {});
+  let resolveWrite!: () => void;
+  const writeText = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        resolveWrite = resolve;
+      }),
+  );
+  Object.assign(navigator, { clipboard: { writeText } });
+  let run = 0;
+  render(<PromptPill createPrompt={() => ({ text: `Run ${++run}` })} />);
+  fireEvent.click(screen.getByRole("button", { name: "Open in Claude Code" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open in Codex" }));
+  expect(launch.mock.calls).toEqual([
+    ["claude", "Run 1"],
+    ["codex", "Run 1"],
+  ]);
+  expect(writeText).toHaveBeenCalledTimes(1);
+  resolveWrite();
+  await waitFor(() =>
+    expect(screen.getByRole("status").textContent).toBe("Prompt copied"),
+  );
+});
