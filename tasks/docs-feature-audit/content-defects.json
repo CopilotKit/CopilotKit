@@ -161,7 +161,19 @@
         "react/built-in-agent/tool-rendering",
         "react/built-in-agent/tool-rendering-reasoning-chain",
         "react/vue/react-native/agno/frontend-tools",
-        "react/vue/react-native/agno/generative-ui/tool-rendering"
+        "react/vue/react-native/agno/generative-ui/tool-rendering",
+        "react/vue/react-native/agno/human-in-the-loop",
+        "react/vue/react-native/llamaindex/generative-ui/state-rendering",
+        "react/vue/react-native/llamaindex/generative-ui/tool-rendering",
+        "react/vue/react-native/llamaindex/human-in-the-loop",
+        "react/vue/react-native/mastra/frontend-tools",
+        "react/vue/react-native/mastra/generative-ui/state-rendering",
+        "react/vue/react-native/mastra/generative-ui/tool-rendering",
+        "react/vue/react-native/ms-agent-dotnet/ms-agent-python/frontend-tools",
+        "react/vue/react-native/ms-agent-dotnet/ms-agent-python/generative-ui/state-rendering",
+        "react/vue/react-native/ms-agent-dotnet/ms-agent-python/generative-ui/tool-rendering",
+        "react/vue/react-native/pydantic-ai/generative-ui/state-rendering",
+        "react/vue/react-native/pydantic-ai/generative-ui/tool-rendering"
       ],
       "source_evidence": [
         {
@@ -203,6 +215,66 @@
           "path": "showcase/shell-docs/src/content/docs/integrations/agno/generative-ui/tool-rendering.mdx",
           "line": 6,
           "detail": "The AGNO tool-rendering guide embeds external Feature Viewer frames and then links its implementation callout to a LangGraph viewer page."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/agno/human-in-the-loop.mdx",
+          "line": 9,
+          "detail": "The AGNO human-in-the-loop guide embeds an external Feature Viewer demo/code frame instead of a Showcase-owned example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/state-rendering.mdx",
+          "line": 6,
+          "detail": "The LlamaIndex state-rendering guide embeds external Feature Viewer demo/code frames rather than a Showcase-owned source region."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/tool-rendering.mdx",
+          "line": 6,
+          "detail": "Guide embeds its only demo/code surface through the external Feature Viewer iframe rather than a repository-owned runnable example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/human-in-the-loop.mdx",
+          "line": 6,
+          "detail": "Guide embeds its only demo/code surface through the external Feature Viewer iframe rather than a repository-owned runnable example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/frontend-tools.mdx",
+          "line": 9,
+          "detail": "Guide embeds its demo/code surface through an external Feature Viewer iframe rather than a repository-owned runnable example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/state-rendering.mdx",
+          "line": 11,
+          "detail": "Guide embeds its demo/code surface through an external Feature Viewer iframe rather than a repository-owned runnable example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/tool-rendering.mdx",
+          "line": 11,
+          "detail": "Guide embeds its demo/code surface through an external Feature Viewer iframe rather than a repository-owned runnable example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/frontend-tools.mdx",
+          "line": 6,
+          "detail": "The shared .NET/Python guide exposes its only demo/code surface through an external .NET Feature Viewer, with no repository-owned Python example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx",
+          "line": 7,
+          "detail": "The guide mapped to .NET and Python exposes its demonstration through an external .NET Feature Viewer rather than an exact repository-owned example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/tool-rendering.mdx",
+          "line": 7,
+          "detail": "The guide mapped to .NET and Python exposes its only demo/code surface through external Feature Viewer URLs."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/state-rendering.mdx",
+          "line": 7,
+          "detail": "The Pydantic AI guide embeds LangGraph Feature Viewer URLs rather than a repository-owned Pydantic AI example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/tool-rendering.mdx",
+          "line": 12,
+          "detail": "The Pydantic AI guide embeds and describes LangGraph Feature Viewer URLs rather than a repository-owned Pydantic AI example."
         }
       ],
       "root_cause": "Selected guide sources still use the legacy external Feature Viewer through IframeSwitcher instead of Showcase-owned InlineDemo/source regions. The raw Markdown renderer does not convert IframeSwitcher to a provenance-preserving source excerpt.",
@@ -611,7 +683,9 @@
       "affected_contexts": [
         "react/google-adk/quickstart",
         "react/strands/quickstart",
-        "react/built-in-agent/quickstart"
+        "react/built-in-agent/quickstart",
+        "AGNO quickstart frontend install block",
+        "Mastra quickstart bring-your-own dependency install"
       ],
       "source_evidence": [
         {
@@ -638,6 +712,16 @@
           "path": "showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx",
           "line": 332,
           "detail": "The parallel current v2 quickstart explicitly states that @copilotkit/react-ui is not needed when using CopilotKit and CopilotSidebar from react-core/v2."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/agno/quickstart.mdx",
+          "line": 191,
+          "detail": "The displayed provider/chat imports use @copilotkit/react-core/v2 only, while the install list also includes @copilotkit/react-ui."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/quickstart.mdx",
+          "line": 236,
+          "detail": "The install command includes react-ui, ag-ui/core, and ag-ui/client even though the guide\u2019s shown imports use react-core, runtime, ag-ui/mastra, mastra/client-js, and ai-sdk/openai; the extra packages are not required by the supplied example."
         }
       ],
       "root_cause": "The ADK and Strands install instructions include @copilotkit/react-ui even though the displayed current v2 provider, component, and stylesheet imports use react-core/v2 only.",
@@ -692,7 +776,10 @@
         "react/langgraph-typescript/quickstart",
         "react/google-adk/quickstart",
         "react/strands/quickstart",
-        "product/intelligence/connect-your-runtime"
+        "product/intelligence/connect-your-runtime",
+        "AGNO quickstart Intelligence runtime identity example",
+        "LlamaIndex quickstart Intelligence runtime identity example",
+        "Mastra quickstart Intelligence runtime identity example"
       ],
       "source_evidence": [
         {
@@ -729,6 +816,21 @@
           "path": "showcase/shell-docs/src/content/docs/auth.mdx",
           "line": 544,
           "detail": "The same guide requires an ownership guard for Intelligence routes that are not platform user-scoped."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/agno/quickstart.mdx",
+          "line": 224,
+          "detail": "The Intelligence identifyUser example accepts x-user-id and x-user-name directly from request headers without showing server verification."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/quickstart.mdx",
+          "line": 259,
+          "detail": "The Intelligence setup says thread histories are per-user, then derives identifyUser directly from x-user-id and x-user-name request headers without server verification."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/quickstart.mdx",
+          "line": 266,
+          "detail": "Remote-agent resourceId and Intelligence identifyUser both derive identity directly from x-user-id and x-user-name request headers without server verification."
         }
       ],
       "root_cause": "The quickstarts use client-supplied headers as an identity shortcut while presenting the result as per-user thread isolation. They neither mark the shortcut as single-user/local-only nor supply server-side authentication and the required guards for unscoped routes.",
@@ -743,7 +845,12 @@
       "feature": "Google ADK local agent URL",
       "affected_contexts": [
         "react/google-adk/quickstart",
-        "react/strands/quickstart"
+        "react/strands/quickstart",
+        "AGNO quickstart troubleshooting advice",
+        "CrewAI Flows quickstart troubleshooting advice",
+        "LlamaIndex quickstart troubleshooting advice",
+        "LlamaIndex bring-your-own quickstart troubleshooting advice",
+        "Mastra quickstart troubleshooting advice"
       ],
       "source_evidence": [
         {
@@ -770,6 +877,31 @@
           "path": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/quickstart.mdx",
           "line": 219,
           "detail": "The Built-in Agent quickstart likewise recommends 0.0.0.0 as a replacement for a localhost client target."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/agno/quickstart.mdx",
+          "line": 330,
+          "detail": "The troubleshooting text suggests 0.0.0.0 as a client connection target."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/quickstart.mdx",
+          "line": 249,
+          "detail": "The troubleshooting text suggests changing a client host to 0.0.0.0."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/quickstart.mdx",
+          "line": 128,
+          "detail": "Starter troubleshooting recommends 0.0.0.0 as a replacement client target for localhost."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/quickstart.mdx",
+          "line": 405,
+          "detail": "Bring-your-own troubleshooting repeats 0.0.0.0 as a replacement client target for localhost."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/quickstart.mdx",
+          "line": 422,
+          "detail": "Troubleshooting recommends 0.0.0.0 as a replacement client target for localhost."
         }
       ],
       "root_cause": "The guide confuses a wildcard server bind address with an address a client should connect to.",
@@ -923,7 +1055,8 @@
       "area": "AG2 frontend-tools guide v2 API contract",
       "feature": "AG2 frontend tools",
       "affected_contexts": [
-        "AG2 frontend-tools guide delivery for React, Vue, and React Native routes; the current-v2 frontend example"
+        "AG2 frontend-tools guide delivery for React, Vue, and React Native routes; the current-v2 frontend example",
+        "Mastra frontend-tools guide delivery for React, Vue, and React Native routes"
       ],
       "source_evidence": [
         {
@@ -945,6 +1078,11 @@
           "path": "showcase/integrations/ag2/src/app/demos/frontend-tools/page.tsx",
           "line": 17,
           "detail": "The runnable AG2 demo imports the same v2 hook but omits the obsolete string setting."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/frontend-tools.mdx",
+          "line": 49,
+          "detail": "The guide imports the v2 hook but links readers to the v1 useFrontendTool API reference."
         }
       ],
       "root_cause": "The guide mixes v1 reference/availability terminology into a v2 hook example.",
@@ -958,7 +1096,10 @@
       "area": "AG2 state-rendering guide current v2 state API",
       "feature": "AG2 state rendering",
       "affected_contexts": [
-        "AG2 state-rendering guide delivery for React, Vue, and React Native routes; its in-chat render example"
+        "AG2 state-rendering guide delivery for React, Vue, and React Native routes; its in-chat render example",
+        "CrewAI Flows state-rendering guide delivery for React, Vue, and React Native routes",
+        "LlamaIndex state-rendering guide delivery for React, Vue, and React Native routes",
+        "Mastra state-rendering guide delivery for React, Vue, and React Native routes"
       ],
       "source_evidence": [
         {
@@ -975,6 +1116,21 @@
           "path": "showcase/integrations/ag2/src/app/demos/shared-state-streaming/page.tsx",
           "line": 25,
           "detail": "The runnable current AG2 state demo subscribes with UseAgentUpdate.OnStateChanged and renders agent.state in normal React output."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/generative-ui/state-rendering.mdx",
+          "line": 117,
+          "detail": "The CrewAI guide repeats the removed useAgent render callback pattern and does not import useAgent in that in-chat example."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/state-rendering.mdx",
+          "line": 132,
+          "detail": "The LlamaIndex guide repeats the removed useAgent render callback pattern."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/state-rendering.mdx",
+          "line": 123,
+          "detail": "The guide tells readers to use a render option on current-v2 useAgent even though the current hook contract does not provide that option."
         }
       ],
       "root_cause": "The guide retains an obsolete agent-state render callback shape after the v2 useAgent API changed to expose a subscribable agent.",
@@ -989,7 +1145,9 @@
       "feature": "AG2 tool rendering",
       "affected_contexts": [
         "AG2 tool-rendering guide delivery for React, Vue, and React Native routes; its named weather renderer example",
-        "AGNO tool-rendering guide delivery for React, Vue, and React Native routes"
+        "AGNO tool-rendering guide delivery for React, Vue, and React Native routes",
+        "LlamaIndex tool-rendering guide delivery for React, Vue, and React Native routes",
+        "Mastra tool-rendering guide delivery for React, Vue, and React Native routes"
       ],
       "source_evidence": [
         {
@@ -1016,6 +1174,16 @@
           "path": "showcase/shell-docs/src/content/docs/integrations/agno/generative-ui/tool-rendering.mdx",
           "line": 68,
           "detail": "The AGNO guide repeats the invalid named v2 renderer sample without a parameters schema and with args instead of parameters."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/llamaindex/generative-ui/tool-rendering.mdx",
+          "line": 100,
+          "detail": "Named useRenderTool example omits the required parameters schema and reads obsolete args instead of current parameters."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/tool-rendering.mdx",
+          "line": 97,
+          "detail": "Named useRenderTool example omits the required parameters schema and reads obsolete args instead of current parameters."
         }
       ],
       "root_cause": "The guide predates the current v2 named-tool renderer contract.",
@@ -1046,6 +1214,252 @@
       "root_cause": "The guide links the current-v2 example to the deprecated v1 API reference.",
       "impact": "Readers who follow the guide are taken to a different API generation, making the setup less reliable and obscuring the actual v2 options.",
       "validation_needed": "Point the guide at the current v2 useFrontendTool reference and verify the rendered/Markdown link target."
+    },
+    {
+      "id": "CONTENT-GEN-024",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "Claude SDK TypeScript quickstart dependency guidance",
+      "feature": "Claude Agent SDK TypeScript quickstart",
+      "affected_contexts": [
+        "Claude SDK TypeScript quickstart delivery for React, Vue, React Native, and Angular routes",
+        "CrewAI Flows quickstart backend install block"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/claude-sdk-typescript/quickstart.mdx",
+          "line": 111,
+          "detail": "The reader-facing install command hard-pins @anthropic-ai/claude-agent-sdk to @^0.2.58."
+        },
+        {
+          "path": "tasks/docs-feature-audit/content-defects.json",
+          "line": 1,
+          "detail": "The audit scope requires latest-stable guidance without documentation version pinning; registry observation is recorded separately and no package pin is modified."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/quickstart.mdx",
+          "line": 89,
+          "detail": "The reader-facing backend install command pins CrewAI to >=1.15.11,<2."
+        }
+      ],
+      "root_cause": "The quickstart hard-codes a version range in its copy-paste install command.",
+      "impact": "New readers are anchored to an obsolete dependency range instead of receiving the current stable SDK through their package manager.",
+      "validation_needed": "Remove the reader-facing version range and run the documented install/typecheck against the current stable dependency set."
+    },
+    {
+      "id": "CONTENT-GEN-025",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "CrewAI Flows human-in-the-loop guide current frontend contract",
+      "feature": "CrewAI Flows native human-in-the-loop guide",
+      "affected_contexts": [
+        "CrewAI Flows human-in-the-loop guide delivery for React, Vue, and React Native routes; nested flow guide content"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/human-in-the-loop/flow.mdx",
+          "line": 66,
+          "detail": "The guide sets available: \"remote\" on useFrontendTool."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/crewai-flows/human-in-the-loop/flow.mdx",
+          "line": 73,
+          "detail": "The guide uses removed renderAndWaitForResponse rather than the current human-in-the-loop renderer contract."
+        },
+        {
+          "path": "packages/core/src/types.ts",
+          "line": 90,
+          "detail": "Current FrontendTool only accepts boolean availability and has no renderAndWaitForResponse option."
+        },
+        {
+          "path": "packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx",
+          "line": 13,
+          "detail": "Current v2 exposes useHumanInTheLoop as the promise-based human decision API."
+        }
+      ],
+      "root_cause": "The nested CrewAI flow guide retains a v1 frontend-tool HITL interface.",
+      "impact": "The central implementation cannot typecheck against current v2 types and does not provide a current runnable human-decision registration.",
+      "validation_needed": "Replace the legacy action fields with current useHumanInTheLoop or a valid async frontend-tool handler, then typecheck and exercise the CrewAI flow path."
+    },
+    {
+      "id": "CONTENT-GEN-026",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "strict local Showcase fixture coverage",
+      "feature": "Built-in Agent voice, multimodal, and thread-id frontend-tool demos",
+      "affected_contexts": [
+        "react/built-in-agent/voice",
+        "react/built-in-agent/multimodal",
+        "react/built-in-agent/threadid-frontend-tool-roundtrip"
+      ],
+      "source_evidence": [
+        {
+          "path": "tasks/docs-feature-audit/built-in-agent-voice-browser-probe.json",
+          "line": 28,
+          "detail": "After the sample audio asset was restored, the local voice run request returned HTTP 200 but the browser received an AG-UI 404 No fixture matched error."
+        },
+        {
+          "path": "tasks/docs-feature-audit/built-in-agent-multimodal-browser-probe.json",
+          "line": 14,
+          "detail": "After sample.png was available, local multimodal POSTs returned HTTP 200 but the browser received an AG-UI 404 No fixture matched error."
+        },
+        {
+          "path": "tasks/docs-feature-audit/built-in-agent-host-d6-esm.log",
+          "line": 2242,
+          "detail": "The thread-id frontend-tool round-trip displayed 503 Strict mode: no fixture matched during the strict D6 run."
+        }
+      ],
+      "root_cause": "The deterministic strict AIMock corpus does not match the exercised Built-in Agent media and thread-id requests. The restored sample assets remove the earlier Git LFS asset confounder for voice and multimodal.",
+      "impact": "The three local Showcase demonstrations cannot complete under the required strict fixture mode, so they do not provide reproducible evidence of their advertised behavior. The probes identify fixture coverage only; they do not establish a product runtime failure.",
+      "validation_needed": "Add deterministic fixtures for the exact requests, rerun strict local D6 and the focused browser probes for all three demos, then verify the resulting streams and feature-specific UI assertions. Keep LangGraph Python and Strands media timeouts separate until captures establish the same cause."
+    },
+    {
+      "id": "CONTENT-GEN-027",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "framework guide navigation context",
+      "feature": "Mastra and Microsoft Agent Framework guide navigation",
+      "affected_contexts": [
+        "react/vue/react-native/mastra/human-in-the-loop",
+        "react/vue/react-native/ms-agent-dotnet/ms-agent-python/human-in-the-loop",
+        "react/vue/react-native/ms-agent-dotnet/ms-agent-harness-dotnet/ms-agent-python/quickstart"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/human-in-the-loop/index.mdx",
+          "line": 42,
+          "detail": "Tool-based card links to the generic root human-in-the-loop guide rather than the Mastra tool-based guide."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/mastra/human-in-the-loop/index.mdx",
+          "line": 49,
+          "detail": "Interrupt-based card likewise links to the generic root guide rather than the Mastra interrupt-flow guide."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/human-in-the-loop/index.mdx",
+          "line": 27,
+          "detail": "The interrupt and tool cards use generic root URLs, so readers leave the mapped Microsoft Agent Framework context."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/quickstart.mdx",
+          "line": 522,
+          "detail": "The shared quickstart uses the generic microsoft-agent-framework route family; verified redirects select the .NET quickstart, losing Python and harness context."
+        }
+      ],
+      "root_cause": "Framework-scoped cards use absolute generic paths that drop the active integration and, for Microsoft Agent Framework, variant context.",
+      "impact": "Readers land on generic material or the .NET default route instead of the context-specific guide. The links are reachable; the defect is loss of the declared framework/variant context, not a missing-page claim.",
+      "validation_needed": "Point cards to the framework- and variant-aware destinations, then verify rendered navigation preserves Mastra, Microsoft Agent Framework .NET, harness .NET, and Python context."
+    },
+    {
+      "id": "CONTENT-GEN-028",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "cross-runtime A2UI setup guidance",
+      "feature": "Microsoft Agent Framework dynamic-schema A2UI",
+      "affected_contexts": [
+        "react/vue/react-native/ms-agent-dotnet/generative-ui/a2ui/dynamic-schema",
+        "react/vue/react-native/ms-agent-python/generative-ui/a2ui/dynamic-schema"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/a2ui/dynamic-schema.mdx",
+          "line": 16,
+          "detail": "Shared guide unconditionally instructs readers to set injectA2UITool true and says false disables A2UI."
+        },
+        {
+          "path": "showcase/integrations/ms-agent-dotnet/src/app/api/copilotkit-declarative-gen-ui/route.ts",
+          "line": 27,
+          "detail": "The .NET dynamic-schema runtime requires injectA2UITool false because its backend owns generate_a2ui; its comments explain that true would duplicate the tool slot."
+        },
+        {
+          "path": "showcase/integrations/ms-agent-python/src/app/api/copilotkit-declarative-gen-ui/route.ts",
+          "line": 32,
+          "detail": "The Python dynamic-schema runtime uses the auto-injected path with injectA2UITool true."
+        }
+      ],
+      "root_cause": "One shared guide presents the Python auto-injection policy as universal even though the shipped .NET route uses an explicit backend-owned tool and requires the opposite runtime setting.",
+      "impact": "A .NET reader who copies the guide will double-bind the A2UI tool and disrupt tool selection; a single copy-paste recipe cannot serve both documented bindings.",
+      "validation_needed": "Split or conditionalize the runtime setup by .NET versus Python, then run each exact dynamic-schema demo with its documented setting."
+    },
+    {
+      "id": "CONTENT-GEN-029",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "state-rendering guide agent selection",
+      "feature": "Microsoft Agent Framework state rendering",
+      "affected_contexts": [
+        "react/vue/react-native/ms-agent-dotnet/ms-agent-python/generative-ui/state-rendering"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx",
+          "line": 320,
+          "detail": "Both backend examples name the documented agent search_agent."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx",
+          "line": 382,
+          "detail": "The in-chat frontend selects sample_agent."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx",
+          "line": 426,
+          "detail": "The outside-chat frontend repeats sample_agent."
+        }
+      ],
+      "root_cause": "The guide\u2019s frontend and backend snippets use different agent identifiers with no alias mapping shown.",
+      "impact": "The supplied frontend subscribes to a different agent than the backend snippet defines, so it cannot render the documented state snapshot as presented.",
+      "validation_needed": "Use one documented identifier or show the explicit runtime alias mapping, then validate both in-chat and outside-chat state subscriptions."
+    },
+    {
+      "id": "CONTENT-GEN-030",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "framework-specific interactive example selection",
+      "feature": "Microsoft Agent Framework interactive generative UI",
+      "affected_contexts": [
+        "react/vue/react-native/ms-agent-python/generative-ui/your-components/interactive"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/your-components/interactive.mdx",
+          "line": 8,
+          "detail": "The shared MAF guide hard-codes microsoft-agent-framework-dotnet even though the same source unit is bound to Python routes."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/snippets/shared/generative-ui/interactive.mdx",
+          "line": 3,
+          "detail": "The Interactive component uses its framework argument to select the rendered example context."
+        }
+      ],
+      "root_cause": "A guide shared by .NET and Python forces the .NET example selector rather than resolving from the active framework binding.",
+      "impact": "The Python route presents a .NET demonstration/context and cannot substantiate its own implementation path.",
+      "validation_needed": "Use an active-binding-aware selector or provide distinct .NET and Python guide sources, then render both routes and confirm their selected examples."
+    },
+    {
+      "id": "CONTENT-GEN-031",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "copy-paste guide language and API contract",
+      "feature": "Pydantic AI state rendering",
+      "affected_contexts": [
+        "react/vue/react-native/pydantic-ai/generative-ui/state-rendering"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/state-rendering.mdx",
+          "line": 38,
+          "detail": "The first implementation fence is labeled Python agent.py but contains TypeScript/JSX declarations and useAgent."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/pydantic-ai/generative-ui/state-rendering.mdx",
+          "line": 54,
+          "detail": "The mislabeled block also uses the obsolete useAgent render option."
+        }
+      ],
+      "root_cause": "The guide mixes a frontend TypeScript example into a Python backend fence and retains a removed v2 hook option.",
+      "impact": "The primary implementation block cannot run as the declared Pydantic AI backend file and does not give readers a usable state-rendering setup.",
+      "validation_needed": "Separate a valid Pydantic AI backend state example from a current React frontend example, then typecheck/run the displayed files and render the Pydantic route."
     }
   ]
 }
