@@ -19,25 +19,22 @@ echo "[entrypoint] PORT=${PORT:-not set}"
 echo "[entrypoint] NODE_ENV=${NODE_ENV:-not set}"
 echo "========================================="
 
-# Warn (default) or fail-fast when OPENAI_API_KEY is missing. Every model call
-# in this package goes through the in-process OpenAI-compatible shim
-# (src/openai_proxy.py), which is the piece that attaches
-# `Authorization: Bearer $OPENAI_API_KEY` — the Go harness has no API-key field
-# of its own. Without the key the shim refuses to start, so the first run of
-# any agent fails. Default behavior is warn-and-continue so operators can still
-# bring the container up for inspection / smoke testing (the frontend, /health
-# and the demo pages all come up fine); compose supplies `sk-mock` for the
-# aimock replay path.
-#
-# For deployments that MUST have the key, set `REQUIRE_OPENAI_API_KEY=1` to
-# escalate to fail-fast: the entrypoint exits non-zero immediately instead of
-# surfacing the problem lazily at request time.
+# Fail fast when OPENAI_API_KEY is missing. Every model call in this package
+# goes through the in-process OpenAI-compatible shim (src/openai_proxy.py),
+# which is the piece that attaches `Authorization: Bearer $OPENAI_API_KEY` —
+# the Go harness has no API-key field of its own. `openai_proxy.start_background`
+# raises `RuntimeError: OPENAI_API_KEY must be set to use the OpenAI shim.`,
+# and `agents._common.base_url()` calls it while `build_registry()` runs at
+# `import agent_server` time — so without the key the agent process dies during
+# import, before uvicorn ever binds :8000. There is no warn-and-continue mode to
+# offer: the frontend would come up but every demo page's runtime call and the
+# agent /health probe would fail, and the two-second liveness check below would
+# exit the container anyway. Better to say so here, with the reason, than to
+# print a warning and let it look like a mysterious import crash.
+# (compose supplies `sk-mock` for the aimock replay path.)
 if [ -z "${OPENAI_API_KEY:-}" ]; then
-    if [ "${REQUIRE_OPENAI_API_KEY:-0}" = "1" ]; then
-        echo "[entrypoint] FATAL: OPENAI_API_KEY not set and REQUIRE_OPENAI_API_KEY=1 — refusing to start" >&2
-        exit 1
-    fi
-    echo "[entrypoint] WARN: OPENAI_API_KEY not set — the OpenAI shim cannot start, so every agent run will fail at request time" >&2
+    echo "[entrypoint] FATAL: OPENAI_API_KEY not set — the OpenAI shim cannot start, so the agent process dies at import. Refusing to start." >&2
+    exit 1
 fi
 
 # Antigravity's Go harness does real file and shell work inside a workspace and

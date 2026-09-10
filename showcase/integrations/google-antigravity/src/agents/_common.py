@@ -20,8 +20,6 @@ SLUG = "google-antigravity"
 # unrelated-looking error (measured 2/14 failures at 75 chars, 0/14 at 9).
 WORKSPACE = os.environ.get("ANTIGRAVITY_WORKSPACE", "/data/ws")
 SAVE_DIR = os.environ.get("ANTIGRAVITY_SAVE_DIR", "/data/sessions")
-os.makedirs(WORKSPACE, exist_ok=True)
-os.makedirs(SAVE_DIR, exist_ok=True)
 
 MODEL = os.environ.get("ANTIGRAVITY_MODEL", "gpt-4.1-mini")
 REASONING_MODEL = os.environ.get("ANTIGRAVITY_REASONING_MODEL", "gpt-5-mini")
@@ -65,6 +63,26 @@ def chat_only_capabilities() -> CapabilitiesConfig:
     )
 
 
+_DIRS_READY = False
+
+
+def _ensure_dirs() -> None:
+    """Creates the workspace / save_dir once, on first agent construction.
+
+    Deliberately NOT done at import time: the defaults live under ``/data``,
+    which only exists inside the container image, so an import-time
+    ``os.makedirs`` blows up on a developer machine (read-only ``/`` on macOS)
+    and takes every ``import agent_server`` — including the package's pytest
+    suite — down with it.
+    """
+    global _DIRS_READY
+    if _DIRS_READY:
+        return
+    os.makedirs(WORKSPACE, exist_ok=True)
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    _DIRS_READY = True
+
+
 _POOL = None
 
 
@@ -81,6 +99,8 @@ def shared_pool():
 def build(**kwargs):
     """Creates an AntigravityAgent with the package defaults applied."""
     from ag_ui_antigravity import AntigravityAgent
+
+    _ensure_dirs()
 
     defaults = dict(
         model=MODEL,

@@ -13,17 +13,24 @@ the run with ``unknown_tool`` when one is missing, so a ``search_flights``
 call from a model (or an aimock fixture) with no matching tool kills the
 turn before any text reaches the chat.
 
+``query_data`` is on the agent for the same reason: the chart and
+dashboard suggestion pills all instruct the model to "use the
+`query_data` tool to fetch the data first", and langgraph-python's
+``beautiful_chat`` graph owns it as a backend tool as well.
+
 No ``from __future__ import annotations``: the SDK derives the tool
 schema from the live annotations.
 """
 
 from agents._common import build
+from tools.query_data import query_data_impl
 from tools.search_flights import search_flights_impl
 
 SYSTEM_PROMPT = (
     "You are a helpful, concise assistant embedded in a product demo. "
     "Use the tools the surface offers you: charts and theme changes are "
-    "frontend tools, and flight results go through `search_flights`. "
+    "frontend tools, data comes from `query_data`, and flight results go "
+    "through `search_flights`. "
     "After a tool returns, summarize the result in one short sentence."
 )
 
@@ -41,5 +48,15 @@ def search_flights(flights: list[dict]) -> dict:
     return search_flights_impl(flights)
 
 
+def query_data(query: str) -> list[dict]:
+    """Query the database, takes natural language. Always call before showing a chart or graph.
+
+    Returns the full financial dataset as a list of rows.
+    """
+    return query_data_impl(query)
+
+
 def beautiful_chat_agent():
-    return build(system_instructions=SYSTEM_PROMPT, tools=[search_flights])
+    return build(
+        system_instructions=SYSTEM_PROMPT, tools=[query_data, search_flights]
+    )

@@ -40,7 +40,7 @@ def build_registry() -> dict:
         "subagents": subagents_agent(),
         "reasoning-default": reasoning,
         "reasoning-custom": reasoning,
-        "tool-rendering-reasoning-chain": tool_rendering_agent(),
+        "tool-rendering-reasoning-chain": rendering,
         "mcp-apps": mcp_apps_agent(),
         "default": neutral,
     }
