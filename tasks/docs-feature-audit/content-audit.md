@@ -16,10 +16,17 @@ Status: in progress. This report records source and rendering findings only; it 
 3. `CONTENT-GEN-003` — selected guides still embed the external Feature Viewer instead of a Showcase-owned cell; Markdown has no source extraction for those frames (11 contexts).
 4. `CONTENT-GEN-004` — Declarative Hashbrown and JSON Render have real guides and wired demos, but no feature-catalog mapping to those guides (10 contexts).
 5. `CONTENT-GEN-006` — a transitive Built-in Agent tool-rendering snippet assigns v1's named-registration meaning to v2 `useRenderToolCall`; current v2 uses `useRenderTool` for that job (4 contexts).
+6. `CONTENT-GEN-007` — the Built-in Agent config demo publishes controls through `useAgentContext`, while its in-process factory reads only provider `properties`/`input.forwardedProps`; the controls therefore do not drive the documented factory contract.
+7. `CONTENT-GEN-009` — Strands requires a custom state/context prompt bridge for shared-state read/write, read-only context, and agent config, but supplies no native setup fragment for those three guides.
+8. `CONTENT-GEN-010` — the supported Built-in Agent fixed-schema A2UI route has a visible `Missing snippet` alert for its selected schema-inline source region, despite 200 HTML and Markdown responses.
 
 ## Candidate setup-contract gap
 
-- `CONTENT-GEN-005` — 35 selected wired/stub cells request setup fragments that their selected integration does not bundle. HTML silently omits the setup; Markdown reports a skipped block. This includes A2UI for all five agents, tool rendering for four agents, and core concepts for Strands and the built-in agent. The missing fragment is structural evidence only: semantic comparison with the routed demo/backend is still required to distinguish deliberately empty setup from missing guidance.
+- `CONTENT-GEN-005` — 35 selected wired/stub cells request setup fragments that their selected integration does not bundle. HTML silently omits the setup; Markdown reports a skipped block. Semantic comparison now clears 30 as already covered by the routed source or runtime, identifies one as a branch that does not render, promotes three Strands contexts to `CONTENT-GEN-009`, and retains one Strands recipe path as a behavior candidate. The raw structural count is preserved in JSON; it is not a claim that every guide needs new prose.
+
+## Candidate behavior finding
+
+- `CONTENT-GEN-008` — the Strands recipe demo writes `state.recipe`, but its installed prompt-lifting function only adds `preferences` and `todos`. The manifest promises the agent reads the recipe. This needs the runner's targeted local AIMock result before it can be promoted from a source candidate.
 
 ## Current source findings that require no defect label yet
 
@@ -32,8 +39,10 @@ Status: in progress. This report records source and rendering findings only; it 
 ## Explicit review coverage (checkpoint)
 
 - **Completed, static:** resolution and source-unit inventory for all 220 selected matrix cells; 40 unique resolved MDX source units plus 11 transitive shared snippets (51 reviewed source units total); every manifest-wired/stub cell with a resolved source; source frontmatter and deprecated-reference scan; transitive `FrameworkSetup` import scan against each selected integration's setup-fragment ownership; catalog-to-guide binding review; generated/authored route precedence; and browser/Markdown source-resolution paths. The exact 40 route sources and their selected cells are recorded in `inventory.json` (`selected_matrix[].resolved_content`); the 11 transitive snippets are under `content/snippets/shared/{app-control,basics,generative-ui,guides,inspector}`.
-- **Completed, static defect triage:** every selected source absence was checked against the manifest applicability. The only declared-wired unresolved routes are the two Google ADK entries in `CONTENT-GEN-002`; unshipped selected combinations are deliberately excluded. Every missing setup fragment affecting a wired/stub selected cell is enumerated in `CONTENT-GEN-005` as a candidate setup-contract gap.
-- **Pending:** semantic classification of each `CONTENT-GEN-005` setup request against its demo/backend; line-by-line human readability and API-link target review across the 40 resolved units and their transitive shared snippets; framework-scoped HTML/Markdown route probes (including redirects/middleware); generator/typecheck/build; and local AIMock behavior. The report remains in progress until these rows are complete.
+- **Completed, static defect triage:** every selected source absence was checked against manifest applicability. The only declared-wired unresolved routes are the two Google ADK entries in `CONTENT-GEN-002`; unshipped selected combinations are deliberately excluded. Semantic review classified every one of the 35 `CONTENT-GEN-005` setup requests: 30 need no package-owned setup beyond selected guide content/runtime behavior, one is gated out for its framework, three are confirmed Strands omissions (`CONTENT-GEN-009`), and one is the Strands recipe behavior candidate (`CONTENT-GEN-008`).
+- **Completed, rendered local docs evidence:** a production shell-docs build and expanded 362-response HTML/Markdown route audit. This uncovered the selected Built-in Agent A2UI missing-snippet alert (`CONTENT-GEN-010`); the lone Strands rendered missing-demo alert belongs only to unshipped feature IDs and is not recorded as a selected supported-guide defect. See `full-route-audit.md`.
+- **Completed, static API/link sweep:** all 40 resolved MDX units were scanned for 85 Markdown links (including 13 external and 72 internal/anchor links). No selected unit links to `/reference/v1/`, and the selected-guide deprecated API scan found no `useCoAgent`, `useCopilotAction`, or v1 package imports. Internal links without a direct MDX file resolve through the documented frontend-content aliases or framework route resolver; none is recorded as a broken link from source absence alone. API semantics are otherwise covered by `CONTENT-GEN-006` and `CONTENT-GEN-007`.
+- **Pending:** editorial, line-by-line prose review of the 40 resolved units and 11 transitive snippets remains a manual-quality row; generator/typecheck/build reconciliation after eventual fixes; and local AIMock behavior. The report remains in progress until these rows are complete.
 
 ## Dependency snapshot
 
