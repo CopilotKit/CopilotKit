@@ -19,7 +19,7 @@ before you start reading someone's project by hand.
 npx copilotkit@latest verify --json
 ```
 
-One command replaces the manual survey. It proves eleven things: a hosted project is
+One command replaces the manual survey. It settles up to eleven things: a hosted project is
 selected; the project API key is present, loadable by the app, and authenticates; the runtime
 responds, declares an agent, actually consumes the credential, and serves the thread routes;
 the frontend serves its own assets; the runtime accepts the browser's origin; and the
@@ -27,9 +27,17 @@ installed CopilotKit packages match the version the runtime reports. It also rep
 runtime version, the agent framework in use, whether transcription is wired, the realtime
 gateway wiring, and the license state.
 
+Eleven is the ceiling, not a promise. The last three are omitted when there was nothing to
+check them against — no frontend origin was found, or no installed packages were. Count
+`checks[]` rather than assuming a fixed set. With `--expect-runtime oss` the hosted-project
+and credential checks do not apply at all, so that run is a smaller set.
+
 Crucially it names **which URL it probed and where that URL came from** — the project's
 `runtimeUrl`, an environment variable, the app's own dev configuration, or an assumed
-default. A survey done by hand cannot tell you that.
+default. A survey done by hand cannot tell you that, and the provenance changes the verdict:
+nothing answering at a URL **the project named** is a FAIL, while nothing answering at an
+**assumed** default is UNKNOWN, because an app on a port the command never learned is not a
+wiring failure.
 
 Useful flags:
 
@@ -37,8 +45,14 @@ Useful flags:
   real CORS preflight when that origin differs from the runtime's
 - `--round-trip` — also runs the agent and reads its answer back. Costs a model call, so it
   is opt-in
-- `--expect-runtime oss` — for a self-hosted runtime with no Intelligence
+- `--expect-runtime oss` — for a self-hosted runtime with no Intelligence. It exits zero
+  only when `/info` declares the named agent, reports no Intelligence entitlement, and
+  `--round-trip --agent <id>` passes
 - `--agent <id>` — which declared agent to run, when several are registered
+- `--runtime-url <url>` — probe this endpoint instead of the one read from the project
+- `--header '<name>: <value>'` — repeatable. Needed when the project's `identifyUser` reads
+  a session the CLI does not carry
+- `--timeout <seconds>` — how long to wait for an answer, default 90
 
 Read `checks[]` and fix in the order given:
 
@@ -60,12 +74,13 @@ Reach past it only once it is clean.
 ## Starting a project
 
 ```bash
-npx copilotkit@latest create        # `init` is an alias
+npx copilotkit@latest init          # `create` is an alias for it
 ```
 
 Prompts for a name and framework, scaffolds a starter, signs you in when needed, and connects
-the app to a cloud-hosted Intelligence project. It creates a **new** directory — it does not
-detect or convert an app you already have.
+the app to a cloud-hosted Intelligence project. The name it asks for names the new directory,
+so this is the path for a project that does not exist yet. For an app you already have, use
+`onboard start` below.
 
 To add CopilotKit to an existing app, either follow the [quickstart](/quickstart), or hand
 the job to your coding agent:
@@ -81,11 +96,15 @@ an app that already has CopilotKit.
 ## Signing in and picking a project
 
 ```bash
-npx copilotkit@latest login          # browser sign-in; prints a URL if it cannot open one
+npx copilotkit@latest login --json   # agent-readable JSON lines, no browser launch
+npx copilotkit@latest login          # interactive: opens a browser
 npx copilotkit@latest whoami         # who is signed in, and the active organization
 npx copilotkit@latest project select # pick or create a hosted project for this directory
 npx copilotkit@latest project list --json
 ```
+
+Use `login --json` when you are driving the CLI. Bare `login` tries to open a browser, which
+is not something you can complete.
 
 There is no `auth` command. It is `login`.
 
@@ -106,16 +125,17 @@ choices and `project select --project <id>` or `--create <name>` to name the ans
 
 ## Other commands
 
-| Command                                    | What it does                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| `typegen`                                  | Generates type-safe agent ids from a running runtime               |
-| `import --source adk\|langgraph --dry-run` | Previews importing historical threads into Intelligence            |
-| `license create` / `license list`          | Issues and lists license tokens                                    |
-| `channels`                                 | Sets up managed Intelligence Channels for Slack or Microsoft Teams |
-| `framework list`                           | The agent frameworks `create` accepts, and their flags             |
-| `logs`                                     | The CLI log path, or recent lines                                  |
-| `telemetry`                                | Shows or changes the CLI telemetry preference                      |
-| `docs`                                     | Opens the documentation                                            |
-| `version`                                  | Version, build, and commit                                         |
+| Command                                    | What it does                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| `skills install`                           | Installs these skills into a project (`skills onboard` also starts onboarding) |
+| `typegen`                                  | Generates type-safe agent ids from a running runtime                           |
+| `import --source adk\|langgraph --dry-run` | Previews importing historical threads into Intelligence                        |
+| `license create` / `license list`          | Issues and lists license tokens                                                |
+| `channels`                                 | Sets up managed Intelligence Channels for Slack or Microsoft Teams             |
+| `framework list`                           | The agent frameworks `create` accepts, and their flags                         |
+| `logs`                                     | The CLI log path, or recent lines                                              |
+| `telemetry`                                | Shows or changes the CLI telemetry preference                                  |
+| `docs`                                     | Opens the documentation                                                        |
+| `version`                                  | Version, build, and commit                                                     |
 
 The CLI collects usage data. `DO_NOT_TRACK=1` or `COPILOTKIT_TELEMETRY_DISABLED=1` opts out.

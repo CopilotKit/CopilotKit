@@ -37,19 +37,29 @@ reasoning from the title.
 
 ## Setup
 
-**Claude Code** — configured by this plugin's `.mcp.json`. Nothing to do.
+The server is registered once per tool, and installing the skills does not register it.
+Check first — if the search tools above are already available, skip this.
 
-**Codex** — add to `.codex/config.toml`:
+**Claude Code** — the CopilotKit plugin declares the server in its `.mcp.json`, so a
+plugin install needs nothing. A skills-only install (`npx skills add`) does not carry
+that file, so register it:
 
-```toml
-[mcp_servers.copilotkit-docs]
-type = "http"
-url = "https://mcp.copilotkit.ai/mcp"
+```bash
+claude mcp add --transport sse copilotkit-mcp https://mcp.copilotkit.ai/sse
 ```
 
-**Anything else** — the endpoint is `https://mcp.copilotkit.ai/mcp`, streamable HTTP.
+**Codex**:
 
-Without the MCP server, [the documentation](https://docs.copilotkit.ai) works as a plain
+```bash
+codex mcp add copilotkit --url https://mcp.copilotkit.ai/mcp
+```
+
+**Anything else** — `https://mcp.copilotkit.ai/mcp` for streamable HTTP,
+`https://mcp.copilotkit.ai/sse` for SSE. Keep the path: the bare host returns 404.
+[Per-tool instructions](/build-with-agents) cover Cursor, Windsurf, Cline, GitHub
+Copilot and VS Code.
+
+Without the server, [the documentation](https://docs.copilotkit.ai) works as a plain
 site, and appending `.md` to any docs URL returns that page as Markdown.
 
 ## Where the answers are
@@ -75,12 +85,14 @@ Worth knowing so a search has somewhere to land:
 
 ## Before you debug anything
 
-Run the CLI's wiring check first. It proves eleven things in one command and it is almost
-always faster than reading the project. See the `copilotkit-cli` skill.
+Run the CLI's wiring check first — `npx copilotkit@latest verify --json`. It settles up to
+eleven things in one command and is almost always faster than reading the project. See the
+`copilotkit-cli` skill.
 
 ## Two versions exist
 
 v2 is current. Import from the `/v2` subpath — `@copilotkit/react-core/v2`,
-`@copilotkit/runtime/v2` — and treat a package-root import as the deprecated v1 surface: it
-resolves, so the mismatch shows up as routes that 404 rather than as an import error. v1 is
+`@copilotkit/runtime/v2`. The package root is the deprecated v1 surface and still resolves,
+so mixing the two raises nothing at import time and surfaces later as a runtime mismatch.
+Check which subpath a project imports before trusting anything else about it. v1 is
 deprecated but supported; [the migration guide](/migrate/v2) covers moving off it.
