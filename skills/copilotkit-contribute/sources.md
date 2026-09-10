@@ -21,9 +21,9 @@ Generated: 2026-03-28
 
 ## testing-guide.md
 
-- packages/v2/core/vitest.config.mjs (Vitest config: node environment, globals, include patterns, silent mode)
-- packages/v2/react/vitest.config.mjs (Vitest config: jsdom environment, globalSetup, setupFiles)
-- packages/v2/runtime/vitest.config.mjs (Vitest config: COPILOTKIT_TELEMETRY_DISABLED env var)
+- packages/core/vitest.config.mjs (Vitest config: node environment, globals, include patterns, silent mode)
+- packages/react-core/vitest.config.mjs (Vitest config: jsdom environment, globalSetup, setupFiles)
+- packages/runtime/vitest.config.mjs (Vitest config: COPILOTKIT_TELEMETRY_DISABLED env var)
 - packages/v2/core/src/**tests**/test-utils.ts (MockAgent implementation, MockAgentOptions interface)
 - packages/v2/core/src/**tests**/ (test file examples: core-simple.test.ts, core-tool-simple.test.ts, etc.)
 - packages/v2/core/src/core/**tests**/ (nested test examples: run-handler-schema.test.ts, etc.)

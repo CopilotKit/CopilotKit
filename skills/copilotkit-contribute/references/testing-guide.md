@@ -162,7 +162,7 @@ packages/v1/runtime/tests/
 
 ## Test Utilities
 
-The primary test utility is at `packages/v2/core/src/__tests__/test-utils.ts`. It provides:
+The primary test utility is at `packages/core/src/__tests__/test-utils.ts`. It provides:
 
 - **`MockAgent`** — a mock implementation of the agent interface with:
   - Configurable messages, state, errors, and delays

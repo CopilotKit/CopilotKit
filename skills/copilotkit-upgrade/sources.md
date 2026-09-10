@@ -14,7 +14,7 @@ Generated: 2026-06-18 (regenerated against live `main`)
 
 ## v1-to-v2-migration.md
 
-- packages/react-core/src/index.tsx (v1 hook exports: useCopilotAction, useCopilotReadable, useCoAgent, useLangGraphInterrupt, useCopilotChat, useCopilotChatSuggestions, useCopilotAdditionalInstructions, useMakeCopilotDocumentReadable, CopilotKit provider)
+- packages/react-core/src/v1-deprecated-compatibility.ts (v1 hook exports: useCopilotAction, useCopilotReadable, useCoAgent, useLangGraphInterrupt, useCopilotChat, useCopilotChatSuggestions, useCopilotAdditionalInstructions, useMakeCopilotDocumentReadable, CopilotKit provider)
 - packages/react-ui/src/components/chat/index.tsx (v1 component exports: CopilotChat, CopilotPopup, CopilotSidebar; CSS-only in v2)
 - packages/react-textarea/src/index.tsx (CopilotTextarea export, confirmed removed in v2)
 - packages/runtime/src/index.ts (v1 runtime exports: CopilotRuntime, OpenAIAdapter, AnthropicAdapter, GoogleGenerativeAIAdapter, LangChainAdapter, copilotRuntimeNextJSAppRouterEndpoint, copilotKitEndpoint)
@@ -37,7 +37,7 @@ Generated: 2026-06-18 (regenerated against live `main`)
 
 ## deprecation-map.md
 
-- packages/react-core/src/index.tsx (all v1 hook and component exports)
+- packages/react-core/src/v1-deprecated-compatibility.ts (all v1 hook and component exports)
 - packages/react-ui/src/components/chat/index.tsx (all v1 UI component exports)
 - packages/react-textarea/src/index.tsx (CopilotTextarea export)
 - packages/runtime/src/index.ts (all v1 runtime class and function exports)
