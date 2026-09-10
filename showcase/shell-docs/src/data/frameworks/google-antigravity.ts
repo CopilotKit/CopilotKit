@@ -15,16 +15,17 @@ const data: FrameworkOverviewData = {
     "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4",
   guideLink: "/google-antigravity/quickstart",
   initCommand: "npx copilotkit@latest init --framework google-antigravity",
+  // The showcase package is not deployed yet (`deployed: false` in its
+  // manifest), so the feature and demo links point at the source until the
+  // showcase URLs exist; switch them (and restore `liveDemos`) at deploy time.
   featuresLink:
-    "https://showcase.copilotkit.ai/integrations/google-antigravity",
+    "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/google-antigravity",
   supportedFeatures: [
     {
       title: "Frontend tools",
       description:
         "Every tool your frontend registers becomes a real Antigravity tool. A call parks as an awaited coroutine across HTTP runs until the browser resolves it, so the model sees the tool's actual return value — no proxy tool, no long-running-tool workaround.",
       documentationLink: "/google-antigravity/frontend-tools",
-      demoLink:
-        "https://showcase.copilotkit.ai/integrations/google-antigravity/demos/frontend-tools",
       videoUrl:
         "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
     },
@@ -33,8 +34,6 @@ const data: FrameworkOverviewData = {
       description:
         "Antigravity's hooks are async and awaited with no timeout, so an approval or input request just parks the run: the SSE stream for that turn closes, and CopilotKit resumes it on the next run once the user responds.",
       documentationLink: "/google-antigravity/human-in-the-loop",
-      demoLink:
-        "https://showcase.copilotkit.ai/integrations/google-antigravity/demos/hitl-in-chat",
       videoUrl:
         "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
     },
@@ -43,24 +42,13 @@ const data: FrameworkOverviewData = {
       description:
         "Server-side tools like weather, flight search, and stock prices run in Python and their calls and results stream straight from the adapter, so CopilotKit's per-tool renderers can paint a custom card for each one.",
       documentationLink: "/google-antigravity/generative-ui/tool-rendering",
-      demoLink:
-        "https://showcase.copilotkit.ai/integrations/google-antigravity/demos/tool-rendering",
       videoUrl:
         "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
     },
   ],
   architectureImage:
     "https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png",
-  liveDemos: [
-    {
-      type: "showcase",
-      title: "Google Antigravity Showcase",
-      description:
-        "Browse the live Google Antigravity demos for chat, frontend tools, human-in-the-loop, generative UI tool rendering, and sub-agents.",
-      iframeUrl:
-        "https://showcase.copilotkit.ai/integrations/google-antigravity",
-    },
-  ],
+  liveDemos: [],
 };
 
 export default data;

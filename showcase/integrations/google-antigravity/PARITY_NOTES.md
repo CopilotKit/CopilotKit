@@ -292,6 +292,11 @@ born-in-showcase package with no docs namespace.
 
 ## Documentation
 
+Until the package is deployed, the landing record links features to the
+package source on GitHub rather than to showcase URLs, omits per-feature demo
+links, and ships an empty `liveDemos` list (an embedded showcase iframe would
+404). Restore the showcase links and the live demo when `deployed` flips.
+
 What exists for this integration's shell-docs surface:
 
 - **A landing-page record** — `showcase/shell-docs/src/data/frameworks/google-antigravity.ts`,
