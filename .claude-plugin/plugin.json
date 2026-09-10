@@ -1,6 +1,6 @@
 {
   "name": "copilotkit",
-  "description": "AI agent skills for CopilotKit — setup, develop, integrate, debug, upgrade, and contribute to CopilotKit projects",
+  "description": "AI agent skills for CopilotKit — search the current documentation and source, and drive the CopilotKit CLI",
   "version": "1.71.0",
   "author": {
     "name": "CopilotKit",

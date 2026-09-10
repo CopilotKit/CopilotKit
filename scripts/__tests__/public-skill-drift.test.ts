@@ -1,214 +1,109 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const skillsDir = resolve(root, "skills");
+const contentDir = resolve(root, "showcase/shell-docs/src/content");
 
-interface ManifestPackage {
-  name: string;
-  version: string;
-  sourceDirectory: string;
-  entrypoints: Array<{ importPath: string }>;
-}
+/**
+ * The packaged skills used to transcribe CopilotKit's API surface, and this
+ * suite guarded the copies: skill versions against the public API manifest,
+ * setup assets against real entrypoints, `sources.md` inventories against real
+ * files. Those copies are gone — the skills now point at the documentation and
+ * the CLI instead of restating them.
+ *
+ * The rot moved with them. A pointer-based skill fails by naming a docs path
+ * that no longer resolves, which is silent: an agent follows the link, gets
+ * nothing, and answers from memory instead. That is what this guards now.
+ */
 
-interface PublicApiManifest {
-  packages: ManifestPackage[];
-  deprecations: Array<{
-    importPath: string;
-    symbol: string;
-    replacement: { importPath: string; symbol: string };
-  }>;
-}
-
-const manifest = JSON.parse(
-  readFileSync(
-    resolve(root, "scripts/release/public-api/manifest.v1.json"),
-    "utf8",
-  ),
-) as PublicApiManifest;
-
-function read(relativePath: string): string {
-  return readFileSync(resolve(root, relativePath), "utf8");
-}
-
-function libraryVersion(skill: string): string | undefined {
-  return skill.match(/^library_version:\s*["']?([^"'\n]+)["']?$/m)?.[1];
-}
-
-function filesUnder(relativeDirectory: string): string[] {
-  const absoluteDirectory = resolve(root, relativeDirectory);
-
-  function walk(directory: string): string[] {
-    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-      const path = join(directory, entry.name);
-      return entry.isDirectory() ? walk(path) : [path];
-    });
-  }
-
-  return walk(absoluteDirectory);
-}
-
-const setupAssets = [
-  "skills/copilotkit-setup/assets/nextjs-app-router-route.ts",
-  "skills/copilotkit-setup/assets/nextjs-app-router-page.tsx",
-  "skills/copilotkit-setup/assets/express-runtime.ts",
-];
-
-function copilotImports(relativePath: string) {
-  const source = read(relativePath);
-  const sourceFile = ts.createSourceFile(
-    relativePath,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  );
-
-  return sourceFile.statements.flatMap((statement) => {
-    if (
-      !ts.isImportDeclaration(statement) ||
-      !ts.isStringLiteral(statement.moduleSpecifier) ||
-      !statement.moduleSpecifier.text.startsWith("@copilotkit/")
-    ) {
-      return [];
+/** Every `.md` under `skills/`, as [relative path, contents]. */
+function skillFiles(): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(".md"))
+        out.push([full.slice(root.length + 1), readFileSync(full, "utf8")]);
     }
-
-    const symbols = statement.importClause?.namedBindings;
-    return [
-      {
-        importPath: statement.moduleSpecifier.text,
-        symbols:
-          symbols && ts.isNamedImports(symbols)
-            ? symbols.elements.map(
-                (element) => element.propertyName?.text ?? element.name.text,
-              )
-            : [],
-      },
-    ];
-  });
+  };
+  walk(skillsDir);
+  return out;
 }
 
-describe("public skill drift", () => {
-  it("keeps setup assets compatible with current public package contracts", () => {
-    const contractErrors = setupAssets.flatMap((asset) =>
-      copilotImports(asset).flatMap(({ importPath, symbols }) => {
-        const packageName = importPath.split("/").slice(0, 2).join("/");
-        const packageEntry = manifest.packages.find(
-          (candidate) => candidate.name === packageName,
-        );
-        if (!packageEntry) {
-          return [`${asset}: ${packageName} is not a published package`];
-        }
-        if (
-          !packageEntry.entrypoints.some(
-            (entrypoint) => entrypoint.importPath === importPath,
-          )
-        ) {
-          return [`${asset}: ${importPath} is not a published entrypoint`];
-        }
+/**
+ * Resolves a docs path to the file that serves it.
+ *
+ * A page can live at the content root or, for a framework-scoped page, under
+ * `integrations/<framework>/`, which is how `/server-tools` is served with no
+ * root `server-tools.mdx`. A directory with an `index.mdx` counts too.
+ */
+function docsPathResolves(docsPath: string): boolean {
+  const slug = docsPath.replace(/^\/+/, "").replace(/\/+$/, "");
+  if (slug === "") return true;
+  const candidates = [
+    join(contentDir, "docs", `${slug}.mdx`),
+    join(contentDir, "docs", slug, "index.mdx"),
+    join(contentDir, `${slug}.mdx`),
+    join(contentDir, slug, "index.mdx"),
+  ];
+  if (candidates.some(existsSync)) return true;
+  // Framework-scoped: docs/integrations/<any>/<slug>.mdx
+  const integrations = join(contentDir, "docs/integrations");
+  if (!existsSync(integrations)) return false;
+  return readdirSync(integrations, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .some((e) => existsSync(join(integrations, e.name, `${slug}.mdx`)));
+}
 
-        return symbols.flatMap((symbol) => {
-          const deprecation = manifest.deprecations.find(
-            (candidate) =>
-              candidate.importPath === importPath &&
-              candidate.symbol === symbol,
-          );
-          return deprecation
-            ? [
-                `${asset}: ${symbol} is deprecated; use ${deprecation.replacement.symbol} from ${deprecation.replacement.importPath}`,
-              ]
-            : [];
-        });
-      }),
-    );
+describe("packaged skills point at pages that exist", () => {
+  const files = skillFiles();
 
-    expect(contractErrors).toEqual([]);
+  it("finds skill files to check", () => {
+    expect(files.length).toBeGreaterThan(0);
   });
 
-  it.each([
-    ["@copilotkit/runtime", "runtime"],
-    ["@copilotkit/react-core", "react-core"],
-    ["@copilotkit/a2ui-renderer", "a2ui-renderer"],
-  ])(
-    "%s skill version follows the public API manifest",
-    (packageName, skillName) => {
-      const packageEntry = manifest.packages.find(
-        (candidate) => candidate.name === packageName,
-      );
-      expect(
-        packageEntry,
-        `${packageName} missing from manifest`,
-      ).toBeDefined();
-
-      const sourceSkill = read(
-        `${packageEntry!.sourceDirectory}/skills/${skillName}/SKILL.md`,
-      );
-      const mirrorSkill = read(`skills/${skillName}/SKILL.md`);
-
-      expect(libraryVersion(sourceSkill)).toBe(packageEntry!.version);
-      expect(libraryVersion(mirrorSkill)).toBe(packageEntry!.version);
-    },
-  );
-
-  it("keeps current setup and debugging paths free of retired API forms", () => {
-    const currentFiles = [
-      resolve(root, "skills/copilotkit-setup/eval.yaml"),
-      ...filesUnder("skills/copilotkit-debug"),
-    ];
-    const retiredForms = [
-      /@copilotkit\/react(?!-)/,
-      /@copilotkit\/agent(?![a-z-])/,
-      /\bcreateCopilotEndpoint(?:SingleRoute(?:Express)?|Express)?\b/,
-      /packages\/v[12]\//,
-    ];
-
-    const findings = currentFiles.flatMap((file) => {
-      const relativeFile = file.slice(root.length + 1);
-      return readFileSync(file, "utf8")
-        .split("\n")
-        .flatMap((line, index) =>
-          retiredForms.some((pattern) => pattern.test(line))
-            ? [`${relativeFile}:${index + 1}: ${line.trim()}`]
-            : [],
-        );
-    });
-
-    expect(findings).toEqual([]);
+  it("names only docs paths that resolve to a page", () => {
+    const broken: string[] = [];
+    for (const [path, contents] of files) {
+      // Absolute docs.copilotkit.ai links and bare site-root paths in prose.
+      const absolute = [
+        ...contents.matchAll(
+          /https:\/\/docs\.copilotkit\.ai(\/[A-Za-z0-9._/-]*)/g,
+        ),
+      ].map((m) => m[1]);
+      const relative = [
+        ...contents.matchAll(/\]\((\/[A-Za-z0-9._/-]+)\)/g),
+      ].map((m) => m[1]);
+      for (const raw of [...absolute, ...relative]) {
+        const docsPath = raw.replace(/\.md$/, "");
+        // `/reference/...` is generated into the content tree at build time.
+        if (docsPath.startsWith("/reference/")) continue;
+        if (!docsPathResolves(docsPath)) broken.push(`${path}: ${raw}`);
+      }
+    }
+    expect(broken).toEqual([]);
   });
 
-  it("grades the stylesheet through its exact public entrypoint", () => {
-    const reactCore = manifest.packages.find(
-      (candidate) => candidate.name === "@copilotkit/react-core",
-    );
-    const stylesheet = "@copilotkit/react-core/v2/styles.css";
-    const setupEval = read("skills/copilotkit-setup/eval.yaml");
-
-    expect(
-      reactCore?.entrypoints.some(
-        (entrypoint) => entrypoint.importPath === stylesheet,
-      ),
-    ).toBe(true);
-    expect(setupEval).toContain(`grep -rF "${stylesheet}"`);
-    expect(setupEval).not.toContain(
-      'grep -r "styles\\.css\\|@copilotkit/react/styles"',
-    );
+  it("keeps the two entry-point skills present and named", () => {
+    for (const slug of ["copilotkit", "copilotkit-cli"]) {
+      const file = join(skillsDir, slug, "SKILL.md");
+      expect(existsSync(file), `${slug}/SKILL.md`).toBe(true);
+      expect(readFileSync(file, "utf8")).toContain(`name: ${slug}`);
+    }
   });
 
-  it.each([
-    "skills/copilotkit-debug/sources.md",
-    "skills/copilotkit-setup/sources.md",
-  ])("keeps %s package inventory paths resolvable", (sourcesPath) => {
-    const paths = read(sourcesPath)
-      .split("\n")
-      .flatMap(
-        (line) => line.match(/^- (packages\/\S+?)(?:\/)? \(/)?.[1] ?? [],
-      );
-
-    expect(paths.length).toBeGreaterThan(0);
-    expect(
-      paths.filter((relativePath) => !existsSync(resolve(root, relativePath))),
-    ).toEqual([]);
+  it("keeps the entry points free of a transcribed API surface", () => {
+    // A `sources.md` inventory marks a skill that copied source and therefore
+    // needed its pointers audited. The entry points must never grow one again.
+    // `copilotkit-channels` still carries one and is awaiting its own
+    // disposition, so it is named here rather than silently tolerated.
+    const inventories = files
+      .filter(([p]) => p.endsWith("/sources.md"))
+      .map(([p]) => p);
+    expect(inventories).toEqual(["skills/copilotkit-channels/sources.md"]);
   });
 });
