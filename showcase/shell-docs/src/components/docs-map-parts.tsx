@@ -127,15 +127,21 @@ export function MapIntro({
 /** Draws whichever logo the pick's data asked for. The switch is the whole of
  *  this component's knowledge: which logo belongs to which pick is decided in
  *  `@/lib/homepage-map`. */
-function PickLogo({ logo }: { logo: MapPickLogo }): React.JSX.Element {
+function PickLogo({
+  logo,
+  size = 14,
+}: {
+  logo: MapPickLogo;
+  size?: number;
+}): React.JSX.Element {
   if (logo.kind === "frontend") {
-    return <FrontendLogo icon={logo.icon} size={14} className="shrink-0" />;
+    return <FrontendLogo icon={logo.icon} size={size} className="shrink-0" />;
   }
   return (
     <FrameworkLogo
       slug={logo.slug}
       fallbackSrc={logo.fallbackSrc}
-      size={14}
+      size={size}
       className="shrink-0 text-[var(--text-secondary)]"
     />
   );
@@ -150,19 +156,44 @@ function optionToneClass(selected: boolean): string {
     : "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)]";
 }
 
+/** `"compact"` is a single row per option — small logo, truncated name, no
+ *  summary — used where density is the point (the nineteen agent backends).
+ *  `"card"` is a larger tile — bigger logo, the name at `text-sm`, and the
+ *  pick's `summary` beneath it — used where five options would otherwise
+ *  leave most of the step's frame empty (the frontends). */
+export type PickGridSize = "compact" | "card";
+
+function pickGridClass(size: PickGridSize): string {
+  return size === "card"
+    ? "grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
+    : "grid grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))]";
+}
+
+function pickButtonClass(size: PickGridSize, selected: boolean): string {
+  const base =
+    "shell-docs-radius-control flex cursor-pointer border text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+  const layout =
+    size === "card"
+      ? "flex-col items-start gap-2 p-3.5"
+      : "items-center gap-2 px-2.5 py-2";
+  return `${base} ${layout} ${optionToneClass(selected)}`;
+}
+
 export function PickGrid({
   picks,
   selectedId,
   disabled,
   onSelect,
+  size = "compact",
 }: {
   picks: readonly MapPick[];
   selectedId?: string;
   disabled: boolean;
   onSelect: (id: string) => void;
+  size?: PickGridSize;
 }): React.JSX.Element {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))]">
+    <div className={pickGridClass(size)}>
       {picks.map((pick) => {
         const selected = pick.id === selectedId;
         return (
@@ -172,14 +203,28 @@ export function PickGrid({
             disabled={disabled}
             aria-pressed={selected}
             onClick={() => onSelect(pick.id)}
-            className={`shell-docs-radius-control flex cursor-pointer items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${optionToneClass(
-              selected,
-            )}`}
+            className={pickButtonClass(size, selected)}
           >
-            <PickLogo logo={pick.logo} />
-            <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
-              {pick.name}
-            </span>
+            {size === "card" ? (
+              <>
+                <PickLogo logo={pick.logo} size={22} />
+                <span className="text-sm font-semibold text-[var(--text)]">
+                  {pick.name}
+                </span>
+                {pick.summary ? (
+                  <span className="text-xs leading-relaxed text-[var(--text-muted)]">
+                    {pick.summary}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <PickLogo logo={pick.logo} />
+                <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
+                  {pick.name}
+                </span>
+              </>
+            )}
           </button>
         );
       })}

@@ -126,4 +126,46 @@ describe("homepage map data", () => {
     const ids = agentPicks().map((p) => p.id);
     expect(ids.indexOf("ag2")).toBeLessThan(ids.indexOf("agno"));
   });
+
+  // Step 1's tiles fill their frame with a logo, a name, and this summary —
+  // an empty one would render as a card with a hole in it.
+  it("gives every frontend pick a non-empty summary", () => {
+    for (const pick of frontendPicks()) {
+      expect(pick.summary, pick.id).toBeTruthy();
+      expect(pick.summary!.length, pick.id).toBeGreaterThan(0);
+    }
+  });
+
+  // Density is the point for the nineteen backends — a summary line would
+  // fight the compact row layout `PickGrid` gives them.
+  it("gives no agent pick a summary", () => {
+    for (const pick of agentPicks()) {
+      expect(pick.summary, pick.id).toBeUndefined();
+    }
+  });
+
+  // The registry's `react` summary describes the docs site's framework
+  // switcher, not the frontend, and would read as nonsense on a wizard
+  // tile — it must be overridden. Every other frontend must keep reading
+  // straight from the registry, derived here (not hardcoded) so a copy
+  // edit in the registry can't silently drift out of step with this test.
+  it("overrides only the react summary, leaving every other frontend reading the registry's own value", () => {
+    const picks = frontendPicks();
+    const reactOption = FRONTEND_OPTIONS.find((o) => o.id === "react")!;
+    const reactPick = picks.find((p) => p.id === "react")!;
+
+    expect(reactPick.summary).not.toBe(reactOption.summary);
+
+    for (const option of FRONTEND_OPTIONS) {
+      if (
+        option.id === "react" ||
+        option.id === "slack" ||
+        option.id === "teams"
+      ) {
+        continue;
+      }
+      const pick = picks.find((p) => p.id === option.id)!;
+      expect(pick.summary, option.id).toBe(option.summary);
+    }
+  });
 });

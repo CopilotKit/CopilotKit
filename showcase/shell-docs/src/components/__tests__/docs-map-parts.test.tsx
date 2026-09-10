@@ -24,6 +24,21 @@ const PICKS: readonly MapPick[] = [
   { id: "react", name: "React", logo: { kind: "frontend", icon: "react" } },
 ];
 
+const PICKS_WITH_SUMMARY: readonly MapPick[] = [
+  {
+    id: "vue",
+    name: "Vue",
+    logo: { kind: "frontend", icon: "vue" },
+    summary: "Vue 3 provider, composables, and chat primitives.",
+  },
+  {
+    id: "react",
+    name: "React",
+    logo: { kind: "frontend", icon: "react" },
+    summary: "The React provider, hooks, and UI components for CopilotKit.",
+  },
+];
+
 const CAPABILITIES: readonly MapCapability[] = [
   {
     id: "chat",
@@ -164,6 +179,69 @@ describe("PickGrid", () => {
 
     const button = screen.getByRole("button", { name: "Vue" });
     expect(button.hasAttribute("aria-label")).toBe(false);
+  });
+
+  // No `size` prop at all must render the same as today's only behaviour —
+  // asserted independently of the "compact" tests below, so a change of
+  // default is caught even if every explicit-"compact" call site is fine.
+  it("renders the compact treatment when no size prop is given", () => {
+    render(
+      <PickGrid
+        picks={PICKS_WITH_SUMMARY}
+        disabled={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(PICKS_WITH_SUMMARY[0]!.summary!)).toBeNull();
+  });
+
+  it('renders no summary text in "compact" size', () => {
+    render(
+      <PickGrid
+        picks={PICKS_WITH_SUMMARY}
+        disabled={false}
+        onSelect={vi.fn()}
+        size="compact"
+      />,
+    );
+
+    for (const pick of PICKS_WITH_SUMMARY) {
+      expect(screen.queryByText(pick.summary!)).toBeNull();
+    }
+  });
+
+  it('renders each pick\'s summary text in "card" size', () => {
+    render(
+      <PickGrid
+        picks={PICKS_WITH_SUMMARY}
+        disabled={false}
+        onSelect={vi.fn()}
+        size="card"
+      />,
+    );
+
+    for (const pick of PICKS_WITH_SUMMARY) {
+      expect(screen.getByText(pick.summary!)).not.toBeNull();
+    }
+  });
+
+  // A pick with no summary must not leave an empty element where the
+  // summary would otherwise sit.
+  it('renders no empty summary element in "card" size when a pick has none', () => {
+    render(
+      <PickGrid
+        picks={PICKS}
+        disabled={false}
+        onSelect={vi.fn()}
+        size="card"
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Vue" });
+    // The button's only text is the name — no stray empty <span> sibling
+    // left over from a summary that was never provided.
+    expect(button.textContent).toBe("Vue");
   });
 });
 

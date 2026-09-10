@@ -15,7 +15,7 @@ import { ROOT_FRAMEWORK, getDocsMode, getIntegrations } from "@/lib/registry";
 import type { Integration } from "@/lib/registry";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
-import type { FrontendIcon } from "@/lib/frontend-options";
+import type { FrontendIcon, FrontendId } from "@/lib/frontend-options";
 
 /** Icon names used by the map. Every one is a real `lucide-react` export. */
 export type LucideIconName =
@@ -53,6 +53,7 @@ export interface MapPick {
   readonly id: string;
   readonly name: string;
   readonly logo: MapPickLogo;
+  readonly summary?: string;
 }
 
 /**
@@ -112,6 +113,19 @@ export const COPILOTKIT_CAPABILITIES: readonly MapCapability[] = [
 const NON_WIZARD_FRONTENDS = new Set(["slack", "teams"]);
 
 /**
+ * Overrides `FrontendOption.summary` for picks where the registry's own
+ * copy doesn't fit a wizard tile. `react`'s registry summary — "The
+ * complete CopilotKit docs experience." — is written for the docs
+ * framework switcher and describes the docs *site*, not the frontend; on a
+ * setup-wizard picker tile next to Vue, React Native and Angular it reads
+ * as nonsense. Every other id is left out on purpose so it keeps reading
+ * straight from the registry and stays in step with it automatically.
+ */
+const FRONTEND_SUMMARY_OVERRIDES: Partial<Record<FrontendId, string>> = {
+  react: "The React provider, hooks, and UI components for CopilotKit.",
+};
+
+/**
  * The frontends the wizard can pick, minus the managed channels (see
  * `NON_WIZARD_FRONTENDS`).
  */
@@ -122,6 +136,7 @@ export function frontendPicks(): MapPick[] {
     id: option.id,
     name: option.name,
     logo: { kind: "frontend", icon: option.icon },
+    summary: FRONTEND_SUMMARY_OVERRIDES[option.id] ?? option.summary,
   }));
 }
 
