@@ -100,8 +100,8 @@ function nonNegativeInteger(value: string): number {
 }
 
 function frontend(value: string): RunnableFrontend {
-  if (value !== "react" && value !== "angular") {
-    throw new InvalidArgumentError('must be "react" or "angular"');
+  if (value !== "react" && value !== "angular" && value !== "vue") {
+    throw new InvalidArgumentError('must be "react", "angular", or "vue"');
   }
   return value;
 }
@@ -259,7 +259,7 @@ function createProgram(): Command {
     .requiredOption("--integration <slug>")
     .requiredOption(
       "--integration-base-url <url>",
-      "branch-local origin that serves both /demos/* and /angular/*",
+      "branch-local origin that serves /demos/*, /angular/*, and /vue/*",
     )
     .requiredOption("--source-commit <revision>")
     .requiredOption("--container-image-revision <revision>")

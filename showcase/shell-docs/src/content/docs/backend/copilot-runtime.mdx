@@ -60,6 +60,20 @@ export const appConfig: ApplicationConfig = {
 ```
 </FrontendOnly>
 
+<FrontendOnly frontend="vue">
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <YourApp />
+  </CopilotKitProvider>
+</template>
+```
+</FrontendOnly>
+
 For Express, NestJS, or plain Node.js HTTP variants, see the [quickstart](/quickstart).
 For the exact HTTP routes the runtime exposes (and how to probe them with `curl`),
 see [Runtime HTTP endpoints](/backend/runtime-endpoints).
@@ -82,6 +96,15 @@ see [Runtime HTTP endpoints](/backend/runtime-endpoints).
   on its own — but if you have pinned `useSingleEndpoint={true}` anywhere, drop
   it or flip it to `{false}` when you move to a v2 handler. See
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+</Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+<Callout type="warn" title="Keep the transport automatic when possible">
+  `CopilotKitProvider` discovers the Runtime transport when
+  `use-single-endpoint` is omitted. If you must pin the mode, use
+  `:use-single-endpoint="true"` for a single-route handler or
+  `:use-single-endpoint="false"` for a multi-route handler.
 </Callout>
 </FrontendOnly>
 
@@ -357,6 +380,25 @@ export const appConfig: ApplicationConfig = {
     }),
   ],
 };
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+
+const myAgent = new HttpAgent({
+  url: "https://my-agent.example.com",
+});
+</script>
+
+<template>
+  <CopilotKitProvider :agents__unsafe_dev_only="{ 'my-agent': myAgent }">
+    <YourApp />
+  </CopilotKitProvider>
+</template>
 ```
 </FrontendOnly>
 

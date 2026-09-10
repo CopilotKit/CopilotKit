@@ -72,6 +72,14 @@ handler half below applies to you.
 
 </FrontendOnly>
 
+<FrontendOnly frontend="vue">
+
+Vue uses `CopilotKitProvider`. With `use-single-endpoint` omitted, it discovers
+the transport from `/info`; set it to `true` for a single-route handler or
+`false` for a multi-route handler.
+
+</FrontendOnly>
+
 ### Which handlers serve which mode
 
 | Mode                         | Handlers                                                                                                                                                                                |
@@ -266,6 +274,12 @@ The provider and handler modes must match.
 Keep `provideCopilotKit` pointed at the Runtime base URL. The Angular SDK
 discovers the transport from Runtime info; it has no
 `useSingleEndpoint` option to remove.
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+Keep `CopilotKitProvider` pointed at the Runtime base URL. It discovers the
+transport when `use-single-endpoint` is omitted; set
+`:use-single-endpoint="true"` only when you need to pin a single-route handler.
 </FrontendOnly>
 </Step>
 
@@ -492,6 +506,23 @@ provideCopilotKit({
 <Callout type="warn">
 Runtime info must remain reachable through the selected transport so the
 Angular client can discover the transport and registered agents.
+</Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+The Vue SDK also discovers the transport from Runtime info. Point
+`CopilotKitProvider` at the base endpoint; no second route configuration is
+needed:
+
+```vue
+<CopilotKitProvider runtime-url="/api/copilotkit">
+  <YourApp />
+</CopilotKitProvider>
+```
+
+<Callout type="warn">
+Runtime info must remain reachable so the Vue client can discover the transport
+and registered agents.
 </Callout>
 </FrontendOnly>
 

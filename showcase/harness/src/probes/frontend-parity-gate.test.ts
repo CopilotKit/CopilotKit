@@ -167,6 +167,18 @@ describe("evaluateFrontendParity", () => {
             testIds: ["fm-react-1"],
             probes: [{ featureType: "agentic-chat" }],
           },
+          {
+            frontend: "vue",
+            integration: "mastra",
+            feature: "agentic-chat",
+            status: "passed",
+            sourceCommit: BASE_COMMIT,
+            containerImageRevision: IMAGE,
+            fixtureRevision: FIXTURE,
+            featureContractRevision: CONTRACT,
+            testIds: ["fm-vue-1"],
+            probes: [{ featureType: "agentic-chat" }],
+          },
         ],
       }),
     ).toEqual([
@@ -183,6 +195,27 @@ describe("evaluateFrontendParity", () => {
         probeIds: ["agentic-chat"],
       },
     ]);
+  });
+
+  it("rejects malformed Vue aggregate rows before excluding them from parity", () => {
+    expect(() =>
+      frontendParityCellsFromAggregate({
+        cells: [
+          {
+            frontend: "vue",
+            integration: "mastra",
+            feature: "agentic-chat",
+            status: "unknown",
+            sourceCommit: BASE_COMMIT,
+            containerImageRevision: IMAGE,
+            fixtureRevision: FIXTURE,
+            featureContractRevision: CONTRACT,
+            testIds: ["fm-vue-1"],
+            probes: [{ featureType: "agentic-chat" }],
+          },
+        ],
+      }),
+    ).toThrow(/unsupported aggregate status unknown/);
   });
 
   it("fails closed when a base, React, or Angular cell is missing", () => {

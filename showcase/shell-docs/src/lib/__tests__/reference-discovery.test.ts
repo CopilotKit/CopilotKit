@@ -44,6 +44,24 @@ test("publishes Angular reference guides in navigation and LLM output", () => {
   );
 });
 
+test("publishes the Vue thread reference pages in navigation and LLM output", () => {
+  const navigationUrls = collectPageUrls(buildReferencePageTree("vue"));
+  const llmUrls = getAllLlmPages().map((page) => page.url);
+
+  expect(navigationUrls).toEqual(
+    expect.arrayContaining([
+      "/reference/vue/hooks/useThreads",
+      "/reference/vue/components/CopilotThreadsDrawer",
+    ]),
+  );
+  expect(llmUrls).toEqual(
+    expect.arrayContaining([
+      "reference/vue/hooks/useThreads",
+      "reference/vue/components/CopilotThreadsDrawer",
+    ]),
+  );
+});
+
 test("publishes the maintained Channels SDK reference in its original surface", () => {
   const staticReferenceSlugs = referenceStaticParams().map(({ slug }) =>
     slug.join("/"),

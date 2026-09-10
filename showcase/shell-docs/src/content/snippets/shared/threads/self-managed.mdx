@@ -1,3 +1,5 @@
+import RestoreHistory from "@/snippets/vue/threads/restore-history.mdx";
+
 A common question: *how do I point CopilotKit's threads at my own database instead of CopilotKit Intelligence?*
 
 The honest answer is that you can't, because there is no such extension point. CopilotKit does not define a "bring your own thread backend" endpoint spec that you can implement against — [Rich Threads](/threads) (`useThreads`, the [Threads Drawer](/prebuilt-components/copilot-threads-drawer), cross-device sync, replayable event history) are a capability of [CopilotKit Intelligence](/intelligence/overview), not an interface with a swappable implementation.
@@ -26,9 +28,17 @@ Three pieces, none of them CopilotKit-specific.
 
 Don't let CopilotKit mint the id. Mint it yourself, store it, and pass it in — that id is the only thing correlating the browser, the runtime, and your agent's store.
 
+<FrontendOnly frontend="react">
 ```tsx
 <CopilotChat agentId="my-agent" threadId={conversationId} />
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+```vue
+<CopilotChat agent-id="my-agent" :thread-id="conversationId" />
+```
+</FrontendOnly>
 
 An auto-minted id is re-created on remount, which silently starts a new conversation. See [Thread lifecycle](/threads-lifecycle#how-the-threadid-is-created) for the full precedence rules.
 
@@ -61,7 +71,13 @@ The same shape applies wherever your framework keeps durable state — CrewAI me
 
 ### 3. Build the thread list yourself
 
+<FrontendOnly frontend="react">
 `useThreads` is platform-backed and will not return your rows, so the conversation list is application code: a table of `(thread_id, user_id, title, updated_at)` that you query and render, with the selected id handed to `<CopilotChat threadId={...} />`.
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+`useThreads` is platform-backed and will not return your rows, so the conversation list is application code: a table of `(thread_id, user_id, title, updated_at)` that you query and render, with the selected id handed to `<CopilotChat :thread-id="..." />`.
+</FrontendOnly>
 
 Scope every query to the signed-in user, and check ownership on the runtime side too — see [Thread authorization](/auth#thread-authorization).
 
@@ -69,6 +85,7 @@ Scope every query to the signed-in user, and check ownership on the runtime side
 
 Framework state alone doesn't repopulate the UI. If you want prior messages on screen at mount, you have to put them there — read them from your store and set them on the agent:
 
+<FrontendOnly frontend="react">
 ```tsx
 import { useEffect } from "react";
 import { useAgent } from "@copilotkit/react-core/v2";
@@ -89,6 +106,27 @@ function RestoreHistory({ threadId }: { threadId: string }) {
   return null;
 }
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+<RestoreHistory components={props.components} />
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import RestoreHistory from "./components/RestoreHistory.vue";
+
+const conversationId = "conversation_42";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <RestoreHistory :thread-id="conversationId" />
+    <CopilotChat agent-id="my-agent" :thread-id="conversationId" />
+  </CopilotKitProvider>
+</template>
+```
+</FrontendOnly>
 
 This restores text. It does not restore generative UI, tool-call renders, or attachments — those come back only from a replayed AG-UI event history, which is what the platform store provides and a checkpointer does not.
 

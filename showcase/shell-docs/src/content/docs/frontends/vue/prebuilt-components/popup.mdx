@@ -1,0 +1,47 @@
+---
+title: CopilotPopup
+icon: "lucide/MessageCircle"
+description: Floating Vue chat launcher that opens an overlay window.
+---
+
+## What is this?
+
+`<CopilotPopup>` is a floating launcher that opens a chat window over the page.
+It is the compact way to add a copilot without dedicating layout space to an
+always-visible panel.
+
+## When should I use this?
+
+Use the popup for task-focused chats that users open on demand. Use
+[CopilotSidebar](/vue/prebuilt-components/sidebar) when the chat belongs beside
+the workspace, or [`<CopilotChat>`](/vue/prebuilt-components/chat) when it
+belongs in the document flow.
+
+## Basic setup
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <main><!-- Your application --></main>
+    <CopilotPopup agent-id="my-agent" :default-open="false" />
+  </CopilotKitProvider>
+</template>
+```
+
+## Configuring the popup
+
+Alongside the shared chat props, `CopilotPopup` accepts `width`, `height`,
+`default-open`, and `click-outside-to-close`. Its `header` and `toggle-button`
+scoped slots receive the popup state and open/close actions. The component also
+forwards the regular chat interaction events.
+
+## Styling
+
+See [CSS customization](/vue/custom-look-and-feel/css) for token overrides and
+[slots](/vue/custom-look-and-feel/slots) for template-level replacement of
+popup pieces.

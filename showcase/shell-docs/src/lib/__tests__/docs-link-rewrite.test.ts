@@ -128,6 +128,32 @@ describe("resolveDocsHref", () => {
     );
   });
 
+  it("uses the matching Vue reference page for root React reference links", () => {
+    const vue = {
+      slugHrefPrefix: "/vue",
+      frontendOverride: "vue" as const,
+    };
+
+    expect(resolveDocsHref("/reference/hooks/useThreads", vue)).toBe(
+      "/reference/vue/hooks/useThreads",
+    );
+    expect(resolveDocsHref("/reference/v2/hooks/useThreads#methods", vue)).toBe(
+      "/reference/vue/hooks/useThreads#methods",
+    );
+    expect(resolveDocsHref("/reference/hooks/not-in-vue", vue)).toBe(
+      "/reference/vue",
+    );
+    expect(resolveDocsHref("/reference/angular/services/runtime", vue)).toBe(
+      "/reference/angular/services/runtime",
+    );
+    expect(
+      resolveDocsHref("/reference/hooks/useThreads", {
+        slugHrefPrefix: "/mastra",
+        frameworkOverride: "mastra",
+      }),
+    ).toBe("/reference/hooks/useThreads");
+  });
+
   it("scopes shared Channels guides to the selected Slack or Teams journey", () => {
     const mastraSlack = {
       slugHrefPrefix: "/slack/mastra",

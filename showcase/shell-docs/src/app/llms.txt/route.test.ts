@@ -126,3 +126,33 @@ test("leads with every visible external framework and validates its entry points
   );
   expect(body).toContain("Built-in Agent Quickstart");
 });
+
+test("publishes Vue routes from the derived frontend navigation", async () => {
+  const response = GET();
+  const body = await response.text();
+
+  for (const url of [
+    "vue",
+    "vue/using-these-docs",
+    "vue/prebuilt-components",
+    "vue/threads",
+    "vue/threads-import",
+    "vue/generative-ui/tool-rendering",
+    "vue/human-in-the-loop",
+    "vue/inspector",
+    "vue/custom-look-and-feel/css",
+    "vue/custom-look-and-feel/reasoning-messages",
+    "vue/generative-ui/reasoning",
+    "vue/multimodal-attachments",
+    "vue/prebuilt-components/chat",
+    "vue/prebuilt-components/chat-controls",
+    "vue/prebuilt-components/popup",
+    "vue/prebuilt-components/sidebar",
+    "vue/voice",
+  ]) {
+    expect(body).toContain(`/${url})`);
+  }
+  expect(body).not.toContain("/vue/guides/generative-ui)");
+  expect(body).not.toContain("/vue/guides/threads-and-drawer)");
+  expect(body).not.toContain("/vue/generative-ui/a2ui)");
+});
