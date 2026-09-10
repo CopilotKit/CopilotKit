@@ -7,8 +7,8 @@ description: >
   LangGraph, CrewAI Crews/Flows, PydanticAI, ADK, LlamaIndex, Agno, AWS Strands, MS Agent
   Framework, AG2, A2A), enable Intelligence mode for durable threads + websocket,
   register server-side tools via defineTool, and wire voice transcription. Uses the
-  fetch-based createCopilotRuntimeHandler primitive — the Express/Hono adapters are
-  discouraged. Load the reference under references/ that matches your task.
+  fetch-based createCopilotRuntimeHandler primitive, or the supported Express/Hono
+  adapters. Load the reference under references/ that matches your task.
 type: core
 library: copilotkit
 library_version: "1.71.0"
@@ -82,7 +82,7 @@ export default { fetch: handler };
 
 ## Invariants and gotchas (load-once, before any reference)
 
-- `createCopilotRuntimeHandler` is the canonical primitive. `createCopilotExpressHandler` / `createCopilotHonoHandler` exist but are **avoid at all costs** — delegate from Express/Hono routes to the fetch primitive instead.
+- `createCopilotRuntimeHandler` is the fetch-native primitive, and the right choice on Workers, Bun, Deno and any other fetch runtime. `createCopilotExpressHandler` / `createCopilotHonoHandler` are the **current, supported** adapters for those two frameworks — the deprecated names are `createCopilotEndpoint`, `createCopilotEndpointExpress` and their single-route variants, each of which now points at one of the two handlers.
 - Intelligence credentials are server-side. The CLI writes `CPK_INTELLIGENCE_API_KEY` into the runtime's environment; no client-side key is involved.
 - Intelligence mode auto-wires `IntelligenceAgentRunner`. Passing both `runner` and `intelligence` to `CopilotRuntime` is rejected at construction.
 - Intelligence mode targets the managed CopilotKit Intelligence service (`api.cloud.copilotkit.ai`) and is **not self-hostable**.

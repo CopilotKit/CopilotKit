@@ -214,8 +214,11 @@ useFrontendTool({
 });
 ```
 
-Server tools execute on the server and stream only results back. The browser never sees a
-`TOOL_CALL_START` for a server tool, so there is nothing to mount a renderer against.
+`execute` runs on the server, so it cannot touch the DOM or component state — put the
+action in `useFrontendTool` when the action itself belongs in the browser. Rendering is a
+separate matter: a server tool's call does stream to the browser, so a render-only
+`useRenderTool` registration under the same name can give it UI while `execute` stays on
+the server.
 
 Source: `dev-docs/architecture/plugin-points.md:36-77`;
 `docs/content/docs/integrations/built-in-agent/server-tools.mdx:9-14`.

@@ -193,9 +193,12 @@ export default {
 };
 ```
 
-### Delegate from Express / Hono to the fetch primitive
+### Delegate from Express / Hono to the fetch primitive by hand
 
-Do not use `createCopilotExpressHandler` / `createCopilotHonoHandler`.
+`createCopilotExpressHandler` and `createCopilotHonoHandler` are the normal way to mount on
+those two frameworks — reach for them first. Delegate by hand only when you need the raw
+fetch handler inside an existing app, for instance to control middleware ordering around it
+yourself.
 
 ```typescript
 // Express — requires Node 18.17+ for Readable.fromWeb + fetch body: req
@@ -282,54 +285,6 @@ Single-route mode exposes a single `POST basePath` that accepts
 
 ## Common Mistakes
 
-### CRITICAL Using createCopilotExpressHandler / createCopilotHonoHandler in new code
-
-Wrong:
-
-```typescript
-import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
-app.use(
-  "/api/copilotkit",
-  createCopilotExpressHandler({ runtime, basePath: "/api/copilotkit" }),
-);
-```
-
-Correct:
-
-```typescript
-import { Readable } from "node:stream";
-import type { ReadableStream as WebReadableStream } from "node:stream/web";
-import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
-const handler = createCopilotRuntimeHandler({
-  runtime,
-  basePath: "/api/copilotkit",
-});
-app.all("/api/copilotkit/*", async (req, res) => {
-  // Requires Node 18.17+ (Readable.fromWeb + duplex: "half")
-  const webReq = new Request(new URL(req.url, `http://${req.headers.host}`), {
-    method: req.method,
-    headers: req.headers as any,
-    body: ["GET", "HEAD"].includes(req.method!) ? undefined : req,
-    duplex: "half",
-  } as any);
-  const webRes = await handler(webReq);
-  res.status(webRes.status);
-  webRes.headers.forEach((v, k) => res.setHeader(k, v));
-  // Stream, don't buffer — /agent/*/run is SSE.
-  if (webRes.body) {
-    Readable.fromWeb(webRes.body as unknown as WebReadableStream).pipe(res);
-  } else {
-    res.end();
-  }
-});
-```
-
-The Express and Hono adapters are a discouraged surface — the maintainer flags them as
-"avoid at all costs." They pull in heavier dependencies, add framework binding, and make
-it harder to port. The fetch handler works from any Express/Hono route.
-
-Source: `packages/runtime/src/v2/runtime/core/fetch-handler.ts:1-27`; maintainer Phase 4d.
-
 ### CRITICAL Instantiating Express handler without basePath
 
 Wrong:
@@ -354,31 +309,6 @@ app.all("/api/copilotkit/*", (req, res) => {
 and crashes the server.
 
 Source: `packages/runtime/src/v2/runtime/endpoints/express.ts:161`.
-
-### HIGH Using framework adapter on Workers / Bun / Deno
-
-Wrong:
-
-```typescript
-// Cloudflare Worker
-import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
-export default app;
-```
-
-Correct:
-
-```typescript
-import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
-const handler = createCopilotRuntimeHandler({
-  runtime,
-  basePath: "/api/copilotkit",
-});
-export default { fetch: (req: Request) => handler(req) };
-```
-
-Adapters bundle Node polyfills unnecessarily in fetch-native runtimes.
-
-Source: `packages/runtime/src/v2/runtime/core/fetch-handler.ts:1-27`.
 
 ### HIGH Returning a Response from beforeRequestMiddleware
 
