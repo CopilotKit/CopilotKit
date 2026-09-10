@@ -1079,3 +1079,49 @@ describe("AgentRegistry runtime info requests", () => {
     });
   });
 });
+
+describe("ProxiedCopilotRuntimeAgent runtimeUrl with a trailing slash", () => {
+  const originalFetch = global.fetch;
+  const runtimeUrl = "https://runtime.example/service/copilotkit/";
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = originalFetch;
+  });
+
+  it("keeps the caller's URL verbatim as the single-route endpoint", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "single",
+    });
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(runtimeUrl);
+  });
+
+  it("joins REST paths without a double slash", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "rest",
+    });
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://runtime.example/service/copilotkit/agent/agent/run",
+    );
+  });
+});

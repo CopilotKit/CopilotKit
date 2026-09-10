@@ -121,9 +121,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       : undefined;
     const transport = config.transport ?? "auto";
     const routedId = config.runtimeAgentId ?? config.agentId ?? "";
+    // The single endpoint is the caller's URL exactly as given: a trailing
+    // slash can select a different proxy location, so it must survive. Only
+    // the path joins (`/agent/…`, `/info`) use the slash-stripped form.
     const runUrl =
       transport === "single"
-        ? (normalizedRuntimeUrl ?? config.runtimeUrl ?? "")
+        ? (config.runtimeUrl ?? "")
         : `${normalizedRuntimeUrl ?? config.runtimeUrl}/agent/${encodeURIComponent(routedId)}/run`;
 
     if (!runUrl) {
@@ -147,7 +150,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       this.debug = config.debug;
     }
     if (this.transport === "single") {
-      this.singleEndpointUrl = this.runtimeUrl;
+      this.singleEndpointUrl = config.runtimeUrl;
     }
   }
 
