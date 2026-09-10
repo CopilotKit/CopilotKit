@@ -667,7 +667,8 @@
         "react/langgraph-python/quickstart",
         "react/langgraph-typescript/quickstart",
         "react/google-adk/quickstart",
-        "react/strands/quickstart"
+        "react/strands/quickstart",
+        "product/intelligence/connect-your-runtime"
       ],
       "source_evidence": [
         {
@@ -689,6 +690,11 @@
           "path": "showcase/shell-docs/src/content/docs/integrations/aws-strands/quickstart.mdx",
           "line": 310,
           "detail": "The Strands quickstart repeats the same per-user claim and derives identifyUser directly from x-user-id and x-user-name request headers."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/intelligence/connect-your-runtime.mdx",
+          "line": 48,
+          "detail": "The canonical Intelligence runtime guide repeats the same client-controlled header derivation while saying it scopes threads per user."
         },
         {
           "path": "showcase/shell-docs/src/content/docs/auth.mdx",
@@ -743,8 +749,38 @@
         }
       ],
       "root_cause": "The guide confuses a wildcard server bind address with an address a client should connect to.",
-      "impact": "Readers troubleshooting a failed local connection can replace the working loopback target with a non-routable wildcard target and make the failure harder to diagnose.",
+      "impact": "The troubleshooting advice is nonportable: 0.0.0.0 denotes a server wildcard bind, not a portable client destination. It can send readers away from valid loopback URLs without the audit claiming an observed connection failure.",
       "validation_needed": "Remove 0.0.0.0 as a client target, explain it only as an optional server bind address if needed, retain valid loopback targets, then recheck both starter and bring-your-own rendered troubleshooting sections."
+    },
+    {
+      "id": "CONTENT-GEN-016",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "Rich Threads setup-prompt ownership",
+      "feature": "Rich Threads overview coding-agent handoff",
+      "affected_contexts": [
+        "product/threads"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/snippets/shared/threads/overview.mdx",
+          "line": 24,
+          "detail": "The Rich Threads overview embeds a hand-written tracked coding-agent prompt with its own init command, cloud-hosted assumptions, and verification procedure."
+        },
+        {
+          "path": "showcase/shell-docs/src/lib/rich-threads-setup-prompt.ts",
+          "line": 10,
+          "detail": "The existing canonical Rich Threads prompt delegates to the add-rich-threads CLI intent."
+        },
+        {
+          "path": "showcase/shell-docs/src/lib/intelligence-onboarding-prompt.ts",
+          "line": 68,
+          "detail": "The shared prompt factory says feature cards must not repeat setup instructions because the CLI intent owns links, planning, prerequisite refusal, and proof."
+        }
+      ],
+      "root_cause": "The Threads overview predates or bypasses the shared RichThreadsSetupPrompt contract and duplicates a setup flow in page content.",
+      "impact": "The public overview has a second Rich Threads coding-agent flow whose assumptions and verification language can drift from the CLI-owned add-rich-threads route. This conflicts with the requirement to reuse the existing helper rather than create another prompt contract.",
+      "validation_needed": "Replace the embedded hand-written handoff with RichThreadsSetupPrompt (or a wrapper that passes through its exact prompt), preserve only page-specific context outside the copied prompt, then assert browser and raw Markdown expose the same canonical command and that the CLI intent remains the source of setup steps."
     }
   ]
 }

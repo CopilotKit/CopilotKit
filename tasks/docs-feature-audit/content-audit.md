@@ -23,7 +23,8 @@ Status: in progress. This report records source and rendering findings only; it 
 10. `CONTENT-GEN-012` — the Google ADK and AWS Strands setup instructions tell readers to install `@copilotkit/react-ui` even though the displayed v2 imports use only `react-core/v2`; this is a minimality finding, not a claim that the package is nonworking.
 11. `CONTENT-GEN-013` — Google ADK's committed exact and optional-catch-all auth routes make Next abort before the local frontend listens. This is observed baseline launch evidence, so all Google ADK Showcase guides/examples are unavailable locally until the route collision is repaired.
 12. `CONTENT-GEN-014` — the LangGraph, Google ADK, and AWS Strands Intelligence quickstarts equate per-user thread isolation with an identity copied from arbitrary browser request headers; the shared authentication guide requires server-verified identity and additional ownership guards.
-13. `CONTENT-GEN-015` — the Google ADK, AWS Strands, and Built-in Agent quickstarts suggest wildcard server bind address `0.0.0.0` as a client connection target in troubleshooting.
+13. `CONTENT-GEN-015` — the Google ADK, AWS Strands, and Built-in Agent quickstarts give nonportable advice by suggesting wildcard server bind address `0.0.0.0` as a client connection target in troubleshooting.
+14. `CONTENT-GEN-016` — the Rich Threads overview duplicates a hand-written coding-agent setup flow instead of reusing the existing `RichThreadsSetupPrompt` and CLI-owned `add-rich-threads` intent.
 
 ## Candidate setup-contract gap
 
