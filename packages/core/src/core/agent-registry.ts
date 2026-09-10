@@ -84,6 +84,8 @@ interface RuntimeConnectionAttempt {
 
 interface RuntimeAgentConnection {
   runtimeUrl: string;
+  /** The caller-supplied URL the proxy was built with (trailing slash intact). */
+  endpointUrl?: string;
   transport: CopilotRuntimeTransport;
 }
 
@@ -759,7 +761,7 @@ export class AgentRegistry {
         const response =
           resolvedTransport === "single"
             ? await this.fetchInspectorMetadataSingle({
-                runtimeUrl,
+                runtimeUrl: this.singleEndpointUrlFor(runtimeUrl),
                 headers,
                 credentials,
                 signal: abortController.signal,
@@ -1125,7 +1127,9 @@ export class AgentRegistry {
 
   /** Return the stable key that scopes connection and entitlement retries. */
   private runtimeConnectionKey(): string {
-    return `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+    // The endpoint URL is part of the identity: a change that only adds or
+    // drops the trailing slash targets a different single-route endpoint.
+    return `${this._runtimeEndpointUrl ?? this._runtimeUrl ?? ""}::${this._requestedTransport}`;
   }
 
   /** Return whether a proxy still targets this Runtime connection. */
@@ -1140,6 +1144,7 @@ export class AgentRegistry {
     const connection = this.remoteAgentConnections.get(agent);
     return (
       connection?.runtimeUrl === runtimeUrl.replace(/\/$/, "") &&
+      connection.endpointUrl === this._runtimeEndpointUrl &&
       connection.transport === transport
     );
   }
@@ -1352,6 +1357,7 @@ export class AgentRegistry {
             }
             this.remoteAgentConnections.set(agent, {
               runtimeUrl,
+              endpointUrl: this._runtimeEndpointUrl,
               transport: this._runtimeTransport,
             });
             return [id, agent];

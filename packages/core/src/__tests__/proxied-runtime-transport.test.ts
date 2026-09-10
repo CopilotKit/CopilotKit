@@ -1124,4 +1124,38 @@ describe("ProxiedCopilotRuntimeAgent runtimeUrl with a trailing slash", () => {
       "https://runtime.example/service/copilotkit/agent/agent/run",
     );
   });
+
+  it("keeps the verbatim endpoint when auto detection falls back to single-route", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "auto",
+    });
+    // REST /info is not there; the single-route info envelope answers.
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 404 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ version: "1.0.0", agents: {} }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(createSseResponse());
+
+    await agent.runAgent({});
+
+    const urls = fetchMock.mock.calls.map(([url]) => url);
+    expect(urls[0]).toBe("https://runtime.example/service/copilotkit/info");
+    expect(urls[1]).toBe(runtimeUrl);
+    expect(urls[2]).toBe(runtimeUrl);
+  });
+
+  it("clones with the verbatim endpoint", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "agent",
+      transport: "single",
+    });
+
+    expect(agent.clone().url).toBe(runtimeUrl);
+  });
 });

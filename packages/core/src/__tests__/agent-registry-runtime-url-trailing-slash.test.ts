@@ -54,6 +54,30 @@ describe("runtimeUrl with a trailing slash", () => {
     expect((agent as ProxiedCopilotRuntimeAgent).url).toBe(runtimeUrl);
   });
 
+  it("rebuilds the proxy when only the trailing slash changes", async () => {
+    const { core, fetchMock } = setupCore(runtimeUrl, "single");
+    await vi.waitFor(() => {
+      expect(core.getAgent("default")).toBeDefined();
+    });
+    const before = core.getAgent("default") as ProxiedCopilotRuntimeAgent;
+
+    fetchMock.mockResolvedValueOnce(runtimeInfoResponse());
+    core.setRuntimeUrl("https://runtime.example/service/copilotkit");
+    await vi.waitFor(() => {
+      const agent = core.getAgent("default") as
+        | ProxiedCopilotRuntimeAgent
+        | undefined;
+      expect(agent).toBeDefined();
+      expect(agent).not.toBe(before);
+    });
+
+    const after = core.getAgent("default") as ProxiedCopilotRuntimeAgent;
+    expect(after.url).toBe("https://runtime.example/service/copilotkit");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "https://runtime.example/service/copilotkit",
+    );
+  });
+
   it("joins REST paths without a double slash", async () => {
     const { core, fetchMock } = setupCore(runtimeUrl, "rest");
 
