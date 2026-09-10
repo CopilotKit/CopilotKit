@@ -1,10 +1,10 @@
 {
   "_meta": {
-    "description": "D6 fixtures for google-antigravity / hitl-in-chat",
+    "description": "D6 fixtures for google-antigravity / hitl-in-chat. Every leg emits `book_call` — the ONLY tool this cell has, registered by the page through useHumanInTheLoop (src/app/demos/hitl-in-chat/page.tsx); the agent declares none.",
     "sourceFile": "d5-all.json",
     "created": "2026-05-21",
     "copiedFrom": "langgraph-python",
-    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). turnIndex is a POSITION disambiguator, not a reject gate (aimock selectByTurnIndex): the candidate with the highest turnIndex <= assistantCount wins, so a leg must carry EVERY absolute position a test can reach it from -- a fresh thread (0/2) AND its slot in a multi-pill single-thread sequence."
   },
   "fixtures": [
     {
@@ -34,83 +34,87 @@
       }
     },
     {
+      "_comment": "hitl-in-chat page pill 'Book a call with sales' (\"Please book an intro call with the sales team to discuss pricing.\"). The tool is `book_call`, the only tool the page registers (useHumanInTheLoop, params {topic, attendee}). This leg used to emit `schedule_meeting` behind a `toolName: \"schedule_meeting\"` gate: the agent (src/agents/hitl.py) declares no tools of its own and the page never registers that name, so the gate could not match — and had it matched, the Antigravity harness would have aborted the run with `unknown_tool`.",
       "match": {
         "userMessage": "intro call with the sales team",
-        "context": "google-antigravity",
-        "turnIndex": 2
-      },
-      "response": {
-        "content": "Booked: Sales intro call confirmed for the slot you picked."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "intro call with the sales team",
-        "toolName": "schedule_meeting",
         "context": "google-antigravity",
         "turnIndex": 0
       },
       "response": {
         "toolCalls": [
           {
-            "name": "schedule_meeting",
-            "arguments": {
-              "topic": "Sales intro call",
-              "attendee": "Sales team",
-              "slots": [
-                {
-                  "label": "Mon 10:00 AM",
-                  "iso": "2026-05-11T10:00:00Z"
-                },
-                {
-                  "label": "Tue 2:00 PM",
-                  "iso": "2026-05-12T14:00:00Z"
-                }
-              ]
-            },
-            "id": "call_d5_schedule_sales_001"
+            "id": "call_d5_book_call_sales_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Sales intro call\",\"attendee\":\"Sales team\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "'Book a call with sales' — narration after the frontend tool resolves. Wording is pinned to the shared spec's assertion, not to the mirrored langgraph-python text: hitl-in-chat.spec.ts (a byte-identical fleet copy that must not be edited) waits for an assistant message matching /Booked.*sales team/i, and the canonical 'Booked: Sales intro call confirmed for the slot you picked.' does not match. The fixture is the sanctioned place to absorb that.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Booked: the intro call with the sales team is confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "'Book a call with sales' as the SECOND flow of hitl-in-chat.spec.ts's 'both suggestions render the picker when run back-to-back without refresh' test: the Alice flow ahead of it consumes 0..2 and leaves the thread at assistantCount 3.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "context": "google-antigravity",
+        "turnIndex": 3
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_sales_t3",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Sales intro call\",\"attendee\":\"Sales team\"}"
           }
         ]
       }
     },
     {
       "match": {
-        "userMessage": "1:1 with Alice",
+        "userMessage": "intro call with the sales team",
         "context": "google-antigravity",
-        "turnIndex": 2
+        "turnIndex": 5
       },
       "response": {
-        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
-      }
+        "content": "Booked: the intro call with the sales team is confirmed for the slot you picked."
+      },
+      "_comment": "'Book a call with sales' — narration for the second-pill ladder (3 -> 5). Wording is pinned to the shared spec's assertion, not to the mirrored langgraph-python text: hitl-in-chat.spec.ts (a byte-identical fleet copy that must not be edited) waits for an assistant message matching /Booked.*sales team/i, and the canonical 'Booked: Sales intro call confirmed for the slot you picked.' does not match. The fixture is the sanctioned place to absorb that."
     },
     {
+      "_comment": "hitl-in-chat page pill 'Schedule a 1:1 with Alice' (\"Schedule a 1:1 with Alice next week to review Q2 goals.\"). Same `schedule_meeting` -> `book_call` correction as the sales pill above. Only staged for a fresh thread: every spec that drives this prompt sends it first.",
       "match": {
         "userMessage": "1:1 with Alice",
-        "toolName": "schedule_meeting",
         "context": "google-antigravity",
         "turnIndex": 0
       },
       "response": {
         "toolCalls": [
           {
-            "name": "schedule_meeting",
-            "arguments": {
-              "topic": "1:1 with Alice — Q2 goals",
-              "attendee": "Alice",
-              "slots": [
-                {
-                  "label": "Wed 11:00 AM",
-                  "iso": "2026-05-13T11:00:00Z"
-                },
-                {
-                  "label": "Thu 3:30 PM",
-                  "iso": "2026-05-14T15:30:00Z"
-                }
-              ]
-            },
-            "id": "call_d5_schedule_alice_001"
+            "id": "call_d5_book_call_alice_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"1:1 with Alice \\u2014 Q2 goals\",\"attendee\":\"Alice\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "'Schedule a 1:1 with Alice' — narration after the frontend tool resolves. Wording is pinned to the shared spec's assertion, not to the mirrored langgraph-python text: hitl-in-chat.spec.ts (a byte-identical fleet copy that must not be edited) waits for an assistant message matching /Booked.*Alice/i, and the canonical 'Scheduled: 1:1 with Alice locked in for the slot you picked.' does not match. The fixture is the sanctioned place to absorb that.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Booked: your 1:1 with Alice is locked in for the slot you picked."
       }
     }
   ]
