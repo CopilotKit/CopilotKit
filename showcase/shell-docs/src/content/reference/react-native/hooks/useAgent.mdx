@@ -39,7 +39,8 @@ import { useAgent } from "@copilotkit/react-native/headless";
 
 <PropertyReference name="agentId" type="string" default='"default"'>
   ID of the agent to retrieve. Resolution order is: explicit `agentId`, the
-  surrounding chat configuration's `agentId`, then `"default"`.
+  surrounding chat configuration's `agentId`, the provider-level `agentId`,
+  then `"default"`.
 </PropertyReference>
 
   <PropertyReference name="threadId" type="string">
@@ -178,7 +179,8 @@ There are two valid option shapes:
 
   <PropertyReference name="isReady" type="boolean">
     Whether `agent` is the real, runtime-synced agent rather than a provisional
-    stand-in returned while the runtime is still connecting.
+    stand-in returned while the runtime is still connecting, or after it has
+    failed to connect.
 
     `agent` is always a fully-constructed instance, so calling its methods is
     always safe. While `isReady` is `false`, the instance is a placeholder that
