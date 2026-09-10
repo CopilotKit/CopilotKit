@@ -1,0 +1,84 @@
+---
+title: Automatic learned skill delivery
+description: Keep published Learning skills available to agents with verified snapshots, automatic refresh, and exact revision pins.
+frontend: universal
+doc_type: explanation
+---
+
+Learned skill delivery makes one Learning container's published skills available to an agent without another CLI download or process restart. A framework adapter adds an alphabetical catalog and two tools. The model decides when to load and follow a skill.
+
+Developer instructions retain precedence. Learned skills cannot override the agent's role, safety rules, tool restrictions, or application policy.
+
+## Choose an adapter
+
+| Framework | Package | Native extension |
+| --- | --- | --- |
+| LangGraph Python | `copilotkit-intelligence-langgraph` | `create_skill_registry_middleware` |
+| LangGraph TypeScript | `@copilotkit/intelligence-langgraph` | `createSkillRegistryMiddleware` |
+| Google ADK | `copilotkit-intelligence-adk` | `SkillRegistry` and `SkillToolset` |
+| Microsoft Agent Framework | `CopilotKit.Intelligence.AgentFramework` | `SkillRegistryContextProvider` and `AddCopilotKitIntelligenceSkills` |
+
+Attach an adapter to the agents that need skills. Adapters do not inspect or rebuild arbitrary graphs or agent hierarchies. Subagent behavior follows the selected framework.
+
+TypeScript uses the canonical client from `@copilotkit/runtime/v2`. Python uses `copilotkit-intelligence-runtime`. These dependencies include Runtime features beyond skill delivery. The .NET adapter targets `net9.0` and uses `CopilotKit.Intelligence`.
+
+## Configure one container
+
+An injected canonical Intelligence client supplies its existing project key, endpoint, and HTTP lifecycle. Your application retains ownership of that client. The adapter does not construct a second authenticated transport.
+
+Environment-based setup uses these variables:
+
+```bash
+CPK_INTELLIGENCE_API_KEY=your-project-key
+CPK_INTELLIGENCE_LEARNING_CONTAINER_ID=expense-review
+# Self-hosted deployments only:
+INTELLIGENCE_API_URL=https://intelligence.example.com
+# Optional exact revision; omit to follow latest:
+CPK_INTELLIGENCE_SKILLS_REVISION=42
+```
+
+Explicit configuration overrides environment values. An injected client overrides connection environment values. Freshness and request timeout each default to five seconds; debug logging defaults to false. Configure these behavior options in code.
+
+Initialization can run during application startup. A valid empty container initializes successfully. Initialization failures are catchable and retryable; the adapter never terminates the process. Model work cannot start until a verified snapshot exists.
+
+## Refresh and invocation behavior
+
+Before an invocation, the registry checks whether its last successful check falls within the freshness window. When a check is due, that invocation waits for it. Concurrent invocations share one request, with no internal retry. An unchanged response resets the freshness window without transferring the ZIP again.
+
+Each invocation keeps one complete snapshot for its model and tool calls. A later refresh affects later invocations. Revision identifiers are opaque: pass the exact string without parsing, incrementing, or comparing it numerically.
+
+| Mode | Behavior |
+| --- | --- |
+| `latest` | Adopt the complete newest published snapshot after a successful check. |
+| Exact revision | Keep the selected complete skill set while continuing authorization and revocation checks. |
+
+Published revisions have no automatic expiry. A revoked revision cannot be used by new invocations once the adapter receives that denial. An invocation already in progress finishes with its captured snapshot.
+
+## Read tools
+
+Both tools remain registered even when the snapshot is empty:
+
+- `copilotkit_load_skill(skill_name)` returns `SKILL.md` and the supporting file list.
+- `copilotkit_read_skill_file(skill_name, path)` returns one supporting UTF-8 text file.
+
+Lookups match the invocation's manifest. Unknown names, unknown paths, and unsupported content use the framework's tool-error behavior. The adapter never executes scripts or writes skill files to disk.
+
+## Failures and status
+
+A cold registry returns a typed error when it cannot load a valid snapshot. After a successful load, a network failure, timeout, unavailable server, or unreadable replacement keeps the previous snapshot and marks it stale.
+
+There is no maximum stale age. A network-isolated process can retain its last verified snapshot until connectivity returns. Restarting clears that in-memory snapshot. Confirmed authentication, authorization, entitlement, delivery disablement, or revocation blocks new invocations instead of falling back to stale content.
+
+The read-only status contains `initialized`, `revision`, `mode`, `lastCheckedAt`, `stale`, and `lastError`. Errors expose a stable `code`, safe `message`, `retryable`, and `cause`. Debug mode uses the normal language logger and excludes credentials, prompts, skill bodies, and file contents.
+
+## Migrate from downloaded skills
+
+Remove the old manual Learning-directory wiring when you enable an adapter for the same container. Keep unrelated static or hand-authored skills as needed. The adapter does not scan, change, or delete downloaded files.
+
+`copilotkit skills download` remains supported for inspection, offline use, and unsupported frameworks. See the [Learning guide](/learning) for the manual workflow.
+
+## Deployment requirements
+
+Managed and self-hosted Intelligence use the same delivery contract. The server migration and v1 delivery endpoint must deploy before adapters rely on them. Each adapter also requires a published canonical client version with the learned-snapshot operation.
+
+Pausing new Learning runs does not stop delivery. Entitlement, explicit delivery disablement, and revision revocation control access to published snapshots separately.
