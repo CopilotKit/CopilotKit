@@ -125,3 +125,117 @@ it("launches the in-flight payload when another app is clicked before copy resol
     expect(screen.getByRole("status").textContent).toBe("Prompt copied"),
   );
 });
+
+it.each([
+  ["Open in Claude Code", "open_claude"],
+  ["Open in Codex", "open_codex"],
+] as const)(
+  "records one click intent and one success for %s",
+  async (label, initiatingAction) => {
+    const action = vi.fn();
+    const copied = vi.fn();
+    const launch = vi
+      .spyOn(launcher, "launchPrompt")
+      .mockImplementation(() => {});
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+    render(
+      <PromptPill
+        createPrompt={() => ({
+          text: "Run one",
+          onAction: action,
+          onCopied: copied,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    expect(action).toHaveBeenCalledExactlyOnceWith(initiatingAction);
+    expect(action.mock.invocationCallOrder[0]).toBeLessThan(
+      launch.mock.invocationCallOrder[0],
+    );
+    await waitFor(() =>
+      expect(copied).toHaveBeenCalledExactlyOnceWith(initiatingAction),
+    );
+  },
+);
+
+it("counts denied copy intent without claiming success and ignores analytics failure", async () => {
+  const action = vi.fn(() => {
+    throw new Error("analytics unavailable");
+  });
+  const copied = vi.fn();
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+  });
+  render(
+    <PromptPill
+      createPrompt={() => ({
+        text: "Exact text",
+        onAction: action,
+        onCopied: copied,
+      })}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+  expect(action).toHaveBeenCalledExactlyOnceWith("copy");
+  expect(copied).not.toHaveBeenCalled();
+});
+
+it("keeps preview actions bound to the displayed run and excludes close", async () => {
+  const events: string[] = [];
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+  });
+  let run = 0;
+  render(
+    <PromptPill
+      createPrompt={() => {
+        const id = ++run;
+        return {
+          text: `Run ${id}`,
+          onAction: (action) => events.push(`${id}:${action}`),
+          onCopied: (action) => events.push(`${id}:success:${action}`),
+        };
+      }}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Copy displayed prompt" }),
+  );
+  await waitFor(() =>
+    expect(events).toEqual([
+      "1:view_prompt",
+      "1:copy_preview",
+      "1:success:copy_preview",
+    ]),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Close prompt" }));
+  expect(events).toHaveLength(3);
+});
+
+it("reports a completed clipboard write after unmount without updating the UI", async () => {
+  const copied = vi.fn();
+  let resolveWrite!: () => void;
+  Object.assign(navigator, {
+    clipboard: {
+      writeText: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveWrite = resolve;
+          }),
+      ),
+    },
+  });
+  const { unmount } = render(
+    <PromptPill
+      createPrompt={() => ({ text: "Run once", onCopied: copied })}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+  unmount();
+  resolveWrite();
+  await waitFor(() => expect(copied).toHaveBeenCalledExactlyOnceWith("copy"));
+});

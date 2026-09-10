@@ -25,7 +25,10 @@ import {
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
 
-const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+const analytics = vi.hoisted(() => ({
+  capture: vi.fn(),
+  actionCapture: vi.fn(),
+}));
 
 /**
  * Spied rather than stubbed: one test asserts the base URL is read only on
@@ -43,7 +46,13 @@ vi.mock("fumadocs-core/framework", () => ({
 }));
 
 vi.mock("posthog-js/react", () => ({
-  usePostHog: () => analytics,
+  usePostHog: () => ({
+    capture: (...args: unknown[]) => {
+      if (args[0] === "docs.intelligence_onboarding_prompt_action_clicked")
+        return analytics.actionCapture(...args);
+      return analytics.capture(...args);
+    },
+  }),
 }));
 
 vi.mock("@/lib/runtime-config.client", () => runtimeConfig);
@@ -251,7 +260,7 @@ it("omits the framework property when the caller names no framework", async () =
     string,
     unknown
   >;
-  expect(properties).not.toHaveProperty("agent_framework");
+  expect(properties.agent_framework).toBeUndefined();
 });
 
 it("mints a run id in the shape the CLI validates", async () => {
@@ -290,6 +299,7 @@ it("reports the shared onboarding event with the graph's framework slug", async 
   // value that is not a feature would muddy existing breakdowns of that
   // property. The distinction this button needs lives in `surface`.
   expect(properties).toEqual({
+    action: "copy",
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs_page_tools_onboarding_prompt",
@@ -311,12 +321,12 @@ it("omits the framework property entirely when the graph has no slug", async () 
     string,
     unknown
   >;
-  expect(properties).not.toHaveProperty("agent_framework");
-  expect(Object.keys(properties).sort()).toEqual([
-    "from_path",
-    "onboarding_run_id",
-    "surface",
-  ]);
+  expect(properties.agent_framework).toBeUndefined();
+  expect(
+    Object.keys(properties)
+      .filter((key) => properties[key] !== undefined)
+      .sort(),
+  ).toEqual(["action", "from_path", "onboarding_run_id", "surface"]);
 });
 
 it("mints a fresh run id on every click", async () => {
@@ -625,6 +635,7 @@ it("reports the frontend property with the graph's slug", async () => {
   // same run — `nextjs`, not the docs id `react`.
   expect(onboardingFrontendSlug(REACT.id)).toBe("nextjs");
   expect(analytics.capture.mock.calls[0][1]).toEqual({
+    action: "copy",
     from_path: "/mastra/generative-ui",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs_page_tools_onboarding_prompt",
@@ -648,8 +659,13 @@ it("omits the frontend property entirely when the graph has no slug", async () =
     string,
     unknown
   >;
-  expect(properties).not.toHaveProperty("frontend");
-  expect(Object.keys(properties).sort()).toEqual([
+  expect(properties.frontend).toBeUndefined();
+  expect(
+    Object.keys(properties)
+      .filter((key) => properties[key] !== undefined)
+      .sort(),
+  ).toEqual([
+    "action",
     "agent_framework",
     "from_path",
     "onboarding_run_id",
@@ -667,5 +683,26 @@ it("omits the frontend property when the caller names no frontend", async () => 
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
 
-  expect(analytics.capture.mock.calls[0][1]).not.toHaveProperty("frontend");
+  expect(analytics.capture.mock.calls[0][1].frontend).toBeUndefined();
+});
+
+it("records click intent before a failed copy with framework and frontend context", async () => {
+  Object.assign(navigator, {
+    clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+  });
+  renderButton({ frontend: REACT });
+  clickCopy();
+  expect(analytics.actionCapture).toHaveBeenCalledTimes(1);
+  const [event, properties] = analytics.actionCapture.mock.calls[0];
+  expect(event).toBe("docs.intelligence_onboarding_prompt_action_clicked");
+  expect(properties).toEqual({
+    action: "copy",
+    from_path: "/mastra/generative-ui",
+    onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
+    surface: "docs_page_tools_onboarding_prompt",
+    agent_framework: "mastra",
+    frontend: "nextjs",
+  });
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+  expect(analytics.capture).not.toHaveBeenCalled();
 });

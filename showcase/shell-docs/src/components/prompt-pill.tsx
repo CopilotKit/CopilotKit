@@ -7,9 +7,17 @@ import type { PromptApp } from "@/lib/launch-prompt";
 import { launchPrompt } from "@/lib/launch-prompt";
 import "./prompt-pill.css";
 
+export type PromptAction =
+  | "copy"
+  | "open_claude"
+  | "open_codex"
+  | "view_prompt"
+  | "copy_preview";
+
 export interface PromptPayload {
   text: string;
-  onCopied?: () => void;
+  onCopied?: (action: PromptAction) => void;
+  onAction?: (action: PromptAction) => void;
 }
 
 /** Compact prompt actions shared by docs hero and page tools. */
@@ -61,7 +69,10 @@ export function PromptPill({
   }
 
   /** Copy once; a denied clipboard leaves selectable text available. */
-  async function copy(payload: PromptPayload): Promise<void> {
+  async function copy(
+    payload: PromptPayload,
+    action: PromptAction,
+  ): Promise<void> {
     if (pending.current) return;
     pending.current = payload;
     setBusy(true);
@@ -70,12 +81,12 @@ export function PromptPill({
     setCopied(false);
     try {
       await navigator.clipboard.writeText(payload.text);
-      if (!mounted.current || current !== generation.current) return;
       try {
-        payload.onCopied?.();
+        payload.onCopied?.(action);
       } catch {
         /* Analytics cannot break copy. */
       }
+      if (!mounted.current || current !== generation.current) return;
       setCopied(true);
       setMessage("Prompt copied");
       timer.current = setTimeout(() => {
@@ -91,9 +102,36 @@ export function PromptPill({
     }
   }
 
+  /** Record direct user intent without letting analytics block the action. */
+  function recordAction(payload: PromptPayload, action: PromptAction): void {
+    try {
+      payload.onAction?.(action);
+    } catch {
+      /* Analytics must not break onboarding. */
+    }
+  }
+
+  /** Copy from a direct control; internal app writes do not create copy intents. */
+  function copyFromControl(
+    payload: PromptPayload,
+    action: "copy" | "copy_preview",
+  ): void {
+    recordAction(payload, action);
+    copy(payload, action);
+  }
+
+  /** Show exactly the payload associated with this preview action. */
+  function viewPrompt(): void {
+    const payload = createPrompt();
+    recordAction(payload, "view_prompt");
+    showPrompt(payload);
+  }
+
   /** Dispatch before any asynchronous clipboard operation loses activation. */
   function openApp(app: PromptApp): void {
     const payload = pending.current ?? createPrompt();
+    const action = app === "claude" ? "open_claude" : "open_codex";
+    recordAction(payload, action);
     if (app === "claude" && payload.text.length > 5000) {
       setMessage(
         "This prompt is too long for the Claude app link. Copy it below.",
@@ -110,7 +148,7 @@ export function PromptPill({
       setMessage("The app link could not open. Copy the prompt below.");
       showPrompt(payload);
     }
-    copy(payload);
+    copy(payload, action);
   }
 
   return (
@@ -124,7 +162,7 @@ export function PromptPill({
           className="prompt-pill-copy"
           aria-label={typeof children === "string" ? children : "Copy prompt"}
           disabled={busy || props.disabled}
-          onClick={() => copy(createPrompt())}
+          onClick={() => copyFromControl(createPrompt(), "copy")}
         >
           {copied ? (
             <Check className="prompt-pill-check" aria-hidden="true" />
@@ -166,7 +204,7 @@ export function PromptPill({
         </button>
       </div>
       <div className="prompt-pill-shelf">
-        <button type="button" onClick={() => showPrompt(createPrompt())}>
+        <button type="button" onClick={viewPrompt}>
           <Eye aria-hidden="true" />
           View prompt
         </button>
@@ -207,7 +245,7 @@ export function PromptPill({
             type="button"
             className="prompt-pill-dialog-copy"
             disabled={busy}
-            onClick={() => copy(preview)}
+            onClick={() => copyFromControl(preview, "copy_preview")}
           >
             Copy displayed prompt
           </button>

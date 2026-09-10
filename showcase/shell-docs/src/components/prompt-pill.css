@@ -12,7 +12,7 @@
   height: 44px;
   padding: 3px 5px 3px 3px;
   border: 1px solid #dddde7;
-  border-radius: 999px;
+  border-radius: var(--shell-docs-radius-control);
   background: #fff;
   box-shadow: 0 2px 4px #01050705;
 }
@@ -36,7 +36,7 @@
   height: 36px;
   padding: 0 18px;
   border: 0;
-  border-radius: 999px;
+  border-radius: max(0px, calc(var(--shell-docs-radius-control) - 4px));
   background: transparent;
   color: inherit;
   font: 500 12px var(--font-docs-code, monospace);
@@ -72,7 +72,7 @@
   height: 34px;
   padding: 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: max(0px, calc(var(--shell-docs-radius-control) - 4px));
   background: transparent;
   color: inherit;
 }
@@ -104,7 +104,7 @@
   min-height: 32px;
   padding: 4px 12px;
   border: 1px solid #dddde7;
-  border-radius: 999px;
+  border-radius: var(--shell-docs-radius-control);
   background: #fff;
   color: #555561;
   font-size: 12px;
@@ -121,7 +121,7 @@
   margin: auto;
   padding: 24px;
   border: 1px solid #dddde7;
-  border-radius: 20px;
+  border-radius: var(--shell-docs-radius-surface);
   background: #fff;
   color: #010507;
   box-shadow: 0 24px 80px #01050729;
@@ -144,7 +144,7 @@
   place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: 999px;
+  border-radius: var(--shell-docs-radius-control);
 }
 .prompt-pill-dialog-heading svg {
   width: 18px;
@@ -156,7 +156,7 @@
   padding: 14px;
   resize: vertical;
   border: 1px solid #dddde7;
-  border-radius: 12px;
+  border-radius: var(--shell-docs-radius-control);
   background: #f7f7fa;
   color: #010507;
   font: 13px/1.7 monospace;
@@ -168,7 +168,7 @@
 .prompt-pill-dialog-copy {
   min-height: 44px;
   padding: 10px 18px;
-  border-radius: 999px;
+  border-radius: var(--shell-docs-radius-control);
   background: #010507;
   color: white;
   font-size: 13px;
@@ -209,7 +209,7 @@
   height: 44px;
   align-self: flex-start;
   margin: 0;
-  border-radius: 999px !important;
+  border-radius: var(--shell-docs-radius-control) !important;
   border-color: #dddde7 !important;
   background: #fff !important;
   color: #555561 !important;

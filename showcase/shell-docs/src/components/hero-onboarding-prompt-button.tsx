@@ -16,7 +16,6 @@ import {
 import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
-  INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
 
 export interface HeroOnboardingPromptButtonProps {
@@ -49,12 +48,24 @@ export function HeroOnboardingPromptButton({
             (framework
               ? frameworkPromptSuffix(framework.slug, framework.name)
               : ""),
-          onCopied: () =>
-            posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+          onAction: (action) =>
+            posthog?.capture(
+              "docs.intelligence_onboarding_prompt_action_clicked",
+              {
+                action,
+                from_path: pathname,
+                onboarding_run_id: runId,
+                surface,
+                agent_framework: graphFramework,
+              },
+            ),
+          onCopied: (action) =>
+            posthog?.capture("docs.intelligence_onboarding_prompt_copied", {
+              action,
               from_path: pathname,
               onboarding_run_id: runId,
               surface,
-              ...(graphFramework ? { agent_framework: graphFramework } : {}),
+              agent_framework: graphFramework,
             }),
         };
       }}

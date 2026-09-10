@@ -30,7 +30,6 @@ import {
 import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
-  INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
@@ -263,13 +262,26 @@ export function OnboardingPromptCopyButton({
               : "") +
             (frontend ? frontendPromptSuffix(frontend.id, frontend.name) : "") +
             ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`,
-          onCopied: () =>
-            posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+          onAction: (action) =>
+            posthog?.capture(
+              "docs.intelligence_onboarding_prompt_action_clicked",
+              {
+                action,
+                from_path: pathname,
+                onboarding_run_id: runId,
+                surface: ONBOARDING_COPY_SURFACE,
+                agent_framework: graphFramework,
+                frontend: graphFrontend,
+              },
+            ),
+          onCopied: (action) =>
+            posthog?.capture("docs.intelligence_onboarding_prompt_copied", {
+              action,
               from_path: pathname,
               onboarding_run_id: runId,
               surface: ONBOARDING_COPY_SURFACE,
-              ...(graphFramework ? { agent_framework: graphFramework } : {}),
-              ...(graphFrontend ? { frontend: graphFrontend } : {}),
+              agent_framework: graphFramework,
+              frontend: graphFrontend,
             }),
         };
       }}

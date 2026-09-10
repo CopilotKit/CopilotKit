@@ -13,14 +13,23 @@ import { frameworkPromptSuffix } from "@/lib/intelligence-onboarding-framework";
 import { createIntelligenceOnboardingPrompt } from "@/lib/intelligence-onboarding-prompt";
 import { HeroOnboardingPromptButton } from "../hero-onboarding-prompt-button";
 
-const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+const analytics = vi.hoisted(() => ({
+  capture: vi.fn(),
+  actionCapture: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
 vi.mock("posthog-js/react", () => ({
-  usePostHog: () => analytics,
+  usePostHog: () => ({
+    capture: (...args: unknown[]) => {
+      if (args[0] === "docs.intelligence_onboarding_prompt_action_clicked")
+        return analytics.actionCapture(...args);
+      return analytics.capture(...args);
+    },
+  }),
 }));
 
 HTMLDialogElement.prototype.showModal = function () {
@@ -164,6 +173,7 @@ it("reports the graph framework slug to analytics", async () => {
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
 
   expect(analytics.capture.mock.calls[0][1]).toStrictEqual({
+    action: "copy",
     from_path: "/",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "framework-hero",
@@ -180,8 +190,9 @@ it("sends no framework property when no framework is given", async () => {
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
 
   const props = analytics.capture.mock.calls[0][1];
-  expect(props).not.toHaveProperty("agent_framework");
-  expect(props).toStrictEqual({
+  expect(props.agent_framework).toBeUndefined();
+  expect(JSON.parse(JSON.stringify(props))).toStrictEqual({
+    action: "copy",
     from_path: "/",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs-home-hero",
@@ -208,7 +219,40 @@ it("stays canonical for a framework the onboarding graph does not cover", async 
   expect(copied).toBe(createIntelligenceOnboardingPrompt(runId));
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
-  expect(analytics.capture.mock.calls[0][1]).not.toHaveProperty(
-    "agent_framework",
+  expect(analytics.capture.mock.calls[0][1].agent_framework).toBeUndefined();
+});
+
+it("records view and preview copy with the same run id and framework context", async () => {
+  mockClipboard(vi.fn().mockResolvedValue(undefined));
+  render(
+    <HeroOnboardingPromptButton
+      surface="docs_framework_hero"
+      framework={{ slug: "mastra", name: "Mastra" }}
+    />,
   );
+  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Copy displayed prompt" }),
+  );
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
+  const actions = analytics.actionCapture.mock.calls;
+  expect(actions.map((entry) => entry[1].action)).toEqual([
+    "view_prompt",
+    "copy_preview",
+  ]);
+  expect(actions[0][1].onboarding_run_id).toBe(actions[1][1].onboarding_run_id);
+  expect(analytics.capture.mock.calls[0][1]).toEqual({
+    action: "copy_preview",
+    from_path: "/",
+    onboarding_run_id: actions[0][1].onboarding_run_id,
+    surface: "docs_framework_hero",
+    agent_framework: "mastra",
+  });
+  expect(Object.keys(actions[0][1]).sort()).toEqual([
+    "action",
+    "agent_framework",
+    "from_path",
+    "onboarding_run_id",
+    "surface",
+  ]);
 });
