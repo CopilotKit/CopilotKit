@@ -1,36 +1,27 @@
 // docs-map-parts.tsx — the presentational pieces of the homepage setup
-// wizard.
+// wizard's intro and option grids.
 //
 // These components hold no data and no wizard state. All copy, options and
 // icon choices live in `@/lib/homepage-map` or in the wizard component that
-// drives this module (`./setup-wizard`); the wizard also owns the "which step
-// is reached", "what is selected so far" bookkeeping and simply hands each of
+// drives them (`./setup-wizard`); the wizard also owns the "which step is
+// current", "what is selected so far" bookkeeping and simply hands each of
 // these components the slice it needs. Everything here is layout, treatment
 // and DOM semantics.
 //
-// The wizard has four steps: pick a frontend, pick zero or more features,
-// pick an agent backend, copy a prompt carrying all three answers. A step is
-// always in exactly one of three states (`StepState`):
-//
-//   locked → dashed border, near-transparent fill, at reduced opacity. "You
-//            cannot act here yet." Every option inside is disabled — not
-//            just dimmed, since a disabled step's options must not take a
-//            click and must not be reachable by Tab. A step that looked
-//            locked but still answered a click would let someone answer
-//            step 3 before step 1.
-//   active → solid border, elevated surface, panel shadow, plus an accent
-//            ring. "Act here." The one step whose options are live.
-//   done    → the same dashed-border, near-transparent treatment as locked,
-//            but at full opacity. "You already answered this, and you can
-//            still see and change it" — a completed step stays open rather
-//            than collapsing, so the page shows the path taken instead of
-//            hiding it.
+// The wizard shows one step at a time: the card shell, its progress rail and
+// its Back/Continue footer live in `./wizard-stepper-parts`, which reuses
+// `CORE_TREATMENT_CLASS` exported below — solid border, elevated surface,
+// panel shadow — rather than keeping a second copy of the same class string.
+// There is no locked or done treatment here any more: a step the reader
+// cannot yet reach is simply not rendered, so it has nothing left to
+// express, unlike the earlier scrolling variant that kept every step on
+// screen at once.
 //
 // The option grids are buttons, not links: there are no destinations left on
-// this page, only choices that feed a prompt assembled in step 4. `PickGrid`
-// is single-choice (frontend, agent backend) and expresses its selection
-// purely through the accent border and fill — a radio-like control doesn't
-// need to also announce itself with a checkmark. `CapabilityGrid` is
+// this page, only choices that feed a prompt assembled in the last step.
+// `PickGrid` is single-choice (frontend, agent backend) and expresses its
+// selection purely through the accent border and fill — a radio-like control
+// doesn't need to also announce itself with a checkmark. `CapabilityGrid` is
 // multi-choice (features) and does render a checkmark on each selected
 // option, because a toggle needs to show its own state independently of the
 // accent treatment. Both grids express selection through `aria-pressed`
@@ -48,14 +39,6 @@
 // — title followed by body — same as any ordinary toggle button carrying a
 // heading and a description. `PickGrid` has no second line, so its
 // accessible name is exactly `pick.name`.
-//
-// Layout is a single vertical stack — `StepConnector` between steps, lit
-// with `--accent` once the step below it has been reached, `--text-muted`
-// otherwise (the `--border` token is near-invisible against this page's
-// ground, which is why the connector reaches for the muted text token
-// instead). There is no side-by-side arrangement any more: CopilotKit
-// Intelligence does not appear on this page, so there is no side branch for
-// a layout to carve out room for.
 
 import React from "react";
 import {
@@ -77,8 +60,6 @@ import type {
   MapPick,
   MapPickLogo,
 } from "@/lib/homepage-map";
-
-export type StepState = "locked" | "active" | "done";
 
 // Named imports in an explicit record, never `import * as icons` with a
 // dynamic index: a namespace object indexed at runtime forces the bundler to
@@ -115,19 +96,11 @@ const MAP_SLOT = {
   full: "md:col-start-1 md:col-span-4",
 } as const;
 
-/** The two treatments a step can be built from — `active` layers an accent
- *  ring on top of `core`; `done` and `locked` differ only in opacity. */
-const STEP_TREATMENT_CLASS = {
-  core: "border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]",
-  choice:
-    "border border-dashed border-[var(--border)] bg-[var(--bg-elevated)]/10",
-} as const;
-
-const STEP_STATE_CLASS: Record<StepState, string> = {
-  active: `${STEP_TREATMENT_CLASS.core} ring-1 ring-[var(--accent)]`,
-  done: `${STEP_TREATMENT_CLASS.choice} opacity-100`,
-  locked: `${STEP_TREATMENT_CLASS.choice} opacity-40`,
-};
+/** Solid border, elevated surface, panel shadow — the one step treatment
+ *  this variant needs. Exported so `WizardCard` in `./wizard-stepper-parts`
+ *  applies the same class string instead of keeping a second copy. */
+export const CORE_TREATMENT_CLASS =
+  "border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]";
 
 /** The heading and paragraph that frame the wizard. One step up from a
  *  step's own heading, so it reads as their parent rather than a fifth
@@ -148,69 +121,6 @@ export function MapIntro({
         {body}
       </p>
     </div>
-  );
-}
-
-/** The plain rule between two stacked steps. Lit with `--accent` once the
- *  step below has been reached, `--text-muted` otherwise — see this file's
- *  header comment for why `--text-muted` and not `--border`. */
-export function StepConnector({ lit }: { lit: boolean }): React.JSX.Element {
-  return (
-    <div aria-hidden="true" className={`flex justify-center ${MAP_SLOT.full}`}>
-      <span
-        className={`h-10 w-px md:h-14 ${
-          lit ? "bg-[var(--accent)]" : "bg-[var(--text-muted)]"
-        }`}
-      />
-    </div>
-  );
-}
-
-export function StepBlock({
-  state,
-  step,
-  name,
-  description,
-  hint,
-  id,
-  children,
-}: {
-  state: StepState;
-  /** 1-based. Rendered as the kicker, e.g. "STEP 1". */
-  step: number;
-  name: string;
-  description: string;
-  /**
-   * The right-hand hint. Locked: the prerequisite ("Choose your frontend
-   * first"). Done: the chosen value. Active: usually absent.
-   */
-  hint?: string;
-  id?: string;
-  children: React.ReactNode;
-}): React.JSX.Element {
-  return (
-    <section
-      id={id}
-      className={`shell-docs-radius-surface not-prose p-5 sm:p-6 ${MAP_SLOT.full} ${STEP_STATE_CLASS[state]}`}
-    >
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-baseline sm:gap-6">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            {`STEP ${step}`}
-          </p>
-          <h2 className="mt-1 text-xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.375rem]">
-            {name}
-          </h2>
-        </div>
-        {hint ? (
-          <p className="shrink-0 text-xs text-[var(--text-muted)]">{hint}</p>
-        ) : null}
-      </div>
-      <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
-        {description}
-      </p>
-      <div className="mt-4">{children}</div>
-    </section>
   );
 }
 
