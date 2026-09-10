@@ -282,6 +282,25 @@
         "react/built-in-agent/subagents",
         "react/built-in-agent/agent-config"
       ],
+      "semantic_classification": {
+        "raw_structural_count": 35,
+        "no_additional_package_owned_setup": {
+          "count": 30,
+          "contexts": "All five A2UI cells; all fourteen tool-rendering cells; four headless cells; two in-chat HITL cells; two subagent cells; both gen-ui-agent cells; and Built-in Agent readonly context. Their routed guides already provide the necessary selected source region or the runtime supplies the transport automatically."
+        },
+        "conditionally_not_rendered": {
+          "count": 1,
+          "contexts": "react/built-in-agent/agent-config: agent-config-setup is inside the shared-state branch, while this integration declares runtime-properties."
+        },
+        "missing_native_setup_guidance": {
+          "count": 3,
+          "contexts": "react/strands/shared-state-read-write, react/strands/readonly-state-agent-context, and react/strands/agent-config. These are promoted to CONTENT-GEN-009."
+        },
+        "behavior_candidate": {
+          "count": 1,
+          "contexts": "react/strands/shared-state-read. The UI writes recipe state but the adapter's explicit prompt lifter omits it; it remains CONTENT-GEN-008 pending local behavior evidence."
+        }
+      },
       "source_evidence": [
         {
           "path": "showcase/scripts/bundle-setup-content.ts",
@@ -309,9 +328,9 @@
           "detail": "The selected tool-rendering guide requests tool-rendering-setup, but LangGraph Python, LangGraph TypeScript, ADK, and Strands do not own that setup fragment."
         }
       ],
-      "root_cause": "Thirty-five selected wired/stub cells resolve MDX that requests a package-owned FrameworkSetup concept unavailable for that integration. This includes A2UI setup for all five agents; tool-rendering setup for LangGraph Python, LangGraph TypeScript, ADK, and Strands; and core setup concepts for Strands and the built-in agent. The browser silently removes those setup blocks while Markdown reports a skipped block. Absence alone does not establish that each integration needs additional backend configuration; the source has no explicit contract separating deliberately empty setup from omitted setup.",
-      "impact": "The two public surfaces describe the same missing setup differently, and reviewers cannot tell from the catalog or guide whether an absent setup block is intentional. Readers may receive no native setup guidance where it is needed, but semantic review of the actual demo/backend contract is required before treating every listed context as a guide failure.",
-      "validation_needed": "For each listed context, compare the routed guide with its declared demo/backend wiring and classify the concept as no-additional-setup, existing guide-owned setup, or missing package-owned setup. Only add fragments where the implementation requires them. Then regenerate setup-content and render HTML and Markdown routes, ensuring any intentionally absent setup is reader-visible rather than silently omitted. Run isolated AIMock cells separately."
+      "root_cause": "Thirty-five selected wired/stub cells resolve MDX that requests a package-owned FrameworkSetup concept unavailable for that integration. Browser rendering silently removes the block while Markdown emits a skipped-setup comment. Semantic review classified thirty as intentional/redundant because the guide already exposes the selected implementation or the runtime supplies the transport, one as a branch that does not render, three as genuine Strands native-setup omissions, and one as an adapter-behavior candidate.",
+      "impact": "The cross-surface structural mismatch remains observable, but the raw count must not be interpreted as thirty-five missing backend steps. The three confirmed Strands omissions and one behavior candidate are tracked separately to keep the planned reader guidance minimal.",
+      "validation_needed": "Regenerate setup-content and render HTML and Markdown after any repair. Ensure the three required Strands backend adapters get reader-visible native setup, while intentionally redundant setup is either omitted consistently or marked as covered by the routed source. Run isolated AIMock cells separately."
     },
     {
       "id": "CONTENT-GEN-006",
@@ -355,6 +374,178 @@
       "root_cause": "A shared guide snippet retains the v1 meaning of useRenderToolCall while its code and linked reference otherwise present v2 APIs.",
       "impact": "Built-in Agent readers are told the wrong hook supplies a named renderer, making the current API reference and feature guide contradict one another.",
       "validation_needed": "Describe named registration with useRenderTool and reserve useRenderToolCall for rendering/consuming existing tool calls. Verify the selected Built-in Agent guide's browser and Markdown output against the v2 reference."
+    },
+    {
+      "id": "CONTENT-GEN-007",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "runnable example and native runtime-properties guidance",
+      "feature": "Built-in Agent configuration",
+      "affected_contexts": [
+        "react/built-in-agent/agent-config"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/integrations/built-in-agent/manifest.yaml",
+          "line": 91,
+          "detail": "The integration declares runtime-properties, so its feature guide selects the in-process provider-properties contract."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/agent-config.mdx",
+          "line": 80,
+          "detail": "The selected runtime-properties guide tells React readers to pass config through CopilotKit properties; it documents input.forwardedProps as the factory input."
+        },
+        {
+          "path": "showcase/integrations/built-in-agent/src/app/demos/agent-config/page.tsx",
+          "line": 30,
+          "detail": "The featured demo provider sets a runtime URL and agent but does not pass properties; it instead mounts ConfigContextRelay."
+        },
+        {
+          "path": "showcase/integrations/built-in-agent/src/app/demos/agent-config/config-context-relay.tsx",
+          "line": 15,
+          "detail": "The relay publishes preferences with useAgentContext, a different input channel."
+        },
+        {
+          "path": "showcase/integrations/built-in-agent/src/app/api/copilotkit-agent-config/route.ts",
+          "line": 75,
+          "detail": "The dedicated in-process factory reads only input.forwardedProps before it builds the configuration prompt."
+        }
+      ],
+      "root_cause": "A LangGraph-oriented context relay was reused in the Built-in Agent demo even though the Built-in Agent route consumes provider properties. The page comments also describe a Python middleware that does not exist in this in-process runtime.",
+      "impact": "Changing the visible configuration controls does not reach the factory field it actually reads, so the showcased behavior and the selected public guide contradict each other.",
+      "validation_needed": "Make the demo use the same provider-properties contract the guide documents, or change the factory to consume context deliberately. Add a local fixture-backed assertion that changing each control changes the outbound factory prompt, then recheck browser and Markdown guide output."
+    },
+    {
+      "id": "CONTENT-GEN-008",
+      "status": "candidate",
+      "severity": "high",
+      "area": "runnable example behavior",
+      "feature": "Strands shared-state read-only recipe",
+      "affected_contexts": [
+        "react/strands/shared-state-read"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/integrations/strands/src/app/demos/shared-state-read/page.tsx",
+          "line": 69,
+          "detail": "The UI seeds and updates agent.state.recipe and presents the feature as agent-readable recipe state."
+        },
+        {
+          "path": "showcase/integrations/strands/manifest.yaml",
+          "line": 372,
+          "detail": "The manifest promises that the neutral agent reads the recipe context without mutating it."
+        },
+        {
+          "path": "showcase/integrations/strands/src/agents/agent.py",
+          "line": 1027,
+          "detail": "The explicit state_context_builder documents the state slots it injects and accepts input state."
+        },
+        {
+          "path": "showcase/integrations/strands/src/agents/agent.py",
+          "line": 1053,
+          "detail": "That builder injects preferences and todos only; it has no recipe branch."
+        },
+        {
+          "path": "showcase/integrations/strands/src/agents/agent.py",
+          "line": 1447,
+          "detail": "The Strands agent registers that builder as its state_context_builder."
+        }
+      ],
+      "root_cause": "The showcased state key and the adapter's documented prompt-lifting allowlist diverge. Static inspection cannot rule out an unobserved adapter-level state injection, so this remains a behavior candidate.",
+      "impact": "If the explicit builder is the only state-to-model path, the agent cannot use the recipe that the UI and manifest say it reads.",
+      "validation_needed": "Run the Strands cell locally with AIMock after setting a distinctive recipe value and assert the agent response reflects it. Promote only if the observed request/response confirms the value is absent; then add recipe serialization to the prompt builder and document the native state bridge."
+    },
+    {
+      "id": "CONTENT-GEN-009",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "native backend setup guidance",
+      "feature": "Strands state context and agent configuration",
+      "affected_contexts": [
+        "react/strands/shared-state-read-write",
+        "react/strands/readonly-state-agent-context",
+        "react/strands/agent-config"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/shared-state.mdx",
+          "line": 42,
+          "detail": "The shared-state guide requests native shared-state-setup before promising UI writes steer the agent."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/shared-state/agent-readonly.mdx",
+          "line": 41,
+          "detail": "The read-only-context guide requests agent-context-setup before saying backend context injection reaches the model."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/agent-config.mdx",
+          "line": 30,
+          "detail": "The shared-state agent-config branch requests agent-config-setup and says the selected setup shows the backend bridge."
+        },
+        {
+          "path": "showcase/integrations/strands/docs/setup",
+          "line": 1,
+          "detail": "Strands owns only frontend-tools and channels setup fragments; none of the three requested native setup concepts is bundled."
+        },
+        {
+          "path": "showcase/integrations/strands/src/agents/agent.py",
+          "line": 991,
+          "detail": "The adapter needs a custom context formatter because ag_ui_strands does not otherwise surface context to the model."
+        },
+        {
+          "path": "showcase/integrations/strands/src/agents/agent.py",
+          "line": 1027,
+          "detail": "The same custom prompt builder lifts state values before model invocation."
+        },
+        {
+          "path": "showcase/integrations/strands/src/agents/agent.py",
+          "line": 1447,
+          "detail": "StrandsAgentConfig installs that state_context_builder for the runnable agent."
+        }
+      ],
+      "root_cause": "The Strands implementation needs an adapter-specific state/context prompt bridge, but its package supplies no setup fragments for the three guides that claim or require that bridge. Browser docs omit the setup entirely and Markdown reports it skipped.",
+      "impact": "A reader copying the generic React state/context calls has no Strands-native instruction for getting those values into the model, despite these cells relying on custom prompt lifting.",
+      "validation_needed": "Add concise Strands setup fragments that expose the existing state_context_builder pattern for each relevant concept, regenerate setup content, and verify HTML and Markdown show matching native guidance. Re-run the three isolated cells with AIMock."
+    },
+    {
+      "id": "CONTENT-GEN-010",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "framework-scoped snippet resolution",
+      "feature": "Built-in Agent fixed-schema A2UI",
+      "affected_contexts": [
+        "react/built-in-agent/a2ui-fixed-schema"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/integrations/built-in-agent/manifest.yaml",
+          "line": 93,
+          "detail": "Built-in Agent declares a2ui_pattern schema-inline, which selects the inline-schema branch of the shared guide."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/fixed-schema.mdx",
+          "line": 249,
+          "detail": "The selected schema-inline branch requests backend-schema-json-load."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/fixed-schema.mdx",
+          "line": 259,
+          "detail": "That selected branch renders the requested backend-schema-json-load snippet."
+        },
+        {
+          "path": "showcase/integrations/built-in-agent/src/lib/factory/a2ui-fixed-schema-factory.ts",
+          "line": 1,
+          "detail": "The Built-in Agent fixed-schema implementation has no backend-schema-json-load region to satisfy the guide request."
+        },
+        {
+          "path": "tasks/docs-feature-audit/full-route-audit.md",
+          "line": 73,
+          "detail": "The expanded local production response audit found the scoped HTML route emits a Missing snippet alert for built-in-agent::a2ui-fixed-schema/backend-schema-json-load; both final representations were otherwise 200."
+        }
+      ],
+      "root_cause": "The generic schema-inline A2UI guide assumes each selected integration publishes a backend-schema-json-load region. Built-in Agent uses a different fixed-schema implementation but does not supply a compatible region or a framework override.",
+      "impact": "The supported Built-in Agent A2UI guide visibly reports a missing source excerpt instead of presenting a copyable native implementation. The Markdown route succeeds, so representation status alone masks the documentation failure.",
+      "validation_needed": "Add a Built-in-Agent-appropriate region or a scoped guide branch that describes its actual fixed-schema factory, then assert no Missing snippet alert and useful HTML/Markdown source for the scoped route. Run its isolated AIMock cell separately."
     }
   ]
 }
