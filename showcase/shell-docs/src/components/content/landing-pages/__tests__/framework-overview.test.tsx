@@ -40,11 +40,11 @@ describe("FrameworkOverview", () => {
     );
 
     // The prompt button carries the accent treatment...
-    expect(markup).toContain("Copy onboarding prompt");
+    expect(markup).toContain("COPY PROMPT");
     expect(markup).toContain('data-surface="docs_framework_hero"');
-    expect(markup).toContain("shell-docs-primary-cta");
-    expect(markup).toContain("bg-[var(--accent-fill)]");
-    expect(markup).toContain("text-[var(--primary-foreground)]");
+    expect(markup).toContain("prompt-pill-dock");
+    expect(markup).toContain("Open in Claude Code");
+    expect(markup).toContain("Open in Codex");
 
     // ...and Quickstart keeps its place beside it in the bordered treatment.
     expect(markup).toContain("Quickstart");
@@ -71,12 +71,12 @@ describe("FrameworkOverview", () => {
       />,
     );
 
-    expect(markup).toContain("Copy onboarding prompt");
+    expect(markup).toContain("COPY PROMPT");
     expect(markup).toContain('data-surface="docs_framework_hero"');
     expect(markup).toContain(initCommand);
 
     // Prompt first, then Quickstart in the bordered treatment, then the chip.
-    expect(markup.indexOf("Copy onboarding prompt")).toBeLessThan(
+    expect(markup.indexOf("COPY PROMPT")).toBeLessThan(
       markup.indexOf("Quickstart"),
     );
     expect(markup.indexOf("Quickstart")).toBeLessThan(

@@ -23,6 +23,13 @@ vi.mock("posthog-js/react", () => ({
   usePostHog: () => analytics,
 }));
 
+HTMLDialogElement.prototype.showModal = function () {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close = function () {
+  this.open = false;
+};
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -38,16 +45,14 @@ it("renders the onboarding copy label", () => {
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
 
-  expect(
-    screen.getByRole("button", { name: /copy onboarding prompt/i }),
-  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^copy prompt$/i })).toBeTruthy();
 });
 
 it("copies the CLI onboarding prompt and confirms with a Copied label", async () => {
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
@@ -55,7 +60,7 @@ it("copies the CLI onboarding prompt and confirms with a Copied label", async ()
   expect(copied).toContain("npx --yes copilotkit@latest onboard start --run");
 
   await waitFor(() =>
-    expect(screen.getByRole("button").textContent).toContain("Copied"),
+    expect(screen.getByRole("status").textContent).toContain("Prompt copied"),
   );
 });
 
@@ -65,7 +70,7 @@ it("embeds a run id the CLI accepts", async () => {
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
@@ -78,10 +83,10 @@ it("reports a blocked clipboard instead of throwing", async () => {
   mockClipboard(vi.fn().mockRejectedValue(new Error("clipboard blocked")));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() =>
-    expect(screen.getByRole("button").textContent).toContain("Copy blocked"),
+    expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
   );
   expect(analytics.capture).not.toHaveBeenCalled();
 });
@@ -92,7 +97,7 @@ it("copies the canonical prompt unchanged when no framework is given", async () 
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
@@ -113,7 +118,7 @@ it("appends the framework sentence without disturbing the CLI command", async ()
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
@@ -136,7 +141,7 @@ it("keeps the run id intact when the framework sentence is appended", async () =
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
@@ -154,7 +159,7 @@ it("reports the graph framework slug to analytics", async () => {
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
 
@@ -170,7 +175,7 @@ it("sends no framework property when no framework is given", async () => {
   mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
 
@@ -192,7 +197,7 @@ it("stays canonical for a framework the onboarding graph does not cover", async 
       framework={{ slug: "langroid", name: "Langroid" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 

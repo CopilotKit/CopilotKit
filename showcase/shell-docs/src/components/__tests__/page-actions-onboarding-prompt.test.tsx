@@ -48,6 +48,13 @@ vi.mock("posthog-js/react", () => ({
 
 vi.mock("@/lib/runtime-config.client", () => runtimeConfig);
 
+HTMLDialogElement.prototype.showModal = function () {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close = function () {
+  this.open = false;
+};
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -125,7 +132,7 @@ function stubPendingClipboard() {
  * Click the button by role alone, so the query does not depend on the label.
  */
 function clickCopy() {
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 }
 
 /** The run id the component reported for the copy it just made. */
@@ -346,7 +353,7 @@ it("writes and reports once for two clicks while the first write is pending", as
   const { writeText, resolveWrite } = stubPendingClipboard();
 
   renderButton();
-  const button = screen.getByRole("button");
+  const button = screen.getByRole("button", { name: /^copy prompt$/i });
 
   // Native `.click()` inside one `act` scope, so React has not re-rendered
   // (and applied `disabled`) between the two events. This exercises the ref
@@ -375,11 +382,15 @@ it("re-enables the button after a clipboard write rejects", async () => {
   clickCopy();
 
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: /copy blocked/i })).toBeTruthy(),
+    expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
   );
-  expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(
-    false,
-  );
+  expect(
+    (
+      screen.getByRole("button", {
+        name: /^copy prompt$/i,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(false);
 });
 
 it("keeps the label and swaps the icon on a successful copy", async () => {
@@ -393,9 +404,7 @@ it("keeps the label and swaps the icon on a successful copy", async () => {
   clickCopy();
 
   await waitFor(() => expect(screen.getByText("Prompt copied")).toBeTruthy());
-  expect(
-    screen.getByRole("button", { name: /copy agent prompt/i }),
-  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^copy prompt$/i })).toBeTruthy();
   expect(container.querySelectorAll("svg").length).toBe(before);
 });
 
@@ -427,15 +436,14 @@ it("does not report ITS OWN event when the clipboard rejects", async () => {
   clickCopy();
 
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: /copy blocked/i })).toBeTruthy(),
+    expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
   );
   expect(analytics.capture).not.toHaveBeenCalled();
   // The rejection is swallowed rather than re-thrown, so the console line is
   // the only trace a blocked copy leaves.
-  expect(consoleError).toHaveBeenCalledWith(
-    "[page-actions] Copy agent prompt failed",
-    expect.any(Error),
-  );
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(screen.getByRole("textbox")).toBeTruthy();
+  expect(consoleError).not.toHaveBeenCalled();
 });
 
 it("carries the conversion-surface attribute the global tracker looks for", () => {
@@ -451,7 +459,7 @@ it("carries the conversion-surface attribute the global tracker looks for", () =
 
   expect(
     screen
-      .getByRole("button", { name: /copy agent prompt/i })
+      .getByRole("button", { name: /^copy prompt$/i })
       .getAttribute("data-docs-copy-surface"),
   ).toBe("docs_page_tools_onboarding_prompt");
 });
@@ -470,7 +478,7 @@ it("survives unmounting while the clipboard write is still pending", async () =>
 
   const { unmount } = renderButton();
   await act(async () => {
-    screen.getByRole("button").click();
+    screen.getByRole("button", { name: /^copy prompt$/i }).click();
   });
 
   unmount();
