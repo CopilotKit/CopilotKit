@@ -48,6 +48,17 @@ const ACCENT_BUTTON_CLASS =
 const QUIET_BUTTON_CLASS =
   "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-transparent px-4 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto";
 
+// The primary button's label changes shape across the wizard — Skip vs.
+// Continue on the earlier steps, then Copy prompt / Copied / Copy blocked
+// once it doubles as step 4's copy button — and without a floor the button
+// itself resized on every swap, which read as a layout hiccup rather than a
+// label change. The floor is sized for "Copy blocked", the longest label
+// this button ever shows (12 characters, one longer than "Copy prompt"):
+// roughly its text at text-sm font-semibold, plus the icon and icon-label
+// gap step 4's copy button adds, plus the button's own horizontal padding,
+// with a little slack rather than a value that only just fits.
+const PRIMARY_BUTTON_MIN_WIDTH_CLASS = "min-w-[9.5rem]";
+
 /** The rail above the card: one button per step, a number plus a short
  *  label, connected by thin rules so it reads as one rail rather than four
  *  chips. */
@@ -83,7 +94,7 @@ export function WizardProgress({
                 disabled={!reached}
                 aria-current={isCurrent ? "step" : undefined}
                 onClick={() => onJump(step.n)}
-                className={`flex w-full flex-col items-center gap-1 disabled:cursor-not-allowed ${
+                className={`flex w-full cursor-pointer flex-col items-center gap-1 disabled:cursor-not-allowed ${
                   isCurrent
                     ? "text-[var(--accent)]"
                     : reached
@@ -113,7 +124,22 @@ export function WizardProgress({
 }
 
 /** The card shell for the one step currently on screen. `footer` is where
- *  the caller places `WizardNav`. */
+ *  the caller places `WizardNav`.
+ *
+ *  Measured in the running app at a card width of 644px, the four steps'
+ *  cards were 306, 516, 500 and 252px tall — the wizard sits at the bottom
+ *  of the page, so every advance reflowed everything under it. `md:min-h-`
+ *  gives the card a floor matching the tallest step (the 19-option agent
+ *  backend list, 516px), and the flex column plus the footer's `mt-auto`
+ *  keeps Back/Continue pinned to that same bottom edge on every step, so a
+ *  short step's options sit at the top of an otherwise-empty card instead of
+ *  the row also drifting.
+ *
+ *  Deliberately `md:` and up only, not unconditional: below `md` the option
+ *  grid collapses toward a single column, so the backend step grows far
+ *  taller than any floor worth setting, and forcing that tall a floor on a
+ *  phone would trade a smaller shift for a much bigger one — an empty card
+ *  most of the time. Do not "fix" this by dropping the prefix. */
 export function WizardCard({
   step,
   total,
@@ -134,7 +160,7 @@ export function WizardCard({
 }): React.JSX.Element {
   return (
     <section
-      className={`shell-docs-radius-surface not-prose p-5 sm:p-6 ${CORE_TREATMENT_CLASS}`}
+      className={`shell-docs-radius-surface not-prose flex flex-col p-5 sm:p-6 md:min-h-[32rem] ${CORE_TREATMENT_CLASS}`}
     >
       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         {`Step ${step} of ${total}`}
@@ -150,7 +176,9 @@ export function WizardCard({
         {description}
       </p>
       <div className="mt-4">{children}</div>
-      <div className="mt-6 border-t border-[var(--border)] pt-4">{footer}</div>
+      <div className="mt-auto border-t border-[var(--border)] pt-4">
+        {footer}
+      </div>
     </section>
   );
 }
@@ -162,11 +190,17 @@ export function WizardNav({
   onContinue,
   continueLabel,
   continueDisabled,
+  continueIcon,
 }: {
   onBack?: () => void;
   onContinue: () => void;
   continueLabel: string;
   continueDisabled: boolean;
+  /** Rendered before the label — e.g. the clipboard glyph on step 4's copy
+   *  button. An optional prop rather than asking every caller to build the
+   *  whole button: the other three steps pass nothing and get exactly the
+   *  same button as before. */
+  continueIcon?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -183,8 +217,9 @@ export function WizardNav({
         type="button"
         onClick={() => onContinue()}
         disabled={continueDisabled}
-        className={`${ACCENT_BUTTON_CLASS} ${onBack ? "" : "sm:ml-auto"}`}
+        className={`${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS} ${onBack ? "" : "sm:ml-auto"}`}
       >
+        {continueIcon}
         {continueLabel}
       </button>
     </div>

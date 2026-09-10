@@ -82,6 +82,58 @@ describe("WizardCard", () => {
     expect(screen.getByText("the child")).not.toBeNull();
     expect(screen.getByText("the footer")).not.toBeNull();
   });
+
+  // The four steps measured 306/516/500/252px tall at a 644px card width —
+  // without a floor, every advance resized the page and shifted whatever
+  // sits below the wizard. The floor is `md:` and up only: on a narrow
+  // screen the option grid collapses toward one column, so the backend step
+  // grows far taller than any floor worth setting, and forcing that height
+  // on a phone would be worse than the shift it prevents. Asserting the
+  // `md:` prefix specifically (not just that *a* min-height class exists)
+  // is what catches a change that applies the floor unconditionally.
+  it("gives the card a minimum height starting at the md breakpoint, not unconditionally", () => {
+    const { container } = render(
+      <WizardCard step={1} total={4} name="N" description="D" footer={<span />}>
+        <span />
+      </WizardCard>,
+    );
+
+    const section = container.querySelector("section");
+    expect(section).not.toBeNull();
+    const className = section!.className;
+    expect(className).toMatch(/\bmd:min-h-\S+/);
+    expect(className).not.toMatch(/(?<!md:)\bmin-h-\S+/);
+  });
+
+  // The footer must land at the same bottom edge on every step regardless
+  // of how tall the step's own content is, which is what lets a short step
+  // (like step 4) show its Back/Continue row where a tall step's row
+  // already sits. Pinning it there needs both the card being a flex column
+  // and the footer wrapper carrying `mt-auto` (or an equivalent) — assert
+  // both, since either alone does nothing.
+  it("lays the card out as a flex column with the footer pushed to the bottom", () => {
+    const { container } = render(
+      <WizardCard
+        step={1}
+        total={4}
+        name="N"
+        description="D"
+        footer={<span>the footer</span>}
+      >
+        <span />
+      </WizardCard>,
+    );
+
+    const section = container.querySelector("section");
+    expect(section).not.toBeNull();
+    expect(section!.className).toMatch(/\bflex\b/);
+    expect(section!.className).toMatch(/\bflex-col\b/);
+
+    const footerNode = screen.getByText("the footer");
+    const footerWrapper = footerNode.parentElement;
+    expect(footerWrapper).not.toBeNull();
+    expect(footerWrapper!.className).toMatch(/\bmt-auto\b/);
+  });
 });
 
 describe("WizardProgress", () => {
@@ -151,6 +203,39 @@ describe("WizardProgress", () => {
     fireEvent.click(screen.getByRole("button", { name: /Copy your prompt/ }));
 
     expect(onJump).not.toHaveBeenCalled();
+  });
+
+  // Tailwind v4 no longer gives <button> a pointer cursor by default. This
+  // pairs the plain `cursor-pointer` with the `disabled:cursor-not-allowed`
+  // already asserted above — a `:disabled` pseudo-class selector outranks a
+  // plain class in specificity, so the not-allowed cursor always wins on an
+  // actually-disabled button regardless of source order.
+  it("shows a pointer cursor on a reached (enabled) step", () => {
+    render(
+      <WizardProgress
+        steps={STEPS}
+        current={1}
+        furthest={2}
+        onJump={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: /Your agent backend/ });
+    expect(button.className).toContain("cursor-pointer");
+  });
+
+  it("pairs the pointer cursor with a not-allowed cursor for unreached steps", () => {
+    render(
+      <WizardProgress
+        steps={STEPS}
+        current={1}
+        furthest={1}
+        onJump={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: /Your agent backend/ });
+    expect(button.className).toContain("disabled:cursor-not-allowed");
   });
 });
 
@@ -264,5 +349,111 @@ describe("WizardNav", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(onContinue).toHaveBeenCalledExactlyOnceWith();
+  });
+
+  // The Continue/Copy button's label changes shape across the wizard (Skip,
+  // Continue, Copy prompt, Copied, Copy blocked); without a floor the
+  // button itself resized on every swap. Render it with a short and a long
+  // label and assert the *same* min-width class both times — a class that
+  // merely exists but happens to differ per label would still let the
+  // button resize.
+  it("gives the Continue button a fixed minimum width independent of its label", () => {
+    const { rerender } = render(
+      <WizardNav
+        onContinue={vi.fn()}
+        continueLabel="Skip"
+        continueDisabled={false}
+      />,
+    );
+    const shortClassName = screen.getByRole("button", {
+      name: "Skip",
+    }).className;
+    const shortMinWidth = shortClassName.match(/\bmin-w-\S+/)?.[0];
+    expect(shortMinWidth).toBeTruthy();
+
+    rerender(
+      <WizardNav
+        onContinue={vi.fn()}
+        continueLabel="Copy blocked"
+        continueDisabled={false}
+      />,
+    );
+    const longClassName = screen.getByRole("button", {
+      name: "Copy blocked",
+    }).className;
+    const longMinWidth = longClassName.match(/\bmin-w-\S+/)?.[0];
+
+    expect(longMinWidth).toBe(shortMinWidth);
+  });
+
+  it("renders the continueIcon before the label when given", () => {
+    render(
+      <WizardNav
+        onContinue={vi.fn()}
+        continueLabel="Copy prompt"
+        continueDisabled={false}
+        continueIcon={<span data-testid="continue-icon" />}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Copy prompt" });
+    expect(
+      button.querySelector('[data-testid="continue-icon"]'),
+    ).not.toBeNull();
+  });
+
+  it("omits the icon slot entirely when continueIcon is not given", () => {
+    render(
+      <WizardNav
+        onContinue={vi.fn()}
+        continueLabel="Copy prompt"
+        continueDisabled={false}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Copy prompt" });
+    expect(button.querySelector('[data-testid="continue-icon"]')).toBeNull();
+  });
+
+  // Same pairing as WizardProgress's rail buttons above: a plain
+  // `cursor-pointer` alongside a `disabled:` variant that outranks it in
+  // specificity, so the not-allowed cursor wins whenever a button is
+  // actually disabled.
+  it("shows a pointer cursor on an enabled Continue button, and pairs it with a not-allowed cursor when disabled", () => {
+    const { rerender } = render(
+      <WizardNav
+        onContinue={vi.fn()}
+        continueLabel="Continue"
+        continueDisabled={false}
+      />,
+    );
+    let button = screen.getByRole("button", { name: "Continue" });
+    expect(button.className).toContain("cursor-pointer");
+    expect(button.className).toContain("disabled:cursor-not-allowed");
+
+    rerender(
+      <WizardNav
+        onContinue={vi.fn()}
+        continueLabel="Continue"
+        continueDisabled={true}
+      />,
+    );
+    button = screen.getByRole("button", { name: "Continue" });
+    expect(button.className).toContain("disabled:cursor-not-allowed");
+  });
+
+  it("shows a pointer cursor on the Back button", () => {
+    render(
+      <WizardNav
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+        continueLabel="Continue"
+        continueDisabled={false}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Back" }).className).toContain(
+      "cursor-pointer",
+    );
   });
 });

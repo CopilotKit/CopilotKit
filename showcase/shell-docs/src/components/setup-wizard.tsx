@@ -30,6 +30,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { Copy } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
 import type { MapCapability, MapPick } from "@/lib/homepage-map";
@@ -442,18 +443,21 @@ export function SetupWizard({
     stepName = "Copy your prompt";
     stepDescription =
       "The canonical onboarding prompt, with your answers appended so your coding agent does not have to ask again.";
-    body = (
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="shell-docs-radius-control inline-flex min-h-11 items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none"
-        >
-          {COPY_LABEL[copyState]}
-        </button>
-      </div>
+    // No body content of its own any more — the copy button used to live
+    // here, but it is a step-ending action like every other step's
+    // Continue, not a fourth pick, so it now lives in the same footer via
+    // `WizardNav`'s primary slot (see the header comment on `WizardNav`'s
+    // `continueIcon` prop).
+    body = null;
+    footer = (
+      <WizardNav
+        onBack={handleBack}
+        onContinue={handleCopy}
+        continueLabel={COPY_LABEL[copyState]}
+        continueDisabled={false}
+        continueIcon={<Copy aria-hidden="true" className="h-4 w-4" />}
+      />
     );
-    footer = null;
   }
 
   return (

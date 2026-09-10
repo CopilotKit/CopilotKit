@@ -440,6 +440,97 @@ describe("step 4: copy your prompt", () => {
     );
     expect(analytics.capture).not.toHaveBeenCalled();
   });
+
+  it("renders a Back button, and returns to step 3 when clicked", () => {
+    advanceToStep4({ frontend: "React", backend: "Mastra" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(
+      screen.getByRole("heading", { name: "What you want to build" }),
+    ).not.toBeNull();
+  });
+
+  // Anchored on the shared container rather than on "is the button
+  // somewhere in the document" — Back and the copy button both come out of
+  // the same `WizardNav` footer row, so their immediate parent is the same
+  // DOM node. A change that moved the copy button back into the card body
+  // would still render it, but no longer inside that shared row, so this
+  // fails where a mere presence check would not.
+  it("puts the copy button in the footer alongside Back, not in the card body", () => {
+    advanceToStep4({ frontend: "React", backend: "Mastra" });
+
+    const backButton = screen.getByRole("button", { name: "Back" });
+    const copyButton = screen.getByRole("button", { name: "Copy prompt" });
+
+    expect(copyButton.parentElement).toBe(backButton.parentElement);
+  });
+
+  it("returns to Copy prompt after the reset delay following a successful copy", async () => {
+    vi.useFakeTimers();
+    try {
+      const writeText = stubClipboard();
+      renderWizard();
+
+      fireEvent.click(screen.getByRole("button", { name: "React" }));
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+      // Flush the resolved clipboard promise before the "Copied" state
+      // lands — `advanceTimersByTimeAsync` yields the event loop between
+      // ticks, so this also drains that microtask.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(writeText).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("button", { name: "Copied" })).not.toBeNull();
+
+      // The component's own reset delay after a successful copy is 1800ms.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1800);
+      });
+      expect(
+        screen.getByRole("button", { name: "Copy prompt" }),
+      ).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not change the copy button's width class when its label changes", async () => {
+    vi.useFakeTimers();
+    try {
+      stubClipboard();
+      renderWizard();
+
+      fireEvent.click(screen.getByRole("button", { name: "React" }));
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+
+      const idleMinWidth = screen
+        .getByRole("button", { name: "Copy prompt" })
+        .className.match(/\bmin-w-\S+/)?.[0];
+      expect(idleMinWidth).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      const copiedMinWidth = screen
+        .getByRole("button", { name: "Copied" })
+        .className.match(/\bmin-w-\S+/)?.[0];
+
+      expect(copiedMinWidth).toBe(idleMinWidth);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("URL state", () => {
