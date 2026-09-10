@@ -14,7 +14,7 @@ const data: FrameworkOverviewData = {
   bannerVideo:
     "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4",
   guideLink: "/google-antigravity/quickstart",
-  initCommand: "npx copilotkit@latest init --framework google-antigravity",
+  initCommand: "npx copilotkit@latest init --framework antigravity",
   // The showcase package is not deployed yet (`deployed: false` in its
   // manifest), so the feature and demo links point at the source until the
   // showcase URLs exist; switch them (and restore `liveDemos`) at deploy time.

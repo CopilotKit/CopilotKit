@@ -2,18 +2,20 @@
 
 Baseline: `showcase/integrations/langgraph-python/`.
 
-Google Antigravity is **born-in-showcase** (no `examples/integrations/` Dojo
-counterpart). It is unusual among the Python integrations: instead of a
-graph or agent framework you author per-demo logic in, it drives Google
-Antigravity's SDK — a Go harness subprocess with real file and shell access —
-through the `ag-ui-antigravity` adapter, installed from an unmerged branch of
-`ag-ui-protocol/ag-ui` (PR #2277). This document records where this
+Google Antigravity now has an `examples/integrations/` Dojo counterpart:
+`examples/integrations/antigravity` (the CLI starter, framework id
+`antigravity`), added 2026-09-10. The showcase package still pins the same
+adapter commit as the starter. It is unusual among the Python integrations:
+instead of a graph or agent framework you author per-demo logic in, it drives
+Google Antigravity's SDK — a Go harness subprocess with real file and shell
+access — through the `ag-ui-antigravity` adapter, installed from an unmerged
+branch of `ag-ui-protocol/ag-ui` (PR #2277). This document records where this
 integration deliberately diverges from the canonical langgraph-python pattern
 and why, following the same format as the Hermes integration's parity notes.
 
 ## Backend model
 
-The backend is **born-in-showcase**: a FastAPI process (`src/agent_server.py`)
+The backend is a FastAPI process (`src/agent_server.py`)
 built with the adapter's `create_antigravity_app({name: agent, ...})`, hosting
 one AG-UI endpoint per demo. `requirements.txt` installs the adapter from
 `git+https://github.com/ag-ui-protocol/ag-ui@<sha>#subdirectory=integrations/antigravity/python`,
@@ -319,6 +321,13 @@ What exists for this integration's shell-docs surface:
 - **A populated `docs-links.json`** — one entry per feature declared in this
   package's `manifest.yaml`, every `shell_docs_path` verified against an
   existing file under `showcase/shell-docs/src/content/docs`.
+
+The `cli-start` demo's `command` now names the real CLI framework id
+(`npx copilotkit@latest init --framework antigravity`) rather than the docs
+slug. The CLI catalog entry itself is not done yet — it lives in the
+Intelligence repo, not this one — so the quickstart's Callout still tells
+readers to clone the CopilotKit repository and copy
+`examples/integrations/antigravity` until that entry ships.
 
 What is deliberately absent: no setup snippets for concepts this adapter
 doesn't support (shared state, reasoning surfaces, declarative/open

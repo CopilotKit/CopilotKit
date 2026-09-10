@@ -55,23 +55,22 @@ Before you begin, you'll need the following:
           ### Run the CLI
 
           ```bash
-          npx copilotkit@latest init --framework google-antigravity
+          npx copilotkit@latest init --framework antigravity
           ```
 
           <Callout type="info" title="If the CLI does not list Google Antigravity yet">
-            The starter is the showcase package itself. Until the CLI catches
-            up, clone the CopilotKit repository and copy
-            `showcase/integrations/google-antigravity` — it is a complete
-            Next.js app plus Python agent server with the same layout the CLI
-            scaffolds.
+            Until the CLI catalog gains this entry, clone the CopilotKit
+            repository and copy `examples/integrations/antigravity` — it is a
+            complete Next.js app plus Python agent server with the same
+            layout the CLI scaffolds.
           </Callout>
 
           The starter contains four pieces:
 
-          - `src/agent_server.py` - the FastAPI process that mounts one Antigravity agent per demo with the adapter's `create_antigravity_app`
-          - `src/agents/` - the `AntigravityAgent` definitions, one module per demo
-          - `src/openai_proxy.py` - the in-process shim that lets the Go harness talk to an OpenAI-compatible endpoint
-          - `src/app/api/copilotkit/route.ts` - the CopilotKit runtime route that proxies to the agent server
+          - `agent/main.py` - the FastAPI app built with the adapter's `create_antigravity_app`, mounting one `AntigravityAgent` with a weather tool
+          - `agent/src/openai_proxy.py` - the shim that lets the Go harness reach an OpenAI-compatible endpoint (used by the smoke-test harness)
+          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the CopilotKit runtime route that proxies to the agent with `HttpAgent`
+          - `src/app/page.tsx` - a page demonstrating a frontend tool, a rendered backend tool, and a human-in-the-loop picker
         </Step>
 
         <Step>
@@ -112,13 +111,10 @@ Before you begin, you'll need the following:
             </Tab>
           </Tabs>
 
-          Then install the Python side. The agent server runs from the same
-          project, and its requirements pin the Antigravity SDK, whose wheel
-          bundles the Go harness binary:
-
-          ```bash
-          pip install -r requirements.txt
-          ```
+          `npm install` also runs the agent's `uv sync` (postinstall), so the
+          Python side — including the Antigravity SDK, whose wheel bundles
+          the Go harness binary — is installed too. Make sure `uv` is on your
+          `PATH` before running it.
         </Step>
 
         <Step>

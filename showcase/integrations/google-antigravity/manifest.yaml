@@ -84,7 +84,7 @@ demos:
     description: Copy-paste command to clone the canonical starter
     tags:
       - chat-ui
-    command: "npx copilotkit@latest init --framework google-antigravity"
+    command: "npx copilotkit@latest init --framework antigravity"
   - id: beautiful-chat
     name: Beautiful Chat
     description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills

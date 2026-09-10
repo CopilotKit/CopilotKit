@@ -115,7 +115,7 @@ const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
   "langgraph-python": "langgraph-py",
   "langgraph-typescript": "langgraph-js",
   "google-adk": "adk",
-  "google-antigravity": "google-antigravity",
+  "google-antigravity": "antigravity",
   strands: "aws-strands-py",
   "strands-typescript": "aws-strands-ts",
   "ms-agent-dotnet": "microsoft-agent-framework-dotnet",
