@@ -195,13 +195,13 @@ describe("setup content bundle", () => {
     }
   });
 
-  it("resolves Channels agent setup for all 19 public framework choices", () => {
+  it("resolves Channels agent setup for all 20 public framework choices", () => {
     const setupContent = setupContentData as SetupContentBundle;
     const publicFrameworks = getIntegrations()
       .filter((integration) => getDocsMode(integration.slug) !== "hidden")
       .map((integration) => integration.slug);
 
-    expect(publicFrameworks).toHaveLength(19);
+    expect(publicFrameworks).toHaveLength(20);
     for (const framework of publicFrameworks) {
       const source = resolveBundledSetupConcept(
         framework,
@@ -222,7 +222,7 @@ describe("setup content bundle", () => {
       (entry) => entry.concept === "channels-agent-setup",
     );
 
-    expect(channelSetups).toHaveLength(19);
+    expect(channelSetups).toHaveLength(20);
     for (const { framework, source } of channelSetups) {
       const runtimeInstalls =
         source.match(
