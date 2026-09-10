@@ -167,9 +167,7 @@ export function DocsVideoCarousel() {
         aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
         className="mt-2"
       >
-        <p className="text-sm text-[var(--text-secondary)]">{active.summary}</p>
-
-        <div className="not-prose shell-docs-radius-surface mt-3 aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
+        <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
           <iframe
             src={`https://www.loom.com/embed/${active.loomId}`}
             title={`${active.title} — CopilotKit product walkthrough`}
@@ -184,6 +182,14 @@ export function DocsVideoCarousel() {
             loading="lazy"
           />
         </div>
+
+        {/* Below the video, not above it: the recording is what the reader
+         *  came for, and a line of prose between the tab they just clicked
+         *  and the player pushes the player down for no gain. Reading it
+         *  afterwards is also when it is useful — as a caption. */}
+        <p className="mt-3 text-sm text-[var(--text-secondary)]">
+          {active.summary}
+        </p>
       </div>
     </section>
   );
