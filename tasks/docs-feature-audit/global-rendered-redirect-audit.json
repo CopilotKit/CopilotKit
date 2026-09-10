@@ -1,0 +1,2790 @@
+{
+  "schema_version": 1,
+  "scope": "only local redirects observed by global-rendered-route-audit; external targets recorded but never fetched",
+  "record_encoding": "route|representation -> [outcome, redirect_chain, final_status, final_title, visible_error_markers, error?, final_path?]",
+  "summary": {
+    "redirected_representations": 184,
+    "outcomes": {
+      "local-final": 184
+    },
+    "local_final_statuses": {
+      "200": 134,
+      "404": 50
+    },
+    "records_with_visible_error_markers": 1
+  },
+  "records": {
+    "/ag2/agentic-chat-ui|html": [
+      "local-final",
+      [
+        [
+          301,
+          "/ag2/agentic-chat-ui",
+          "/ag2/prebuilt-components"
+        ]
+      ],
+      200,
+      "Prebuilt Components",
+      [],
+      null,
+      "/ag2/prebuilt-components"
+    ],
+    "/agno/agentic-chat-ui|html": [
+      "local-final",
+      [
+        [
+          301,
+          "/agno/agentic-chat-ui",
+          "/agno/prebuilt-components"
+        ]
+      ],
+      200,
+      "Prebuilt Components",
+      [],
+      null,
+      "/agno/prebuilt-components"
+    ],
+    "/angular/built-in-agent/agent-config|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/agent-config",
+          "/angular/agent-config"
+        ]
+      ],
+      200,
+      "Agent Config",
+      [],
+      null,
+      "/angular/agent-config"
+    ],
+    "/angular/built-in-agent/auth|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/auth",
+          "/angular/auth"
+        ]
+      ],
+      200,
+      "Authentication",
+      [],
+      null,
+      "/angular/auth"
+    ],
+    "/angular/built-in-agent/guides/a2ui|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/guides/a2ui",
+          "/angular/guides/a2ui"
+        ]
+      ],
+      200,
+      "A2UI schemas, styling, and recovery",
+      [],
+      null,
+      "/angular/guides/a2ui"
+    ],
+    "/angular/built-in-agent/guides/chat-ui|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/guides/chat-ui",
+          "/angular/guides/chat-ui"
+        ]
+      ],
+      200,
+      "Chat UI and customization",
+      [],
+      null,
+      "/angular/guides/chat-ui"
+    ],
+    "/angular/built-in-agent/guides/frontend-tools-generative-ui|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/guides/frontend-tools-generative-ui",
+          "/angular/guides/frontend-tools-generative-ui"
+        ]
+      ],
+      200,
+      "Frontend tools and generative UI",
+      [],
+      null,
+      "/angular/guides/frontend-tools-generative-ui"
+    ],
+    "/angular/built-in-agent/guides/human-in-the-loop|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/guides/human-in-the-loop",
+          "/angular/guides/human-in-the-loop"
+        ]
+      ],
+      200,
+      "Human-in-the-loop and interrupts",
+      [],
+      null,
+      "/angular/guides/human-in-the-loop"
+    ],
+    "/angular/built-in-agent/guides/shared-state|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/guides/shared-state",
+          "/angular/guides/shared-state"
+        ]
+      ],
+      200,
+      "Shared state and agent context",
+      [],
+      null,
+      "/angular/guides/shared-state"
+    ],
+    "/angular/built-in-agent/guides/voice-multimodal|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/guides/voice-multimodal",
+          "/angular/guides/voice-multimodal"
+        ]
+      ],
+      200,
+      "Voice and multimodal input",
+      [],
+      null,
+      "/angular/guides/voice-multimodal"
+    ],
+    "/angular/built-in-agent/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/angular/built-in-agent/quickstart",
+          "/angular"
+        ]
+      ],
+      200,
+      "Angular quickstart",
+      [],
+      null,
+      "/angular"
+    ],
+    "/built-in-agent/agent-config|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/agent-config",
+          "/agent-config"
+        ]
+      ],
+      200,
+      "Agent Config",
+      [],
+      null,
+      "/agent-config"
+    ],
+    "/built-in-agent/agent-config|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/agent-config.mdx",
+          "/agent-config.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/agent-config.mdx"
+    ],
+    "/built-in-agent/agentic-chat-ui|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/agentic-chat-ui",
+          "/agentic-chat-ui"
+        ],
+        [
+          301,
+          "/agentic-chat-ui",
+          "/prebuilt-components"
+        ]
+      ],
+      200,
+      "Prebuilt Components",
+      [],
+      null,
+      "/prebuilt-components"
+    ],
+    "/built-in-agent/agentic-chat-ui|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/agentic-chat-ui.mdx",
+          "/agentic-chat-ui.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/agentic-chat-ui.mdx"
+    ],
+    "/built-in-agent/auth|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/auth",
+          "/auth"
+        ]
+      ],
+      200,
+      "Authentication",
+      [],
+      null,
+      "/auth"
+    ],
+    "/built-in-agent/auth|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/auth.mdx",
+          "/auth.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/auth.mdx"
+    ],
+    "/built-in-agent/custom-look-and-feel/css|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/custom-look-and-feel/css",
+          "/custom-look-and-feel/css"
+        ]
+      ],
+      200,
+      "CSS Customization",
+      [],
+      null,
+      "/custom-look-and-feel/css"
+    ],
+    "/built-in-agent/custom-look-and-feel/css|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/custom-look-and-feel/css.mdx",
+          "/custom-look-and-feel/css.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/custom-look-and-feel/css.mdx"
+    ],
+    "/built-in-agent/custom-look-and-feel/reasoning-messages|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/custom-look-and-feel/reasoning-messages",
+          "/custom-look-and-feel/reasoning-messages"
+        ]
+      ],
+      200,
+      "Reasoning Messages",
+      [],
+      null,
+      "/custom-look-and-feel/reasoning-messages"
+    ],
+    "/built-in-agent/custom-look-and-feel/reasoning-messages|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/custom-look-and-feel/reasoning-messages.mdx",
+          "/custom-look-and-feel/reasoning-messages.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/custom-look-and-feel/reasoning-messages.mdx"
+    ],
+    "/built-in-agent/custom-look-and-feel/slots|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/custom-look-and-feel/slots",
+          "/custom-look-and-feel/slots"
+        ]
+      ],
+      200,
+      "Slots",
+      [],
+      null,
+      "/custom-look-and-feel/slots"
+    ],
+    "/built-in-agent/custom-look-and-feel/slots|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/custom-look-and-feel/slots.mdx",
+          "/custom-look-and-feel/slots.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/custom-look-and-feel/slots.mdx"
+    ],
+    "/built-in-agent/frontend-tools|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/frontend-tools",
+          "/frontend-tools"
+        ]
+      ],
+      200,
+      "Frontend Tools",
+      [],
+      null,
+      "/frontend-tools"
+    ],
+    "/built-in-agent/frontend-tools|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/frontend-tools.mdx",
+          "/frontend-tools.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/frontend-tools.mdx"
+    ],
+    "/built-in-agent/generative-ui/a2ui/dynamic-schema|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/a2ui/dynamic-schema",
+          "/generative-ui/a2ui/dynamic-schema"
+        ]
+      ],
+      200,
+      "Dynamic Schema A2UI",
+      [],
+      null,
+      "/generative-ui/a2ui/dynamic-schema"
+    ],
+    "/built-in-agent/generative-ui/a2ui/dynamic-schema|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/a2ui/dynamic-schema.mdx",
+          "/generative-ui/a2ui/dynamic-schema.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/generative-ui/a2ui/dynamic-schema.mdx"
+    ],
+    "/built-in-agent/generative-ui/a2ui/fixed-schema|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/a2ui/fixed-schema",
+          "/generative-ui/a2ui/fixed-schema"
+        ]
+      ],
+      200,
+      "Fixed Schema A2UI",
+      [
+        "missing_snippet"
+      ],
+      null,
+      "/generative-ui/a2ui/fixed-schema"
+    ],
+    "/built-in-agent/generative-ui/a2ui/fixed-schema|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/a2ui/fixed-schema.mdx",
+          "/generative-ui/a2ui/fixed-schema.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/generative-ui/a2ui/fixed-schema.mdx"
+    ],
+    "/built-in-agent/generative-ui/mcp-apps|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/mcp-apps",
+          "/generative-ui/mcp-apps"
+        ]
+      ],
+      200,
+      "MCP Apps",
+      [],
+      null,
+      "/generative-ui/mcp-apps"
+    ],
+    "/built-in-agent/generative-ui/mcp-apps|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/mcp-apps.mdx",
+          "/generative-ui/mcp-apps.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/generative-ui/mcp-apps.mdx"
+    ],
+    "/built-in-agent/generative-ui/open-generative-ui|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/open-generative-ui",
+          "/generative-ui/open-generative-ui"
+        ]
+      ],
+      200,
+      "Open Generative UI",
+      [],
+      null,
+      "/generative-ui/open-generative-ui"
+    ],
+    "/built-in-agent/generative-ui/open-generative-ui|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/open-generative-ui.mdx",
+          "/generative-ui/open-generative-ui.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/generative-ui/open-generative-ui.mdx"
+    ],
+    "/built-in-agent/generative-ui/state-rendering|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/state-rendering",
+          "/generative-ui/state-rendering"
+        ]
+      ],
+      200,
+      "State Rendering",
+      [],
+      null,
+      "/generative-ui/state-rendering"
+    ],
+    "/built-in-agent/generative-ui/state-rendering|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/state-rendering.mdx",
+          "/generative-ui/state-rendering.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/generative-ui/state-rendering.mdx"
+    ],
+    "/built-in-agent/generative-ui/tool-rendering|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/tool-rendering",
+          "/generative-ui/tool-rendering"
+        ]
+      ],
+      200,
+      "Tool Rendering",
+      [],
+      null,
+      "/generative-ui/tool-rendering"
+    ],
+    "/built-in-agent/generative-ui/tool-rendering|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/tool-rendering.mdx",
+          "/generative-ui/tool-rendering.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/generative-ui/tool-rendering.mdx"
+    ],
+    "/built-in-agent/generative-ui/your-components/display-only|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/your-components/display-only",
+          "/generative-ui/your-components/display-only"
+        ]
+      ],
+      200,
+      "Display-only",
+      [],
+      null,
+      "/generative-ui/your-components/display-only"
+    ],
+    "/built-in-agent/generative-ui/your-components/display-only|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/your-components/display-only.mdx",
+          "/generative-ui/your-components/display-only.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/generative-ui/your-components/display-only.mdx"
+    ],
+    "/built-in-agent/generative-ui/your-components/interactive|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/your-components/interactive",
+          "/generative-ui/your-components/interactive"
+        ]
+      ],
+      200,
+      "Interactive",
+      [],
+      null,
+      "/generative-ui/your-components/interactive"
+    ],
+    "/built-in-agent/generative-ui/your-components/interactive|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/generative-ui/your-components/interactive.mdx",
+          "/generative-ui/your-components/interactive.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/generative-ui/your-components/interactive.mdx"
+    ],
+    "/built-in-agent/headless|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/headless",
+          "/headless"
+        ],
+        [
+          301,
+          "/headless",
+          "/custom-look-and-feel/headless-ui"
+        ]
+      ],
+      200,
+      "Fully Headless UI",
+      [],
+      null,
+      "/custom-look-and-feel/headless-ui"
+    ],
+    "/built-in-agent/headless|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/headless.mdx",
+          "/headless.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/headless.mdx"
+    ],
+    "/built-in-agent/human-in-the-loop|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/human-in-the-loop",
+          "/human-in-the-loop"
+        ]
+      ],
+      200,
+      "HITL Overview",
+      [],
+      null,
+      "/human-in-the-loop"
+    ],
+    "/built-in-agent/human-in-the-loop|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/human-in-the-loop.mdx",
+          "/human-in-the-loop.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/human-in-the-loop.mdx"
+    ],
+    "/built-in-agent/human-in-the-loop/headless|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/human-in-the-loop/headless",
+          "/human-in-the-loop/headless"
+        ]
+      ],
+      200,
+      "Headless Interrupts",
+      [],
+      null,
+      "/human-in-the-loop/headless"
+    ],
+    "/built-in-agent/human-in-the-loop/headless|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/human-in-the-loop/headless.mdx",
+          "/human-in-the-loop/headless.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/human-in-the-loop/headless.mdx"
+    ],
+    "/built-in-agent/human-in-the-loop/useInterrupt|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/human-in-the-loop/useInterrupt",
+          "/human-in-the-loop/useInterrupt"
+        ]
+      ],
+      200,
+      "Pausing the Agent for Input",
+      [],
+      null,
+      "/human-in-the-loop/useInterrupt"
+    ],
+    "/built-in-agent/human-in-the-loop/useInterrupt|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/human-in-the-loop/useInterrupt.mdx",
+          "/human-in-the-loop/useInterrupt.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/human-in-the-loop/useInterrupt.mdx"
+    ],
+    "/built-in-agent/multi-agent/subagents|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/multi-agent/subagents",
+          "/multi-agent/subagents"
+        ]
+      ],
+      200,
+      "Sub-Agents",
+      [],
+      null,
+      "/multi-agent/subagents"
+    ],
+    "/built-in-agent/multi-agent/subagents|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/multi-agent/subagents.mdx",
+          "/multi-agent/subagents.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/multi-agent/subagents.mdx"
+    ],
+    "/built-in-agent/multimodal-attachments|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/multimodal-attachments",
+          "/multimodal-attachments"
+        ]
+      ],
+      200,
+      "Multimodal Attachments",
+      [],
+      null,
+      "/multimodal-attachments"
+    ],
+    "/built-in-agent/multimodal-attachments|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/multimodal-attachments.mdx",
+          "/multimodal-attachments.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/multimodal-attachments.mdx"
+    ],
+    "/built-in-agent/prebuilt-components/popup|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/prebuilt-components/popup",
+          "/prebuilt-components/popup"
+        ]
+      ],
+      200,
+      "CopilotPopup",
+      [],
+      null,
+      "/prebuilt-components/popup"
+    ],
+    "/built-in-agent/prebuilt-components/popup|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/prebuilt-components/popup.mdx",
+          "/prebuilt-components/popup.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/prebuilt-components/popup.mdx"
+    ],
+    "/built-in-agent/prebuilt-components/sidebar|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/prebuilt-components/sidebar",
+          "/prebuilt-components/sidebar"
+        ]
+      ],
+      200,
+      "CopilotSidebar",
+      [],
+      null,
+      "/prebuilt-components/sidebar"
+    ],
+    "/built-in-agent/prebuilt-components/sidebar|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/prebuilt-components/sidebar.mdx",
+          "/prebuilt-components/sidebar.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/prebuilt-components/sidebar.mdx"
+    ],
+    "/built-in-agent/quickstart|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/quickstart",
+          "/quickstart"
+        ]
+      ],
+      200,
+      "Quickstart",
+      [],
+      null,
+      "/quickstart"
+    ],
+    "/built-in-agent/quickstart|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/quickstart.mdx",
+          "/quickstart.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/quickstart.mdx"
+    ],
+    "/built-in-agent/shared-state|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/shared-state",
+          "/shared-state"
+        ]
+      ],
+      200,
+      "Shared State",
+      [],
+      null,
+      "/shared-state"
+    ],
+    "/built-in-agent/shared-state|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/shared-state.mdx",
+          "/shared-state.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/shared-state.mdx"
+    ],
+    "/built-in-agent/shared-state/agent-readonly|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/shared-state/agent-readonly",
+          "/shared-state/agent-readonly"
+        ]
+      ],
+      200,
+      "Agent Read-Only Context",
+      [],
+      null,
+      "/shared-state/agent-readonly"
+    ],
+    "/built-in-agent/shared-state/agent-readonly|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/shared-state/agent-readonly.mdx",
+          "/shared-state/agent-readonly.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/shared-state/agent-readonly.mdx"
+    ],
+    "/built-in-agent/shared-state/streaming|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/shared-state/streaming",
+          "/shared-state/streaming"
+        ]
+      ],
+      200,
+      "State Streaming",
+      [],
+      null,
+      "/shared-state/streaming"
+    ],
+    "/built-in-agent/shared-state/streaming|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/shared-state/streaming.mdx",
+          "/shared-state/streaming.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/shared-state/streaming.mdx"
+    ],
+    "/built-in-agent/voice|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/voice",
+          "/voice"
+        ]
+      ],
+      200,
+      "Voice",
+      [],
+      null,
+      "/voice"
+    ],
+    "/built-in-agent/voice|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/built-in-agent/voice.mdx",
+          "/voice.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/voice.mdx"
+    ],
+    "/channels|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels",
+          "/slack"
+        ]
+      ],
+      200,
+      "Slack: Channels",
+      [],
+      null,
+      "/slack"
+    ],
+    "/channels|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels.mdx",
+          "/slack.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack.mdx"
+    ],
+    "/channels/commands-and-reactions|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/commands-and-reactions",
+          "/slack/commands-and-reactions"
+        ]
+      ],
+      200,
+      "Slack: Commands and reactions",
+      [],
+      null,
+      "/slack/commands-and-reactions"
+    ],
+    "/channels/commands-and-reactions|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/commands-and-reactions.mdx",
+          "/slack/commands-and-reactions.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/commands-and-reactions.mdx"
+    ],
+    "/channels/deploy-and-operate|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/deploy-and-operate",
+          "/slack/deploy-and-operate"
+        ]
+      ],
+      200,
+      "Slack: Deploy and operate",
+      [],
+      null,
+      "/slack/deploy-and-operate"
+    ],
+    "/channels/deploy-and-operate|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/deploy-and-operate.mdx",
+          "/slack/deploy-and-operate.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/deploy-and-operate.mdx"
+    ],
+    "/channels/files-and-multimodality|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/files-and-multimodality",
+          "/slack/files-and-multimodality"
+        ]
+      ],
+      200,
+      "Slack: Files and multimodal input",
+      [],
+      null,
+      "/slack/files-and-multimodality"
+    ],
+    "/channels/files-and-multimodality|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/files-and-multimodality.mdx",
+          "/slack/files-and-multimodality.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/files-and-multimodality.mdx"
+    ],
+    "/channels/history-and-transcripts|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/history-and-transcripts",
+          "/slack/history-and-transcripts"
+        ]
+      ],
+      200,
+      "Slack: History and transcripts",
+      [],
+      null,
+      "/slack/history-and-transcripts"
+    ],
+    "/channels/history-and-transcripts|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/history-and-transcripts.mdx",
+          "/slack/history-and-transcripts.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/history-and-transcripts.mdx"
+    ],
+    "/channels/identity-and-memory|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/identity-and-memory",
+          "/slack/identity-and-memory"
+        ]
+      ],
+      200,
+      "Slack: Identity and Memory",
+      [],
+      null,
+      "/slack/identity-and-memory"
+    ],
+    "/channels/identity-and-memory|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/identity-and-memory.mdx",
+          "/slack/identity-and-memory.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/identity-and-memory.mdx"
+    ],
+    "/channels/intelligence|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/intelligence",
+          "/slack/intelligence"
+        ]
+      ],
+      200,
+      "Slack: Configure the Channel in Intelligence",
+      [],
+      null,
+      "/slack/intelligence"
+    ],
+    "/channels/intelligence|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/intelligence.mdx",
+          "/slack/intelligence.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/intelligence.mdx"
+    ],
+    "/channels/interactive|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/interactive",
+          "/slack/interactive"
+        ]
+      ],
+      200,
+      "Slack: Interactive messages and approvals",
+      [],
+      null,
+      "/slack/interactive"
+    ],
+    "/channels/interactive|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/interactive.mdx",
+          "/slack/interactive.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/interactive.mdx"
+    ],
+    "/channels/persistence-and-scaling|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/persistence-and-scaling",
+          "/slack/persistence-and-scaling"
+        ]
+      ],
+      200,
+      "Slack: Persistence and scaling",
+      [],
+      null,
+      "/slack/persistence-and-scaling"
+    ],
+    "/channels/persistence-and-scaling|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/persistence-and-scaling.mdx",
+          "/slack/persistence-and-scaling.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/persistence-and-scaling.mdx"
+    ],
+    "/channels/rich-messages|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/rich-messages",
+          "/slack/rich-messages"
+        ]
+      ],
+      200,
+      "Slack: Rich messages and components",
+      [],
+      null,
+      "/slack/rich-messages"
+    ],
+    "/channels/rich-messages|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/rich-messages.mdx",
+          "/slack/rich-messages.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/rich-messages.mdx"
+    ],
+    "/channels/threads-and-state|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/threads-and-state",
+          "/slack/threads-and-state"
+        ]
+      ],
+      200,
+      "Slack: Threads and state",
+      [],
+      null,
+      "/slack/threads-and-state"
+    ],
+    "/channels/threads-and-state|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/threads-and-state.mdx",
+          "/slack/threads-and-state.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/threads-and-state.mdx"
+    ],
+    "/channels/tools|html": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/tools",
+          "/slack/tools"
+        ]
+      ],
+      200,
+      "Slack: Tools and context",
+      [],
+      null,
+      "/slack/tools"
+    ],
+    "/channels/tools|mdx": [
+      "local-final",
+      [
+        [
+          308,
+          "/channels/tools.mdx",
+          "/slack/tools.mdx"
+        ]
+      ],
+      200,
+      null,
+      [],
+      null,
+      "/slack/tools.mdx"
+    ],
+    "/llamaindex/agentic-chat-ui|html": [
+      "local-final",
+      [
+        [
+          301,
+          "/llamaindex/agentic-chat-ui",
+          "/llamaindex/prebuilt-components"
+        ]
+      ],
+      200,
+      "Prebuilt Components",
+      [],
+      null,
+      "/llamaindex/prebuilt-components"
+    ],
+    "/mastra/agentic-chat-ui|html": [
+      "local-final",
+      [
+        [
+          301,
+          "/mastra/agentic-chat-ui",
+          "/mastra/prebuilt-components"
+        ]
+      ],
+      200,
+      "Prebuilt Components",
+      [],
+      null,
+      "/mastra/prebuilt-components"
+    ],
+    "/pydantic-ai/agentic-chat-ui|html": [
+      "local-final",
+      [
+        [
+          301,
+          "/pydantic-ai/agentic-chat-ui",
+          "/pydantic-ai/prebuilt-components"
+        ]
+      ],
+      200,
+      "Prebuilt Components",
+      [],
+      null,
+      "/pydantic-ai/prebuilt-components"
+    ],
+    "/react-native/ag2/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/ag2/quickstart",
+          "/react-native/ag2"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/ag2"
+    ],
+    "/react-native/agno/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/agno/quickstart",
+          "/react-native/agno"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/agno"
+    ],
+    "/react-native/built-in-agent/agent-config|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/agent-config",
+          "/react-native/agent-config"
+        ]
+      ],
+      200,
+      "Agent Config",
+      [],
+      null,
+      "/react-native/agent-config"
+    ],
+    "/react-native/built-in-agent/agentic-chat-ui|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/agentic-chat-ui",
+          "/react-native/agentic-chat-ui"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/agentic-chat-ui"
+    ],
+    "/react-native/built-in-agent/auth|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/auth",
+          "/react-native/auth"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/auth"
+    ],
+    "/react-native/built-in-agent/custom-look-and-feel/css|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/custom-look-and-feel/css",
+          "/react-native/custom-look-and-feel/css"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/custom-look-and-feel/css"
+    ],
+    "/react-native/built-in-agent/custom-look-and-feel/reasoning-messages|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/custom-look-and-feel/reasoning-messages",
+          "/react-native/custom-look-and-feel/reasoning-messages"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/custom-look-and-feel/reasoning-messages"
+    ],
+    "/react-native/built-in-agent/custom-look-and-feel/slots|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/custom-look-and-feel/slots",
+          "/react-native/custom-look-and-feel/slots"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/custom-look-and-feel/slots"
+    ],
+    "/react-native/built-in-agent/frontend-tools|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/frontend-tools",
+          "/react-native/frontend-tools"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/frontend-tools"
+    ],
+    "/react-native/built-in-agent/generative-ui/a2ui/dynamic-schema|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/generative-ui/a2ui/dynamic-schema",
+          "/react-native/generative-ui/a2ui/dynamic-schema"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/generative-ui/a2ui/dynamic-schema"
+    ],
+    "/react-native/built-in-agent/generative-ui/a2ui/fixed-schema|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/generative-ui/a2ui/fixed-schema",
+          "/react-native/generative-ui/a2ui/fixed-schema"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/generative-ui/a2ui/fixed-schema"
+    ],
+    "/react-native/built-in-agent/generative-ui/mcp-apps|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/generative-ui/mcp-apps",
+          "/react-native/generative-ui/mcp-apps"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/generative-ui/mcp-apps"
+    ],
+    "/react-native/built-in-agent/generative-ui/open-generative-ui|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/generative-ui/open-generative-ui",
+          "/react-native/generative-ui/open-generative-ui"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/generative-ui/open-generative-ui"
+    ],
+    "/react-native/built-in-agent/generative-ui/state-rendering|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/generative-ui/state-rendering",
+          "/react-native/generative-ui/state-rendering"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/generative-ui/state-rendering"
+    ],
+    "/react-native/built-in-agent/generative-ui/tool-rendering|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/generative-ui/tool-rendering",
+          "/react-native/generative-ui/tool-rendering"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/generative-ui/tool-rendering"
+    ],
+    "/react-native/built-in-agent/generative-ui/your-components/display-only|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/generative-ui/your-components/display-only",
+          "/react-native/generative-ui/your-components/display-only"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/generative-ui/your-components/display-only"
+    ],
+    "/react-native/built-in-agent/generative-ui/your-components/interactive|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/generative-ui/your-components/interactive",
+          "/react-native/generative-ui/your-components/interactive"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/generative-ui/your-components/interactive"
+    ],
+    "/react-native/built-in-agent/headless|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/headless",
+          "/react-native/headless"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/headless"
+    ],
+    "/react-native/built-in-agent/human-in-the-loop|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/human-in-the-loop",
+          "/react-native/human-in-the-loop"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/human-in-the-loop"
+    ],
+    "/react-native/built-in-agent/human-in-the-loop/headless|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/human-in-the-loop/headless",
+          "/react-native/human-in-the-loop/headless"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/human-in-the-loop/headless"
+    ],
+    "/react-native/built-in-agent/human-in-the-loop/useInterrupt|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/human-in-the-loop/useInterrupt",
+          "/react-native/human-in-the-loop/useInterrupt"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/human-in-the-loop/useInterrupt"
+    ],
+    "/react-native/built-in-agent/multi-agent/subagents|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/multi-agent/subagents",
+          "/react-native/multi-agent/subagents"
+        ]
+      ],
+      200,
+      "Sub-Agents",
+      [],
+      null,
+      "/react-native/multi-agent/subagents"
+    ],
+    "/react-native/built-in-agent/multimodal-attachments|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/multimodal-attachments",
+          "/react-native/multimodal-attachments"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/multimodal-attachments"
+    ],
+    "/react-native/built-in-agent/prebuilt-components/popup|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/prebuilt-components/popup",
+          "/react-native/prebuilt-components/popup"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/prebuilt-components/popup"
+    ],
+    "/react-native/built-in-agent/prebuilt-components/sidebar|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/prebuilt-components/sidebar",
+          "/react-native/prebuilt-components/sidebar"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/prebuilt-components/sidebar"
+    ],
+    "/react-native/built-in-agent/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/quickstart",
+          "/react-native"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native"
+    ],
+    "/react-native/built-in-agent/shared-state|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/shared-state",
+          "/react-native/shared-state"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/shared-state"
+    ],
+    "/react-native/built-in-agent/shared-state/agent-readonly|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/shared-state/agent-readonly",
+          "/react-native/shared-state/agent-readonly"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/shared-state/agent-readonly"
+    ],
+    "/react-native/built-in-agent/shared-state/streaming|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/shared-state/streaming",
+          "/react-native/shared-state/streaming"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/shared-state/streaming"
+    ],
+    "/react-native/built-in-agent/voice|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/built-in-agent/voice",
+          "/react-native/voice"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/react-native/voice"
+    ],
+    "/react-native/claude-sdk-python/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/claude-sdk-python/quickstart",
+          "/react-native/claude-sdk-python"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/claude-sdk-python"
+    ],
+    "/react-native/claude-sdk-typescript/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/claude-sdk-typescript/quickstart",
+          "/react-native/claude-sdk-typescript"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/claude-sdk-typescript"
+    ],
+    "/react-native/crewai-crews/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/crewai-crews/quickstart",
+          "/react-native/crewai-crews"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/crewai-crews"
+    ],
+    "/react-native/google-adk/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/google-adk/quickstart",
+          "/react-native/google-adk"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/google-adk"
+    ],
+    "/react-native/langgraph-fastapi/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/langgraph-fastapi/quickstart",
+          "/react-native/langgraph-fastapi"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/langgraph-fastapi"
+    ],
+    "/react-native/langgraph-python/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/langgraph-python/quickstart",
+          "/react-native/langgraph-python"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/langgraph-python"
+    ],
+    "/react-native/langgraph-typescript/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/langgraph-typescript/quickstart",
+          "/react-native/langgraph-typescript"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/langgraph-typescript"
+    ],
+    "/react-native/llamaindex/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/llamaindex/quickstart",
+          "/react-native/llamaindex"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/llamaindex"
+    ],
+    "/react-native/mastra/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/mastra/quickstart",
+          "/react-native/mastra"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/mastra"
+    ],
+    "/react-native/ms-agent-dotnet/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/ms-agent-dotnet/quickstart",
+          "/react-native/ms-agent-dotnet"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/ms-agent-dotnet"
+    ],
+    "/react-native/ms-agent-harness-dotnet/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/ms-agent-harness-dotnet/quickstart",
+          "/react-native/ms-agent-harness-dotnet"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/ms-agent-harness-dotnet"
+    ],
+    "/react-native/ms-agent-python/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/ms-agent-python/quickstart",
+          "/react-native/ms-agent-python"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/ms-agent-python"
+    ],
+    "/react-native/pydantic-ai/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/pydantic-ai/quickstart",
+          "/react-native/pydantic-ai"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/pydantic-ai"
+    ],
+    "/react-native/strands-typescript/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/strands-typescript/quickstart",
+          "/react-native/strands-typescript"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/strands-typescript"
+    ],
+    "/react-native/strands/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/react-native/strands/quickstart",
+          "/react-native/strands"
+        ]
+      ],
+      200,
+      "React Native quickstart",
+      [],
+      null,
+      "/react-native/strands"
+    ],
+    "/vue/ag2/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/ag2/quickstart",
+          "/vue/ag2"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/ag2"
+    ],
+    "/vue/agno/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/agno/quickstart",
+          "/vue/agno"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/agno"
+    ],
+    "/vue/built-in-agent/agent-config|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/agent-config",
+          "/vue/agent-config"
+        ]
+      ],
+      200,
+      "Agent Config",
+      [],
+      null,
+      "/vue/agent-config"
+    ],
+    "/vue/built-in-agent/agentic-chat-ui|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/agentic-chat-ui",
+          "/vue/agentic-chat-ui"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/agentic-chat-ui"
+    ],
+    "/vue/built-in-agent/auth|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/auth",
+          "/vue/auth"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/auth"
+    ],
+    "/vue/built-in-agent/custom-look-and-feel/css|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/custom-look-and-feel/css",
+          "/vue/custom-look-and-feel/css"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/custom-look-and-feel/css"
+    ],
+    "/vue/built-in-agent/custom-look-and-feel/reasoning-messages|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/custom-look-and-feel/reasoning-messages",
+          "/vue/custom-look-and-feel/reasoning-messages"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/custom-look-and-feel/reasoning-messages"
+    ],
+    "/vue/built-in-agent/custom-look-and-feel/slots|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/custom-look-and-feel/slots",
+          "/vue/custom-look-and-feel/slots"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/custom-look-and-feel/slots"
+    ],
+    "/vue/built-in-agent/frontend-tools|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/frontend-tools",
+          "/vue/frontend-tools"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/frontend-tools"
+    ],
+    "/vue/built-in-agent/generative-ui/a2ui/dynamic-schema|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/generative-ui/a2ui/dynamic-schema",
+          "/vue/generative-ui/a2ui/dynamic-schema"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/generative-ui/a2ui/dynamic-schema"
+    ],
+    "/vue/built-in-agent/generative-ui/a2ui/fixed-schema|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/generative-ui/a2ui/fixed-schema",
+          "/vue/generative-ui/a2ui/fixed-schema"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/generative-ui/a2ui/fixed-schema"
+    ],
+    "/vue/built-in-agent/generative-ui/mcp-apps|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/generative-ui/mcp-apps",
+          "/vue/generative-ui/mcp-apps"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/generative-ui/mcp-apps"
+    ],
+    "/vue/built-in-agent/generative-ui/open-generative-ui|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/generative-ui/open-generative-ui",
+          "/vue/generative-ui/open-generative-ui"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/generative-ui/open-generative-ui"
+    ],
+    "/vue/built-in-agent/generative-ui/state-rendering|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/generative-ui/state-rendering",
+          "/vue/generative-ui/state-rendering"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/generative-ui/state-rendering"
+    ],
+    "/vue/built-in-agent/generative-ui/tool-rendering|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/generative-ui/tool-rendering",
+          "/vue/generative-ui/tool-rendering"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/generative-ui/tool-rendering"
+    ],
+    "/vue/built-in-agent/generative-ui/your-components/display-only|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/generative-ui/your-components/display-only",
+          "/vue/generative-ui/your-components/display-only"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/generative-ui/your-components/display-only"
+    ],
+    "/vue/built-in-agent/generative-ui/your-components/interactive|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/generative-ui/your-components/interactive",
+          "/vue/generative-ui/your-components/interactive"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/generative-ui/your-components/interactive"
+    ],
+    "/vue/built-in-agent/headless|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/headless",
+          "/vue/headless"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/headless"
+    ],
+    "/vue/built-in-agent/human-in-the-loop|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/human-in-the-loop",
+          "/vue/human-in-the-loop"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/human-in-the-loop"
+    ],
+    "/vue/built-in-agent/human-in-the-loop/headless|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/human-in-the-loop/headless",
+          "/vue/human-in-the-loop/headless"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/human-in-the-loop/headless"
+    ],
+    "/vue/built-in-agent/human-in-the-loop/useInterrupt|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/human-in-the-loop/useInterrupt",
+          "/vue/human-in-the-loop/useInterrupt"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/human-in-the-loop/useInterrupt"
+    ],
+    "/vue/built-in-agent/multi-agent/subagents|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/multi-agent/subagents",
+          "/vue/multi-agent/subagents"
+        ]
+      ],
+      200,
+      "Sub-Agents",
+      [],
+      null,
+      "/vue/multi-agent/subagents"
+    ],
+    "/vue/built-in-agent/multimodal-attachments|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/multimodal-attachments",
+          "/vue/multimodal-attachments"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/multimodal-attachments"
+    ],
+    "/vue/built-in-agent/prebuilt-components/popup|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/prebuilt-components/popup",
+          "/vue/prebuilt-components/popup"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/prebuilt-components/popup"
+    ],
+    "/vue/built-in-agent/prebuilt-components/sidebar|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/prebuilt-components/sidebar",
+          "/vue/prebuilt-components/sidebar"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/prebuilt-components/sidebar"
+    ],
+    "/vue/built-in-agent/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/quickstart",
+          "/vue"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue"
+    ],
+    "/vue/built-in-agent/shared-state|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/shared-state",
+          "/vue/shared-state"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/shared-state"
+    ],
+    "/vue/built-in-agent/shared-state/agent-readonly|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/shared-state/agent-readonly",
+          "/vue/shared-state/agent-readonly"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/shared-state/agent-readonly"
+    ],
+    "/vue/built-in-agent/shared-state/streaming|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/shared-state/streaming",
+          "/vue/shared-state/streaming"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/shared-state/streaming"
+    ],
+    "/vue/built-in-agent/voice|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/built-in-agent/voice",
+          "/vue/voice"
+        ]
+      ],
+      404,
+      "Page not found",
+      [],
+      null,
+      "/vue/voice"
+    ],
+    "/vue/claude-sdk-python/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/claude-sdk-python/quickstart",
+          "/vue/claude-sdk-python"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/claude-sdk-python"
+    ],
+    "/vue/claude-sdk-typescript/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/claude-sdk-typescript/quickstart",
+          "/vue/claude-sdk-typescript"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/claude-sdk-typescript"
+    ],
+    "/vue/crewai-crews/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/crewai-crews/quickstart",
+          "/vue/crewai-crews"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/crewai-crews"
+    ],
+    "/vue/google-adk/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/google-adk/quickstart",
+          "/vue/google-adk"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/google-adk"
+    ],
+    "/vue/langgraph-fastapi/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/langgraph-fastapi/quickstart",
+          "/vue/langgraph-fastapi"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/langgraph-fastapi"
+    ],
+    "/vue/langgraph-python/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/langgraph-python/quickstart",
+          "/vue/langgraph-python"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/langgraph-python"
+    ],
+    "/vue/langgraph-typescript/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/langgraph-typescript/quickstart",
+          "/vue/langgraph-typescript"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/langgraph-typescript"
+    ],
+    "/vue/llamaindex/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/llamaindex/quickstart",
+          "/vue/llamaindex"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/llamaindex"
+    ],
+    "/vue/mastra/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/mastra/quickstart",
+          "/vue/mastra"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/mastra"
+    ],
+    "/vue/ms-agent-dotnet/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/ms-agent-dotnet/quickstart",
+          "/vue/ms-agent-dotnet"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/ms-agent-dotnet"
+    ],
+    "/vue/ms-agent-harness-dotnet/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/ms-agent-harness-dotnet/quickstart",
+          "/vue/ms-agent-harness-dotnet"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/ms-agent-harness-dotnet"
+    ],
+    "/vue/ms-agent-python/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/ms-agent-python/quickstart",
+          "/vue/ms-agent-python"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/ms-agent-python"
+    ],
+    "/vue/pydantic-ai/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/pydantic-ai/quickstart",
+          "/vue/pydantic-ai"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/pydantic-ai"
+    ],
+    "/vue/strands-typescript/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/strands-typescript/quickstart",
+          "/vue/strands-typescript"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/strands-typescript"
+    ],
+    "/vue/strands/quickstart|html": [
+      "local-final",
+      [
+        [
+          307,
+          "/vue/strands/quickstart",
+          "/vue/strands"
+        ]
+      ],
+      200,
+      "Vue quickstart",
+      [],
+      null,
+      "/vue/strands"
+    ]
+  }
+}
