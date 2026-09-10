@@ -243,7 +243,9 @@ def start_background(
         if not thread.is_alive():
             raise RuntimeError("The OpenAI shim thread exited during startup.")
         try:
-            if httpx.get(f"http://127.0.0.1:{port}/__shim_health", timeout=2.0).is_success:
+            if httpx.get(
+                f"http://127.0.0.1:{port}/__shim_health", timeout=2.0
+            ).is_success:
                 return f"http://127.0.0.1:{port}"
         except httpx.HTTPError:
             pass

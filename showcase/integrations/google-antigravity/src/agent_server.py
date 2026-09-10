@@ -41,7 +41,9 @@ app.add_middleware(HealthMiddleware)
 # harness, so these do not reach the LLM hop here; kept for CVDIAG parity and
 # for any Python-side httpx call (the subagent tools).
 app.add_middleware(HeaderForwardingHTTPMiddleware)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+)
 app.add_middleware(CvdiagBackendMiddleware)
 
 

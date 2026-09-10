@@ -10,12 +10,31 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 EXPECTED_PATHS = {
-    "agentic_chat", "prebuilt-sidebar", "prebuilt-popup", "chat-slots", "chat-customization-css",
-    "headless-simple", "headless_complete", "beautiful_chat", "voice", "frontend_tools",
-    "threadid-frontend-tool-roundtrip", "frontend-tools-async", "hitl-in-chat", "hitl-in-app",
-    "gen-ui-tool-based", "tool-rendering", "tool-rendering-default-catchall",
-    "tool-rendering-custom-catchall", "auth", "subagents", "reasoning-default", "reasoning-custom",
-    "tool-rendering-reasoning-chain", "mcp-apps", "default",
+    "agentic_chat",
+    "prebuilt-sidebar",
+    "prebuilt-popup",
+    "chat-slots",
+    "chat-customization-css",
+    "headless-simple",
+    "headless_complete",
+    "beautiful_chat",
+    "voice",
+    "frontend_tools",
+    "threadid-frontend-tool-roundtrip",
+    "frontend-tools-async",
+    "hitl-in-chat",
+    "hitl-in-app",
+    "gen-ui-tool-based",
+    "tool-rendering",
+    "tool-rendering-default-catchall",
+    "tool-rendering-custom-catchall",
+    "auth",
+    "subagents",
+    "reasoning-default",
+    "reasoning-custom",
+    "tool-rendering-reasoning-chain",
+    "mcp-apps",
+    "default",
 }
 
 

@@ -20,7 +20,13 @@ SYSTEM_PROMPT = (
 
 def get_weather(location: str) -> dict:
     """Get the current weather for a given location."""
-    return {"city": location, "temperature": 68, "humidity": 55, "wind_speed": 10, "conditions": "Sunny"}
+    return {
+        "city": location,
+        "temperature": 68,
+        "humidity": 55,
+        "wind_speed": 10,
+        "conditions": "Sunny",
+    }
 
 
 def search_flights(origin: str, destination: str) -> dict:
@@ -29,19 +35,43 @@ def search_flights(origin: str, destination: str) -> dict:
         "origin": origin,
         "destination": destination,
         "flights": [
-            {"airline": "United", "flight": "UA231", "depart": "08:15", "arrive": "16:45", "price_usd": 348},
-            {"airline": "Delta", "flight": "DL412", "depart": "11:20", "arrive": "19:55", "price_usd": 312},
-            {"airline": "JetBlue", "flight": "B6722", "depart": "17:05", "arrive": "01:30", "price_usd": 289},
+            {
+                "airline": "United",
+                "flight": "UA231",
+                "depart": "08:15",
+                "arrive": "16:45",
+                "price_usd": 348,
+            },
+            {
+                "airline": "Delta",
+                "flight": "DL412",
+                "depart": "11:20",
+                "arrive": "19:55",
+                "price_usd": 312,
+            },
+            {
+                "airline": "JetBlue",
+                "flight": "B6722",
+                "depart": "17:05",
+                "arrive": "01:30",
+                "price_usd": 289,
+            },
         ],
     }
 
 
-def get_stock_price(ticker: str, price_usd: float | None = None, change_pct: float | None = None) -> dict:
+def get_stock_price(
+    ticker: str, price_usd: float | None = None, change_pct: float | None = None
+) -> dict:
     """Get a mock current price for a stock ticker. Optional price_usd and change_pct are echoed back when given."""
     return {
         "ticker": ticker.upper(),
-        "price_usd": round(float(price_usd), 2) if price_usd is not None else round(100 + randint(0, 400) + randint(0, 99) / 100, 2),
-        "change_pct": round(float(change_pct), 2) if change_pct is not None else round(choice([-1, 1]) * (randint(0, 300) / 100), 2),
+        "price_usd": round(float(price_usd), 2)
+        if price_usd is not None
+        else round(100 + randint(0, 400) + randint(0, 99) / 100, 2),
+        "change_pct": round(float(change_pct), 2)
+        if change_pct is not None
+        else round(choice([-1, 1]) * (randint(0, 300) / 100), 2),
     }
 
 

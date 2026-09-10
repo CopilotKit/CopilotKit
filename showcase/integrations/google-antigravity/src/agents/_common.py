@@ -60,7 +60,9 @@ def chat_only_capabilities() -> CapabilitiesConfig:
     model retries it forever; ``ask_question`` would park on an interrupt the
     CopilotKit demos never answer. ``finish`` is how the harness ends a turn.
     """
-    return CapabilitiesConfig(enabled_tools=[BuiltinTools.FINISH], enable_subagents=False)
+    return CapabilitiesConfig(
+        enabled_tools=[BuiltinTools.FINISH], enable_subagents=False
+    )
 
 
 _POOL = None

@@ -29,7 +29,13 @@ SUB_AGENT_EMPTY_SENTINEL = "<sub-agent produced no output>"
 def _run(role: str, task: str) -> str:
     response = httpx.post(
         f"{base_url()}/v1/chat/completions",
-        json={"model": MODEL, "messages": [{"role": "system", "content": _ROLE_PROMPTS[role]}, {"role": "user", "content": task}]},
+        json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": _ROLE_PROMPTS[role]},
+                {"role": "user", "content": task},
+            ],
+        },
         headers={"X-AIMock-Context": SLUG},
         timeout=120.0,
     )
@@ -56,4 +62,7 @@ def critique_agent(task: str) -> str:
 def subagents_agent():
     from agents._common import build
 
-    return build(system_instructions=SUPERVISOR_PROMPT, tools=[research_agent, writing_agent, critique_agent])
+    return build(
+        system_instructions=SUPERVISOR_PROMPT,
+        tools=[research_agent, writing_agent, critique_agent],
+    )
