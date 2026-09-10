@@ -39,6 +39,7 @@ Threads and Intelligence demonstrations are in scope and should become Showcase-
 - [Global feature outline](global-feature-outline.md) and [static routing](global-route-reachability.md): the complete candidate matrix, including undeclared frontend support.
 - [Source findings](content-audit.md) and [defect register](content-defects.json): evidence, affected contexts, and limitations for each finding.
 - [Additional source review](global-pending-source-units.md): reviewed and pending unique sources beyond the initial batch.
+- [Uncatalogued guide supplement](supplemental-root-guide-audit.md) and [delivery evidence](reachable-outlier-feature-guides.md): the two additional Hashbrown/JSON Render sources and their sitemap routes, kept separate from the original catalog-derived counts.
 - [Product guide review](product-guide-audit.md): Threads, Intelligence, Channels, and copy-prompt reuse.
 - [Selected route checks](full-route-audit.md): local HTML and Markdown delivery, redirects, and visible rendering errors.
 - [Global route checks](global-rendered-route-audit.md), [redirect outcomes](global-redirect-outcome-reconciliation.md), and [rendered-error triage](global-rendered-marker-triage.md): wider local delivery evidence, with support and source-selection limits retained.

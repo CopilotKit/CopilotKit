@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "baseline": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
+  "purpose": "Supplement the catalog-derived audit with actual root feature guides that are sitemap-reachable but have no feature-registry shell_docs_path.",
+  "discovery": {
+    "method": "Scanned every src/content/docs MDX file containing InlineDemo and joined each demo ID to showcase/shared/feature-registry.json.",
+    "inline_demo_occurrences": 37,
+    "unique_inline_demo_feature_ids": 29,
+    "registered_ids_without_shell_docs_path": 2,
+    "unregistered_inline_demo_ids": 0
+  },
+  "coverage_before_supplement": {
+    "global_source_unit_inventory": "excluded: neither root source is among the 81 catalog-resolved source units",
+    "global_rendered_route_audit": "excluded: neither route appears among the 1,636 finalized catalog-derived local routes",
+    "global_feature_outline": "both IDs have 72 no-guide-mapping rows (18 integrations x 4 frontend contexts)"
+  },
+  "route_policy": {
+    "bare_route_source": "getBareDocsPages() includes every root docs MDX other than frontends/ and integrations/",
+    "scoped_route_source": "sitemap emits every non-global bare slug under every non-hidden, non-root integration; built-in-agent owns the bare surface",
+    "non_root_sitemap_integrations": 17,
+    "routes_per_guide": 18,
+    "total_sitemap_routes": 36,
+    "sidebar_navigation": "Neither route is listed in generative-ui/meta.json; the two guide sources cross-link to one another. They remain directly routable and sitemap-emitted."
+  },
+  "guides": [
+    {
+      "feature_id": "declarative-hashbrown",
+      "source_path": "showcase/shell-docs/src/content/docs/generative-ui/hashbrown.mdx",
+      "bare_route": "/generative-ui/hashbrown",
+      "inline_demo_line": 8,
+      "catalog_state": "registered feature with no shell_docs_path",
+      "selected_five_demo_state": "wired in LangGraph Python, LangGraph TypeScript, Google ADK, AWS Strands, and Built-in Agent",
+      "source_review": "completed in this supplement",
+      "render_probe": "18 sitemap routes x HTML and Markdown both returned 200; no Missing snippet marker",
+      "findings": ["CONTENT-GEN-004", "proposed-CONTENT-GEN-037"]
+    },
+    {
+      "feature_id": "declarative-json-render",
+      "source_path": "showcase/shell-docs/src/content/docs/generative-ui/json-render.mdx",
+      "bare_route": "/generative-ui/json-render",
+      "inline_demo_line": 8,
+      "catalog_state": "registered feature with no shell_docs_path",
+      "selected_five_demo_state": "wired in LangGraph Python, LangGraph TypeScript, Google ADK, AWS Strands, and Built-in Agent",
+      "source_review": "completed in this supplement",
+      "render_probe": "18 sitemap routes x HTML and Markdown both returned 200; no Missing snippet marker",
+      "findings": ["CONTENT-GEN-004", "proposed-CONTENT-GEN-038"]
+    }
+  ],
+  "supplemental_findings": [
+    {
+      "proposed_central_id": "CONTENT-GEN-037",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "source-provenance and API accuracy",
+      "guide": "BYOC — Hashbrown",
+      "affected_routes": "The root guide and its 17 sitemap-emitted framework-scoped variants.",
+      "selected_frameworks": ["langgraph-python", "langgraph-typescript", "google-adk", "strands", "built-in-agent"],
+      "finding": "The guide presents a copied frontend implementation using a one-argument useJsonParser call and useUiKit({ catalog, value }). Installed 0.5.0-beta.4 types require useJsonParser(json, schema), and useUiKit accepts components plus optional examples and returns a renderer. All five selected Showcase renderers use that installed API.",
+      "evidence": [
+        "showcase/shell-docs/src/content/docs/generative-ui/hashbrown.mdx:51-68",
+        "showcase/integrations/langgraph-python/src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx:122-184",
+        "showcase/integrations/langgraph-python/src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx:203-223",
+        "showcase/integrations/langgraph-python/node_modules/@hashbrownai/react/src/hooks/use-ui-kit.d.ts:15-41",
+        "showcase/integrations/langgraph-python/node_modules/@hashbrownai/react/src/hooks/use-json-parser.d.ts:22-30"
+      ]
+    },
+    {
+      "proposed_central_id": "CONTENT-GEN-038",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "source-provenance and API accuracy",
+      "guide": "BYOC — JSON Render",
+      "affected_routes": "The root guide and its 17 sitemap-emitted framework-scoped variants.",
+      "selected_frameworks": ["langgraph-python", "langgraph-typescript", "google-adk", "strands", "built-in-agent"],
+      "finding": "The guide’s frontend catalog and parser excerpt are not the repository-owned implementation: its shown parser calls undeclared helpers and its plain component/propsSchema catalog differs from the checked-in defineCatalog/defineRegistry/JSONUIProvider integration. The page is readable, but it cannot serve as the required exact runnable source reference.",
+      "evidence": [
+        "showcase/shell-docs/src/content/docs/generative-ui/json-render.mdx:51-99",
+        "showcase/integrations/langgraph-python/src/app/demos/declarative-json-render/json-render-renderer.tsx:8-66",
+        "showcase/integrations/langgraph-python/src/app/demos/declarative-json-render/registry.tsx:1-22",
+        "showcase/integrations/langgraph-python/src/app/demos/declarative-json-render/catalog.ts:1-37"
+      ]
+    }
+  ],
+  "validation_artifacts": {
+    "probe_script": "tasks/docs-feature-audit/probe_reachable_outlier_guides.py",
+    "probe_results": "tasks/docs-feature-audit/reachable-outlier-route-probe.json",
+    "probe_summary": "72/72 local HTML and llms-mdx requests returned 200; zero transport errors and zero HTML Missing snippet markers."
+  }
+}
