@@ -431,9 +431,10 @@ app.use(
 ```
 
 <Callout type="warn" title="`basePath` is required, in both modes">
-The Express and single-route handlers throw at mount time when `basePath` is missing —
-`basePath must be provided for Express endpoint` — so the server fails to start rather than
-serving on the wrong paths. Give it the same path the route is mounted at.
+The Express and single-route handlers each throw at mount time when `basePath` is missing —
+`basePath must be provided for Express endpoint` and `... for single-route endpoint`
+respectively — so the server fails to start rather than serving on the wrong paths. Give it
+the same path the route is mounted at.
 </Callout>
 
 <Callout type="warn" title="Keep every runtime import on `/v2`">

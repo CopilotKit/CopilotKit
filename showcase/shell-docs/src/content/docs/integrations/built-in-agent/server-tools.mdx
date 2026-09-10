@@ -14,11 +14,14 @@ Server tools are functions that run on your backend that the Built-in Agent can 
 - You want type-safe tool parameters with validation
 - The tool logic requires server-side secrets or resources
 
-<Callout type="warn" title="Server tools cannot render UI">
-A server tool runs on the server and streams only its result back. The browser never sees a
-tool-call start event for it, so there is nothing for a renderer to attach to. For a tool that
-draws something — a modal, a form, a confirmation — use
-[`useFrontendTool`](/frontend-tools) and keep the tool on the client.
+<Callout type="warn" title="The tool runs on the server; the UI still runs in the browser">
+`execute` runs on your server, so it can reach secrets, a database, or an internal service —
+and it cannot touch the DOM, component state, or anything else in the page. When the *action*
+itself belongs in the browser, use [`useFrontendTool`](/frontend-tools) instead.
+
+Rendering is separate from executing. A server tool's call still streams to the browser, so
+you can give it UI with a render-only `useRenderTool` registration under the same tool name
+while `execute` keeps running on the server.
 </Callout>
 
 ## Defining a tool
@@ -62,9 +65,9 @@ Tools can return any JSON-serializable value. The agent uses the response to con
 Pass an array of tools — the agent chooses which to call based on the user's request:
 
 <Callout type="warn" title="Two names to avoid">
-`AGUISendStateSnapshot` and `AGUISendStateDelta` are injected for you when the Built-in Agent
-runs with a `tools` array. Defining your own tool under either name replaces the built-in one
-and breaks shared state.
+`AGUISendStateSnapshot` and `AGUISendStateDelta` are injected for you whenever the Built-in
+Agent makes the model call itself. Defining your own tool under either name replaces the
+built-in one and breaks shared state.
 
 A server tool also wins any name collision with a frontend tool: define `getWeather` on both
 sides and the model only ever sees the server one, so the frontend handler never fires. Give
@@ -157,9 +160,8 @@ const getUser = defineTool({
 
 <Callout type="warn" title="Return plain data">
 Whatever a tool returns is serialized before the model sees it. A class instance, a circular
-reference, or anything else `JSON.stringify` refuses becomes the literal string
-`[Unserializable tool result from <toolName>]`, and the model reasons over that instead of
-your data. Return plain objects, arrays and primitives — including for error shapes.
+reference, or anything else `JSON.stringify` refuses is replaced by a placeholder string
+naming the tool, and the model reasons over that instead of your data. Return plain objects, arrays and primitives — including for error shapes.
 </Callout>
 
 ## Multi-step tool calling
