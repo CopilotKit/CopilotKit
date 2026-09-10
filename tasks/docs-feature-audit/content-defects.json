@@ -3,7 +3,9 @@
     "base_commit": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
     "branch": "tyler/docs-feature-audit",
     "scope": {
-      "frontends": ["react"],
+      "frontends": [
+        "react"
+      ],
       "integrations": [
         "langgraph-python",
         "langgraph-typescript",
@@ -413,7 +415,12 @@
       ],
       "root_cause": "A LangGraph-oriented context relay was reused in the Built-in Agent demo even though the Built-in Agent route consumes provider properties. The page comments also describe a Python middleware that does not exist in this in-process runtime.",
       "impact": "Static source confirms that the showcased controls and factory use different input channels, so the selected public guide and demo wiring contradict one another. This audit has not yet observed a runtime request or response for this cell.",
-      "validation_needed": "Make the demo use the same provider-properties contract the guide documents, or change the factory to consume context deliberately. Add a local fixture-backed assertion that changing each control changes the outbound factory prompt, then recheck browser and Markdown guide output before claiming observed behavior."
+      "validation_needed": "The current green D6 run is not a valid end-to-end proof: its different replies are selected by different userMessage fixtures. After the register phase, use one neutral prompt across control values and assert the runtime POST puts the values in forwardedProps consumed by the factory, not only context.",
+      "d6_assessment": {
+        "result": "not_discriminating",
+        "evidence": "The D6 script selects different user prompts per control value and the Built-in Agent fixture matches those userMessage tokens; its historical six-turn green result cannot prove context-to-forwardedProps delivery.",
+        "artifact": "tasks/docs-feature-audit/candidate-007-008-d6-assessment.md"
+      }
     },
     {
       "id": "CONTENT-GEN-008",
@@ -453,7 +460,12 @@
       ],
       "root_cause": "The showcased state key and the adapter's documented prompt-lifting allowlist diverge. Static inspection cannot rule out an unobserved adapter-level state injection, so this remains a behavior candidate.",
       "impact": "If the explicit builder is the only state-to-model path, the agent cannot use the recipe that the UI and manifest say it reads.",
-      "validation_needed": "Run the Strands cell locally with AIMock after setting a distinctive recipe value and assert the agent response reflects it. Promote only if the observed request/response confirms the value is absent; then add recipe serialization to the prompt builder and document the native state bridge."
+      "validation_needed": "The current D6 shared-state-read script is not discriminating because its fixture matches userMessage and its assertion accepts generic recipe terms. After the register phase, edit a unique recipe sentinel and assert it reaches the outbound model request or a response fixture conditional on that sentinel.",
+      "d6_assessment": {
+        "result": "not_discriminating",
+        "evidence": "The Strands fixture matches Italian/healthy user-message substrings and already returns recipe words, so it cannot prove state.recipe reached the model.",
+        "artifact": "tasks/docs-feature-audit/candidate-007-008-d6-assessment.md"
+      }
     },
     {
       "id": "CONTENT-GEN-009",
@@ -649,7 +661,7 @@
       ],
       "local_execution_evidence": {
         "environment": "Baseline source, Node v22.16.0, installed Next 15.5.19; no hosted service, provider key, or source modification used.",
-        "command": "from showcase/integrations/google-adk: env … AGENT_URL=http://127.0.0.1:8001 ./node_modules/.bin/next dev --turbopack --hostname 127.0.0.1 --port 3103",
+        "command": "from showcase/integrations/google-adk: env \u2026 AGENT_URL=http://127.0.0.1:8001 ./node_modules/.bin/next dev --turbopack --hostname 127.0.0.1 --port 3103",
         "result": "The process exited before listening because Next rejects equally specific routes /api/copilotkit-auth and /api/copilotkit-auth[[...slug]]. The agent service at port 8001 was independently healthy.",
         "provenance": "Observed by the local feature audit on the unchanged baseline; its Google ADK host-runtime report is pending."
       },

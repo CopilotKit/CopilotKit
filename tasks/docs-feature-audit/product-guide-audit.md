@@ -1,9 +1,10 @@
 # Product-guide content audit
 
-Status: in progress. This report covers the 26 root product routes recorded in
-`inventory.json`: Rich Threads (6), CopilotKit Intelligence (8), and Channels
-(12). It is source and local-render evidence only; it does not qualify hosted
-services, provider installs, or an external messaging-platform integration.
+Status: source review complete; runtime and platform verification remain. This
+report covers the 26 root product routes recorded in `inventory.json`: Rich
+Threads (6), CopilotKit Intelligence (8), and Channels (12). It is source and
+local-render evidence only; it does not qualify hosted services, provider
+installs, or an external messaging-platform integration.
 
 ## Prompt reuse finding
 
@@ -31,18 +32,23 @@ to the CLI intent.
 - Authored Intelligence guides read in full: all eight routes.
 - Channels manual full-source review: 12/12. No new source-confirmed defect
   beyond the embedded-demo/platform-verification boundary already recorded.
-  Channels are an
-  embedded-demo exception: source
-  review must distinguish the intentional in-doc simulator from verification
-  that still requires real Slack or Teams platform testing.
+  Channels are the agreed embedded-demo exception: the Showcase demo is useful
+  guide evidence, but it does not replace real Slack or Teams verification.
 - The local 362-response route audit establishes delivery status only. It does
   not prove guide semantics, prompt success, hosted Intelligence behavior, or
   channel platform behavior.
 
+## Completed source checks
+
+- All 26 root guides and the eight referenced shared sources were reviewed.
+- Setup and API statements were checked against the current local runtime and
+  Intelligence contracts without inspecting secret values; source findings are
+  recorded in `content-defects.json`.
+
 ## Validation still required
 
-- Finish all 26 root guides and their referenced shared sources one by one.
-- Cross-check setup and API statements against the current runtime and
-  Intelligence contracts without reading secret values.
-- Keep embedded Channel demo coverage separate from real Slack/Teams install,
-  identity, webhook, interactive-action, and reconnect verification.
+- Resolve the focused `CONTENT-GEN-007` and `CONTENT-GEN-008` runtime evidence
+  assessment recorded in `candidate-007-008-d6-assessment.md`.
+- Verify Channels on real Slack or Teams: install, identity, webhook,
+  interactive action, history/reconnect, and error handling. The embedded-demo
+  exception does not cover that platform behavior.

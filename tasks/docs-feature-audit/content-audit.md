@@ -16,7 +16,7 @@ Status: in progress. This report records source and rendering findings only; it 
 3. `CONTENT-GEN-003` — selected guides still embed the external Feature Viewer instead of a Showcase-owned cell; Markdown has no source extraction for those frames (11 contexts).
 4. `CONTENT-GEN-004` — Declarative Hashbrown and JSON Render have real guides and wired demos, but no feature-catalog mapping to those guides (10 contexts).
 5. `CONTENT-GEN-006` — a transitive Built-in Agent tool-rendering snippet assigns v1's named-registration meaning to v2 `useRenderToolCall`; current v2 uses `useRenderTool` for that job (4 contexts).
-6. `CONTENT-GEN-007` — source confirms the Built-in Agent config demo publishes controls through `useAgentContext`, while its in-process factory reads only provider `properties`/`input.forwardedProps`; this is a wiring mismatch, not yet an observed runtime failure.
+6. `CONTENT-GEN-007` — source confirms the Built-in Agent config demo publishes controls through `useAgentContext`, while its in-process factory reads only provider `properties`/`input.forwardedProps`; this is a wiring mismatch, not yet an observed runtime failure. The existing green D6 run does not falsify it because its distinct replies are selected by distinct user-message fixtures, not by the factory input; see `candidate-007-008-d6-assessment.md`.
 7. `CONTENT-GEN-009` — Strands requires a custom state/context prompt bridge for shared-state read/write, read-only context, and agent config, but supplies no native setup fragment for those three guides.
 8. `CONTENT-GEN-010` — the supported Built-in Agent fixed-schema A2UI route has a visible `Missing snippet` alert for its selected schema-inline source region, despite 200 HTML and Markdown responses.
 9. `CONTENT-GEN-011` — the shared LangGraph interactive guide contains two reader-facing grammar errors, affecting both selected LangGraph integrations.
@@ -32,7 +32,7 @@ Status: in progress. This report records source and rendering findings only; it 
 
 ## Candidate behavior finding
 
-- `CONTENT-GEN-008` — the Strands recipe demo writes `state.recipe`, but its installed prompt-lifting function only adds `preferences` and `todos`. The manifest promises the agent reads the recipe. This needs the runner's targeted local AIMock result before it can be promoted from a source candidate.
+- `CONTENT-GEN-008` — the Strands recipe demo writes `state.recipe`, but its installed prompt-lifting function only adds `preferences` and `todos`. The manifest promises the agent reads the recipe. The current D6 script and fixture cannot answer the question because both are keyed to user-message text rather than an edited recipe sentinel; see `candidate-007-008-d6-assessment.md`. It remains a behavior candidate pending a discriminating local request/model-prompt probe.
 
 ## Current source findings that require no defect label yet
 
