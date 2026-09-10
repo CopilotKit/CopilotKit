@@ -77,6 +77,9 @@ test("a snippet says what the framework's own demo agent proves about it", () =>
     "strands-typescript",
     "ms-agent-dotnet",
     "ms-agent-harness-dotnet",
+    // Read out of the pinned ag-ui-antigravity adapter: `UIBridge.build_frontend_tools`
+    // turns every `RunAgentInput.tools` entry into a custom Antigravity tool on each run.
+    "google-antigravity",
   ];
   for (const slug of forwardsAutomatically) {
     const source = resolveBundledSetupConcept(slug, CONCEPT, setupContent);
