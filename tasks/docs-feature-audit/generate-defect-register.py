@@ -93,7 +93,8 @@ def main() -> None:
         "Generated from `content-defects.json`. It is a reviewer index: the JSON remains the canonical record with every affected context and full evidence.",
         "",
         f"- Records: {len(defects)} ({confirmed} confirmed, {triaged} triaged, {candidate} candidate).",
-        "- Global unique-source review: 81/81 units reviewed; all 405 canonical routes and 978 represented frontend bindings are covered by the deduplicated source inventory.",
+        "- Global catalogue-derived source review: 81/81 units reviewed; all 405 canonical routes and 978 represented frontend bindings are covered by the deduplicated source inventory.",
+        "- Supplemental root-guide review: 2/2 sitemap-reachable uncatalogued BYOC guides reviewed. This makes 83 completed source units across both scopes without changing the original 81/81 inventory metric.",
         "- Local rendered-marker audit: 64 HTML paths and 112 impacted context cells. Frontend (38 supported / 74 not-declared) and backend (85 declared-wired / 24 unshipped / 3 manifest-unsupported) are overlapping dimensions, not additive totals.",
         "- The supported-and-wired intersection is 29 cells. It is the scope for rendered Missing snippet defects; it neither promotes undeclared/unshipped cells nor negates the separately confirmed Google ADK source-resolution defect outside this probe subset.",
         "- “External viewer” records describe a repository-ownership/context gap. They do not claim that the remote viewer is unavailable.",
@@ -138,7 +139,7 @@ def main() -> None:
             f"- **Full record:** [`content-defects.json` entry]({SOURCE.resolve()})"
         )
         lines.append("")
-    OUTPUT.write_text("\n".join(lines) + "\n")
+    OUTPUT.write_text("\n".join(lines).rstrip() + "\n")
 
 
 if __name__ == "__main__":

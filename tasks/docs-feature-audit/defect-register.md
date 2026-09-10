@@ -2,8 +2,9 @@
 
 Generated from `content-defects.json`. It is a reviewer index: the JSON remains the canonical record with every affected context and full evidence.
 
-- Records: 36 (35 confirmed, 1 triaged, 0 candidate).
-- Global unique-source review: 81/81 units reviewed; all 405 canonical routes and 978 represented frontend bindings are covered by the deduplicated source inventory.
+- Records: 38 (37 confirmed, 1 triaged, 0 candidate).
+- Global catalogue-derived source review: 81/81 units reviewed; all 405 canonical routes and 978 represented frontend bindings are covered by the deduplicated source inventory.
+- Supplemental root-guide review: 2/2 sitemap-reachable uncatalogued BYOC guides reviewed. This makes 83 completed source units across both scopes without changing the original 81/81 inventory metric.
 - Local rendered-marker audit: 64 HTML paths and 112 impacted context cells. Frontend (38 supported / 74 not-declared) and backend (85 declared-wired / 24 unshipped / 3 manifest-unsupported) are overlapping dimensions, not additive totals.
 - The supported-and-wired intersection is 29 cells. It is the scope for rendered Missing snippet defects; it neither promotes undeclared/unshipped cells nor negates the separately confirmed Google ADK source-resolution defect outside this probe subset.
 - “External viewer” records describe a repository-ownership/context gap. They do not claim that the remote viewer is unavailable.
@@ -369,4 +370,24 @@ Seven declared-supported/wired React tool-rendering contexts display Missing sni
 - **Affected frameworks:** Strands TypeScript, Microsoft Agent Framework Harness .NET, React (7 recorded contexts)
 - **Evidence:** source + local audit evidence
 - **Primary links:** [`showcase/shell-docs/src/content/docs/generative-ui/tool-rendering.mdx:111`](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/content/docs/generative-ui/tool-rendering.mdx:111), [`tasks/docs-feature-audit/global-rendered-marker-triage.md:115`](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/tasks/docs-feature-audit/global-rendered-marker-triage.md:115)
+- **Full record:** [`content-defects.json` entry](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/tasks/docs-feature-audit/content-defects.json)
+
+### CONTENT-GEN-037 — High · confirmed
+
+Readers copying the visible Hashbrown example receive incompatible hook calls at the central rendering step, so the sitemap-reachable guide is not a reliable path to the runnable Showcase demo.
+
+- **Area:** BYOC Hashbrown guide API provenance
+- **Affected frameworks:** Cross-cutting docs/runtime (1 recorded contexts)
+- **Evidence:** source/static analysis
+- **Primary links:** [`showcase/shell-docs/src/content/docs/generative-ui/hashbrown.mdx:51`](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/content/docs/generative-ui/hashbrown.mdx:51), [`showcase/integrations/langgraph-python/src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx:122`](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-python/src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx:122)
+- **Full record:** [`content-defects.json` entry](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/tasks/docs-feature-audit/content-defects.json)
+
+### CONTENT-GEN-038 — High · confirmed
+
+Readers are given undefined helper functions and a catalog/rendering contract that cannot be copied into the current Showcase implementation, defeating the guide’s stated runnable BYOC path.
+
+- **Area:** BYOC JSON Render guide renderer and catalog contract
+- **Affected frameworks:** Cross-cutting docs/runtime (1 recorded contexts)
+- **Evidence:** source/static analysis
+- **Primary links:** [`showcase/shell-docs/src/content/docs/generative-ui/json-render.mdx:51`](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs/src/content/docs/generative-ui/json-render.mdx:51), [`showcase/integrations/langgraph-python/src/app/demos/declarative-json-render/json-render-renderer.tsx:8`](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-python/src/app/demos/declarative-json-render/json-render-renderer.tsx:8)
 - **Full record:** [`content-defects.json` entry](/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/tasks/docs-feature-audit/content-defects.json)

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "scope": "Two sitemap-reachable root BYOC guides absent from the catalogue-derived global source inventory because their active feature IDs do not declare shell_docs_path.",
+  "counts": {
+    "original_catalogue_derived_inventory_reviewed": 81,
+    "original_catalogue_derived_inventory_total": 81,
+    "supplemental_uncatalogued_root_guides_reviewed": 2,
+    "supplemental_uncatalogued_root_guides_total": 2,
+    "completed_source_units_across_both_scopes": 83
+  },
+  "units": [
+    {
+      "route": "/generative-ui/hashbrown",
+      "source": "showcase/shell-docs/src/content/docs/generative-ui/hashbrown.mdx",
+      "feature_id": "declarative-hashbrown",
+      "catalogue_delivery_state": "active feature definition lacks shell_docs_path; see CONTENT-GEN-004",
+      "review_status": "reviewed",
+      "defect_ids": [
+        "CONTENT-GEN-004",
+        "CONTENT-GEN-037"
+      ]
+    },
+    {
+      "route": "/generative-ui/json-render",
+      "source": "showcase/shell-docs/src/content/docs/generative-ui/json-render.mdx",
+      "feature_id": "declarative-json-render",
+      "catalogue_delivery_state": "active feature definition lacks shell_docs_path; see CONTENT-GEN-004",
+      "review_status": "reviewed",
+      "defect_ids": [
+        "CONTENT-GEN-004",
+        "CONTENT-GEN-038"
+      ]
+    }
+  ]
+}
