@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - **Node.js** 20.x or later
-- **pnpm** v9.x installed globally: `npm i -g pnpm@^9`
+- **pnpm** v10.x installed globally: `npm i -g pnpm@^10`
 - **Git** configured with your GitHub account
 - **Windows users:** Enable Developer Mode (Settings > System > For developers) for symlink support
 
