@@ -3,14 +3,15 @@
     "description": "D6 fixtures for google-antigravity / frontend-tools",
     "sourceFile": "d5-all.json",
     "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
   },
   "fixtures": [
     {
       "match": {
         "userMessage": "Make the background a sunset gradient",
-        "toolCallId": "call_d5_change_background_sunset",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Done — sunset gradient is live."
@@ -20,7 +21,8 @@
       "_comment": "frontend-tools 'Sunset' pill — 1st leg: emit change_background tool call only. The toolCallId-keyed follow-up fixture above is ordered first, so it catches the second-leg request (after tool result). This fixture only matches the first-leg request (before tool execution). No turnIndex gate — the 3-pill probe sends sequential turns; turnIndex would restrict to the first turn.",
       "match": {
         "userMessage": "Make the background a sunset gradient",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -37,8 +39,8 @@
     {
       "match": {
         "userMessage": "deep green forest gradient",
-        "toolCallId": "call_d5_change_background_forest",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 5
       },
       "response": {
         "content": "Done — forest gradient is live."
@@ -48,7 +50,8 @@
       "_comment": "frontend-tools 'Forest' pill — 1st leg: emit change_background tool call only. No turnIndex gate — multi-turn probe.",
       "match": {
         "userMessage": "deep green forest gradient",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 3
       },
       "response": {
         "toolCalls": [
@@ -65,8 +68,8 @@
     {
       "match": {
         "userMessage": "navy → magenta cosmic gradient",
-        "toolCallId": "call_d5_change_background_cosmic",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 8
       },
       "response": {
         "content": "Done — cosmic gradient is live."
@@ -76,7 +79,8 @@
       "_comment": "frontend-tools 'Cosmic' pill — 1st leg: emit change_background tool call only. No turnIndex gate — multi-turn probe.",
       "match": {
         "userMessage": "navy → magenta cosmic gradient",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 6
       },
       "response": {
         "toolCalls": [

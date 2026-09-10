@@ -3,14 +3,16 @@
     "description": "D6 fixtures for google-antigravity / gen-ui-headless-complete",
     "sourceFile": "headless-complete.json",
     "copiedFrom": "langgraph-python",
-    "_note": "Alias of the headless-complete demo's 4 gen-UI pills (weather/stock/highlight/revenue) for the gen-ui-headless-complete probe (showcase/harness/src/probes/scripts/d5-gen-ui-headless-complete.ts -> fixtureFile 'gen-ui-headless-complete.json'), which had no matching fixture in any slug so its first leg 503'd under strict. Narration (toolCallId) fixtures FIRST so they win when the last message is a matching tool result; toolcall (userMessage+context) fixtures AFTER with NO turnIndex gate so each of the 4 sequential pill turns in one chat thread matches regardless of prior assistant/tool history (the turnIndex multi-turn match-gate bug). Modeled on the green langgraph-python pattern. Interrupt fixtures intentionally omitted (interrupt-headless is a separate cluster item)."
+    "_note": "Alias of the headless-complete demo's 4 gen-UI pills (weather/stock/highlight/revenue) for the gen-ui-headless-complete probe (showcase/harness/src/probes/scripts/d5-gen-ui-headless-complete.ts -> fixtureFile 'gen-ui-headless-complete.json'), which had no matching fixture in any slug so its first leg 503'd under strict. Narration (toolCallId) fixtures FIRST so they win when the last message is a matching tool result; toolcall (userMessage+context) fixtures AFTER with NO turnIndex gate so each of the 4 sequential pill turns in one chat thread matches regardless of prior assistant/tool history (the turnIndex multi-turn match-gate bug). Modeled on the green langgraph-python pattern. Interrupt fixtures intentionally omitted (interrupt-headless is a separate cluster item).",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
   },
   "fixtures": [
     {
       "_comment": "headless-complete weather pill narration — matches when the get_weather tool result with id call_d5_headless_weather_001 is the last message. The 'tokyo' textToken assertion is satisfied by the city name. Narration verbatim matches the headless-complete.spec.ts assertion `toContainText('Tokyo is 22°C and partly cloudy.')`.",
       "match": {
-        "toolCallId": "call_d5_headless_weather_001",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2,
+        "userMessage": "What's the weather in Tokyo"
       },
       "response": {
         "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
@@ -19,8 +21,9 @@
     {
       "_comment": "headless-complete stock pill narration — matches when the get_stock_price tool result with id call_d5_headless_stock_001 is the last message. textToken 'aapl' satisfied by ticker mention.",
       "match": {
-        "toolCallId": "call_d5_headless_stock_001",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 5,
+        "userMessage": "price of AAPL right now"
       },
       "response": {
         "content": "AAPL is at $189.42, up 1.27% on the day."
@@ -29,8 +32,9 @@
     {
       "_comment": "headless-complete highlight pill narration — matches when the highlight_note tool result with id call_d5_headless_highlight_001 is the last message.",
       "match": {
-        "toolCallId": "call_d5_headless_highlight_001",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 8,
+        "userMessage": "ship the demo on Friday"
       },
       "response": {
         "content": "Highlighted 'ship the demo on Friday' for you above."
@@ -39,8 +43,9 @@
     {
       "_comment": "headless-complete revenue chart narration — matches when the get_revenue_chart tool result with id call_d5_headless_revenue_chart_001 is the last message.",
       "match": {
-        "toolCallId": "call_d5_headless_revenue_chart_001",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 11,
+        "userMessage": "chart of revenue over the last six months"
       },
       "response": {
         "content": "Here is the chart of revenue over the last six months — quarterly revenue grew steadily, peaking in June."
@@ -50,7 +55,8 @@
       "_comment": "headless-complete weather pill toolcall — emit get_weather for Tokyo. Probe sends \"What's the weather in Tokyo?\". Narrowed to the full phrase 'What's the weather in Tokyo' so this no longer shadows the D6 tool-rendering 'Chain tools' pill (whose prompt contains 'weather in Tokyo' as a substring) — that pill needs to hit its own 3-tool emission fixture in tool-rendering.json. Only userMessage+context discriminators because narration fixtures above (toolCallId) already win once the tool result lands.",
       "match": {
         "userMessage": "What's the weather in Tokyo",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -66,7 +72,8 @@
       "_comment": "headless-complete stock pill toolcall — emit get_stock_price for AAPL. Probe sends \"What's the price of AAPL right now?\". Narrowed to 'price of AAPL right now' so this no longer shadows the D6 tool-rendering 'Stock price' pill which sends \"What's the current price of AAPL?\" (also containing 'price of AAPL' as a substring) — that pill needs its own deterministic-price fixture in tool-rendering.json.",
       "match": {
         "userMessage": "price of AAPL right now",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 3
       },
       "response": {
         "toolCalls": [
@@ -82,7 +89,8 @@
       "_comment": "headless-complete highlight pill toolcall — emit highlight_note. Probe sends \"Highlight this note for me: 'ship the demo on Friday'.\" so userMessage substring 'ship the demo on Friday' catches it.",
       "match": {
         "userMessage": "ship the demo on Friday",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 6
       },
       "response": {
         "toolCalls": [
@@ -98,7 +106,8 @@
       "_comment": "headless-complete revenue chart toolcall — emit get_revenue_chart (no args). Probe sends 'Show me a chart of revenue over the last six months.'. Includes a short leading `content` snippet so the word 'revenue' lands in the assistant bubble synchronously with the tool-call emission. Without this, the chart card's title falls back to 'Chart' during the `executing` render phase (result still undefined), and the conversation-runner's count-based settle can fire its 1500ms quiet window before the narration follow-up message arrives — leaving the assistant text without 'revenue' on the probe's first attempt.",
       "match": {
         "userMessage": "chart of revenue over the last six months",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 9
       },
       "response": {
         "content": "Pulling the revenue chart for the last six months...",

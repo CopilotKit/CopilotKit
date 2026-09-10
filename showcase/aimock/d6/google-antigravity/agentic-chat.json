@@ -39,8 +39,8 @@
     {
       "match": {
         "userMessage": "Write me a haiku about nature",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -55,8 +55,8 @@
     {
       "match": {
         "userMessage": "Write me a haiku about nature",
-        "hasToolResult": true,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Haiku generated above — a beautiful verse about nature with an accompanying image."

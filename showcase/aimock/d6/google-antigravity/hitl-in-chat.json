@@ -3,14 +3,15 @@
     "description": "D6 fixtures for google-antigravity / hitl-in-chat",
     "sourceFile": "d5-all.json",
     "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
   },
   "fixtures": [
     {
       "match": {
         "userMessage": "Book a 30-minute onboarding call for Alice",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -25,8 +26,8 @@
     {
       "match": {
         "userMessage": "Book a 30-minute onboarding call for Alice",
-        "hasToolResult": true,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
@@ -35,8 +36,8 @@
     {
       "match": {
         "userMessage": "intro call with the sales team",
-        "toolCallId": "call_d5_schedule_sales_001",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Booked: Sales intro call confirmed for the slot you picked."
@@ -46,8 +47,8 @@
       "match": {
         "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -75,8 +76,8 @@
     {
       "match": {
         "userMessage": "1:1 with Alice",
-        "toolCallId": "call_d5_schedule_alice_001",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
@@ -86,8 +87,8 @@
       "match": {
         "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [

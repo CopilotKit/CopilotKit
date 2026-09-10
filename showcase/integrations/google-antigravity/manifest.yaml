@@ -45,9 +45,6 @@ features:
   - tool-rendering-custom-catchall
   - auth
   - subagents
-  - reasoning-default
-  - reasoning-custom
-  - tool-rendering-reasoning-chain
   - mcp-apps
 not_supported_features:
   # The adapter forwards only user messages to Antigravity; RunAgentInput
@@ -66,6 +63,13 @@ not_supported_features:
   # declares these too.
   - gen-ui-interrupt
   - interrupt-headless
+  # The Go harness drops the model's reasoning deltas: an aimock response
+  # carrying `reasoning_content` streams back as plain answer text and the
+  # adapter never sees a THINKING step, so no reasoning message renders.
+  - reasoning-default
+  - reasoning-custom
+  # Same root cause: this cell asserts one reasoning-block mount per turn.
+  - tool-rendering-reasoning-chain
   # Declarative / open generative UI not investigated for this adapter yet.
   - declarative-gen-ui
   - a2ui-fixed-schema
@@ -318,43 +322,6 @@ demos:
       - src/agents/subagents.py
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: reasoning-default
-    name: "Reasoning: Default"
-    description: Built-in CopilotChatReasoningMessage rendering with no slot override.
-    tags:
-      - chat-ui
-    route: /demos/reasoning-default
-    highlight:
-      - src/app/demos/reasoning-default/page.tsx
-      - src/app/demos/reasoning-default/suggestions.ts
-      - src/agents/reasoning.py
-  - id: reasoning-custom
-    name: "Reasoning: Custom"
-    description: Visible reasoning/thinking chain alongside the final answer
-    tags:
-      - chat-ui
-    route: /demos/reasoning-custom
-    animated_preview_url:
-    highlight:
-      - src/app/demos/reasoning-custom/page.tsx
-      - src/app/demos/reasoning-custom/reasoning-block.tsx
-      - src/agents/reasoning.py
-      - src/app/api/copilotkit/route.ts
-  - id: tool-rendering-reasoning-chain
-    name: "Generative UI: Tool calls + reasoning"
-    description: "Per-tool renderers (WeatherCard, FlightListCard, custom catchall) interleaved with a reasoningMessage slot rendering the agent's reasoning tokens — combines reasoning-display + tool-rendering in one chat surface."
-    tags:
-      - generative-ui
-    route: /demos/tool-rendering-reasoning-chain
-    animated_preview_url:
-    highlight:
-      - src/agents/tool_rendering.py
-      - src/app/demos/tool-rendering-reasoning-chain/page.tsx
-      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
-      - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
-      - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
-      - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: mcp-apps
     name: MCP Apps

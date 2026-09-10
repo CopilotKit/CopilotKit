@@ -3,14 +3,15 @@
     "description": "D6 fixtures for google-antigravity / subagents",
     "sourceFile": "d5-all.json",
     "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
   },
   "fixtures": [
     {
       "match": {
         "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -36,7 +37,7 @@
     {
       "match": {
         "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
-        "turnIndex": 1,
+        "turnIndex": 2,
         "context": "google-antigravity"
       },
       "response": {
@@ -63,7 +64,7 @@
     {
       "match": {
         "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
-        "turnIndex": 2,
+        "turnIndex": 4,
         "context": "google-antigravity"
       },
       "response": {
@@ -90,7 +91,7 @@
     {
       "match": {
         "userMessage": "Research the benefits of remote work and draft a one-paragraph summary",
-        "turnIndex": 3,
+        "turnIndex": 6,
         "context": "google-antigravity"
       },
       "response": {
@@ -101,9 +102,9 @@
       "_comment": "Subagents pill 1 — 'Write a blog post' / cold exposure training. Drives supervisor → research_agent → writing_agent → critique_agent → final reply, plus three nested sub-agent turns.",
       "match": {
         "userMessage": "Produce a short blog post about the benefits of cold exposure training",
-        "hasToolResult": false,
         "toolName": "research_agent",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -129,7 +130,7 @@
     {
       "match": {
         "userMessage": "Produce a short blog post about the benefits of cold exposure training",
-        "turnIndex": 1,
+        "turnIndex": 2,
         "toolName": "writing_agent",
         "context": "google-antigravity"
       },
@@ -157,7 +158,7 @@
     {
       "match": {
         "userMessage": "Produce a short blog post about the benefits of cold exposure training",
-        "turnIndex": 2,
+        "turnIndex": 4,
         "toolName": "critique_agent",
         "context": "google-antigravity"
       },
@@ -185,7 +186,7 @@
     {
       "match": {
         "userMessage": "Produce a short blog post about the benefits of cold exposure training",
-        "turnIndex": 3,
+        "turnIndex": 6,
         "context": "google-antigravity"
       },
       "response": {
@@ -196,9 +197,9 @@
       "_comment": "Subagents pill 2 — 'Explain a topic' / LLM tool calling.",
       "match": {
         "userMessage": "Explain how large language models handle tool calling",
-        "hasToolResult": false,
         "toolName": "research_agent",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -224,7 +225,7 @@
     {
       "match": {
         "userMessage": "Explain how large language models handle tool calling",
-        "turnIndex": 1,
+        "turnIndex": 2,
         "toolName": "writing_agent",
         "context": "google-antigravity"
       },
@@ -252,7 +253,7 @@
     {
       "match": {
         "userMessage": "Explain how large language models handle tool calling",
-        "turnIndex": 2,
+        "turnIndex": 4,
         "toolName": "critique_agent",
         "context": "google-antigravity"
       },
@@ -280,7 +281,7 @@
     {
       "match": {
         "userMessage": "Explain how large language models handle tool calling",
-        "turnIndex": 3,
+        "turnIndex": 6,
         "context": "google-antigravity"
       },
       "response": {
@@ -291,9 +292,9 @@
       "_comment": "Subagents pill 3 — 'Summarize a topic' / reusable rockets. Note: the original Railway-side bug for this pill was the concurrent-update on `delegations`; the agent state reducer fix unblocks this fixture chain.",
       "match": {
         "userMessage": "Summarize the current state of reusable rockets",
-        "hasToolResult": false,
         "toolName": "research_agent",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -319,7 +320,7 @@
     {
       "match": {
         "userMessage": "Summarize the current state of reusable rockets",
-        "turnIndex": 1,
+        "turnIndex": 2,
         "toolName": "writing_agent",
         "context": "google-antigravity"
       },
@@ -347,7 +348,7 @@
     {
       "match": {
         "userMessage": "Summarize the current state of reusable rockets",
-        "turnIndex": 2,
+        "turnIndex": 4,
         "toolName": "critique_agent",
         "context": "google-antigravity"
       },
@@ -375,7 +376,7 @@
     {
       "match": {
         "userMessage": "Summarize the current state of reusable rockets",
-        "turnIndex": 3,
+        "turnIndex": 6,
         "context": "google-antigravity"
       },
       "response": {

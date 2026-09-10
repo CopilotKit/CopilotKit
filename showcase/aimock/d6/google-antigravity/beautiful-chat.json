@@ -3,14 +3,15 @@
     "description": "D6 fixtures for google-antigravity / beautiful-chat",
     "sourceFile": "d5-all.json",
     "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
   },
   "fixtures": [
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -25,8 +26,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
-        "hasToolResult": true,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Bar chart rendered above — Salaries dominate at $80k, with Rent at $15k as the next-largest category."
@@ -35,8 +36,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -51,8 +52,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
-        "hasToolResult": true,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Pie chart rendered above — Electronics leads at $42k, followed by Clothing, Food, and Books."
@@ -61,8 +62,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -77,8 +78,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
-        "hasToolResult": true,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Meeting scheduled — calendar invite is on its way."
@@ -87,8 +88,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: toggle the theme",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -103,8 +104,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: toggle the theme",
-        "hasToolResult": true,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Theme toggled."
@@ -114,8 +115,8 @@
       "_comment": "beautiful-chat 'Search Flights (A2UI Fixed Schema)' pill — sends 'Find flights from SFO to JFK for next Tuesday.'. Beautiful-chat's search_flights tool takes `flights: list[Flight]` (NOT the {origin,destination} shape used by tool_rendering_agent). Test asserts United Airlines + $349 + Delta + $289 are visible. Narrowed userMessage to 'for next Tuesday' so this stays scoped to the beautiful-chat pill (the tool-rendering basic + reasoning-chain pills both lack that phrase). hasToolResult:false gates this to the initial user turn; the follow-up content fixture below catches iteration 2 via toolCallId.",
       "match": {
         "userMessage": "for next Tuesday",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -129,8 +130,9 @@
     },
     {
       "match": {
-        "toolCallId": "call_d6_bc_search_flights_001",
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2,
+        "userMessage": "for next Tuesday"
       },
       "response": {
         "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."

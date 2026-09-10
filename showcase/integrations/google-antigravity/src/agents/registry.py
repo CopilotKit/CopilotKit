@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from agents.beautiful_chat import beautiful_chat_agent
 from agents.chat import neutral_agent
 from agents.gen_ui_tool_based import gen_ui_tool_based_agent
 from agents.headless_complete import headless_complete_agent
@@ -24,7 +25,7 @@ def build_registry() -> dict:
         "chat-customization-css": neutral,
         "headless-simple": neutral,
         "headless_complete": headless_complete_agent(),
-        "beautiful_chat": neutral,
+        "beautiful_chat": beautiful_chat_agent(),
         "voice": neutral,
         "frontend_tools": neutral,
         "threadid-frontend-tool-roundtrip": neutral,

@@ -3,7 +3,8 @@
     "description": "D6 fixtures for google-antigravity / tool-rendering",
     "sourceFile": "d5-all.json",
     "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
   },
   "fixtures": [
     {
@@ -310,8 +311,8 @@
       "_comment": "AAPL — first leg: emit get_stock_price tool call. turnIndex:0 gate REMOVED — the D5 tool-rendering-custom-catchall probe runs 'weather in Tokyo' first then sends 'What's the current price of AAPL?', so the AAPL leg fires at turnIndex>=2 (multi-pill thread). Replaced turnIndex:0 with hasToolResult:false: matches when the last message is a user prompt (not a tool result), which keeps the first-leg fixture from re-firing after the follow-up content already lands. The toolCallId follow-up fixture above wins on iteration 2 (last message is tool with id call_d5_get_stock_price_001).",
       "match": {
         "userMessage": "AAPL",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -326,8 +327,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
-        "hasToolResult": false,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 0
       },
       "response": {
         "toolCalls": [
@@ -342,8 +343,8 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
-        "hasToolResult": true,
-        "context": "google-antigravity"
+        "context": "google-antigravity",
+        "turnIndex": 2
       },
       "response": {
         "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
