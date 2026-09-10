@@ -35,6 +35,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { frameworkOverviews } from "@/data/frameworks";
 import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
 import {
   isV1ReferenceUrl,
@@ -926,6 +927,34 @@ export function renderPageToLlmText(
   const frontend = options.frontend ?? page.frontend;
 
   let body = stripFrontmatter(raw);
+
+  // Generated HTML intros mount authored after-features sections separately
+  // from their index/quickstart source. Include that same content in the
+  // overview's Markdown and full corpus, but never in ordinary guide pages.
+  const overviewUrl = frontend ? `${frontend}/${framework}` : framework;
+  if (
+    framework &&
+    (!frontend || frontend === "angular") &&
+    page.url === overviewUrl &&
+    getDocsMode(framework) === "generated" &&
+    frameworkOverviews[framework]?.hasAfterFeaturesMdx
+  ) {
+    const overviewSection = path.join(
+      CONTENT_DIR,
+      "../framework-overviews",
+      framework,
+      "after-features.mdx",
+    );
+    if (fs.existsSync(overviewSection)) {
+      body += `\n\n${fs.readFileSync(overviewSection, "utf8")}`;
+    } else {
+      // Match HTML's fallback for variants whose shared overview record
+      // enables a slot without providing variant-specific authored content.
+      console.error(
+        `[llm-text] missing framework overview section: ${overviewSection}`,
+      );
+    }
+  }
 
   // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
   body = expandRichThreadsSetupPrompts(body);
