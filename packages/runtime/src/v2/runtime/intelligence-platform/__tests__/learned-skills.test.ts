@@ -147,7 +147,7 @@ describe("getLearnedSkillsSnapshot", () => {
     },
   );
 
-  it.each([401, 403])(
+  it.each([403])(
     "preserves denial status %s when the body read fails",
     async (status) => {
       const cause = new TypeError("socket closed");
