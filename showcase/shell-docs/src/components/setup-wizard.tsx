@@ -98,74 +98,45 @@ function landingStep(restored: WizardUrlState): number {
 
 /**
  * What `goTo` records before handing control back to React: the direction
- * of travel, the wrapper's height right before the swap, and a detached
- * snapshot of the outgoing card to animate out independently of the
- * incoming one React has already put in its place.
+ * of travel and the wrapper's height right before the swap, so the layout
+ * effect below can tween from it once the incoming card has committed.
  */
 type PendingTransition = {
   readonly direction: StepDirection;
   readonly fromHeight: number;
-  readonly outgoingSnapshot: HTMLElement | null;
 };
 
 /**
- * Applies one planned step swap to the DOM: the detached snapshot of the
- * outgoing card fades/slides away while the (already-committed) incoming
- * card fades/slides in, and the wrapper's height tweens between the two
- * measured heights. Isolated in its own function so the component's effect
- * only has to wire up refs, and so a test can assert *that* a swap was
- * applied — via the `Element.prototype.animate` stub — without reaching
+ * Applies one planned step swap to the DOM: the (already-committed)
+ * incoming card fades/slides in, and the wrapper's height tweens between the
+ * two measured heights. Isolated in its own function so the component's
+ * effect only has to wire up refs, and so a test can assert *that* a swap
+ * was applied — via the `Element.prototype.animate` stub — without reaching
  * into WAAPI internals jsdom does not implement.
  *
- * A `null` plan (reduced motion, or nothing to animate) means the DOM swap
- * React already made is the whole story: no keyframes to apply, and any
- * inline height pinned by an earlier swap is released so the wrapper goes
- * back to `auto` — a wrapper left at a fixed pixel height would clip the
- * card the next time the viewport resizes.
+ * Only the current card is ever rendered — there is no outgoing card to
+ * animate, and therefore no clone to append and no cleanup to schedule. An
+ * earlier version cloned the outgoing card into the wrapper and removed the
+ * clone in the animation's `onfinish`, but `onfinish` never fires while the
+ * tab is hidden or for a cancelled/replaced animation, so those clones piled
+ * up in the DOM. Sets no inline style on the wrapper and passes no `fill`
+ * (the WAAPI default, `"none"`), so a swap that never finishes — same hidden
+ * tab, cancelled, or replaced cases — leaves the wrapper at its natural
+ * height instead of pinned to a stale pixel value. A `null` plan (reduced
+ * motion, or nothing to animate) means the DOM swap React already made is
+ * the whole story: there is nothing left to do.
  */
 function runStepSwapAnimation(
   wrapper: HTMLDivElement,
-  outgoingSnapshot: HTMLElement | null,
   plan: StepSwapAnimation | null,
 ): void {
-  if (!plan) {
-    wrapper.style.height = "";
-    return;
-  }
+  if (!plan) return;
 
   if (plan.wrapper) {
-    // `fill: "forwards"` holds the animated height at `toHeight` once the
-    // animation ends, instead of snapping back to whatever `auto` resolves
-    // to on that exact frame — and the `onfinish` below is what releases
-    // that pin back to `auto` again, so a later resize is never clipped.
-    const wrapperAnimation = wrapper.animate(plan.wrapper, {
-      ...plan.options,
-      fill: "forwards",
-    });
-    wrapperAnimation.onfinish = () => {
-      wrapper.style.height = "";
-    };
+    wrapper.animate(plan.wrapper, { ...plan.options, fill: "none" });
   }
 
   wrapper.animate(plan.incoming, plan.options);
-
-  if (outgoingSnapshot) {
-    outgoingSnapshot.style.position = "absolute";
-    outgoingSnapshot.style.top = "0";
-    outgoingSnapshot.style.left = "0";
-    outgoingSnapshot.style.right = "0";
-    outgoingSnapshot.style.bottom = "0";
-    outgoingSnapshot.style.pointerEvents = "none";
-    outgoingSnapshot.setAttribute("aria-hidden", "true");
-    wrapper.appendChild(outgoingSnapshot);
-    const outgoingAnimation = outgoingSnapshot.animate(
-      plan.outgoing,
-      plan.options,
-    );
-    outgoingAnimation.onfinish = () => {
-      outgoingSnapshot.remove();
-    };
-  }
 }
 
 export function SetupWizard({
@@ -296,21 +267,18 @@ export function SetupWizard({
       reducedMotion: prefersReducedMotion(),
     });
 
-    runStepSwapAnimation(wrapper, pending.outgoingSnapshot, plan);
+    runStepSwapAnimation(wrapper, plan);
   }, [current]);
 
   /** The only place `current`/`furthest` ever change once mounted. Always
-   *  records a pending transition first — cloning the about-to-be-replaced
-   *  wrapper synchronously, before React swaps its children — so the
-   *  layout effect above has something to animate once the new card lands. */
+   *  records a pending transition first — measuring the wrapper's height
+   *  synchronously, before React swaps its children — so the layout effect
+   *  above has a `fromHeight` to tween from once the new card lands. */
   function goTo(step: number, direction: StepDirection) {
     const wrapper = wrapperRef.current;
     pendingTransitionRef.current = {
       direction,
       fromHeight: wrapper ? wrapper.getBoundingClientRect().height : 0,
-      outgoingSnapshot: wrapper
-        ? (wrapper.cloneNode(true) as HTMLElement)
-        : null,
     };
     setCurrent(step);
     setFurthest((prev) => Math.max(prev, step));
@@ -483,12 +451,6 @@ export function SetupWizard({
         >
           {COPY_LABEL[copyState]}
         </button>
-        <Link
-          href="/quickstart"
-          className="text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
-        >
-          Prefer to set it up yourself? Follow the manual quickstart.
-        </Link>
       </div>
     );
     footer = null;
@@ -514,6 +476,17 @@ export function SetupWizard({
           {body}
         </WizardCard>
       </div>
+      {/* Always present, not just on step 4: with JavaScript disabled,
+       *  Continue's click handler never fires, so a reader lands on step 1
+       *  and cannot advance. Without this link that is a dead end — the
+       *  manual quickstart would be hidden behind three steps a
+       *  no-JS reader can never reach. */}
+      <Link
+        href="/quickstart"
+        className="text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
+      >
+        Prefer to set it up yourself? Follow the manual quickstart.
+      </Link>
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"
           ? "Prompt copied"

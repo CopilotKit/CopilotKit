@@ -43,6 +43,12 @@ vi.mock("next/link", () => ({
  */
 let capturedOnJump: ((step: number) => void) | null = null;
 
+/** The `Element.prototype.animate` stub installed in `beforeEach`, kept
+ *  reachable so a test can inspect what the component actually passed to
+ *  `animate()` — e.g. that no call ever asks for `fill: "forwards"` — since
+ *  the mocked WAAPI otherwise has no observable effect on the DOM. */
+let animateSpy: ReturnType<typeof vi.fn>;
+
 vi.mock("@/components/wizard-stepper-parts", async (importOriginal) => {
   const actual = await importOriginal<typeof WizardStepperParts>();
   return {
@@ -156,10 +162,20 @@ beforeEach(() => {
   // component's own transition logic (`wizard-step-transition.ts`) has its
   // own dedicated unit tests; here we only need calls into `animate` not to
   // blow up.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (Element.prototype as any).animate = vi.fn().mockReturnValue({
+  //
+  // Deliberately inert: `onfinish` is never invoked and `.finished` never
+  // resolves. A previous version of the component relied on `onfinish` to
+  // remove a cloned outgoing card from the DOM, but `onfinish` does not fire
+  // while the tab is hidden (the animation never progresses) or for a
+  // cancelled/replaced animation — that gap is exactly what leaked clones
+  // into the wrapper in production, and a stub that fires `onfinish`
+  // synchronously would hide the bug instead of reproducing it. The
+  // regression tests below must pass against this inert stub.
+  animateSpy = vi.fn().mockReturnValue({
     onfinish: null,
   });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (Element.prototype as any).animate = animateSpy;
 });
 
 afterEach(() => {
@@ -512,5 +528,141 @@ describe("focus management", () => {
     expect(document.activeElement).toBe(
       screen.getByRole("heading", { name: "Your frontend" }),
     );
+  });
+});
+
+/** The card wrapper (`div.relative`, holding `wrapperRef`) inside a render's
+ *  `container`. No other element in this tree uses the `relative` class. */
+function wrapperEl(container: HTMLElement): HTMLElement {
+  const el = container.querySelector(".relative");
+  if (!el) throw new Error("wizard wrapper not found");
+  return el as HTMLElement;
+}
+
+/**
+ * Regression coverage for the leaked-clone bug: an earlier version of the
+ * transition cloned the outgoing card into the wrapper, positioned it
+ * absolutely, and relied on the clone's own `onfinish` to remove it again.
+ * Because the `Element.prototype.animate` stub above is deliberately inert
+ * (see the comment on it), `onfinish` never fires here — exactly the
+ * hidden-tab case that let clones pile up in production. These assertions
+ * hold against that inert stub precisely because the fix renders only the
+ * current card and never appends anything to the wrapper in the first
+ * place; they would fail immediately against the old clone-and-append code.
+ */
+describe("step transition cleanup", () => {
+  it("leaves exactly one card in the wrapper, and one step heading in the document, after advancing forward", () => {
+    const { container } = renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(wrapperEl(container).querySelectorAll("section")).toHaveLength(1);
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+  });
+
+  it("still leaves exactly one card after three transitions (forward, forward, back) — the defect compounded rather than showing after one", () => {
+    const { container } = renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // transition 1: forward, step 1 -> 2
+    fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // transition 2: forward, step 2 -> 3
+    fireEvent.click(screen.getByRole("button", { name: "Back" })); // transition 3: back, step 3 -> 2
+
+    expect(wrapperEl(container).querySelectorAll("section")).toHaveLength(1);
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+  });
+
+  it("leaves no aria-hidden sibling and no inline position:absolute directly in the wrapper after a transition", () => {
+    // Scoped to the wrapper's *direct children*, not every descendant: the
+    // card itself legitimately contains decorative `aria-hidden="true"`
+    // icons several levels down (see `PickLogo` in `docs-map-parts.tsx`),
+    // and that is correct, unrelated markup. The leaked clones this guards
+    // against were always direct children of the wrapper — siblings of the
+    // real `<section>` card, as shown in the bug report:
+    //   wrapper
+    //     SECTION                                 <- the real card
+    //     DIV[aria-hidden] style="position: absolute; ..."  <- leaked clone
+    const { container } = renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    const wrapper = wrapperEl(container);
+    Array.from(wrapper.children).forEach((child) => {
+      expect(child.getAttribute("aria-hidden")).not.toBe("true");
+      expect((child as HTMLElement).style.position).not.toBe("absolute");
+    });
+  });
+
+  it("leaves no inline height on the wrapper after a transition", () => {
+    const { container } = renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(wrapperEl(container).style.height).toBe("");
+  });
+
+  it("never calls animate() with fill: 'forwards', including the wrapper's own height animation", () => {
+    // `fill: "forwards"` is what would pin the wrapper's height (or the
+    // incoming card's transform) at its end value once the animation
+    // stops — safe only if something releases that pin afterwards. The
+    // component releases nothing on purpose (see `runStepSwapAnimation`'s
+    // header comment), so this has to hold for every `animate()` call, not
+    // just the height one. The mocked WAAPI has no observable effect on the
+    // DOM by itself, so this must be asserted against the call arguments
+    // directly rather than against the wrapper's resulting style.
+    //
+    // jsdom's `getBoundingClientRect` always reports 0, and a from/to height
+    // of 0/0 is treated as "nothing to animate" (see `planStepSwap`'s
+    // wrapper-height guard), which would skip the height animation
+    // entirely and leave this test blind to a regression there. Stubbed
+    // here so `fromHeight` and `toHeight` differ, forcing that branch to
+    // actually run.
+    let call = 0;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      () => ({ height: (call += 1) === 1 ? 220 : 480 }) as DOMRect,
+    );
+
+    renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(animateSpy.mock.calls.length).toBeGreaterThan(1);
+    animateSpy.mock.calls.forEach(([, options]) => {
+      expect((options as KeyframeAnimationOptions | undefined)?.fill).not.toBe(
+        "forwards",
+      );
+    });
+  });
+});
+
+describe("manual quickstart link", () => {
+  it("is present on step 1", () => {
+    renderWizard();
+
+    expect(screen.getByRole("link", { name: /quickstart/i })).not.toBeNull();
+  });
+
+  it("is still present on step 4", () => {
+    advanceToStep4({ frontend: "React", backend: "Mastra" });
+
+    expect(screen.getByRole("link", { name: /quickstart/i })).not.toBeNull();
+  });
+
+  it("is not part of step 4's card itself, only the page around it", () => {
+    advanceToStep4({ frontend: "React", backend: "Mastra" });
+
+    const card = screen
+      .getByRole("heading", {
+        name: "Copy your prompt",
+      })
+      .closest("section");
+    if (!card) throw new Error("step 4 card not found");
+
+    expect(card.querySelector('a[href="/quickstart"]')).toBeNull();
   });
 });

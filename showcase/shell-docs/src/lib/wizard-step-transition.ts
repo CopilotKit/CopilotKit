@@ -1,13 +1,25 @@
 /**
  * Animation plan for one step swap in the classic stepper.
  *
- * The wizard shows one card at a time. Swapping cards has to do three things
- * at once — fade and slide the outgoing card away, bring the incoming one in
- * from the opposite side, and animate the wrapper's height so a 5-option
- * step being replaced by a 19-option step does not make the page jump. That
- * is fiddly enough to deserve its own tests, and it is pure data: no
- * `document`, no `window`, no `Element`. This module only returns keyframes;
- * the component applies them with the Web Animations API.
+ * The wizard shows one card at a time. Swapping cards has to do two things
+ * at once — bring the incoming card in from the appropriate side, and
+ * animate the wrapper's height so a 5-option step being replaced by a
+ * 19-option step does not make the page jump. That is fiddly enough to
+ * deserve its own tests, and it is pure data: no `document`, no `window`,
+ * no `Element`. This module only returns keyframes; the component applies
+ * them with the Web Animations API.
+ *
+ * There is deliberately no outgoing-card animation. An earlier version
+ * cloned the outgoing card, appended the clone to the wrapper, animated it
+ * out, and removed it in the animation's `onfinish`. `onfinish` is not a
+ * reliable place for required DOM cleanup — it never fires while the tab is
+ * hidden (the animation simply never progresses), and it never fires for a
+ * cancelled or replaced animation. Three transitions in a hidden tab left
+ * two orphaned clones in the wrapper, each one a snapshot of the wrapper's
+ * *entire* content at that moment — so a clone contained the previous
+ * clone, and the mess compounded rather than merely accumulating. Rendering
+ * only the current card and animating just its entrance removes the clone
+ * (and the cleanup it required) entirely: there is nothing left to leak.
  */
 
 export const STEP_TRANSITION_MS = 240;
@@ -16,7 +28,6 @@ export type StepDirection = "forward" | "back";
 
 /** One step swap, expressed as keyframes so the caller only applies them. */
 export type StepSwapAnimation = {
-  readonly outgoing: Keyframe[];
   readonly incoming: Keyframe[];
   readonly wrapper: Keyframe[] | null;
   readonly options: KeyframeAnimationOptions;
@@ -42,15 +53,14 @@ function clampHeight(height: number): number {
 }
 
 /**
- * Plans one step swap: how the outgoing card leaves, how the incoming card
- * arrives, and how the wrapper's height should tween between the two cards'
- * measured heights.
+ * Plans one step swap: how the incoming card arrives, and how the wrapper's
+ * height should tween between the two cards' measured heights.
  *
  * Forward reads the way paged interfaces already teach readers to expect:
- * the outgoing card exits toward the left (`translateX(-16px)`) and the
- * incoming one arrives from the right (`translateX(16px)` → `0`). Back is
- * the exact mirror. Getting this backwards is a real defect, not a stylistic
- * choice, so it is covered by dedicated tests below.
+ * the incoming card arrives from the right (`translateX(16px)` → `0`). Back
+ * is the exact mirror, arriving from the left. Getting this backwards is a
+ * real defect, not a stylistic choice, so it is covered by dedicated tests
+ * below.
  *
  * Returns `null` when `reducedMotion` is true — motion that moves content
  * sideways is exactly what that preference exists to suppress, so the
@@ -68,15 +78,8 @@ export function planStepSwap(input: {
   const fromHeight = clampHeight(input.fromHeight);
   const toHeight = clampHeight(input.toHeight);
 
-  const outgoingExitPx =
-    direction === "forward" ? -SLIDE_DISTANCE_PX : SLIDE_DISTANCE_PX;
   const incomingEnterPx =
     direction === "forward" ? SLIDE_DISTANCE_PX : -SLIDE_DISTANCE_PX;
-
-  const outgoing: Keyframe[] = [
-    { transform: "translateX(0)", opacity: 1 },
-    { transform: `translateX(${outgoingExitPx}px)`, opacity: 0 },
-  ];
 
   const incoming: Keyframe[] = [
     { transform: `translateX(${incomingEnterPx}px)`, opacity: 0 },
@@ -92,9 +95,16 @@ export function planStepSwap(input: {
       : [{ height: `${fromHeight}px` }, { height: `${toHeight}px` }];
 
   return {
-    outgoing,
     incoming,
     wrapper,
+    // No `fill`: a `"forwards"` fill would hold the wrapper's height (or
+    // the incoming card's transform) at its end value once the animation
+    // stops, which is only safe if something later releases that pin. This
+    // component sets no inline style to release, on purpose (see the
+    // `runStepSwapAnimation` comment in `setup-wizard.tsx`), so a
+    // transition that never finishes — a hidden tab, a cancelled or
+    // replaced animation — must leave the wrapper at its natural size
+    // instead of pinned to a stale value.
     options: {
       duration: STEP_TRANSITION_MS,
       easing: STEP_TRANSITION_EASING,

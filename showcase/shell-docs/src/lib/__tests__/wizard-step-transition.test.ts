@@ -24,18 +24,10 @@ describe("planStepSwap — reduced motion", () => {
 });
 
 describe("planStepSwap — direction", () => {
-  it("forward: outgoing exits left (-16px) and incoming enters from the right (16px)", () => {
+  it("forward: incoming enters from the right (16px)", () => {
     const plan = planStepSwap({ ...BASE_INPUT, direction: "forward" });
 
     expect(plan).not.toBeNull();
-    expect(plan!.outgoing[0]).toEqual({
-      transform: "translateX(0)",
-      opacity: 1,
-    });
-    expect(plan!.outgoing[1]).toEqual({
-      transform: "translateX(-16px)",
-      opacity: 0,
-    });
     expect(plan!.incoming[0]).toEqual({
       transform: "translateX(16px)",
       opacity: 0,
@@ -46,18 +38,10 @@ describe("planStepSwap — direction", () => {
     });
   });
 
-  it("back: outgoing exits right (16px) and incoming enters from the left (-16px) — the mirror of forward", () => {
+  it("back: incoming enters from the left (-16px) — the mirror of forward", () => {
     const plan = planStepSwap({ ...BASE_INPUT, direction: "back" });
 
     expect(plan).not.toBeNull();
-    expect(plan!.outgoing[0]).toEqual({
-      transform: "translateX(0)",
-      opacity: 1,
-    });
-    expect(plan!.outgoing[1]).toEqual({
-      transform: "translateX(16px)",
-      opacity: 0,
-    });
     expect(plan!.incoming[0]).toEqual({
       transform: "translateX(-16px)",
       opacity: 0,
@@ -68,18 +52,16 @@ describe("planStepSwap — direction", () => {
     });
   });
 
-  it("forward and back produce exactly opposite X offsets, not just different ones", () => {
+  it("forward and back produce exactly opposite entry offsets, not just different ones", () => {
     const forward = planStepSwap({ ...BASE_INPUT, direction: "forward" });
     const back = planStepSwap({ ...BASE_INPUT, direction: "back" });
 
-    expect(forward!.outgoing[1].transform).toBe("translateX(-16px)");
-    expect(back!.outgoing[1].transform).toBe("translateX(16px)");
     expect(forward!.incoming[0].transform).toBe("translateX(16px)");
     expect(back!.incoming[0].transform).toBe("translateX(-16px)");
   });
 
   it.each<StepDirection>(["forward", "back"])(
-    "incoming always ends at translateX(0) / opacity 1, and outgoing always ends at opacity 0 (direction=%s)",
+    "incoming always ends at translateX(0) / opacity 1 (direction=%s)",
     (direction) => {
       const plan = planStepSwap({ ...BASE_INPUT, direction });
 
@@ -87,7 +69,6 @@ describe("planStepSwap — direction", () => {
         transform: "translateX(0)",
         opacity: 1,
       });
-      expect(plan!.outgoing[1].opacity).toBe(0);
     },
   );
 });
@@ -132,5 +113,15 @@ describe("planStepSwap — options", () => {
     const plan = planStepSwap({ ...BASE_INPUT, direction: "forward" });
 
     expect(plan!.options.duration).toBe(STEP_TRANSITION_MS);
+  });
+
+  // A `"forwards"` fill would hold the wrapper (or the incoming card) at its
+  // end value once the animation stops — safe only if something releases
+  // that pin later. Nothing does, on purpose: see the header comment on why
+  // there is no outgoing-clone cleanup to hang a release off of any more.
+  it("never sets fill to 'forwards'", () => {
+    const plan = planStepSwap({ ...BASE_INPUT, direction: "forward" });
+
+    expect(plan!.options.fill).not.toBe("forwards");
   });
 });
