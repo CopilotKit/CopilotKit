@@ -201,18 +201,21 @@ describe("public skill drift", () => {
   // left the list when it stopped transcribing: it now delegates to
   // `copilotkit verify`, the generated error reference and the troubleshooting
   // pages, so it has no inventory to keep true.
-  it.each([
-    "skills/copilotkit-setup/sources.md",
-  ])("keeps %s package inventory paths resolvable", (sourcesPath) => {
-    const paths = read(sourcesPath)
-      .split("\n")
-      .flatMap(
-        (line) => line.match(/^- (packages\/\S+?)(?:\/)? \(/)?.[1] ?? [],
-      );
+  it.each(["skills/copilotkit-setup/sources.md"])(
+    "keeps %s package inventory paths resolvable",
+    (sourcesPath) => {
+      const paths = read(sourcesPath)
+        .split("\n")
+        .flatMap(
+          (line) => line.match(/^- (packages\/\S+?)(?:\/)? \(/)?.[1] ?? [],
+        );
 
-    expect(paths.length).toBeGreaterThan(0);
-    expect(
-      paths.filter((relativePath) => !existsSync(resolve(root, relativePath))),
-    ).toEqual([]);
-  });
+      expect(paths.length).toBeGreaterThan(0);
+      expect(
+        paths.filter(
+          (relativePath) => !existsSync(resolve(root, relativePath)),
+        ),
+      ).toEqual([]);
+    },
+  );
 });
