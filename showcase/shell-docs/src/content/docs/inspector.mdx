@@ -31,6 +31,7 @@ production error reporting.
 | ---------------------------------------------- | ----------------------------------- |
 | Confirm that CopilotKit is connected           | **Home**, then **Agent**            |
 | Find out why a run or tool failed              | The red launcher or error pill      |
+| Inspect one `CopilotChat` response             | **View in Inspector** on the message |
 | Follow messages, events, tools, state, context | **Agent** and the **Inspect** panes |
 | Reproduce a saved conversation safely          | **Threads** → **Try from here**     |
 | Continue a saved Thread in your application    | **Threads** → **View in your app**  |
@@ -103,6 +104,12 @@ debugging question:
 | Which browser-side tools are registered?      | **Frontend Tools**                                         | [Frontend Tools](/frontend-tools)                          |
 | What readable or document context was shared? | **Context**                                                | [Agent read-only context](/shared-state/agent-readonly)    |
 | What did a saved conversation contain?        | **Threads** → **Messages**, **AG-UI Events**, or **State** | [Rich Threads](/threads) and [Shared State](/shared-state) |
+
+In an official React `CopilotChat`, open an assistant message's toolbar and
+choose **View in Inspector** to jump directly to that message in its Thread.
+This local development shortcut is useful when you already know which response
+you need to explain. See the [`CopilotChat` reference](/reference/components/CopilotChat)
+for its configuration.
 
 **Frontend Tools** appears only after your application registers a frontend
 tool. **Capabilities** appears only when an A2UI catalog is present; use it to
@@ -217,6 +224,7 @@ Use the option that matches what you are trying to do:
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Close the current view                    | Use the close control; reopen it from the Inspector button                                                |
 | See your application without an overlay   | Use the pop-out control in the Inspector header                                                           |
+| Hide chat message shortcuts until reload  | Open a message's Inspector shortcut menu and choose **Hide this icon**                                    |
 | Hide Inspector temporarily on this domain | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings |
 | Disable Inspector for the development app | Set `enableInspector` to `false`                                                                          |
 
