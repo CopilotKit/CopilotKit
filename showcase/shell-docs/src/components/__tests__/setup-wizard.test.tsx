@@ -597,25 +597,21 @@ describe("step 4: copy your prompt", () => {
     ).not.toBeNull();
   });
 
-  // The copy button moved out of the footer and into the card body, centred
-  // between the review list and the footer — the reader's explicit request,
-  // so the card reads as composed rather than empty. Anchored on the shared
-  // container (the step's own `<section>`) rather than on "is the button
-  // somewhere in the document": Back comes out of `WizardNav`'s footer row,
-  // so a regression that put the copy button back in that same row would
-  // make it share Back's parent again, which this explicitly refuses, while
-  // still requiring the button to be somewhere inside the step's card.
-  it("does not put the copy button inside the footer region on step 4", () => {
+  // The copy button lives back in the footer's primary slot, exactly where
+  // Continue sits on every other step — an earlier version centred it in
+  // the card body instead, which the reader asked to have undone. Anchored
+  // on the shared container (the same immediate parent as Back) rather than
+  // on "is the button somewhere in the document": that parent is
+  // `WizardNav`'s own button row, so a regression that moves the copy
+  // button back into the card body would no longer share it with Back,
+  // which this explicitly requires.
+  it("puts the copy button in the footer alongside Back", () => {
     advanceToStep4({ frontend: "React", backend: "Mastra" });
 
     const backButton = screen.getByRole("button", { name: "Back" });
     const copyButton = screen.getByRole("button", { name: "Copy prompt" });
 
-    expect(copyButton.parentElement).not.toBe(backButton.parentElement);
-
-    const card = backButton.closest("section");
-    if (!card) throw new Error("step 4 card not found");
-    expect(card.contains(copyButton)).toBe(true);
+    expect(copyButton.parentElement).toBe(backButton.parentElement);
   });
 
   it("returns to Copy prompt after the reset delay following a successful copy", async () => {
