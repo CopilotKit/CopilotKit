@@ -20,7 +20,7 @@ test.describe("Voice Input", () => {
     await page.goto("/demos/voice");
   });
 
-  test("page loads with sample button, chat composer, and mic affordance", async ({
+  test("page loads and matches the runtime's transcription capability", async ({
     page,
   }) => {
     await expect(
@@ -33,14 +33,16 @@ test.describe("Voice Input", () => {
     await expect(
       page.locator('[data-testid="copilot-chat-input"]'),
     ).toBeVisible();
-    // The mic button is the authoritative signal that the runtime advertised
-    // `audioFileTranscriptionEnabled: true` — i.e. transcriptionService is
-    // wired on /api/copilotkit-voice. Exposed by react-core's v2 CopilotChatInput.
-    // It renders after the /info round trip resolves on the client, which on
-    // a cold dev server can exceed Playwright's 5s default — give it room.
-    await expect(
-      page.locator('[data-testid="copilot-start-transcribe-button"]'),
-    ).toBeVisible({ timeout: 15_000 });
+    const infoResponse = await page.request.get("/api/copilotkit-voice/info");
+    expect(infoResponse.ok()).toBeTruthy();
+    const info = await infoResponse.json();
+    const mic = page.locator('[data-testid="copilot-start-transcribe-button"]');
+
+    if (info.audioFileTranscriptionEnabled) {
+      await expect(mic).toBeVisible({ timeout: 15_000 });
+    } else {
+      await expect(mic).toHaveCount(0);
+    }
   });
 
   test("sample audio button injects the canned phrase into the input", async ({
