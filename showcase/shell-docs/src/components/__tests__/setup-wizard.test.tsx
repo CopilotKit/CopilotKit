@@ -207,21 +207,161 @@ describe("initial render", () => {
   });
 });
 
+// Continue used to carry the real `disabled` attribute until a frontend was
+// picked. It no longer does — the button is always enabled (see
+// `wizard-stepper-parts.tsx`'s header comment) — so a click with nothing
+// selected must now be caught here instead: it does not advance, shows an
+// inline hint, and moves focus into the option list so a keyboard user
+// lands where the work is. These are the behaviours the old "disables
+// Continue" test protected, expressed the new way.
 describe("step 1: frontend", () => {
-  it("disables Continue until a frontend is picked", () => {
+  it("does not advance and shows a hint when Continue is clicked with nothing selected", () => {
+    renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Your frontend" }),
+    ).not.toBeNull();
+    // The hint must actually reach assistive technology, not just be
+    // visible text — asserted here via the live region it renders in.
+    const hintRow = document.querySelector('[aria-live="polite"]');
+    expect(hintRow?.textContent).toBe("Choose your frontend first");
+  });
+
+  it("moves focus into the frontend option list when the click is blocked", () => {
+    renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "React" }),
+    );
+  });
+
+  it("clears the hint once a frontend is picked, and the next click advances", () => {
+    renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByText("Choose your frontend first")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    expect(screen.queryByText("Choose your frontend first")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { name: "Your agent backend" }),
+    ).not.toBeNull();
+  });
+});
+
+// Same shape as step 1's block above, for step 2's own required choice and
+// wording.
+describe("step 2: agent backend", () => {
+  it("does not advance and shows a hint when Continue is clicked with nothing selected", () => {
+    renderWizard();
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Your agent backend" }),
+    ).not.toBeNull();
+    const hintRow = document.querySelector('[aria-live="polite"]');
+    expect(hintRow?.textContent).toBe("Choose your agent backend first");
+  });
+
+  it("moves focus into the backend option list when the click is blocked", () => {
+    renderWizard();
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Mastra" }),
+    );
+  });
+
+  it("clears the hint once a backend is picked, and the next click advances", () => {
+    renderWizard();
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByText("Choose your agent backend first")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+    expect(screen.queryByText("Choose your agent backend first")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("heading", { name: "What you want to build" }),
+    ).not.toBeNull();
+  });
+});
+
+describe("Continue is never disabled", () => {
+  // One guard across all four steps, including the two with a required
+  // choice still unmet — there is no `continueDisabled` prop left to drive
+  // the `disabled` attribute, so nothing here should ever set it.
+  it("never renders the primary button with the disabled attribute, on any step", () => {
     renderWizard();
 
     expect(
-      (screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+      (
+        screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement
+      ).hasAttribute("disabled"),
+    ).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
-      (screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement
+      ).hasAttribute("disabled"),
     ).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      (
+        screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement
+      ).hasAttribute("disabled"),
+    ).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Copy prompt",
+        }) as HTMLButtonElement
+      ).hasAttribute("disabled"),
+    ).toBe(false);
+  });
+});
+
+// The card has a fixed floor with the footer pinned to its bottom edge, and
+// the hint must not move it. `WizardNav` reserves the hint's row
+// unconditionally (see its own tests), so the way to prove that here is not
+// a pixel measurement — jsdom reports every box as zero-sized, which would
+// make a geometry assertion vacuous — but that the row's DOM node is the
+// same node before and after the hint appears, i.e. it was never
+// conditionally mounted.
+describe("hint row does not move the footer", () => {
+  it("keeps the same hint row node before and after a blocked click shows the hint", () => {
+    renderWizard();
+
+    const hintRowBefore = document.querySelector('[aria-live="polite"]');
+    expect(hintRowBefore).not.toBeNull();
+    expect(hintRowBefore!.textContent).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    const hintRowAfter = document.querySelector('[aria-live="polite"]');
+    expect(hintRowAfter).toBe(hintRowBefore);
+    expect(hintRowAfter!.textContent).toBe("Choose your frontend first");
   });
 });
 

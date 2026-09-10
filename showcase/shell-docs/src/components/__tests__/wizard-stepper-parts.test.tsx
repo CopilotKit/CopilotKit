@@ -241,13 +241,7 @@ describe("WizardProgress", () => {
 
 describe("WizardNav", () => {
   it("omits Back entirely when onBack is absent", () => {
-    render(
-      <WizardNav
-        onContinue={vi.fn()}
-        continueLabel="Continue"
-        continueDisabled={false}
-      />,
-    );
+    render(<WizardNav onContinue={vi.fn()} continueLabel="Continue" />);
 
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
   });
@@ -258,7 +252,6 @@ describe("WizardNav", () => {
         onBack={vi.fn()}
         onContinue={vi.fn()}
         continueLabel="Continue"
-        continueDisabled={false}
       />,
     );
 
@@ -272,7 +265,6 @@ describe("WizardNav", () => {
         onBack={onBack}
         onContinue={vi.fn()}
         continueLabel="Continue"
-        continueDisabled={false}
       />,
     );
 
@@ -282,69 +274,37 @@ describe("WizardNav", () => {
   });
 
   it("labels Continue with continueLabel", () => {
-    render(
-      <WizardNav
-        onContinue={vi.fn()}
-        continueLabel="Skip"
-        continueDisabled={false}
-      />,
-    );
+    render(<WizardNav onContinue={vi.fn()} continueLabel="Skip" />);
 
     expect(screen.getByRole("button", { name: "Skip" })).not.toBeNull();
   });
 
-  it("follows continueDisabled on the Continue button's disabled attribute", () => {
-    const { rerender } = render(
+  // Continue used to carry a `continueDisabled` prop and the real `disabled`
+  // attribute with it — the reader clicking it right under a stationary
+  // mouse would flip the cursor from pointer to not-allowed. It is now
+  // always enabled: no prop varies this any more, so this simply asserts
+  // the button never carries the attribute at all. This is one of the five
+  // mutation-checked guards; re-adding `disabled={...}` to the button must
+  // make it fail.
+  it("never renders the Continue button with the disabled attribute", () => {
+    render(
       <WizardNav
         onContinue={vi.fn()}
         continueLabel="Continue"
-        continueDisabled={true}
+        hint="Choose your frontend first"
       />,
     );
 
-    let button = screen.getByRole("button", {
+    const button = screen.getByRole("button", {
       name: "Continue",
     }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-
-    rerender(
-      <WizardNav
-        onContinue={vi.fn()}
-        continueLabel="Continue"
-        continueDisabled={false}
-      />,
-    );
-
-    button = screen.getByRole("button", {
-      name: "Continue",
-    }) as HTMLButtonElement;
+    expect(button.hasAttribute("disabled")).toBe(false);
     expect(button.disabled).toBe(false);
   });
 
-  it("does not call onContinue when Continue is disabled", () => {
+  it("calls onContinue when Continue is clicked", () => {
     const onContinue = vi.fn();
-    render(
-      <WizardNav
-        onContinue={onContinue}
-        continueLabel="Continue"
-        continueDisabled={true}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(onContinue).not.toHaveBeenCalled();
-  });
-
-  it("calls onContinue when Continue is enabled and clicked", () => {
-    const onContinue = vi.fn();
-    render(
-      <WizardNav
-        onContinue={onContinue}
-        continueLabel="Continue"
-        continueDisabled={false}
-      />,
-    );
+    render(<WizardNav onContinue={onContinue} continueLabel="Continue" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -359,11 +319,7 @@ describe("WizardNav", () => {
   // button resize.
   it("gives the Continue button a fixed minimum width independent of its label", () => {
     const { rerender } = render(
-      <WizardNav
-        onContinue={vi.fn()}
-        continueLabel="Skip"
-        continueDisabled={false}
-      />,
+      <WizardNav onContinue={vi.fn()} continueLabel="Skip" />,
     );
     const shortClassName = screen.getByRole("button", {
       name: "Skip",
@@ -371,13 +327,7 @@ describe("WizardNav", () => {
     const shortMinWidth = shortClassName.match(/\bmin-w-\S+/)?.[0];
     expect(shortMinWidth).toBeTruthy();
 
-    rerender(
-      <WizardNav
-        onContinue={vi.fn()}
-        continueLabel="Copy blocked"
-        continueDisabled={false}
-      />,
-    );
+    rerender(<WizardNav onContinue={vi.fn()} continueLabel="Copy blocked" />);
     const longClassName = screen.getByRole("button", {
       name: "Copy blocked",
     }).className;
@@ -391,7 +341,6 @@ describe("WizardNav", () => {
       <WizardNav
         onContinue={vi.fn()}
         continueLabel="Copy prompt"
-        continueDisabled={false}
         continueIcon={<span data-testid="continue-icon" />}
       />,
     );
@@ -403,43 +352,17 @@ describe("WizardNav", () => {
   });
 
   it("omits the icon slot entirely when continueIcon is not given", () => {
-    render(
-      <WizardNav
-        onContinue={vi.fn()}
-        continueLabel="Copy prompt"
-        continueDisabled={false}
-      />,
-    );
+    render(<WizardNav onContinue={vi.fn()} continueLabel="Copy prompt" />);
 
     const button = screen.getByRole("button", { name: "Copy prompt" });
     expect(button.querySelector('[data-testid="continue-icon"]')).toBeNull();
   });
 
-  // Same pairing as WizardProgress's rail buttons above: a plain
-  // `cursor-pointer` alongside a `disabled:` variant that outranks it in
-  // specificity, so the not-allowed cursor wins whenever a button is
-  // actually disabled.
-  it("shows a pointer cursor on an enabled Continue button, and pairs it with a not-allowed cursor when disabled", () => {
-    const { rerender } = render(
-      <WizardNav
-        onContinue={vi.fn()}
-        continueLabel="Continue"
-        continueDisabled={false}
-      />,
-    );
-    let button = screen.getByRole("button", { name: "Continue" });
-    expect(button.className).toContain("cursor-pointer");
-    expect(button.className).toContain("disabled:cursor-not-allowed");
+  it("shows a pointer cursor on Continue", () => {
+    render(<WizardNav onContinue={vi.fn()} continueLabel="Continue" />);
 
-    rerender(
-      <WizardNav
-        onContinue={vi.fn()}
-        continueLabel="Continue"
-        continueDisabled={true}
-      />,
-    );
-    button = screen.getByRole("button", { name: "Continue" });
-    expect(button.className).toContain("disabled:cursor-not-allowed");
+    const button = screen.getByRole("button", { name: "Continue" });
+    expect(button.className).toContain("cursor-pointer");
   });
 
   it("shows a pointer cursor on the Back button", () => {
@@ -448,12 +371,62 @@ describe("WizardNav", () => {
         onBack={vi.fn()}
         onContinue={vi.fn()}
         continueLabel="Continue"
-        continueDisabled={false}
       />,
     );
 
     expect(screen.getByRole("button", { name: "Back" }).className).toContain(
       "cursor-pointer",
     );
+  });
+
+  // The hint row must exist in the DOM whether or not `hint` is set — this
+  // is what lets it clear/appear without reflowing the footer, since there
+  // is never a moment the row itself is mounted or unmounted. Asserting
+  // that the *same node* persists across a hint appearing (rather than just
+  // "a paragraph with this text exists" after the rerender) is what catches
+  // a conditional-render regression: mutation (e) — rendering the row only
+  // when `hint` is present — leaves the row missing entirely on the first,
+  // hint-less render, so the very first assertion below already fails.
+  it("always renders the hint row, reserved whether or not hint is set", () => {
+    const { rerender } = render(
+      <WizardNav onContinue={vi.fn()} continueLabel="Continue" />,
+    );
+
+    const emptyRow = document.querySelector('[aria-live="polite"]');
+    expect(emptyRow).not.toBeNull();
+    expect(emptyRow!.textContent).toBe("");
+
+    rerender(
+      <WizardNav
+        onContinue={vi.fn()}
+        continueLabel="Continue"
+        hint="Choose your frontend first"
+      />,
+    );
+
+    const filledRow = document.querySelector('[aria-live="polite"]');
+    expect(filledRow).toBe(emptyRow);
+    expect(filledRow!.textContent).toBe("Choose your frontend first");
+  });
+
+  // The hint is guidance, not an error — `role="alert"` would be wrong here
+  // (it implies something failed) and its assertive live region would also
+  // interrupt whatever the reader's screen reader is already announcing.
+  // `aria-live="polite"` is what actually gets the hint announced: the
+  // reader's blocked click also moves focus into the option list (see
+  // `setup-wizard.tsx`), so the hint text is never on the focused element
+  // itself for an `aria-describedby` wiring to pick up.
+  it("exposes the hint through a polite live region, never role=alert", () => {
+    render(
+      <WizardNav
+        onContinue={vi.fn()}
+        continueLabel="Continue"
+        hint="Choose your frontend first"
+      />,
+    );
+
+    const hintRow = document.querySelector('[aria-live="polite"]');
+    expect(hintRow).not.toBeNull();
+    expect(hintRow!.getAttribute("role")).not.toBe("alert");
   });
 });

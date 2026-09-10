@@ -12,6 +12,19 @@
 // `furthest` is `wizard-stepper-parts`' job; this file only ever hands it
 // the number.
 //
+// Steps 1 and 2 each have a required choice, and Continue is never disabled
+// — `WizardNav`'s primary button always takes the click. When the required
+// choice is still missing, `handleContinueStep1`/`handleContinueStep2` below
+// catch the click instead of calling `goTo`: they set `hint` to a short
+// instruction (`WizardNav` renders it in a reserved, always-present row so
+// it cannot move the footer) and move focus into that step's option list via
+// `step1OptionsRef`/`step2OptionsRef`, so a keyboard user lands where the
+// work is instead of stuck on a button that just did nothing. `hint` clears
+// the moment the choice is made (the `PickGrid` `onSelect` handlers below
+// clear it directly) and on every navigation (`goTo` clears it too), so it
+// never lingers once it is no longer true and never reappears on a plain
+// step change.
+//
 // Changing an earlier answer must never clear a later one: going back to
 // step 1 and picking a different frontend leaves the backend and the
 // features exactly as they were. There is simply no code path here that
@@ -97,6 +110,16 @@ function landingStep(restored: WizardUrlState): number {
   return 4;
 }
 
+/** Moves focus to the first option button inside a step's `PickGrid`, given
+ *  the ref that step's body attaches to its wrapping `<div>` — the target
+ *  for a Continue click blocked by a missing required choice, so a keyboard
+ *  user lands where the work is instead of on a button that just did
+ *  nothing. Module-level rather than a closure inside `SetupWizard`: it
+ *  captures nothing from that component's scope. */
+function focusFirstOption(ref: React.RefObject<HTMLDivElement | null>): void {
+  ref.current?.querySelector<HTMLButtonElement>("button")?.focus();
+}
+
 /**
  * What `goTo` records before handing control back to React: the direction
  * of travel and the wrapper's height right before the swap, so the layout
@@ -161,6 +184,18 @@ export function SetupWizard({
   /** Gates the URL-sync effect below so it cannot race the restore effect's
    *  own read-then-write with a premature empty write. */
   const [hydrated, setHydrated] = React.useState(false);
+
+  /** The instruction shown beneath Continue when it was clicked with the
+   *  current step's required choice still missing — see the header comment
+   *  above. `null` the rest of the time, including on every step that has
+   *  no required choice. */
+  const [hint, setHint] = React.useState<string | null>(null);
+  /** Wraps step 1's and step 2's `PickGrid` so a blocked Continue click can
+   *  move focus to the first option — see `focusFirstOption` below. Only
+   *  one is ever mounted at a time, since the wizard renders one step's body
+   *  at a time. */
+  const step1OptionsRef = React.useRef<HTMLDivElement | null>(null);
+  const step2OptionsRef = React.useRef<HTMLDivElement | null>(null);
 
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -274,15 +309,42 @@ export function SetupWizard({
   /** The only place `current`/`furthest` ever change once mounted. Always
    *  records a pending transition first — measuring the wrapper's height
    *  synchronously, before React swaps its children — so the layout effect
-   *  above has a `fromHeight` to tween from once the new card lands. */
+   *  above has a `fromHeight` to tween from once the new card lands. Also
+   *  clears `hint`: every navigation, including a jump back to the very
+   *  step that showed it, lands on a freshly-unblocked view rather than a
+   *  stale instruction. */
   function goTo(step: number, direction: StepDirection) {
     const wrapper = wrapperRef.current;
     pendingTransitionRef.current = {
       direction,
       fromHeight: wrapper ? wrapper.getBoundingClientRect().height : 0,
     };
+    setHint(null);
     setCurrent(step);
     setFurthest((prev) => Math.max(prev, step));
+  }
+
+  /** Step 1's Continue: advances only once a frontend is picked. Otherwise
+   *  shows the hint and moves focus into the frontend list instead of
+   *  advancing. */
+  function handleContinueStep1() {
+    if (frontendId === null) {
+      setHint("Choose your frontend first");
+      focusFirstOption(step1OptionsRef);
+      return;
+    }
+    goTo(2, "forward");
+  }
+
+  /** Step 2's Continue: same shape as `handleContinueStep1`, for the agent
+   *  backend choice. */
+  function handleContinueStep2() {
+    if (backendId === null) {
+      setHint("Choose your agent backend first");
+      focusFirstOption(step2OptionsRef);
+      return;
+    }
+    goTo(3, "forward");
   }
 
   /** Guards the progress rail against ever landing past `furthest` —
@@ -378,18 +440,23 @@ export function SetupWizard({
     stepDescription =
       "CopilotKit ships the same primitives for every one of these.";
     body = (
-      <PickGrid
-        picks={frontends}
-        selectedId={frontendId ?? undefined}
-        disabled={false}
-        onSelect={setFrontendId}
-      />
+      <div ref={step1OptionsRef}>
+        <PickGrid
+          picks={frontends}
+          selectedId={frontendId ?? undefined}
+          disabled={false}
+          onSelect={(id) => {
+            setFrontendId(id);
+            setHint(null);
+          }}
+        />
+      </div>
     );
     footer = (
       <WizardNav
-        onContinue={() => goTo(2, "forward")}
+        onContinue={handleContinueStep1}
         continueLabel="Continue"
-        continueDisabled={frontendId === null}
+        hint={hint ?? undefined}
       />
     );
   } else if (current === 2) {
@@ -397,19 +464,24 @@ export function SetupWizard({
     stepDescription =
       "Any framework that speaks AG-UI, or CopilotKit's own built-in agent.";
     body = (
-      <PickGrid
-        picks={backends}
-        selectedId={backendId ?? undefined}
-        disabled={false}
-        onSelect={setBackendId}
-      />
+      <div ref={step2OptionsRef}>
+        <PickGrid
+          picks={backends}
+          selectedId={backendId ?? undefined}
+          disabled={false}
+          onSelect={(id) => {
+            setBackendId(id);
+            setHint(null);
+          }}
+        />
+      </div>
     );
     footer = (
       <WizardNav
         onBack={handleBack}
-        onContinue={() => goTo(3, "forward")}
+        onContinue={handleContinueStep2}
         continueLabel="Continue"
-        continueDisabled={backendId === null}
+        hint={hint ?? undefined}
       />
     );
   } else if (current === 3) {
@@ -436,7 +508,6 @@ export function SetupWizard({
         onBack={handleBack}
         onContinue={() => goTo(4, "forward")}
         continueLabel={featureIds.size > 0 ? "Continue" : "Skip"}
-        continueDisabled={false}
       />
     );
   } else {
@@ -454,7 +525,6 @@ export function SetupWizard({
         onBack={handleBack}
         onContinue={handleCopy}
         continueLabel={COPY_LABEL[copyState]}
-        continueDisabled={false}
         continueIcon={<Copy aria-hidden="true" className="h-4 w-4" />}
       />
     );

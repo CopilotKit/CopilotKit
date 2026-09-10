@@ -24,14 +24,25 @@
 // `WizardNav` is the footer row passed into `WizardCard`'s `footer` prop.
 // Continue is the primary action and reuses the accent button treatment from
 // `channels-start-prompt.tsx` (full class string, including the
-// focus-visible ring and the `min-h-11` touch target) plus a disabled
-// treatment that button never needed. Back is quiet — `--text-muted`, no
-// fill — at the same height so the row aligns, and is omitted entirely
-// (not just hidden) when `onBack` is absent, which is how the wizard signals
-// step 1. On narrow screens the row stacks with Continue first in the visual
-// order, so the primary action is never below the fold on a phone; `onBack`
-// absent or present, Continue stays anchored to where the row's trailing
-// edge would be.
+// focus-visible ring and the `min-h-11` touch target). It is never disabled
+// — a step with a required choice still missing catches the click in
+// `setup-wizard.tsx` instead, which is also where the `hint` string below
+// comes from. Back is quiet — `--text-muted`, no fill — at the same height
+// so the row aligns, and is omitted entirely (not just hidden) when
+// `onBack` is absent, which is how the wizard signals step 1. On narrow
+// screens the row stacks with Continue first in the visual order, so the
+// primary action is never below the fold on a phone; `onBack` absent or
+// present, Continue stays anchored to where the row's trailing edge would
+// be.
+//
+// The `hint` row beneath Continue is always rendered, whether or not `hint`
+// itself is set, and is announced through `aria-live="polite"` rather than
+// wired to the button via `aria-describedby`: a blocked click also moves
+// focus into the step's option list (see `setup-wizard.tsx`), so by the
+// time assistive technology would read a description, focus has already
+// left the button — a polite live region is heard regardless of where focus
+// lands, an `aria-describedby` on an element that is no longer focused
+// would not be.
 
 import React from "react";
 
@@ -42,8 +53,11 @@ export type StepperStep = {
   readonly label: string; // short, for the progress rail
 };
 
+// No `disabled:` variants — Continue is never rendered with the `disabled`
+// attribute (see the header comment above), so styling for that state would
+// be dead weight.
 const ACCENT_BUTTON_CLASS =
-  "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--accent-fill)] sm:w-auto";
+  "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto";
 
 const QUIET_BUTTON_CLASS =
   "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-transparent px-4 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto";
@@ -184,44 +198,62 @@ export function WizardCard({
 }
 
 /** The Back/Continue footer row. Back is omitted entirely — not merely
- *  hidden — when `onBack` is absent. */
+ *  hidden — when `onBack` is absent. Continue is always enabled; see the
+ *  header comment above for why and for how `hint` is announced. */
 export function WizardNav({
   onBack,
   onContinue,
   continueLabel,
-  continueDisabled,
   continueIcon,
+  hint,
 }: {
   onBack?: () => void;
   onContinue: () => void;
   continueLabel: string;
-  continueDisabled: boolean;
   /** Rendered before the label — e.g. the clipboard glyph on step 4's copy
    *  button. An optional prop rather than asking every caller to build the
    *  whole button: the other three steps pass nothing and get exactly the
    *  same button as before. */
   continueIcon?: React.ReactNode;
+  /** A short instruction — e.g. "Choose your frontend first" — shown when
+   *  the reader clicks Continue with the step's required choice still
+   *  missing. `undefined`/empty on every step that has no required choice,
+   *  and on a step that does as soon as the choice is made. Owned entirely
+   *  by `setup-wizard.tsx`; this component only renders whatever it is
+   *  given. */
+  hint?: string;
 }): React.JSX.Element {
   return (
-    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-      {onBack ? (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={() => onBack()}
+            className={QUIET_BUTTON_CLASS}
+          >
+            Back
+          </button>
+        ) : null}
         <button
           type="button"
-          onClick={() => onBack()}
-          className={QUIET_BUTTON_CLASS}
+          onClick={() => onContinue()}
+          className={`${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS} ${onBack ? "" : "sm:ml-auto"}`}
         >
-          Back
+          {continueIcon}
+          {continueLabel}
         </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => onContinue()}
-        disabled={continueDisabled}
-        className={`${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS} ${onBack ? "" : "sm:ml-auto"}`}
+      </div>
+      {/* Always rendered, empty or not — an empty live region still occupies
+       *  this line, which is what keeps the hint from reflowing the footer
+       *  (and the card's pinned-to-the-bottom buttons with it) when it
+       *  appears or clears. */}
+      <p
+        aria-live="polite"
+        className="min-h-[1rem] text-xs leading-tight text-[var(--accent)] sm:text-right"
       >
-        {continueIcon}
-        {continueLabel}
-      </button>
+        {hint ?? ""}
+      </p>
     </div>
   );
 }
