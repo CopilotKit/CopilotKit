@@ -10,7 +10,16 @@
 // furthest step the reader has reached (`furthest`, 1-based, never
 // decreases). The progress rail's disabled treatment for steps beyond
 // `furthest` is `wizard-stepper-parts`' job; this file only ever hands it
-// the number.
+// the number. On mount, `furthest` is seeded from which answers are
+// actually present in the restored URL (`furthestFromAnswers`), not from
+// `landingStep` alone — `landingStep` stops at the first unanswered step, so
+// a restored `?frontend=vue&features=gen-ui` lands on step 2, but step 3's
+// answer is already sitting in state and the rail must let the reader jump
+// straight to it.
+//
+// `handleBack` and `handleJump` read `current`/`furthest` through
+// `currentRef`/`furthestRef` rather than closing over the state values —
+// see the comment on those refs for why.
 //
 // Steps 1 and 2 each have a required choice, and Continue is never disabled
 // — `WizardNav`'s primary button always takes the click. When the required
@@ -111,6 +120,34 @@ function landingStep(restored: WizardUrlState): number {
   return 4;
 }
 
+/**
+ * The value to initialize `furthest` to when restoring a URL (or a fresh
+ * mount): the highest step number that has an actual answer sitting in
+ * `restored`, folded with `landing` itself since the reader is standing
+ * there regardless of whether anything is answered yet — the rail must
+ * never disable the step already on screen.
+ *
+ * Deliberately independent of `landingStep`: that function walks the steps
+ * in order and stops at the first *unanswered* one, so a restored
+ * `?frontend=vue&features=gen-ui` (no backend) lands on step 2 even though
+ * step 3 already has an answer sitting in `features`. `furthest` has a
+ * different job — it gates which steps the progress rail lets the reader
+ * jump to — so it has to credit every answer independently instead of
+ * stopping at the first gap. Without this, that same URL would disable
+ * step 3 on the rail despite its answer already being in state, which is
+ * exactly the bug this fixes.
+ */
+function furthestFromAnswers(
+  restored: WizardUrlState,
+  landing: number,
+): number {
+  let furthest = landing;
+  if (restored.frontend) furthest = Math.max(furthest, 1);
+  if (restored.backend) furthest = Math.max(furthest, 2);
+  if (restored.features.length > 0) furthest = Math.max(furthest, 3);
+  return furthest;
+}
+
 /** Moves focus to the first option button inside a step's `PickGrid`, given
  *  the ref that step's body attaches to its wrapping `<div>` — the target
  *  for a Continue click blocked by a missing required choice, so a keyboard
@@ -185,6 +222,14 @@ export function SetupWizard({
   /** Gates the URL-sync effect below so it cannot race the restore effect's
    *  own read-then-write with a premature empty write. */
   const [hydrated, setHydrated] = React.useState(false);
+  /** Whether the card's heading should render its focus ring the next time
+   *  it receives focus. Set by `goTo` from the activating click's
+   *  `event.detail` (0 means the keyboard triggered it) — see that
+   *  function's comment. Defaults to `true`; irrelevant on the very first
+   *  render since the mount effect changes `current` without ever calling
+   *  `goTo`, so the heading is never focused then regardless (see
+   *  `pendingTransitionRef` below). */
+  const [showHeadingFocusRing, setShowHeadingFocusRing] = React.useState(true);
 
   /** The instruction shown beneath Continue when it was clicked with the
    *  current step's required choice still missing — see the header comment
@@ -223,6 +268,23 @@ export function SetupWizard({
   const pendingTransitionRef = React.useRef<PendingTransition | null>(null);
   const isFirstRenderRef = React.useRef(true);
 
+  /** Mirrors of `current`/`furthest`, kept in sync below on every render.
+   *  `handleBack` and `handleJump` read these instead of closing over
+   *  `current`/`furthest` directly, because each is created fresh on every
+   *  render and a reader clicking fast enough during the 240ms step-swap
+   *  transition can invoke a handler from a superseded render after a newer
+   *  one has already committed — that handler's closed-over `current` or
+   *  `furthest` would then be one or more steps behind the step number that
+   *  is actually true. Reading through a ref instead always sees the latest
+   *  committed value regardless of which render created the handler. Do NOT
+   *  "simplify" `handleBack`/`handleJump` back to reading `current`/
+   *  `furthest` from the closure — that reintroduces the staleness this
+   *  exists to prevent. */
+  const currentRef = React.useRef(current);
+  const furthestRef = React.useRef(furthest);
+  currentRef.current = current;
+  furthestRef.current = furthest;
+
   React.useEffect(() => {
     return () => {
       mountedRef.current = false;
@@ -251,7 +313,7 @@ export function SetupWizard({
     setBackendId(restored.backend ?? null);
     setFeatureIds(new Set(restored.features));
     setCurrent(landing);
-    setFurthest(landing);
+    setFurthest(furthestFromAnswers(restored, landing));
     setHydrated(true);
     // Allow-lists are derived from props on every render; only the actual
     // browser URL should ever trigger this restore.
@@ -313,8 +375,20 @@ export function SetupWizard({
    *  above has a `fromHeight` to tween from once the new card lands. Also
    *  clears `hint`: every navigation, including a jump back to the very
    *  step that showed it, lands on a freshly-unblocked view rather than a
-   *  stale instruction. */
-  function goTo(step: number, direction: StepDirection) {
+   *  stale instruction.
+   *
+   *  `pointerActivated` is `event.detail > 0` on the click that asked for
+   *  this navigation — see `WizardNav`/`WizardProgress`'s doc comments. It
+   *  decides `showHeadingFocusRing` for the step that is about to render:
+   *  the heading still receives focus unconditionally (the layout effect
+   *  above), but a pointer-driven change renders it without the ring, since
+   *  a mouse user should not see a focus ring around a heading that is not
+   *  interactive. */
+  function goTo(
+    step: number,
+    direction: StepDirection,
+    pointerActivated: boolean,
+  ) {
     const wrapper = wrapperRef.current;
     pendingTransitionRef.current = {
       direction,
@@ -323,43 +397,55 @@ export function SetupWizard({
     setHint(null);
     setCurrent(step);
     setFurthest((prev) => Math.max(prev, step));
+    setShowHeadingFocusRing(!pointerActivated);
   }
 
   /** Step 1's Continue: advances only once a frontend is picked. Otherwise
    *  shows the hint and moves focus into the frontend list instead of
    *  advancing. */
-  function handleContinueStep1() {
+  function handleContinueStep1(pointerActivated: boolean) {
     if (frontendId === null) {
       setHint("Choose your frontend first");
       focusFirstOption(step1OptionsRef);
       return;
     }
-    goTo(2, "forward");
+    goTo(2, "forward", pointerActivated);
   }
 
   /** Step 2's Continue: same shape as `handleContinueStep1`, for the agent
    *  backend choice. */
-  function handleContinueStep2() {
+  function handleContinueStep2(pointerActivated: boolean) {
     if (backendId === null) {
       setHint("Choose your agent backend first");
       focusFirstOption(step2OptionsRef);
       return;
     }
-    goTo(3, "forward");
+    goTo(3, "forward", pointerActivated);
   }
 
   /** Guards the progress rail against ever landing past `furthest` —
    *  `wizard-stepper-parts` already disables that button's real `disabled`
    *  attribute, but this is the second, independent check: nothing here
-   *  trusts the child component alone to enforce it. */
-  function handleJump(step: number) {
-    if (step > furthest) return;
-    if (step === current) return;
-    goTo(step, step > current ? "forward" : "back");
+   *  trusts the child component alone to enforce it. Reads `furthestRef`/
+   *  `currentRef` rather than the closed-over `furthest`/`current` — see
+   *  the comment on those refs above for why. `pointerActivated` defaults
+   *  to `false` (the keyboard branch, i.e. the ring stays visible) since
+   *  `WizardReview`'s tiles also call this through `onNavigate` without an
+   *  originating click event to derive it from. */
+  function handleJump(step: number, pointerActivated = false) {
+    if (step > furthestRef.current) return;
+    if (step === currentRef.current) return;
+    goTo(
+      step,
+      step > currentRef.current ? "forward" : "back",
+      pointerActivated,
+    );
   }
 
-  function handleBack() {
-    goTo(current - 1, "back");
+  /** Reads `currentRef`, not the closed-over `current` — see the comment on
+   *  that ref above for why. */
+  function handleBack(pointerActivated: boolean) {
+    goTo(currentRef.current - 1, "back", pointerActivated);
   }
 
   function capture(event: string, properties: Record<string, unknown>) {
@@ -508,7 +594,7 @@ export function SetupWizard({
     footer = (
       <WizardNav
         onBack={handleBack}
-        onContinue={() => goTo(4, "forward")}
+        onContinue={(pointerActivated) => goTo(4, "forward", pointerActivated)}
         continueLabel={featureIds.size > 0 ? "Continue" : "Skip"}
       />
     );
@@ -566,6 +652,7 @@ export function SetupWizard({
           description={stepDescription}
           headingRef={headingRef}
           footer={footer}
+          showFocusRing={showHeadingFocusRing}
         >
           {body}
         </WizardCard>

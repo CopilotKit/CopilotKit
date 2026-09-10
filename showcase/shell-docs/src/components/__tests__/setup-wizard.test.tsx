@@ -41,7 +41,17 @@ vi.mock("next/link", () => ({
  * `WizardProgress` — preserving every rendered-semantics assertion below —
  * purely to capture that callback.
  */
-let capturedOnJump: ((step: number) => void) | null = null;
+let capturedOnJump: ((step: number, pointerActivated: boolean) => void) | null =
+  null;
+
+/**
+ * Same idea as `capturedOnJump` above, for `WizardNav`'s `onBack` — the only
+ * way to invoke a `handleBack` closure captured in an earlier render (before
+ * a later step change) instead of the one the currently-rendered footer
+ * would dispatch to on a real click. Used by the stale-handler regression
+ * tests below (`currentRef`/`furthestRef` in `setup-wizard.tsx`).
+ */
+let capturedOnBack: ((pointerActivated: boolean) => void) | null = null;
 
 /** The `Element.prototype.animate` stub installed in `beforeEach`, kept
  *  reachable so a test can inspect what the component actually passed to
@@ -58,6 +68,10 @@ vi.mock("@/components/wizard-stepper-parts", async (importOriginal) => {
     ) => {
       capturedOnJump = props.onJump;
       return <actual.WizardProgress {...props} />;
+    },
+    WizardNav: (props: React.ComponentProps<typeof actual.WizardNav>) => {
+      capturedOnBack = props.onBack ?? null;
+      return <actual.WizardNav {...props} />;
     },
   };
 });
@@ -163,6 +177,7 @@ function reportedRunId(callIndex = 0): string {
 beforeEach(() => {
   window.history.pushState({}, "", "/");
   capturedOnJump = null;
+  capturedOnBack = null;
   // jsdom has no WAAPI at all — `Element.prototype.animate` doesn't exist,
   // so every call the component makes would throw without this stub. The
   // component's own transition logic (`wizard-step-transition.ts`) has its
@@ -512,7 +527,7 @@ describe("progress rail", () => {
     // triggers would not have flushed yet by the time the assertions below
     // run, making them pass regardless of whether the guard exists.
     act(() => {
-      capturedOnJump?.(4);
+      capturedOnJump?.(4, false);
     });
 
     expect(
@@ -876,6 +891,46 @@ describe("URL state", () => {
     ).not.toBeNull();
   });
 
+  // Regression coverage for the `furthest` bug: `landingStep` stops at the
+  // first *unanswered* step (backend, here), so it correctly lands on step
+  // 2 — but the old code also set `furthest` to that same landing step,
+  // which disabled step 3 on the rail even though its answer (`features`)
+  // is already sitting in state. Both halves are asserted since the landing
+  // alone was already correct before this fix; only the rail's disabled
+  // treatment was wrong.
+  it("restoring frontend and features with no backend lands on step 2 and leaves the rail's step 3 enabled", () => {
+    window.history.pushState({}, "", "/?frontend=vue&features=gen-ui");
+
+    renderWizard();
+
+    expect(
+      screen.getByRole("heading", { name: "Your agent backend" }),
+    ).not.toBeNull();
+
+    const featuresRailButton = screen.getByRole("button", {
+      name: /Features/,
+    }) as HTMLButtonElement;
+    expect(featuresRailButton.disabled).toBe(false);
+  });
+
+  // The fix must credit only the steps that actually have an answer, not
+  // enable the whole rail — this is what catches a mutation that simply
+  // sets `furthest` to 4 regardless of what was restored.
+  it("restoring only a frontend still leaves steps 3 and 4 disabled on the rail", () => {
+    window.history.pushState({}, "", "/?frontend=react");
+
+    renderWizard();
+
+    const featuresRailButton = screen.getByRole("button", {
+      name: /Features/,
+    }) as HTMLButtonElement;
+    const promptRailButton = screen.getByRole("button", {
+      name: /Prompt/,
+    }) as HTMLButtonElement;
+    expect(featuresRailButton.disabled).toBe(true);
+    expect(promptRailButton.disabled).toBe(true);
+  });
+
   it("writes with replaceState, never pushState, on a selection", () => {
     renderWizard();
 
@@ -915,6 +970,108 @@ describe("focus management", () => {
     expect(document.activeElement).toBe(
       screen.getByRole("heading", { name: "Your frontend" }),
     );
+  });
+});
+
+// The heading's focus ring is rendered via an explicit `focus:ring-2` class
+// (see `wizard-stepper-parts.tsx`'s `HEADING_FOCUS_RING_CLASS`), toggled on
+// by `showFocusRing` rather than left to the browser's own pointer/keyboard
+// heuristic. `fireEvent.click`'s default `detail` is `0` — the same value a
+// real keyboard-triggered click (Enter/Space) reports — so the keyboard
+// case is exercised by every plain `fireEvent.click` used elsewhere in this
+// file; the pointer case needs an explicit non-zero `detail` to be
+// distinguishable, per this file's own instructions.
+describe("heading focus ring depends on activation modality", () => {
+  it("focuses the heading without the ring after a pointer-driven advance", () => {
+    renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }), {
+      detail: 1,
+    });
+
+    const heading = screen.getByRole("heading", {
+      name: "Your agent backend",
+    });
+    expect(document.activeElement).toBe(heading);
+    expect(heading.className).not.toMatch(/\bfocus:ring-2\b/);
+  });
+
+  it("focuses the heading with the ring after a keyboard-driven advance", () => {
+    renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    // No `detail` override: fireEvent.click's default of 0 is the keyboard
+    // branch (see the header comment above).
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    const heading = screen.getByRole("heading", {
+      name: "Your agent backend",
+    });
+    expect(document.activeElement).toBe(heading);
+    expect(heading.className).toMatch(/\bfocus:ring-2\b/);
+  });
+});
+
+// Regression coverage for `currentRef`/`furthestRef` in `setup-wizard.tsx`:
+// `handleBack` and `handleJump` must read the live step numbers, not the
+// values closed over in the render that created the handler. Exercised by
+// snapshotting a handler through the mocked `WizardNav`/`WizardProgress`
+// (see `capturedOnBack`/`capturedOnJump` above) at an earlier point in the
+// wizard's life, advancing further, and then invoking that stale reference —
+// exactly the shape a reader clicking rapidly during the 240ms step-swap
+// transition could trigger for real.
+describe("stale handlers act on the live step, not the step captured when they were created", () => {
+  it("a handleBack captured on step 2 still returns to the step before the current one after advancing further", () => {
+    renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 2
+
+    // Snapshot Back's handler while `current` is still 2, before advancing
+    // any further.
+    const staleOnBack = capturedOnBack;
+    expect(staleOnBack).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 3
+
+    // A handler reading `current` from its own closure (captured at 2)
+    // would compute 2 - 1 = 1 and land on step 1. Reading the live
+    // `currentRef` instead computes 3 - 1 = 2 and lands back on step 2.
+    act(() => {
+      staleOnBack?.(false);
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "Your agent backend" }),
+    ).not.toBeNull();
+  });
+
+  it("a handleJump captured while furthest was 2 still allows a jump to step 3 once furthest has advanced past it", () => {
+    renderWizard();
+
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 2, furthest = 2
+
+    // Snapshot the rail's jump handler while `furthest` is still 2.
+    const staleOnJump = capturedOnJump;
+    expect(staleOnJump).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 3, furthest = 3
+    fireEvent.click(screen.getByRole("button", { name: "Skip" })); // current = 4, furthest = 4
+
+    // A handler reading `furthest` from its own closure (captured at 2)
+    // would refuse step 3 (3 > 2) and leave the reader on step 4. Reading
+    // the live `furthestRef` instead sees furthest = 4 and allows it.
+    act(() => {
+      staleOnJump?.(3, false);
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "What you want to build" }),
+    ).not.toBeNull();
   });
 });
 
