@@ -22,6 +22,25 @@ import type {
   LearnedSkillsSnapshotResult,
 } from "./learned-skills";
 
+/** Let a confirmed HTTP denial survive an error body that never completes. */
+async function learnedSkillsErrorBody(
+  response: Response,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (!signal) return response.json();
+  let onAbort: (() => void) | undefined;
+  try {
+    return await new Promise((resolve, reject) => {
+      onAbort = () => reject(signal.reason);
+      signal.addEventListener("abort", onAbort, { once: true });
+      if (signal.aborted) onAbort();
+      else response.json().then(resolve, reject);
+    });
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
 const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 1_500;
 const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
 const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
@@ -863,19 +882,18 @@ export class CopilotKitIntelligence {
         signal: params.signal,
         redirect: "error",
       });
-      params.signal?.throwIfAborted();
+      if (response.status === 401) {
+        void response.body?.cancel().catch(() => {});
+        throw new LearnedSkillsError("AUTHENTICATION_FAILED", false);
+      }
+      if (response.status !== 403) params.signal?.throwIfAborted();
       if (response.status !== 200 && response.status !== 304) {
         const denialCode =
-          response.status === 401
-            ? "AUTHENTICATION_FAILED"
-            : response.status === 403
-              ? "AUTHORIZATION_FAILED"
-              : undefined;
+          response.status === 403 ? "AUTHORIZATION_FAILED" : undefined;
         let body: unknown;
         try {
-          body = await response.json();
+          body = await learnedSkillsErrorBody(response, params.signal);
         } catch (error) {
-          params.signal?.throwIfAborted();
           if (denialCode) {
             throw new LearnedSkillsError(
               denialCode,
@@ -883,23 +901,23 @@ export class CopilotKitIntelligence {
               error instanceof SyntaxError ? undefined : error,
             );
           }
+          params.signal?.throwIfAborted();
           if (!(error instanceof SyntaxError)) throw error;
         }
         const responseError = learnedSkillsResponseError(body);
         // An HTTP denial must never become a transient failure that permits
         // consumers to keep serving a previously authorized snapshot.
         if (
-          response.status === 401 ||
-          (response.status === 403 &&
-            ![
-              "AUTHENTICATION_FAILED",
-              "AUTHORIZATION_FAILED",
-              "ENTITLEMENT_REQUIRED",
-              "DELIVERY_DISABLED",
-              "CONTAINER_NOT_FOUND",
-              "REVISION_NOT_FOUND",
-              "REVISION_REVOKED",
-            ].includes(responseError.code))
+          response.status === 403 &&
+          ![
+            "AUTHENTICATION_FAILED",
+            "AUTHORIZATION_FAILED",
+            "ENTITLEMENT_REQUIRED",
+            "DELIVERY_DISABLED",
+            "CONTAINER_NOT_FOUND",
+            "REVISION_NOT_FOUND",
+            "REVISION_REVOKED",
+          ].includes(responseError.code)
         ) {
           throw new LearnedSkillsError(denialCode!, false);
         }
@@ -931,6 +949,7 @@ export class CopilotKitIntelligence {
       params.signal?.throwIfAborted();
       return { status: "snapshot", bytes, revision, etag, contentType };
     } catch (error) {
+      if (error instanceof LearnedSkillsError) throw error;
       const cause = params.signal?.aborted ? params.signal.reason : error;
       if (cause instanceof Error && cause.name === "TimeoutError") {
         throw new LearnedSkillsError("TIMEOUT", true, cause);
@@ -941,7 +960,6 @@ export class CopilotKitIntelligence {
       ) {
         throw cause;
       }
-      if (error instanceof LearnedSkillsError) throw error;
       throw new LearnedSkillsError("NETWORK_ERROR", true, error);
     }
   }

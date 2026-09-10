@@ -106,8 +106,10 @@ export class SkillRegistry {
     const deadline = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         const error = new SkillDeliveryError("TIMEOUT", true);
-        reject(error);
         controller.abort(error);
+        // Give a canonical client that already received denial headers one
+        // event-loop turn to report that denial before the watchdog wins.
+        timer = setTimeout(() => reject(error), 0);
       }, this.#config.requestTimeoutMs);
     });
     const replacement = async (): Promise<VerifiedSnapshot> => {

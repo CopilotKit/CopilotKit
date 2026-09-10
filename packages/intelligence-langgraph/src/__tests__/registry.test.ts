@@ -94,6 +94,44 @@ describe("registry lifecycle", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it.each([401, 403])(
+    "blocks a warm registry when HTTP %s has a stalled body",
+    async (status) => {
+      const initial = response();
+      if (initial.status !== "snapshot") throw new Error("fixture");
+      const fetch = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(Buffer.from(initial.bytes), {
+            headers: {
+              "content-type": initial.contentType,
+              "x-copilotkit-skills-revision": initial.revision,
+              etag: initial.etag,
+            },
+          }),
+        )
+        .mockResolvedValueOnce(new Response(new ReadableStream(), { status }))
+        .mockRejectedValueOnce(new TypeError("offline"));
+      vi.stubGlobal("fetch", fetch);
+      const registry = new SkillRegistry({
+        client: new CopilotKitIntelligence({ apiKey: "secret" }),
+        containerId: "c",
+      });
+      await registry.initialize();
+      await vi.advanceTimersByTimeAsync(5000);
+      const result = registry.acquireSnapshot().then(
+        () => null,
+        (error) => error,
+      );
+      await vi.advanceTimersByTimeAsync(5001);
+      const code =
+        status === 401 ? "AUTHENTICATION_FAILED" : "AUTHORIZATION_FAILED";
+      expect(await result).toMatchObject({ code, retryable: false });
+      expect(registry.status.stale).toBe(false);
+      await expect(registry.acquireSnapshot()).rejects.toMatchObject({ code });
+    },
+  );
+
   it("clears warm stale state after a matching 304 recovery", async () => {
     const { registry, fetch } = setup();
     const initial = response();
@@ -233,7 +271,7 @@ describe("registry lifecycle", () => {
       code: "TIMEOUT",
       retryable: true,
     });
-    await vi.advanceTimersByTimeAsync(5000);
+    await vi.advanceTimersByTimeAsync(5001);
     await rejection;
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0]?.[0].signal?.aborted).toBe(true);
@@ -248,7 +286,7 @@ describe("registry lifecycle", () => {
     );
     const first = registry.acquireSnapshot();
     const rejection = expect(first).rejects.toMatchObject({ code: "TIMEOUT" });
-    await vi.advanceTimersByTimeAsync(5000);
+    await vi.advanceTimersByTimeAsync(5001);
     await rejection;
     fetch.mockResolvedValueOnce(response("empty"));
     await registry.initialize();
