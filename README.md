@@ -19,8 +19,6 @@ Generative UI, shared state, and human-in-the-loop workflows for React, Angular,
 
 Add **CopilotKit Intelligence** when it goes to production: threads that persist, memory, and agents that learn from real use.
 
-**[Get started — paste one prompt into your coding agent →](#quick-start)**
-
 </div>
 
 [![Bring Your Own Agent. Any Channel. — CopilotKit and AG-UI connect any agent framework to Slack, Microsoft Teams, Discord, WhatsApp, Telegram, Google Chat, iMessage, and SMS.](assets/bring-your-own-agent-any-channel.png)](https://docs.copilotkit.ai/?ref=github_readme)
