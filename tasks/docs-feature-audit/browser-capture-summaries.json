@@ -1,0 +1,227 @@
+{
+  "revision": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
+  "redaction": "no request bodies, response bodies, full URLs, stack traces, image data, or credentials retained",
+  "captures": [
+    {
+      "sourceCapture": "built-in-agent-voice-browser-probe.json",
+      "target": "built-in-agent/voice",
+      "startedAt": "2026-09-10T20:38:36.984Z",
+      "finishedAt": "2026-09-10T20:38:43.383Z",
+      "action": "click sample audio then press Enter in chat textarea",
+      "localOnlyNetworkBlock": false,
+      "blockedRemoteHosts": [],
+      "textareaAfterSample": "What is the weather in Tokyo?",
+      "bodySignals": {
+        "fixtureNoMatch": true,
+        "internalError": false,
+        "bodyFirstLine": "404 No fixture matched"
+      },
+      "localRequestPaths": [
+        "GET /demos/voice",
+        "GET /api/copilotkit-voice/info",
+        "POST /api/copilotkit-voice/agent/voice-demo/run"
+      ],
+      "localResponsePaths": [
+        "200 /demos/voice",
+        "200 /api/copilotkit-voice/info",
+        "200 /api/copilotkit-voice/agent/voice-demo/run"
+      ],
+      "consoleSignals": {
+        "fixtureNoMatch": true,
+        "internalError": false,
+        "agentRunError": true
+      }
+    },
+    {
+      "sourceCapture": "built-in-agent-multimodal-browser-probe.json",
+      "target": "built-in-agent/multimodal",
+      "startedAt": "2026-09-10T20:39:07.103Z",
+      "finishedAt": "2026-09-10T20:39:14.567Z",
+      "action": "click sample image",
+      "localOnlyNetworkBlock": false,
+      "blockedRemoteHosts": [],
+      "textareaAfterSample": null,
+      "bodySignals": {
+        "fixtureNoMatch": true,
+        "internalError": false,
+        "bodyFirstLine": "404 No fixture matched"
+      },
+      "localRequestPaths": [
+        "GET /demos/multimodal",
+        "POST /api/copilotkit-multimodal",
+        "GET /demo-files/sample.png"
+      ],
+      "localResponsePaths": [
+        "200 /demos/multimodal",
+        "200 /demo-files/sample.png",
+        "200 /api/copilotkit-multimodal"
+      ],
+      "consoleSignals": {
+        "fixtureNoMatch": true,
+        "internalError": false,
+        "agentRunError": true
+      }
+    },
+    {
+      "sourceCapture": "langgraph-python-voice-localonly-browser-probe.json",
+      "target": "langgraph-python/voice",
+      "startedAt": "2026-09-10T20:40:46.872Z",
+      "finishedAt": "2026-09-10T20:40:54.119Z",
+      "action": {
+        "kind": "sample-audio-enter",
+        "textareaAfterSample": "What is the weather in Tokyo?"
+      },
+      "localOnlyNetworkBlock": true,
+      "blockedRemoteHosts": [],
+      "textareaAfterSample": "What is the weather in Tokyo?",
+      "bodySignals": {
+        "fixtureNoMatch": false,
+        "internalError": true,
+        "bodyFirstLine": "An internal error occurred"
+      },
+      "localRequestPaths": [
+        "GET /demos/voice",
+        "GET /api/copilotkit-voice/info",
+        "POST /api/copilotkit-voice/agent/voice-demo/run"
+      ],
+      "localResponsePaths": [
+        "200 /demos/voice",
+        "200 /api/copilotkit-voice/info",
+        "200 /api/copilotkit-voice/agent/voice-demo/run"
+      ],
+      "consoleSignals": {
+        "fixtureNoMatch": false,
+        "internalError": true,
+        "agentRunError": true
+      }
+    },
+    {
+      "sourceCapture": "langgraph-python-voice-localonly-60000ms-browser-probe.json",
+      "target": "langgraph-python/voice",
+      "startedAt": "2026-09-10T20:46:41.056Z",
+      "finishedAt": "2026-09-10T20:47:41.922Z",
+      "action": {
+        "kind": "sample-audio-enter",
+        "textareaAfterSample": ""
+      },
+      "localOnlyNetworkBlock": true,
+      "blockedRemoteHosts": [],
+      "textareaAfterSample": "",
+      "bodySignals": {
+        "fixtureNoMatch": false,
+        "internalError": false,
+        "bodyFirstLine": "Voice input"
+      },
+      "localRequestPaths": [
+        "GET /demos/voice",
+        "GET /api/copilotkit-voice/info"
+      ],
+      "localResponsePaths": [
+        "200 /demos/voice",
+        "200 /api/copilotkit-voice/info"
+      ],
+      "consoleSignals": {
+        "fixtureNoMatch": false,
+        "internalError": false,
+        "agentRunError": false
+      }
+    },
+    {
+      "sourceCapture": "langgraph-python-multimodal-localonly-60000ms-browser-probe.json",
+      "target": "langgraph-python/multimodal",
+      "startedAt": "2026-09-10T20:44:12.574Z",
+      "finishedAt": "2026-09-10T20:45:13.111Z",
+      "action": {
+        "kind": "sample-image-click"
+      },
+      "localOnlyNetworkBlock": true,
+      "blockedRemoteHosts": [
+        "fonts.googleapis.com",
+        "cdn.copilotkit.ai"
+      ],
+      "textareaAfterSample": null,
+      "bodySignals": {
+        "fixtureNoMatch": false,
+        "internalError": false,
+        "bodyFirstLine": "Bundled samples:"
+      },
+      "localRequestPaths": [
+        "GET /demos/multimodal",
+        "POST /api/copilotkit-multimodal"
+      ],
+      "localResponsePaths": [
+        "200 /demos/multimodal",
+        "200 /api/copilotkit-multimodal"
+      ],
+      "consoleSignals": {
+        "fixtureNoMatch": false,
+        "internalError": false,
+        "agentRunError": false
+      }
+    },
+    {
+      "sourceCapture": "strands-voice-localonly-60000ms-browser-probe.json",
+      "target": "strands/voice",
+      "startedAt": "2026-09-10T20:45:28.821Z",
+      "finishedAt": "2026-09-10T20:46:30.092Z",
+      "action": {
+        "kind": "sample-audio-enter",
+        "textareaAfterSample": ""
+      },
+      "localOnlyNetworkBlock": true,
+      "blockedRemoteHosts": [],
+      "textareaAfterSample": "",
+      "bodySignals": {
+        "fixtureNoMatch": false,
+        "internalError": false,
+        "bodyFirstLine": "Voice input"
+      },
+      "localRequestPaths": [
+        "GET /demos/voice",
+        "GET /api/copilotkit-voice/info"
+      ],
+      "localResponsePaths": [
+        "200 /demos/voice",
+        "200 /api/copilotkit-voice/info"
+      ],
+      "consoleSignals": {
+        "fixtureNoMatch": false,
+        "internalError": false,
+        "agentRunError": false
+      }
+    },
+    {
+      "sourceCapture": "strands-multimodal-localonly-browser-probe.json",
+      "target": "strands/multimodal",
+      "startedAt": "2026-09-10T20:41:54.854Z",
+      "finishedAt": "2026-09-10T20:42:01.296Z",
+      "action": {
+        "kind": "sample-image-click"
+      },
+      "localOnlyNetworkBlock": true,
+      "blockedRemoteHosts": [
+        "fonts.googleapis.com",
+        "cdn.copilotkit.ai"
+      ],
+      "textareaAfterSample": null,
+      "bodySignals": {
+        "fixtureNoMatch": false,
+        "internalError": false,
+        "bodyFirstLine": "Bundled samples:"
+      },
+      "localRequestPaths": [
+        "GET /demos/multimodal",
+        "POST /api/copilotkit-multimodal"
+      ],
+      "localResponsePaths": [
+        "200 /demos/multimodal",
+        "200 /api/copilotkit-multimodal"
+      ],
+      "consoleSignals": {
+        "fixtureNoMatch": false,
+        "internalError": false,
+        "agentRunError": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "revision": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
+  "generatedAt": "2026-09-10T20:41:00Z",
+  "confirmedFixtureCoverageGaps": [
+    {
+      "slug": "built-in-agent",
+      "feature": "voice",
+      "evidence": "browser-capture-summaries.json (built-in-agent voice captures)",
+      "reason": "local agent run returned a 404 No fixture matched AG-UI error after restored sample audio"
+    },
+    {
+      "slug": "built-in-agent",
+      "feature": "multimodal",
+      "evidence": "browser-capture-summaries.json (built-in-agent multimodal capture)",
+      "reason": "restored sample image loaded HTTP 200; local API then yielded a 404 No fixture matched AG-UI error"
+    },
+    {
+      "slug": "built-in-agent",
+      "feature": "threadid-frontend-tool-roundtrip",
+      "evidence": "local-runtime-log.md (BIA full D6); raw BIA D6 log intentionally excluded from curated commit",
+      "reason": "browser body and AG-UI error explicitly reported 503 Strict mode: no fixture matched on both attempts"
+    }
+  ],
+  "confirmedSetupDefects": [
+    {
+      "slug": "langgraph-typescript",
+      "scope": "default Turbopack development launch",
+      "evidence": "local-runtime-log.md (LGTS default-Turbopack attempt); raw invalid-run log intentionally excluded",
+      "reason": "checked-in .js CVDIAG specifiers resolve to missing leaves under Turbopack; unchanged-source Webpack launch was required for qualification"
+    },
+    {
+      "slug": "google-adk",
+      "scope": "local UI startup",
+      "evidence": "local-runtime-log.md",
+      "reason": "duplicate equally-specific auth routes prevent the UI from listening; agent health alone is not feature qualification"
+    }
+  ],
+  "observedButRootCauseUnconfirmed": [
+    {
+      "slug": "built-in-agent",
+      "feature": "gen-ui-agent",
+      "evidence": "host-d6-check-results.json; local-runtime-log.md",
+      "observation": "two attempts received an assistant message and stopped-at-step UI but D6 recorded surface-missing",
+      "possibleClasses": [
+        "rendered-surface behavior",
+        "fixture payload",
+        "D6 assertion contract"
+      ]
+    },
+    {
+      "slug": "langgraph-python",
+      "feature": "voice",
+      "evidence": "browser-capture-summaries.json (LGP voice captures)",
+      "observation": "an initial capture submitted a local run and received an AG-UI internal-error event; after an isolated backend restart, the 60-second capture left sample pre-fill empty and created no run, so the durable backend log has no matching request",
+      "possibleClasses": [
+        "voice sample UI/pre-fill behavior",
+        "backend exception",
+        "adapter/runtime behavior",
+        "fixture interaction"
+      ]
+    },
+    {
+      "slug": "strands",
+      "feature": "voice",
+      "evidence": "browser-capture-summaries.json (Strands voice 60s capture)",
+      "observation": "sample-audio click left the chat textarea empty and did not create a local agent run in the diagnostic window",
+      "possibleClasses": [
+        "voice sample UI/pre-fill behavior",
+        "timing/automation"
+      ]
+    },
+    {
+      "slug": "langgraph-python",
+      "feature": "multimodal",
+      "evidence": "browser-capture-summaries.json (LGP multimodal captures)",
+      "observation": "local metadata and AG-UI RUN_STARTED response were observed with image data, but no completion within the D6 window",
+      "possibleClasses": [
+        "backend completion",
+        "fixture sequence",
+        "D6 settle assertion"
+      ]
+    },
+    {
+      "slug": "strands",
+      "feature": "multimodal",
+      "evidence": "browser-capture-summaries.json (Strands multimodal capture)",
+      "observation": "only local metadata response was observed after sample click in the diagnostic window",
+      "possibleClasses": [
+        "sample UI action",
+        "timing/automation",
+        "backend invocation"
+      ]
+    },
+    {
+      "slug": "langgraph-typescript",
+      "feature": "gen-ui-declarative",
+      "evidence": "host-d6-check-results.json; local-runtime-log.md",
+      "observation": "local declarative API returned HTTP 200 but D6 saw no user/assistant DOM progression",
+      "possibleClasses": [
+        "declarative render behavior",
+        "D6 assertion/input"
+      ]
+    },
+    {
+      "slug": "langgraph-typescript",
+      "feature": "multimodal",
+      "evidence": "host-d6-check-results.json; local-runtime-log.md",
+      "observation": "D6 page.goto(waitUntil=load) timed out on the multimodal route after the valid Webpack launch.",
+      "possibleClasses": [
+        "D6 navigation-load condition",
+        "development-server page lifecycle",
+        "multimodal feature behavior"
+      ]
+    },
+    {
+      "slug": "langgraph-typescript",
+      "feature": "byoc",
+      "evidence": "local-runtime-log.md",
+      "observation": "D6 page.goto(waitUntil=load) timed out twice; subsequent direct route GET returned HTTP 200 in 0.64 seconds",
+      "possibleClasses": [
+        "D6 navigation-load condition",
+        "development-server page lifecycle"
+      ]
+    }
+  ]
+}
