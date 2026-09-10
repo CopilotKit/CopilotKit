@@ -12,6 +12,9 @@ import {
  */
 const DELIBERATELY_UNMAPPED = [
   "crewai-conversational-flows",
+  // The onboarding graph has no Antigravity entry yet; the docs promise
+  // nothing until `ONBOARDING_AGENT_FRAMEWORKS` in the Intelligence repo gains one.
+  "google-antigravity",
   "langroid",
   "spring-ai",
 ];

@@ -58,6 +58,14 @@ Before you begin, you'll need the following:
           npx copilotkit@latest init --framework google-antigravity
           ```
 
+          <Callout type="info" title="If the CLI does not list Google Antigravity yet">
+            The starter is the showcase package itself. Until the CLI catches
+            up, clone the CopilotKit repository and copy
+            `showcase/integrations/google-antigravity` — it is a complete
+            Next.js app plus Python agent server with the same layout the CLI
+            scaffolds.
+          </Callout>
+
           The starter contains four pieces:
 
           - `src/agent_server.py` - the FastAPI process that mounts one Antigravity agent per demo with the adapter's `create_antigravity_app`

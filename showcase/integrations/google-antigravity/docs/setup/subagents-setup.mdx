@@ -39,8 +39,9 @@
 
 <Callout type="info" title="Antigravity's native sub-agents are off">
   The Antigravity SDK has a sub-agent capability of its own, which the adapter
-  maps onto AG-UI `STEP_STARTED` / `STEP_FINISHED` events. It is disabled here
-  (`CapabilitiesConfig(enable_subagents=False)`) for the same reason
-  `ask_question` is: it can park on an interrupt these demos have no way to
-  answer. Delegation is therefore modelled as tools, which the UI can render.
+  maps onto AG-UI `STEP_STARTED` / `STEP_FINISHED` events. The showcase leaves
+  it off (`CapabilitiesConfig(enable_subagents=False)`, alongside the rest of
+  the built-in toolset) and models delegation as tools instead, so the shared
+  probes and per-tool renderers written for the reference integration apply
+  unchanged. Enable it on your own agent to get bracketed steps for free.
 </Callout>
