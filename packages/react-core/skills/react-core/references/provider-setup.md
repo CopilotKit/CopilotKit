@@ -98,16 +98,23 @@ export function App({ children }: { children: React.ReactNode }) {
 }
 ```
 
-### SPA with CopilotKit Intelligence (no self-hosted runtime)
+### An SPA still needs a runtime URL
+
+There is no client-only path to Intelligence. Intelligence is configured on
+the runtime, never on the provider: the CLI writes `CPK_INTELLIGENCE_API_KEY`
+into the server's environment and it never reaches the browser. So the
+provider needs `runtimeUrl`.
+
+Mounted with none of `runtimeUrl`, a Cloud public key, or dev-only local
+agents, the provider throws in production and warns in development.
 
 ```tsx
-<CopilotKit publicLicenseKey="ck_pub_..." />
+// Point at wherever the runtime is served from, same origin or not.
+<CopilotKit runtimeUrl="https://api.example.com/api/copilotkit" />
 ```
 
-`publicLicenseKey` is the canonical prop for running CopilotKit from a
-pure client bundle. `publicApiKey` is a deprecated alias that resolves to
-the same value — accept it in old code, but always write
-`publicLicenseKey` in new code.
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:524-536`
+(the throw, then the endpoint resolution)
 
 ## Core Patterns
 
@@ -125,7 +132,7 @@ export function AuthTokenSync({ token }: { token: string | null }) {
   const { copilotkit } = useCopilotKit();
   useEffect(() => {
     // setHeaders is an overwrite, not a merge — spread the current headers so
-    // entries set elsewhere (e.g. the public license key) survive. A `null`
+    // entries set elsewhere (a tenant id, a trace header) survive. A `null`
     // value clears that header, so logging out removes `Authorization` instead
     // of sending an empty one.
     copilotkit.setHeaders({
@@ -233,15 +240,16 @@ Correct:
 ```tsx
 // Route through a runtime that keeps secrets server-side:
 <CopilotKit runtimeUrl="/api/copilotkit" />
-
-// Or for a pure SPA, use CopilotKit Intelligence:
-<CopilotKit publicLicenseKey="ck_pub_..." />
 ```
 
-Both props are aliases for the same dev-only mechanism and ship any embedded
-credentials to the browser bundle. Never use either for production agents.
+Both props put agent instances in the browser bundle, along with any
+credentials they close over. They are not the same thing:
+`agents__unsafe_dev_only` is the free local-dev escape hatch, while
+`selfManagedAgents` is an Enterprise Intelligence tier feature that warns
+(advisory only, never enforced) when used without a license key. Neither is a
+production path for an agent holding a secret; a runtime is.
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:136-138,393`
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:156,497`
 
 ### HIGH — Inline object props rebuilt every render
 
@@ -276,7 +284,7 @@ internal state and may thrash tool/renderer registration. `useStableArrayProp`
 also logs a `console.error` when array-prop shape changes without
 memoization.
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:324-340,399-410`
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:278-296,387,399-410`
 
 ### HIGH — Missing `onError` leaves users stuck in "connecting..."
 
@@ -302,28 +310,7 @@ the provider in a provisional state with `ProxiedCopilotRuntimeAgent`
 instances that never resolve. The chat UI keeps showing "connecting..."
 forever and users never see the actual error.
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:638-660`
-
-### HIGH — Writing `publicApiKey` in new code
-
-Wrong:
-
-```tsx
-<CopilotKit publicApiKey="ck_pub_..." />
-```
-
-Correct:
-
-```tsx
-<CopilotKit publicLicenseKey="ck_pub_..." />
-```
-
-`publicApiKey` still works as a deprecated alias, but `publicLicenseKey`
-is the canonical name. The `CopilotKit` provider resolves
-`publicLicenseKey || publicApiKey`. Always write the canonical form in
-new code.
-
-Source: `packages/react-core/src/v1-deprecated/components/copilot-provider/copilotkit.tsx:172`
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:214,863-866`
 
 ### MEDIUM — Putting the provider below a layout that uses CopilotKit
 

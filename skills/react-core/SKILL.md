@@ -9,11 +9,10 @@ description: >
   browser-side tools via useFrontendTool, render tool calls with useRenderTool /
   useComponent / useDefaultRenderTool, gate execution with useHumanInTheLoop, wire file
   attachments with useAttachments, configure suggestion pills, and register activity- and
-  custom-message renderers. publicLicenseKey is canonical (publicApiKey is deprecated
-  alias). Load the reference under references/ that matches your task.
+  custom-message renderers. Load the reference under references/ that matches your task.
 type: framework
 library: copilotkit
-library_version: "1.70.3"
+library_version: "1.71.0"
 requires:
   - copilotkit/runtime
 sources:
@@ -57,7 +56,7 @@ your task — do not try to absorb the whole package from this file.
 ## Mental model — three shells you compose
 
 1. **Provider shell** — the `CopilotKit` provider (from `@copilotkit/react-core/v2`) at or near the root (inside `"use client"` for
-   Next.js App Router). Carries `runtimeUrl` (or `publicLicenseKey` for SPA), `headers`,
+   Next.js App Router). Carries `runtimeUrl` (required), `headers`,
    `credentials`, `properties`, `onError`, `debug`, `enableInspector`.
 2. **Chat shell** — `CopilotChat` / `CopilotPopup` / `CopilotSidebar` or a composed
    `CopilotChatView` + slot primitives (`CopilotChatInput`, `CopilotChatMessageView`, etc.).
@@ -71,7 +70,7 @@ your task — do not try to absorb the whole package from this file.
 
 | Task                                                                                                      | Reference                                                                               |
 | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Mount the `CopilotKit` provider, pick `runtimeUrl` vs `publicLicenseKey`, RSC boundary rules              | `references/provider-setup.md`                                                          |
+| Mount the `CopilotKit` provider, point `runtimeUrl` at the runtime, RSC boundary rules                    | `references/provider-setup.md`                                                          |
 | Drop in `CopilotChat` / `CopilotPopup` / `CopilotSidebar`, compose `CopilotChatView` with slot primitives | `references/chat-components.md`                                                         |
 | File / image attachments via `useAttachments` — drag-drop, click, paste, custom upload                    | `references/attachments.md`                                                             |
 | Client-side debug tooling — `enableInspector`, `debug` prop, lazy-loaded web inspector                    | `references/debug-mode.md`                                                              |
@@ -88,7 +87,7 @@ your task — do not try to absorb the whole package from this file.
 
 ## Invariants and gotchas (load-once, before any reference)
 
-- `publicLicenseKey` is canonical. `publicApiKey` is a **deprecated alias** — expect it in legacy code.
+- `runtimeUrl` is required; the provider throws in production without it. CopilotKit Intelligence is configured on the runtime, never on the provider.
 - `agents__unsafe_dev_only` and `selfManagedAgents` are dev-only aliases of each other. **Not production-safe.** See `packages/a2ui-renderer` or the `spa-without-runtime` lifecycle skill for the supported SPA path.
 - `CopilotPanel` does not exist. v2 chat components ship from `react-core/v2` — **not** `react-ui` (v2 `react-ui` is CSS-only).
 - No `useAgents()` hook exists. Discover agents via `copilotkit.subscribe({ onAgentsChanged })`.

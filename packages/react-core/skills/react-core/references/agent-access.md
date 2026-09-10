@@ -29,7 +29,6 @@ export function ChatDriver({
 }) {
   const { agent } = useAgent({
     agentId: "default",
-    threadId: "main",
     updates: [
       UseAgentUpdate.OnMessagesChanged,
       UseAgentUpdate.OnRunStatusChanged,
@@ -111,6 +110,35 @@ stand-in. It is a fully-constructed `AbstractAgent`, so every call on it
 is safe — but it is then **replaced**, and `agent` changes reference.
 Anything keyed to the old instance goes with it.
 
+### Scope a private agent to a thread
+
+`useAgent` admits exactly two shapes and nothing in between:
+
+- **Bind to an agent** — `useAgent()` or `useAgent({ agentId })`. The shared
+  instance from the registry; the thread comes from the chat configuration.
+- **Bind a private agent to a thread** —
+  `useAgent({ agentId, runtimeAgentId, threadId })`. All three are required.
+
+```tsx
+// A panel with a thread of its own, routed to the runtime's "default" agent.
+const { agent, isReady } = useAgent({
+  agentId: "extraction-panel", // local id this hook registers under
+  runtimeAgentId: "default", // the runtime agent to route to
+  threadId: extractionThreadId,
+});
+```
+
+The second shape registers a private `ProxiedCopilotRuntimeAgent` under the
+local `agentId` and unregisters it on unmount, so the thread is pinned to an
+instance nothing else shares. The registration is a single balanced effect, so
+it survives a StrictMode double-invoke: the cleanup unregisters before the
+remount re-registers.
+
+Pick a local `agentId` no real agent uses, and a different one per surface.
+
+Source: `packages/react-core/src/v2/hooks/use-agent.tsx:126-137` (the two
+shapes), `:239-254` (register and unregister)
+
 ## Common Mistakes
 
 ### CRITICAL — Custom `AbstractAgent.clone()` that returns `this`
@@ -120,7 +148,7 @@ Wrong:
 ```tsx
 class MyAgent extends AbstractAgent {
   clone() {
-    return this; // wrong — same instance is reused across threads
+    return this; // aliases one instance everywhere a copy is expected
   }
 }
 ```
@@ -130,18 +158,33 @@ Correct:
 ```tsx
 class MyAgent extends AbstractAgent {
   clone() {
-    const next = new MyAgent(this.config);
-    next.state = { ...this.state };
+    // Pass the same constructor arguments this instance was built with.
+    // `AbstractAgent` takes `config` as a parameter and does not retain it, so
+    // keep whatever your subclass needs on a field of its own.
+    const next = new MyAgent(this.myConfig);
+    next.threadId = this.threadId;
+    next.setState(this.state);
+    next.setMessages(this.messages);
     return next;
   }
 }
 ```
 
-`useAgent` calls `source.clone()` to build a per-thread clone and throws
-`clone() must return a new, independent object` if the clone is the same
-instance. This guards per-thread isolation.
+Nothing validates the return value, so returning `this` fails silently rather
+than throwing. On the stateful suggestions path the engine clones the provider
+agent and then writes a suggestion thread id, seeded messages, and seeded state
+onto the copy — given `this`, it writes all three onto the live agent the user
+is talking to. (With `suggestions: true` on a multi-route runtime it builds a
+fresh `HttpAgent` instead and never clones, so the fault is configuration
+dependent.) Delegate cloning aliases the same way.
 
-Source: `packages/react-core/src/v2/hooks/use-agent.tsx:58-69`
+`useAgent` itself does not clone. It either binds the shared registry instance
+or registers a private proxied agent; see the two shapes above.
+
+Source: `packages/core/src/core/suggestion-engine.ts:218-249` (the branch, the
+clone, then the seeding); `packages/core/src/agent.ts:448-472`
+(`ProxiedCopilotRuntimeAgent.clone`, the reference implementation — it rebuilds
+field by field, then copies threadId, state, and messages)
 
 ### HIGH — Deriving app state from `agent` without guarding on `isReady`
 
@@ -321,35 +364,35 @@ destructures only `{ description, value }` — any `agentId` passed is
 silently dropped. Treat context as "state of the world" that every agent
 sees.
 
-Source: `packages/react-core/src/v2/hooks/use-agent-context.tsx` (no `agentId` parameter); `packages/core/src/core/context-store.ts:26-31`
+Source: `packages/react-core/src/v2/hooks/use-agent-context.tsx` (no `agentId` parameter); `packages/core/src/core/context-store.ts:33-42`
 
-### MEDIUM — Two components using the same `(agentId, threadId)` expecting isolation
+### MEDIUM — Scoping a thread with `agentId` and `threadId` alone
 
 Wrong:
 
 ```tsx
-function A() {
-  const { agent } = useAgent({ agentId: "default", threadId: "t1" });
-}
-function B() {
-  const { agent } = useAgent({ agentId: "default", threadId: "t1" });
-}
+// A compile error. Bypass the types and a runtime guard throws instead.
+useAgent({ agentId: "default", threadId: "t1" });
 ```
 
 Correct:
 
 ```tsx
-function A() {
-  useAgent({ agentId: "default", threadId: "a" });
-}
-function B() {
-  useAgent({ agentId: "default", threadId: "b" });
-}
+useAgent({
+  agentId: "panel-1", // a local id of this hook's own
+  runtimeAgentId: "default", // the runtime agent to route to
+  threadId: "t1",
+});
 ```
 
-Per-thread clones are cached in a module-level WeakMap keyed by
-`(registryAgent, threadId)`. Two consumers of the same `(agentId,
-threadId)` observe the same state. Give each surface a distinct `threadId`
-when isolation is intentional.
+`threadId` is written onto a single agent instance, and an agent resolved by
+`agentId` alone is a shared singleton, so pinning a thread to it would clobber
+every other `useAgent` caller. The three keys are therefore a matched set: the
+type rejects every partial combination, and three runtime guards throw for
+callers who bypass the types, each naming the correct call.
 
-Source: `packages/react-core/src/v2/hooks/use-agent.tsx:78-119`
+Give each surface its own local `agentId`. Two mounted hooks registering the
+same one throw `already registered` rather than quietly sharing state.
+
+Source: `packages/react-core/src/v2/hooks/use-agent.tsx:160-198` (the guards);
+`packages/core/src/core/agent-registry.ts:486-491` (the duplicate-id throw)

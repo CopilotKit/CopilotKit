@@ -206,6 +206,7 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  * "memories" for persistence and telemetry stability.
  */
 const LEARNING_VIEW_LABEL = "Learning";
+const LEARNING_RECOPY_CONFIRMATION_MS = 2_000;
 
 /**
  * User-facing label for the What's new view. Its menu key stays `whats-new`
@@ -6481,8 +6482,12 @@ export class WebInspectorElement extends LitElement {
   private learningPollTimer: ReturnType<typeof setTimeout> | null = null;
   private learningPollFailureCount = 0;
   private learningSetupMarker: LearningSetupMarker | null = null;
+  private learningSetupCopyRequest = 0;
   private learningSetupUnsubscribe: (() => void) | null = null;
   private learningPromptCopyState: "idle" | "copied" | "error" = "idle";
+  private learningPromptRecopyState: "idle" | "copied" | "error" = "idle";
+  private learningPromptRecopyTimer: ReturnType<typeof setTimeout> | null =
+    null;
   private learningViewedState: LearningViewState | null = null;
   // ── Semantic recall (B3) ──────────────────────────────────────────────
   // `null` = no recall run yet (section hidden). `[]` = ran, no matches.
@@ -6754,6 +6759,7 @@ export class WebInspectorElement extends LitElement {
   private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
   /** Host-wide deadline that suppresses both the Inspector and its launcher. */
   private inspectorDismissedUntil: number | null = null;
+  private lastReportedInspectorVisibility: boolean | null = null;
   private inspectorDismissalTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
@@ -8148,25 +8154,45 @@ export class WebInspectorElement extends LitElement {
     }
   };
 
-  private handleLearningSetupCopy = async (event?: Event): Promise<void> => {
+  private handleLearningSetupCopy = async (
+    event?: Event,
+    recopy = false,
+  ): Promise<void> => {
     const service = this.getHomeFeaturePromptTarget("threads");
     if (!service || !this.core?.runtimeUrl) return;
+    const request = ++this.learningSetupCopyRequest;
     const copied = await this.copyFeaturePromptToClipboard(
       service,
       event,
       this.getOnboardingRunId(),
     );
+    if (request !== this.learningSetupCopyRequest) return;
     if (!this.core.telemetryDisabled) {
       trackLearningSetupPromptClicked({
         outcome: copied ? "success" : "failure",
       });
     }
     if (!copied) {
-      this.learningPromptCopyState = "error";
+      if (recopy) {
+        this.cancelLearningPromptRecopyReset();
+        this.learningPromptRecopyState = "error";
+      } else {
+        this.learningPromptCopyState = "error";
+      }
       this.requestUpdate();
       return;
     }
-    this.learningPromptCopyState = "copied";
+    if (recopy) {
+      this.cancelLearningPromptRecopyReset();
+      this.learningPromptRecopyState = "copied";
+      this.learningPromptRecopyTimer = setTimeout(() => {
+        this.learningPromptRecopyTimer = null;
+        this.learningPromptRecopyState = "idle";
+        this.requestUpdate();
+      }, LEARNING_RECOPY_CONFIRMATION_MS);
+    } else {
+      this.learningPromptCopyState = "copied";
+    }
     this.learningSetupMarker = writeLearningSetupMarker({
       runtimeUrl: this.core.runtimeUrl,
       agentId: this.getLearningAgentId(),
@@ -8175,6 +8201,25 @@ export class WebInspectorElement extends LitElement {
     this.persistState();
     this.requestUpdate();
     void this.refreshLearningSnapshot({ preserve: false });
+  };
+
+  private cancelLearningPromptRecopyReset(): void {
+    if (this.learningPromptRecopyTimer !== null) {
+      clearTimeout(this.learningPromptRecopyTimer);
+      this.learningPromptRecopyTimer = null;
+    }
+  }
+
+  private handleLearningGoBack = (): void => {
+    this.learningSetupCopyRequest += 1;
+    this.cancelLearningPromptRecopyReset();
+    clearLearningSetupMarker();
+    this.learningSetupMarker = null;
+    this.learningPromptCopyState = "idle";
+    this.learningPromptRecopyState = "idle";
+    this.cancelLearningPoll();
+    this.requestUpdate();
+    this.trackLearningViewState();
   };
 
   private handleLearningPage = (
@@ -8235,6 +8280,8 @@ export class WebInspectorElement extends LitElement {
     // activation re-subscribes (and re-evaluates SDK support) cleanly.
     this._memorySubscribed = false;
     this._memoryStoreUnsupported = false;
+    this.cancelLearningPromptRecopyReset();
+    this.learningPromptRecopyState = "idle";
     // Reset recall state and bump the sequence token so any in-flight recall
     // resolving after detach is ignored.
     this._recallSeq += 1;
@@ -11532,6 +11579,17 @@ export class WebInspectorElement extends LitElement {
   }
 
   protected updated(): void {
+    // Host message shortcuts follow the actual Inspector, including persisted
+    // dismissals and their expiry. Closing the panel still leaves it available.
+    const visible = !this.isInspectorDismissed;
+    if (visible !== this.lastReportedInspectorVisibility) {
+      this.lastReportedInspectorVisibility = visible;
+      this.dispatchEvent(
+        new CustomEvent("cpk-inspector-visibility-change", {
+          detail: { visible },
+        }),
+      );
+    }
     this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
@@ -18363,6 +18421,7 @@ export class WebInspectorElement extends LitElement {
         .snapshot=${this.learningSnapshot}
         .setupActive=${this.isLearningSetupActive()}
         .copyState=${this.learningPromptCopyState}
+        .recopyState=${this.learningPromptRecopyState}
         .setupPrompt=${
           this.getHomeFeaturePromptTarget("threads")
             ? homeFeatureImplementationPrompt(
@@ -18377,6 +18436,9 @@ export class WebInspectorElement extends LitElement {
           })}
         @learning-copy-setup=${(event: Event) =>
           this.handleLearningSetupCopy(event)}
+        @learning-recopy-setup=${(event: Event) =>
+          this.handleLearningSetupCopy(event, true)}
+        @learning-go-back=${this.handleLearningGoBack}
         @learning-page=${(event: CustomEvent) =>
           this.handleLearningPage(
             event as CustomEvent<{

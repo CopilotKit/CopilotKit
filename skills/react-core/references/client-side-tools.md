@@ -199,7 +199,7 @@ useFrontendTool(
 `useFrontendTool` only re-registers when `name`, `available`, or `deps`
 change. Without `deps`, closures over React state freeze at first mount.
 
-Source: `packages/react-core/src/v2/hooks/use-frontend-tool.tsx:45`
+Source: `packages/react-core/src/v2/hooks/use-frontend-tool.tsx:44-49`
 
 ### HIGH — Ignoring `signal` in async handlers
 
@@ -227,7 +227,7 @@ useFrontendTool({
 `stopAgent` / `agent.abortRun` abort via `AbortSignal`. A handler that
 doesn't forward `signal` keeps fetching after cancel, racing the next turn.
 
-Source: `packages/core/src/types.ts:24-30`
+Source: `packages/core/src/types.ts:39-41`
 
 ### HIGH — Assuming `followUp` defaults to `false`
 
@@ -261,7 +261,7 @@ For agent-invoked tools, run-handler checks `tool?.followUp !== false` — so
 `undefined` AND `true` both fire a follow-up `runAgent`. Only explicit
 `false` suppresses it. Pure side-effect tools must opt out or they loop.
 
-Source: `packages/core/src/core/run-handler.ts:607`
+Source: `packages/core/src/core/run-handler.ts:970,1119`
 
 ### HIGH — Missing `zod` peer dependency
 
@@ -355,4 +355,6 @@ await copilotkit.runTool({
 (treated as `true`). The `"generate"` and custom-string modes only work
 on `copilotkit.runTool({ followUp })`.
 
-Source: `packages/core/src/types.ts:39`; `packages/core/src/core/run-handler.ts:47,763,848-863`
+Source: `packages/core/src/types.ts:78` (`FrontendTool.followUp`);
+`packages/core/src/core/run-handler.ts:58-61` (the string form, for `runTool`);
+`:763` (the recursion guard)

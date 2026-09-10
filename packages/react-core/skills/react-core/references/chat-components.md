@@ -180,7 +180,7 @@ Correct:
 them is a TypeScript error, and `<CopilotChat>` always reads from its
 internal `useAgent` call.
 
-Source: `packages/react-core/src/v2/components/chat/CopilotChat.tsx:37-52`
+Source: `packages/react-core/src/v2/components/chat/CopilotChat.tsx:55-63`
 
 ### MEDIUM — Two `<CopilotChat>` with the same `agentId` + `threadId`
 
@@ -201,11 +201,28 @@ Correct:
 // ...or mount only one <CopilotChat> instance per agent/thread.
 ```
 
-Both components resolve to the same per-thread clone (cached in a
-module-level WeakMap) and submit duplicate messages. See `agent-access` for
-the clone semantics.
+Both components resolve the same shared agent. `CopilotChat` binds with
+`useAgent({ agentId })` — the shared-instance shape — and then writes
+`agent.threadId` onto it. There is no per-thread clone, so two instances
+naming one `(agentId, threadId)` pair drive a single instance:
 
-Source: `packages/react-core/src/v2/hooks/use-agent.tsx:78-119`
+- Each runs its own connect effect against that instance, so the same thread is
+  connected twice.
+- Each assigns `agent.abortController`, so the later mount replaces the
+  earlier one and unmounting either can abort the other's in-flight request.
+- Each calls `setMessages` on it, so whichever connect resolves last wins.
+
+The bookkeeping that would prevent this (`lastConnectedThreadId`,
+`activeConnectCountRef`) is per component, so it does not coordinate across
+two instances.
+
+See `agent-access` for the two shapes `useAgent` admits and which one owns a
+private instance.
+
+Source: `packages/react-core/src/v2/components/chat/CopilotChat.tsx:138-141`
+(the shared bind), `:395` (the threadId write), `:421-423` (the shared
+abortController), `:429` (the connect call), `:261-266` (the per-instance
+bookkeeping)
 
 ### MEDIUM — Missing the v2 CSS import
 

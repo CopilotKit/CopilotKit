@@ -3611,6 +3611,43 @@ describe("WebInspectorElement memories — view states", () => {
     expect(
       view?.shadowRoot?.querySelector(".step")?.classList.contains("complete"),
     ).toBe(true);
+
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    view?.shadowRoot?.querySelector<HTMLButtonElement>(".copy-again")?.click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => {
+      const updatedView =
+        el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
+      expect(
+        updatedView?.shadowRoot?.querySelector<HTMLButtonElement>(".copy-again")
+          ?.textContent,
+      ).toContain("Copied!");
+    });
+    const resetCallIndex = timeoutSpy.mock.calls.findIndex(
+      ([, delay]) => delay === 2_000,
+    );
+    const resetCall = timeoutSpy.mock.calls[resetCallIndex];
+    expect(resetCall).toBeDefined();
+    (resetCall?.[0] as () => void)();
+    clearTimeout(timeoutSpy.mock.results[resetCallIndex]?.value);
+    await vi.waitFor(() => {
+      const updatedView =
+        el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
+      expect(
+        updatedView?.shadowRoot?.querySelector<HTMLButtonElement>(".copy-again")
+          ?.textContent,
+      ).toContain("Copy prompt again");
+    });
+    timeoutSpy.mockRestore();
+
+    view?.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".pane-actions button")
+      ?.click();
+    await el.updateComplete;
+    expect(internals.learningSetupMarker).toBeNull();
+    expect(learningPreview(el)?.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
   });
 
   it("keeps all-agents Learning unscoped when several agents are present", () => {

@@ -1,67 +1,72 @@
-# CopilotKit Intelligence Telemetry Setup
+# Connecting CopilotKit Intelligence
 
 ## What is CopilotKit Intelligence?
 
-CopilotKit Intelligence is CopilotKit's hosted platform that provides:
+CopilotKit Intelligence is CopilotKit's hosted platform. It provides:
 
-- **Usage analytics** -- see how users interact with your AI features (message volume, tool usage, session duration)
-- **Error monitoring** -- surface runtime errors and failed agent interactions
-- **Premium features** -- access to hosted runtimes, advanced agent orchestration, and priority support (requires a paid plan)
+- **Durable threads** -- conversation history persisted across sessions, with
+  the thread routes the client needs to list and resume them
+- **Usage analytics** -- message volume, tool usage, session duration
+- **Error monitoring** -- runtime errors and failed agent interactions
+- **Premium features** -- hosted runtimes and advanced agent orchestration
+  (paid plans)
 
-The license key is a lightweight identifier that connects your local CopilotKit instance to CopilotKit Intelligence. It does not gate any open-source functionality -- CopilotKit works fully without it.
+It does not gate any open-source functionality. CopilotKit works fully
+without it.
 
-## The `npx copilotkit login` flow
+## It is configured on the runtime, not on the provider
 
-Running the CLI command starts an interactive authentication (verify the available commands with `npx copilotkit --help` if a version differs):
+There is no client-side key. The credential is a server-side runtime key, and
+it never reaches the browser. Nothing changes in your React code when you
+connect or disconnect Intelligence.
+
+Do not reach for `publicApiKey` or `publicLicenseKey` for this. Those props
+route a runtime-less client at **CopilotKit Cloud**
+(`api.cloud.copilotkit.ai`), a different product. `publicLicenseKey` is also
+read as an advisory licence signal for `selfManagedAgents`, which only warns
+and is never enforced. Neither role configures Intelligence.
+
+## The CLI flow
 
 ```bash
 npx copilotkit login
 npx copilotkit project select
 ```
 
-1. `login` opens your default browser to the CopilotKit Intelligence login/signup page.
-2. Sign in with GitHub, Google, or email.
-3. `project select` picks or creates a hosted project and records it in `.copilotkit/project.json`.
-4. The CLI provisions a project API key for the runtime and reports the license key for the client.
+1. `login` opens your browser to sign in with GitHub, Google, or email.
+2. `project select` picks or creates a hosted project and records it in
+   `.copilotkit/project.json`.
+3. The CLI provisions a project-scoped runtime key and writes it to `.env`.
 
-If the browser does not open automatically, the CLI prints a URL you can copy-paste manually.
+If the browser does not open, the CLI prints a URL to paste manually.
 
 There is no `copilotkit auth` command. The command is `login`.
 
-## Where to put the license key
-
-Store the key in an environment variable. Add it to your environment file:
-
-**Next.js** (`.env.local`):
+## What the CLI writes
 
 ```
-NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=<your-license-key>
+CPK_INTELLIGENCE_API_KEY=cpk_...
 ```
 
-**Vite** (`.env`):
+`CPK_INTELLIGENCE_API_KEY` is the canonical name and the only one the CLI
+writes. Keep it server-side: it is a runtime key for the selected project, not
+a frontend token, so it takes **no** `NEXT_PUBLIC_` or `VITE_` prefix. A
+prefixed copy would ship the credential in the browser bundle.
 
-```
-VITE_COPILOTKIT_LICENSE_KEY=<your-license-key>
-```
+Do not set the platform URLs. They default to the managed hosts when omitted,
+so any value you supply can only replace a correct default with a worse one.
 
-Then reference it in the provider:
+## Verifying the connection
 
-```tsx
-// Next.js
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
->
-
-// Vite
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  publicLicenseKey={import.meta.env.VITE_COPILOTKIT_LICENSE_KEY}
->
+```bash
+npx copilotkit verify
 ```
 
-The `NEXT_PUBLIC_` or `VITE_` prefix is required because the license key is used on the client side. It is safe to expose -- the key is a project identifier, not a secret.
+It reports whether a project is selected, whether the key loads and
+authenticates, whether the runtime is actually using the credential, and
+whether the runtime serves the thread routes that saved threads need.
 
 ## Opting out
 
-To disconnect from CopilotKit Intelligence, simply remove the `publicLicenseKey` prop from the `CopilotKit` provider (and delete the environment variable if you set one). No other changes are needed -- CopilotKit will continue to function normally without it.
+Remove the `INTELLIGENCE_*` variables from the runtime's environment. No
+frontend change is needed, because no frontend code referenced them.

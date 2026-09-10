@@ -47,6 +47,10 @@ import {
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
+import {
+  CopilotKitInspectorContextProvider,
+  useCopilotKitInspector,
+} from "../CopilotKitInspectorContext";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -67,6 +71,12 @@ export type CopilotChatProps = Omit<
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
+  /**
+   * Enable Inspector message shortcuts for this chat (enabled by default).
+   * An explicit CopilotKit provider enableInspector value takes priority.
+   * Shortcuts only appear in local development while Inspector is visible.
+   */
+  inspectorTools?: boolean;
   chatView?: SlotValue<typeof CopilotChatView>;
   isModalDefaultOpen?: boolean;
   /** Enable multimodal file attachments (images, audio, video, documents). */
@@ -98,6 +108,7 @@ export function CopilotChat({
   agentId,
   threadId,
   labels,
+  inspectorTools,
   chatView,
   isModalDefaultOpen,
   attachments: attachmentsConfig,
@@ -107,6 +118,16 @@ export function CopilotChat({
 }: CopilotChatProps) {
   // Check for existing configuration provider
   const existingConfig = useCopilotChatConfiguration();
+  const inspector = useCopilotKitInspector();
+  const inspectorContextValue = useMemo(
+    () => ({
+      ...inspector,
+      isInspectorEnabled:
+        inspector.isInspectorEnabled &&
+        (inspector.providerEnableInspector ?? inspectorTools ?? true),
+    }),
+    [inspector, inspectorTools],
+  );
 
   // Apply priority: props > existing config > defaults
   const providerAgentId = useDefaultAgentId();
@@ -1201,7 +1222,9 @@ export function CopilotChat({
           </div>
         )}
         <LastUserMessageContext.Provider value={lastUserMessageState}>
-          {RenderedChatView}
+          <CopilotKitInspectorContextProvider value={inspectorContextValue}>
+            {RenderedChatView}
+          </CopilotKitInspectorContextProvider>
         </LastUserMessageContext.Provider>
       </div>
     </CopilotChatConfigurationProvider>
