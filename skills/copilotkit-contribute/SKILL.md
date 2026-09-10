@@ -21,7 +21,7 @@ This plugin includes an MCP server (`copilotkit-docs`) that provides `search-doc
 ## Workflow
 
 1. **Fork and clone** the CopilotKit/CopilotKit repository.
-2. **Install dependencies** with `pnpm install` (requires pnpm v9.x and Node 20+).
+2. **Install dependencies** with `pnpm install` (requires pnpm v10.x and Node 20+).
 3. **Build once** with `pnpm build` to bootstrap all packages.
 4. **Create a branch** using the naming convention: `feat/<ISSUE>-<name>`, `fix/<ISSUE>-<name>`, or `docs/<ISSUE>-<name>`.
 5. **Develop** with `pnpm dev` (watches all packages) or target a specific package with `nx run @copilotkit/<pkg>:dev`.
