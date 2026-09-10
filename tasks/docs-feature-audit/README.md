@@ -32,8 +32,29 @@ Threads and Intelligence demonstrations are in scope and should become Showcase-
 
 ## Artifacts
 
-- `inventory.json` and `inventory.md`: inventory and coverage reconciliation.
-- `content-defects.json` and `content-audit.md`: source, rendering, and editorial findings.
-- Local execution reports and logs: added as checks run. Large or machine-specific logs remain untracked; curated reports retain reproducible commands and outcomes.
+- [Agreed maintenance plan](system-plan.md): source ownership, guide requirements, qualification, and expansion order.
+- [Initial inventory](inventory.md): the selected five-agent React scope and coverage reconciliation.
+- [Global feature outline](global-feature-outline.md) and [static routing](global-route-reachability.md): the complete candidate matrix, including undeclared frontend support.
+- [Source findings](content-audit.md) and [defect register](content-defects.json): evidence, affected contexts, and limitations for each finding.
+- [Additional source review](global-pending-source-units.md): reviewed and pending unique sources beyond the initial batch.
+- [Product guide review](product-guide-audit.md): Threads, Intelligence, Channels, and copy-prompt reuse.
+- [Selected route checks](full-route-audit.md): local HTML and Markdown delivery, redirects, and visible rendering errors.
+- [Host setup](HOST-NATIVE-001.md) and [runtime log](local-runtime-log.md): exact setup, environment blockers, and behavior-run provenance.
+- [Runtime totals](host-d6-results.json) and [individual checks](host-d6-check-results.json): executed behavior evidence. Large raw logs remain untracked; curated reports retain reproducible commands and outcomes.
+- [Check-count reconciliation](d6-lgp-count-reconciliation.md): why D6 checks, routed demos, and quarantined examples are different counts.
+
+## Baseline interpretation
+
+The current-source local baseline has completed for Built-in Agent, LangGraph Python,
+LangGraph JS, and Strands. Google ADK's frontend is blocked by a reproduced route collision.
+LangGraph JS requires the existing Webpack launch mode because its checked-in Turbopack dev
+command fails compilation. The initial valid runs produced 155 checks: 144 green and 11 red.
+The individual-check artifact preserves the initial verdicts; subsequent diagnoses and retries
+belong in the runtime log rather than overwriting failed evidence.
+
+These are fixture-backed baseline results, not latest-stable or live-provider qualification.
+A green fixture response can miss a data-propagation defect, as the isolated configuration and
+recipe diagnostics demonstrate. Final disposition requires the source, setup, rendering, and
+behavior evidence together. Global source review and failure diagnosis remain in progress.
 
 Only audit artifacts are being authored at this stage. Product, guide, and example repairs wait until the full defect register is assembled.
