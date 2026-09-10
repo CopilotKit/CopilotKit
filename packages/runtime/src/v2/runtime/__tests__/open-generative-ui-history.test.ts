@@ -8,8 +8,6 @@ import type {
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import type { CopilotRuntimeLike } from "../core/runtime";
-import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import {
   OpenGenerativeUIMiddleware,
   projectOpenGenerativeUIHistory,
@@ -422,87 +420,52 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
       projectOpenGenerativeUIHistory(source),
     );
   });
+});
 
-  const callerInput = () =>
-    runInput({
-      messages: [{ id: "unsafe", role: "user", content: "never admit" }],
-      state: { unsafe: true },
-      context: [{ description: "unsafe", value: "unsafe" }],
-      tools: [{ name: "unsafe", description: "unsafe", parameters: {} }],
-      forwardedProps: { unsafe: true },
-      parentRunId: "unsafe-parent",
-      resume: [
+describe("activity snapshot authority", () => {
+  it.each([undefined, null])(
+    "preserves full authority when the last activity is removed (%s)",
+    (scope) => {
+      const source = snapshot([
         {
-          status: "resolved",
-          interruptId: "unsafe",
-          payload: { approve: true },
+          id: "obsolete",
+          role: "activity",
+          activityType: "open-generative-ui",
+          content: {},
         },
-      ],
-    });
+      ]);
+      if (scope === null)
+        source.metadata = {
+          "@ag-ui/client": { authoritativeActivityTypes: null },
+        };
+      const projected = projectOpenGenerativeUIHistory(source);
+      expect(projected.messages).toEqual([]);
+      expect(projected.metadata?.["@ag-ui/client"]).toEqual({
+        authoritativeActivityTypes: null,
+      });
+      expect(projectOpenGenerativeUIHistory(projected)).toEqual(projected);
+    },
+  );
 
-  const replayInput = {
-    threadId: "thread-1",
-    runId: "run-1",
-    messages: [],
-    tools: [],
-    context: [],
-    state: {},
-    forwardedProps: {},
-  };
-
-  it("admits nothing from the caller in readOnly mode, not even resume commands", async () => {
-    const source = snapshot([sandboxCall("call")]);
-    const agent = new MockAgent(framed(source));
-
-    const events = await collect(
-      new OpenGenerativeUIMiddleware({ readOnly: true }).run(
-        callerInput(),
-        agent,
-      ),
-    );
-
-    expect(agent.receivedInput).toEqual(replayInput);
-    expect(events.find((e) => e.type === EventType.MESSAGES_SNAPSHOT)).toEqual(
-      projectOpenGenerativeUIHistory(source),
-    );
-    expect(events.some((e) => e.type === EventType.TOOL_CALL_RESULT)).toBe(
-      false,
-    );
-  });
-
-  it("wires readOnly from the runtime's openGenerativeUI config", async () => {
-    const source = snapshot([sandboxCall("call")]);
-    const backend = new MockAgent(framed(source));
-    backend.threadId = "thread-1";
-    backend.messages = [{ id: "unsafe", role: "user", content: "never admit" }];
-    backend.state = { unsafe: true };
-    const runtime = {
-      openGenerativeUI: { readOnly: true },
-    } as unknown as CopilotRuntimeLike;
-
-    configureAgentForRequest({
-      runtime,
-      request: new Request("https://example.com/run"),
-      agentId: "default",
-      agent: backend,
-    });
-    await backend.runAgent({
-      runId: "run-1",
-      tools: [{ name: "unsafe", description: "unsafe", parameters: {} }],
-      context: [{ description: "unsafe", value: "unsafe" }],
-      forwardedProps: { unsafe: true },
-      resume: [
+  it.each([{ scope: [] }, { scope: ["other"] }])(
+    "extends only explicit partial authority ($scope)",
+    ({ scope }) => {
+      const source = snapshot([
         {
-          status: "resolved",
-          interruptId: "unsafe",
-          payload: { approve: true },
+          id: "file",
+          role: "activity",
+          activityType: "dsh-deliverables",
+          content: {},
         },
-      ],
-    });
-
-    expect(backend.receivedInput).toEqual(replayInput);
-    expect(activities(backend.messages)).toEqual(
-      activities(projectOpenGenerativeUIHistory(source).messages),
-    );
-  });
+      ]);
+      source.metadata = {
+        "@ag-ui/client": { authoritativeActivityTypes: scope },
+      };
+      const projected = projectOpenGenerativeUIHistory(source);
+      expect(projected.messages).toEqual(source.messages);
+      expect(projected.metadata?.["@ag-ui/client"]).toEqual({
+        authoritativeActivityTypes: [...scope, "open-generative-ui"],
+      });
+    },
+  );
 });

@@ -137,11 +137,7 @@ export function configureAgentForRequest(params: {
     const targetAgents = typeof config === "object" ? config.agents : undefined;
     const shouldApply = !targetAgents || targetAgents.includes(agentId);
     if (shouldApply && typeof agent.use === "function") {
-      agent.use(
-        new OpenGenerativeUIMiddleware({
-          readOnly: typeof config === "object" && config.readOnly === true,
-        }),
-      );
+      agent.use(new OpenGenerativeUIMiddleware());
     }
   }
 

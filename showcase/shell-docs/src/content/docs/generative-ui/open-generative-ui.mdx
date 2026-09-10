@@ -117,17 +117,6 @@ the preview comes back with the thread. Nothing is executed on the host during
 that rebuild, and no tool result is invented: a call without a result is
 restored as `interrupted`.
 
-Backends that only replay stored threads can run the middleware in read-only
-mode. The agent then receives nothing from the caller except the thread and run
-ids:
-
-```ts
-new CopilotRuntime({
-  agents: { default: storedThreadAgent },
-  openGenerativeUI: { readOnly: true },
-});
-```
-
 The projector is also exported on its own as `projectOpenGenerativeUIHistory`
 for runtimes that build snapshots without the middleware.
 

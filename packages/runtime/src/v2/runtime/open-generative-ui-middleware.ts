@@ -6,7 +6,6 @@ import type {
   MessagesSnapshotEvent,
   ToolMessage,
 } from "@ag-ui/client";
-import { map } from "rxjs/operators";
 import type {
   RunAgentInput,
   AbstractAgent,
@@ -291,10 +290,8 @@ type RunNextWithStateReturn = ReturnType<Middleware["runNextWithState"]>;
 type EventWithState = ExtractObservableType<RunNextWithStateReturn>;
 
 /**
- * Marks a snapshot as authoritative for the Open Generative UI activity type
- * only, under the `@ag-ui/client` metadata key. A client that understands the
- * key replaces just this activity type; older clients ignore the metadata and
- * keep their all-or-nothing activity rule.
+ * Extend a scoped snapshot with this projector's type. Preserve full authority
+ * with null, including when projection removes the last activity message.
  */
 function ownActivityType(
   event: MessagesSnapshotEvent,
@@ -305,11 +302,17 @@ function ownActivityType(
     prior && typeof prior === "object" && !Array.isArray(prior)
       ? (prior as Record<string, unknown>)
       : {};
-  const priorTypes = Array.isArray(priorRecord.authoritativeActivityTypes)
-    ? priorRecord.authoritativeActivityTypes.filter(
-        (type): type is string => typeof type === "string",
-      )
-    : [];
+  const scope = priorRecord.authoritativeActivityTypes;
+  const priorTypes =
+    Array.isArray(scope) && scope.every((type) => typeof type === "string")
+      ? scope
+      : undefined;
+  // An unscoped snapshot containing activity already owns the complete set.
+  // Keep that authority even if projection removes its last activity message.
+  const ownsAll =
+    scope === null ||
+    (priorTypes === undefined &&
+      event.messages.some((message) => message.role === "activity"));
   return {
     ...event,
     messages,
@@ -317,9 +320,9 @@ function ownActivityType(
       ...event.metadata,
       "@ag-ui/client": {
         ...priorRecord,
-        authoritativeActivityTypes: [
-          ...new Set([...priorTypes, ACTIVITY_TYPE]),
-        ],
+        authoritativeActivityTypes: ownsAll
+          ? null
+          : [...new Set([...(priorTypes ?? []), ACTIVITY_TYPE])],
       },
     },
   };
@@ -472,42 +475,8 @@ function projectHistory(
   return ownActivityType(event, messages);
 }
 
-export interface OpenGenerativeUIMiddlewareOptions {
-  /**
-   * Replay stored threads only. The backend is called with the thread and run
-   * ids and nothing else from the caller (no messages, tools, context, state,
-   * forwarded props or resume commands), and every MESSAGES_SNAPSHOT it returns
-   * is projected with `projectOpenGenerativeUIHistory`.
-   */
-  readOnly?: boolean;
-}
-
 export class OpenGenerativeUIMiddleware extends Middleware {
-  constructor(
-    private readonly options: OpenGenerativeUIMiddlewareOptions = {},
-  ) {
-    super();
-  }
-
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
-    if (this.options.readOnly) {
-      const replayInput: RunAgentInput = {
-        threadId: input.threadId,
-        runId: input.runId,
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: {},
-      };
-      return this.runNext(replayInput, next).pipe(
-        map((event) =>
-          event.type === EventType.MESSAGES_SNAPSHOT
-            ? projectOpenGenerativeUIHistory(event as MessagesSnapshotEvent)
-            : event,
-        ),
-      );
-    }
     return this.processStream(this.runNextWithState(input, next));
   }
 
