@@ -327,7 +327,7 @@
     },
     {
       "id": "CONTENT-GEN-005",
-      "status": "candidate",
+      "status": "triaged",
       "severity": "medium",
       "area": "native setup contract and HTML/Markdown parity",
       "feature": "FrameworkSetup concepts referenced by selected wired/stub feature guides",
@@ -414,9 +414,10 @@
           "detail": "The selected tool-rendering guide requests tool-rendering-setup, but LangGraph Python, LangGraph TypeScript, ADK, and Strands do not own that setup fragment."
         }
       ],
-      "root_cause": "Thirty-five selected wired/stub cells resolve MDX that requests a package-owned FrameworkSetup concept unavailable for that integration. Browser rendering silently removes the block while Markdown emits a skipped-setup comment. Semantic review classified thirty as intentional/redundant because the guide already exposes the selected implementation or the runtime supplies the transport, one as a branch that does not render, three as genuine Strands native-setup omissions, and one as an adapter-behavior candidate.",
-      "impact": "The cross-surface structural mismatch remains observable, but the raw count must not be interpreted as thirty-five missing backend steps. The three confirmed Strands omissions and one behavior candidate are tracked separately to keep the planned reader guidance minimal.",
-      "validation_needed": "Regenerate setup-content and render HTML and Markdown after any repair. Ensure the three required Strands backend adapters get reader-visible native setup, while intentionally redundant setup is either omitted consistently or marked as covered by the routed source. Run isolated AIMock cells separately."
+      "root_cause": "The setup renderer exposes a structural browser/Markdown mismatch when a requested package-owned FrameworkSetup fragment is absent. The complete semantic review resolved every occurrence into an intentional/no-additional-setup case, an unreachable branch, or a separately tracked defect.",
+      "impact": "Retain the raw count for audit history, but do not schedule a standalone fix from this record. Reader-facing work is limited to the separately confirmed Strands defects CONTENT-GEN-008 and CONTENT-GEN-009.",
+      "validation_needed": "When repairing CONTENT-GEN-008 or CONTENT-GEN-009, regenerate setup content and render HTML and Markdown to ensure no new structural inconsistency is introduced.",
+      "resolution": "The raw 35 setup-fragment occurrences are fully classified: 30 require no additional package-owned setup, 1 is conditionally not rendered, 3 are promoted to CONTENT-GEN-009, and 1 is confirmed as CONTENT-GEN-008. This parent record preserves structural/history evidence only; it is not an open candidate or standalone repair target."
     },
     {
       "id": "CONTENT-GEN-006",
@@ -495,6 +496,11 @@
           "path": "showcase/integrations/built-in-agent/src/app/api/copilotkit-agent-config/route.ts",
           "line": 75,
           "detail": "The dedicated in-process factory reads only input.forwardedProps before it builds the configuration prompt."
+        },
+        {
+          "path": "tasks/docs-feature-audit/candidate-007-008-d6-assessment.md",
+          "line": 30,
+          "detail": "Focused unchanged-source local browser capture intercepted the outbound request and established that controls went to context while forwardedProps stayed empty."
         }
       ],
       "root_cause": "A LangGraph-oriented context relay was reused in the Built-in Agent demo even though the Built-in Agent route consumes provider properties. The page comments also describe a Python middleware that does not exist in this in-process runtime.",
@@ -540,6 +546,11 @@
           "path": "showcase/integrations/strands/src/agents/agent.py",
           "line": 1447,
           "detail": "The Strands agent registers that builder as its state_context_builder."
+        },
+        {
+          "path": "tasks/docs-feature-audit/candidate-007-008-d6-assessment.md",
+          "line": 60,
+          "detail": "Focused direct execution of the registered unchanged state bridge with sentinels established that recipe state was omitted while preferences were retained."
         }
       ],
       "root_cause": "The showcased state key and the adapter's documented prompt-lifting allowlist diverge. Static inspection cannot rule out an unobserved adapter-level state injection, so this remains a behavior candidate.",
@@ -753,6 +764,11 @@
           "path": "showcase/integrations/google-adk/manifest.yaml",
           "line": 464,
           "detail": "The manifest binds the root auth route into the auth demo, so the conflicting route tree is part of the committed Showcase integration."
+        },
+        {
+          "path": "tasks/docs-feature-audit/HOST-NATIVE-001.md",
+          "line": 103,
+          "detail": "Local baseline startup report records the ADK UI blocker and the duplicate route-specificity error before the frontend listens."
         }
       ],
       "local_execution_evidence": {
@@ -1405,11 +1421,21 @@
           "path": "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx",
           "line": 426,
           "detail": "The outside-chat frontend repeats sample_agent."
+        },
+        {
+          "path": "showcase/integrations/ms-agent-dotnet/src/app/api/copilotkit/route.ts",
+          "line": 827,
+          "detail": "The .NET Showcase runtime builds its registered agent keys from the displayed list; neither sample_agent nor search_agent is registered anywhere in this route."
+        },
+        {
+          "path": "showcase/integrations/ms-agent-python/src/app/api/copilotkit/route.ts",
+          "line": 511,
+          "detail": "The Python Showcase runtime likewise builds its registered agent keys from a list containing neither sample_agent nor search_agent; no alias maps the two guide identifiers."
         }
       ],
-      "root_cause": "The guide\u2019s frontend and backend snippets use different agent identifiers with no alias mapping shown.",
-      "impact": "The supplied frontend subscribes to a different agent than the backend snippet defines, so it cannot render the documented state snapshot as presented.",
-      "validation_needed": "Use one documented identifier or show the explicit runtime alias mapping, then validate both in-chat and outside-chat state subscriptions."
+      "root_cause": "The guide\u2019s frontend and backend snippets use different identifiers. The exact .NET and Python Showcase runtime registries contain neither identifier and provide no alias between them, so there is no runtime mapping that could reconcile the guide.",
+      "impact": "The supplied frontend subscribes to sample_agent while the backend snippet defines search_agent; neither is a registered alias in the exact Showcase runtimes, so the documented state subscription cannot target the stated backend agent as presented.",
+      "validation_needed": "Use one documented identifier or show an explicit runtime alias mapping, then validate both in-chat and outside-chat state subscriptions against each MAF runtime."
     },
     {
       "id": "CONTENT-GEN-030",
@@ -1460,6 +1486,184 @@
       "root_cause": "The guide mixes a frontend TypeScript example into a Python backend fence and retains a removed v2 hook option.",
       "impact": "The primary implementation block cannot run as the declared Pydantic AI backend file and does not give readers a usable state-rendering setup.",
       "validation_needed": "Separate a valid Pydantic AI backend state example from a current React frontend example, then typecheck/run the displayed files and render the Pydantic route."
+    },
+    {
+      "id": "CONTENT-GEN-032",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "framework-scoped fixed-schema source excerpts",
+      "feature": "AG2, AGNO, and Strands TypeScript fixed-schema A2UI",
+      "affected_contexts": [
+        "react/ag2/a2ui-fixed-schema",
+        "react/agno/a2ui-fixed-schema",
+        "react/strands-typescript/a2ui-fixed-schema"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/fixed-schema.mdx",
+          "line": 177,
+          "detail": "The shared fixed-schema guide requests backend-schema-json-load for schema-loading bindings."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/fixed-schema.mdx",
+          "line": 293,
+          "detail": "The same guide requests backend-render-operations for LLM-driven bindings."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-triage.md",
+          "line": 27,
+          "detail": "Local rendered-marker triage confirms Strands TypeScript lacks backend-render-operations; the next two groups confirm AG2 and AGNO lack backend-schema-json-load."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-reconciliation.md",
+          "line": 15,
+          "detail": "Local HTML reconciliation ties the visible fixed-schema Missing snippet markers to the declared-supported/wired AG2 and AGNO contexts; the full JSON records Strands TypeScript as the same qualified intersection."
+        }
+      ],
+      "root_cause": "The shared A2UI branches request native source regions that these declared-supported/wired integrations do not expose in their bundled demo content.",
+      "impact": "Each affected fixed-schema guide visibly renders a Missing snippet callout in local HTML instead of the backend excerpt needed to implement its selected A2UI pattern.",
+      "validation_needed": "Add the appropriate native regions or a framework-specific guide branch, regenerate bundled content, and re-render the three React routes without Missing snippet alerts."
+    },
+    {
+      "id": "CONTENT-GEN-033",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "reasoning-message source excerpt resolution",
+      "feature": "Microsoft Agent Framework .NET harness and Python reasoning messages",
+      "affected_contexts": [
+        "react/ms-agent-harness-dotnet/reasoning-default",
+        "react/ms-agent-harness-dotnet/reasoning-custom",
+        "react/ms-agent-python/reasoning-default",
+        "react/ms-agent-python/reasoning-custom"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/custom-look-and-feel/reasoning-messages.mdx",
+          "line": 34,
+          "detail": "The shared reasoning guide asks the selected reasoning-default cell for default-reasoning-zero-config."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-triage.md",
+          "line": 49,
+          "detail": "Local HTML triage identifies the absent region for the .NET harness; the adjacent group at line 55 identifies the Python absence."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-reconciliation.md",
+          "line": 25,
+          "detail": "Rendered reconciliation records the two declared-supported/wired .NET harness reasoning cells and the equivalent Python marker paths."
+        }
+      ],
+      "root_cause": "Both MAF variants expose reasoning cells but do not bundle the default-reasoning-zero-config excerpt selected by the shared reasoning guide.",
+      "impact": "Four declared-supported/wired React reasoning contexts present a visible Missing snippet callout in place of their default configuration example.",
+      "validation_needed": "Supply the native region or select a compatible guide branch for both variants, regenerate content, and render default and custom reasoning routes without the marker."
+    },
+    {
+      "id": "CONTENT-GEN-034",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "state-streaming backend excerpt resolution",
+      "feature": "CrewAI Flows, LangGraph FastAPI, Mastra, and Microsoft Agent Framework state streaming",
+      "affected_contexts": [
+        "react/crewai-crews/shared-state-streaming",
+        "react/langgraph-fastapi/gen-ui-agent",
+        "react/langgraph-fastapi/shared-state-read",
+        "react/langgraph-fastapi/shared-state-read-write",
+        "react/langgraph-fastapi/shared-state-streaming",
+        "react/mastra/shared-state-streaming",
+        "react/ms-agent-dotnet/shared-state-read-write",
+        "react/ms-agent-dotnet/shared-state-streaming",
+        "react/ms-agent-python/shared-state-read-write",
+        "react/ms-agent-python/shared-state-streaming"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/shared-state/streaming.mdx",
+          "line": 50,
+          "detail": "The streaming guide requests state-streaming-middleware as its native backend mapping excerpt."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-triage.md",
+          "line": 61,
+          "detail": "Local triage records the CrewAI absence and subsequent groups record the equivalent FastAPI, Mastra, .NET, and Python missing regions."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-reconciliation.md",
+          "line": 17,
+          "detail": "Rendered reconciliation establishes that these are local HTML markers and joins each route to declared context; unsupported/unshipped and frontend-not-declared cells are excluded from this record."
+        }
+      ],
+      "root_cause": "The shared state-streaming material selects state-streaming-middleware for integrations that do not bundle that named backend excerpt.",
+      "impact": "Ten declared-supported/wired React contexts visibly omit the native state-streaming implementation and show a Missing snippet error, making the guides non-copyable at the key backend step.",
+      "validation_needed": "Provide native regions or integration-specific alternatives, regenerate content, and verify all ten qualified React contexts render useful backend code without markers."
+    },
+    {
+      "id": "CONTENT-GEN-035",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "headless guide frontend excerpt resolution",
+      "feature": "Microsoft Agent Framework .NET harness and Python headless UI",
+      "affected_contexts": [
+        "react/ms-agent-harness-dotnet/headless-simple",
+        "react/ms-agent-harness-dotnet/headless-complete",
+        "react/ms-agent-python/headless-simple",
+        "react/ms-agent-python/headless-complete"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/headless.mdx",
+          "line": 50,
+          "detail": "The shared headless guide requests the use-agent-simple excerpt for the headless-simple cell."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-triage.md",
+          "line": 103,
+          "detail": "Local HTML triage identifies the absent region for the .NET harness and the adjacent group identifies the Python absence."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-reconciliation.md",
+          "line": 27,
+          "detail": "Rendered reconciliation ties the markers to the declared-supported/wired harness headless contexts and records the equivalent Python paths."
+        }
+      ],
+      "root_cause": "The MAF variants do not bundle the shared guide\u2019s required use-agent-simple region.",
+      "impact": "The four declared-supported/wired React headless contexts visibly show Missing snippet instead of the central custom-chat implementation.",
+      "validation_needed": "Add a compatible frontend region or a scoped guide branch, regenerate content, and verify simple and complete headless routes render without markers."
+    },
+    {
+      "id": "CONTENT-GEN-036",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "tool-rendering backend excerpt resolution",
+      "feature": "Microsoft Agent Framework .NET harness and Strands TypeScript tool rendering",
+      "affected_contexts": [
+        "react/ms-agent-harness-dotnet/tool-rendering",
+        "react/ms-agent-harness-dotnet/tool-rendering-default-catchall",
+        "react/ms-agent-harness-dotnet/tool-rendering-custom-catchall",
+        "react/ms-agent-harness-dotnet/tool-rendering-reasoning-chain",
+        "react/strands-typescript/tool-rendering",
+        "react/strands-typescript/tool-rendering-default-catchall",
+        "react/strands-typescript/tool-rendering-custom-catchall"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/tool-rendering.mdx",
+          "line": 111,
+          "detail": "The shared tool-rendering guide requests weather-tool-backend as the native backend definition."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-triage.md",
+          "line": 115,
+          "detail": "Local HTML triage identifies absent weather-tool-backend for the .NET harness and the adjacent group identifies Strands TypeScript."
+        },
+        {
+          "path": "tasks/docs-feature-audit/global-rendered-marker-reconciliation.md",
+          "line": 26,
+          "detail": "Rendered reconciliation joins the .NET harness markers to four declared-supported/wired React cells; the full reconciliation records the three qualified Strands TypeScript cells."
+        }
+      ],
+      "root_cause": "The affected integrations do not bundle the weather-tool-backend region selected by the common tool-rendering guide.",
+      "impact": "Seven declared-supported/wired React tool-rendering contexts display Missing snippet where the native backend tool definition should appear.",
+      "validation_needed": "Add the correct backend regions or framework branches, regenerate content, and re-render each qualified React tool-rendering context without a marker."
     }
   ]
 }
