@@ -129,11 +129,16 @@
           "path": "showcase/shell-docs/src/app/[framework]/[[...slug]]/page.tsx",
           "line": 858,
           "detail": "Generated routes try root then framework override; with neither source present they render the not-available fallback when another framework owns the topic."
+        },
+        {
+          "path": "tasks/docs-feature-audit/render-validation.md",
+          "line": 54,
+          "detail": "A local production shell-docs probe returned HTML 200 with title google-adk but MDX 404 for both advertised routes; no redirect occurred and no provider or hosted demo was used."
         }
       ],
       "root_cause": "The Google ADK docs-link contract advertises two supported canonical routes but neither route has a root guide nor an ADK override. Other integrations supply overrides for the same feature families, so the framework-scoped resolver cannot serve ADK guidance.",
-      "impact": "Readers following both Google ADK feature links reach a framework-unavailable page instead of setup and source guidance for manifest-wired demos.",
-      "validation_needed": "Add or deliberately remap the source-of-truth guide routes, regenerate docs data, then assert 200 HTML and Markdown output for both /google-adk URLs with ADK-owned snippets. Run their isolated AIMock cells before claiming behavior qualification."
+      "impact": "Readers following either Google ADK feature link get an HTML 200 representation titled only google-adk while the corresponding public Markdown endpoint is a 404. Neither representation delivers the ADK-specific setup and source contract advertised for manifest-wired demos.",
+      "validation_needed": "Add or deliberately remap the source-of-truth guide routes, regenerate docs data, then assert meaningful HTML and 200 Markdown output for both /google-adk URLs with ADK-owned snippets. Run their isolated AIMock cells before claiming behavior qualification."
     },
     {
       "id": "CONTENT-GEN-003",
@@ -307,6 +312,49 @@
       "root_cause": "Thirty-five selected wired/stub cells resolve MDX that requests a package-owned FrameworkSetup concept unavailable for that integration. This includes A2UI setup for all five agents; tool-rendering setup for LangGraph Python, LangGraph TypeScript, ADK, and Strands; and core setup concepts for Strands and the built-in agent. The browser silently removes those setup blocks while Markdown reports a skipped block. Absence alone does not establish that each integration needs additional backend configuration; the source has no explicit contract separating deliberately empty setup from omitted setup.",
       "impact": "The two public surfaces describe the same missing setup differently, and reviewers cannot tell from the catalog or guide whether an absent setup block is intentional. Readers may receive no native setup guidance where it is needed, but semantic review of the actual demo/backend contract is required before treating every listed context as a guide failure.",
       "validation_needed": "For each listed context, compare the routed guide with its declared demo/backend wiring and classify the concept as no-additional-setup, existing guide-owned setup, or missing package-owned setup. Only add fragments where the implementation requires them. Then regenerate setup-content and render HTML and Markdown routes, ensuring any intentionally absent setup is reader-visible rather than silently omitted. Run isolated AIMock cells separately."
+    },
+    {
+      "id": "CONTENT-GEN-006",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "current API semantics",
+      "feature": "Built-in Agent tool rendering",
+      "affected_contexts": [
+        "react/built-in-agent/tool-rendering-default-catchall",
+        "react/built-in-agent/tool-rendering-custom-catchall",
+        "react/built-in-agent/tool-rendering",
+        "react/built-in-agent/tool-rendering-reasoning-chain"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/snippets/shared/guides/default-tool-rendering.mdx",
+          "line": 1,
+          "detail": "The selected transitive snippet says a catch-all applies when no specific useRenderToolCall is defined."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/snippets/shared/guides/default-tool-rendering.mdx",
+          "line": 34,
+          "detail": "The explanatory callout says useRenderToolCall targets a specific tool by name."
+        },
+        {
+          "path": "packages/react-core/src/v2/hooks/use-render-tool-call.tsx",
+          "line": 153,
+          "detail": "The current v2 hook is a consumer that returns a renderer function; it does not register a named renderer."
+        },
+        {
+          "path": "packages/react-core/src/v2/hooks/use-render-tool.tsx",
+          "line": 78,
+          "detail": "The current v2 named-renderer registration API is useRenderTool."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/reference/hooks/useRenderToolCall.mdx",
+          "line": 8,
+          "detail": "The repository's current API reference explicitly warns that v2 useRenderToolCall has different semantics from the v1 registration hook."
+        }
+      ],
+      "root_cause": "A shared guide snippet retains the v1 meaning of useRenderToolCall while its code and linked reference otherwise present v2 APIs.",
+      "impact": "Built-in Agent readers are told the wrong hook supplies a named renderer, making the current API reference and feature guide contradict one another.",
+      "validation_needed": "Describe named registration with useRenderTool and reserve useRenderToolCall for rendering/consuming existing tool calls. Verify the selected Built-in Agent guide's browser and Markdown output against the v2 reference."
     }
   ]
 }
