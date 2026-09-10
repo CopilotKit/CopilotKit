@@ -1,0 +1,38 @@
+{
+  "name": "@copilotkit/intelligence-langgraph",
+  "version": "0.1.0",
+  "description": "Learned skill delivery for LangGraph agents through CopilotKit Intelligence",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/CopilotKit/CopilotKit.git" },
+  "type": "module",
+  "files": ["dist"],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": { "import": "./dist/index.mjs", "require": "./dist/index.cjs" },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": { "access": "public" },
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:*",
+    "yauzl": "2.10.0"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "@types/yauzl": "2.10.3",
+    "fflate": "0.8.2",
+    "tsdown": "^0.20.3",
+    "typescript": "5.8.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": { "node": ">=18" }
+}

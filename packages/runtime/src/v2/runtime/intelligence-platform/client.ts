@@ -865,13 +865,45 @@ export class CopilotKitIntelligence {
       });
       params.signal?.throwIfAborted();
       if (response.status !== 200 && response.status !== 304) {
+        const denialCode =
+          response.status === 401
+            ? "AUTHENTICATION_FAILED"
+            : response.status === 403
+              ? "AUTHORIZATION_FAILED"
+              : undefined;
         let body: unknown;
         try {
           body = await response.json();
-        } catch {
+        } catch (error) {
           params.signal?.throwIfAborted();
+          if (denialCode) {
+            throw new LearnedSkillsError(
+              denialCode,
+              false,
+              error instanceof SyntaxError ? undefined : error,
+            );
+          }
+          if (!(error instanceof SyntaxError)) throw error;
         }
-        throw learnedSkillsResponseError(body);
+        const responseError = learnedSkillsResponseError(body);
+        // An HTTP denial must never become a transient failure that permits
+        // consumers to keep serving a previously authorized snapshot.
+        if (
+          response.status === 401 ||
+          (response.status === 403 &&
+            ![
+              "AUTHENTICATION_FAILED",
+              "AUTHORIZATION_FAILED",
+              "ENTITLEMENT_REQUIRED",
+              "DELIVERY_DISABLED",
+              "CONTAINER_NOT_FOUND",
+              "REVISION_NOT_FOUND",
+              "REVISION_REVOKED",
+            ].includes(responseError.code))
+        ) {
+          throw new LearnedSkillsError(denialCode!, false);
+        }
+        throw responseError;
       }
       const revision = response.headers.get("X-CopilotKit-Skills-Revision");
       const etag = response.headers.get("ETag");
