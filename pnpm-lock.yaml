@@ -3403,6 +3403,8 @@ importers:
 
   packages/runtime-python: {}
 
+  packages/runtime-ruby: {}
+
   packages/sdk-js:
     dependencies:
       '@ag-ui/langgraph':
