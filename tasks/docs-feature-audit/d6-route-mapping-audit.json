@@ -1,0 +1,52 @@
+[
+  {
+    "slug": "langgraph-python",
+    "declared_features": 38,
+    "routed_demos": 39,
+    "routed_mapped_to_d5d6": 39,
+    "routed_without_mapping": [],
+    "declared_without_mapping": [
+      "cli-start"
+    ]
+  },
+  {
+    "slug": "langgraph-typescript",
+    "declared_features": 38,
+    "routed_demos": 39,
+    "routed_mapped_to_d5d6": 39,
+    "routed_without_mapping": [],
+    "declared_without_mapping": [
+      "cli-start"
+    ]
+  },
+  {
+    "slug": "google-adk",
+    "declared_features": 38,
+    "routed_demos": 38,
+    "routed_mapped_to_d5d6": 38,
+    "routed_without_mapping": [],
+    "declared_without_mapping": [
+      "cli-start"
+    ]
+  },
+  {
+    "slug": "strands",
+    "declared_features": 36,
+    "routed_demos": 39,
+    "routed_mapped_to_d5d6": 39,
+    "routed_without_mapping": [],
+    "declared_without_mapping": [
+      "cli-start"
+    ]
+  },
+  {
+    "slug": "built-in-agent",
+    "declared_features": 37,
+    "routed_demos": 39,
+    "routed_mapped_to_d5d6": 39,
+    "routed_without_mapping": [],
+    "declared_without_mapping": [
+      "cli-start"
+    ]
+  }
+]
