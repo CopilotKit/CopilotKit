@@ -172,7 +172,7 @@ export function PickGrid({
             disabled={disabled}
             aria-pressed={selected}
             onClick={() => onSelect(pick.id)}
-            className={`shell-docs-radius-control flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${optionToneClass(
+            className={`shell-docs-radius-control flex cursor-pointer items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${optionToneClass(
               selected,
             )}`}
           >
@@ -210,16 +210,21 @@ export function CapabilityGrid({
             disabled={disabled}
             aria-pressed={selected}
             onClick={() => onToggle(capability.id)}
-            className={`shell-docs-radius-surface block w-full border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${optionToneClass(
+            className={`shell-docs-radius-surface block w-full cursor-pointer border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${optionToneClass(
               selected,
             )}`}
           >
             <span className="flex items-center justify-between gap-2">
-              <span
-                aria-hidden="true"
-                className="shell-docs-radius-icon flex h-7 w-7 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]"
-              >
-                <Icon className="h-3.5 w-3.5" />
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+                <span className="truncate text-sm font-semibold leading-snug text-[var(--text)]">
+                  {capability.title}
+                </span>
               </span>
               {selected ? (
                 <Check
@@ -228,10 +233,7 @@ export function CapabilityGrid({
                 />
               ) : null}
             </span>
-            <span className="mt-2.5 block text-sm font-semibold leading-snug text-[var(--text)]">
-              {capability.title}
-            </span>
-            <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
+            <span className="mt-2.5 block text-xs leading-relaxed text-[var(--text-muted)]">
               {capability.body}
             </span>
           </button>

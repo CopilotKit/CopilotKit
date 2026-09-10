@@ -117,6 +117,30 @@ describe("PickGrid", () => {
     expect(button.querySelector("svg.lucide-check")).toBeNull();
   });
 
+  // Tailwind v4 no longer gives `<button>` a pointer cursor by default, so
+  // this has to be requested explicitly. Guards against the class being
+  // dropped.
+  it("shows a pointer cursor on an enabled option", () => {
+    render(<PickGrid picks={PICKS} disabled={false} onSelect={vi.fn()} />);
+
+    const button = screen.getByRole("button", { name: "Vue" });
+    expect(button.className).toContain("cursor-pointer");
+  });
+
+  // A disabled option must not invite a click it will ignore. This
+  // implementation pairs the plain `cursor-pointer` with a `disabled:`
+  // variant that sets `cursor-not-allowed` — a Tailwind `:disabled`
+  // pseudo-class selector outranks a plain class in specificity, so the
+  // not-allowed cursor wins whenever the button is actually disabled.
+  // Guards against that pairing being dropped, which would leave
+  // `cursor-pointer` applying unconditionally.
+  it("pairs the pointer cursor with a not-allowed cursor for disabled options", () => {
+    render(<PickGrid picks={PICKS} disabled={true} onSelect={vi.fn()} />);
+
+    const button = screen.getByRole("button", { name: "Vue" });
+    expect(button.className).toContain("disabled:cursor-not-allowed");
+  });
+
   it("calls onSelect with the clicked pick's id", () => {
     const onSelect = vi.fn();
     render(<PickGrid picks={PICKS} disabled={false} onSelect={onSelect} />);
@@ -225,6 +249,79 @@ describe("CapabilityGrid", () => {
     });
     expect(selected.querySelector("svg.lucide-check")).not.toBeNull();
     expect(unselected.querySelector("svg.lucide-check")).toBeNull();
+  });
+
+  // Tailwind v4 no longer gives `<button>` a pointer cursor by default, so
+  // this has to be requested explicitly. Guards against the class being
+  // dropped.
+  it("shows a pointer cursor on an enabled option", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: startsWithTitle("Chat surface"),
+    });
+    expect(button.className).toContain("cursor-pointer");
+  });
+
+  // Same pairing as `PickGrid`: a `disabled:` variant selector outranks the
+  // plain `cursor-pointer` class in specificity, so a disabled option reads
+  // as not-allowed rather than clickable. Guards against that pairing being
+  // dropped, which would leave `cursor-pointer` applying unconditionally.
+  it("pairs the pointer cursor with a not-allowed cursor for disabled options", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={true}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: startsWithTitle("Chat surface"),
+    });
+    expect(button.className).toContain("disabled:cursor-not-allowed");
+  });
+
+  // The reader wants the title on the same row as the icon, with only the
+  // body on its own line below. Assert this on DOM structure, not a class
+  // name: the icon's nearest ancestor that also holds the title text must
+  // not also hold the body text — a class-name assertion would pass even if
+  // the layout itself were never actually changed.
+  it("puts the icon and title on one row, with the body on its own line below", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: startsWithTitle("Chat surface"),
+    });
+    const icon = button.querySelector("svg.lucide-message-square");
+    expect(icon).not.toBeNull();
+
+    const title = screen.getByText("Chat surface");
+    const body = screen.getByText(CAPABILITIES[0]!.body);
+
+    // Walk up from the icon to find the row it shares with the title.
+    let row: HTMLElement | null = icon!.parentElement;
+    while (row && !row.contains(title)) {
+      row = row.parentElement;
+    }
+    expect(row).not.toBeNull();
+    expect(row!.contains(title)).toBe(true);
+    expect(row!.contains(body)).toBe(false);
   });
 
   it("calls onToggle with the clicked option's id", () => {
