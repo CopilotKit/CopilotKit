@@ -158,9 +158,23 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
         For local development, install `dotenv` and add this before constructing
         the agent in `server.ts`:
 
-        ```bash
-        npm install dotenv
-        ```
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+            <Tab value="npm">
+                ```bash
+                npm install dotenv
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm add dotenv
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn add dotenv
+                ```
+            </Tab>
+        </Tabs>
 
         ```ts title="server.ts — load the project environment"
         import { config } from "dotenv";
