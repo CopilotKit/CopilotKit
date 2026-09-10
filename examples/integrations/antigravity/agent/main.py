@@ -67,11 +67,15 @@ def _pick_short_dir(env_var: str, container_default: str, name: str) -> str:
     here (see the module docstring).
     """
     explicit = os.environ.get(env_var)
-    candidates = [explicit] if explicit else [
-        container_default,
-        os.path.join("/tmp", name),
-        os.path.join(tempfile.gettempdir(), name),
-    ]
+    candidates = (
+        [explicit]
+        if explicit
+        else [
+            container_default,
+            os.path.join("/tmp", name),
+            os.path.join(tempfile.gettempdir(), name),
+        ]
+    )
     for candidate in candidates:
         if not candidate:
             continue
