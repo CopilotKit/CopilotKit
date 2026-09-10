@@ -1017,7 +1017,10 @@ export class CopilotKitIntelligence {
       let payload: unknown;
       try {
         payload = await response.json();
-      } catch {
+      } catch (error) {
+        if (controller.signal.aborted) {
+          throw error;
+        }
         throw new PlatformRequestError(
           "Runtime entitlement response was malformed",
           502,
@@ -1314,6 +1317,9 @@ export class CopilotKitIntelligence {
 
   /**
    * Update thread metadata (e.g. name).
+   *
+   * Fields in updates take precedence, preserving the server-side SDK contract.
+   * HTTP handlers must remove untrusted identity fields before calling this method.
    *
    * Triggers the `onThreadUpdated` lifecycle callback on success.
    *
