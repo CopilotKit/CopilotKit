@@ -7,7 +7,7 @@
 <div align=center>
 
 [Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
-[Examples](https://www.copilotkit.ai/examples) ·
+[Examples](https://www.copilotkit.ai/examples?ref=github_readme) ·
 [CopilotKit Intelligence](https://docs.copilotkit.ai/intelligence/overview?ref=github_readme) ·
 [Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
 
@@ -18,6 +18,8 @@ Build **agent-native applications** — on any framework, on any surface.
 Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native — and in Slack and Microsoft Teams.
 
 Add **CopilotKit Intelligence** when it goes to production: threads that persist, memory, and agents that learn from real use.
+
+**[Get started — paste one prompt into your coding agent →](#quick-start)**
 
 </div>
 
@@ -151,15 +153,15 @@ This enables:
 
 One agent backend. Every frontend.
 
-| Platform                         | Status                                                   | Get Started                                                                                             |
-| -------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| ⚛️ React / Next.js               | ✅ GA                                                    | [Quickstart](https://docs.copilotkit.ai/quickstart?ref=github_readme)                                   |
-| 🅰️ Angular                       | ✅ Supported                                             | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular)         |
-| 💚 Vue                           | ✅ Supported                                             | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) |
-| 📱 React Native                  | ✅ Supported                                             | [Quickstart](https://docs.copilotkit.ai/react-native)                                                   |
-| 💬 Slack / Microsoft Teams       | ✅ Supported                                             | [Channels](https://www.copilotkit.ai/channels) · [Quickstart](https://docs.copilotkit.ai/slack)         |
-| 💬 Discord / WhatsApp / Telegram | ✅ Channels SDK adapter (managed connection coming soon) | [Channels](https://www.copilotkit.ai/channels)                                                          |
-| 🔜 Google Chat / iMessage / SMS  | 🟡 On the roadmap                                        | [Channels](https://www.copilotkit.ai/channels)                                                          |
+| Platform                         | Status                                                   | Get Started                                                                                                                         |
+| -------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| ⚛️ React / Next.js               | ✅ GA                                                    | [Quickstart](https://docs.copilotkit.ai/quickstart?ref=github_readme)                                                               |
+| 🅰️ Angular                       | ✅ Supported                                             | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular)                                     |
+| 💚 Vue                           | ✅ Supported                                             | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)                             |
+| 📱 React Native                  | ✅ Supported                                             | [Quickstart](https://docs.copilotkit.ai/react-native?ref=github_readme)                                                             |
+| 💬 Slack / Microsoft Teams       | ✅ Supported                                             | [Channels](https://www.copilotkit.ai/channels?ref=github_readme) · [Quickstart](https://docs.copilotkit.ai/slack?ref=github_readme) |
+| 💬 Discord / WhatsApp / Telegram | ✅ Channels SDK adapter (managed connection coming soon) | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                                    |
+| 🔜 Google Chat / iMessage / SMS  | 🟡 On the roadmap                                        | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                                    |
 
 Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework and channel.
 
@@ -167,12 +169,12 @@ Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit 
 
 <img width="1920" height="1080" alt="Write it once, run every channel" src="https://github.com/user-attachments/assets/883e5ede-0387-4ae8-a361-48da3adf8f22" />
 
-The **Channels SDK** takes the agent you already built and drops it into the chat apps your users live in — same tools, same shared state, same human-in-the-loop, no rewrite (**[Learn more](https://www.copilotkit.ai/channels)**).
+The **Channels SDK** takes the agent you already built and drops it into the chat apps your users live in — same tools, same shared state, same human-in-the-loop, no rewrite (**[Learn more](https://www.copilotkit.ai/channels?ref=github_readme)**).
 
 - **Slack** – Agents as first-class Slack apps: threads, tool calls, and human-in-the-loop approvals right in the channel.
 - **Microsoft Teams** – Bring agentic workflows to the enterprise, where your org already lives.
 
-👉 **[Explore Channels →](https://www.copilotkit.ai/channels)**
+👉 **[Explore Channels →](https://www.copilotkit.ai/channels?ref=github_readme)**
 
 ## ⭐️ useAgent Hook
 
