@@ -229,13 +229,15 @@ Restart the integration container to reclaim the budget:
 docker restart <project>-google-antigravity
 ```
 
-If the whole `tests/e2e` directory (~90 tests, retries included) ever has to
-pass in one process, the knob is in `agents/_common.build()`: pass a shorter
-`session_timeout_seconds` (an abandoned E2E thread is never coming back, and
-`SessionManager._remembered` cold-resumes a thread whose session was reaped, so
-shortening it costs no continuity) and/or a larger `max_sessions`. Left at the
-adapter defaults for now — deliberately, so the constraint stays visible rather
-than tuned away without a measurement.
+That measurement is why `agents/_common.build()` now passes
+`session_timeout_seconds=300` and `max_sessions=200` (overridable through
+`ANTIGRAVITY_SESSION_TIMEOUT_SECONDS` / `ANTIGRAVITY_MAX_SESSIONS`). An
+abandoned E2E thread is never coming back, and `SessionManager._remembered`
+cold-resumes a thread whose session was reaped, so the shorter idle timeout
+costs no conversational continuity; with the shared harness pool an idle
+session is roughly 1 MB, so the larger cap is cheap. The whole `tests/e2e`
+directory (~90 tests, retries included) fits inside that budget in one
+process.
 
 ## Frontend formatting
 

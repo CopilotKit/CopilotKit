@@ -22,6 +22,16 @@ WORKSPACE = os.environ.get("ANTIGRAVITY_WORKSPACE", "/data/ws")
 SAVE_DIR = os.environ.get("ANTIGRAVITY_SAVE_DIR", "/data/sessions")
 
 MODEL = os.environ.get("ANTIGRAVITY_MODEL", "gpt-4.1-mini")
+
+# Session budget. The adapter defaults (50 live sessions per agent instance,
+# reclaimed after 30 min idle) fit a chat product, not a probe fleet: every E2E
+# test is a fresh thread_id, and the neutral agent backs eleven demo names, so
+# two D6 sweeps exhaust the budget and every later run fails with SESSION_LIMIT.
+# An abandoned probe thread never comes back, and a thread that does come back
+# cold-resumes from save_dir, so a short idle timeout costs no continuity. With
+# the harness pool an idle session is ~1 MB, so the higher cap is cheap.
+SESSION_TIMEOUT_SECONDS = int(os.environ.get("ANTIGRAVITY_SESSION_TIMEOUT_SECONDS", "300"))
+MAX_SESSIONS = int(os.environ.get("ANTIGRAVITY_MAX_SESSIONS", "200"))
 REASONING_MODEL = os.environ.get("ANTIGRAVITY_REASONING_MODEL", "gpt-5-mini")
 
 
@@ -109,6 +119,8 @@ def build(**kwargs):
         save_dir=SAVE_DIR,
         harness_pool=shared_pool(),
         capabilities=chat_only_capabilities(),
+        session_timeout_seconds=SESSION_TIMEOUT_SECONDS,
+        max_sessions=MAX_SESSIONS,
     )
     defaults.update(kwargs)
     return AntigravityAgent(**defaults)
