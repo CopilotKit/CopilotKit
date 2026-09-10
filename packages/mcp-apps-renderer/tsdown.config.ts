@@ -56,6 +56,10 @@ export default defineConfig([
     target: "es2018",
     outDir: "dist",
     external: (id: string) => id === "zod" || id.startsWith("zod/"),
+    // Force a single self-contained bundle (matches a2ui-renderer): without this,
+    // a sibling chunk emitted next to activity.umd.js would leave the global
+    // incomplete, and es-check (syntax-only) would not catch it.
+    codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = { zod: "Zod" };
