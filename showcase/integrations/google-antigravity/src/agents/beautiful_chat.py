@@ -57,6 +57,4 @@ def query_data(query: str) -> list[dict]:
 
 
 def beautiful_chat_agent():
-    return build(
-        system_instructions=SYSTEM_PROMPT, tools=[query_data, search_flights]
-    )
+    return build(system_instructions=SYSTEM_PROMPT, tools=[query_data, search_flights])
