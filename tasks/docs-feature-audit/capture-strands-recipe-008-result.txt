@@ -1,0 +1,1 @@
+{'recipe_sentinel_present': False, 'preference_sentinel_present': True, 'recipe_prompt': 'Summarize the active UI data.', 'preference_prompt': 'The user has shared these preferences with you:\n- Name: AUDIT_PREFERENCE_SENTINEL_7f3c9a\nTailor every response to these preferences. Address the user by name when appropriate.\n\nUser request: Summarize the active UI data.'}
