@@ -118,6 +118,76 @@ describe("getLearnedSkillsSnapshot", () => {
     },
   );
 
+  it.each([401, 403])(
+    "treats malformed HTTP %s as a confirmed denial",
+    async (status) => {
+      for (const body of [
+        "<html>secret</html>",
+        "{}",
+        JSON.stringify({
+          error: {
+            code: "NETWORK_ERROR",
+            message: "secret",
+            category: "transient",
+            retryable: true,
+          },
+        }),
+      ]) {
+        fetchMock.mockResolvedValue(new Response(body, { status }));
+        const error = await client
+          .getLearnedSkillsSnapshot({ containerId: "c" })
+          .catch((failure) => failure);
+        expect(error).toMatchObject({
+          code:
+            status === 401 ? "AUTHENTICATION_FAILED" : "AUTHORIZATION_FAILED",
+          retryable: false,
+        });
+        expect(JSON.stringify(error)).not.toContain("secret");
+      }
+    },
+  );
+
+  it.each([401, 403])(
+    "preserves denial status %s when the body read fails",
+    async (status) => {
+      const cause = new TypeError("socket closed");
+      const response = new Response(null, { status });
+      vi.spyOn(response, "json").mockRejectedValue(cause);
+      fetchMock.mockResolvedValue(response);
+      const error = await client
+        .getLearnedSkillsSnapshot({ containerId: "c" })
+        .catch((failure) => failure);
+      expect(error).toMatchObject({
+        code: status === 401 ? "AUTHENTICATION_FAILED" : "AUTHORIZATION_FAILED",
+        retryable: false,
+        cause,
+      });
+      expect(JSON.stringify(error)).not.toContain("socket closed");
+    },
+  );
+
+  it("prioritizes HTTP 401 over a conflicting structured code", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "DELIVERY_DISABLED",
+            message: "secret",
+            category: "permanent",
+            retryable: false,
+          },
+        }),
+        { status: 401 },
+      ),
+    );
+    await expect(
+      client.getLearnedSkillsSnapshot({ containerId: "c" }),
+    ).rejects.toMatchObject({
+      code: "AUTHENTICATION_FAILED",
+      retryable: false,
+    });
+  });
+
   it.each([404, 200, 204])(
     "rejects unsupported response status/body %s",
     async (status) => {
@@ -170,6 +240,17 @@ describe("getLearnedSkillsSnapshot", () => {
   it("wraps network failures without retrying", async () => {
     const cause = new TypeError("fetch failed");
     fetchMock.mockRejectedValue(cause);
+    await expect(
+      client.getLearnedSkillsSnapshot({ containerId: "c" }),
+    ).rejects.toMatchObject({ code: "NETWORK_ERROR", retryable: true, cause });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves a socket failure while reading an error body", async () => {
+    const cause = new TypeError("socket closed");
+    const response = new Response(null, { status: 503 });
+    vi.spyOn(response, "json").mockRejectedValue(cause);
+    fetchMock.mockResolvedValue(response);
     await expect(
       client.getLearnedSkillsSnapshot({ containerId: "c" }),
     ).rejects.toMatchObject({ code: "NETWORK_ERROR", retryable: true, cause });

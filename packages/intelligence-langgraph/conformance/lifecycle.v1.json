@@ -1,0 +1,259 @@
+{
+  "contract": "copilotkit-learned-skills-v1",
+  "initialTimeMs": 0,
+  "cases": [
+    {
+      "name": "empty-initialization",
+      "steps": [
+        {
+          "reply": {
+            "snapshot": "empty"
+          },
+          "expect": {
+            "revision": "r1",
+            "stale": false,
+            "requests": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "latest-freshness-and-change",
+      "steps": [
+        {
+          "reply": {
+            "snapshot": "text-skill"
+          },
+          "expect": {
+            "revision": "r1",
+            "stale": false,
+            "requests": 1
+          }
+        },
+        {
+          "advanceMs": 4999,
+          "expect": {
+            "revision": "r1",
+            "stale": false,
+            "requests": 1
+          }
+        },
+        {
+          "advanceMs": 1,
+          "reply": {
+            "snapshot": "empty-r2"
+          },
+          "expect": {
+            "revision": "r2",
+            "stale": false,
+            "requests": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "unchanged-restarts-window",
+      "steps": [
+        {
+          "reply": {
+            "snapshot": "text-skill"
+          },
+          "expect": {
+            "revision": "r1",
+            "requests": 1
+          }
+        },
+        {
+          "advanceMs": 5000,
+          "reply": {
+            "unchanged": "text-skill"
+          },
+          "expect": {
+            "revision": "r1",
+            "stale": false,
+            "requests": 2,
+            "lastCheckedAt": "1970-01-01T00:00:05.000Z"
+          }
+        },
+        {
+          "advanceMs": 4999,
+          "expect": {
+            "revision": "r1",
+            "requests": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "cold-retry",
+      "steps": [
+        {
+          "reply": {
+            "error": "NETWORK_ERROR",
+            "retryable": true
+          },
+          "expect": {
+            "error": "NETWORK_ERROR",
+            "initialized": false,
+            "requests": 1
+          }
+        },
+        {
+          "reply": {
+            "snapshot": "empty"
+          },
+          "expect": {
+            "revision": "r1",
+            "initialized": true,
+            "requests": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "indefinite-warm-stale",
+      "steps": [
+        {
+          "reply": {
+            "snapshot": "text-skill"
+          },
+          "expect": {
+            "revision": "r1",
+            "requests": 1
+          }
+        },
+        {
+          "advanceMs": 31536000000,
+          "reply": {
+            "error": "NETWORK_ERROR",
+            "retryable": true
+          },
+          "expect": {
+            "revision": "r1",
+            "stale": true,
+            "requests": 2
+          }
+        },
+        {
+          "advanceMs": 31536000000,
+          "reply": {
+            "error": "TIMEOUT",
+            "retryable": true
+          },
+          "expect": {
+            "revision": "r1",
+            "stale": true,
+            "requests": 3
+          }
+        }
+      ]
+    },
+    {
+      "name": "confirmed-revocation-survives-network-failure",
+      "steps": [
+        {
+          "reply": {
+            "snapshot": "text-skill"
+          },
+          "expect": {
+            "revision": "r1",
+            "requests": 1
+          }
+        },
+        {
+          "advanceMs": 5000,
+          "reply": {
+            "error": "REVISION_REVOKED",
+            "retryable": false
+          },
+          "expect": {
+            "error": "REVISION_REVOKED",
+            "requests": 2
+          }
+        },
+        {
+          "reply": {
+            "error": "NETWORK_ERROR",
+            "retryable": true
+          },
+          "expect": {
+            "error": "REVISION_REVOKED",
+            "requests": 3
+          }
+        }
+      ]
+    },
+    {
+      "name": "pin-never-advances",
+      "config": {
+        "revision": "r1"
+      },
+      "steps": [
+        {
+          "reply": {
+            "snapshot": "text-skill"
+          },
+          "expect": {
+            "revision": "r1",
+            "requests": 1
+          }
+        },
+        {
+          "advanceMs": 5000,
+          "reply": {
+            "snapshot": "empty-r2"
+          },
+          "expect": {
+            "revision": "r1",
+            "stale": true,
+            "requests": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "missing-pin-is-not-latest",
+      "config": {
+        "revision": "not-found"
+      },
+      "steps": [
+        {
+          "reply": {
+            "error": "REVISION_NOT_FOUND",
+            "retryable": false
+          },
+          "expect": {
+            "error": "REVISION_NOT_FOUND",
+            "initialized": false,
+            "requests": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "invalid-replacement-keeps-verified-snapshot",
+      "steps": [
+        {
+          "reply": {
+            "snapshot": "text-skill"
+          },
+          "expect": {
+            "revision": "r1",
+            "requests": 1
+          }
+        },
+        {
+          "advanceMs": 5000,
+          "reply": {
+            "snapshot": "file-digest-mismatch"
+          },
+          "expect": {
+            "revision": "r1",
+            "stale": true,
+            "requests": 2
+          }
+        }
+      ]
+    }
+  ]
+}
