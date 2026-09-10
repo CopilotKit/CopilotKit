@@ -75,6 +75,39 @@ describe("setup content bundle", () => {
     expect(source).not.toContain("@region[");
   });
 
+  // Google Antigravity's three setup snippets each carry a `<DemoCode>` reference
+  // into the package's own agent sources, and `subagents-setup` reads the OUTER of
+  // two nested regions. A published body must show neither the tag nor the inner
+  // region's markers: the tag means the bundler could not resolve the file, and a
+  // stray `@region[...]` line means a reader is copying build metadata out of a
+  // snippet.
+  it("bundles the Google Antigravity backend wiring its docs pages embed", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = (concept: string) => {
+      const bundled = resolveBundledSetupConcept(
+        "google-antigravity",
+        concept,
+        setupContent,
+      );
+      expect(bundled, concept).toBeTypeOf("string");
+      expect(bundled, `${concept}: unresolved DemoCode`).not.toContain(
+        "<DemoCode",
+      );
+      expect(bundled, `${concept}: leaked region marker`).not.toContain(
+        "@region[",
+      );
+      return bundled ?? "";
+    };
+
+    // The supervisor's three delegation tools, from the region nested inside
+    // `subagent-setup`.
+    expect(source("subagents-setup")).toContain("async def research_agent");
+    // The frontend tool the HITL demo's agent is told to call.
+    expect(source("human-in-the-loop-setup")).toContain("book_call");
+    // The mount, not just the agent construction.
+    expect(source("agent-setup")).toContain("create_antigravity_app");
+  });
+
   it.each([
     [
       "claude-sdk-python",
