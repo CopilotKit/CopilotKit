@@ -1,0 +1,178 @@
+{
+  "rows": [
+    {
+      "guide": "quickstart",
+      "representation": "html",
+      "requested_path": "/built-in-agent/quickstart",
+      "final_url": "http://127.0.0.1:3103/quickstart",
+      "final_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 272776,
+      "title": "Quickstart",
+      "initial_status": 308,
+      "initial_location": "/quickstart"
+    },
+    {
+      "guide": "quickstart",
+      "representation": "mdx",
+      "requested_path": "/built-in-agent/quickstart.mdx",
+      "final_url": "http://127.0.0.1:3103/quickstart.mdx",
+      "final_status": 200,
+      "content_type": "text/markdown; charset=utf-8",
+      "bytes": 8471,
+      "title": null,
+      "initial_status": 308,
+      "initial_location": "/quickstart.mdx"
+    },
+    {
+      "guide": "generative-ui/your-components/display-only",
+      "representation": "html",
+      "requested_path": "/built-in-agent/generative-ui/your-components/display-only",
+      "final_url": "http://127.0.0.1:3103/generative-ui/your-components/display-only",
+      "final_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 208364,
+      "title": "Display-only",
+      "initial_status": 308,
+      "initial_location": "/generative-ui/your-components/display-only"
+    },
+    {
+      "guide": "generative-ui/your-components/display-only",
+      "representation": "mdx",
+      "requested_path": "/built-in-agent/generative-ui/your-components/display-only.mdx",
+      "final_url": "http://127.0.0.1:3103/generative-ui/your-components/display-only.mdx",
+      "final_status": 200,
+      "content_type": "text/markdown; charset=utf-8",
+      "bytes": 2494,
+      "title": null,
+      "initial_status": 308,
+      "initial_location": "/generative-ui/your-components/display-only.mdx"
+    },
+    {
+      "guide": "generative-ui/your-components/interactive",
+      "representation": "html",
+      "requested_path": "/built-in-agent/generative-ui/your-components/interactive",
+      "final_url": "http://127.0.0.1:3103/generative-ui/your-components/interactive",
+      "final_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 181343,
+      "title": "Interactive",
+      "initial_status": 308,
+      "initial_location": "/generative-ui/your-components/interactive"
+    },
+    {
+      "guide": "generative-ui/your-components/interactive",
+      "representation": "mdx",
+      "requested_path": "/built-in-agent/generative-ui/your-components/interactive.mdx",
+      "final_url": "http://127.0.0.1:3103/generative-ui/your-components/interactive.mdx",
+      "final_status": 200,
+      "content_type": "text/markdown; charset=utf-8",
+      "bytes": 2673,
+      "title": null,
+      "initial_status": 308,
+      "initial_location": "/generative-ui/your-components/interactive.mdx"
+    },
+    {
+      "guide": "background-tasks",
+      "representation": "html",
+      "requested_path": "/built-in-agent/background-tasks",
+      "final_url": "http://127.0.0.1:3103/background-tasks",
+      "final_status": 404,
+      "initial_status": 308,
+      "initial_location": "/background-tasks"
+    },
+    {
+      "guide": "background-tasks",
+      "representation": "mdx",
+      "requested_path": "/built-in-agent/background-tasks.mdx",
+      "final_url": "http://127.0.0.1:3103/background-tasks.mdx",
+      "final_status": 404,
+      "initial_status": 308,
+      "initial_location": "/background-tasks.mdx"
+    },
+    {
+      "guide": "browser-use",
+      "representation": "html",
+      "requested_path": "/built-in-agent/browser-use",
+      "final_url": "http://127.0.0.1:3103/browser-use",
+      "final_status": 404,
+      "initial_status": 308,
+      "initial_location": "/browser-use"
+    },
+    {
+      "guide": "browser-use",
+      "representation": "mdx",
+      "requested_path": "/built-in-agent/browser-use.mdx",
+      "final_url": "http://127.0.0.1:3103/browser-use.mdx",
+      "final_status": 404,
+      "initial_status": 308,
+      "initial_location": "/browser-use.mdx"
+    },
+    {
+      "guide": "observational-memory",
+      "representation": "html",
+      "requested_path": "/built-in-agent/observational-memory",
+      "final_url": "http://127.0.0.1:3103/observational-memory",
+      "final_status": 404,
+      "initial_status": 308,
+      "initial_location": "/observational-memory"
+    },
+    {
+      "guide": "observational-memory",
+      "representation": "mdx",
+      "requested_path": "/built-in-agent/observational-memory.mdx",
+      "final_url": "http://127.0.0.1:3103/observational-memory.mdx",
+      "final_status": 404,
+      "initial_status": 308,
+      "initial_location": "/observational-memory.mdx"
+    },
+    {
+      "guide": "human-in-the-loop/headless",
+      "representation": "html",
+      "requested_path": "/built-in-agent/human-in-the-loop/headless",
+      "final_url": "http://127.0.0.1:3103/human-in-the-loop/headless",
+      "final_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 148482,
+      "title": "Headless Interrupts",
+      "initial_status": 308,
+      "initial_location": "/human-in-the-loop/headless"
+    },
+    {
+      "guide": "human-in-the-loop/headless",
+      "representation": "mdx",
+      "requested_path": "/built-in-agent/human-in-the-loop/headless.mdx",
+      "final_url": "http://127.0.0.1:3103/human-in-the-loop/headless.mdx",
+      "final_status": 200,
+      "content_type": "text/markdown; charset=utf-8",
+      "bytes": 10765,
+      "title": null,
+      "initial_status": 308,
+      "initial_location": "/human-in-the-loop/headless.mdx"
+    },
+    {
+      "guide": "human-in-the-loop/useInterrupt",
+      "representation": "html",
+      "requested_path": "/built-in-agent/human-in-the-loop/useInterrupt",
+      "final_url": "http://127.0.0.1:3103/human-in-the-loop/useInterrupt",
+      "final_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 207902,
+      "title": "Pausing the Agent for Input",
+      "initial_status": 308,
+      "initial_location": "/human-in-the-loop/useInterrupt"
+    },
+    {
+      "guide": "human-in-the-loop/useInterrupt",
+      "representation": "mdx",
+      "requested_path": "/built-in-agent/human-in-the-loop/useInterrupt.mdx",
+      "final_url": "http://127.0.0.1:3103/human-in-the-loop/useInterrupt.mdx",
+      "final_status": 200,
+      "content_type": "text/markdown; charset=utf-8",
+      "bytes": 14915,
+      "title": null,
+      "initial_status": 308,
+      "initial_location": "/human-in-the-loop/useInterrupt.mdx"
+    }
+  ]
+}

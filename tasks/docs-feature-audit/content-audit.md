@@ -12,9 +12,10 @@ Status: in progress. This report records source and rendering findings only; it 
 ## Confirmed defects
 
 1. `CONTENT-GEN-001` — HTML marks quarantined cells unsupported while raw Markdown/LLM output ignores that status and emits bundled code or falls back to another framework. See `content-defects.json` for contexts and exact evidence.
-2. `CONTENT-GEN-002` — Google ADK advertises two manifest-wired feature routes whose root and ADK override sources are both absent, so readers get the unavailable-framework fallback.
+2. `CONTENT-GEN-002` — Google ADK advertises two manifest-wired feature routes whose root and ADK override sources are both absent. A local production probe confirmed HTML 200 pages titled only `google-adk` but Markdown 404 endpoints for both routes.
 3. `CONTENT-GEN-003` — selected guides still embed the external Feature Viewer instead of a Showcase-owned cell; Markdown has no source extraction for those frames (11 contexts).
 4. `CONTENT-GEN-004` — Declarative Hashbrown and JSON Render have real guides and wired demos, but no feature-catalog mapping to those guides (10 contexts).
+5. `CONTENT-GEN-006` — a transitive Built-in Agent tool-rendering snippet assigns v1's named-registration meaning to v2 `useRenderToolCall`; current v2 uses `useRenderTool` for that job (4 contexts).
 
 ## Candidate setup-contract gap
 
@@ -30,7 +31,7 @@ Status: in progress. This report records source and rendering findings only; it 
 
 ## Explicit review coverage (checkpoint)
 
-- **Completed, static:** resolution and source-unit inventory for all 220 selected matrix cells; 40 unique resolved MDX source units; every manifest-wired/stub cell with a resolved source; source frontmatter and deprecated-reference scan; transitive `FrameworkSetup` import scan against each selected integration's setup-fragment ownership; catalog-to-guide binding review; generated/authored route precedence; and browser/Markdown source-resolution paths.
+- **Completed, static:** resolution and source-unit inventory for all 220 selected matrix cells; 40 unique resolved MDX source units plus 11 transitive shared snippets (51 reviewed source units total); every manifest-wired/stub cell with a resolved source; source frontmatter and deprecated-reference scan; transitive `FrameworkSetup` import scan against each selected integration's setup-fragment ownership; catalog-to-guide binding review; generated/authored route precedence; and browser/Markdown source-resolution paths. The exact 40 route sources and their selected cells are recorded in `inventory.json` (`selected_matrix[].resolved_content`); the 11 transitive snippets are under `content/snippets/shared/{app-control,basics,generative-ui,guides,inspector}`.
 - **Completed, static defect triage:** every selected source absence was checked against the manifest applicability. The only declared-wired unresolved routes are the two Google ADK entries in `CONTENT-GEN-002`; unshipped selected combinations are deliberately excluded. Every missing setup fragment affecting a wired/stub selected cell is enumerated in `CONTENT-GEN-005` as a candidate setup-contract gap.
 - **Pending:** semantic classification of each `CONTENT-GEN-005` setup request against its demo/backend; line-by-line human readability and API-link target review across the 40 resolved units and their transitive shared snippets; framework-scoped HTML/Markdown route probes (including redirects/middleware); generator/typecheck/build; and local AIMock behavior. The report remains in progress until these rows are complete.
 
