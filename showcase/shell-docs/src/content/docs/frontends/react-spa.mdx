@@ -146,7 +146,13 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
     <Step>
         ### Run the runtime and app
 
-        You are running two dev servers, so they need two different ports. Create `.env` beside `server.ts` and keep it out of version control:
+        You are running two dev servers, so they need two different ports. Before creating the server credential file, add this entry to your project's `.gitignore`:
+
+        ```gitignore title=".gitignore"
+        .env
+        ```
+
+        Create `.env` beside `server.ts`:
 
         ```dotenv title=".env"
         OPENAI_API_KEY=sk-...
