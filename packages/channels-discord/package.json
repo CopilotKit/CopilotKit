@@ -41,7 +41,7 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.59",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@390d432a0ed01ca4ddcee8165b6c6f7f22045c4e",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-ui": "workspace:^",
     "discord.js": "^14.16.0",

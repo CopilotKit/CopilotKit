@@ -138,6 +138,8 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
 
   it("renders stored state snapshots for sequential runs", async () => {
     const agent = new MockStepwiseAgent();
+    const firstRun = { threadId: agent.threadId, runId: "first-run" };
+    const secondRun = { threadId: agent.threadId, runId: "second-run" };
     const history: number[] = [];
 
     const emitSnapshot = async (count: number) => {
@@ -153,12 +155,12 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
     const firstAssistantId = testId("assistant-message");
     await submitMessage("First question");
 
-    await agent.emit(runStartedEvent());
+    await agent.emit(runStartedEvent(firstRun));
     await emitSnapshot(1);
     await agent.emit(textMessageStartEvent(firstAssistantId));
     await agent.emit(textMessageContentEvent(firstAssistantId, "First answer"));
     await agent.emit(textMessageEndEvent(firstAssistantId));
-    await agent.emit(runFinishedEvent());
+    await agent.emit(runFinishedEvent(firstRun));
 
     await waitFor(() => {
       expect(
@@ -173,14 +175,14 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
     const secondAssistantId = testId("assistant-message");
     await submitMessage("Second question");
 
-    await agent.emit(runStartedEvent());
+    await agent.emit(runStartedEvent(secondRun));
     await emitSnapshot(2);
     await agent.emit(textMessageStartEvent(secondAssistantId));
     await agent.emit(
       textMessageContentEvent(secondAssistantId, "Second answer"),
     );
     await agent.emit(textMessageEndEvent(secondAssistantId));
-    await agent.emit(runFinishedEvent());
+    await agent.emit(runFinishedEvent(secondRun));
     agent.complete();
 
     await waitFor(() => {

@@ -3,6 +3,7 @@ import { computed, defineComponent, onMounted } from "vue";
 import type { PropType } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/client";
+import type { RunErrorEvent } from "@ag-ui/client";
 import { z } from "zod";
 import { useConfigureSuggestions } from "../../../hooks/use-configure-suggestions";
 import {
@@ -166,7 +167,11 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         );
       });
 
-      await agent.emit({ type: EventType.RUN_ERROR } as any);
+      const errorEvent: RunErrorEvent = {
+        type: EventType.RUN_ERROR,
+        message: "Test run failed",
+      };
+      await agent.emit(errorEvent);
       await agent.complete();
 
       await waitFor(() => {

@@ -2,6 +2,7 @@ import type {
   BaseEvent,
   RunAgentInput,
   Message,
+  InputContent,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
@@ -335,7 +336,12 @@ export function defineTool<TParameters extends StandardSchemaV1>(config: {
   };
 }
 
-type AGUIUserMessage = Extract<Message, { role: "user" }>;
+type LegacyBinaryInputContent = {
+  type: "binary";
+  mimeType?: string;
+  data?: string;
+  url?: string;
+};
 
 /**
  * Converts AG-UI user message content to Vercel AI SDK UserContent format.
@@ -343,7 +349,7 @@ type AGUIUserMessage = Extract<Message, { role: "user" }>;
  * and legacy BinaryInputContent for backward compatibility.
  */
 function convertUserMessageContent(
-  content: AGUIUserMessage["content"],
+  content: string | Array<InputContent | LegacyBinaryInputContent>,
 ): string | Array<TextPart | ImagePart | FilePart> {
   if (!content) {
     return "";
@@ -423,11 +429,7 @@ function convertUserMessageContent(
 
       // Legacy BinaryInputContent backward compatibility
       case "binary": {
-        const legacy = part as {
-          mimeType?: string;
-          data?: string;
-          url?: string;
-        };
+        const legacy = part;
         const mimeType = legacy.mimeType ?? "application/octet-stream";
         const isImage = mimeType.startsWith("image/");
 

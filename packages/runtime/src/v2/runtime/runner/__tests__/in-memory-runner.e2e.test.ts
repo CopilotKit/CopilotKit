@@ -590,7 +590,7 @@ describe("InMemoryAgentRunner e2e", () => {
         type: EventType.RUN_STARTED,
         threadId,
         runId,
-        parentRunId: null,
+        parentRunId: "custom-parent-run",
         input: customInput,
       };
 

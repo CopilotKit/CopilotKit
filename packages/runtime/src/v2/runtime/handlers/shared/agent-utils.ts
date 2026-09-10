@@ -1,5 +1,5 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
-import { RunAgentInputSchema } from "@ag-ui/client";
+import { RunAgentInputSchema } from "@ag-ui/core/schemas";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
@@ -242,12 +242,91 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   );
 }
 
+// Intentional local exception: HTTP request parsing runs before AG-UI's event
+// compatibility boundary. Mirror only its historically accepted optional-null
+// rules here, without depending on a new public AG-UI helper. Keep these aligned
+// with client/src/middleware/compatibility-boundary.ts and AG-UI's migration guide.
+// Required nulls and nulls within application data must remain untouched.
+function warnCompatibility(what: string, replacement: string) {
+  if (
+    typeof process !== "undefined" &&
+    typeof process.env !== "undefined" &&
+    process.env.SUPPRESS_TRANSFORMATION_WARNINGS
+  )
+    return;
+  console.warn(
+    `[ag-ui][compat] Converting deprecated ${what} to ${replacement}. The old shape leaves the protocol after its shim window — see the repo-root DEPRECATIONS.md. Set SUPPRESS_TRANSFORMATION_WARNINGS=true to silence.`,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function omitLegacyNull(
+  value: unknown,
+  field: string,
+  context: string,
+): unknown {
+  if (!isRecord(value) || value[field] !== null) return value;
+  warnCompatibility(`${context}.${field}: null`, "an absent field");
+  const { [field]: _null, ...rest } = value;
+  return rest;
+}
+
+function mapProtocolArray(
+  value: unknown,
+  field: string,
+  normalize: (entry: unknown) => unknown,
+): unknown {
+  if (!isRecord(value) || !Array.isArray(value[field])) return value;
+  const original = value[field];
+  const entries = original.map(normalize);
+  return entries.some((entry, index) => entry !== original[index])
+    ? { ...value, [field]: entries }
+    : value;
+}
+
+function normalizeLegacyMessageNulls(message: unknown): unknown {
+  return mapProtocolArray(message, "content", (part) => {
+    if (!isRecord(part)) return part;
+    switch (part.type) {
+      case "image":
+      case "audio":
+      case "video":
+      case "document":
+        return omitLegacyNull(part, "metadata", `${part.type} input content`);
+      default:
+        return part;
+    }
+  });
+}
+
+function normalizeLegacyRunAgentInput(input: unknown): unknown {
+  let normalized = omitLegacyNull(input, "forwardedProps", "RunAgentInput");
+  normalized = mapProtocolArray(normalized, "tools", (tool) =>
+    omitLegacyNull(tool, "parameters", "Tool"),
+  );
+  normalized = mapProtocolArray(normalized, "resume", (entry) =>
+    omitLegacyNull(entry, "payload", "ResumeEntry"),
+  );
+  return mapProtocolArray(normalized, "messages", normalizeLegacyMessageNulls);
+}
+
+function parseRunAgentInput(value: unknown): RunAgentInput {
+  // With strictNullChecks disabled, Zod infers some required nested fields
+  // (such as image.source) as optional. The schema still validates them.
+  return RunAgentInputSchema.parse(
+    normalizeLegacyRunAgentInput(value),
+  ) as RunAgentInput;
+}
+
 export async function parseRunRequest(
   request: Request,
 ): Promise<RunAgentInput | Response> {
   try {
     const requestBody = await request.json();
-    return RunAgentInputSchema.parse(requestBody);
+    return parseRunAgentInput(requestBody);
   } catch (error) {
     logger.error("Invalid run request body:", error);
     return new Response(
@@ -272,7 +351,7 @@ export async function parseConnectRequest(request: Request): Promise<
 > {
   try {
     const requestBody = await request.json();
-    const input = RunAgentInputSchema.parse(requestBody);
+    const input = parseRunAgentInput(requestBody);
     let lastSeenEventId: string | null = null;
 
     if (

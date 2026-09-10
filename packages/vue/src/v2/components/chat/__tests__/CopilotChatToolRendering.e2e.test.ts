@@ -21,6 +21,10 @@ import CopilotChatToolCallsView from "../CopilotChatToolCallsView.vue";
 import { useFrontendTool } from "../../../hooks/use-frontend-tool";
 import type { VueFrontendTool } from "../../../types";
 import type { VueToolCallRendererRenderProps } from "../../../types/vue-tool-call-renderer";
+import {
+  runStartedEvent,
+  runFinishedEvent,
+} from "../../../__tests__/utils/test-helpers";
 
 afterEach(() => {
   cleanup();
@@ -43,7 +47,7 @@ class MockStreamingAgent extends AbstractAgent {
       const messageId = `m_${Date.now()}`;
       const toolCallId = `tc_${Date.now()}`;
 
-      observer.next({ type: EventType.RUN_STARTED } as BaseEvent);
+      observer.next(runStartedEvent(_input));
       observer.next({
         type: EventType.TEXT_MESSAGE_CHUNK,
         messageId,
@@ -68,7 +72,7 @@ class MockStreamingAgent extends AbstractAgent {
         messageId: `${messageId}_result`,
         content: JSON.stringify({ temperature: 21, unit: "celsius" }),
       } as BaseEvent);
-      observer.next({ type: EventType.RUN_FINISHED } as BaseEvent);
+      observer.next(runFinishedEvent(_input));
       observer.complete();
     });
   }
@@ -492,9 +496,7 @@ describe("Streaming in-progress without timers", () => {
     const messageId = "m_step";
     const toolCallId = "tc_step";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TEXT_MESSAGE_CHUNK,
       messageId,
@@ -543,9 +545,7 @@ describe("Streaming in-progress without timers", () => {
       expect(el.textContent).toContain("21");
     });
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
   });
 });
@@ -586,9 +586,7 @@ describe("Executing State Transitions", () => {
     const messageId = "m_exec";
     const toolCallId = "tc_exec";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -603,9 +601,7 @@ describe("Executing State Transitions", () => {
       expect(status.textContent).toMatch(/Value: test/);
     });
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
 
     await waitFor(() => {
@@ -653,9 +649,7 @@ describe("Multiple Tool Calls in Same Message", () => {
     const toolCallId2 = "tc_2";
     const toolCallId3 = "tc_3";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId: toolCallId1,
@@ -714,9 +708,7 @@ describe("Multiple Tool Calls in Same Message", () => {
       expect(screen.getByTestId("tool1-third").textContent).toContain("C");
     });
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
   });
 });
@@ -747,9 +739,7 @@ describe("Partial Args Accumulation", () => {
     const messageId = "m_partial";
     const toolCallId = "tc_partial";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -801,9 +791,7 @@ describe("Partial Args Accumulation", () => {
       expect(tool.textContent).toMatch(/Status: (complete|inProgress)/i);
     });
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
   });
 });
@@ -885,7 +873,7 @@ describe("toolCallId parity for registered renderers", () => {
     const messageId = "m_id";
     const toolCallId = "tc_id_parity";
 
-    await agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    await agent.emit(runStartedEvent());
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -900,7 +888,7 @@ describe("toolCallId parity for registered renderers", () => {
       expect(el.textContent).toContain(`id:${toolCallId}`);
     });
 
-    await agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    await agent.emit(runFinishedEvent());
     await agent.complete();
 
     await waitFor(() => {
@@ -948,6 +936,8 @@ describe("toolCallId parity for registered renderers", () => {
 describe("Status Persistence After Agent Stops", () => {
   it("should remain in InProgress status after agent stops if no result", async () => {
     const agent = new MockStepwiseAgent();
+    const firstRun = { threadId: agent.threadId, runId: "first-run" };
+    const secondRun = { threadId: agent.threadId, runId: "second-run" };
     renderChatHarness({
       agent,
       frontendTools: [
@@ -967,9 +957,7 @@ describe("Status Persistence After Agent Stops", () => {
     const messageId = "msg_status";
     const toolCallId = "tc_status";
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent(firstRun));
     await agent.emit({
       type: EventType.TOOL_CALL_CHUNK,
       toolCallId,
@@ -983,9 +971,7 @@ describe("Status Persistence After Agent Stops", () => {
       expect(statusElement.textContent).toBe("inProgress");
     });
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent(firstRun));
 
     await waitFor(() => {
       const statusElement = screen.getByTestId("status");
@@ -996,9 +982,7 @@ describe("Status Persistence After Agent Stops", () => {
     expect(statusElement.textContent).toBe("inProgress");
     expect(statusElement.textContent).not.toBe("complete");
 
-    await agent.emit({
-      type: EventType.RUN_STARTED,
-    } as BaseEvent);
+    await agent.emit(runStartedEvent(secondRun));
     await agent.emit({
       type: EventType.TOOL_CALL_RESULT,
       toolCallId,
@@ -1011,9 +995,7 @@ describe("Status Persistence After Agent Stops", () => {
       expect(statusEl.textContent).toBe("complete");
     });
 
-    await agent.emit({
-      type: EventType.RUN_FINISHED,
-    } as BaseEvent);
+    await agent.emit(runFinishedEvent(secondRun));
     await agent.complete();
   });
 });

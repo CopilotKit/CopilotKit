@@ -229,8 +229,9 @@ export function validateAngularPackageManifest(manifest: unknown): string[] {
 
 /**
  * Creates a consumer that installs the packed library against one exact
- * framework toolchain. Overrides are restricted to local CopilotKit siblings;
- * Angular itself always resolves normally so peer incompatibilities fail CI.
+ * framework toolchain. Local tarball overrides cover CopilotKit siblings and
+ * verified AG-UI previews. Angular itself resolves normally so incompatible
+ * framework peers fail CI.
  */
 export function createAngularConsumerManifest({
   agUiClient,

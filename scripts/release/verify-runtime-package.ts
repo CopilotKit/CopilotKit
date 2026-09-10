@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createConsumerWorkspaceYaml } from "./lib/channels-umbrella.js";
+import { materializeAgUiPreviews } from "./lib/ag-ui-previews.js";
 import {
   CHANNELS_INTELLIGENCE,
   createRuntimeConsumerManifest,
@@ -36,7 +37,7 @@ function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf8")) as T;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const { packageManager } = readJson<RootManifest>(join(ROOT, "package.json"));
   if (!packageManager) {
     throw new Error("root package.json is missing packageManager");
@@ -67,6 +68,13 @@ function main(): void {
       throw new Error(
         `${CHANNELS_INTELLIGENCE} must be a workspace dependency of the runtime so the packed consumer installs it locally instead of from the registry`,
       );
+    }
+    for (const [name, preview] of await materializeAgUiPreviews({
+      root: ROOT,
+      directory: join(temp, "ag-ui"),
+      packedTarballs: new Map([[RUNTIME, tarball], ...overrides]),
+    })) {
+      overrides.set(name, preview);
     }
 
     writeFileSync(
@@ -125,9 +133,7 @@ await import(channelsIntelligenceUrl);`,
   }
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
-}
+});

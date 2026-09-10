@@ -31,7 +31,7 @@ export function getAISDKRunFinishedDetails(
   const details: AgentRunFinishedDetails = {};
 
   if (typeof part.finishReason === "string") {
-    details.finishReason = part.finishReason;
+    details.metadata = { finishReason: part.finishReason };
   }
 
   if (
