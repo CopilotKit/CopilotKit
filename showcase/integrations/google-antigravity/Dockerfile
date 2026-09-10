@@ -64,12 +64,15 @@ COPY --chown=app:app --from=frontend /app/public ./public
 COPY --chown=app:app src/agent_server.py src/openai_proxy.py ./
 COPY --chown=app:app src/agents/ ./agents/
 
-# Manifest is read at runtime by `src/app/demos/layout.tsx` (`generateMetadata`
-# calls `headers()`, which opts every `/demos/*` route into dynamic rendering,
-# so Next can't bake the demo titles into the build). Without this copy every
-# demo page throws "An error occurred in the Server Components render"
-# (ENOENT on /app/manifest.yaml) — the home page is unaffected because it has
-# no dynamic APIs and is statically prerendered at build time.
+# Manifest is read from `process.cwd()` by BOTH `src/app/page.tsx` (the demo
+# index) and `src/app/demos/layout.tsx`'s `generateMetadata`. The layout call
+# is the one that needs the file at RUNTIME: it reads the `x-pathname` header
+# that `src/middleware.ts` sets, and `headers()` opts every `/demos/*` route
+# into dynamic rendering, so Next cannot bake the demo titles into the build.
+# Without this copy those pages throw "An error occurred in the Server
+# Components render" (ENOENT on /app/manifest.yaml). The home page reads the
+# same file but is statically prerendered in the frontend stage, where the
+# manifest is present via `COPY . .`.
 COPY --chown=app:app manifest.yaml ./
 
 # Shared Python tools (symlinked at tools -> ../../shared/python/tools)

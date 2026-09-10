@@ -51,12 +51,15 @@ const agentNames = [
 // x-aimock-context) into the outbound HTTP call to the Python agent_server.
 // HttpAgent's `requestInit` spreads `this.headers` into the outbound fetch,
 // so populating `headers` from `req.headers` before `copilotHandler` runs
-// is sufficient to convey the header to the Python backend, where
-// HeaderForwardingHTTPMiddleware records it for any Python-side httpx call
-// (e.g. the subagent tools' chat completions). The Go harness makes the
-// actual model call itself, so this conveyance cannot cross that hop; the
-// static `X-AIMock-Context` header is stamped separately by the OpenAI
-// shim (src/openai_proxy.py) — see PARITY_NOTES.md. See
+// conveys the header as far as the Python backend, where
+// HeaderForwardingHTTPMiddleware records it on a request-scoped ContextVar.
+// It goes NO FURTHER: nothing in this package calls
+// `install_global_httpx_hook()`, so no outbound httpx call replays the
+// recorded headers — the sub-agent tools stamp `X-AIMock-Context`
+// themselves, and the model call is made by the Go harness, which this
+// process cannot reach into at all (the shim stamps a static
+// `X-AIMock-Context` for that hop). The agent-hop record is kept for the
+// CVDIAG rows. See PARITY_NOTES.md ("LLM path") and
 // `src/lib/header-forwarding.ts` for the shared helper.
 function buildAgents(
   headers: Record<string, string>,

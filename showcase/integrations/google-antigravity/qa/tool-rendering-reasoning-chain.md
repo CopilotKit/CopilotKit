@@ -1,21 +1,16 @@
 # QA: Tool Rendering (Reasoning Chain) — Google Antigravity
 
-> Stub — authored for column completeness. This is a testing-kind demo
-> (see `kind: "testing"` in feature-registry.json) and does not warrant a
-> full manual checklist.
-
-## Prerequisites
-
-- Demo is deployed and accessible
-- Agent backend is healthy
-
-## Test Steps
-
-- [ ] Navigate to /demos/tool-rendering-reasoning-chain
-- [ ] Send a multi-tool prompt (e.g. "What's the weather in Tokyo?") and verify reasoning blocks interleave with sequential tool cards (`WeatherCard`, `FlightListCard`, or the custom catchall)
-- [ ] Verify reasoning tokens stream into the custom `ReasoningBlock` slot alongside the tool cards in the same message view
-
-## Expected Results
-
-- Page loads without errors
-- Reasoning tokens and tool-call cards render side-by-side in a single sequential chain, each tool matched to its typed renderer
+> **Not supported on this integration — nothing to QA.**
+>
+> `tool-rendering-reasoning-chain` is declared in `manifest.yaml` under
+> `not_supported_features`, for the same root cause as `reasoning-default` and
+> `reasoning-custom`: the Antigravity Go harness drops the model's
+> `reasoning_content` deltas, so no thinking step and no reasoning surface ever
+> reaches the chat. This demo's whole signal is one additional
+> `reasoning-block` mount per tool turn, so it cannot be exercised here — the
+> tool cards render, the reasoning between them does not.
+>
+> Measured and root-caused in [`../PARITY_NOTES.md`](../PARITY_NOTES.md#reasoning).
+> Revisit when the harness forwards `reasoning_content` as a thinking step, at
+> which point restore the checklist from the reference package
+> (`showcase/integrations/langgraph-python/qa/tool-rendering-reasoning-chain.md`).

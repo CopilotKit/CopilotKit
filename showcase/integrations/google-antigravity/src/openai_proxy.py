@@ -7,7 +7,7 @@ SDK's OpenAI path cannot send, and the static ``X-AIMock-Context`` header that
 selects this integration's aimock fixtures. Per-request ``X-AIMock-Strict`` /
 ``x-test-id`` cannot cross the harness hop; see PARITY_NOTES.md.
 
-`google-antigravity` 0.1.8's OpenAI-compatible path (`GemmaEndpoint`) carries
+`google-antigravity` 0.1.9's OpenAI-compatible path (`GemmaEndpoint`) carries
 only a `base_url`: there is no API-key field, and the Go harness reads no
 `OPENAI_API_KEY`. The path is designed for unauthenticated local servers
 (Ollama, LM Studio). This shim makes a hosted endpoint usable by:
