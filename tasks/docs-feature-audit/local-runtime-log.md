@@ -54,3 +54,17 @@ The normal local runner selects all manifest-wired demos for the slug. It is sui
 - The harness's representative-fixture table provides 29 unique filenames for each of LangGraph Python, LangGraph TypeScript, Google ADK, and Built-in Agent, and 28 for Strands. A literal filename check against each integration's `aimock/d6/<slug>/` directory leaves 3/3/4/3/4 names absent (17 reference-name mismatches total). Evidence: `tasks/docs-feature-audit/d6-representative-fixture-audit.json`.
 - This is **UNVERIFIED**, not a confirmed missing-fixture defect: the unmatched names are semantic aliases and the D6 driver does not resolve those table entries directly. AIMock selects fixtures independently from the conversation request. The structural validator checks individual JSON files, but has no cross-reference check from route/script to actual AIMock response.
 - A full local D6 run uses strict AIMock matching, so it is the deciding behavior check; a no-match becomes a red result. Do not describe the static pass as fixture-match coverage.
+
+## Attempt 4 — fresh-image rebuild capacity blocked
+
+- The user approved removal of unused Docker build cache only. `docker builder prune --all --force` completed successfully and reclaimed 20.71 GB; images, containers, and volumes were retained.
+- Command: `showcase/bin/showcase test langgraph-python --smoke --isolate audit-lgp-smoke4 --verbose --cycle`
+- Result: **FRESH-IMAGE-UNTESTED**. The isolated Compose lifecycle started its cached infra services, then failed rebuilding the targeted LangGraph Python image at the Dockerfile frontend `node_modules` copy with `no space left on device`. Full output: `tasks/docs-feature-audit/lgp-smoke4.log`.
+- The failed target rebuild regenerated 17.08 GB of BuildKit cache. No additional Docker cleanup was performed.
+
+## Attempt 5 — running-stack liveness only
+
+- The failed rebuild left an isolated stack running and healthy for LangGraph Python (`http://localhost:3500/api/health`) and AIMock (`http://localhost:4410/health`); its dashboard was unhealthy. The wrapper could not reuse the occupied isolation slot and incorrectly selected a new unused slot, where it failed to fetch a service. That result is excluded from feature status.
+- Direct command against the existing Compose project, without a Docker lifecycle operation: `COMPOSE_PROJECT_NAME=audit-lgp-smoke4 SHOWCASE_COMPOSE_FILE=<repo>/showcase/docker-compose.local.yml LOCAL_PORTS_FILE=/private/tmp/audit-lgp-smoke4-ports.json SHOWCASE_INFRA_PORT_OFFSET=400 SHOWCASE_LOCAL=1 node_modules/.bin/tsx showcase/harness/src/cli.ts test langgraph-python --smoke --verbose`
+- Result: **PASS** — local LangGraph Python health probe. Output: `tasks/docs-feature-audit/lgp-smoke4-direct.log`.
+- Provenance caveat: this is liveness evidence for an already running image. Because the target fresh-image rebuild failed, it does not qualify the current `fa6041fc7b08fc5866099769038e43c44c1ce8df` product snapshot or latest stable dependency set, and it is not feature/D6 evidence.
