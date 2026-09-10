@@ -243,12 +243,9 @@ In that request **there is never a `role: "tool"` message**. A finished tool
 call comes back as two `assistant` messages: one for the call (empty content)
 and one whose text is
 
-````
+```text
 Tool response for <tool_name>:
-```json
 {"result": "..."}
-````
-
 ```
 
 Consequently aimock's `hasToolResult` matcher is permanently `false` for this
@@ -258,7 +255,7 @@ turn after turn and the run re-issued the same tool call until the probe timed
 out (`done-signal-missing`, 200+ repeats on some cells).
 
 The replacement discriminator is `turnIndex` — aimock's count of `assistant`
-messages in the request — which the harness *does* expose faithfully:
+messages in the request — which the harness _does_ expose faithfully:
 **+2 per tool round-trip, +1 per plain text answer**, verified against the
 aimock journal on every cell. So each leg carries an absolute `turnIndex`:
 leg 1 of the first turn at 0, its narration at 2, leg 1 of the next turn at
@@ -294,4 +291,3 @@ that sent the retired haiku prompt, and the stale `d5-hitl-approve-deny` had
 no `completeOnMount` gate. Both went green with no source change after
 `bin/showcase build harness-control-plane`. Rebuild that image before trusting
 a red cell here.
-```
