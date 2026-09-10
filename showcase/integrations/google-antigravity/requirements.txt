@@ -1,8 +1,9 @@
 # The Antigravity AG-UI adapter is not on PyPI yet. Pinned to a commit on the
-# PR branch (ag-ui-protocol/ag-ui#2277); swap to a released version once it
-# merges. google-antigravity ships platform wheels bundling the Go
+# PR branch (ag-ui-protocol/ag-ui#2277); swap to `ag-ui-antigravity==<version>`
+# once it merges. Written URL-first (installs the ag-ui-antigravity project at
+# that commit) so the pin validator treats it as an intentional VCS install. google-antigravity ships platform wheels bundling the Go
 # localharness binary (manylinux x86_64 and aarch64 both published).
-ag-ui-antigravity @ git+https://github.com/ag-ui-protocol/ag-ui@19f654744c663533eea5dfe1bbb1c70db85524a3#subdirectory=integrations/antigravity/python
+git+https://github.com/ag-ui-protocol/ag-ui@19f654744c663533eea5dfe1bbb1c70db85524a3#subdirectory=integrations/antigravity/python
 google-antigravity==0.1.9
 ag-ui-protocol==0.1.19
 fastapi==0.141.0
