@@ -1,0 +1,54 @@
+[
+  {
+    "slug": "langgraph-python",
+    "routed_demo_ids": 39,
+    "required_representative_fixtures": 29,
+    "missing_representative_fixtures": [
+      "hitl-approve-deny.json",
+      "reasoning-display.json",
+      "shared-state-write.json"
+    ]
+  },
+  {
+    "slug": "langgraph-typescript",
+    "routed_demo_ids": 39,
+    "required_representative_fixtures": 29,
+    "missing_representative_fixtures": [
+      "hitl-approve-deny.json",
+      "reasoning-display.json",
+      "shared-state-write.json"
+    ]
+  },
+  {
+    "slug": "google-adk",
+    "routed_demo_ids": 38,
+    "required_representative_fixtures": 29,
+    "missing_representative_fixtures": [
+      "gen-ui-custom.json",
+      "hitl-approve-deny.json",
+      "reasoning-display.json",
+      "shared-state-write.json"
+    ]
+  },
+  {
+    "slug": "strands",
+    "routed_demo_ids": 39,
+    "required_representative_fixtures": 28,
+    "missing_representative_fixtures": [
+      "gen-ui-custom.json",
+      "hitl-approve-deny.json",
+      "shared-state-write.json"
+    ]
+  },
+  {
+    "slug": "built-in-agent",
+    "routed_demo_ids": 39,
+    "required_representative_fixtures": 29,
+    "missing_representative_fixtures": [
+      "gen-ui-custom.json",
+      "hitl-approve-deny.json",
+      "reasoning-display.json",
+      "shared-state-write.json"
+    ]
+  }
+]

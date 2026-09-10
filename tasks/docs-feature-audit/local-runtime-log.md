@@ -48,3 +48,9 @@ The normal local runner selects all manifest-wired demos for the slug. It is sui
 - Command: `showcase/bin/showcase fixtures validate --fixture-dir showcase/aimock/d6/<slug>` for each selected slug.
 - Result: JSON structural validation completed for 43/43/41/42/40 files and 344/343/334/322/349 fixture entries. It emitted 70/77/67/60/64 duplicate-message warnings (338 total) but no syntax/empty-response failure. These warnings are validator output, not behavior passes and not newly classified defects.
 - Static evidence establishes intended coverage wiring only. It cannot establish rendered behavior, fixture match success, or backend protocol compatibility; those remain **UNTESTED** until the Docker capacity blocker is resolved.
+
+## Fixture-reference limitation
+
+- The harness's representative-fixture table provides 29 unique filenames for each of LangGraph Python, LangGraph TypeScript, Google ADK, and Built-in Agent, and 28 for Strands. A literal filename check against each integration's `aimock/d6/<slug>/` directory leaves 3/3/4/3/4 names absent (17 reference-name mismatches total). Evidence: `tasks/docs-feature-audit/d6-representative-fixture-audit.json`.
+- This is **UNVERIFIED**, not a confirmed missing-fixture defect: the unmatched names are semantic aliases and the D6 driver does not resolve those table entries directly. AIMock selects fixtures independently from the conversation request. The structural validator checks individual JSON files, but has no cross-reference check from route/script to actual AIMock response.
+- A full local D6 run uses strict AIMock matching, so it is the deciding behavior check; a no-match becomes a red result. Do not describe the static pass as fixture-match coverage.
