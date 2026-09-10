@@ -387,6 +387,7 @@ demos:
     highlight:
       - src/agent/agent.ts
       - src/agent/tools.ts
+      - src/agent/state.ts
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit/route.ts

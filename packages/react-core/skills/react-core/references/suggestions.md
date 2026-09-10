@@ -83,7 +83,8 @@ export function RefreshButton() {
 ### Feature-flag the suggestions config
 
 ```tsx
-const enabled = useFeatureFlag("suggestions");
+// `useMyFeatureFlag` is your own flag hook — CopilotKit exports no such hook.
+const enabled = useMyFeatureFlag("suggestions");
 useConfigureSuggestions(
   enabled ? { instructions: "Suggest 3 follow-ups" } : null,
 );
@@ -115,7 +116,8 @@ useConfigureSuggestions({
 Correct:
 
 ```tsx
-const enabled = useFeatureFlag("suggestions");
+// `useMyFeatureFlag` is your own flag hook — CopilotKit exports no such hook.
+const enabled = useMyFeatureFlag("suggestions");
 useConfigureSuggestions(
   enabled ? { instructions: "Suggest 3 follow-ups" } : null,
 );
@@ -184,7 +186,7 @@ The internal auto-reload skips when `isRunning`, but the user-triggered
 `reloadSuggestions()` does not guard itself. Guard the caller, or the
 suggestion generation races the active agent run.
 
-Source: `packages/react-core/src/v2/hooks/use-configure-suggestions.tsx:121-124`
+Source: `packages/react-core/src/v2/hooks/use-configure-suggestions.tsx:119-131`
 
 ### MEDIUM — Expecting `maxSuggestions` above 3 without setting it
 

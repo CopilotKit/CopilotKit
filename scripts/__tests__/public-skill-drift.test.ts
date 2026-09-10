@@ -196,8 +196,11 @@ describe("public skill drift", () => {
     );
   });
 
-  it("keeps debugging source inventory paths resolvable", () => {
-    const paths = read("skills/copilotkit-debug/sources.md")
+  it.each([
+    "skills/copilotkit-debug/sources.md",
+    "skills/copilotkit-setup/sources.md",
+  ])("keeps %s package inventory paths resolvable", (sourcesPath) => {
+    const paths = read(sourcesPath)
       .split("\n")
       .flatMap(
         (line) => line.match(/^- (packages\/\S+?)(?:\/)? \(/)?.[1] ?? [],

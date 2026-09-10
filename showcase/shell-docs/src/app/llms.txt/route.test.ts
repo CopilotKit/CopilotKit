@@ -1,12 +1,13 @@
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 
 import {
-  CHANNEL_FRONTENDS,
-  CHANNEL_GUIDE_ROUTES,
-  channelConnectHref,
-} from "@/lib/channel-guide-routes";
+  CURATED_FRAMEWORK_PAGES,
+  CURATED_LLM_PAGES,
+} from "@/lib/curated-llm-pages";
 import { getAllLlmPages } from "@/lib/llm-text";
+import { INTELLIGENCE_ONBOARDING_PROMPT } from "@/lib/intelligence-onboarding-prompt";
 import { getDocsMode, getIntegrations } from "@/lib/registry";
+import { getBaseUrl } from "@/lib/sitemap-helpers";
 import { GET } from "./route";
 
 vi.mock("@/lib/llm-text", async (importOriginal) => {
@@ -19,40 +20,109 @@ vi.mock("@/lib/llm-text", async (importOriginal) => {
   };
 });
 
-test("publishes every channel/framework discovery URL from the all mode", async () => {
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+test("exposes the shared onboarding prompt before the research links", async () => {
+  const first = await GET().text();
+  const second = await GET().text();
+  expect(first).toContain(INTELLIGENCE_ONBOARDING_PROMPT);
+  expect(first).toContain("fresh 12-character hexadecimal run ID");
+  expect(
+    first.indexOf("## Add CopilotKit with your coding agent"),
+  ).toBeLessThan(first.indexOf("## Use your existing agent framework"));
+  expect(first).toBe(second);
+});
+
+test("publishes the curated decision index and exhaustive retrieval link", async () => {
   const response = GET();
   const body = await response.text();
-  const visibleFrameworks = getIntegrations().filter(
-    (integration) => getDocsMode(integration.slug) !== "hidden",
+  const baseUrl = getBaseUrl();
+
+  expect(getAllLlmPages).not.toHaveBeenCalled();
+  expect(body).toContain(`[llms-full.txt](${baseUrl}/llms-full.txt)`);
+  for (const page of [...CURATED_FRAMEWORK_PAGES, ...CURATED_LLM_PAGES]) {
+    expect(body).toContain(
+      `- [${page.title}](${baseUrl}/${page.url}): ${page.description}`,
+    );
+  }
+  expect(body).not.toContain("/slack/mastra/tools)");
+  expect(body).not.toContain("/teams/langgraph-fastapi/interactive)");
+});
+
+test("keeps the curated policy ordered, unique, and on canonical routes", () => {
+  const urls = CURATED_LLM_PAGES.map((page) => page.url);
+  const titles = CURATED_LLM_PAGES.map((page) => page.title);
+  const exhaustiveUrls = new Set(
+    getAllLlmPages({ channelGuideVariants: "content-unique" }).map(
+      (page) => page.url,
+    ),
   );
 
-  expect(getAllLlmPages).toHaveBeenCalledWith({
-    channelGuideVariants: "all",
-  });
-  for (const frontend of CHANNEL_FRONTENDS) {
-    for (const integration of visibleFrameworks) {
-      expect(body).toContain(
-        `/${channelConnectHref(frontend, integration.slug).slice(1)})`,
-      );
-    }
-  }
-  expect(body).toContain("/slack/mastra/tools)");
-  expect(body).toContain("/teams/langgraph-fastapi/interactive)");
-  expect(body).not.toContain("/channels/tools");
-
-  const expectedScopedCount =
-    CHANNEL_FRONTENDS.length *
-    visibleFrameworks.length *
-    (CHANNEL_GUIDE_ROUTES.length + 1);
-  const pages = vi.mocked(getAllLlmPages).mock.results[0]?.value as
-    | ReturnType<typeof getAllLlmPages>
-    | undefined;
+  expect(urls.slice(0, 11)).toEqual([
+    "",
+    "agentic-chat-ui",
+    "concepts/generative-ui-overview",
+    "human-in-the-loop",
+    "threads",
+    "learning",
+    "intelligence/overview",
+    "slack",
+    "teams",
+    "langgraph-python/threads-import",
+    "google-adk/threads-import",
+  ]);
+  expect(new Set(urls).size).toBe(urls.length);
+  expect(new Set(titles).size).toBe(titles.length);
+  expect(urls.filter((url) => url.startsWith("langgraph-"))).toEqual([
+    "langgraph-python/threads-import",
+  ]);
   expect(
-    pages?.filter((page) =>
-      CHANNEL_FRONTENDS.some(
-        (frontend) =>
-          page.url === frontend || page.url.startsWith(`${frontend}/`),
+    urls.some((url) =>
+      /(?:^|\/)(?:contributing|migrate|troubleshooting|whats-new)(?:\/|$)/.test(
+        url,
       ),
     ),
-  ).toHaveLength(expectedScopedCount);
+  ).toBe(false);
+  expect(urls.filter((url) => /^(?:slack|teams)(?:\/|$)/.test(url))).toEqual([
+    "slack",
+    "teams",
+  ]);
+
+  for (const page of CURATED_LLM_PAGES) {
+    expect(page.description).toMatch(/^[^\n]+[.!?]$/);
+    if (page.url) expect(exhaustiveUrls.has(page.url), page.url).toBe(true);
+  }
+});
+
+test("leads with every visible external framework and validates its entry points", async () => {
+  const body = await GET().text();
+  const pages = [...CURATED_FRAMEWORK_PAGES, ...CURATED_LLM_PAGES];
+  const urls = pages.map((page) => page.url);
+  const exhaustiveUrls = new Set(
+    getAllLlmPages({ channelGuideVariants: "content-unique" }).map(
+      (page) => page.url,
+    ),
+  );
+
+  for (const integration of getIntegrations()) {
+    if (integration.slug === "built-in-agent") continue;
+    for (const url of [integration.slug, `${integration.slug}/quickstart`]) {
+      if (getDocsMode(integration.slug) === "hidden") {
+        expect(urls).not.toContain(url);
+      } else {
+        expect(urls).toContain(url);
+        expect(exhaustiveUrls.has(url), url).toBe(true);
+      }
+    }
+  }
+  expect(new Set(urls).size).toBe(urls.length);
+  expect(body.indexOf("## Use your existing agent framework")).toBeLessThan(
+    body.indexOf("## Capabilities, frontends, and shared guides"),
+  );
+  expect(body).toContain(
+    "Bare root implementation guides can describe CopilotKit's built-in agent",
+  );
+  expect(body).toContain("Built-in Agent Quickstart");
 });

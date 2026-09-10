@@ -172,7 +172,7 @@ export function useInterrupt<
 ): UseInterruptReturn<TRenderInChat> {
   /* eslint-enable @typescript-eslint/no-explicit-any */
   const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId: config.agentId });
+  const { agent } = useAgent({ agentId: config.agentId, updates: [] });
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   const pendingRef = useRef(pending);
   pendingRef.current = pending;

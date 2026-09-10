@@ -1048,6 +1048,15 @@ test("dismissing the HUD notification keeps the one-day hide action", async () =
 
 test("the notification HUD hides the Inspector for a day across localhost ports", async () => {
   const context = await setup();
+  const visibilityChanges: boolean[] = [];
+  context.inspector.addEventListener(
+    "cpk-inspector-visibility-change",
+    (event) => {
+      visibilityChanges.push(
+        (event as CustomEvent<{ visible: boolean }>).detail.visible,
+      );
+    },
+  );
   await openHud(context.inspector);
 
   const action = requireElement(
@@ -1092,12 +1101,21 @@ test("the notification HUD hides the Inspector for a day across localhost ports"
   const clickedAt = Date.now();
   await click(context.inspector, action);
   expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(visibilityChanges.at(-1)).toBe(false);
   expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
   expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + DAY_MS);
   expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + DAY_MS);
 
   context.changePort();
+  const dispatch = vi.spyOn(WebInspectorElement.prototype, "dispatchEvent");
   const otherPort = await context.remount();
+  expect(
+    dispatch.mock.calls.some(
+      ([event]) =>
+        event.type === "cpk-inspector-visibility-change" &&
+        (event as CustomEvent<{ visible: boolean }>).detail.visible === false,
+    ),
+  ).toBe(true);
   expect(root(otherPort).querySelector(".console-button")).toBeNull();
   expect(root(otherPort).querySelector(".inspector-window")).toBeNull();
 });
@@ -1124,6 +1142,15 @@ test("a host dismissal fully tears down an open docked Inspector", async () => {
 
 test("the launcher returns automatically when a dismissal expires", async () => {
   const context = await setup();
+  const visibilityChanges: boolean[] = [];
+  context.inspector.addEventListener(
+    "cpk-inspector-visibility-change",
+    (event) => {
+      visibilityChanges.push(
+        (event as CustomEvent<{ visible: boolean }>).detail.visible,
+      );
+    },
+  );
   await openHud(context.inspector);
   const action = requireElement(
     root(context.inspector).querySelector<HTMLButtonElement>(
@@ -1136,6 +1163,7 @@ test("the launcher returns automatically when a dismissal expires", async () => 
   action.click();
   await context.inspector.updateComplete;
   expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(visibilityChanges.at(-1)).toBe(false);
 
   await vi.advanceTimersByTimeAsync(DAY_MS + 50);
   await context.inspector.updateComplete;
@@ -1143,10 +1171,20 @@ test("the launcher returns automatically when a dismissal expires", async () => 
   expect(
     root(context.inspector).querySelector(".console-button"),
   ).not.toBeNull();
+  expect(visibilityChanges).toEqual([false, true]);
 });
 
 test("Settings offers the longer one-week dismissal", async () => {
   const context = await setup({ persistedMenu: "threads" });
+  const visibilityChanges: boolean[] = [];
+  context.inspector.addEventListener(
+    "cpk-inspector-visibility-change",
+    (event) => {
+      visibilityChanges.push(
+        (event as CustomEvent<{ visible: boolean }>).detail.visible,
+      );
+    },
+  );
   await click(context.inspector, launcherButton(context.inspector));
   await click(
     context.inspector,
@@ -1173,6 +1211,7 @@ test("Settings offers the longer one-week dismissal", async () => {
   const clickedAt = Date.now();
   await click(context.inspector, action);
   expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(visibilityChanges.at(-1)).toBe(false);
   expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
   expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + WEEK_MS);
   expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + WEEK_MS);

@@ -358,7 +358,6 @@ Import from `@copilotkit/react-core/v2`. The recommended root provider -- a comp
   runtimeUrl?: string
   headers?: Record<string, string>
   credentials?: RequestCredentials
-  publicLicenseKey?: string      // deprecated alias: publicApiKey
   properties?: Record<string, unknown>
   agents__unsafe_dev_only?: Record<string, AbstractAgent>
   selfManagedAgents?: Record<string, AbstractAgent>

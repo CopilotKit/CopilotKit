@@ -2,6 +2,7 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
+import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "../use-render-tool";
 import type { RenderToolProps } from "../use-render-tool";
 import { useCopilotKit } from "../../context";
@@ -51,6 +52,27 @@ function createMockCore(
   };
 
   return core;
+}
+
+/**
+ * Paints a registered renderer entry the way the chat would — as a component,
+ * at `complete` status — and returns the text it produced.
+ */
+function paintCompleted(
+  renderer: ReactToolCallRenderer,
+  args: Record<string, unknown>,
+): string {
+  const Registered = renderer.render as React.FC<Record<string, unknown>>;
+  const ui = render(
+    <Registered
+      name={renderer.name}
+      toolCallId="tc-1"
+      args={args}
+      status={ToolCallStatus.Complete}
+      result="done"
+    />,
+  );
+  return ui.container.textContent ?? "";
 }
 
 describe("useRenderTool", () => {
@@ -234,6 +256,60 @@ describe("useRenderTool", () => {
     expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(2);
   });
 
+  it("PINS the limitation: a non-serialisable dep can never re-register", () => {
+    // `useRenderTool` compares deps with `JSON.stringify(extraDeps)` (the last
+    // entry of its effect's dependency array), so a function / Map / Set / class
+    // instance with private fields collapses to a CONSTANT and cannot trigger
+    // re-registration however often its identity changes. `use-frontend-tool.tsx`
+    // has the same comparator and the same edge.
+    //
+    // This records a documented sharp edge, NOT behaviour worth keeping. It is
+    // pinned so that changing the comparator (e.g. to reference equality) fails
+    // loudly here and forces the hook's JSDoc — which tells callers to pass what
+    // their render closes over in `deps` — to be corrected along with it. Do not
+    // read this test as a guarantee to preserve.
+    const core = createMockCore();
+    mockUseCopilotKit.mockReturnValue({ copilotkit: core });
+
+    const Harness: React.FC<{ label: string }> = ({ label }) => {
+      useRenderTool(
+        {
+          name: "searchDocs",
+          parameters: z.object({ query: z.string() }),
+          render: () => <div>{label}</div>,
+        },
+        // A FRESH function identity on every render. `JSON.stringify` flattens
+        // it to the constant `"[null]"`, so the effect never sees it change.
+        [() => label],
+      );
+      return null;
+    };
+
+    const ui = render(<Harness label="before" />);
+    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
+    const registeredBefore = core.renderToolCalls.find(
+      (item) => item.name === "searchDocs",
+    )!.render;
+
+    ui.rerender(<Harness label="after" />);
+
+    // No second registration, and the entry still holds the FIRST closure…
+    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
+    expect(
+      core.renderToolCalls.find((item) => item.name === "searchDocs")!.render,
+    ).toBe(registeredBefore);
+
+    // …which is the consequence that actually bites: the chat keeps painting the
+    // stale label. Compare "re-registers when deps change" above, where a
+    // serialisable dep does re-register.
+    expect(
+      paintCompleted(
+        core.renderToolCalls.find((item) => item.name === "searchDocs")!,
+        { query: "invoices" },
+      ),
+    ).toBe("before");
+  });
+
   it("does not remove renderer on unmount", () => {
     const core = createMockCore();
     mockUseCopilotKit.mockReturnValue({ copilotkit: core });
@@ -260,5 +336,89 @@ describe("useRenderTool", () => {
     expect(
       core.renderToolCalls.find((item) => item.name === "searchDocs"),
     ).toBeDefined();
+  });
+
+  describe("what a render may return", () => {
+    // `render` is typed `=> React.ReactElement | null`, so an author can choose
+    // to draw nothing for a tool call. Both directions are asserted, because a
+    // one-directional test would still pass if the element path had broken.
+
+    it("registers a render that returns null, and paints nothing", () => {
+      const core = createMockCore();
+      mockUseCopilotKit.mockReturnValue({ copilotkit: core });
+
+      const silentRender = vi.fn(
+        (_props: RenderToolProps<z.ZodObject<{ query: z.ZodString }>>) => null,
+      );
+
+      const Harness: React.FC = () => {
+        useRenderTool(
+          {
+            name: "silentTool",
+            parameters: z.object({ query: z.string() }),
+            render: silentRender,
+          },
+          [],
+        );
+        return null;
+      };
+
+      render(<Harness />);
+
+      const renderer = core.renderToolCalls.find(
+        (item) => item.name === "silentTool",
+      );
+      expect(renderer).toBeDefined();
+      expect(paintCompleted(renderer!, { query: "invoices" })).toBe("");
+      // Nothing was painted BECAUSE the render ran and chose null, not because
+      // the registration never reached it.
+      expect(silentRender).toHaveBeenCalledTimes(1);
+    });
+
+    it("still registers a render that returns an element, and paints it", () => {
+      const core = createMockCore();
+      mockUseCopilotKit.mockReturnValue({ copilotkit: core });
+
+      const Harness: React.FC = () => {
+        useRenderTool(
+          {
+            name: "loudTool",
+            parameters: z.object({ query: z.string() }),
+            render: ({ parameters }) => <div>found {parameters.query}</div>,
+          },
+          [],
+        );
+        return null;
+      };
+
+      render(<Harness />);
+
+      const renderer = core.renderToolCalls.find(
+        (item) => item.name === "loudTool",
+      );
+      expect(renderer).toBeDefined();
+      expect(paintCompleted(renderer!, { query: "invoices" })).toBe(
+        "found invoices",
+      );
+    });
+
+    it("registers a wildcard render that returns null, and paints nothing", () => {
+      const core = createMockCore();
+      mockUseCopilotKit.mockReturnValue({ copilotkit: core });
+
+      const silentWildcard = vi.fn(() => null);
+
+      const Harness: React.FC = () => {
+        useRenderTool({ name: "*", render: silentWildcard }, []);
+        return null;
+      };
+
+      render(<Harness />);
+
+      const renderer = core.renderToolCalls.find((item) => item.name === "*");
+      expect(renderer).toBeDefined();
+      expect(paintCompleted(renderer!, { anything: "goes" })).toBe("");
+      expect(silentWildcard).toHaveBeenCalledTimes(1);
+    });
   });
 });
