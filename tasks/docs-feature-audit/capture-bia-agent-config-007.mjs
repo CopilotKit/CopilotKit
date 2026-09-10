@@ -1,4 +1,4 @@
-import playwright from "/Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/built-in-agent/node_modules/playwright/index.js";
+import playwright from "../../showcase/integrations/built-in-agent/node_modules/playwright/index.js";
 const { chromium } = playwright;
 
 const captured = [];
