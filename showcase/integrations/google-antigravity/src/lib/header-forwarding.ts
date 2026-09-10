@@ -1,13 +1,18 @@
 /**
- * Header-forwarding helpers for ADK's CopilotKit routes.
+ * Header-forwarding helpers for google-antigravity's CopilotKit routes.
  *
- * The ADK Next.js runtime fronts a separate Python agent_server which talks
- * to Gemini. To make `x-aimock-context` (and any other `x-*` request-scope
- * headers) reach aimock, we have to convey the headers across two hops:
+ * The google-antigravity Next.js runtime fronts a separate Python
+ * agent_server whose AntigravityAgent instances run a Go harness subprocess
+ * that makes the actual model call through an in-process OpenAI-compatible
+ * shim. To make `x-aimock-context` (and any other `x-*` request-scope
+ * headers) reach aimock, we have to convey the headers across hops:
  *
  *   1. Browser  →  Next.js /api/copilotkit*  (extraHTTPHeaders in Playwright)
  *   2. Next.js  →  Python agent_server  (THIS layer)
- *   3. Python   →  Gemini (httpx + aiohttp event hooks in _header_forwarding.py)
+ *   3. Python   →  the model call (httpx + aiohttp event hooks in
+ *                  _header_forwarding.py; the Go harness makes this call
+ *                  itself, so per-request headers cannot cross that hop —
+ *                  see PARITY_NOTES.md)
  *
  * Hop 2 is the conveyance the `HttpAgent` instances need: their static
  * `headers` config is the only thing `requestInit` sends on the outbound
@@ -38,12 +43,13 @@ export function extractForwardedHeaders(
     }
   });
 
-  // CVDIAG instrumentation: light up the Node inbound hop. Every ADK
-  // copilotkit-* route funnels through this helper before building its
-  // HttpAgent, so this is the single Node-side observation point for the
-  // x-aimock-context conveyance. We log presence (never the full value)
-  // and append this layer's breadcrumb tag to x-diag-hops on the OUTBOUND
-  // header set so the Python middleware / httpx hook can extend the chain.
+  // CVDIAG instrumentation: light up the Node inbound hop. Every
+  // google-antigravity copilotkit-* route funnels through this helper before
+  // building its HttpAgent, so this is the single Node-side observation
+  // point for the x-aimock-context conveyance. We log presence (never the
+  // full value) and append this layer's breadcrumb tag to x-diag-hops on
+  // the OUTBOUND header set so the Python middleware / httpx hook can
+  // extend the chain.
   const slug = out["x-aimock-context"];
   const runId = out["x-diag-run-id"];
   const testId = out["x-test-id"];
@@ -54,13 +60,13 @@ export function extractForwardedHeaders(
   // byte-identical to pre-instrumentation behavior.
   const hasDiagHeader = typeof runId === "string" || typeof slug === "string";
   if (hasDiagHeader) {
-    const HOP_TAG = "route-google-adk";
+    const HOP_TAG = "route-google-antigravity";
     const prevHops = out["x-diag-hops"] ?? "";
     out["x-diag-hops"] = prevHops ? `${prevHops},${HOP_TAG}` : HOP_TAG;
   }
   // eslint-disable-next-line no-console
   console.log(
-    `CVDIAG component=route-google-adk boundary=inbound ` +
+    `CVDIAG component=route-google-antigravity boundary=inbound ` +
       `run_id=${runId ?? "none"} slug=${present ? slug : "MISSING"} ` +
       `header_present=${present} ` +
       `header_value_prefix=${present ? slug.slice(0, 12) : ""} ` +
