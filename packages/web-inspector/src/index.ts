@@ -8155,7 +8155,18 @@ export class WebInspectorElement extends LitElement {
     event?: Event,
     recopy = false,
   ): Promise<void> => {
-    const service = this.getHomeFeaturePromptTarget("threads");
+    // The Learning tile, not the Threads one. This pane borrowed the Threads
+    // target, so its button copied a Threads prompt and announced itself as
+    // "Threads setup prompt copied" under a Learning heading (OSS-1151).
+    //
+    // Learning does not need the Threads feature first. A runtime mounted
+    // `mode: "single-route"` serves no thread route at all and still binds
+    // Containers, because the binding happens server-side while a run starts;
+    // and `learningOn` reads the `memory` tile independently of `threadsOn`.
+    // `add-learning` inspects its own prerequisites and refuses through
+    // `feature/stop` when one is missing, which is why the route decides that
+    // rather than this pane.
+    const service = this.getHomeFeaturePromptTarget("memory");
     if (!service || !this.core?.runtimeUrl) return;
     const request = ++this.learningSetupCopyRequest;
     const copied = await this.copyFeaturePromptToClipboard(
@@ -18402,7 +18413,7 @@ export class WebInspectorElement extends LitElement {
         videoTitle: "CopilotKit Learning overview",
         outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
         setupPrompt: {
-          serviceId: "threads",
+          serviceId: "memory",
           copyState: this.learningPromptCopyState,
           onClick: (event) => void this.handleLearningSetupCopy(event),
         },
@@ -18420,7 +18431,7 @@ export class WebInspectorElement extends LitElement {
         .copyState=${this.learningPromptCopyState}
         .recopyState=${this.learningPromptRecopyState}
         .setupPrompt=${createFeatureOnboardingPrompt(
-          "threads",
+          "memory",
           this.getOnboardingRunId(),
         )}
         @learning-retry=${() =>
