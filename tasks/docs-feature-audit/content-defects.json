@@ -412,8 +412,8 @@
         }
       ],
       "root_cause": "A LangGraph-oriented context relay was reused in the Built-in Agent demo even though the Built-in Agent route consumes provider properties. The page comments also describe a Python middleware that does not exist in this in-process runtime.",
-      "impact": "Changing the visible configuration controls does not reach the factory field it actually reads, so the showcased behavior and the selected public guide contradict each other.",
-      "validation_needed": "Make the demo use the same provider-properties contract the guide documents, or change the factory to consume context deliberately. Add a local fixture-backed assertion that changing each control changes the outbound factory prompt, then recheck browser and Markdown guide output."
+      "impact": "Static source confirms that the showcased controls and factory use different input channels, so the selected public guide and demo wiring contradict one another. This audit has not yet observed a runtime request or response for this cell.",
+      "validation_needed": "Make the demo use the same provider-properties contract the guide documents, or change the factory to consume context deliberately. Add a local fixture-backed assertion that changing each control changes the outbound factory prompt, then recheck browser and Markdown guide output before claiming observed behavior."
     },
     {
       "id": "CONTENT-GEN-008",
@@ -524,6 +524,11 @@
         },
         {
           "path": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/fixed-schema.mdx",
+          "line": 23,
+          "detail": "The reader-facing delivery taxonomy names only Spring AI and .NET for schema-inline, omitting the selected Built-in Agent despite its schema-inline manifest contract."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/fixed-schema.mdx",
           "line": 249,
           "detail": "The selected schema-inline branch requests backend-schema-json-load."
         },
@@ -543,9 +548,203 @@
           "detail": "The expanded local production response audit found the scoped HTML route emits a Missing snippet alert for built-in-agent::a2ui-fixed-schema/backend-schema-json-load; both final representations were otherwise 200."
         }
       ],
-      "root_cause": "The generic schema-inline A2UI guide assumes each selected integration publishes a backend-schema-json-load region. Built-in Agent uses a different fixed-schema implementation but does not supply a compatible region or a framework override.",
-      "impact": "The supported Built-in Agent A2UI guide visibly reports a missing source excerpt instead of presenting a copyable native implementation. The Markdown route succeeds, so representation status alone masks the documentation failure.",
+      "root_cause": "The generic schema-inline A2UI guide assumes each selected integration publishes a backend-schema-json-load region and its delivery taxonomy does not account for Built-in Agent. Built-in Agent uses a different fixed-schema implementation but does not supply a compatible region or a framework override.",
+      "impact": "The supported Built-in Agent A2UI guide visibly reports a missing source excerpt instead of presenting a copyable native implementation, while its opening classification also leaves readers without a stated Built-in Agent path. The Markdown route succeeds, so representation status alone masks the documentation failure.",
       "validation_needed": "Add a Built-in-Agent-appropriate region or a scoped guide branch that describes its actual fixed-schema factory, then assert no Missing snippet alert and useful HTML/Markdown source for the scoped route. Run its isolated AIMock cell separately."
+    },
+    {
+      "id": "CONTENT-GEN-011",
+      "status": "confirmed",
+      "severity": "low",
+      "area": "human-readable guide prose",
+      "feature": "LangGraph interactive frontend tools",
+      "affected_contexts": [
+        "react/langgraph-python/hitl-in-chat",
+        "react/langgraph-typescript/hitl-in-chat"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/langgraph/generative-ui/your-components/interactive.mdx",
+          "line": 19,
+          "detail": "The overview sentence contains the malformed phrase 'utilized for to let', obscuring the three stated use cases."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/langgraph/generative-ui/your-components/interactive.mdx",
+          "line": 45,
+          "detail": "The walkthrough introduces 'a approval flow' rather than an approval flow."
+        }
+      ],
+      "root_cause": "The shared LangGraph interactive guide has unedited prose in the reader-facing introduction and setup transition.",
+      "impact": "The guide is still understandable, but the first explanation for this supported feature reads as unfinished and weakens the intended human-friendly documentation standard.",
+      "validation_needed": "Edit the two sentences and confirm the LangGraph Python and TypeScript HTML/Markdown pages retain their shared source and feature routing."
+    },
+    {
+      "id": "CONTENT-GEN-012",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "setup instruction minimality",
+      "feature": "Google ADK and AWS Strands quickstarts",
+      "affected_contexts": [
+        "react/google-adk/quickstart",
+        "react/strands/quickstart",
+        "react/built-in-agent/quickstart"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/adk/quickstart.mdx",
+          "line": 227,
+          "detail": "The v2 quickstart installs @copilotkit/react-ui alongside react-core, runtime, and ag-ui/client."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/adk/quickstart.mdx",
+          "line": 288,
+          "detail": "Its provider example imports CopilotKit and styles only from @copilotkit/react-core/v2."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/aws-strands/quickstart.mdx",
+          "line": 286,
+          "detail": "The v2 Strands quickstart repeats the @copilotkit/react-ui installation."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/aws-strands/quickstart.mdx",
+          "line": 347,
+          "detail": "Its provider and stylesheet imports also use @copilotkit/react-core/v2 only."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx",
+          "line": 332,
+          "detail": "The parallel current v2 quickstart explicitly states that @copilotkit/react-ui is not needed when using CopilotKit and CopilotSidebar from react-core/v2."
+        }
+      ],
+      "root_cause": "The ADK and Strands install instructions include @copilotkit/react-ui even though the displayed current v2 provider, component, and stylesheet imports use react-core/v2 only.",
+      "impact": "Readers follow an avoidable package-install step before using the selected feature-guide dependencies. This is a documentation-minimality issue only; the audit does not claim the package itself is nonworking or unsupported.",
+      "validation_needed": "When the adjacent setup instructions are next changed, remove @copilotkit/react-ui if no omitted step requires it, retain the required runtime and AG-UI client packages, then run the scoped quickstart doctests/build and confirm the generated instructions in HTML and Markdown."
+    },
+    {
+      "id": "CONTENT-GEN-013",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "local Showcase guide/example availability",
+      "feature": "Google ADK React frontend startup",
+      "affected_contexts": [
+        "react/google-adk/quickstart",
+        "react/google-adk/all manifest-wired feature guides"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/integrations/google-adk/src/app/api/copilotkit-auth/route.ts",
+          "line": 1,
+          "detail": "The integration defines the exact /api/copilotkit-auth App Router endpoint."
+        },
+        {
+          "path": "showcase/integrations/google-adk/src/app/api/copilotkit-auth/[[...slug]]/route.ts",
+          "line": 1,
+          "detail": "The same integration also defines an optional catch-all endpoint under the identical base path."
+        },
+        {
+          "path": "showcase/integrations/google-adk/manifest.yaml",
+          "line": 464,
+          "detail": "The manifest binds the root auth route into the auth demo, so the conflicting route tree is part of the committed Showcase integration."
+        }
+      ],
+      "local_execution_evidence": {
+        "environment": "Baseline source, Node v22.16.0, installed Next 15.5.19; no hosted service, provider key, or source modification used.",
+        "command": "from showcase/integrations/google-adk: env … AGENT_URL=http://127.0.0.1:8001 ./node_modules/.bin/next dev --turbopack --hostname 127.0.0.1 --port 3103",
+        "result": "The process exited before listening because Next rejects equally specific routes /api/copilotkit-auth and /api/copilotkit-auth[[...slug]]. The agent service at port 8001 was independently healthy.",
+        "provenance": "Observed by the local feature audit on the unchanged baseline; its Google ADK host-runtime report is pending."
+      },
+      "root_cause": "Next App Router cannot register an exact route and an optional catch-all route with the same base-path specificity. Both are committed beneath the Google ADK frontend API tree.",
+      "impact": "The Google ADK frontend cannot start locally, so every Google ADK Showcase demo and corresponding guide that promises a runnable local example is unavailable before the page-specific feature behavior can be exercised. This is an observed launch failure, distinct from the source-only mismatch in CONTENT-GEN-007.",
+      "validation_needed": "Keep one unambiguous auth route shape, start the Google ADK frontend against the local agent, then run the manifest-wired cells with the local AIMock harness and recheck the affected guide routes."
+    },
+    {
+      "id": "CONTENT-GEN-014",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "quickstart thread authorization",
+      "feature": "LangGraph Intelligence runtime setup",
+      "affected_contexts": [
+        "react/langgraph-python/quickstart",
+        "react/langgraph-typescript/quickstart",
+        "react/google-adk/quickstart",
+        "react/strands/quickstart"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx",
+          "line": 376,
+          "detail": "The LangSmith sample says thread identity makes histories per-user, then derives that identity directly from x-user-id and x-user-name request headers."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx",
+          "line": 413,
+          "detail": "The FastAPI sample repeats the same client-controlled identity derivation."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/adk/quickstart.mdx",
+          "line": 251,
+          "detail": "The ADK quickstart repeats the same per-user claim and derives identifyUser directly from x-user-id and x-user-name request headers."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/aws-strands/quickstart.mdx",
+          "line": 310,
+          "detail": "The Strands quickstart repeats the same per-user claim and derives identifyUser directly from x-user-id and x-user-name request headers."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/auth.mdx",
+          "line": 480,
+          "detail": "The shared authentication guide demonstrates resolving identity from a server-verified session before identifyUser returns it."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/auth.mdx",
+          "line": 544,
+          "detail": "The same guide requires an ownership guard for Intelligence routes that are not platform user-scoped."
+        }
+      ],
+      "root_cause": "The quickstarts use client-supplied headers as an identity shortcut while presenting the result as per-user thread isolation. They neither mark the shortcut as single-user/local-only nor supply server-side authentication and the required guards for unscoped routes.",
+      "impact": "A reader who deploys these samples without an independent upstream identity guard allows a client to choose a user id and thus receives no actual per-user isolation from the shown callback. The guides make this unsafe interpretation likely by presenting it as the isolation mechanism.",
+      "validation_needed": "Replace the header shortcut with a server-verified session example (or state it is strictly local single-user), add the required onRequest and ownership guards or link to the exact complete auth setup, then verify all four affected quickstart representations and a two-user local authorization probe."
+    },
+    {
+      "id": "CONTENT-GEN-015",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "quickstart connection troubleshooting",
+      "feature": "Google ADK local agent URL",
+      "affected_contexts": [
+        "react/google-adk/quickstart",
+        "react/strands/quickstart"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/adk/quickstart.mdx",
+          "line": 127,
+          "detail": "The starter troubleshooting tells a reader to try 0.0.0.0 instead of localhost for a connection."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/adk/quickstart.mdx",
+          "line": 210,
+          "detail": "The example correctly uses localhost as the server bind host and the runtime target is localhost:8000."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/adk/quickstart.mdx",
+          "line": 397,
+          "detail": "The bring-your-own troubleshooting repeats 0.0.0.0 as a suggested client connection target."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/aws-strands/quickstart.mdx",
+          "line": 462,
+          "detail": "The Strands quickstart also recommends 0.0.0.0 as a replacement for a localhost client target."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/quickstart.mdx",
+          "line": 219,
+          "detail": "The Built-in Agent quickstart likewise recommends 0.0.0.0 as a replacement for a localhost client target."
+        }
+      ],
+      "root_cause": "The guide confuses a wildcard server bind address with an address a client should connect to.",
+      "impact": "Readers troubleshooting a failed local connection can replace the working loopback target with a non-routable wildcard target and make the failure harder to diagnose.",
+      "validation_needed": "Remove 0.0.0.0 as a client target, explain it only as an optional server bind address if needed, retain valid loopback targets, then recheck both starter and bring-your-own rendered troubleshooting sections."
     }
   ]
 }
