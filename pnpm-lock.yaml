@@ -3141,6 +3141,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: '>=0.57.0'
         version: 0.57.0
+      '@cfworker/json-schema':
+        specifier: ^4.1.1
+        version: 4.1.1
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
