@@ -8,6 +8,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DocsSetupWizard } from "@/components/docs-setup-wizard";
+import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 import { MapIntro } from "@/components/docs-map-parts";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
@@ -141,18 +142,7 @@ function DocsOverview() {
           </div>
         </section>
 
-        {/* Placeholder for a product walkthrough video: no such recording
-            exists yet, and the only footage on hand today is per-feature
-            clips and a partner-page banner, neither of which belongs here.
-            Kept deliberately inert — no poster image, no play button — so
-            nobody mistakes it for a broken player. Swap this block for a
-            real embed once a walkthrough is recorded. */}
-        <div
-          className="mt-8 flex aspect-video w-full items-center justify-center border border-dashed border-[var(--border)] text-sm text-[var(--text-muted)] shell-docs-radius-surface"
-          data-testid="video-placeholder"
-        >
-          Product walkthrough video coming soon
-        </div>
+        <DocsVideoCarousel />
 
         <div className="pt-8">
           <MapIntro

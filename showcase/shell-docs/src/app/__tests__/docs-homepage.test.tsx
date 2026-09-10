@@ -15,9 +15,18 @@ import { MapIntro } from "@/components/docs-map-parts";
 // else's test's job and because it currently pulls in a sibling component
 // that another task is still writing.
 const docsSetupWizardSpy = vi.hoisted(() => vi.fn(() => null));
+const docsVideoCarouselSpy = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock("@/components/docs-setup-wizard", () => ({
   DocsSetupWizard: docsSetupWizardSpy,
+}));
+
+// Mounting the real carousel (three iframes' worth of tab/panel markup) is
+// someone else's test's job — see docs-video-carousel.test.tsx. Here we only
+// need to know the homepage route renders it in place of the old
+// placeholder.
+vi.mock("@/components/docs-video-carousel", () => ({
+  DocsVideoCarousel: docsVideoCarouselSpy,
 }));
 
 import DocsPage from "../[[...slug]]/page";
@@ -118,16 +127,21 @@ describe("the docs homepage route", () => {
     expect(allText).not.toContain("Already on CopilotKit");
   });
 
-  it("renders the video placeholder, marked as a placeholder", async () => {
+  // The route used to render a dashed placeholder box whose text was
+  // "Product walkthrough video coming soon" (see git history on
+  // page.tsx) — a real string this test could fail against, not a guard
+  // against wording that was never there. The video carousel replaces it.
+  it("no longer renders the video placeholder wording", async () => {
     const elements = await renderOverview();
 
-    const placeholder = elements.find(
-      (el) => el.props["data-testid"] === "video-placeholder",
-    );
-    expect(placeholder).toBeTruthy();
-    expect(placeholder && textOf(placeholder).toLowerCase()).toContain(
-      "coming soon",
-    );
+    const allText = elements.map((el) => textOf(el)).join(" | ");
+    expect(allText.toLowerCase()).not.toContain("coming soon");
+  });
+
+  it("renders the video carousel", async () => {
+    const elements = await renderOverview();
+
+    expect(elements.some((el) => el.type === docsVideoCarouselSpy)).toBe(true);
   });
 
   it("renders the wizard intro heading and body", async () => {
