@@ -6,14 +6,18 @@ const RUNTIME_URL = "https://runtime.example.com/api/copilotkit";
 
 interface SetupOptions {
   capability?: boolean;
+  runtimeUrl?: string;
   transport?: "rest" | "single";
+  windowOrigin?: string;
 }
 
 /** Connects a core to a mocked runtime and returns isolated cleanup. */
 async function setup(options: SetupOptions = {}) {
   const originalFetch = globalThis.fetch;
   const originalWindow = (globalThis as { window?: unknown }).window;
-  (globalThis as { window?: unknown }).window = {};
+  (globalThis as { window?: unknown }).window = options.windowOrigin
+    ? { location: { origin: options.windowOrigin } }
+    : {};
 
   const fetchMock = vi.fn().mockImplementation(() =>
     Promise.resolve(
@@ -51,7 +55,7 @@ async function setup(options: SetupOptions = {}) {
   globalThis.fetch = fetchMock;
 
   const core = new CopilotKitCore({
-    runtimeUrl: RUNTIME_URL,
+    runtimeUrl: options.runtimeUrl ?? RUNTIME_URL,
     runtimeTransport: options.transport ?? "single",
   });
   await vi.waitFor(() => {
@@ -75,6 +79,33 @@ async function setup(options: SetupOptions = {}) {
     },
   };
 }
+
+test("single transport supports a same-origin relative runtime URL", async () => {
+  const context = await setup({
+    capability: true,
+    runtimeUrl: "/api/copilotkit",
+    windowOrigin: "https://app.example",
+  });
+
+  try {
+    context.fetchMock.mockClear();
+    await context.core.ɵruntimeFetch("/api/copilotkit/threads", {
+      method: "GET",
+    });
+
+    const [url, init] = context.fetchMock.mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit,
+    ];
+    expect(url).toBe("/api/copilotkit");
+    expect(JSON.parse(init.body as string)).toEqual({
+      method: "resource/request",
+      params: { path: "/threads", httpMethod: "GET" },
+    });
+  } finally {
+    context.teardown();
+  }
+});
 
 test("single transport sends every Intelligence resource operation to one URL", async () => {
   const context = await setup({ capability: true });
