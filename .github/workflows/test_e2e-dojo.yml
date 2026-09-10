@@ -186,6 +186,14 @@ jobs:
         if: steps.should-run.outputs.skip != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # ag-ui stores its e2e image fixtures in Git LFS, and the dojo's
+          # suites assert the fixture is materialized rather than reading a
+          # pointer as if it were an image. Without this the pointer arrives
+          # verbatim and every langgraph suite fails on
+          # `apps/dojo/e2e/fixtures/test-image.png is a Git LFS pointer`.
+          # Upstream's own dojo-e2e workflow, which this one mirrors, sets it
+          # on both of its checkouts. The whole payload is two files, ~2.4 KB.
+          lfs: true
           repository: ag-ui-protocol/ag-ui
           path: ag-ui
           ref: main
