@@ -1,0 +1,312 @@
+{
+  "audit": {
+    "base_commit": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
+    "branch": "tyler/docs-feature-audit",
+    "scope": {
+      "frontends": ["react"],
+      "integrations": [
+        "langgraph-python",
+        "langgraph-typescript",
+        "google-adk",
+        "strands",
+        "built-in-agent"
+      ],
+      "state": "in_progress"
+    },
+    "evidence_policy": "Static source findings are not runtime qualification. Local AIMock behavior is recorded by the execution audit when available.",
+    "latest_stable_snapshot": {
+      "observed_at": "2026-09-10",
+      "source": "public npm and PyPI registry dist-tags/releases, read-only",
+      "packages": {
+        "@copilotkit/react-core": "1.71.0",
+        "@langchain/langgraph": "1.4.14",
+        "@ag-ui/client": "0.0.59",
+        "copilotkit": "0.1.96",
+        "langgraph": "1.2.11",
+        "google-adk": "2.8.0",
+        "strands-agents": "1.55.1"
+      }
+    }
+  },
+  "defects": [
+    {
+      "id": "CONTENT-GEN-001",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "HTML/Markdown feature-availability parity",
+      "feature": "manifest-quarantined feature guides",
+      "affected_contexts": [
+        "react/langgraph-python/gen-ui-interrupt",
+        "react/langgraph-python/interrupt-headless",
+        "react/langgraph-typescript/gen-ui-interrupt",
+        "react/langgraph-typescript/interrupt-headless",
+        "react/google-adk/interrupt-headless",
+        "react/strands/shared-state-streaming",
+        "react/strands/gen-ui-interrupt",
+        "react/strands/interrupt-headless",
+        "react/built-in-agent/shared-state-streaming",
+        "react/built-in-agent/gen-ui-interrupt",
+        "react/built-in-agent/interrupt-headless"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/components/snippet.tsx",
+          "line": 374,
+          "detail": "Browser rendering reads catalog status and replaces an unsupported snippet with a not-supported notice."
+        },
+        {
+          "path": "showcase/shell-docs/src/lib/llm-text.ts",
+          "line": 515,
+          "detail": "Markdown framework selection only searches bundled demos; it never reads catalog status."
+        },
+        {
+          "path": "showcase/shell-docs/src/lib/llm-text.ts",
+          "line": 608,
+          "detail": "Markdown then emits the selected demo region as code."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/human-in-the-loop/useInterrupt.mdx",
+          "line": 6,
+          "detail": "Shared guide selects the quarantined gen-ui-interrupt cell."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/human-in-the-loop/headless.mdx",
+          "line": 6,
+          "detail": "Shared guide selects the quarantined interrupt-headless cell."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/state-rendering.mdx",
+          "line": 5,
+          "detail": "Shared guide selects the quarantined shared-state-streaming cell."
+        },
+        {
+          "path": "showcase/integrations/langgraph-python/manifest.yaml",
+          "line": 37,
+          "detail": "Quarantines both interrupt feature IDs while retaining their demo entries."
+        },
+        {
+          "path": "showcase/integrations/strands/manifest.yaml",
+          "line": 25,
+          "detail": "Quarantines state streaming and both interrupt feature IDs while demo entries remain."
+        },
+        {
+          "path": "showcase/integrations/built-in-agent/manifest.yaml",
+          "line": 75,
+          "detail": "Quarantines state streaming and both interrupt feature IDs while demo entries remain."
+        }
+      ],
+      "root_cause": "The browser component treats the generated catalog as the availability authority, but the raw Markdown/LLM renderer only searches demo-content. A quarantined feature with source bundled therefore appears unavailable in HTML and as runnable code in Markdown; one without a local demo can fall through to another framework's code.",
+      "impact": "The public Markdown endpoint and llms-full feed can tell a reader to implement a feature the corresponding browser guide explicitly marks unsupported, and can attribute another framework's example to the selected framework.",
+      "validation_needed": "After repair, render each affected framework URL in HTML and .md/.mdx, asserting the same availability notice and that no fallback framework code is emitted. Run generator, shell-docs typecheck/build, route probe, and local AIMock qualification separately."
+    },
+    {
+      "id": "CONTENT-GEN-002",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "guide source resolution",
+      "feature": "Google ADK display-only generative UI and in-chat HITL",
+      "affected_contexts": [
+        "react/google-adk/gen-ui-tool-based",
+        "react/google-adk/hitl-in-chat"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/integrations/google-adk/docs-links.json",
+          "line": 52,
+          "detail": "The supported display-only feature points to /generative-ui/your-components/display-only."
+        },
+        {
+          "path": "showcase/integrations/google-adk/docs-links.json",
+          "line": 56,
+          "detail": "The supported in-chat HITL feature points to /generative-ui/your-components/interactive."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/adk",
+          "line": 1,
+          "detail": "The ADK tree contains no matching override files; the root content tree also lacks those two paths."
+        },
+        {
+          "path": "showcase/shell-docs/src/app/[framework]/[[...slug]]/page.tsx",
+          "line": 858,
+          "detail": "Generated routes try root then framework override; with neither source present they render the not-available fallback when another framework owns the topic."
+        }
+      ],
+      "root_cause": "The Google ADK docs-link contract advertises two supported canonical routes but neither route has a root guide nor an ADK override. Other integrations supply overrides for the same feature families, so the framework-scoped resolver cannot serve ADK guidance.",
+      "impact": "Readers following both Google ADK feature links reach a framework-unavailable page instead of setup and source guidance for manifest-wired demos.",
+      "validation_needed": "Add or deliberately remap the source-of-truth guide routes, regenerate docs data, then assert 200 HTML and Markdown output for both /google-adk URLs with ADK-owned snippets. Run their isolated AIMock cells before claiming behavior qualification."
+    },
+    {
+      "id": "CONTENT-GEN-003",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "canonical runnable examples and Markdown parity",
+      "feature": "interactive guides, Built-in Agent frontend tools, and Built-in Agent tool rendering",
+      "affected_contexts": [
+        "react/langgraph-python/hitl-in-chat",
+        "react/langgraph-typescript/hitl-in-chat",
+        "react/strands/hitl-in-chat",
+        "react/built-in-agent/hitl-in-chat",
+        "react/built-in-agent/frontend-tools",
+        "react/built-in-agent/frontend-tools-async",
+        "react/built-in-agent/threadid-frontend-tool-roundtrip",
+        "react/built-in-agent/tool-rendering-default-catchall",
+        "react/built-in-agent/tool-rendering-custom-catchall",
+        "react/built-in-agent/tool-rendering",
+        "react/built-in-agent/tool-rendering-reasoning-chain"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/integrations/langgraph/generative-ui/your-components/interactive.mdx",
+          "line": 6,
+          "detail": "The shared LangGraph guide embeds feature-viewer.copilotkit.ai, including when served to the TypeScript variant."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/snippets/shared/generative-ui/interactive.mdx",
+          "line": 3,
+          "detail": "Strands and Built-in Agent interactive pages inline an IframeSwitcher to the external feature viewer."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/snippets/shared/app-control/frontend-tools.mdx",
+          "line": 3,
+          "detail": "The Built-in Agent authored frontend-tools guide inlines an external feature-viewer iframe."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/snippets/shared/generative-ui/tool-rendering.mdx",
+          "line": 4,
+          "detail": "The Built-in Agent authored tool-rendering guide inlines external viewer demo and code frames."
+        },
+        {
+          "path": "showcase/shell-docs/src/components/content/iframe-switcher.tsx",
+          "line": 26,
+          "detail": "The component renders its supplied URLs as external iframes."
+        },
+        {
+          "path": "showcase/shell-docs/src/lib/llm-text.ts",
+          "line": 17,
+          "detail": "Raw Markdown only has a conversion path for InlineDemo and keeps other JSX tags verbatim, so IframeSwitcher has no equivalent source extraction."
+        }
+      ],
+      "root_cause": "Selected guide sources still use the legacy external Feature Viewer through IframeSwitcher instead of Showcase-owned InlineDemo/source regions. The raw Markdown renderer does not convert IframeSwitcher to a provenance-preserving source excerpt.",
+      "impact": "The browser presents an unqualified external demo/code source rather than the canonical Showcase cell, LangGraph TypeScript inherits a LangGraph viewer target, and Markdown/LLM readers receive JSX rather than runnable source.",
+      "validation_needed": "Replace the selected-guide viewer embeds with the matching Showcase cell and explicit source region where an LLM-readable excerpt is needed. Verify browser and Markdown output per affected framework, then run the corresponding isolated AIMock cells."
+    },
+    {
+      "id": "CONTENT-GEN-004",
+      "status": "confirmed",
+      "severity": "medium",
+      "area": "catalog-to-guide mapping",
+      "feature": "declarative Hashbrown and declarative JSON Render",
+      "affected_contexts": [
+        "react/langgraph-python/declarative-hashbrown",
+        "react/langgraph-python/declarative-json-render",
+        "react/langgraph-typescript/declarative-hashbrown",
+        "react/langgraph-typescript/declarative-json-render",
+        "react/google-adk/declarative-hashbrown",
+        "react/google-adk/declarative-json-render",
+        "react/strands/declarative-hashbrown",
+        "react/strands/declarative-json-render",
+        "react/built-in-agent/declarative-hashbrown",
+        "react/built-in-agent/declarative-json-render"
+      ],
+      "source_evidence": [
+        {
+          "path": "tasks/docs-feature-audit/inventory.json",
+          "line": 1,
+          "detail": "Each selected cell has guide_binding status not-applicable and no projected public route or source candidate."
+        },
+        {
+          "path": "showcase/shared/feature-registry.json",
+          "line": 443,
+          "detail": "The active feature definitions omit canonical shell_docs_path values for these two feature IDs."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/hashbrown.mdx",
+          "line": 5,
+          "detail": "A real guide source already exists and declares the Hashbrown demo cell."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/json-render.mdx",
+          "line": 5,
+          "detail": "A real guide source already exists and declares the JSON Render demo cell."
+        }
+      ],
+      "root_cause": "The public guides and wired demos exist, but their active feature definitions omit the catalog docs contract. Inventory generation therefore cannot bind the ten selected cells to those existing guides or project a feature URL.",
+      "impact": "Readers can reach the pages through navigation but the feature catalog, showcase matrix, and feature-specific documentation links cannot discover or validate them as the guides for the wired feature IDs.",
+      "validation_needed": "Add canonical shell_docs_path values that point to the existing guides, regenerate the inventory, and validate the generated feature links and selected framework HTML/Markdown routes."
+    },
+    {
+      "id": "CONTENT-GEN-005",
+      "status": "candidate",
+      "severity": "medium",
+      "area": "native setup contract and HTML/Markdown parity",
+      "feature": "FrameworkSetup concepts referenced by selected wired/stub feature guides",
+      "affected_contexts": [
+        "react/langgraph-python/a2ui-fixed-schema",
+        "react/langgraph-python/tool-rendering-default-catchall",
+        "react/langgraph-python/tool-rendering-custom-catchall",
+        "react/langgraph-python/tool-rendering",
+        "react/langgraph-python/tool-rendering-reasoning-chain",
+        "react/langgraph-typescript/a2ui-fixed-schema",
+        "react/langgraph-typescript/tool-rendering-default-catchall",
+        "react/langgraph-typescript/tool-rendering-custom-catchall",
+        "react/langgraph-typescript/tool-rendering",
+        "react/langgraph-typescript/tool-rendering-reasoning-chain",
+        "react/google-adk/a2ui-fixed-schema",
+        "react/google-adk/tool-rendering-default-catchall",
+        "react/google-adk/tool-rendering-custom-catchall",
+        "react/google-adk/tool-rendering",
+        "react/strands/headless-simple",
+        "react/strands/headless-complete",
+        "react/strands/a2ui-fixed-schema",
+        "react/strands/tool-rendering-default-catchall",
+        "react/strands/tool-rendering-custom-catchall",
+        "react/strands/tool-rendering",
+        "react/strands/gen-ui-agent",
+        "react/strands/hitl-in-app",
+        "react/strands/shared-state-read-write",
+        "react/strands/shared-state-read",
+        "react/strands/readonly-state-agent-context",
+        "react/strands/subagents",
+        "react/strands/agent-config",
+        "react/built-in-agent/headless-simple",
+        "react/built-in-agent/headless-complete",
+        "react/built-in-agent/a2ui-fixed-schema",
+        "react/built-in-agent/gen-ui-agent",
+        "react/built-in-agent/hitl-in-app",
+        "react/built-in-agent/readonly-state-agent-context",
+        "react/built-in-agent/subagents",
+        "react/built-in-agent/agent-config"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/scripts/bundle-setup-content.ts",
+          "line": 3,
+          "detail": "The setup-content build contract loads package-owned concepts only from integrations/<slug>/docs/setup/<concept>.mdx (or the separate docs-only source)."
+        },
+        {
+          "path": "showcase/shell-docs/src/lib/setup-concept.tsx",
+          "line": 45,
+          "detail": "Browser FrameworkSetup resolves the generated setup bundle and returns null when the selected framework/concept pair is absent."
+        },
+        {
+          "path": "showcase/shell-docs/src/lib/llm-text.ts",
+          "line": 724,
+          "detail": "Markdown resolves the same bundle but emits a setup-skipped HTML comment for every absent concept except channels-agent-setup."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/fixed-schema.mdx",
+          "line": 336,
+          "detail": "The selected A2UI guide requests a2ui-fixed-schema-setup, but no selected integration owns that setup fragment."
+        },
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/tool-rendering.mdx",
+          "line": 116,
+          "detail": "The selected tool-rendering guide requests tool-rendering-setup, but LangGraph Python, LangGraph TypeScript, ADK, and Strands do not own that setup fragment."
+        }
+      ],
+      "root_cause": "Thirty-five selected wired/stub cells resolve MDX that requests a package-owned FrameworkSetup concept unavailable for that integration. This includes A2UI setup for all five agents; tool-rendering setup for LangGraph Python, LangGraph TypeScript, ADK, and Strands; and core setup concepts for Strands and the built-in agent. The browser silently removes those setup blocks while Markdown reports a skipped block. Absence alone does not establish that each integration needs additional backend configuration; the source has no explicit contract separating deliberately empty setup from omitted setup.",
+      "impact": "The two public surfaces describe the same missing setup differently, and reviewers cannot tell from the catalog or guide whether an absent setup block is intentional. Readers may receive no native setup guidance where it is needed, but semantic review of the actual demo/backend contract is required before treating every listed context as a guide failure.",
+      "validation_needed": "For each listed context, compare the routed guide with its declared demo/backend wiring and classify the concept as no-additional-setup, existing guide-owned setup, or missing package-owned setup. Only add fragments where the implementation requires them. Then regenerate setup-content and render HTML and Markdown routes, ensuring any intentionally absent setup is reader-visible rather than silently omitted. Run isolated AIMock cells separately."
+    }
+  ]
+}
