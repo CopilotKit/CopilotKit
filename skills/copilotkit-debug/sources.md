@@ -1,39 +1,26 @@
 # Sources
 
-Files and directories read from CopilotKit/CopilotKit to generate this skill's references.
-Generated: 2026-03-28
+This skill no longer carries a transcribed copy of CopilotKit's error codes, diagnostic
+sequences, or known-issue list. Each of those now has a single authoritative home, and the
+skill points at it instead:
 
-## error-patterns.md
+| Was transcribed here                                                 | Lives at                                                                                      |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Diagnostic survey (versions, runtime mode, transport, `/info`, CORS) | `copilotkit verify` — 11 checks, reported with the URL it probed and where that URL came from |
+| `CopilotKitCoreErrorCode` and the legacy error classes               | The generated API reference, `/reference/core/enums/CopilotKitCoreErrorCode`                  |
+| Symptom-to-cause tables                                              | `/troubleshooting/error-reference` and `/troubleshooting/common-issues`                       |
+| Event-flow tracing                                                   | `/troubleshooting/event-inspector` and `/troubleshooting/debug-mode`                          |
+| A list of known GitHub issues                                        | The issue tracker, searched live                                                              |
 
-- packages/shared/src/utils/errors.ts (CopilotKitErrorCode enum, all legacy v1 error classes: CopilotKitError, CopilotKitMisuseError, CopilotKitVersionMismatchError, CopilotKitApiDiscoveryError, CopilotKitRemoteEndpointDiscoveryError, CopilotKitAgentDiscoveryError, CopilotKitLowLevelError, ResolvedCopilotKitError, ConfigurationError, MissingPublicApiKeyError, UpgradeRequiredError)
-- packages/core/src/core/core.ts (CopilotKitCoreErrorCode enum: runtime_info_fetch_failed, agent_connect_failed, agent_run_failed, tool_argument_parse_failed, tool_handler_failed, tool_not_found, agent_not_found, transcription error codes)
-- packages/shared/src/transcription-errors.ts (TranscriptionErrorCode enum)
-- packages/runtime/src/v2/runtime/intelligence-platform/client.ts (PlatformRequestError, HTTP status codes 404/409/401/500)
-- GitHub issues: #3519, #3510, #3323, #3442, #3170, #3217, #3424, #3426, #3429, #3318, #3410
+Two of those are generated from source, so a copy here could only ever be less accurate. The
+known-issue list was the clearest case for removing rather than refreshing: of the twelve
+issues the previous version cited, nine had been closed, and the entries read as current.
 
-## runtime-debugging.md
+What the skill still asserts, and where it comes from:
 
-- packages/runtime/src/v2/runtime/ (CopilotRuntime, endpoint factories, route definitions, SSE streaming, /info endpoint response shape)
-- packages/runtime/src/v2/runtime/endpoints/ (CORS configuration, Hono middleware, Express middleware)
-- packages/runtime/src/v2/runtime/intelligence-platform/ (CopilotKitIntelligence, IntelligenceAgentRunner, WebSocket URLs)
-- packages/runtime/src/v2/runtime/runner/ (InMemoryAgentRunner, AgentRunner abstract class)
-- packages/react-core/src/v2/ (`CopilotKit` provider props: runtimeUrl, credentials, headers)
-- GitHub issues: #3170, #3425
-
-## agent-debugging.md
-
-- packages/runtime/src/agent/ (BuiltInAgent, resolveModel, model string formats, MCP client configuration)
-- packages/runtime/src/v2/runtime/ (AgentRunner, agent registry, /info endpoint agent discovery)
-- packages/core/src/ (CopilotKitCoreErrorCode, tool registry, onError subscriber)
-- packages/react-core/src/v2/ (useFrontendTool, useAgent, CopilotChat agentId prop)
-- packages/web-inspector/src/ (CopilotKitWebInspector component)
-- GitHub issues: #3323, #3519, #3231, #3456, #3424, #3426, #3198
-
-## quick-workflows.md
-
-- packages/runtime/src/v2/runtime/ (endpoint route structure, /info endpoint, CORS defaults, SSE event flow)
-- packages/runtime/src/agent/ (BuiltInAgent model string format, environment variable conventions)
-- packages/core/src/ (error codes referenced in diagnostic steps)
-- packages/react-core/src/v2/ (`CopilotKit` provider props, useFrontendTool registration, CopilotChat)
-- packages/shared/src/ (TranscriptionErrorCode, transcription service configuration)
-- packages/web-inspector/src/ (CopilotKitWebInspector for escalation)
+- The eleven `verify` checks and their semantics (chaining, `UNKNOWN` never meaning passed,
+  non-zero exit unless every check passed) — the CLI's own `verify` implementation and help
+  text in `CopilotKit/Intelligence`.
+- That `--round-trip` proves the agent runs but not that tools work — it sends no context and
+  asks a question that needs no tools.
+- The `copilotkit-docs` MCP endpoint and the Codex configuration block.

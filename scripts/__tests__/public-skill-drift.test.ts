@@ -196,8 +196,12 @@ describe("public skill drift", () => {
     );
   });
 
+  // Only skills that actually transcribe source carry a package inventory, and
+  // this is the guard that keeps those pointers resolvable. `copilotkit-debug`
+  // left the list when it stopped transcribing: it now delegates to
+  // `copilotkit verify`, the generated error reference and the troubleshooting
+  // pages, so it has no inventory to keep true.
   it.each([
-    "skills/copilotkit-debug/sources.md",
     "skills/copilotkit-setup/sources.md",
   ])("keeps %s package inventory paths resolvable", (sourcesPath) => {
     const paths = read(sourcesPath)
