@@ -66,6 +66,57 @@ describe("WizardCard", () => {
     expect(heading.getAttribute("tabindex")).toBe("-1");
   });
 
+  // `showFocusRing` decides whether the heading's own focus ring class is
+  // present, independent of the browser's own pointer/keyboard heuristic —
+  // see `HEADING_FOCUS_RING_CLASS`'s doc comment. `setup-wizard.tsx` derives
+  // this from the activating click's `event.detail`; here it's asserted
+  // directly against the prop.
+  it("renders the heading's focus ring class by default and when showFocusRing is true", () => {
+    const { container } = render(
+      <WizardCard step={1} total={4} name="N" description="D" footer={<span />}>
+        <span />
+      </WizardCard>,
+    );
+    const defaultHeading = container.querySelector("h2");
+    expect(defaultHeading).not.toBeNull();
+    expect(defaultHeading!.className).toMatch(/\bfocus:ring-2\b/);
+
+    const { container: explicitContainer } = render(
+      <WizardCard
+        step={1}
+        total={4}
+        name="N"
+        description="D"
+        footer={<span />}
+        showFocusRing
+      >
+        <span />
+      </WizardCard>,
+    );
+    const explicitHeading = explicitContainer.querySelector("h2");
+    expect(explicitHeading).not.toBeNull();
+    expect(explicitHeading!.className).toMatch(/\bfocus:ring-2\b/);
+  });
+
+  it("omits the heading's focus ring class when showFocusRing is false", () => {
+    const { container } = render(
+      <WizardCard
+        step={1}
+        total={4}
+        name="N"
+        description="D"
+        footer={<span />}
+        showFocusRing={false}
+      >
+        <span />
+      </WizardCard>,
+    );
+
+    const heading = container.querySelector("h2");
+    expect(heading).not.toBeNull();
+    expect(heading!.className).not.toMatch(/\bfocus:ring-2\b/);
+  });
+
   it("renders children and footer", () => {
     render(
       <WizardCard
@@ -142,6 +193,35 @@ describe("WizardCard", () => {
     // The growing content area is what pushes this down; an auto margin here
     // would take that room back off it.
     expect(footerWrapper!.className).not.toMatch(/\bmt-auto\b/);
+  });
+
+  // The options should sit the same distance from the description above them
+  // as from the separator below, rather than hugging the text with all the
+  // slack underneath. That symmetry is two halves: the content area centres
+  // whatever slack is left, and its top margin matches the footer's top
+  // padding so the fixed insets agree too. Assert both halves and both
+  // breakpoint values — with only the centring asserted, a change to just one
+  // of the two margins would drift them apart unnoticed.
+  it("centres the content area and matches its top margin to the footer's top padding", () => {
+    const { container } = render(
+      <WizardCard
+        step={1}
+        total={4}
+        name="N"
+        description="D"
+        footer={<span>the footer</span>}
+      >
+        <span />
+      </WizardCard>,
+    );
+
+    const content = container.querySelector("section > div.flex-1");
+    expect(content).not.toBeNull();
+    expect(content!.className).toMatch(/\bjustify-center\b/);
+    // Symmetric padding, and no one-sided margin: a margin lands entirely
+    // above the options, which is the lopsided gap this replaced.
+    expect(content!.className).toMatch(/\bpy-2\b/);
+    expect(content!.className).not.toMatch(/\b(mt|pt|mb|pb)-\d/);
   });
 
   // jsdom never lays anything out — every box reports zero size — so a
@@ -238,7 +318,27 @@ describe("WizardProgress", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Your frontend/ }));
 
-    expect(onJump).toHaveBeenCalledExactlyOnceWith(1);
+    // `fireEvent.click`'s default `detail` is 0 — the keyboard branch, so
+    // `pointerActivated` is `false`. See the `pointerActivated` tests below
+    // for the pointer branch.
+    expect(onJump).toHaveBeenCalledExactlyOnceWith(1, false);
+  });
+
+  // The pointer branch — `setup-wizard.tsx` uses this to decide whether the
+  // heading's focus ring should show once it lands there. A real pointer
+  // click reports `event.detail > 0`; this drives that explicitly since a
+  // plain `fireEvent.click` defaults to 0.
+  it("passes pointerActivated=true when the click reports a non-zero detail", () => {
+    const onJump = vi.fn();
+    render(
+      <WizardProgress steps={STEPS} current={3} furthest={3} onJump={onJump} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Your frontend/ }), {
+      detail: 1,
+    });
+
+    expect(onJump).toHaveBeenCalledExactlyOnceWith(1, true);
   });
 
   it("does not call onJump when a disabled (unreached) step is clicked", () => {
@@ -333,6 +433,24 @@ describe("WizardNav", () => {
     expect(onBack).toHaveBeenCalledOnce();
   });
 
+  // The pointer branch, same shape as `WizardProgress`'s own test above.
+  it("passes pointerActivated=true to onBack when the click reports a non-zero detail", () => {
+    const onBack = vi.fn();
+    render(
+      <WizardNav
+        onBack={onBack}
+        onContinue={vi.fn()}
+        continueLabel="Continue"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }), {
+      detail: 1,
+    });
+
+    expect(onBack).toHaveBeenCalledExactlyOnceWith(true);
+  });
+
   it("labels Continue with continueLabel", () => {
     render(<WizardNav onContinue={vi.fn()} continueLabel="Skip" />);
 
@@ -368,7 +486,20 @@ describe("WizardNav", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(onContinue).toHaveBeenCalledExactlyOnceWith();
+    // `fireEvent.click`'s default `detail` is 0 — the keyboard branch, so
+    // `pointerActivated` is `false`.
+    expect(onContinue).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  it("passes pointerActivated=true to onContinue when the click reports a non-zero detail", () => {
+    const onContinue = vi.fn();
+    render(<WizardNav onContinue={onContinue} continueLabel="Continue" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }), {
+      detail: 1,
+    });
+
+    expect(onContinue).toHaveBeenCalledExactlyOnceWith(true);
   });
 
   // The Continue/Copy button's label changes shape across the wizard (Skip,

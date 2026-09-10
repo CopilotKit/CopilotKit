@@ -62,6 +62,17 @@
 // (the hint) is. Below `sm` the footer stacks in a column instead, and there
 // the hint gets its own line — the card has no minimum height on phones (see
 // `WizardCard`'s doc comment), so that line coming and going costs nothing.
+//
+// `WizardNav`'s Back/Continue and `WizardProgress`'s rail buttons all hand
+// their `on*` callback a `pointerActivated` boolean rather than the raw
+// click event: `event.detail` is `0` for a keyboard-triggered click (Enter
+// or Space) and greater than `0` for a real pointer click, and computing
+// that here means `setup-wizard.tsx` only ever reasons about a plain
+// boolean, not about `event.detail`. It flows into `WizardCard`'s
+// `showFocusRing` prop, which decides whether the card's `<h2>` — focused on
+// every step change, see that component's own comment — renders its focus
+// ring the next time it receives focus. The move to the heading itself is
+// unconditional either way; only the ring's visibility varies.
 
 import React from "react";
 
@@ -100,6 +111,17 @@ const QUIET_BUTTON_CLASS =
 // component.
 export const PRIMARY_BUTTON_MIN_WIDTH_CLASS = "min-w-[9.5rem]";
 
+/** The heading's own focus ring — applied through `:focus`, never
+ *  `:focus-visible`, so its visibility is driven entirely by `WizardCard`'s
+ *  `showFocusRing` prop rather than by a browser's own pointer/keyboard
+ *  heuristic (unreliable for a ring following a programmatic `.focus()`
+ *  call, which is how the heading is always focused — see that component's
+ *  doc comment). `outline-none` on the heading itself, applied
+ *  unconditionally, removes the browser's own default focus outline so this
+ *  ring is the only one that can ever show. */
+const HEADING_FOCUS_RING_CLASS =
+  "focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 focus:ring-offset-[var(--bg-surface)]";
+
 /** The rail above the card: one button per step, a number plus a short
  *  label, connected by thin rules so it reads as one rail rather than four
  *  chips. */
@@ -112,7 +134,10 @@ export function WizardProgress({
   steps: readonly StepperStep[];
   current: number;
   furthest: number;
-  onJump: (n: number) => void;
+  /** `pointerActivated` is `event.detail > 0` — see the header comment
+   *  above. Computed here, next to the click, so the caller only ever
+   *  receives a boolean. */
+  onJump: (n: number, pointerActivated: boolean) => void;
 }): React.JSX.Element {
   return (
     <ol className="mb-5 flex items-start gap-1 sm:gap-2">
@@ -134,7 +159,7 @@ export function WizardProgress({
                 type="button"
                 disabled={!reached}
                 aria-current={isCurrent ? "step" : undefined}
-                onClick={() => onJump(step.n)}
+                onClick={(event) => onJump(step.n, event.detail > 0)}
                 className={`flex w-full cursor-pointer flex-col items-center gap-1 disabled:cursor-not-allowed ${
                   isCurrent
                     ? "text-[var(--accent)]"
@@ -189,6 +214,7 @@ export function WizardCard({
   headingRef,
   children,
   footer,
+  showFocusRing = true,
 }: {
   step: number;
   total: number;
@@ -198,6 +224,14 @@ export function WizardCard({
   headingRef?: React.Ref<HTMLHeadingElement>;
   children: React.ReactNode;
   footer: React.ReactNode;
+  /** Whether the heading should render its focus ring the next time it
+   *  receives focus. `true` (the default) for a keyboard-driven step change
+   *  and for the initial, never-focused render; `false` for a
+   *  pointer-driven one, so a mouse user isn't shown a ring around a
+   *  heading that isn't interactive. The focus move itself (see
+   *  `headingRef`) happens either way — this only ever changes whether the
+   *  ring is visible once focus lands. See `setup-wizard.tsx`'s `goTo`. */
+  showFocusRing?: boolean;
 }): React.JSX.Element {
   return (
     <section
@@ -209,7 +243,9 @@ export function WizardCard({
       <h2
         ref={headingRef}
         tabIndex={-1}
-        className="mt-1 text-xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.375rem]"
+        className={`mt-1 text-xl font-semibold tracking-[-0.02em] text-[var(--text)] outline-none sm:text-[1.375rem] ${
+          showFocusRing ? HEADING_FOCUS_RING_CLASS : ""
+        }`}
       >
         {name}
       </h2>
@@ -225,7 +261,18 @@ export function WizardCard({
        *  would not do — `height: 100%` against a flex item sized from
        *  `flex-basis: 0` resolves as auto, so the grid stayed at its
        *  content height while this box had already grown. */}
-      <div className="mt-4 flex flex-1 flex-col">{children}</div>
+      {/* Symmetric padding, not a top margin, plus `justify-center`: the
+       *  options then sit the same distance from the description above them
+       *  as from the separator below. A top margin cannot do this — the
+       *  footer's own padding lands *below* the separator, so it never pays
+       *  for the gap above it, and the content area's whole margin showed up
+       *  on one side only.
+       *
+       *  The two paddings together are deliberately the same total the single
+       *  margin used to be: the card's `md:min-h` floor was measured against
+       *  that total, and growing it would push the densest step past the
+       *  floor and start the page moving between steps again. */}
+      <div className="flex flex-1 flex-col justify-center py-2">{children}</div>
       {/* The footer's own top padding matches the card's bottom padding, so
        *  the button row sits the same distance from the separator above it as
        *  from the card's edge below it. Adding a bottom padding here instead
@@ -265,8 +312,11 @@ export function WizardNav({
   continueIcon,
   hint,
 }: {
-  onBack?: () => void;
-  onContinue?: () => void;
+  /** `pointerActivated` is `event.detail > 0` — see the header comment
+   *  above. Computed here, next to the click, so the caller only ever
+   *  receives a boolean. */
+  onBack?: (pointerActivated: boolean) => void;
+  onContinue?: (pointerActivated: boolean) => void;
   continueLabel?: string;
   /** Rendered before the label — e.g. the clipboard glyph on step 4's copy
    *  button. An optional prop rather than asking every caller to build the
@@ -286,7 +336,7 @@ export function WizardNav({
       {onBack ? (
         <button
           type="button"
-          onClick={() => onBack()}
+          onClick={(event) => onBack(event.detail > 0)}
           className={`order-2 sm:order-1 ${QUIET_BUTTON_CLASS}`}
         >
           Back
@@ -311,7 +361,7 @@ export function WizardNav({
       {onContinue ? (
         <button
           type="button"
-          onClick={() => onContinue()}
+          onClick={(event) => onContinue(event.detail > 0)}
           className={`order-1 sm:order-3 ${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS}`}
         >
           {continueIcon}
