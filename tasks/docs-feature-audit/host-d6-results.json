@@ -1,0 +1,15 @@
+{
+  "revision": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
+  "mode": "host-native-current-source-strict-aimock",
+  "aimock": "http://127.0.0.1:4410",
+  "externalProviders": false,
+  "results": [
+    {"slug":"built-in-agent","endpoint":"http://127.0.0.1:3117","total":39,"passed":35,"failed":["gen-ui-agent","multimodal","voice","threadid-frontend-tool-roundtrip"],"classification":"complete_with_reds","log":"built-in-agent-host-d6-esm.log"},
+    {"slug":"langgraph-python","endpoint":"http://127.0.0.1:3100","total":40,"passed":38,"failed":["multimodal","voice"],"classification":"complete_with_reds","log":"langgraph-python-host-d6-esm.log"},
+    {"slug":"langgraph-typescript","endpoint":"http://127.0.0.1:3101","total":40,"passed":37,"failed":["gen-ui-declarative","multimodal","byoc"],"classification":"complete_with_reds","log":"langgraph-typescript-host-d6-esm-webpack.log","invalidPriorRun":"langgraph-typescript-host-d6-esm-invalid-turbopack.log"},
+    {"slug":"google-adk","agentEndpoint":"http://127.0.0.1:8001","total":0,"passed":0,"failed":[],"classification":"setup_blocked","reason":"UI does not listen: duplicate equally-specific auth routes"},
+    {"slug":"strands","endpoint":"http://127.0.0.1:3112","classification":"running","log":"strands-host-d6-esm.log"}
+  ],
+  "policyExcludedRoutes":["gen-ui-interrupt","interrupt-headless"],
+  "latestStableQualification":"not_run"
+}
