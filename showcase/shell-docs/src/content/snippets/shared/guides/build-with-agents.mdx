@@ -2,21 +2,20 @@ AI coding agents may not have up-to-date knowledge of CopilotKit's APIs, pattern
 
 ## CopilotKit Skills
 
-Skills are folders of instructions, references, and scripts that coding agents can discover and use to work with CopilotKit accurately. Installing them gives your agent authoritative guidance on setup, development, debugging, integration, and upgrades — without relying on potentially outdated training data.
+Skills are folders of instructions that coding agents discover and use automatically. The CopilotKit skills are deliberately thin: rather than restating the API, they teach your agent to look the current answer up — in these docs, in the source, and in the CLI. A copy of an API goes stale; a search does not.
 
 <Callout type="info">
   Skills are the recommended way to give your agent CopilotKit knowledge. They work natively in Claude Code, Cursor, Codex, Gemini CLI, and any tool supporting the [agentskills.io](https://agentskills.io) standard.
 </Callout>
 
-Most of these skills help you **build with** CopilotKit. If you're just getting started, these three cover the most common tasks:
+There are two:
 
 | Skill | Use it to |
 | --- | --- |
-| `copilotkit-setup` | Add CopilotKit to a project and get a chat working |
-| `copilotkit-develop` | Build AI features — chat UI, frontend tools, and shared agent context |
-| `copilotkit-integrations` | Connect an agent framework (LangGraph, CrewAI, Mastra, and more) |
+| `copilotkit` | Answer any CopilotKit question from current docs and source, via the bundled `copilotkit-docs` MCP server |
+| `copilotkit-cli` | Drive the CLI — scaffold a project, connect Intelligence, and prove a project's wiring with `copilotkit verify` before debugging by hand |
 
-The full [skills directory](https://github.com/CopilotKit/CopilotKit/tree/main/skills) adds more for specific tasks — like `copilotkit-debug` and `copilotkit-upgrade` — plus `copilotkit-contribute`, which is for working on the CopilotKit project itself rather than building with it. You don't need to memorize the list; your agent discovers the installed skills and picks the right one for each task.
+You don't need to pick between them — your agent loads whichever fits the task. The [skills directory](https://github.com/CopilotKit/CopilotKit/tree/main/skills) also holds a few procedure skills, such as setting up a Slack Channel, which walk through steps that span several systems.
 
 <Steps>
   <Step>
@@ -41,10 +40,10 @@ The full [skills directory](https://github.com/CopilotKit/CopilotKit/tree/main/s
     Open a new agent session and use a starter prompt to put the skills to work:
 
     ```
-    Help me build a CopilotKit app. Use the copilotkit-setup skill to get started.
+    Help me add CopilotKit to this app. Look up the current setup in the CopilotKit docs first.
     ```
 
-    Your agent will discover the installed skills and use the right one for each task — setup, development, debugging, or integration.
+    Your agent searches the documentation rather than working from memory, and reaches for `copilotkit verify` when something doesn't work.
   </Step>
 </Steps>
 

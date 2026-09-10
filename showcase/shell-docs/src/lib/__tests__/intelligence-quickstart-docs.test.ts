@@ -59,7 +59,7 @@ test("expands the setup prompt for coding agents", () => {
   const output = renderDoc("intelligence/quickstart");
 
   expect(output).toContain("Copy this prompt into your coding agent");
-  expect(output).toContain("finish setting up Rich Threads in this repository");
+  expect(output).toContain("--intent add-rich-threads");
   expect(output).not.toContain("<RichThreadsSetupPrompt />");
 });
 

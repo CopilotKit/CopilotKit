@@ -430,6 +430,20 @@ app.use(
 );
 ```
 
+<Callout type="warn" title="`basePath` is required, in both modes">
+The Express and single-route handlers each throw at mount time when `basePath` is missing —
+`basePath must be provided for Express endpoint` and `... for single-route endpoint`
+respectively — so the server fails to start rather than serving on the wrong paths. Give it
+the same path the route is mounted at.
+</Callout>
+
+<Callout type="warn" title="Keep every runtime import on `/v2`">
+Import the runtime from `@copilotkit/runtime/v2` (and the Express adapter from
+`@copilotkit/runtime/v2/express`). Reaching into the package root, `@copilotkit/runtime`,
+gets you the v1 surface: a `CopilotRuntime` built there does not serve these routes, and the
+mismatch shows up as routes that 404 rather than as an import error.
+</Callout>
+
 The optional Inspector metadata operation uses the same endpoint with this
 envelope:
 

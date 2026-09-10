@@ -98,7 +98,6 @@ import type {
 } from "./lib/inspector-metadata.js";
 import {
   buildHomeModel,
-  homeFeatureImplementationPrompt,
   runtimeConnectionNeedsAttention,
 } from "./lib/home-briefing.js";
 import type {
@@ -161,6 +160,7 @@ import {
   trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import {
+  createFeatureOnboardingPrompt,
   createOnboardingPrompt,
   createOnboardingRunId,
 } from "./lib/onboarding-prompt.js";
@@ -412,7 +412,6 @@ type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
   id: HomeFeaturePromptId;
   label: string;
-  docsUrl: string;
 }>;
 
 const LAUNCHER_SIGNALS: Readonly<
@@ -8144,9 +8143,7 @@ export class WebInspectorElement extends LitElement {
     if (!clipboard?.writeText) return false;
     try {
       await clipboard.writeText(
-        homeFeatureImplementationPrompt(service, {
-          onboardingRunId,
-        }),
+        createFeatureOnboardingPrompt(service.id, onboardingRunId),
       );
       return true;
     } catch {
@@ -8158,7 +8155,18 @@ export class WebInspectorElement extends LitElement {
     event?: Event,
     recopy = false,
   ): Promise<void> => {
-    const service = this.getHomeFeaturePromptTarget("threads");
+    // The Learning tile, not the Threads one. This pane borrowed the Threads
+    // target, so its button copied a Threads prompt and announced itself as
+    // "Threads setup prompt copied" under a Learning heading (OSS-1151).
+    //
+    // Learning does not need the Threads feature first. A runtime mounted
+    // `mode: "single-route"` serves no thread route at all and still binds
+    // Containers, because the binding happens server-side while a run starts;
+    // and `learningOn` reads the `memory` tile independently of `threadsOn`.
+    // `add-learning` inspects its own prerequisites and refuses through
+    // `feature/stop` when one is missing, which is why the route decides that
+    // rather than this pane.
+    const service = this.getHomeFeaturePromptTarget("memory");
     if (!service || !this.core?.runtimeUrl) return;
     const request = ++this.learningSetupCopyRequest;
     const copied = await this.copyFeaturePromptToClipboard(
@@ -18405,7 +18413,7 @@ export class WebInspectorElement extends LitElement {
         videoTitle: "CopilotKit Learning overview",
         outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
         setupPrompt: {
-          serviceId: "threads",
+          serviceId: "memory",
           copyState: this.learningPromptCopyState,
           onClick: (event) => void this.handleLearningSetupCopy(event),
         },
@@ -18422,14 +18430,10 @@ export class WebInspectorElement extends LitElement {
         .setupActive=${this.isLearningSetupActive()}
         .copyState=${this.learningPromptCopyState}
         .recopyState=${this.learningPromptRecopyState}
-        .setupPrompt=${
-          this.getHomeFeaturePromptTarget("threads")
-            ? homeFeatureImplementationPrompt(
-                this.getHomeFeaturePromptTarget("threads")!,
-                { onboardingRunId: this.getOnboardingRunId() },
-              )
-            : ""
-        }
+        .setupPrompt=${createFeatureOnboardingPrompt(
+          "memory",
+          this.getOnboardingRunId(),
+        )}
         @learning-retry=${() =>
           this.refreshLearningSnapshot({
             preserve: this.learningSnapshot !== null,

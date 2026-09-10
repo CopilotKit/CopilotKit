@@ -65,8 +65,14 @@ const runtime = new CopilotRuntime({
 export const { GET, POST } = createCopilotRuntimeHandler({ runtime });
 ```
 
-`apiKey` is the only required field. The key scopes the project, so there is no
-separate organization or project id to pass.
+`apiKey` is the only required field on the Intelligence client. The key scopes the project,
+so there is no separate organization or project id to pass.
+
+<Callout type="warn" title="`identifyUser` is required, not advisory">
+On the runtime itself, `identifyUser` is required whenever the runtime serves a web surface —
+the options type will not accept its absence. The one exception is a Channels-only runtime,
+which serves no web surface and passes a non-empty `channels` array instead.
+</Callout>
 
 ## Confirm the credential is actually used
 

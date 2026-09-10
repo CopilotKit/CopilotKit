@@ -17,7 +17,7 @@ for (const transport of ["rest", "single"] as const) {
     });
 
     await page
-      .getByRole("button", { name: "Copy setup prompt for Threads" })
+      .getByRole("button", { name: "Copy setup prompt for Learning" })
       .click();
 
     const setup = page.getByRole("region", { name: "Set up Learning" });

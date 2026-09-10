@@ -23,12 +23,10 @@ test("expands the Automatic Learning prompt for Markdown and LLM readers", () =>
     loadSlug: "learning",
   });
 
+  // The route owns the instructions; the raw-Markdown route only has to
+  // carry the command that reaches it. See `createFeatureSetupPrompt`.
   expect(output).toContain(
-    "Read https://docs.copilotkit.ai/learning and set up Automatic Learning",
+    "npx --yes copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent add-learning",
   );
-  expect(output).toContain(
-    "do not add the deprecated `\u0275learning` Runtime option",
-  );
-  expect(output).toContain("keep each Thread's assignment stable");
   expect(output).not.toContain("<LearningSetupPrompt />");
 });

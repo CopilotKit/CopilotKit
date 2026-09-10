@@ -466,11 +466,13 @@ test("disabled feature rows open their landing pages, where setup prompts can be
 
     expect(writeText).toHaveBeenCalledTimes(1);
     const threadsPrompt = String(writeText.mock.calls[0]?.[0]);
-    expect(threadsPrompt).toContain(
+    // The Threads button names the outcome and lets the route carry the rest;
+    // the guide link it used to paste belongs to feature/rich-threads.
+    expect(threadsPrompt).toContain("--intent add-rich-threads");
+    expect(threadsPrompt).not.toContain(
       "This task is specifically to enable Threads",
     );
-    expect(threadsPrompt).toContain("https://docs.copilotkit.ai/threads");
-    expect(threadsPrompt).not.toContain("--intent");
+    expect(threadsPrompt).not.toContain("https://docs.copilotkit.ai/threads");
     expect(copyThreads.dataset.copyState).toBe("copied");
     expect(copyThreads.getAttribute("aria-label")).toBe(
       "Threads setup prompt copied",
