@@ -8,98 +8,147 @@
   muted
 />
 
-## What it shows
+The CopilotKit Inspector overlays your development application so you can
+verify the connection, investigate a run, and work with Threads and Learning
+without leaving the page.
 
-The CopilotKit Inspector is a built-in debugging tool that overlays on your app.
-The first open lands on **Home**. Later opens return to the last pane you used.
+Reach for Inspector after a [quickstart](/quickstart) to verify that the pieces
+are connected, while adding tools or shared state, or when you need to reproduce
+an issue from a real conversation. Inspector shows what the browser received;
+[Runtime Debug Mode](/troubleshooting/debug-mode) adds the server-side view, and
+[Error Debugging & Observability](/troubleshooting/error-debugging) covers
+production error reporting.
 
-| Feature | Description |
-| --- | --- |
-| **Home** | Project, runtime, services, and CopilotKit news. |
-| **Threads** | Inspect real Threads and their messages, AG-UI events, and state. |
-| **Memory** | Inspect long-term memory when Intelligence exposes it. |
-| **AG-UI Events** | View the raw AG-UI event stream between your frontend and agent in real time. |
-| **Available Agents** | See which agents are connected and available to your app. |
-| **Agent State** | Inspect your agent's current state as it updates. |
-| **Frontend Tools** | See what tools you've defined on the frontend and their parameter schemas. |
-| **Context** | View the context you've provided to the agent, including readables and document context. |
-| **Project Context** | See trusted organization, project, plan, Thread usage, expiry, and license-aware actions when the Runtime supplies them. |
+## Choose what you need to do
 
-## Navigation and Threads
+| Your goal                                      | Start here                          |
+| ---------------------------------------------- | ----------------------------------- |
+| Confirm that CopilotKit is connected           | **Home**, then **Agent**            |
+| Find out why a run or tool failed              | The red launcher or error pill      |
+| Follow messages, events, tools, state, context | **Agent** and the **Inspect** panes |
+| Reproduce a saved conversation safely          | **Threads** → **Try from here**     |
+| Continue a saved Thread in your application    | **Threads** → **View in your app**  |
+| Enable or repair Intelligence                  | **Home** or a locked **Threads**    |
+| Review what Learning found                     | **Learning**                        |
 
-The sidebar has three groups: **Home**, **Workbench** (Threads, Memory), and
-**Inspect** (Agent, AG-UI Events, Frontend Tools, Context). Capabilities appears
-only when an A2UI catalog is present. **Talk to an Engineer** stays in the
-sidebar footer.
+## Show Inspector and confirm your setup
 
-When Intelligence is connected, Home shows a small **Intelligence connected**
-chip on the right of **What's going on**. Open a real Thread to inspect its
-**Messages**, **AG-UI Events**, and **State**. Metadata updates do not change the
-selected Thread.
+In a development build, click the Inspector button in the corner of your
+application. The first open lands on **Home**; later opens return to the last
+pane you used.
 
-When Threads has no real rows, or when Threads is locked, the Inspector keeps
-the overview video, three local example threads, their detail tabs, and the
-guided tour. The examples do not send real Thread requests. With reduced motion
-enabled, the video starts paused with a labelled Play control. If the media
-fails, fallback text appears while the examples, details, and tour stay usable.
+1. Open **Agent** and confirm that your agent is listed.
+2. Send a message, then open **AG-UI Events** and confirm that events arrived.
+3. Open **Threads** and confirm that saved Threads appear. If Intelligence is
+   not connected, the locked pane offers a setup path instead.
 
-## Project context and usage
+When Intelligence is connected, Home shows an **Intelligence connected** chip.
+Otherwise, choose **Copy setup prompt** for your coding agent.
 
-An Intelligence-backed Runtime can supply optional trusted project metadata.
-Valid organization and project names and the plan label appear in the account
-strip. Each module is independent, so missing or invalid identity data does not
-hide valid usage or action data.
+If the agent is missing or no events arrive, first confirm the
+[Copilot Runtime](/backend/copilot-runtime) connection. If Threads is the only
+missing piece, follow the [Intelligence quickstart](/intelligence/quickstart).
 
-Trusted Thread usage and a compatible supplied action appear only in the
-Threads footer. They render independently: usage can appear without identity,
-plan, license, or action metadata, and action-only metadata does not invent
-usage.
+## Find the cause of a failed run
 
-| Usage state | Inspector behavior |
-| --- | --- |
-| Finite | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
-| Unlimited | Shows the trusted used count with **Unlimited** and no progress bar. |
-| Unknown limit | Shows the trusted used count with **Limit unavailable**, but invents no numeric limit or progress. |
-| Known expiry count | Shows the count, including `0 Expiring Soon`. |
-| Missing or malformed expiry | Hides the expiry value without hiding valid base usage. |
+When CopilotKit reports an error, the Inspector launcher turns red and may show
+a short error pill. Click either one. Inspector routes common failures to the
+view with the most useful evidence:
 
-`Expiring Soon` describes a future retention-policy threshold in the next 24
-hours. It does not prove that the thread culler ran or that the Inspector locked
-or deleted a Thread.
+| Failure                      | Opened view      |
+| ---------------------------- | ---------------- |
+| Runtime or connection        | **Home**         |
+| Loading the Thread list      | **Threads**      |
+| Agent run or `RUN_ERROR`     | **AG-UI Events** |
+| Tool handler or missing tool | **Agent**        |
+| Loading Learning data        | **Learning**     |
 
-When Threads is locked, the Runtime's license state controls the copy and any
-action:
+Inspector is best for locating the failing layer during development. If the
+event stream stops before it reaches the browser, enable [Runtime Debug
+Mode](/troubleshooting/debug-mode) to inspect the server-side pipeline. Use
+`onError` on `CopilotKit` or `CopilotChat` when the application UI or your
+production observability system should also receive the error. See [Error
+Debugging & Observability](/troubleshooting/error-debugging) for that setup.
 
-| License state | Inspector behavior |
-| --- | --- |
-| Active | Explains that the Runtime has no Threads endpoints and shows no locked action. |
-| Not enabled | Shows **Enable Intelligence** only for a matching trusted action. |
-| Expired | Shows **Renew** or **Manage Your Plan** only for a matching trusted action. |
-| Unknown | Shows neutral unavailable copy without an action. |
+## Follow and reproduce a run
 
-A valid managed footer can show **Manage Your Plan** only for a matching trusted
-action. Managed Enterprise has no manage-plan action, and Team Self-Hosted has
-no hosted action; either can keep valid usage visible.
+Use the **Inspect** panes to answer a specific debugging question:
 
-The Inspector opens the exact trusted URL supplied by the Runtime. It does not
-build a URL from project details and has no hard-coded signup fallback. If
-metadata license state conflicts with the Runtime's license status, the Runtime
-status controls the copy and the Inspector hides the action without hiding
-valid usage.
+| Question                                      | Open               | Related guide                                           |
+| --------------------------------------------- | ------------------ | ------------------------------------------------------- |
+| Which agent ran, and what did it do?          | **Agent**          | [Agent configuration](/agent-config)                    |
+| Which events crossed the AG-UI connection?    | **AG-UI Events**   | [AG-UI protocol](/agentic-protocols/ag-ui)              |
+| Which browser-side tools are registered?      | **Frontend Tools** | [Frontend Tools](/frontend-tools)                       |
+| What readable or document context was shared? | **Context**        | [Agent read-only context](/shared-state/agent-readonly) |
 
-Older Runtime, Core, and Inspector versions remain compatible without a
-synchronized deployment. Older V1 producers leave
-`usage.expiringSoonCount` absent, while pre-expiry Shared and Runtime versions
-ignore or remove the additive leaf from newer producers. Older Inspectors ignore
-metadata they do not render; newer Inspectors feature-detect older Core and
-Runtime support and use a safe missing-metadata fallback. Explicit
-`threadEndpoints` remain the authority in every mix, and metadata never enables
-Thread work.
+To reproduce a problem without changing the saved conversation, open a real
+[Rich Thread](/threads) and choose **Try from here**. Inspector copies its
+messages and state into **Playground**, where you can vary the prompt, state, or
+next message and run, stop, retry, and continue independently.
 
-## Showing or hiding the Inspector
+When Threads has no real rows, or when it is locked, Inspector keeps a local
+example flow and guided tour available. The examples do not send real Thread
+requests.
 
-By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
-`0.0.0.0`. Set `enableInspector` to `false` to hide it on those hosts:
+## Inspect or continue a saved Thread
+
+Open **Threads** and select a row to inspect its **Messages**, **AG-UI Events**,
+and **State**.
+
+Selecting a row does not change your live application chat. Choose **View in
+your app** to load a real saved Thread into an official CopilotKit chat for the
+same agent. Choose **Stop viewing** to restore the previous application Thread.
+Example Threads do not offer this action.
+
+If you are building the Thread picker and conversation surface yourself, see
+[Headless Threads](/headless-threads) for the persistence and lifecycle APIs.
+
+## Enable or repair Intelligence
+
+If Intelligence is not connected, open **Home** and choose **Copy setup prompt**.
+The [Intelligence quickstart](/intelligence/quickstart) explains the project,
+credentials, and Runtime routes that prompt configures. If Threads remains
+locked after setup, follow the action shown for the Runtime's current state:
+
+| State       | Next step Inspector can offer                                                    |
+| ----------- | -------------------------------------------------------------------------------- |
+| Active      | **Finish setting up Rich Threads**, a repair prompt, and the Runtime route guide |
+| Not enabled | **Enable Intelligence** when the Runtime supplies a trusted action               |
+| Expired     | **Renew** or **Manage Your Plan** when the Runtime supplies a trusted action     |
+| Unknown     | An unavailable message without an action                                         |
+
+Inspector opens only trusted URLs supplied by the Runtime. It does not build a
+URL from project details or use a fixed signup fallback.
+
+`NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` is a browser-visible publishable key. It is
+different from the server-side `CPK_INTELLIGENCE_API_KEY` that
+`copilotkit project select` writes into your `.env`. The Runtime consumes the
+server-side key; never expose it to the browser.
+
+## Review what Learning found
+
+Open **Learning** to inspect new Threads ready for analysis, published Skills,
+their supporting Insights, and the Thread evidence behind each pattern. Select
+evidence to open the matching Thread and message.
+
+Use **Open in web app** to run an analysis or review pending Skill candidates.
+Inspector does not approve or publish candidates. If Learning is not configured,
+choose **Copy setup prompt**. See [Learning](/learning) for the complete workflow.
+
+## Control when Inspector appears
+
+Inspector appears by default in React, Vue, and Angular development builds. It
+is never loaded or rendered in a production build or during server-side
+rendering.
+
+| Goal                                      | Action                                                                                                    |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Close the current view                    | Use the close control; reopen it from the Inspector button                                                |
+| See your application without an overlay   | Use the pop-out control in the Inspector header                                                           |
+| Hide Inspector temporarily on this domain | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings |
+| Disable Inspector for the development app | Set `enableInspector` to `false`                                                                          |
+
+To disable Inspector in React:
 
 ```tsx
 <CopilotKit
@@ -110,12 +159,27 @@ By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
 </CopilotKit>
 ```
 
-Set `enableInspector` to `true` to show it on another host, including in a
-production build. CopilotKit always uses an explicit `true` or `false` value.
+Vue uses `:enable-inspector="false"`; Angular uses
+`provideCopilotKit({ enableInspector: false })`.
 
-`NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` is a browser-visible publishable key and is
-a **different credential** from the server-side `CPK_INTELLIGENCE_API_KEY` that
-`copilotkit project select` writes into your `.env`. The server-side key is
-consumed by the `CopilotKitIntelligence` client described in
-[Runtime endpoints](/backend/runtime-endpoints). Do not substitute one for the
-other, and never expose the server-side key to the browser.
+See the [`CopilotKit` provider reference](/reference/components/CopilotKit) for
+the complete React provider API.
+
+Pop-out keeps the same live session in a separate browser window. A temporary
+hide removes the overlay and launcher on the current domain until the selected
+period ends.
+
+## Understand project and usage information
+
+An Intelligence-backed Runtime can supply trusted organization, project, plan,
+Thread usage, retention, and action metadata. Home shows valid project context;
+the Threads footer shows valid usage and relevant actions.
+
+Finite plans show `used / limit Threads` and a progress bar. Unlimited plans
+show the used count without a bar. **Limit unavailable** means the Runtime sent
+a used count without a numeric limit. **Expiring Soon** is a retention threshold
+within the next 24 hours; it does not mean Inspector locked or deleted a Thread.
+
+Older Runtime, Core, and Inspector versions remain compatible without a
+synchronized deployment. Explicit `threadEndpoints` remain authoritative, and
+metadata never enables Thread work.

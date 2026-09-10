@@ -1,12 +1,19 @@
 ---
 title: Inspector
 icon: "lucide/SearchCheck"
-description: Inspector for debugging actions, readables, agent status, messages, and context.
+description: Verify your setup, debug agent runs, reproduce issues, and review Threads and Learning.
 ---
 
-The CopilotKit Inspector is a built-in debugging overlay for the live connection
-between your frontend and agents. The first open lands on **Home**. Later opens
-return to the last pane you used.
+The CopilotKit Inspector is a debugging overlay for the live connection between
+your frontend and agents. Use it while developing to follow a run from the
+application UI through the AG-UI event stream, tools, state, and saved Threads.
+
+Reach for Inspector after a [quickstart](/quickstart) to verify that the pieces
+are connected, while adding tools or shared state, or when you need to reproduce
+an issue from a real conversation. Inspector shows what the browser received;
+[Runtime Debug Mode](/troubleshooting/debug-mode) adds the server-side view, and
+[Error Debugging & Observability](/troubleshooting/error-debugging) covers
+production error reporting.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/inspector.mp4"
@@ -18,172 +25,141 @@ return to the last pane you used.
   muted
 />
 
-## Where Inspector runs
+## Choose what you need to do
 
-Inspector is a browser overlay: it mounts a custom element into the page's DOM.
-It runs on React, Next.js, React SPA, Vue, and Angular.
+| Your goal                                      | Start here                          |
+| ---------------------------------------------- | ----------------------------------- |
+| Confirm that CopilotKit is connected           | **Home**, then **Agent**            |
+| Find out why a run or tool failed              | The red launcher or error pill      |
+| Inspect one `CopilotChat` response             | **View in Inspector** on the message |
+| Follow messages, events, tools, state, context | **Agent** and the **Inspect** panes |
+| Reproduce a saved conversation safely          | **Threads** → **Try from here**     |
+| Continue a saved Thread in your application    | **Threads** → **View in your app**  |
+| Enable or repair Intelligence                  | **Home** or a locked **Threads**    |
+| Review what Learning found                     | **Learning**                        |
+| Move or hide the overlay                       | The Inspector header and settings   |
 
-There is no React Native build of Inspector, and `@copilotkit/react-native` does
-not ship it. Channels — Slack and Teams — have no browser surface either. On
-those surfaces none of the panes below are reachable.
+## Show Inspector and confirm your setup
 
-Debug a React Native integration with these instead:
+Inspector appears by default in development builds of React, Vue, and Angular
+browser applications. Open your application and click the Inspector button in
+the corner. The first open lands on **Home**; later opens return to the last
+pane you used.
 
-| Instead of this pane | Use |
-| --- | --- |
-| Agent, and whether the runtime answers | `npx copilotkit verify --round-trip`, which sends one request through the runtime and reads the answer back off the thread. See [Proving it works](/react-native#proving-it-works). |
-| Errors and tool calls | Runtime [Debug Mode](/troubleshooting/debug-mode) beside the device log — `adb logcat` on Android, where a redbox appears that a screen capture never shows. |
-| Threads | The thread view in [CopilotKit Intelligence](/intelligence/overview). |
+Confirm the connection before debugging anything else:
 
-## Navigation and Threads
+1. Open **Agent**. Your connected agent should be listed.
+2. Send a message in your application, then open **AG-UI Events**. You should
+   see events arrive while the run is active.
+3. Open **Threads**. A connected Intelligence setup shows your saved Threads.
+   Without Intelligence, the pane is locked and offers a setup path instead.
 
-The sidebar has three groups:
+Home summarizes project, Runtime, and service status. When Intelligence is
+connected, it shows an **Intelligence connected** chip. Otherwise, choose
+**Copy setup prompt** to give the setup task to your coding agent. If the
+Runtime supplies a trusted setup URL, you can also choose **Set it up yourself**.
 
-- **Home**: project, runtime, services, and CopilotKit news.
-- **Workbench**: **Threads** and **Memory**.
-- **Inspect**: **Agent**, **AG-UI Events**, **Frontend Tools**, and **Context**.
-  **Capabilities** appears only when an A2UI catalog is present.
+If the agent is missing or no events arrive, first confirm the
+[Copilot Runtime](/backend/copilot-runtime) connection. If Threads is the only
+missing piece, follow the [Intelligence quickstart](/intelligence/quickstart)
+instead of changing the agent connection.
 
-The sidebar is live-only. Leaves that have no data stay hidden. On a narrow
-window, or when the Inspector is docked left, the sidebar collapses to icons.
-**Talk to an Engineer** stays in the sidebar footer.
+## Find the cause of a failed run
 
-When Intelligence is connected, Home shows a small **Intelligence connected**
-chip on the right of **What's going on**. When it is not connected, Home shows
-a Connect card and a **CONNECT TO INTELLIGENCE** action when the Runtime
-supplies one.
+When CopilotKit reports an error, the Inspector launcher turns red. When there
+is room, an error pill briefly names the failure. Click either one to open the
+pane with the most useful evidence:
 
-The Threads list initially selects the most recently updated visible real
-thread. Open a row to inspect its **Messages**, **AG-UI Events**, and **State**.
-The current row, tabs, links, actions, and window controls all support keyboard
-focus.
+| Failure                      | Where Inspector takes you | What to check                                |
+| ---------------------------- | ------------------------- | -------------------------------------------- |
+| Runtime or connection        | **Home**                  | Runtime and service status                   |
+| Loading the Thread list      | **Threads**               | The list error and Intelligence state        |
+| Agent run or `RUN_ERROR`     | **AG-UI Events**          | The highlighted event, agent name, and error |
+| Tool handler or missing tool | **Agent**                 | The agent, tool, call, and error             |
+| Loading Learning data        | **Learning**              | The pane error and setup state               |
 
-## Errors
+A `RUN_ERROR` is highlighted and expanded while it remains in the event
+buffer. A tool call is highlighted when the error includes its call id; a
+missing tool has no call to highlight.
 
-When a CopilotKit error fires, the Inspector launcher turns red. Where there is
-room beside it, a pill names the failure for a few seconds. Click the launcher —
-or the pill while it is open — and Inspector opens the pane that explains that
-error:
+Learning data is fetched the first time you open **Learning**, so a Learning
+load error can only be routed there after that first visit.
 
-- **Runtime / connection**: Home.
-- **Threads list**: Threads.
-- **Agent run / `RUN_ERROR`**: AG-UI Events. The banner names the agent and the
-  error. If the run's `RUN_ERROR` is still in the event buffer, it is
-  highlighted and expanded.
-- **Tool handler / missing tool**: Agent. The banner names the agent, the tool,
-  and the error. When the error carries a tool call id, that call is
-  highlighted — a missing tool has no call to point at, so nothing is.
-- **Learning / memory**: Learning. Only once the Learning view has been opened:
-  the memory store is created on first visit, so before that there is nothing
-  to report.
+Inspector is best for locating the failing layer during development. If the
+event stream stops before it reaches the browser, enable [Runtime Debug
+Mode](/troubleshooting/debug-mode) to inspect the server-side pipeline. Use
+`onError` on `CopilotKit` or `CopilotChat` when the application UI or your
+production observability system should also receive the error. See [Error
+Debugging & Observability](/troubleshooting/error-debugging) for that setup.
 
-Use `onError` on `CopilotKit` or `CopilotChat` if you also want the app UI to
-show the same error. The Inspector still records it.
+## Follow a run from input to result
 
-## Empty Threads demo
+Send a message in your application, then use these views to answer the next
+debugging question:
 
-When Threads is enabled but has no real rows, or when Threads is locked, the
-Inspector keeps the product demo: the overview video, three local example
-threads, their detail tabs, and the guided tour. The examples do not send real
-Thread requests.
+| Question                                      | Open                                                       | Related guide                                              |
+| --------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| Which agent ran, and what did it do?          | **Agent**                                                  | [Agent configuration](/agent-config)                       |
+| Which events crossed the AG-UI connection?    | **AG-UI Events**                                           | [AG-UI protocol](/agentic-protocols/ag-ui)                 |
+| Which browser-side tools are registered?      | **Frontend Tools**                                         | [Frontend Tools](/frontend-tools)                          |
+| What readable or document context was shared? | **Context**                                                | [Agent read-only context](/shared-state/agent-readonly)    |
+| What did a saved conversation contain?        | **Threads** → **Messages**, **AG-UI Events**, or **State** | [Rich Threads](/threads) and [Shared State](/shared-state) |
 
-The video has a labelled Play or Pause control. With reduced motion enabled, it
-starts paused. If the media fails, fallback text appears while the examples,
-details, and tour stay usable.
+In an official React `CopilotChat`, open an assistant message's toolbar and
+choose **View in Inspector** to jump directly to that message in its Thread.
+This local development shortcut is useful when you already know which response
+you need to explain. See the [`CopilotChat` reference](/reference/components/CopilotChat)
+for its configuration.
 
-## Project context and usage
+**Frontend Tools** appears only after your application registers a frontend
+tool. **Capabilities** appears only when an A2UI catalog is present; use it to
+toggle tools and catalog components while experimenting.
 
-An Intelligence-backed Runtime can supply optional trusted project metadata.
-Valid organization and project names, the plan label, and Thread usage appear
-on the Home project card. Each module is independent, so invalid or missing
-identity data does not hide valid usage or action data.
+On narrow windows, or when Inspector is docked left, the sidebar collapses to
+icons. **Talk to an Engineer** remains in the sidebar footer.
 
-Trusted Thread usage also appears in the Threads footer:
+## Reproduce an issue without changing the saved Thread
 
-| Usage state                 | Inspector behavior                                                                                                          |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Finite                      | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
-| Unlimited                   | Shows the used count with **Unlimited** and no progress bar.                                                                |
-| Unknown limit               | Shows the used count with **Limit unavailable**, but invents no numeric limit or progress.                                  |
-| Known expiry count          | Shows the count, including `0 Expiring Soon`.                                                                               |
-| Missing or malformed expiry | Hides the expiry value instead of inventing one.                                                                            |
+Use **Playground** when you have already observed a problem and want to vary the
+prompt, state, or next message without touching the original [Rich
+Thread](/threads). Its messages and state stay separate from your application
+chat and stored Threads, so you can run, stop, retry, and continue an experiment
+safely.
 
-`Expiring Soon` describes a future retention-policy threshold in the next 24
-hours. It does not prove that the thread culler ran or that the Inspector locked
-or deleted a Thread.
+To reproduce a problem from a real conversation:
 
-Usage and the footer action render independently. Usage can appear without
-identity, plan, license, or action metadata, and action-only metadata does not
-invent usage. A valid managed plan can show **Manage Your Plan** when the Runtime
-supplies a matching trusted action. Managed Enterprise has no manage-plan
-action, and Team Self-Hosted has no hosted action; either can keep valid usage
-visible.
+1. Open **Threads** and select the saved Thread.
+2. Choose **Try from here**.
+3. Continue the copied conversation in **Playground**.
 
-<Callout type="info">
-  If Threads is locked, the Inspector uses the Runtime's license state and can
-  show **Enable Intelligence**, **Renew**, or **Manage Your Plan**. Those
-  license and billing links appear only when the Runtime supplies a matching
-  trusted action URL; there is no fixed signup destination. An active license
-  with missing Runtime routes instead offers **Copy prompt for your agent** and
-  **Open setup guide**. The prompt points the coding agent to the public Runtime
-  setup guide and asks it to verify the finished route setup.
-</Callout>
+Inspector copies the Thread's messages and state but leaves the original
+untouched. If the copy fails, neither the saved Thread nor the existing
+Playground session changes.
 
-| License state | Locked Threads behavior                                                                                              |
-| ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Active        | Shows **Finish setting up Rich Threads**, copies a coding-agent repair prompt, and links to the Runtime route setup. |
-| Not enabled   | Shows **Enable Intelligence** only for a matching trusted action.                                                    |
-| Expired       | Shows **Renew** or **Manage Your Plan** only for a matching trusted action.                                          |
-| Unknown       | Shows neutral unavailable copy without an action.                                                                    |
+When Threads has no real rows, or when it is locked, Inspector shows an overview
+video, three local example Threads, their detail tabs, and a guided tour. These
+examples do not send real Thread requests. With reduced motion enabled, the
+video starts paused. If the video fails, the examples and tour still work.
 
-If an active license shows the setup state, follow [Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
-to use multi-route mode, configure application-user identity, mount every
-required HTTP method, and verify the capability response.
+## Continue a saved Thread in your application
 
-The Inspector opens the exact trusted URL supplied by the Runtime. It does not
-build a URL from project details or add a fixed signup fallback. If metadata
-license state conflicts with the Runtime's license status, the Runtime status
-controls the copy and the Inspector hides the action.
+Selecting a Thread in Inspector does not change the live chat. To continue the
+conversation in an official `CopilotChat`, sidebar, or popup:
 
-Older Runtime, Core, and Inspector versions remain compatible without a
-synchronized deployment. An older V1 producer leaves
-`usage.expiringSoonCount` absent. A newer producer is safe with pre-expiry
-Shared and Runtime versions because they ignore or remove the additive leaf.
-An older Inspector ignores metadata supplied by newer Runtime and Core
-versions; a newer Inspector feature-detects older Core and Runtime support and
-uses its missing-metadata fallback.
+1. Open a real saved Thread.
+2. Choose **View in your app** in its detail header.
+3. Send messages in the application chat on that Thread.
+4. Choose **Stop viewing** to restore the previous application Thread.
 
-Explicit `threadEndpoints` remain the authority in every mix, and metadata
-never enables Thread work. A license conflict hides an incompatible action
-without hiding valid usage. Metadata updates do not change the selected thread.
+The Thread list marks the conversation currently open in the application. If
+you select another Thread in the application, the Inspector override ends.
+Example Threads do not offer this action.
 
-<Callout type="info">
-  Want to preview A2UI catalog components directly in your editor? See the [VS
-  Code Extension](/vs-code-extension) for live preview with hot-reload.
-</Callout>
-
-## View a thread in your app
-
-The Inspector can open a saved thread, but that does not change the live chat.
-Use **View in your app** in the thread detail header to load that thread into
-the official chat (`CopilotChat`, sidebar, or popup).
-
-The chat shows the saved messages. You can send new messages on that same
-thread. The list marks the thread that is open in the app.
-
-Click **Stop viewing** to put the chat back on the previous thread. If you
-pick another thread in the app, the Inspector override ends.
-
-This action is for real saved threads only. Example threads do not have it.
-A production build hides the action even if the Inspector is forced on.
-
-If no official chat for that agent is on the page, the Inspector shows an
-error. This behavior is agent-framework agnostic: the Inspector addresses the
-CopilotKit chat by `agentId`, regardless of which backend framework serves the
-agent.
+If no official chat for the agent is present, Inspector shows an error. The
+action addresses the chat by `agentId`, regardless of the backend framework.
 
 A custom chat can use the bridge exported by `@copilotkit/core`. Return `true`
-from `onInspectorViewThread` only when that chat claims the request, and include
+from `onInspectorViewThread` only when the chat accepts the request, and include
 the same `requestId` in every lifecycle event:
 
 - `onInspectorViewThread` receives `{ requestId, threadId, agentId }`
@@ -191,28 +167,77 @@ the same `requestId` in every lifecycle event:
 - `emitInspectorActiveThread` sends `{ requestId, threadId, agentId, source }`
 - `emitInspectorViewThreadResult` sends `{ requestId, threadId, agentId, ok }`
 
-## Pop out
+If you are building the Thread picker and conversation surface yourself, see
+[Headless Threads](/headless-threads) for the persistence and lifecycle APIs.
 
-The Inspector sits on top of your app. If it covers the UI you need to see,
-click the pop-out control in the Inspector header.
+## Enable or repair Intelligence
 
-A real browser window opens. It shows the same live Inspector session.
-The app page hides the Inspector and the floating button.
+Intelligence unlocks real Threads and Learning. When it is not connected, open
+**Home** and choose **Copy setup prompt**. Give that prompt to your coding agent,
+then return to Inspector to follow setup through the first eligible Thread. The
+[Intelligence quickstart](/intelligence/quickstart) explains the project,
+credentials, and Runtime routes that prompt configures.
 
-Close the extra window to put the Inspector back on the page. It stays open
-in the same float or dock mode as before.
+If Threads remains locked, use the action Inspector presents for the Runtime's
+current state:
 
-If the window does not open, allow popups for the site and click pop-out
-again. A refresh closes the extra window. The Inspector does not reopen as a
-pop-out after a refresh.
+| State       | Next step Inspector can offer                                                    |
+| ----------- | -------------------------------------------------------------------------------- |
+| Active      | **Finish setting up Rich Threads**, a repair prompt, and the Runtime route guide |
+| Not enabled | **Enable Intelligence** when the Runtime supplies a trusted action               |
+| Expired     | **Renew** or **Manage Your Plan** when the Runtime supplies a trusted action     |
+| Unknown     | An unavailable message without an action                                         |
 
-## Configuring the Inspector
+For an active license with incomplete routes, use the Runtime route guide.
+[Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
+explains how to configure application-user identity, mount every required HTTP
+method, and verify the capability response.
 
-In React, Vue, and Angular browser applications, the Inspector appears by
-default in development builds on any host. It is never loaded or rendered in a
-production build or during server-side rendering.
+Inspector opens only action URLs supplied by the Runtime. It does not construct
+a project URL or use a fixed signup fallback. If metadata and Runtime license
+states conflict, Runtime status controls the message and the incompatible
+action is hidden.
 
-Set `enableInspector` to `false` to hide it during development:
+## Review what Learning found
+
+Open **Learning** to trace completed Threads into evidence-backed Insights and
+reviewed Skills. A configured pane shows:
+
+- new Threads ready for analysis;
+- published Skills and their `SKILL.md` content;
+- the Insights supporting each Skill; and
+- the source Thread evidence behind each pattern.
+
+Select evidence to open the matching Thread and message. Use **Open in web app**
+to run an analysis or review pending Skill candidates. Inspector lets you
+inspect the evidence, but does not approve or publish a candidate.
+
+If Learning is not configured, choose **Copy setup prompt**. If the Runtime
+cannot select one Learning container for the active agent, Inspector sends you
+to the web app to choose it. See [Learning](/learning) for the complete workflow.
+
+## Control when Inspector appears
+
+Use the option that matches what you are trying to do:
+
+| Goal                                      | Action                                                                                                    |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Close the current view                    | Use the close control; reopen it from the Inspector button                                                |
+| See your application without an overlay   | Use the pop-out control in the Inspector header                                                           |
+| Hide chat message shortcuts until reload  | Open a message's Inspector shortcut menu and choose **Hide this icon**                                    |
+| Hide Inspector temporarily on this domain | Choose **Hide Inspector for a day** from the launcher HUD, or **Hide Inspector for one week** in settings |
+| Disable Inspector for the development app | Set `enableInspector` to `false`                                                                          |
+
+Pop-out opens the same live Inspector session in a separate browser window and
+hides the overlay and floating button on the application page. Close the extra
+window to return Inspector to its previous floating or docked position. If no
+window opens, allow popups and try again. Refreshing closes the extra window;
+Inspector does not restore pop-out mode after a refresh.
+
+A temporary hide removes the overlay and launcher only on the current domain.
+They return automatically after the selected period.
+
+To disable Inspector in a React development build:
 
 ```tsx
 <CopilotKit
@@ -223,16 +248,63 @@ Set `enableInspector` to `false` to hide it during development:
 </CopilotKit>
 ```
 
-An explicit `true` keeps it enabled in development but cannot override the
-production or server-rendering guard.
+Vue uses the template prop `:enable-inspector="false"`. Angular uses
+`provideCopilotKit({ enableInspector: false })`. An explicit `true` keeps
+Inspector enabled in development but cannot override production or
+server-rendering guards. Legacy `showDevConsole` props no longer control it.
 
-Vue uses the kebab-case template prop `:enable-inspector="false"`. Angular
-configures it through `provideCopilotKit({ enableInspector: false })`.
+See the [`CopilotKit` provider reference](/reference/components/CopilotKit) for
+the complete React provider API.
 
-Legacy `showDevConsole` props no longer control the Inspector. Use
-`enableInspector` in every browser framework. Native iOS and Android
-applications do not have a built-in Inspector yet.
+Inspector is never loaded or rendered in a production build or during
+server-side rendering.
 
-Inspector telemetry uses its own browser identity and direct delivery path. It
-works whether or not the Runtime has `CPK_TELEMETRY_ID`, and it follows the
-existing telemetry opt-outs.
+## Understand project and usage information
+
+An Intelligence-backed Runtime can send trusted organization, project, plan,
+Thread usage, retention, and action metadata. Home shows valid project context;
+the Threads footer shows valid usage and relevant actions. Missing identity data
+does not hide valid usage, and missing usage does not hide a valid action.
+
+| Usage state                 | What Inspector shows                                     |
+| --------------------------- | -------------------------------------------------------- |
+| Finite limit                | `used / limit Threads` and a progress bar                |
+| Over the finite limit       | `limit+ / limit Threads`, with the bar capped at 100%    |
+| Unlimited                   | The used count and **Unlimited**, without a progress bar |
+| Unknown limit               | The used count and **Limit unavailable**                 |
+| Known expiry count          | The count, including `0 Expiring Soon`                   |
+| Missing or malformed expiry | No expiry value                                          |
+
+**Expiring Soon** means a Thread is within a retention threshold in the next 24
+hours. It does not mean Inspector locked or deleted that Thread.
+
+Older Runtime, Core, and Inspector versions remain compatible without a
+synchronized deployment. Newer components feature-detect optional metadata;
+older components ignore fields they do not understand. Explicit
+`threadEndpoints` remain authoritative, and metadata never enables Thread work.
+
+## Where Inspector runs
+
+Inspector is a browser overlay: it mounts a custom element into the page's DOM.
+It runs on React, Next.js, React SPA, Vue, and Angular.
+
+There is no React Native build of Inspector, and `@copilotkit/react-native` does
+not ship it. Channels such as Slack and Teams do not have a browser surface
+either.
+
+Use these alternatives for React Native:
+
+| What you need to debug      | Use                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Whether the Runtime answers | `npx copilotkit verify --round-trip`. See [Proving it works](/react-native#proving-it-works).            |
+| Errors and tool calls       | Runtime [Debug Mode](/troubleshooting/debug-mode) beside the device log, such as `adb logcat` on Android |
+| Saved Threads               | The Thread view in [CopilotKit Intelligence](/intelligence/overview)                                     |
+
+Inspector telemetry has its own browser identity and direct delivery path. It
+works whether or not the Runtime has `CPK_TELEMETRY_ID` and follows the existing
+telemetry opt-outs.
+
+<Callout type="info">
+  Want to preview A2UI catalog components directly in your editor? See the [VS
+  Code Extension](/vs-code-extension) for live preview with hot reload.
+</Callout>
