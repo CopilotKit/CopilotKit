@@ -246,6 +246,19 @@ describe("WizardNav", () => {
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
   });
 
+  // The review step (step 4) passes no `onContinue` at all: the footer
+  // should then render Back alone, with nothing where the primary used to
+  // sit — not a disabled or hidden primary, no primary node whatsoever.
+  // Asserting the total button count (rather than just querying for the
+  // primary's absence by name) is what catches a mutation that keeps
+  // rendering the primary with some other, still-truthy label.
+  it("renders Back and no primary button when onContinue is absent", () => {
+    render(<WizardNav onBack={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Back" })).not.toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
   it("renders Back when onBack is present", () => {
     render(
       <WizardNav

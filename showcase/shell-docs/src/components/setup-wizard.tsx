@@ -67,6 +67,8 @@ import {
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
 import {
+  ACCENT_BUTTON_CLASS,
+  PRIMARY_BUTTON_MIN_WIDTH_CLASS,
   WizardCard,
   WizardNav,
   WizardProgress,
@@ -161,6 +163,53 @@ function runStepSwapAnimation(
   }
 
   wrapper.animate(plan.incoming, plan.options);
+}
+
+/** The quiet control on the right of each of step 4's review rows. Small and
+ *  muted on purpose — it is a secondary action next to the row's value, not
+ *  competing with the copy button below the list. */
+const REVIEW_CHANGE_BUTTON_CLASS =
+  "shell-docs-radius-control shrink-0 cursor-pointer px-2 py-1 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none";
+
+/** One row of step 4's review list: an uppercase label, the picked value (or
+ *  a muted "None" when `value` is `null`, which is how the features row
+ *  stays offered even with nothing chosen), and a `Change` control that
+ *  jumps back to the step that answer came from. `Change` shows the same
+ *  short word on every row, but needs a distinct accessible name per row —
+ *  three buttons all named "Change" would be indistinguishable in a screen
+ *  reader's element list — so `changeLabel` (e.g. "Change frontend") goes in
+ *  `aria-label`. It contains the visible text "Change", so this still
+ *  satisfies the label-in-name rule. Module-level rather than a closure
+ *  inside `SetupWizard`: it captures nothing from that component's scope. */
+function ReviewRow({
+  label,
+  value,
+  changeLabel,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  changeLabel: string;
+  onChange: () => void;
+}): React.JSX.Element {
+  return (
+    <div className="flex items-center gap-4 py-3">
+      <dt className="w-24 shrink-0 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] sm:w-32">
+        {label}
+      </dt>
+      <dd className="min-w-0 flex-1 text-sm font-medium text-[var(--text)]">
+        {value ?? <span className="text-[var(--text-muted)]">None</span>}
+      </dd>
+      <button
+        type="button"
+        onClick={onChange}
+        aria-label={changeLabel}
+        className={REVIEW_CHANGE_BUTTON_CLASS}
+      >
+        Change
+      </button>
+    </div>
+  );
 }
 
 export function SetupWizard({
@@ -449,6 +498,7 @@ export function SetupWizard({
             setFrontendId(id);
             setHint(null);
           }}
+          size="card"
         />
       </div>
     );
@@ -514,20 +564,56 @@ export function SetupWizard({
     stepName = "Copy your prompt";
     stepDescription =
       "The canonical onboarding prompt, with your answers appended so your coding agent does not have to ask again.";
-    // No body content of its own any more — the copy button used to live
-    // here, but it is a step-ending action like every other step's
-    // Continue, not a fourth pick, so it now lives in the same footer via
-    // `WizardNav`'s primary slot (see the header comment on `WizardNav`'s
-    // `continueIcon` prop).
-    body = null;
-    footer = (
-      <WizardNav
-        onBack={handleBack}
-        onContinue={handleCopy}
-        continueLabel={COPY_LABEL[copyState]}
-        continueIcon={<Copy aria-hidden="true" className="h-4 w-4" />}
-      />
+
+    const frontendPick =
+      frontends.find((pick) => pick.id === frontendId) ?? null;
+    const backendPick = backends.find((pick) => pick.id === backendId) ?? null;
+    const featureTitles = capabilities
+      .filter((capability) => featureIds.has(capability.id))
+      .map((capability) => capability.title);
+
+    // A review list, not a fourth pick: the three answers so far, each with
+    // a quiet `Change` back to the step it came from (see `ReviewRow`
+    // above), and the copy action — still `WizardNav`'s accent control (see
+    // `ACCENT_BUTTON_CLASS`/`PRIMARY_BUTTON_MIN_WIDTH_CLASS`, exported from
+    // `wizard-stepper-parts` for exactly this) — centred in the space below
+    // the list rather than parked in the footer's corner, since a step this
+    // short otherwise reads as an empty card with a button in it.
+    body = (
+      <div className="flex flex-col">
+        <dl className="divide-y divide-[var(--border)]">
+          <ReviewRow
+            label="Frontend"
+            value={frontendPick?.name ?? null}
+            changeLabel="Change frontend"
+            onChange={() => handleJump(1)}
+          />
+          <ReviewRow
+            label="Agent backend"
+            value={backendPick?.name ?? null}
+            changeLabel="Change agent backend"
+            onChange={() => handleJump(2)}
+          />
+          <ReviewRow
+            label="Features"
+            value={featureTitles.length > 0 ? featureTitles.join(" · ") : null}
+            changeLabel="Change features"
+            onChange={() => handleJump(3)}
+          />
+        </dl>
+        <div className="flex flex-1 items-center justify-center py-6">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className={`${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS}`}
+          >
+            <Copy aria-hidden="true" className="h-4 w-4" />
+            {COPY_LABEL[copyState]}
+          </button>
+        </div>
+      </div>
     );
+    footer = <WizardNav onBack={handleBack} />;
   }
 
   return (

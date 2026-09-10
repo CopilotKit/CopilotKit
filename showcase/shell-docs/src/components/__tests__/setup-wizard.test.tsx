@@ -62,6 +62,12 @@ vi.mock("@/components/wizard-stepper-parts", async (importOriginal) => {
   };
 });
 
+// Deliberately carries no `summary` — `PickGrid`'s `size="card"` folds the
+// summary into the button's accessible name (name plus summary, like
+// `CapabilityGrid`'s title-plus-body), which would break every exact-name
+// `getByRole("button", { name: "React" })` query used throughout this file.
+// The "PickGrid size per step" tests below use their own, separate fixture
+// with a summary for exactly that reason, rather than putting one here.
 const FRONTENDS: readonly MapPick[] = [
   { id: "react", name: "React", logo: { kind: "frontend", icon: "react" } },
   { id: "vue", name: "Vue", logo: { kind: "frontend", icon: "vue" } },
@@ -591,19 +597,25 @@ describe("step 4: copy your prompt", () => {
     ).not.toBeNull();
   });
 
-  // Anchored on the shared container rather than on "is the button
-  // somewhere in the document" — Back and the copy button both come out of
-  // the same `WizardNav` footer row, so their immediate parent is the same
-  // DOM node. A change that moved the copy button back into the card body
-  // would still render it, but no longer inside that shared row, so this
-  // fails where a mere presence check would not.
-  it("puts the copy button in the footer alongside Back, not in the card body", () => {
+  // The copy button moved out of the footer and into the card body, centred
+  // between the review list and the footer — the reader's explicit request,
+  // so the card reads as composed rather than empty. Anchored on the shared
+  // container (the step's own `<section>`) rather than on "is the button
+  // somewhere in the document": Back comes out of `WizardNav`'s footer row,
+  // so a regression that put the copy button back in that same row would
+  // make it share Back's parent again, which this explicitly refuses, while
+  // still requiring the button to be somewhere inside the step's card.
+  it("does not put the copy button inside the footer region on step 4", () => {
     advanceToStep4({ frontend: "React", backend: "Mastra" });
 
     const backButton = screen.getByRole("button", { name: "Back" });
     const copyButton = screen.getByRole("button", { name: "Copy prompt" });
 
-    expect(copyButton.parentElement).toBe(backButton.parentElement);
+    expect(copyButton.parentElement).not.toBe(backButton.parentElement);
+
+    const card = backButton.closest("section");
+    if (!card) throw new Error("step 4 card not found");
+    expect(card.contains(copyButton)).toBe(true);
   });
 
   it("returns to Copy prompt after the reset delay following a successful copy", async () => {
@@ -670,6 +682,154 @@ describe("step 4: copy your prompt", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("step 4: review list", () => {
+  it("lists all three selections with their values", () => {
+    advanceToStep4({
+      frontend: "Vue",
+      backend: "Mastra",
+      feature: "Chat surface",
+    });
+
+    expect(screen.getByText("Vue")).not.toBeNull();
+    expect(screen.getByText("Mastra")).not.toBeNull();
+    expect(screen.getByText("Chat surface")).not.toBeNull();
+  });
+
+  // Features is the one optional step — skipping it must still leave a row
+  // that reads clearly and still offers a way back to step 3, not a row
+  // that silently disappears. Mutation (d): rendering nothing instead of
+  // "None" leaves this `getByText("None")` with nothing to find.
+  it("shows a muted None for features and still offers Change when none were chosen", () => {
+    advanceToStep4({ frontend: "React", backend: "Mastra" });
+
+    expect(screen.getByText("None")).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Change features" }),
+    ).not.toBeNull();
+  });
+
+  // Three separate assertions, one per button, each starting a fresh trip
+  // to step 4 — asserting only the first `Change` button's destination
+  // would pass even if the other two were mutated to also point at step 1
+  // (mutation (a)). Querying by the full `aria-label` also means a mutation
+  // that gives every button the same accessible name (mutation (b)) makes
+  // `getByRole` throw here for whichever name stops being unique.
+  it("Change frontend returns to step 1, animating as a backward step", () => {
+    advanceToStep4({
+      frontend: "Vue",
+      backend: "Mastra",
+      feature: "Chat surface",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Change frontend" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Your frontend" }),
+    ).not.toBeNull();
+  });
+
+  it("Change agent backend returns to step 2", () => {
+    advanceToStep4({
+      frontend: "Vue",
+      backend: "Mastra",
+      feature: "Chat surface",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change agent backend" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Your agent backend" }),
+    ).not.toBeNull();
+  });
+
+  it("Change features returns to step 3", () => {
+    advanceToStep4({
+      frontend: "Vue",
+      backend: "Mastra",
+      feature: "Chat surface",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Change features" }));
+
+    expect(
+      screen.getByRole("heading", { name: "What you want to build" }),
+    ).not.toBeNull();
+  });
+
+  it("shows the updated value after changing a selection and returning to step 4", () => {
+    advanceToStep4({ frontend: "React", backend: "Mastra" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Change frontend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Vue" }));
+
+    // Furthest is already 4, so the progress rail can jump straight back
+    // without walking Continue through steps 2 and 3 again.
+    fireEvent.click(screen.getByRole("button", { name: /Prompt/ }));
+
+    expect(
+      screen.getByRole("heading", { name: "Copy your prompt" }),
+    ).not.toBeNull();
+    expect(screen.getByText("Vue")).not.toBeNull();
+    expect(screen.queryByText("React")).toBeNull();
+  });
+});
+
+// Step 1's frontends fill the card as larger tiles with their summary line
+// (`size="card"`); step 2's nineteen backends stay a dense, compact list.
+// Asserted through rendered output, not through a prop spy on `PickGrid`.
+//
+// Uses its own fixture, carrying `summary` on both a frontend and a
+// backend, rather than the shared `FRONTENDS`/`BACKENDS` above: `size="card"`
+// folds the summary into the option button's accessible name (name plus
+// summary, the same shape as `CapabilityGrid`'s title-plus-body), which
+// would break every exact-name `getByRole("button", { name: "React" })`
+// query the rest of this file relies on. Giving the backend a `summary` too
+// is what makes "no summary text on step 2" meaningful rather than vacuous
+// — the data is there, and compact size is what keeps it off the screen.
+describe("PickGrid size per step", () => {
+  const SUMMARY_FRONTENDS: readonly MapPick[] = [
+    {
+      id: "react",
+      name: "SummaryFrontend",
+      logo: { kind: "frontend", icon: "react" },
+      summary: "The frontend summary line.",
+    },
+  ];
+  const SUMMARY_BACKENDS: readonly MapPick[] = [
+    {
+      id: "mastra",
+      name: "SummaryBackend",
+      logo: { kind: "framework", slug: "mastra" },
+      summary: "The backend summary line.",
+    },
+  ];
+
+  it("shows frontend summaries on step 1 and omits backend summaries on step 2", () => {
+    render(
+      <SetupWizard
+        frontends={SUMMARY_FRONTENDS}
+        capabilities={CAPABILITIES}
+        backends={SUMMARY_BACKENDS}
+      />,
+    );
+
+    expect(screen.getByText("The frontend summary line.")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^SummaryFrontend/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Your agent backend" }),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "SummaryBackend" }),
+    ).not.toBeNull();
+    expect(screen.queryByText("The backend summary line.")).toBeNull();
   });
 });
 

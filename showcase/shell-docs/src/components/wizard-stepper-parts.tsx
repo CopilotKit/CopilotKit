@@ -35,6 +35,14 @@
 // present, Continue stays anchored to where the row's trailing edge would
 // be.
 //
+// The review step (step 4) has no forward action in the footer at all — its
+// copy button moved into the card body, centred between the selection list
+// and the footer, so it reads as the same accent control without being a
+// second copy of `ACCENT_BUTTON_CLASS`/`PRIMARY_BUTTON_MIN_WIDTH_CLASS`. So
+// `onContinue`/`continueLabel` are optional: with no `onContinue`, the row
+// renders Back alone on the left and nothing on the right. Everything else
+// about the row is unchanged.
+//
 // The `hint` row beneath Continue is always rendered, whether or not `hint`
 // itself is set, and is announced through `aria-live="polite"` rather than
 // wired to the button via `aria-describedby`: a blocked click also moves
@@ -56,7 +64,11 @@ export type StepperStep = {
 // No `disabled:` variants — Continue is never rendered with the `disabled`
 // attribute (see the header comment above), so styling for that state would
 // be dead weight.
-const ACCENT_BUTTON_CLASS =
+//
+// Exported so step 4's copy button (`setup-wizard.tsx`) renders the same
+// control instead of keeping a second copy of this string — it left the
+// footer, but it is still the wizard's one accent action.
+export const ACCENT_BUTTON_CLASS =
   "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto";
 
 const QUIET_BUTTON_CLASS =
@@ -71,7 +83,11 @@ const QUIET_BUTTON_CLASS =
 // roughly its text at text-sm font-semibold, plus the icon and icon-label
 // gap step 4's copy button adds, plus the button's own horizontal padding,
 // with a little slack rather than a value that only just fits.
-const PRIMARY_BUTTON_MIN_WIDTH_CLASS = "min-w-[9.5rem]";
+//
+// Exported for the same reason as `ACCENT_BUTTON_CLASS` above — step 4's
+// copy button keeps this floor even though it is no longer rendered by this
+// component.
+export const PRIMARY_BUTTON_MIN_WIDTH_CLASS = "min-w-[9.5rem]";
 
 /** The rail above the card: one button per step, a number plus a short
  *  label, connected by thin rules so it reads as one rail rather than four
@@ -199,7 +215,10 @@ export function WizardCard({
 
 /** The Back/Continue footer row. Back is omitted entirely — not merely
  *  hidden — when `onBack` is absent. Continue is always enabled; see the
- *  header comment above for why and for how `hint` is announced. */
+ *  header comment above for why and for how `hint` is announced. The
+ *  primary itself is optional: step 4 (the review step) passes no
+ *  `onContinue`, and the row then renders Back alone on the left with
+ *  nothing on the right. */
 export function WizardNav({
   onBack,
   onContinue,
@@ -208,8 +227,8 @@ export function WizardNav({
   hint,
 }: {
   onBack?: () => void;
-  onContinue: () => void;
-  continueLabel: string;
+  onContinue?: () => void;
+  continueLabel?: string;
   /** Rendered before the label — e.g. the clipboard glyph on step 4's copy
    *  button. An optional prop rather than asking every caller to build the
    *  whole button: the other three steps pass nothing and get exactly the
@@ -235,14 +254,16 @@ export function WizardNav({
             Back
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={() => onContinue()}
-          className={`${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS} ${onBack ? "" : "sm:ml-auto"}`}
-        >
-          {continueIcon}
-          {continueLabel}
-        </button>
+        {onContinue ? (
+          <button
+            type="button"
+            onClick={() => onContinue()}
+            className={`${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS} ${onBack ? "" : "sm:ml-auto"}`}
+          >
+            {continueIcon}
+            {continueLabel}
+          </button>
+        ) : null}
       </div>
       {/* Always rendered, empty or not — an empty live region still occupies
        *  this line, which is what keeps the hint from reflowing the footer
