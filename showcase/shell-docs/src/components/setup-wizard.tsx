@@ -428,10 +428,11 @@ export function SetupWizard({
    *  attribute, but this is the second, independent check: nothing here
    *  trusts the child component alone to enforce it. Reads `furthestRef`/
    *  `currentRef` rather than the closed-over `furthest`/`current` — see
-   *  the comment on those refs above for why. `pointerActivated` defaults
-   *  to `false` (the keyboard branch, i.e. the ring stays visible) since
-   *  `WizardReview`'s tiles also call this through `onNavigate` without an
-   *  originating click event to derive it from. */
+   *  the comment on those refs above for why. Both callers that reach this
+   *  — the rail's own `onJump` and `WizardReview`'s `onNavigate` — compute
+   *  `pointerActivated` next to their own click and always pass it; the
+   *  default here is only a defensive fallback for a caller that cannot
+   *  derive one, not something either caller actually relies on. */
   function handleJump(step: number, pointerActivated = false) {
     if (step > furthestRef.current) return;
     if (step === currentRef.current) return;
@@ -599,9 +600,9 @@ export function SetupWizard({
       />
     );
   } else {
-    stepName = "Copy your prompt";
+    stepName = "Ready to set up";
     stepDescription =
-      "The canonical onboarding prompt, with your answers appended so your coding agent does not have to ask again.";
+      "Below is what you chose at each step. Copy the prompt and hand it to your coding agent, and it takes care of the setup.";
 
     const frontendPick =
       frontends.find((pick) => pick.id === frontendId) ?? null;
@@ -610,13 +611,12 @@ export function SetupWizard({
       featureIds.has(capability.id),
     );
 
-    // A review grid, not a fourth pick: the three answers so far, each its
-    // own tile in `WizardReview` with a `Change` back to the step it came
-    // from — see that file's header comment for why the whole tile is the
-    // control rather than a row with a small trailing button. The copy
-    // action moved back into `WizardNav`'s primary slot, exactly where
-    // Continue sits on every other step, rather than centred in the card
-    // body — see `wizard-stepper-parts.tsx`'s `ACCENT_BUTTON_CLASS` comment
+    // A review panel, not a fourth pick: the three answers so far, each its
+    // own row in `WizardReview` with a `Change` back to the step it came
+    // from — see that file's header comment for why the whole row is the
+    // control rather than a small trailing button. The copy action lives in
+    // `WizardNav`'s primary slot, exactly where Continue sits on every other
+    // step — see `wizard-stepper-parts.tsx`'s `ACCENT_BUTTON_CLASS` comment
     // for the shared control this still reuses.
     body = (
       <WizardReview

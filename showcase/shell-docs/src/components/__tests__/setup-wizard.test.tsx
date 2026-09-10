@@ -223,7 +223,7 @@ describe("initial render", () => {
     expect(screen.queryByRole("button", { name: "Mastra" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Chat surface/ })).toBeNull();
     expect(
-      screen.queryByRole("heading", { name: "Copy your prompt" }),
+      screen.queryByRole("heading", { name: "Ready to set up" }),
     ).toBeNull();
   });
 });
@@ -429,7 +429,7 @@ describe("navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
-      screen.getByRole("heading", { name: "Copy your prompt" }),
+      screen.getByRole("heading", { name: "Ready to set up" }),
     ).not.toBeNull();
   });
 
@@ -442,7 +442,7 @@ describe("navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Skip" }));
 
     expect(
-      screen.getByRole("heading", { name: "Copy your prompt" }),
+      screen.getByRole("heading", { name: "Ready to set up" }),
     ).not.toBeNull();
   });
 });
@@ -459,7 +459,7 @@ describe("changing an earlier answer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
-      screen.getByRole("heading", { name: "Copy your prompt" }),
+      screen.getByRole("heading", { name: "Ready to set up" }),
     ).not.toBeNull();
 
     // Jump back to step 1 via the progress rail and pick a different
@@ -534,7 +534,7 @@ describe("progress rail", () => {
       screen.getByRole("heading", { name: "Your agent backend" }),
     ).not.toBeNull();
     expect(
-      screen.queryByRole("heading", { name: "Copy your prompt" }),
+      screen.queryByRole("heading", { name: "Ready to set up" }),
     ).toBeNull();
   });
 });
@@ -783,10 +783,23 @@ describe("step 4: review list", () => {
     fireEvent.click(screen.getByRole("button", { name: /Prompt/ }));
 
     expect(
-      screen.getByRole("heading", { name: "Copy your prompt" }),
+      screen.getByRole("heading", { name: "Ready to set up" }),
     ).not.toBeNull();
     expect(screen.getByText("Vue")).not.toBeNull();
     expect(screen.queryByText("React")).toBeNull();
+  });
+});
+
+// Asserted on a couple of stable words rather than the whole sentence, so a
+// later wording tweak does not fail this for nothing — the requirement is
+// that the description covers both points (what follows are the reader's
+// answers, and what is left to do), not its exact phrasing.
+describe("step 4: description", () => {
+  it("mentions both the answers below it and copying the prompt", () => {
+    advanceToStep4({ frontend: "React", backend: "Mastra" });
+
+    expect(screen.getByText(/chose/i)).not.toBeNull();
+    expect(screen.getByText(/copy the prompt/i)).not.toBeNull();
   });
 });
 
@@ -855,7 +868,7 @@ describe("URL state", () => {
     renderWizard();
 
     expect(
-      screen.getByRole("heading", { name: "Copy your prompt" }),
+      screen.getByRole("heading", { name: "Ready to set up" }),
     ).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Frontend/ }));
@@ -1202,7 +1215,7 @@ describe("manual quickstart link", () => {
 
     const card = screen
       .getByRole("heading", {
-        name: "Copy your prompt",
+        name: "Ready to set up",
       })
       .closest("section");
     if (!card) throw new Error("step 4 card not found");

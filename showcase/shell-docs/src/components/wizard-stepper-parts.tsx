@@ -252,15 +252,14 @@ export function WizardCard({
       <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
         {description}
       </p>
-      {/* `flex-1` so a step that wants the leftover room can take it —
-       *  step 4's review grid fills the card rather than leaving a gap
-       *  above the footer. The option grids opt out with `content-start`
-       *  (see `docs-map-parts.tsx`) so steps 1-3 keep their own heights. */}
-      {/* A flex column, not a plain block: the review grid opts into the
-       *  leftover room with `flex-1` of its own. A percentage height
-       *  would not do — `height: 100%` against a flex item sized from
-       *  `flex-basis: 0` resolves as auto, so the grid stayed at its
-       *  content height while this box had already grown. */}
+      {/* `flex-1` so this box owns whatever room the card's floor leaves
+       *  over, and `flex-col` so its child is laid out along that axis. A
+       *  child that wants to fill the room instead of being centred in it
+       *  opts in with a `flex-1` of its own; a percentage height would not
+       *  work for that, since `height: 100%` against a flex item sized from
+       *  `flex-basis: 0` resolves as auto. Nothing does today — the review
+       *  step stretched itself this way until it read as three inflated
+       *  boxes rather than a summary. */}
       {/* Symmetric padding, not a top margin, plus `justify-center`: the
        *  options then sit the same distance from the description above them
        *  as from the separator below. A top margin cannot do this — the

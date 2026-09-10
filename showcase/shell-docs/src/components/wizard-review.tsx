@@ -1,6 +1,7 @@
-// wizard-review.tsx — the homepage setup wizard's step 4 review grid: three
-// tiles, one per answer (frontend, agent backend, features), each a full
-// navigation control back to the step that answer came from.
+// wizard-review.tsx — the homepage setup wizard's step 4 review panel: one
+// row per answer (frontend, agent backend, features), stacked inside a
+// single bordered panel with hairline separators between them, each row a
+// full navigation control back to the step that answer came from.
 //
 // Boundary-neutral (no "use client"), same as `./docs-map-parts`, so it can
 // be rendered and tested on its own. This component holds no wizard state:
@@ -8,20 +9,36 @@
 // `./setup-wizard`, which is the only place that knows "which step is
 // current" or "what has been picked so far" — see that file's header
 // comment. `onNavigate` is the same callback the progress rail uses
-// (`handleJump` in `setup-wizard.tsx`), so a tile click animates as an
+// (`handleJump` in `setup-wizard.tsx`), so a row click animates as an
 // ordinary backward step rather than a special-cased jump.
 //
-// Built to read as the same visual language as the option tiles in
-// `PickGrid`/`CapabilityGrid` (`./docs-map-parts`) — a bordered surface that
-// turns accent on hover — but this is never `PickGrid` itself: these tiles
-// are never selected and never carry `aria-pressed`, since they are
-// navigation, not a choice. The whole tile is the click target, and the
-// whole tile's accessible name comes from `aria-label` ("Change frontend",
-// "Change agent backend", "Change features"): three tiles that all read
-// "Change" in a screen reader's element list would be indistinguishable, so
-// each carries its own name even though the visible word at the bottom of
-// every tile is the same, which is what keeps the label-in-name rule intact
-// (each label contains that visible word).
+// Rows over tiles: three tiles side by side, each stretched to fill the
+// card, used to read as another set of choices rather than as a
+// confirmation of what was chosen — every tile held one short value in a
+// lot of air. A single row per answer, led by the same numbered circle the
+// reader already knows from the progress rail above the card, reads instead
+// as "here is your answer to each step". A full-width row also means the
+// feature list — up to six selected values — fits on one line rather than
+// forcing the tile that held it to grow taller than the other two or wrap
+// its values into a stretched box.
+//
+// These rows are never `PickGrid` itself, despite reusing its hover
+// treatment: they are never selected and never carry `aria-pressed`, since
+// they are navigation, not a choice. The whole row is the click target, and
+// the whole row's accessible name comes from `aria-label` ("Change
+// frontend", "Change agent backend", "Change features"): three rows that
+// all read "Change" in a screen reader's element list would be
+// indistinguishable, so each carries its own name even though the visible
+// word at the end of every row is the same, which is what keeps the
+// label-in-name rule intact (each label contains that visible word).
+//
+// `onNavigate` carries a `pointerActivated` flag — `event.detail > 0` on the
+// row's own click, computed here rather than handed the raw event — the
+// same shape `WizardNav`/`WizardProgress` already report through their own
+// `on*` callbacks (see that file's header comment). `setup-wizard.tsx` uses
+// it to decide whether the step this row jumps to shows its heading's focus
+// ring; without it every row click reported as a keyboard activation
+// regardless of how the reader actually triggered it.
 //
 // The frontend and agent-backend marks come from `PickLogoMark`, and each
 // feature's own icon from `CapabilityIconMark` — both imported from
@@ -36,57 +53,79 @@ import React from "react";
 import { CapabilityIconMark, PickLogoMark } from "@/components/docs-map-parts";
 import type { MapCapability, MapPick } from "@/lib/homepage-map";
 
-/** Shared tile shell: bordered surface, accent border on hover — the same
- *  hover treatment as an option tile, without the selected-state fill,
- *  since a review tile is never selected. `aria-label` is the tile's entire
- *  accessible name (see the header comment above); the visible "Change" at
- *  the bottom is there for sighted readers, not for the name. */
-const TILE_CLASS =
-  "shell-docs-radius-control flex h-full cursor-pointer flex-col items-stretch gap-1.5 border border-[var(--border)] bg-[var(--bg-surface)] p-3.5 text-left transition-colors hover:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none";
+/** The panel wrapping every row: one hairline border around the whole
+ *  group, `divide-y` for the separators between rows, and `overflow-hidden`
+ *  so a row's hover fill never spills past the panel's own rounded
+ *  corners. Deliberately carries no `flex-1` — see `WizardReview`'s own
+ *  comment below for why that matters. */
+const PANEL_CLASS =
+  "shell-docs-radius-surface divide-y divide-[var(--border)] overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]";
 
-const KICKER_CLASS =
-  "text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]";
+/** One row: the same hover treatment an option tile uses (accent fill, no
+ *  border change needed since the panel's own border already frames the
+ *  group), full width so the row itself is the click target end to end. */
+const ROW_CLASS =
+  "flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[var(--accent-dim)] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none";
+
+/** The step number leading every row — the accent treatment, round rather
+ *  than the shared control radius: the same circle-on-accent look
+ *  `WizardProgress` gives the *current* step in the rail above the card
+ *  (see `wizard-stepper-parts.tsx`), so the two read as the same numbers
+ *  rather than a fresh numbering scheme invented here. */
+const STEP_NUMBER_CLASS =
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--accent-dim)] text-[11px] font-bold text-[var(--accent)]";
+
+/** The label column — the same small uppercase muted kicker treatment the
+ *  card itself uses for "Step N of 4" (`WizardCard` in
+ *  `wizard-stepper-parts.tsx`), given a fixed width so the values that
+ *  follow line up from row to row. */
+const ROW_LABEL_CLASS =
+  "w-28 shrink-0 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]";
 
 const NONE_VALUE = (
   <span className="text-sm text-[var(--text-muted)]">None</span>
 );
 
-/** One tile: an uppercase kicker, the answer's own content in the middle,
- *  and the quiet "Change" affordance pinned to the bottom via the middle
- *  section's `flex-1`. Module-level rather than a closure inside
- *  `WizardReview`: it captures nothing from that component's scope. */
-function ReviewTile({
+/** One row: step number, label, the answer's own content, and the quiet
+ *  "Change" affordance pinned to the row's trailing edge. Module-level
+ *  rather than a closure inside `WizardReview`: it captures nothing from
+ *  that component's scope. */
+function ReviewRow({
+  step,
   kicker,
   changeLabel,
   onChange,
   children,
 }: {
+  step: number;
   kicker: string;
   changeLabel: string;
-  onChange: () => void;
+  /** `pointerActivated` is `event.detail > 0` on this row's own click — see
+   *  the header comment above. */
+  onChange: (pointerActivated: boolean) => void;
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
     <button
       type="button"
-      onClick={onChange}
+      onClick={(event) => onChange(event.detail > 0)}
       aria-label={changeLabel}
-      className={TILE_CLASS}
+      className={ROW_CLASS}
     >
-      <span className={KICKER_CLASS}>{kicker}</span>
-      <span className="flex flex-1 flex-col justify-center gap-1.5">
+      <span className={STEP_NUMBER_CLASS}>{step}</span>
+      <span className={ROW_LABEL_CLASS}>{kicker}</span>
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
         {children}
       </span>
-      <span className="text-xs font-semibold text-[var(--text-muted)]">
+      <span className="shrink-0 text-xs font-semibold text-[var(--text-muted)]">
         Change
       </span>
     </button>
   );
 }
 
-/** The frontend and agent-backend tiles' middle content: the mark beside the
- *  value, the same title-row shape as an option tile's own title row in
- *  `PickGrid`. */
+/** The frontend and agent-backend rows' value content: the mark beside the
+ *  name, in the colours it had on the step where it was chosen. */
 function PickValue({
   name,
   logo,
@@ -97,9 +136,7 @@ function PickValue({
   return (
     <span className="flex items-center gap-2">
       <PickLogoMark logo={logo} size={20} />
-      <span className="truncate text-sm font-semibold text-[var(--text)]">
-        {name}
-      </span>
+      <span className="text-sm font-semibold text-[var(--text)]">{name}</span>
     </span>
   );
 }
@@ -113,20 +150,27 @@ export interface WizardReviewProps {
   readonly backend: Pick<MapPick, "name" | "logo"> | null;
   /** The selected features, already filtered to the reader's choices and in
    *  display order — this component does not know about `featureIds`, only
-   *  the resulting list. Empty renders a muted "None"; the tile still
+   *  the resulting list. Empty renders a muted "None"; the row still
    *  navigates to step 3. */
   readonly features: readonly Pick<MapCapability, "id" | "title" | "icon">[];
   /** The same callback `WizardProgress`'s rail uses (`handleJump` in
    *  `setup-wizard.tsx`): 1 for frontend, 2 for agent backend, 3 for
-   *  features. Which tile maps to which step number is fixed layout, not
-   *  wizard state, so it is hard-coded here — but how navigation itself
-   *  works is entirely the caller's concern. */
-  readonly onNavigate: (step: number) => void;
+   *  features, plus the `pointerActivated` flag every other navigation path
+   *  already reports (see the header comment above). Which row maps to
+   *  which step number is fixed layout, not wizard state, so it is
+   *  hard-coded here — but how navigation itself works is entirely the
+   *  caller's concern. */
+  readonly onNavigate: (step: number, pointerActivated: boolean) => void;
 }
 
-/** Step 4's review grid: three tiles, one per answer, replacing the old
- *  `<dl>` list — see this file's header comment for why each is a full
- *  navigation button rather than a row with a small trailing control. */
+/** Step 4's review panel: one row per answer, replacing the old three-tile
+ *  grid — see this file's header comment for why. Carries no `flex-1`: the
+ *  card's content area (`WizardCard` in `wizard-stepper-parts.tsx`) is
+ *  `flex flex-1 flex-col justify-center`, so a panel with no `flex-1` of
+ *  its own is centred in the leftover room automatically, the same as
+ *  every other step's options. The old grid opted into `flex-1` to fill the
+ *  card top to bottom; a row panel has no reason to grow that tall, so it
+ *  must not carry that class here. */
 export function WizardReview({
   frontend,
   backend,
@@ -134,52 +178,51 @@ export function WizardReview({
   onNavigate,
 }: WizardReviewProps): React.JSX.Element {
   return (
-    <div className="grid flex-1 grid-cols-1 gap-2.5 sm:grid-cols-3">
-      <ReviewTile
+    <div className={PANEL_CLASS}>
+      <ReviewRow
+        step={1}
         kicker="Frontend"
         changeLabel="Change frontend"
-        onChange={() => onNavigate(1)}
+        onChange={(pointerActivated) => onNavigate(1, pointerActivated)}
       >
         {frontend ? (
           <PickValue name={frontend.name} logo={frontend.logo} />
         ) : (
           NONE_VALUE
         )}
-      </ReviewTile>
-      <ReviewTile
+      </ReviewRow>
+      <ReviewRow
+        step={2}
         kicker="Agent backend"
         changeLabel="Change agent backend"
-        onChange={() => onNavigate(2)}
+        onChange={(pointerActivated) => onNavigate(2, pointerActivated)}
       >
         {backend ? (
           <PickValue name={backend.name} logo={backend.logo} />
         ) : (
           NONE_VALUE
         )}
-      </ReviewTile>
-      <ReviewTile
+      </ReviewRow>
+      <ReviewRow
+        step={3}
         kicker="Features"
         changeLabel="Change features"
-        onChange={() => onNavigate(3)}
+        onChange={(pointerActivated) => onNavigate(3, pointerActivated)}
       >
-        {features.length > 0 ? (
-          <span className="flex flex-col gap-1.5">
-            {features.map((feature) => (
-              <span key={feature.id} className="flex items-center gap-2">
+        {features.length > 0
+          ? features.map((feature) => (
+              <span key={feature.id} className="flex items-center gap-1.5">
                 <CapabilityIconMark
                   icon={feature.icon}
                   className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]"
                 />
-                <span className="truncate text-sm font-medium text-[var(--text)]">
+                <span className="text-sm font-medium text-[var(--text)]">
                   {feature.title}
                 </span>
               </span>
-            ))}
-          </span>
-        ) : (
-          NONE_VALUE
-        )}
-      </ReviewTile>
+            ))
+          : NONE_VALUE}
+      </ReviewRow>
     </div>
   );
 }
