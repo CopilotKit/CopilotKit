@@ -43,14 +43,25 @@
 // renders Back alone on the left and nothing on the right. Everything else
 // about the row is unchanged.
 //
-// The `hint` row beneath Continue is always rendered, whether or not `hint`
-// itself is set, and is announced through `aria-live="polite"` rather than
-// wired to the button via `aria-describedby`: a blocked click also moves
-// focus into the step's option list (see `setup-wizard.tsx`), so by the
-// time assistive technology would read a description, focus has already
-// left the button — a polite live region is heard regardless of where focus
-// lands, an `aria-describedby` on an element that is no longer focused
-// would not be.
+// The `hint` is always rendered, whether or not `hint` itself is set, and is
+// announced through `aria-live="polite"` rather than wired to the button via
+// `aria-describedby`: a blocked click also moves focus into the step's
+// option list (see `setup-wizard.tsx`), so by the time assistive technology
+// would read a description, focus has already left the button — a polite
+// live region is heard regardless of where focus lands, an
+// `aria-describedby` on an element that is no longer focused would not be.
+//
+// On `sm` and up the hint sits inside the same row as the buttons — Back,
+// then the hint, then Continue — rather than on a row of its own beneath
+// them, so the footer has equal breathing room above and below the button
+// row instead of the hint's line adding weight only to the bottom. It still
+// cannot shift either button when its text appears or changes length: Back
+// and Continue both carry `shrink-0` and Continue also a fixed min-width, so
+// with the row set to `justify-between` the first and last items stay
+// anchored to the row's own edges regardless of how wide the middle item
+// (the hint) is. Below `sm` the footer stacks in a column instead, and there
+// the hint gets its own line — the card has no minimum height on phones (see
+// `WizardCard`'s doc comment), so that line coming and going costs nothing.
 
 import React from "react";
 
@@ -205,20 +216,48 @@ export function WizardCard({
       <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
         {description}
       </p>
-      <div className="mt-4">{children}</div>
-      <div className="mt-auto border-t border-[var(--border)] pt-4">
+      {/* `flex-1` so a step that wants the leftover room can take it —
+       *  step 4's review grid fills the card rather than leaving a gap
+       *  above the footer. The option grids opt out with `content-start`
+       *  (see `docs-map-parts.tsx`) so steps 1-3 keep their own heights. */}
+      {/* A flex column, not a plain block: the review grid opts into the
+       *  leftover room with `flex-1` of its own. A percentage height
+       *  would not do — `height: 100%` against a flex item sized from
+       *  `flex-basis: 0` resolves as auto, so the grid stayed at its
+       *  content height while this box had already grown. */}
+      <div className="mt-4 flex flex-1 flex-col">{children}</div>
+      {/* The footer's own top padding matches the card's bottom padding, so
+       *  the button row sits the same distance from the separator above it as
+       *  from the card's edge below it. Adding a bottom padding here instead
+       *  stacks on top of the card's inset and makes the gap below the buttons
+       *  more than twice the one above — the lopsided spacing this replaced.
+       *  Keep these in step with the section's own `p-5 sm:p-6`.
+       *
+       *  No `mt-auto`: an auto margin absorbs a flex container's free space
+       *  ahead of any `flex-1` sibling, which would starve the content area
+       *  above and stop step 4's review grid from filling the card. The
+       *  growing content area pushes this to the bottom on its own. */}
+      <div className="border-t border-[var(--border)] pt-5 sm:pt-6">
         {footer}
       </div>
     </section>
   );
 }
 
-/** The Back/Continue footer row. Back is omitted entirely — not merely
+/** The Back/hint/Continue footer row. Back is omitted entirely — not merely
  *  hidden — when `onBack` is absent. Continue is always enabled; see the
  *  header comment above for why and for how `hint` is announced. The
  *  primary itself is optional: step 4 (the review step) passes no
  *  `onContinue`, and the row then renders Back alone on the left with
- *  nothing on the right. */
+ *  nothing on the right.
+ *
+ *  Ordering is done with `order-*` rather than `flex-col-reverse`, since a
+ *  reversed column only has two visual slots (first/last) and this row now
+ *  has three participants whose order differs by breakpoint: on `sm` and up
+ *  it reads Back, hint, Continue left to right; below `sm`, stacked, it
+ *  reads Continue, Back, hint top to bottom — the buttons keep the same
+ *  relative order as before (primary first), and the hint gets the new
+ *  third line. */
 export function WizardNav({
   onBack,
   onContinue,
@@ -243,38 +282,42 @@ export function WizardNav({
   hint?: string;
 }): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={() => onBack()}
-            className={QUIET_BUTTON_CLASS}
-          >
-            Back
-          </button>
-        ) : null}
-        {onContinue ? (
-          <button
-            type="button"
-            onClick={() => onContinue()}
-            className={`${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS} ${onBack ? "" : "sm:ml-auto"}`}
-          >
-            {continueIcon}
-            {continueLabel}
-          </button>
-        ) : null}
-      </div>
-      {/* Always rendered, empty or not — an empty live region still occupies
-       *  this line, which is what keeps the hint from reflowing the footer
-       *  (and the card's pinned-to-the-bottom buttons with it) when it
-       *  appears or clears. */}
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {onBack ? (
+        <button
+          type="button"
+          onClick={() => onBack()}
+          className={`order-2 sm:order-1 ${QUIET_BUTTON_CLASS}`}
+        >
+          Back
+        </button>
+      ) : null}
+      {/* Always rendered, empty or not — a live region that only mounts once
+       *  there is something to say would never get announced, since screen
+       *  readers only pick up *changes* to an already-present polite region.
+       *  Its width comes and goes with its text, but that cannot shift Back
+       *  or Continue: both are `shrink-0` (Continue also has a fixed
+       *  min-width), and `justify-between` on the row keeps the first and
+       *  last items pinned to the row's own edges no matter how wide the
+       *  middle item is. Below `sm` this becomes its own stacked line
+       *  instead — the card has no minimum height on phones, so that line
+       *  appearing or clearing there is free to reflow. */}
       <p
         aria-live="polite"
-        className="min-h-[1rem] text-xs leading-tight text-[var(--accent)] sm:text-right"
+        className="order-3 text-xs leading-tight text-[var(--accent)] sm:order-2"
       >
         {hint ?? ""}
       </p>
+      {onContinue ? (
+        <button
+          type="button"
+          onClick={() => onContinue()}
+          className={`order-1 sm:order-3 ${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS}`}
+        >
+          {continueIcon}
+          {continueLabel}
+        </button>
+      ) : null}
     </div>
   );
 }

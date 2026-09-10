@@ -108,9 +108,12 @@ describe("WizardCard", () => {
   // The footer must land at the same bottom edge on every step regardless
   // of how tall the step's own content is, which is what lets a short step
   // (like step 4) show its Back/Continue row where a tall step's row
-  // already sits. Pinning it there needs both the card being a flex column
-  // and the footer wrapper carrying `mt-auto` (or an equivalent) — assert
-  // both, since either alone does nothing.
+  // already sits. Pinning it there needs the card to be a flex column AND the
+  // content area above it to absorb the free space — assert both, since either
+  // alone does nothing. The content area does the absorbing rather than an
+  // `mt-auto` on the footer, because an auto margin claims a flex container's
+  // free space ahead of any `flex-1` sibling, which starved step 4's review
+  // grid and left it unable to fill the card.
   it("lays the card out as a flex column with the footer pushed to the bottom", () => {
     const { container } = render(
       <WizardCard
@@ -129,10 +132,54 @@ describe("WizardCard", () => {
     expect(section!.className).toMatch(/\bflex\b/);
     expect(section!.className).toMatch(/\bflex-col\b/);
 
+    const child = container.querySelector("section > div.flex-1");
+    expect(child).not.toBeNull();
+    expect(child!.className).toMatch(/\bflex-col\b/);
+
     const footerNode = screen.getByText("the footer");
     const footerWrapper = footerNode.parentElement;
     expect(footerWrapper).not.toBeNull();
-    expect(footerWrapper!.className).toMatch(/\bmt-auto\b/);
+    // The growing content area is what pushes this down; an auto margin here
+    // would take that room back off it.
+    expect(footerWrapper!.className).not.toMatch(/\bmt-auto\b/);
+  });
+
+  // jsdom never lays anything out — every box reports zero size — so a
+  // geometry assertion here ("the gap above equals the gap below") would be
+  // vacuous no matter what the code does. What jsdom *can* see is which
+  // utility classes produced that spacing, so this pins the actual pt-/pb-
+  // values: the button row now carries the hint inside it instead of a
+  // separate line underneath, so the footer wrapper's own top and bottom
+  // padding are what has to match for the row to sit centred between the
+  // separator above and the card's edge below. Naming both values (rather
+  // than just asserting they're equal) makes a change to only one of them
+  // fail here instead of silently drifting the two apart.
+  it("gives the footer wrapper equal top and bottom padding around the button row", () => {
+    render(
+      <WizardCard
+        step={1}
+        total={4}
+        name="N"
+        description="D"
+        footer={<span>the footer</span>}
+      >
+        <span />
+      </WizardCard>,
+    );
+
+    const footerNode = screen.getByText("the footer");
+    const footerWrapper = footerNode.parentElement;
+    expect(footerWrapper).not.toBeNull();
+    // The card's own `p-5 sm:p-6` supplies the space below the buttons, so
+    // the footer only pays for the space above them — at the same values.
+    // A bottom padding here would stack on the card's inset and reintroduce
+    // the lopsided gap.
+    expect(footerWrapper!.className).toMatch(/\bpt-5\b/);
+    expect(footerWrapper!.className).toMatch(/\bsm:pt-6\b/);
+    expect(footerWrapper!.className).not.toMatch(/\bpb-\d/);
+    // An auto margin would absorb the free space that step 4's review grid
+    // needs in order to fill the card.
+    expect(footerWrapper!.className).not.toMatch(/\bmt-auto\b/);
   });
 });
 
@@ -392,15 +439,15 @@ describe("WizardNav", () => {
     );
   });
 
-  // The hint row must exist in the DOM whether or not `hint` is set — this
-  // is what lets it clear/appear without reflowing the footer, since there
-  // is never a moment the row itself is mounted or unmounted. Asserting
-  // that the *same node* persists across a hint appearing (rather than just
-  // "a paragraph with this text exists" after the rerender) is what catches
-  // a conditional-render regression: mutation (e) — rendering the row only
-  // when `hint` is present — leaves the row missing entirely on the first,
-  // hint-less render, so the very first assertion below already fails.
-  it("always renders the hint row, reserved whether or not hint is set", () => {
+  // The hint element must exist in the DOM whether or not `hint` is set —
+  // this is what lets it clear/appear without reflowing the footer, since
+  // there is never a moment it is mounted or unmounted. Asserting that the
+  // *same node* persists across a hint appearing (rather than just "a
+  // paragraph with this text exists" after the rerender) is what catches a
+  // conditional-render regression: mutation (b) — rendering the hint only
+  // when it is present — leaves it missing entirely on the first, hint-less
+  // render, so the very first assertion below already fails.
+  it("always renders the hint element, reserved whether or not hint is set", () => {
     const { rerender } = render(
       <WizardNav onContinue={vi.fn()} continueLabel="Continue" />,
     );
@@ -420,6 +467,34 @@ describe("WizardNav", () => {
     const filledRow = document.querySelector('[aria-live="polite"]');
     expect(filledRow).toBe(emptyRow);
     expect(filledRow!.textContent).toBe("Choose your frontend first");
+  });
+
+  // The hint used to sit on a row of its own below Back/Continue; it now
+  // sits inside their own row, ordered between them, so the footer gets
+  // equal breathing room above and below the button row instead of the
+  // hint's line only ever adding weight underneath (see `WizardCard`'s
+  // "equal top and bottom padding" test above for the other half of that).
+  // Asserting the three share one parent — rather than just that the hint
+  // exists somewhere in the tree — is what catches a regression back to a
+  // second row: mutation (a) below reintroduces a wrapper around just the
+  // buttons, which puts the hint one level outside it and fails this.
+  it("keeps the hint as a sibling of Back and Continue in the same row, not a row beneath them", () => {
+    render(
+      <WizardNav
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+        continueLabel="Continue"
+        hint="Choose your frontend first"
+      />,
+    );
+
+    const back = screen.getByRole("button", { name: "Back" });
+    const primary = screen.getByRole("button", { name: "Continue" });
+    const hintRow = document.querySelector('[aria-live="polite"]');
+    expect(hintRow).not.toBeNull();
+
+    expect(hintRow!.parentElement).toBe(back.parentElement);
+    expect(hintRow!.parentElement).toBe(primary.parentElement);
   });
 
   // The hint is guidance, not an error — `role="alert"` would be wrong here
