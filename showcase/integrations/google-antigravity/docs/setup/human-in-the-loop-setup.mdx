@@ -1,0 +1,52 @@
+<Steps>
+  <Step>
+    ### Install the Antigravity AG-UI adapter
+
+    ```bash
+    # Once the adapter is published:
+    pip install ag-ui-antigravity google-antigravity
+    # Until then, install it from the AG-UI repo:
+    pip install "git+https://github.com/ag-ui-protocol/ag-ui@19f654744c663533eea5dfe1bbb1c70db85524a3#subdirectory=integrations/antigravity/python" google-antigravity
+    ```
+
+  </Step>
+  <Step>
+    ### Ask for the human with a frontend tool
+
+    Antigravity has no LangGraph-style `interrupt(...)` to reach for, and it
+    does not need one: human-in-the-loop here is an ordinary frontend tool.
+    Register it in the browser with `useHumanInTheLoop`, or with
+    `useFrontendTool` and an `async` handler that resolves once the user has
+    answered. Each run carries that tool definition to the agent, the adapter
+    rebuilds it as a custom Antigravity tool, and when the model calls it the
+    call parks as an awaited coroutine — the SSE response for that run closes,
+    and the adapter resolves the parked call from a later HTTP run with
+    whatever the handler returned. The model receives that value as the tool's
+    real return value, so there is no proxy tool and no fire-and-forget
+    long-running-tool workaround.
+
+  </Step>
+  <Step>
+    ### Name the tool in the agent's instructions
+
+    That leaves the agent with one job: knowing the tool exists and when to
+    call it. A model that is never told about `book_call` will answer in prose
+    and the picker will never mount.
+
+    <DemoCode file="src/agents/hitl.py" region="hitl-frontend-tool-agent" />
+
+    The frontend tool is dispatched to the browser at most once per turn
+    (`deduplicate_tool_calls`, on by default), so a model that re-issues the
+    same call after the harness backgrounds it does not ask the user twice.
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="ask_question is off in this showcase">
+  Antigravity's own `ask_question` built-in tool — the one primitive that would
+  park on a real AG-UI interrupt — is disabled here with
+  `CapabilitiesConfig(enabled_tools=[BuiltinTools.FINISH])`. The CopilotKit
+  demos answer a tool call with a `ToolMessage`, not an interrupt `resume`, so
+  a turn that parked on `ask_question` would wait forever. `FINISH` has to stay
+  enabled: it is how the harness ends a turn.
+</Callout>

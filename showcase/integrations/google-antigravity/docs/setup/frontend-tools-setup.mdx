@@ -9,13 +9,6 @@
     adapter parks the call until the browser answers and hands the result back
     to the model as the tool's return value.
 
-    ```python title="src/agents/gen_ui_tool_based.py"
-    from agents._common import build
-
-    def gen_ui_tool_based_agent():
-        return build(system_instructions=SYSTEM_PROMPT)
-    ```
-
   </Step>
   <Step>
     ### Tell the model when to call it
@@ -24,15 +17,7 @@
     model with no instruction about it will answer in prose and never call it.
     Name the tool in the system instructions and say what it is for.
 
-    ```python title="src/agents/gen_ui_tool_based.py"
-    SYSTEM_PROMPT = """You are a data visualization assistant.
-
-    When the user asks for a chart, call `render_bar_chart` or `render_pie_chart`
-    with a concise title, short description, and a `data` array of
-    `{label, value}` items.
-
-    Keep chat responses brief -- let the chart do the talking."""
-    ```
+    <DemoCode file="src/agents/gen_ui_tool_based.py" region="frontend-tools-agent" />
 
   </Step>
 </Steps>

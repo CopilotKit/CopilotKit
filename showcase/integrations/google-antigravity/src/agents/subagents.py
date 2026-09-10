@@ -14,6 +14,7 @@ whole model call: every other in-flight SSE stream stalls, ``/health``
 stops answering, and the entrypoint watchdog kills the agent after ~90s.
 """
 
+# @region[subagent-setup]
 import httpx
 
 from agents._common import MODEL, SLUG, base_url
@@ -70,6 +71,7 @@ async def _run(role: str, task: str) -> str:
     return content.strip() or SUB_AGENT_EMPTY_SENTINEL
 
 
+# @region[supervisor-delegation-tools]
 async def research_agent(task: str) -> str:
     """Delegate a research task; returns 3-5 key facts."""
     return await _run("research_agent", task)
@@ -85,6 +87,9 @@ async def critique_agent(task: str) -> str:
     return await _run("critique_agent", task)
 
 
+# @endregion[supervisor-delegation-tools]
+
+
 def subagents_agent():
     from agents._common import build
 
@@ -92,3 +97,6 @@ def subagents_agent():
         system_instructions=SUPERVISOR_PROMPT,
         tools=[research_agent, writing_agent, critique_agent],
     )
+
+
+# @endregion[subagent-setup]

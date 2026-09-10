@@ -1,5 +1,6 @@
 """HITL demos: the frontend owns the tool, the agent only calls it."""
 
+# @region[hitl-frontend-tool-agent]
 from agents._common import build
 
 HITL_IN_CHAT_PROMPT = (
@@ -8,6 +9,14 @@ HITL_IN_CHAT_PROMPT = (
     "`book_call` tool with a short topic and the user's name. "
     "Keep any chat reply to one short sentence."
 )
+
+
+def hitl_in_chat_agent():
+    return build(system_instructions=HITL_IN_CHAT_PROMPT)
+
+
+# @endregion[hitl-frontend-tool-agent]
+
 
 HITL_IN_APP_PROMPT = (
     "You are a support operations copilot working alongside a human operator "
@@ -42,10 +51,6 @@ HITL_IN_APP_PROMPT = (
     "customer data — always use whatever the operator told you in the "
     "prompt."
 )
-
-
-def hitl_in_chat_agent():
-    return build(system_instructions=HITL_IN_CHAT_PROMPT)
 
 
 def hitl_in_app_agent():

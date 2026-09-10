@@ -266,22 +266,60 @@ generative_ui approach`. It is a regression-test page (`kind: testing` in
 feature cell, and every other integration that ships the page treats it the
 same way.
 
-## Logo and docs-links placeholders
+## Logo and icon placeholders
 
 `shell/public/logos/google-antigravity.svg` is a copy of `google-adk.svg`,
 used as a placeholder until a real Antigravity mark is available under a
-permissive licence.
+permissive licence. `showcase/shell-docs/src/data/frameworks/google-antigravity.ts`
+carries the matching placeholder for the shell-docs landing page: its
+`iconKey` is `"adk"` (there is no `google-antigravity` entry in
+`showcase/shell-docs/src/components/icons/index.ts`'s icon registry yet),
+called out with an inline comment at the `iconKey` line so a future pass
+replacing the logo knows to replace the icon key too.
 
-`docs-links.json` is the matching placeholder for documentation. There is no
-antigravity-scoped tree on `docs.copilotkit.ai` — the adapter is still on an
-unmerged AG-UI branch — so `features` is deliberately EMPTY and every demo
-falls through to the framework-agnostic feature-level `og_docs_url` /
-`shell_docs_path` in `showcase/shared/feature-registry.json`, with a `missing`
-entry recording why. This follows `langroid`, the other born-in-showcase
-package with no docs namespace. Demos with no registry-level entry render red
-on the dashboard, which is the honest signal. The file previously pointed
-every `og_docs_url` at `docs.copilotkit.ai/adk/...`, i.e. at Google ADK's
-documentation, which documents a different adapter.
+`docs-links.json` is now populated with per-feature entries — see
+"Documentation" below — rather than the placeholder `missing` block this
+section used to describe. There is still no antigravity-scoped tree on
+`docs.copilotkit.ai` (the adapter is still on an unmerged AG-UI branch), so
+every `og_docs_url` in that file points at a `docs.copilotkit.ai/google-antigravity/...`
+path that does not resolve yet; `shell_docs_path` is what actually renders
+today, pointing at the framework-agnostic shared pages under
+`showcase/shell-docs/src/content/docs`. The file previously pointed every
+`og_docs_url` at `docs.copilotkit.ai/adk/...`, i.e. at Google ADK's
+documentation, which documents a different adapter; before that it was an
+empty `features` map with a `missing` block, following `langroid`, the other
+born-in-showcase package with no docs namespace.
+
+## Documentation
+
+What exists for this integration's shell-docs surface:
+
+- **A landing-page record** — `showcase/shell-docs/src/data/frameworks/google-antigravity.ts`,
+  registered in `showcase/shell-docs/src/data/frameworks/index.ts`, and wired
+  into the CLI-framework map in
+  `showcase/shell-docs/src/components/content/landing-pages/framework-overview.tsx`.
+  It advertises frontend tools, human-in-the-loop, and generative UI tool
+  rendering — not shared state, which this adapter does not support (see "Not
+  supported" above).
+- **A quickstart override** —
+  `showcase/shell-docs/src/content/docs/integrations/google-antigravity/quickstart.mdx`,
+  modelled on `claude-sdk-python`'s: a "start from scratch" path via the CLI
+  and a "use an existing agent" path that installs `google-antigravity` plus
+  the interim git-pinned `ag-ui-antigravity` adapter and wires up
+  `create_antigravity_app` by hand.
+- **Setup snippets for supported concepts** under
+  `showcase/integrations/google-antigravity/docs/setup/*.mdx`, bundled and
+  rendered wherever a shared doc's `<FrameworkSetup concept="..." />` slot
+  asks for this framework's version of that concept.
+- **A populated `docs-links.json`** — one entry per feature declared in this
+  package's `manifest.yaml`, every `shell_docs_path` verified against an
+  existing file under `showcase/shell-docs/src/content/docs`.
+
+What is deliberately absent: no setup snippets for concepts this adapter
+doesn't support (shared state, reasoning surfaces, declarative/open
+generative UI) — writing a snippet for a concept with nothing behind it would
+document a capability that doesn't exist, which is worse than the concept
+rendering as absent.
 
 ## Verified cells
 

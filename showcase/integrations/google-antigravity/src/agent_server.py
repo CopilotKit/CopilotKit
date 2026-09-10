@@ -33,9 +33,11 @@ from agents._common import shared_pool  # noqa: E402
 from agents.registry import build_registry  # noqa: E402
 from agents.subagents import close_http_client  # noqa: E402
 
+# @region[agent-server]
 AGENT_REGISTRY = build_registry()
 app = create_antigravity_app(AGENT_REGISTRY)
 app.title = "Google Antigravity Agent Server"
+# @endregion[agent-server]
 
 # The adapter's create_antigravity_app already installs a lifespan that awaits
 # ``agent.close()`` for every agent. An agent only shuts the harness pool down

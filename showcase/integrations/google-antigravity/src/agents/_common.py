@@ -63,6 +63,7 @@ def base_url() -> str:
     return _BASE_URL
 
 
+# @region[agent-setup]
 def chat_only_capabilities() -> CapabilitiesConfig:
     """Only ``finish`` stays enabled.
 
@@ -126,3 +127,6 @@ def build(**kwargs):
     )
     defaults.update(kwargs)
     return AntigravityAgent(**defaults)
+
+
+# @endregion[agent-setup]

@@ -1,5 +1,6 @@
 """Tool-based generative UI: the frontend registers the render tools."""
 
+# @region[frontend-tools-agent]
 from agents._common import build
 
 SYSTEM_PROMPT = """You are a data visualization assistant.
@@ -22,3 +23,6 @@ Keep chat responses brief -- let the chart do the talking."""
 
 def gen_ui_tool_based_agent():
     return build(system_instructions=SYSTEM_PROMPT)
+
+
+# @endregion[frontend-tools-agent]

@@ -64,8 +64,9 @@ You'll see:
 ## Technical Details
 
 - `<CopilotKit>` wires `runtimeUrl="/api/copilotkit"` and
-  `agent="chat-customization-css"` (backed by `graph` in
-  `src/agents/main.py`)
+  `agent="chat-customization-css"` (backed by the shared `neutral_agent()` in
+  `src/agents/chat.py`, mounted at `/chat-customization-css` by
+  `agent_server.py` — see `src/agents/registry.py`)
 - `<CopilotChat>` is wrapped in `<div className="chat-css-demo-scope">`;
   the theme is applied by `import "./theme.css"` at the top of the page
 - `theme.css` first overrides the v2 token variables on `[data-copilotkit]`

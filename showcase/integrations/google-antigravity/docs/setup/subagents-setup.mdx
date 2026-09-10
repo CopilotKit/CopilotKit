@@ -1,0 +1,46 @@
+<Steps>
+  <Step>
+    ### Install the Antigravity AG-UI adapter
+
+    ```bash
+    # Once the adapter is published:
+    pip install ag-ui-antigravity google-antigravity
+    # Until then, install it from the AG-UI repo:
+    pip install "git+https://github.com/ag-ui-protocol/ag-ui@19f654744c663533eea5dfe1bbb1c70db85524a3#subdirectory=integrations/antigravity/python" google-antigravity
+    ```
+
+  </Step>
+  <Step>
+    ### Give the supervisor one tool per sub-agent
+
+    Sub-agents are plain server-side tools on the supervisor agent. Each one
+    runs a single chat completion with its own role prompt and returns the
+    prose it produced; the supervisor's instructions decide the order. Pass
+    them as `tools=[...]` and the adapter derives each schema from the Python
+    signature and docstring, dispatches the call in this process, and streams
+    the `TOOL_CALL_*` events the UI renders its per-delegation cards from.
+
+    <DemoCode file="src/agents/subagents.py" region="subagent-setup" />
+
+    Write the tools as `async def`. The adapter awaits every server tool
+    inline, and the SDK only offloads non-coroutine callables to a worker
+    thread, so a synchronous HTTP call here would block the event loop for the
+    whole sub-agent call and stall every other stream in the process.
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="The delegation log stays empty here">
+  The reference UI's live delegation log reads a `delegations` slot out of
+  shared agent state. This adapter has no state-writer path yet — a
+  `STATE_SNAPSHOT` only comes from `structured_output` at the end of a turn —
+  so the per-tool cards render from the tool calls while the log stays empty.
+</Callout>
+
+<Callout type="info" title="Antigravity's native sub-agents are off">
+  The Antigravity SDK has a sub-agent capability of its own, which the adapter
+  maps onto AG-UI `STEP_STARTED` / `STEP_FINISHED` events. It is disabled here
+  (`CapabilitiesConfig(enable_subagents=False)`) for the same reason
+  `ask_question` is: it can park on an interrupt these demos have no way to
+  answer. Delegation is therefore modelled as tools, which the UI can render.
+</Callout>
