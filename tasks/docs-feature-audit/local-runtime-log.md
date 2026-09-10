@@ -97,3 +97,5 @@ The normal local runner selects all manifest-wired demos for the slug. It is sui
 
 - The D6 runner produced 40 execution units for LangGraph Python and TypeScript even though the route inventory has 39 demo IDs. Top-level manifest expansion, Beautiful Chat sub-feature expansion, and BYOC deduplication make these different measures.
 - Two routed interrupt demos (`gen-ui-interrupt`, `interrupt-headless`) are explicitly manifest-not-supported/quarantined and are excluded from D6 execution. They are **policy-excluded / UNTESTED**, not failed or passed. Reporting must not imply every routed demo passed.
+
+- Strands host-native strict D6 completed after the checkpoint: 36 execution units, 34 green, 2 red in 208.8 seconds. `voice` and `multimodal` both reached a DOM-settle timeout with no assistant response after retry; all exact LFS media were present. `shared-state-read` passed its two asserted turns, but its existing assertion does not by itself prove the separate recipe-context source candidate. Evidence: `tasks/docs-feature-audit/strands-host-d6-esm.log`.

@@ -1,0 +1,1630 @@
+{
+  "revision": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
+  "generatedAt": "2026-09-10T20:36:17.497Z",
+  "mode": "host-native-current-source-strict-aimock",
+  "completed": [
+    {
+      "slug": "built-in-agent",
+      "sourceLog": "built-in-agent-host-d6-esm.log",
+      "checks": [
+        {
+          "id": "a2ui-recovery",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 18449,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "agent-config",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 33520,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "agentic-chat",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14026,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "auth",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 55681,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-bar-chart",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 16727,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-pie-chart",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 17036,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-schedule-meeting",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 5960,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-search-flights",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 18685,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-toggle-theme",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14703,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "byoc",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10033,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "chat-css",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7098,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "chat-slots",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7070,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "frontend-tools",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 15273,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "frontend-tools-async",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8677,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-a2ui-fixed",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7946,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-agent",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 64137
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 127151,
+          "error": "waitForTurnComplete: turn 1 did not complete within 60000ms (reason=surface-missing, runsFinished=1, count=1, attrPresent=true, runningNow=false, runStartCount=1)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-custom",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 9497,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-declarative",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 68582,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-headless-complete",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 28558,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-open",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 15485,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-open-advanced",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14999,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "headless-simple",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14209,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "hitl-approve-deny",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8755,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "hitl-text-input",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8144,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "mcp-apps",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 16818,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "multimodal",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 63539
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 123975,
+          "error": "waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=0)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "prebuilt-popup",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7282,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "prebuilt-sidebar",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7745,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "readonly-state-context",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7336,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "reasoning-custom",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 9626,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "reasoning-default",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 9617,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-read",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 12730,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-write",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 9815,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "subagents",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 32436,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "threadid-frontend-tool-roundtrip",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 61565
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 121874,
+          "error": "waitForTurnComplete: turn 1 did not complete within 55736ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=2)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8500,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-custom-catchall",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 11545,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-default-catchall",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7272,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "voice",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 31893
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 62438,
+          "error": "waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=0)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        }
+      ]
+    },
+    {
+      "slug": "langgraph-python",
+      "sourceLog": "langgraph-python-host-d6-esm.log",
+      "checks": [
+        {
+          "id": "a2ui-recovery",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10192,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "agent-config",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 34032,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "agentic-chat",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 20141,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "auth",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 56204,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-bar-chart",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 17573,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-pie-chart",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 17565,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-schedule-meeting",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7704,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-search-flights",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 17794,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-toggle-theme",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14814,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "byoc",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10397,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "chat-css",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7823,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "chat-slots",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8160,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "frontend-tools",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 18071,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "frontend-tools-async",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8670,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-a2ui-fixed",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8229,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-agent",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 17056,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-custom",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7541,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-declarative",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 15214,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-headless-complete",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 32025,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-open",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 18924,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-open-advanced",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 20669,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "headless-simple",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14830,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "hitl-approve-deny",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10130,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "hitl-text-input",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 9385,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "mcp-apps",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8660,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "multimodal",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 61519
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 121989,
+          "error": "waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "prebuilt-popup",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 12701,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "prebuilt-sidebar",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 12889,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "readonly-state-context",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8639,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "reasoning-custom",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10575,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "reasoning-default",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10828,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-read",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 12857,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-streaming",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14625,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-write",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10355,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "subagents",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 32013,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7970,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-custom-catchall",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 12607,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-default-catchall",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7484,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-reasoning-chain",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 24752,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "voice",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 32056
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 62462,
+          "error": "waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=0)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        }
+      ]
+    },
+    {
+      "slug": "langgraph-typescript",
+      "sourceLog": "langgraph-typescript-host-d6-esm-webpack.log",
+      "checks": [
+        {
+          "id": "a2ui-recovery",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 21218,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "agent-config",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 35248,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "agentic-chat",
+          "status": "green",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 43932
+            },
+            {
+              "attempt": 2,
+              "result": "pass",
+              "errorClass": null
+            }
+          ],
+          "durationMs": 63045,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "auth",
+          "status": "green",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 93382
+            },
+            {
+              "attempt": 2,
+              "result": "pass",
+              "errorClass": null
+            }
+          ],
+          "durationMs": 173602,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-bar-chart",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 17346,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-pie-chart",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 16652,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-schedule-meeting",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 5682,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-search-flights",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 18171,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-toggle-theme",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14483,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "byoc",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "goto-error",
+              "durationMs": 30183
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "goto-error"
+            }
+          ],
+          "durationMs": 60299,
+          "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3101/demos/declarative-hashbrown\", waiting until \"load\"\u001b[22m\n",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "chat-css",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 21730,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "chat-slots",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 19695,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "frontend-tools",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 32586,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "frontend-tools-async",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 24829,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-a2ui-fixed",
+          "status": "green",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 83525
+            },
+            {
+              "attempt": 2,
+              "result": "pass",
+              "errorClass": null
+            }
+          ],
+          "durationMs": 111960,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-agent",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 24749,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-custom",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 23340,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-declarative",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 114109
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 220904,
+          "error": "waitForTurnComplete: turn 1 did not complete within 90000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=0)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-headless-complete",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 55115,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-open",
+          "status": "green",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "goto-error",
+              "durationMs": 30165
+            },
+            {
+              "attempt": 2,
+              "result": "pass",
+              "errorClass": null
+            }
+          ],
+          "durationMs": 77054,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-open-advanced",
+          "status": "green",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "goto-error",
+              "durationMs": 30115
+            },
+            {
+              "attempt": 2,
+              "result": "pass",
+              "errorClass": null
+            }
+          ],
+          "durationMs": 51416,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "headless-simple",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 26918,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "hitl-approve-deny",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 36745,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "hitl-text-input",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 27852,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "mcp-apps",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 16713,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "multimodal",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 70124
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "goto-error"
+            }
+          ],
+          "durationMs": 100385,
+          "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3101/demos/multimodal\", waiting until \"load\"\u001b[22m\n",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "prebuilt-popup",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 21443,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "prebuilt-sidebar",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 20924,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "readonly-state-context",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 23475,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "reasoning-custom",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 12064,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "reasoning-default",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 12142,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-read",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 22539,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-streaming",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 40183,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-write",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 27381,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "subagents",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 45147,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 18422,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-custom-catchall",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 26242,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-default-catchall",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10366,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-reasoning-chain",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 50429,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "voice",
+          "status": "green",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 53789
+            },
+            {
+              "attempt": 2,
+              "result": "pass",
+              "errorClass": null
+            }
+          ],
+          "durationMs": 58068,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        }
+      ]
+    },
+    {
+      "slug": "strands",
+      "sourceLog": "strands-host-d6-esm.log",
+      "checks": [
+        {
+          "id": "a2ui-recovery",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 13887,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "agent-config",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 34732,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "agentic-chat",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 20401,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "auth",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 58451,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-bar-chart",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8874,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-pie-chart",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 9187,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-schedule-meeting",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 5738,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-search-flights",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 10846,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "beautiful-chat-toggle-theme",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8926,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "byoc",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 11472,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "chat-css",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14766,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "chat-slots",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7555,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "frontend-tools",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14975,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "frontend-tools-async",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 9553,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-a2ui-fixed",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 11829,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-agent",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 68083,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-custom",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 11395,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-declarative",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 16644,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-headless-complete",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 29700,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-open",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 19890,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "gen-ui-open-advanced",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 20795,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "headless-simple",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14963,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "hitl-approve-deny",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 9441,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "hitl-text-input",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8980,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "mcp-apps",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 17245,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "multimodal",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 67508
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 127947,
+          "error": "waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "prebuilt-popup",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14888,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "prebuilt-sidebar",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 14889,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "readonly-state-context",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 11515,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-read",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 12387,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "shared-state-write",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 17227,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "subagents",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 26482,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 7047,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-custom-catchall",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 13636,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "tool-rendering-default-catchall",
+          "status": "green",
+          "attempts": [],
+          "durationMs": 8514,
+          "error": null,
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        },
+        {
+          "id": "voice",
+          "status": "red",
+          "attempts": [
+            {
+              "attempt": 1,
+              "result": "retry",
+              "errorClass": "conversation-error",
+              "durationMs": 34840
+            },
+            {
+              "attempt": 2,
+              "result": "fail",
+              "errorClass": "conversation-error"
+            }
+          ],
+          "durationMs": 65387,
+          "error": "waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=0)",
+          "route": null,
+          "routeEvidence": "D6 runtime log does not emit a route; join to route inventory by slug/feature separately."
+        }
+      ]
+    }
+  ]
+}
