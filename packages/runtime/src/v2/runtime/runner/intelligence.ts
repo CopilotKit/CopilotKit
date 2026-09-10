@@ -148,6 +148,15 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return eventRecord;
   }
 
+  /** Remove agent-controlled durable identity before the runtime assigns it. */
+  private withoutAgentEventIdentity(event: BaseEvent): BaseEvent {
+    const source = event as BaseEvent & { metadata?: Record<string, unknown> };
+    const metadata = { ...source.metadata };
+    delete metadata.cpki_event_id;
+    delete metadata.cpki_event_seq;
+    return { ...source, metadata };
+  }
+
   private stampRunnerMetadata(event: BaseEvent, state: ThreadState): BaseEvent {
     const eventRecord = event as BaseEvent & {
       metadata?: Record<string, unknown>;
@@ -498,7 +507,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
         return;
       }
       const canonicalEvent = this.stampRunnerMetadata(
-        this.stampCanonicalRunOwnership(event, request),
+        this.stampCanonicalRunOwnership(
+          this.withoutAgentEventIdentity(event),
+          request,
+        ),
         state,
       );
       currentEvents.push(canonicalEvent);
@@ -511,6 +523,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
         this.createRunnerEventPayload(canonicalEvent, request, state),
         state,
       );
+      // Notify the request handler without publishing the persisted error twice.
+      // An agent may emit RUN_ERROR and complete normally instead of throwing.
+      if (canonicalEvent.type === EventType.RUN_ERROR) {
+        onRunError(canonicalEvent);
+      }
     };
 
     const getPersistedInputMessages = () =>
@@ -568,15 +585,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
       const existingError = currentEvents.find(
         (event) => event.type === EventType.RUN_ERROR,
       );
-      if (existingError) {
-        onRunError(existingError);
-      } else {
+      if (!existingError) {
         const errorEvent = {
           type: EventType.RUN_ERROR,
           message: error instanceof Error ? error.message : String(error),
         } as BaseEvent;
         pushCanonicalEvent(errorEvent);
-        onRunError(errorEvent);
       }
     } finally {
       if (!this.isCurrentThreadState(threadId, state)) {
@@ -587,14 +601,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         stopRequested: state.stopRequested,
       });
       for (const event of appended) {
-        const canonicalEvent = this.stampRunnerMetadata(
-          this.stampCanonicalRunOwnership(event, request),
-          state,
-        );
-        this.queueRunnerEvent(
-          this.createRunnerEventPayload(canonicalEvent, request, state),
-          state,
-        );
+        pushCanonicalEvent(event);
       }
       state.producerFinished = true;
       this.completeWhenDurable(threadId, state);
