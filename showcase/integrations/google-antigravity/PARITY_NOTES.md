@@ -15,10 +15,12 @@ and why, following the same format as the Hermes integration's parity notes.
 
 The backend is **born-in-showcase**: a FastAPI process (`src/agent_server.py`)
 built with the adapter's `create_antigravity_app({name: agent, ...})`, hosting
-one AG-UI endpoint per demo. `requirements.txt` pins
-`ag-ui-antigravity @ git+https://github.com/ag-ui-protocol/ag-ui@<sha>#subdirectory=integrations/antigravity/python`
-to a commit SHA on the PR branch — an exact pin, swapped to a PyPI pin once
-#2277 merges — alongside `google-antigravity==0.1.9`, the package that bundles
+one AG-UI endpoint per demo. `requirements.txt` installs the adapter from
+`git+https://github.com/ag-ui-protocol/ag-ui@<sha>#subdirectory=integrations/antigravity/python`,
+a commit SHA on the PR branch. The line is written URL-first, without a
+`name @` prefix, so `validate-pins.ts` treats it as an intentional VCS
+install rather than a non-exact pin; it becomes `ag-ui-antigravity==<version>`
+once #2277 merges — alongside `google-antigravity==0.1.9`, the package that bundles
 the Go `localharness` binary (manylinux x86_64 and aarch64 wheels).
 
 Every demo name is backed by an `AntigravityAgent` built in
