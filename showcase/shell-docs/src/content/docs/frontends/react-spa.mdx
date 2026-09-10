@@ -153,31 +153,32 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
         npx tsx server.ts
         ```
 
-        Before opening the app, confirm the runtime is ready. In another
-        terminal, run:
-
-        ```bash
-        curl --fail --silent --show-error http://localhost:8200/api/copilotkit/info
-        ```
-
-        Wait until this succeeds and the JSON includes the `default` agent
-        registered above. Then start the React app:
+        Start the React app in another terminal:
 
         ```bash
         npm run dev
         ```
-
-        If a dev script starts both processes together, wait for that same
-        runtime readiness check before opening the browser. A listening Vite
-        server does not mean the separate runtime is ready. Opening the app
-        too early can leave its initial runtime connection in an error state;
-        reload after `/info` succeeds if that has already happened.
 
         Vite serves on `http://localhost:5173` and the runtime on `8200`, so the defaults don't collide. If you need to move the app, pass `--port` — **Vite ignores the `PORT` environment variable**, unlike Create React App:
 
         ```bash
         npm run dev -- --port 3000
         ```
+
+        Before opening the app, confirm the runtime is ready:
+
+        ```bash
+        curl --fail --silent --show-error http://localhost:8200/api/copilotkit/info
+        ```
+
+        Wait until this succeeds and the JSON includes the `default` agent
+        registered above.
+
+        If a dev script starts both processes together, wait for that same
+        runtime readiness check before opening the browser. A listening Vite
+        server does not mean the separate runtime is ready. Opening the app
+        too early can leave its initial runtime connection in an error state;
+        reload after `/info` succeeds if that has already happened.
 
         Open the dev server URL, send a message, and you'll see it stream back through Copilot Runtime.
 
