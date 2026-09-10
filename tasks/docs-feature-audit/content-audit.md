@@ -27,7 +27,7 @@ Status: complete for source, local rendering, and local behavior-triage evidence
 14. `CONTENT-GEN-015` — the Google ADK, AWS Strands, and Built-in Agent quickstarts give nonportable advice by suggesting wildcard server bind address `0.0.0.0` as a client connection target in troubleshooting.
 15. `CONTENT-GEN-016` — the Rich Threads overview duplicates a hand-written coding-agent setup flow instead of reusing the existing `RichThreadsSetupPrompt` and CLI-owned `add-rich-threads` intent.
 
-Records `CONTENT-GEN-017` through `CONTENT-GEN-036`, including global source and rendered-marker findings, are summarized in `defect-register.md`; `content-defects.json` contains their complete contexts and evidence.
+Records `CONTENT-GEN-017` through `CONTENT-GEN-038`, including global source, rendered-marker, and supplemental root-guide findings, are summarized in `defect-register.md`; `content-defects.json` contains their complete contexts and evidence.
 
 ## Triaged setup-contract record
 
@@ -56,7 +56,8 @@ Records `CONTENT-GEN-017` through `CONTENT-GEN-036`, including global source and
 
 ## Final global source and rendered-marker coverage
 
-- **Global source review complete:** the normalized inventory records 81/81 unique reachable source units reviewed, covering 405 canonical routes and 978 represented frontend bindings. The selected matrix and the separate Threads, Intelligence, and Channels audit remain documented in their own inventory/report artifacts.
+- **Global catalogue-derived source review complete:** the normalized inventory records 81/81 unique reachable source units reviewed, covering 405 canonical routes and 978 represented frontend bindings. The selected matrix and the separate Threads, Intelligence, and Channels audit remain documented in their own inventory/report artifacts.
+- **Supplemental uncatalogued root-guide review complete:** `/generative-ui/hashbrown` and `/generative-ui/json-render` are sitemap-reachable but absent from the catalogue-derived inventory because their active feature definitions lack `shell_docs_path` (`CONTENT-GEN-004`). Both were manually reviewed in `supplemental-root-guide-audit.md`: their copied renderer contracts diverge from the current five-integration Showcase demos (`CONTENT-GEN-037` and `CONTENT-GEN-038`). The original 81/81 metric remains unchanged; combined completed source units across both scopes are 83.
 - **Rendered-marker review complete:** local shell-docs HTML surfaced 64 marker paths and 112 impacted context cells, collapsed to 18 concrete cause groups. Frontend declaration (38 supported / 74 not-declared) and backend declaration (85 declared-wired / 24 unshipped / 3 manifest-unsupported) are independent dimensions and must not be added together.
 - **Applicable marker intersection:** 29 cells are both frontend-supported and backend-declared-wired. One is already `CONTENT-GEN-010`; the remaining 28 are recorded as `CONTENT-GEN-032` through `CONTENT-GEN-036`. The 29-cell intersection is a bounded rendered-marker scope, not a global source-availability claim; `CONTENT-GEN-002` remains the separately verified ADK source-resolution defect.
 - The concise reviewer index is `defect-register.md`; `content-defects.json` remains the canonical complete record.
@@ -67,6 +68,6 @@ Public registry snapshot, read-only on 2026-09-10: `@copilotkit/react-core` 1.71
 
 ## Validation still required
 
-- No source/editorial/API-link review remains. The selected inventory covers 31 canonical catalog routes and 40 resolved MDX sources; the global deduplicated inventory covers 81/81 reachable unique source units. Unshipped cells remain excluded unless they are separately declared supported and wired.
+- No source/editorial/API-link review remains. The selected inventory covers 31 canonical catalog routes and 40 resolved MDX sources; the global catalogue-derived inventory covers 81/81 reachable unique source units, with 2/2 sitemap-reachable uncatalogued root guides audited separately. Unshipped cells remain excluded unless they are separately declared supported and wired.
 - After fixes, rerun shell-docs generation/build/typecheck and the affected route probes. The baseline local production build and complete 362-response route audit already passed; this report does not claim a baseline typecheck result.
 - Treat isolated D6/AIMock results as local replay evidence only. Confirmed local behavior and fixture findings are individually classified in `content-defects.json`; they do not establish hosted-provider or external-platform behavior.

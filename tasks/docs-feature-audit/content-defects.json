@@ -1664,6 +1664,66 @@
       "root_cause": "The affected integrations do not bundle the weather-tool-backend region selected by the common tool-rendering guide.",
       "impact": "Seven declared-supported/wired React tool-rendering contexts display Missing snippet where the native backend tool definition should appear.",
       "validation_needed": "Add the correct backend regions or framework branches, regenerate content, and re-render each qualified React tool-rendering context without a marker."
+    },
+    {
+      "id": "CONTENT-GEN-037",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "BYOC Hashbrown guide API provenance",
+      "feature": "Sitemap-reachable root Hashbrown guide",
+      "affected_contexts": [
+        "root/generative-ui/hashbrown"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/hashbrown.mdx",
+          "line": 51,
+          "detail": "The guide describes useJsonParser and useUiKit, and its copied renderer at lines 53\u201368 calls useJsonParser(content) and useUiKit({ catalog, value })."
+        },
+        {
+          "path": "showcase/integrations/langgraph-python/src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx",
+          "line": 122,
+          "detail": "The representative checked-in Showcase renderer constructs useUiKit from examples and components; the same source layout is present in all five selected integrations."
+        },
+        {
+          "path": "showcase/integrations/langgraph-python/src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx",
+          "line": 203,
+          "detail": "The renderer passes kit.schema to useJsonParser and renders the resulting value through kit.render(value), rather than passing a catalog and value into useUiKit."
+        }
+      ],
+      "root_cause": "The root guide carries a hand-written Hashbrown renderer that diverged from the checked-in Showcase implementation shared by the five selected integrations.",
+      "impact": "Readers copying the visible Hashbrown example receive incompatible hook calls at the central rendering step, so the sitemap-reachable guide is not a reliable path to the runnable Showcase demo.",
+      "validation_needed": "Replace the copied renderer with a tested source-owned example or an accurately scoped excerpt, then typecheck the example and confirm both HTML and Markdown present the same current API."
+    },
+    {
+      "id": "CONTENT-GEN-038",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "BYOC JSON Render guide renderer and catalog contract",
+      "feature": "Sitemap-reachable root JSON Render guide",
+      "affected_contexts": [
+        "root/generative-ui/json-render"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/shell-docs/src/content/docs/generative-ui/json-render.mdx",
+          "line": 51,
+          "detail": "The guide presents a Renderer call with catalog plus undefined parsing helpers, then a plain component/propsSchema catalog at lines 70\u201399."
+        },
+        {
+          "path": "showcase/integrations/langgraph-python/src/app/demos/declarative-json-render/json-render-renderer.tsx",
+          "line": 8,
+          "detail": "The representative runnable renderer imports JSONUIProvider and a registry, nests Renderer under that provider, and validates root/elements before rendering."
+        },
+        {
+          "path": "showcase/integrations/langgraph-python/src/app/demos/declarative-json-render/catalog.ts",
+          "line": 1,
+          "detail": "The runnable catalog is built with defineCatalog and schema, while registry.tsx uses defineRegistry; the same pattern is present across all five selected integrations."
+        }
+      ],
+      "root_cause": "The root guide has an unowned simplified JSON Render example whose renderer, parser, provider, registry, and Zod catalog contract no longer match the checked-in Showcase demos.",
+      "impact": "Readers are given undefined helper functions and a catalog/rendering contract that cannot be copied into the current Showcase implementation, defeating the guide\u2019s stated runnable BYOC path.",
+      "validation_needed": "Publish a source-owned, typechecked JSON Render example that includes its parser, defineCatalog/defineRegistry setup, provider, and validation contract, then verify HTML and Markdown extraction."
     }
   ]
 }
