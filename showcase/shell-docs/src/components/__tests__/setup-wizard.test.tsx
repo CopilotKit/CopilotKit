@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import React from "react";
+import { createRoot } from "react-dom/client";
+import { flushSync } from "react-dom";
 import {
   act,
   cleanup,
@@ -956,6 +958,55 @@ describe("URL state", () => {
     const [, , url] = replaceSpy.mock.calls.at(-1) as [unknown, string, string];
     expect(url).toContain("frontend=react");
     expect(pushSpy).not.toHaveBeenCalled();
+  });
+
+  // Pins the *timing* of the restore, not just its outcome (already covered
+  // above): the restore must land before the browser paints, not after, or
+  // a reader reloading with a query string briefly sees step 1 before the
+  // jump to the restored step. `render` from `@testing-library/react`
+  // flushes both layout *and* passive effects before returning, which
+  // cannot tell those two timings apart — so this drives React directly
+  // with `flushSync` instead. `flushSync` forces the synchronous commit
+  // (layout effects included) to finish before it returns, but it does not
+  // wait for passive effects: those are scheduled through React's own
+  // scheduler and only run on a later microtask/macrotask that `flushSync`
+  // never yields to. So the instant `flushSync` returns: a restore running
+  // in a layout effect has already landed in `container`; a restore still
+  // sitting in a passive effect (the pre-fix code) has not run yet, and the
+  // DOM would still show step 1.
+  it("restores the URL selection synchronously before paint, not in a later passive-effect flush", () => {
+    window.history.pushState({}, "", "/?frontend=react");
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    try {
+      flushSync(() => {
+        root.render(
+          <SetupWizard
+            frontends={FRONTENDS}
+            capabilities={CAPABILITIES}
+            backends={BACKENDS}
+          />,
+        );
+      });
+
+      // Restored (frontend answered, backend missing) lands on step 2 —
+      // see the "lands on step 2" test above for the same URL. If the
+      // restore were still a passive effect, this would still read "Your
+      // frontend" (step 1) at this point instead.
+      const heading = container.querySelector("h2");
+      expect(heading?.textContent).toBe("Your agent backend");
+    } finally {
+      // `unmount` can itself trigger effect cleanup / state updates, so it
+      // needs `act` even though the render above deliberately did not use
+      // it — this is only teardown, not the behaviour under test.
+      act(() => {
+        root.unmount();
+      });
+      container.remove();
+    }
   });
 });
 

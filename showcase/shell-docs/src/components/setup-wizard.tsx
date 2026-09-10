@@ -66,6 +66,7 @@ import type {
   WizardUrlState,
 } from "@/lib/wizard-url-state";
 import { prefersReducedMotion } from "@/lib/wizard-scroll";
+import { useIsomorphicLayoutEffect } from "@/lib/isomorphic-layout-effect";
 import { planStepSwap } from "@/lib/wizard-step-transition";
 import type {
   StepDirection,
@@ -305,7 +306,19 @@ export function SetupWizard({
   // the first unanswered step (see `landingStep`) — never through `goTo`,
   // so this never animates and never steals focus; see the comment on
   // `pendingTransitionRef` above.
-  React.useEffect(() => {
+  //
+  // A *layout* effect, not a passive one: the server-rendered HTML (and the
+  // very first client render, before this runs) is always step 1, which is
+  // correct for a no-JS reader and must stay that way. But a JS-enabled
+  // reader reloading with selections in the query string needs the restored
+  // step in the first frame that reaches the screen — a passive effect runs
+  // after paint, so step 1 would flash before the jump to the restored
+  // step. Running the restore in a layout effect instead folds it into the
+  // same commit-before-paint window the browser is about to render, so the
+  // reader only ever sees the restored step. `useIsomorphicLayoutEffect`
+  // (see that module) falls back to a passive effect during server
+  // rendering, where `useLayoutEffect` would otherwise warn.
+  useIsomorphicLayoutEffect(() => {
     const restored = parseWizardUrlState(window.location.search, allowlists);
     const landing = landingStep(restored);
 
