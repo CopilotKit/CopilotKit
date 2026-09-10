@@ -1,0 +1,53 @@
+{
+  "revision": "fa6041fc7b08fc5866099769038e43c44c1ce8df",
+  "probes": [
+    {
+      "target": "built-in-agent/voice",
+      "timestampStart": "2026-09-10T20:38:36.984Z",
+      "action": "click sample audio, then press Enter",
+      "sampleAsset": "present (exact LFS audio path was restored before this probe)",
+      "network": {
+        "agentRequest": "POST /api/copilotkit-voice/agent/voice-demo/run returned HTTP 200",
+        "streamOutcome": "browser received agent_run_error_event: 404 No fixture matched"
+      },
+      "dom": "textarea was populated then cleared; body showed 404 No fixture matched",
+      "classification": "confirmed strict AIMock fixture coverage gap"
+    },
+    {
+      "target": "built-in-agent/multimodal",
+      "timestampStart": "2026-09-10T20:39:07.103Z",
+      "action": "click sample image",
+      "sampleAsset": "GET /demo-files/sample.png returned HTTP 200 after exact LFS restore",
+      "network": {
+        "agentRequest": "three POSTs to /api/copilotkit-multimodal returned HTTP 200",
+        "streamOutcome": "browser received agent_run_error_event: 404 No fixture matched"
+      },
+      "dom": "body showed 404 No fixture matched",
+      "classification": "confirmed strict AIMock fixture coverage gap",
+      "observation": "the local application emitted one telemetry POST to telemetry.copilotkit.ai and received 202 during the browser probe; no further browser probes will run before telemetry is controlled."
+    }
+  ],
+  "relatedFullMatrixCandidates": [
+    {
+      "slug": "langgraph-python",
+      "features": [
+        "voice",
+        "multimodal"
+      ],
+      "classification": "same timeout symptom only; unconfirmed root cause"
+    },
+    {
+      "slug": "strands",
+      "features": [
+        "voice",
+        "multimodal"
+      ],
+      "classification": "same timeout symptom only; unconfirmed root cause"
+    }
+  ],
+  "evidence": [
+    "browser-capture-summaries.json",
+    "built-in-agent-voice-lfs-rerun.log (raw, intentionally excluded from curated commit)",
+    "built-in-agent-multimodal-lfs-rerun.log (raw, intentionally excluded from curated commit)"
+  ]
+}

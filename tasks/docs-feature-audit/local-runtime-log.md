@@ -99,3 +99,23 @@ The normal local runner selects all manifest-wired demos for the slug. It is sui
 - Two routed interrupt demos (`gen-ui-interrupt`, `interrupt-headless`) are explicitly manifest-not-supported/quarantined and are excluded from D6 execution. They are **policy-excluded / UNTESTED**, not failed or passed. Reporting must not imply every routed demo passed.
 
 - Strands host-native strict D6 completed after the checkpoint: 36 execution units, 34 green, 2 red in 208.8 seconds. `voice` and `multimodal` both reached a DOM-settle timeout with no assistant response after retry; all exact LFS media were present. `shared-state-read` passed its two asserted turns, but its existing assertion does not by itself prove the separate recipe-context source candidate. Evidence: `tasks/docs-feature-audit/strands-host-d6-esm.log`.
+
+## Media-timeout representative triage
+
+- The bounded Built-in Agent voice rerun stayed red after the restored LFS audio asset. A focused browser probe then established the cause: sample audio filled and cleared the textarea, `POST /api/copilotkit-voice/agent/voice-demo/run` returned HTTP 200, and the browser received an `agent_run_error_event` carrying `404 No fixture matched`. This is a **confirmed strict AIMock fixture coverage gap**, not an asset or frontend-send failure. Timestamped DOM/network evidence: `built-in-agent-voice-browser-probe.json`.
+- A matching focused Built-in Agent multimodal probe established the same result after `GET /demo-files/sample.png` returned HTTP 200: three local multimodal API POSTs returned HTTP 200 and the browser received `404 No fixture matched`. This is also a **confirmed strict AIMock fixture coverage gap**. Evidence: `built-in-agent-multimodal-browser-probe.json`.
+- The browser probe observed a telemetry POST to `telemetry.copilotkit.ai` with HTTP 202, emitted by the local application. No further browser probes will run before telemetry is controlled. The audit did not target a deployed application or provider.
+- LangGraph Python and Strands voice/multimodal D6 failures share the timeout symptom only. Their cause remains **UNCONFIRMED** until a targeted capture establishes fixture mismatch, application behavior, or an assertion issue; do not extrapolate the Built-in Agent finding.
+
+## Final bounded media triage
+
+- All follow-up browser diagnostics blocked every non-local request before it could be transmitted. The prior telemetry observation remains recorded; no additional telemetry call occurred in these captures.
+- Strands voice was observed for 60 seconds: the sample-audio click left the textarea empty, produced no agent-run request, and produced no browser error. This confirms the D6 timeout is preceded by a non-completing sample pre-fill action; root cause remains unresolved.
+- LangGraph Python voice was not stable enough to attribute to a single backend failure. An earlier local capture submitted a run and received an AG-UI internal-error event. After a backend-only restart with durable logs, the same 60-second capture left the textarea empty and created no run, leaving no correlated backend request. The source/header diagnosis remains an inference, not confirmation.
+- LangGraph Python and Strands multimodal remain unresolved. Their local-only captures did not yield a terminal error consistent with the D6 timeout; one short LangGraph Python capture saw an AG-UI `RUN_STARTED` event containing image data, while a 60-second capture observed only metadata. No more retries were run.
+
+## Audit cleanup
+
+- Browser captures were reviewed for credentials, image data, and size. Raw captures remain ignored; `browser-capture-summaries.json` is the 7 KB curated evidence file. It retains only timestamps, DOM/error signals, local request/response paths, and blocked remote hostnames; it excludes bodies, full URLs, stack traces, image data, and credentials.
+- Host-native audit services and the audit-only LangGraph Python backend restart were stopped. The isolated `audit-lgp-smoke4` containers and `audit-lgp-smoke4_default` network were removed by exact name after tests finished. Images and volumes were retained; pre-existing `cpki-*` services remain running.
+- `showcase/.last-test-ts` was restored exactly to `HEAD`; its modification came from the audit showcase runner.
