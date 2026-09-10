@@ -1,0 +1,30 @@
+FROM python:3.12-slim
+
+# `git` is not optional here: the Antigravity AG-UI adapter is not on PyPI yet,
+# so agent/pyproject.toml pins it to a git commit and `uv sync` needs a git
+# client to fetch it. Drop this once `ag-ui-antigravity` ships to PyPI.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git ca-certificates && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install uv by copying from the official image (avoids curl|sh pipe-swallow bug
+# where a 5xx on astral.sh silently produces an exit-0 layer with no uv binary).
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+
+RUN uv sync --frozen
+
+COPY main.py ./
+COPY src/ ./src/
+
+# Antigravity's Go harness needs a writable workspace (it does real file and
+# shell work) and a save_dir for session trajectories. Short paths on purpose:
+# a long workspace path makes the model mangle it inside tool calls.
+RUN mkdir -p /data/ws /data/sessions
+
+EXPOSE 8000
+
+CMD ["uv", "run", "python", "main.py"]

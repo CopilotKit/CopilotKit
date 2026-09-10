@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "description": "aimock fixtures for the starter smoke suite. The Antigravity Go harness makes the model call itself, through the in-process shim (agent/src/openai_proxy.py), so these match on the ordinary OpenAI chat-completions shape. No match.context: this fixture directory serves one starter, and the starter's shim sends no X-AIMock-Context header. Valid response keys: content, toolCalls, error, embedding."
+  },
+  "fixtures": [
+    {
+      "_comment": "The smoke suite's @chat level sends exactly 'Hello'. userMessage is a substring match against the last user turn and the first match wins, so keep specific prompts above the catch-all.",
+      "match": { "userMessage": "Hello" },
+      "response": {
+        "content": "Hello! I'm running on Google Antigravity. Ask me to change the background, check the weather, or book a call."
+      }
+    },
+    {
+      "_comment": "Catch-all. The harness may make more than one model call per turn (it ends a turn with the built-in finish tool), so every unmatched call needs a valid answer or the run stalls.",
+      "match": {},
+      "response": {
+        "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) add your OPENAI_API_KEY to .env, (2) restart with `npm run dev`."
+      }
+    }
+  ]
+}
