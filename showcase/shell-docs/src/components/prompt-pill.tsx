@@ -169,7 +169,7 @@ export function PromptPill({
           ) : (
             <Copy aria-hidden="true" />
           )}
-          <span>COPY PROMPT</span>
+          <span>Copy Prompt</span>
         </button>
         <span className="prompt-pill-divider" aria-hidden="true" />
         <button

@@ -66,7 +66,7 @@ it("views and copies the same prompt without launching an app", async () => {
   await waitFor(() => expect(writeText).toHaveBeenCalledWith("Run 1"));
   expect(launch).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "Copy prompt" }).textContent).toBe(
-    "COPY PROMPT",
+    "Copy Prompt",
   );
 });
 
