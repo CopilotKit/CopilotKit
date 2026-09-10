@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    integration: "google-adk",
+    integration: "google-antigravity",
     timestamp: new Date().toISOString(),
   });
 }

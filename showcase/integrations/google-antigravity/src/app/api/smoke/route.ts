@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const INTEGRATION_SLUG = "google-adk";
+const INTEGRATION_SLUG = "google-antigravity";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
