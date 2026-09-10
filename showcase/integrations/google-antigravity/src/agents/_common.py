@@ -30,7 +30,9 @@ MODEL = os.environ.get("ANTIGRAVITY_MODEL", "gpt-4.1-mini")
 # An abandoned probe thread never comes back, and a thread that does come back
 # cold-resumes from save_dir, so a short idle timeout costs no continuity. With
 # the harness pool an idle session is ~1 MB, so the higher cap is cheap.
-SESSION_TIMEOUT_SECONDS = int(os.environ.get("ANTIGRAVITY_SESSION_TIMEOUT_SECONDS", "300"))
+SESSION_TIMEOUT_SECONDS = int(
+    os.environ.get("ANTIGRAVITY_SESSION_TIMEOUT_SECONDS", "300")
+)
 MAX_SESSIONS = int(os.environ.get("ANTIGRAVITY_MAX_SESSIONS", "200"))
 REASONING_MODEL = os.environ.get("ANTIGRAVITY_REASONING_MODEL", "gpt-5-mini")
 
