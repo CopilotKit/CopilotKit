@@ -19,13 +19,13 @@ An MCP server, `copilotkit-docs`, is bundled with this plugin. It exposes four s
 and two exploration tools over four separate corpora. Picking the wrong one is the most
 common way to come up empty:
 
-| Tool | Corpus | Use it for |
-| --- | --- | --- |
-| `search-docs` | docs.copilotkit.ai | Usage, configuration, guides, quickstarts, the generated API reference |
-| `search-code` | CopilotKit library source | How something is implemented, and exact signatures. Library packages only — not examples or showcases |
-| `search-ag-ui-docs` | AG-UI protocol docs | The protocol itself: event types, transports, the SDKs |
-| `search-ag-ui-code` | AG-UI protocol SDK source | Protocol implementation detail |
-| `explore-docs` / `explore-code` | either tree | Browsing structure when you do not yet know what to search for |
+| Tool                            | Corpus                    | Use it for                                                                                            |
+| ------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `search-docs`                   | docs.copilotkit.ai        | Usage, configuration, guides, quickstarts, the generated API reference                                |
+| `search-code`                   | CopilotKit library source | How something is implemented, and exact signatures. Library packages only — not examples or showcases |
+| `search-ag-ui-docs`             | AG-UI protocol docs       | The protocol itself: event types, transports, the SDKs                                                |
+| `search-ag-ui-code`             | AG-UI protocol SDK source | Protocol implementation detail                                                                        |
+| `explore-docs` / `explore-code` | either tree               | Browsing structure when you do not yet know what to search for                                        |
 
 CopilotKit questions go to the first two. AG-UI protocol questions go to the second two —
 they are a different repository, and `search-docs` will not find them.

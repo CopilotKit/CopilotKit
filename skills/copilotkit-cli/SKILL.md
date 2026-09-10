@@ -106,16 +106,16 @@ choices and `project select --project <id>` or `--create <name>` to name the ans
 
 ## Other commands
 
-| Command | What it does |
-| --- | --- |
-| `typegen` | Generates type-safe agent ids from a running runtime |
-| `import --source adk\|langgraph --dry-run` | Previews importing historical threads into Intelligence |
-| `license create` / `license list` | Issues and lists license tokens |
-| `channels` | Sets up managed Intelligence Channels for Slack or Microsoft Teams |
-| `framework list` | The agent frameworks `create` accepts, and their flags |
-| `logs` | The CLI log path, or recent lines |
-| `telemetry` | Shows or changes the CLI telemetry preference |
-| `docs` | Opens the documentation |
-| `version` | Version, build, and commit |
+| Command                                    | What it does                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `typegen`                                  | Generates type-safe agent ids from a running runtime               |
+| `import --source adk\|langgraph --dry-run` | Previews importing historical threads into Intelligence            |
+| `license create` / `license list`          | Issues and lists license tokens                                    |
+| `channels`                                 | Sets up managed Intelligence Channels for Slack or Microsoft Teams |
+| `framework list`                           | The agent frameworks `create` accepts, and their flags             |
+| `logs`                                     | The CLI log path, or recent lines                                  |
+| `telemetry`                                | Shows or changes the CLI telemetry preference                      |
+| `docs`                                     | Opens the documentation                                            |
+| `version`                                  | Version, build, and commit                                         |
 
 The CLI collects usage data. `DO_NOT_TRACK=1` or `COPILOTKIT_TELEMETRY_DISABLED=1` opts out.
