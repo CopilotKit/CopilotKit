@@ -153,6 +153,31 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
         npx tsx server.ts
         ```
 
+        If the key lives in the project's `.env`, the separate runtime must load
+        that file itself; Vite's environment loading does not reach this process.
+        For local development, install `dotenv` and add this before constructing
+        the agent in `server.ts`:
+
+        ```bash
+        npm install dotenv
+        ```
+
+        ```ts title="server.ts — load the project environment"
+        import { config } from "dotenv";
+
+        config({
+          path: new URL("./.env", import.meta.url),
+          override: true,
+        });
+        ```
+
+        This path selects the `.env` beside `server.ts`. Use `override: true`
+        only when that file should take precedence over the inherited shell
+        environment. Without it, an exported `OPENAI_API_KEY` wins even when
+        `.env` contains a different key, which can send calls to the wrong
+        project or cause model authentication errors. Keep the key server-side;
+        do not prefix it with `VITE_` or include it in frontend code.
+
         Start the React app in another terminal:
 
         ```bash
