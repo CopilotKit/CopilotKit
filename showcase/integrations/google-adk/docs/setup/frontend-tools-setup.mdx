@@ -10,13 +10,21 @@
   <Step>
     ### Add `AGUIToolset()` to your agent
 
-    `AGUIToolset()` is the tool that exposes CopilotKit's frontend-tool
-    channel to the model — drop it into your `LlmAgent`'s `tools=` list and
-    frontend tools become available on every turn. Pair it with
-    `stop_on_terminal_text` as the `after_model_callback` so CopilotKit's UI
-    knows when the agent has finished its turn.
+    `AGUIToolset()` exposes CopilotKit's frontend tools to the model.
+    Add it to your `LlmAgent`'s `tools=` list. Use an ADK-supported model
+    available to your project.
 
-    <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
+    ```python
+    from ag_ui_adk import AGUIToolset
+    from google.adk.agents import LlmAgent
+
+    agent = LlmAgent(
+        name="assistant",
+        model="gemini-3.1-flash-lite",
+        instruction="Help the user and call the available frontend tools when appropriate.",
+        tools=[AGUIToolset()],
+    )
+    ```
 
   </Step>
 </Steps>
