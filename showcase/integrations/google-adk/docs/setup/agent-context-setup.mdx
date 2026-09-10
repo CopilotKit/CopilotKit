@@ -10,12 +10,43 @@
   <Step>
     ### Read CopilotKit context before each model call
 
-    `useAgentContext` entries arrive in ADK session state under
-    `state["copilotkit"]["context"]`. Add `AGUIToolset()` to the agent and
-    use a `before_model_callback` to inject those read-only values into the
-    system instruction.
+    The adapter copies the AG-UI request's `context` list into ADK session
+    state at `CONTEXT_STATE_KEY` (the public constant for `"_ag_ui_context"`).
+    Read it from an instruction provider's `ctx.state`, a callback's
+    `callback_context.state`, or a tool's `tool_context.state`.
 
-    <DemoCode file="src/agents/readonly_state_agent_context_agent.py" region="agent-context-setup" />
+    Each entry is a dictionary with `description` and `value` strings.
+    Object and array values registered with `useAgentContext` arrive as JSON
+    strings; use `json.loads(entry["value"])` when you need structured data.
+
+    An instruction provider can include the context in the model's prompt:
+
+    ```python
+    from ag_ui_adk import AGUIToolset, CONTEXT_STATE_KEY
+    from google.adk.agents import LlmAgent
+    from google.adk.agents.readonly_context import ReadonlyContext
+
+    def instructions(ctx: ReadonlyContext) -> str:
+        entries = ctx.state.get(CONTEXT_STATE_KEY, [])
+        context = "\n".join(
+            f"{entry['description']}: {entry['value']}" for entry in entries
+        )
+        return (
+            "Help the user using the following read-only application context.\n"
+            + context
+        )
+
+    agent = LlmAgent(
+        name="assistant",
+        model="gemini-3.1-flash-lite",
+        instruction=instructions,
+        tools=[AGUIToolset()],
+    )
+    ```
+
+    `AGUIToolset()` exposes frontend tools; it does not automatically add
+    context to the model's instructions. The instruction provider above
+    performs that step. Expose this agent through your `ADKAgent` endpoint.
 
   </Step>
 </Steps>
