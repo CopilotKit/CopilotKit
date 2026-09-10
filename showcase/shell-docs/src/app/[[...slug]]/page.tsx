@@ -10,6 +10,9 @@ import Link from "next/link";
 import { DocsSetupWizard } from "@/components/docs-setup-wizard";
 import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 import { MapIntro } from "@/components/docs-map-parts";
+import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
+import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
+import { HeroStartActions } from "@/components/hero-start-commands";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -18,6 +21,8 @@ import {
   buildRootSurfaceNav,
   loadDoc,
 } from "@/lib/docs-render";
+import { compareByDisplayOrder } from "@/lib/framework-order";
+import { visibleIntegrations } from "@/lib/homepage-map";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
   getDocsFolder,
@@ -40,6 +45,15 @@ export const dynamic = "force-dynamic";
 // tree on `/` is identical to what the user sees after clicking any
 // Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = ROOT_FRAMEWORK;
+
+// The three starting points a visitor recognises themselves in. They are
+// reassurance, not navigation: one prompt serves all three, because the CLI
+// classifies the starting state itself.
+const HERO_STARTING_POINTS = [
+  "New project",
+  "Existing app or agent",
+  "Already on CopilotKit → add Intelligence",
+];
 
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
@@ -102,6 +116,27 @@ function DocsOverview() {
       : buildFrameworkNav(docsFolder, integrationName, HOME_DEFAULT_FRAMEWORK);
   const pageTree = navTreeToPageTree(navTree, "");
 
+  // The home hero has no framework context, so its quickstart CTA is the
+  // framework picker dropdown (same accent treatment as the framework pages'
+  // direct quickstart link). The default framework sorts first; its
+  // quickstart lives at the root.
+  const quickstartOptions = visibleIntegrations()
+    .slice()
+    .sort((a, b) => {
+      if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
+      if (b.slug === HOME_DEFAULT_FRAMEWORK) return 1;
+      return compareByDisplayOrder(a.slug, b.slug);
+    })
+    .map((i) => ({
+      slug: i.slug,
+      name: i.slug === HOME_DEFAULT_FRAMEWORK ? "CopilotKit (Default)" : i.name,
+      logo: i.logo ?? null,
+      href:
+        i.slug === HOME_DEFAULT_FRAMEWORK
+          ? "/quickstart"
+          : `/${i.slug}/quickstart`,
+    }));
+
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
       <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
@@ -139,6 +174,37 @@ function DocsOverview() {
                 agents that learn from real use.
               </p>
             </div>
+            <div className="mt-7">
+              <HeroStartActions
+                prompt={
+                  <HeroOnboardingPromptButton surface="docs_landing_hero" />
+                }
+                quickstart={
+                  <HeroQuickstartDropdown options={quickstartOptions} />
+                }
+              />
+            </div>
+            {/* Quiet reassurance, not navigation — see the constant above for
+                why these are plain text rather than links.
+                A list, not a paragraph of spans: the middot separators are
+                `aria-hidden` so nobody hears "middle dot", and list items are
+                then what gives a screen reader the boundary between the three
+                labels. Spans alone announced them as one run-on string. */}
+            {/* `role="list"` is not redundant: Safari drops the list role when
+                `list-style: none` is set, which would undo the whole reason
+                this is a list. Inline items keep the single flowing line the
+                paragraph had — a flex row wrapped it onto two. */}
+            <ul
+              role="list"
+              className="mt-4 block list-none p-0 text-xs leading-relaxed text-[var(--text-muted)]"
+            >
+              {HERO_STARTING_POINTS.map((label, index) => (
+                <li key={label} className="inline">
+                  {index > 0 ? <span aria-hidden="true"> · </span> : null}
+                  {label}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 

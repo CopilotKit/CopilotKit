@@ -2,6 +2,8 @@ import type { ReactElement, ReactNode } from "react";
 import Link from "next/link";
 import { describe, expect, it, vi } from "vitest";
 import { MapIntro } from "@/components/docs-map-parts";
+import { visibleIntegrations } from "@/lib/homepage-map";
+import { ROOT_FRAMEWORK } from "@/lib/registry";
 
 // The homepage route composes the hero, a video placeholder, and the setup
 // wizard's intro + widget. Mounting the whole route with `render()` would
@@ -107,24 +109,63 @@ describe("the docs homepage route", () => {
     );
   });
 
-  // HeroStartActions carried the prompt button and the quickstart dropdown;
-  // HERO_STARTING_POINTS held the three labels below. All of them rendered
-  // on this exact page until now, so this is a real regression guard, not
-  // an assertion on a string that was never there.
-  it("renders no copy-prompt button, no quickstart dropdown, and no starting points", async () => {
+  // The hero carries both actions and the three starting points, matching
+  // the header the product-map draft used.
+  //
+  // The two buttons reach `HeroStartActions` as element-valued *props*
+  // (`prompt`, `quickstart`), not as children, so the element walk below
+  // never descends into them — read them off the props instead. Asserting
+  // the labels as well as the components matters: the components alone
+  // would still pass with an empty option list, and the labels alone would
+  // pass if the buttons were dropped but the list kept.
+  it("renders the copy-prompt button, the quickstart dropdown and the three starting points", async () => {
     const elements = await renderOverview();
 
-    const typeNames = elements.map((el) =>
-      typeof el.type === "function" ? el.type.name : String(el.type),
+    const startActions = elements.find(
+      (el) =>
+        typeof el.type === "function" && el.type.name === "HeroStartActions",
     );
-    expect(typeNames).not.toContain("HeroStartActions");
-    expect(typeNames).not.toContain("HeroOnboardingPromptButton");
-    expect(typeNames).not.toContain("HeroQuickstartDropdown");
+    expect(startActions).toBeTruthy();
+
+    const nameOf = (node: unknown): string => {
+      const el = node as AnyElement | undefined;
+      return el && typeof el.type === "function" ? el.type.name : "";
+    };
+    expect(nameOf(startActions!.props.prompt)).toBe(
+      "HeroOnboardingPromptButton",
+    );
+    expect(nameOf(startActions!.props.quickstart)).toBe(
+      "HeroQuickstartDropdown",
+    );
 
     const allText = elements.map((el) => textOf(el)).join(" | ");
-    expect(allText).not.toContain("New project");
-    expect(allText).not.toContain("Existing app or agent");
-    expect(allText).not.toContain("Already on CopilotKit");
+    expect(allText).toContain("New project");
+    expect(allText).toContain("Existing app or agent");
+    expect(allText).toContain("Already on CopilotKit");
+  });
+
+  // The dropdown is useless without options, and they come from the
+  // registry rather than a literal — a count would go stale the moment a
+  // partner integration ships. Derive the expectation instead, and pin the
+  // default framework to the front, since its quickstart is the one served
+  // at the unprefixed root.
+  it("feeds the quickstart dropdown every visible integration, default first", async () => {
+    const elements = await renderOverview();
+
+    const startActions = elements.find(
+      (el) =>
+        typeof el.type === "function" && el.type.name === "HeroStartActions",
+    );
+    const dropdown = startActions!.props.quickstart as AnyElement;
+    const options = dropdown.props.options as Array<{
+      slug: string;
+      href: string;
+    }>;
+
+    expect(options).toHaveLength(visibleIntegrations().length);
+    expect(options[0]!.slug).toBe(ROOT_FRAMEWORK);
+    expect(options[0]!.href).toBe("/quickstart");
+    expect(options[1]!.href).toBe(`/${options[1]!.slug}/quickstart`);
   });
 
   // The route used to render a dashed placeholder box whose text was
