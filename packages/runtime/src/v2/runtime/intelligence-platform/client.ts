@@ -13,6 +13,15 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
 
+import {
+  LearnedSkillsError,
+  learnedSkillsResponseError,
+} from "./learned-skills";
+import type {
+  GetLearnedSkillsSnapshotRequest,
+  LearnedSkillsSnapshotResult,
+} from "./learned-skills";
+
 const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 1_500;
 const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
 const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
@@ -800,6 +809,109 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
+  }
+
+  /**
+   * Fetch one authorized learned-skills ZIP with this client's project key.
+   * No retries, archive parsing, or cache. A caller signal bounds the request
+   * and body read. Native cancellation is preserved; deadline failures use
+   * {@link LearnedSkillsError} with code `TIMEOUT`.
+   */
+  async getLearnedSkillsSnapshot(
+    params: GetLearnedSkillsSnapshotRequest,
+  ): Promise<LearnedSkillsSnapshotResult> {
+    try {
+      params.signal?.throwIfAborted();
+      if (
+        typeof params.containerId !== "string" ||
+        !params.containerId.trim() ||
+        (params.revision !== undefined &&
+          (typeof params.revision !== "string" || !params.revision.length)) ||
+        (params.ifNoneMatch !== undefined &&
+          (typeof params.ifNoneMatch !== "string" ||
+            !params.ifNoneMatch.length ||
+            /[\r\n]/.test(params.ifNoneMatch)))
+      ) {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      let url: URL;
+      try {
+        url = new URL(
+          `${this.#apiUrl}/api/v1/learning/containers/${encodeURIComponent(params.containerId)}/skills`,
+        );
+        if (
+          !["http:", "https:"].includes(url.protocol) ||
+          url.username ||
+          url.password
+        ) {
+          throw new Error("Invalid API URL");
+        }
+        if (params.revision !== undefined)
+          url.searchParams.set("revision", params.revision);
+      } catch {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          Accept: "application/zip",
+          ...(params.ifNoneMatch !== undefined
+            ? { "If-None-Match": params.ifNoneMatch }
+            : {}),
+        },
+        signal: params.signal,
+        redirect: "error",
+      });
+      params.signal?.throwIfAborted();
+      if (response.status !== 200 && response.status !== 304) {
+        let body: unknown;
+        try {
+          body = await response.json();
+        } catch {
+          params.signal?.throwIfAborted();
+        }
+        throw learnedSkillsResponseError(body);
+      }
+      const revision = response.headers.get("X-CopilotKit-Skills-Revision");
+      const etag = response.headers.get("ETag");
+      if (
+        !revision ||
+        !etag ||
+        !/^"[a-f0-9]{64}"$/.test(etag) ||
+        (params.revision !== undefined && revision !== params.revision)
+      ) {
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      }
+      if (response.status === 304) {
+        if (params.ifNoneMatch === undefined)
+          throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+        return { status: "unchanged", revision, etag };
+      }
+      const contentType = response.headers.get("Content-Type");
+      if (
+        !contentType ||
+        contentType.split(";", 1)[0].trim().toLowerCase() !== "application/zip"
+      ) {
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      params.signal?.throwIfAborted();
+      return { status: "snapshot", bytes, revision, etag, contentType };
+    } catch (error) {
+      const cause = params.signal?.aborted ? params.signal.reason : error;
+      if (cause instanceof Error && cause.name === "TimeoutError") {
+        throw new LearnedSkillsError("TIMEOUT", true, cause);
+      }
+      if (
+        params.signal?.aborted ||
+        (cause instanceof Error && cause.name === "AbortError")
+      ) {
+        throw cause;
+      }
+      if (error instanceof LearnedSkillsError) throw error;
+      throw new LearnedSkillsError("NETWORK_ERROR", true, error);
+    }
   }
 
   /**
