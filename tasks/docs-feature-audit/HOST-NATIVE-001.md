@@ -24,16 +24,19 @@ All Node dependencies were installed with the checked-in package-lock input and
 at `/private/tmp/copilotkit-host-native-python/{langgraph-python,google-adk,strands}`
 using Python 3.12.6 and the checked-in requirements files. No lockfile was written.
 
-| Runtime       | Resolved relevant versions                                                                                                  |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Node          | `v22.16.0`                                                                                                                  |
-| LGP UI        | Next `15.5.19`                                                                                                              |
-| LGTS UI       | Next `15.5.19`                                                                                                              |
-| ADK UI        | Next `15.5.19`                                                                                                              |
-| Strands UI    | Next `15.5.18`                                                                                                              |
-| LGP agent     | `ag-ui-protocol 0.1.18`, `ag-ui-langgraph 0.0.41`, `langgraph-api 0.7.101`, `langgraph-cli 0.4.21`, `copilotkit 0.1.94`     |
-| ADK agent     | `ag-ui-protocol 0.1.18`, `ag-ui-adk 0.7.0`, `google-adk 2.8.0`                                                              |
-| Strands agent | `ag-ui-protocol 0.1.18`, `ag-ui-strands 0.2.2`, `strands-agents 1.18.0`, `strands-agents-tools 0.2.16`, `copilotkit 0.1.94` |
+| Runtime       | Resolved relevant versions                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Node          | `v22.16.0`                                                                                                                     |
+| LGP UI        | Next `15.5.19`                                                                                                                 |
+| LGTS UI       | Next `15.5.19`                                                                                                                 |
+| ADK UI        | Next `15.5.19`                                                                                                                 |
+| Strands UI    | Next `15.5.18`                                                                                                                 |
+| LGP agent     | `ag-ui-protocol 0.1.18`, `ag-ui-langgraph 0.0.41`, `langgraph-api 0.7.101`, `langgraph-cli 0.4.21`, `copilotkit 0.1.94`        |
+| ADK agent     | `ag-ui-protocol 0.1.18`, `ag-ui-adk 0.7.0`, `google-adk 2.8.0`                                                                 |
+| Strands agent | `ag-ui-protocol 0.1.18`, `ag-ui-strands 0.2.2`, `strands-agents 1.18.0`, `strands-agents-tools 0.2.16`, `copilotkit 0.1.94`    |
+| All five UIs  | `@copilotkit/react-core 1.68.2`, `@copilotkit/runtime 1.68.2`                                                                  |
+| BIA UI extras | `@copilotkit/a2ui-renderer 1.68.2`, `@copilotkit/shared 1.68.2`, `@copilotkit/voice 1.68.2`                                    |
+| LGTS agent    | `@langchain/langgraph 1.3.0`, `@langchain/langgraph-api 1.1.17`, `@langchain/langgraph-sdk 1.6.5`, `@copilotkit/sdk-js 1.68.2` |
 
 These are observed resolved versions, not a claim that the checked-in ranges are
 the latest public stable releases.
@@ -84,7 +87,15 @@ than only `/demos/auth`.
 path-limited `git status --short` were both empty immediately after reproduction.
 Therefore the finding describes the existing baseline and no source fix was applied.
 
-## Command classes used
+## Exact launch commands and environment
+
+[`host-native-launch.sh`](host-native-launch.sh) contains the exact commands used,
+including all seven mock-value environment variables, working directories, temporary
+Python interpreter paths, ports, and frontend-to-agent bindings. It starts every
+process independently; it is a reproducibility record, not a test harness or a
+process-cleanup script.
+
+## Dependency installation commands
 
 1. `npm --prefix showcase/integrations/<slug> ci --legacy-peer-deps` for the five
    app packages and LGTS agent package.
