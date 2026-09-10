@@ -1,6 +1,10 @@
 {
   "extends": "@copilotkit/typescript-config/base.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src", "types": ["node", "vitest/globals"] },
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node", "vitest/globals"]
+  },
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "src/**/__tests__/**"]
 }
