@@ -1,67 +1,63 @@
 "use client";
 
 // <SetupWizard> — the client component that owns the homepage setup wizard's
-// state and drives the presentational parts in `./docs-map-parts`.
+// state and drives the presentational parts in `./docs-map-parts` and
+// `./wizard-stepper-parts`.
 //
-// Four steps: pick a frontend (single), pick features (multiple, optional),
-// pick an agent backend (single), copy a prompt carrying all three answers.
-// This component owns exactly two pieces of bookkeeping: the three
-// selections, and how far the reader has got (`reached`, 1-based, never
-// decreases). Every step's `StepState` is derived from those two things —
-// see `stepState` below — so there is nowhere else a step's
-// locked/active/done status can drift out of sync with the actual
-// selections.
+// Classic one-card-at-a-time stepper: frontend, agent backend, features,
+// copy prompt. This component owns exactly three pieces of bookkeeping: the
+// three selections, the currently displayed step (`current`), and the
+// furthest step the reader has reached (`furthest`, 1-based, never
+// decreases). The progress rail's disabled treatment for steps beyond
+// `furthest` is `wizard-stepper-parts`' job; this file only ever hands it
+// the number.
 //
-// Advance is forward-only, and that rule is the single most load-bearing
-// thing in this file: reaching a step for the FIRST time is what unlocks
-// the next step and scrolls to it. Re-answering an earlier step (e.g.
-// picking a different frontend after already reaching step 3) must change
-// only that selection — no reset of later answers, no re-scroll. Each of
-// the three "select" handlers below computes `firstTime` from `reached`
-// BEFORE updating anything, and only unlocks/scrolls when it is true. This
-// is a plain boolean read, not something inferred from whether React
-// decides to re-render — a mutation that deletes the check is meant to be
-// visible in the mutation-testing pass, not silently absorbed by React's
-// own bail-out-on-unchanged-state behaviour.
-//
-// Steps 1–3 always exist in the DOM (only their `disabled`/state treatment
-// changes), so their scroll target can be looked up and scrolled to
-// synchronously, inside the same click handler that decided to advance.
-// Step 4 does not exist until a backend is chosen, so scrolling to it can
-// only happen after React has committed that render — `pendingStep4ScrollRef`
-// records the decision made in the handler, and the effect keyed on
-// `backendId` consumes it once the section is actually on the page.
+// Changing an earlier answer must never clear a later one: going back to
+// step 1 and picking a different frontend leaves the backend and the
+// features exactly as they were. There is simply no code path here that
+// resets `backendId` or `featureIds` from the frontend picker (or any other
+// cross-step reset) — that absence is the guarantee, not something asserted
+// via extra bookkeeping, so a mutation that adds such a reset is meant to be
+// caught by the "changing an earlier answer" test below, not silently
+// absorbed.
 //
 // This component reads no data of its own: no `@/lib/registry`, no
 // `frontendPicks()` / `agentPicks()`. Those pull in the ~646 KB registry,
 // and importing them here would ship that registry to the browser — this is
 // the only client module in the wizard, so anything it imports crosses the
-// boundary. The server shell (a later task) reads the registry and passes
-// the three prop arrays down.
+// boundary. The server shell (`./docs-setup-wizard`) reads the registry and
+// passes the three prop arrays down.
 
 import React from "react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
-import {
-  CapabilityGrid,
-  MAP_GRID_CLASS,
-  PickGrid,
-  StepBlock,
-  StepConnector,
-} from "@/components/docs-map-parts";
-import type { StepState } from "@/components/docs-map-parts";
+import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
 import type { MapCapability, MapPick } from "@/lib/homepage-map";
 import {
   parseWizardUrlState,
   serializeWizardUrlState,
 } from "@/lib/wizard-url-state";
-import type { WizardUrlAllowlists } from "@/lib/wizard-url-state";
-import { scrollElementIntoCenter } from "@/lib/wizard-scroll";
+import type {
+  WizardUrlAllowlists,
+  WizardUrlState,
+} from "@/lib/wizard-url-state";
+import { prefersReducedMotion } from "@/lib/wizard-scroll";
+import { planStepSwap } from "@/lib/wizard-step-transition";
+import type {
+  StepDirection,
+  StepSwapAnimation,
+} from "@/lib/wizard-step-transition";
 import { composeWizardOnboardingPrompt } from "@/lib/wizard-onboarding-prompt";
 import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
+import {
+  WizardCard,
+  WizardNav,
+  WizardProgress,
+} from "@/components/wizard-stepper-parts";
+import type { StepperStep } from "@/components/wizard-stepper-parts";
 
 export interface SetupWizardProps {
   frontends: readonly MapPick[];
@@ -71,19 +67,106 @@ export interface SetupWizardProps {
 
 type CopyState = "idle" | "copied" | "error";
 
-/** DOM ids the wizard's own steps live at — shared between the JSX below
- *  (so `StepBlock` renders them) and the handlers that scroll to them. */
-const STEP_DOM_ID = {
-  2: "wizard-step-2",
-  3: "wizard-step-3",
-  4: "wizard-step-4",
-} as const;
+const TOTAL_STEPS = 4;
+
+const STEPPER_STEPS: readonly StepperStep[] = [
+  { n: 1, label: "Frontend" },
+  { n: 2, label: "Backend" },
+  { n: 3, label: "Features" },
+  { n: 4, label: "Prompt" },
+];
 
 const COPY_LABEL: Record<CopyState, string> = {
   idle: "Copy prompt",
   copied: "Copied",
   error: "Copy blocked",
 };
+
+/**
+ * The step a restored URL — or a fresh mount with no query at all — should
+ * land on: the first step whose answer is still missing, in the new step
+ * order (frontend, backend, features, prompt), or step 4 once every answer,
+ * including the optional features step, has something in it. A shared link
+ * should open where there is something left to do, not back at step 1.
+ */
+function landingStep(restored: WizardUrlState): number {
+  if (!restored.frontend) return 1;
+  if (!restored.backend) return 2;
+  if (restored.features.length === 0) return 3;
+  return 4;
+}
+
+/**
+ * What `goTo` records before handing control back to React: the direction
+ * of travel, the wrapper's height right before the swap, and a detached
+ * snapshot of the outgoing card to animate out independently of the
+ * incoming one React has already put in its place.
+ */
+type PendingTransition = {
+  readonly direction: StepDirection;
+  readonly fromHeight: number;
+  readonly outgoingSnapshot: HTMLElement | null;
+};
+
+/**
+ * Applies one planned step swap to the DOM: the detached snapshot of the
+ * outgoing card fades/slides away while the (already-committed) incoming
+ * card fades/slides in, and the wrapper's height tweens between the two
+ * measured heights. Isolated in its own function so the component's effect
+ * only has to wire up refs, and so a test can assert *that* a swap was
+ * applied — via the `Element.prototype.animate` stub — without reaching
+ * into WAAPI internals jsdom does not implement.
+ *
+ * A `null` plan (reduced motion, or nothing to animate) means the DOM swap
+ * React already made is the whole story: no keyframes to apply, and any
+ * inline height pinned by an earlier swap is released so the wrapper goes
+ * back to `auto` — a wrapper left at a fixed pixel height would clip the
+ * card the next time the viewport resizes.
+ */
+function runStepSwapAnimation(
+  wrapper: HTMLDivElement,
+  outgoingSnapshot: HTMLElement | null,
+  plan: StepSwapAnimation | null,
+): void {
+  if (!plan) {
+    wrapper.style.height = "";
+    return;
+  }
+
+  if (plan.wrapper) {
+    // `fill: "forwards"` holds the animated height at `toHeight` once the
+    // animation ends, instead of snapping back to whatever `auto` resolves
+    // to on that exact frame — and the `onfinish` below is what releases
+    // that pin back to `auto` again, so a later resize is never clipped.
+    const wrapperAnimation = wrapper.animate(plan.wrapper, {
+      ...plan.options,
+      fill: "forwards",
+    });
+    wrapperAnimation.onfinish = () => {
+      wrapper.style.height = "";
+    };
+  }
+
+  wrapper.animate(plan.incoming, plan.options);
+
+  if (outgoingSnapshot) {
+    outgoingSnapshot.style.position = "absolute";
+    outgoingSnapshot.style.top = "0";
+    outgoingSnapshot.style.left = "0";
+    outgoingSnapshot.style.right = "0";
+    outgoingSnapshot.style.bottom = "0";
+    outgoingSnapshot.style.pointerEvents = "none";
+    outgoingSnapshot.setAttribute("aria-hidden", "true");
+    wrapper.appendChild(outgoingSnapshot);
+    const outgoingAnimation = outgoingSnapshot.animate(
+      plan.outgoing,
+      plan.options,
+    );
+    outgoingAnimation.onfinish = () => {
+      outgoingSnapshot.remove();
+    };
+  }
+}
 
 export function SetupWizard({
   frontends,
@@ -93,15 +176,18 @@ export function SetupWizard({
   const posthog = usePostHog();
 
   const [frontendId, setFrontendId] = React.useState<string | null>(null);
+  const [backendId, setBackendId] = React.useState<string | null>(null);
   const [featureIds, setFeatureIds] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [backendId, setBackendId] = React.useState<string | null>(null);
-  /** 1-based, the furthest step reached so far. Never decreases. */
-  const [reached, setReached] = React.useState(1);
-  /** Gates the locked/disabled treatment. False until the client mounts, so
-   *  a no-JS reader sees every step enabled rather than a wizard permanently
-   *  stuck on step 1 — see the header comment in `docs-map-parts.tsx`. */
+  /** 1-based, the card currently on screen. */
+  const [current, setCurrent] = React.useState(1);
+  /** 1-based, the furthest step reached so far. Never decreases — `goTo`
+   *  only ever folds a new step number in via `Math.max`, so there is
+   *  nowhere a jump-back could accidentally lower it. */
+  const [furthest, setFurthest] = React.useState(1);
+  /** Gates the URL-sync effect below so it cannot race the restore effect's
+   *  own read-then-write with a premature empty write. */
   const [hydrated, setHydrated] = React.useState(false);
 
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
@@ -114,11 +200,20 @@ export function SetupWizard({
    *  that appeared mid-render would differ between the server and client
    *  passes. */
   const runIdRef = React.useRef<string | null>(null);
-  /** Set by `handleSelectBackend` exactly when step 4 is being reached for
-   *  the first time. Step 4 is not in the DOM yet at that point, so the
-   *  actual scroll is deferred to the effect below, which runs once the
-   *  section has been committed. */
-  const pendingStep4ScrollRef = React.useRef(false);
+
+  /** The card wrapper: measured for the height tween, and the node the
+   *  transition animates directly (see `runStepSwapAnimation`). */
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null);
+  /** Focus target on every step change — the current step's `<h2>`. */
+  const headingRef = React.useRef<HTMLHeadingElement | null>(null);
+  /** Set by `goTo` just before the state update that changes `current`;
+   *  consumed by the layout effect below once that change has committed.
+   *  Only ever non-null for a change `goTo` itself caused — the mount
+   *  effect's URL restore changes `current` too, but never through `goTo`,
+   *  so it lands on the right step without stealing focus or animating a
+   *  transition nobody asked for. */
+  const pendingTransitionRef = React.useRef<PendingTransition | null>(null);
+  const isFirstRenderRef = React.useRef(true);
 
   React.useEffect(() => {
     return () => {
@@ -126,17 +221,6 @@ export function SetupWizard({
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     };
   }, []);
-
-  React.useEffect(() => {
-    if (!pendingStep4ScrollRef.current) return;
-    pendingStep4ScrollRef.current = false;
-    const el = document.getElementById(STEP_DOM_ID[4]);
-    if (el) scrollElementIntoCenter(el);
-    // Only `backendId` — not `reached` — needs to gate this: the flag above
-    // already carries the "was this the first time" decision, so this
-    // effect only needs to know that a render exposing the step 4 section
-    // has happened.
-  }, [backendId]);
 
   const allowlists: WizardUrlAllowlists = React.useMemo(
     () => ({
@@ -147,24 +231,19 @@ export function SetupWizard({
     [frontends, capabilities, backends],
   );
 
-  // Mount only. Restores the reader's selections from the URL and flips on
-  // the locked/disabled treatment together, so hydration never paints an
-  // intermediate frame where the restored answers show but the earlier
-  // steps still look locked (or vice versa). This never scrolls: it does
-  // not go through any of the "select" handlers, which are the only place a
-  // scroll is ever triggered from.
+  // Mount only. Restores the reader's selections from the URL and lands on
+  // the first unanswered step (see `landingStep`) — never through `goTo`,
+  // so this never animates and never steals focus; see the comment on
+  // `pendingTransitionRef` above.
   React.useEffect(() => {
     const restored = parseWizardUrlState(window.location.search, allowlists);
-    // A restored backend implies steps 2 and 3 were already passed through
-    // (there is no way to reach a backend selection otherwise); a restored
-    // frontend alone only implies step 2 is reachable, leaving step 2's own
-    // Skip/Confirm choice to the reader.
-    const restoredReached = restored.backend ? 4 : restored.frontend ? 2 : 1;
+    const landing = landingStep(restored);
 
     setFrontendId(restored.frontend ?? null);
-    setFeatureIds(new Set(restored.features));
     setBackendId(restored.backend ?? null);
-    setReached(restoredReached);
+    setFeatureIds(new Set(restored.features));
+    setCurrent(landing);
+    setFurthest(landing);
     setHydrated(true);
     // Allow-lists are derived from props on every render; only the actual
     // browser URL should ever trigger this restore.
@@ -188,50 +267,67 @@ export function SetupWizard({
     window.history.replaceState(window.history.state, "", url);
   }, [frontendId, featureIds, backendId, hydrated]);
 
-  function isLocked(step: number): boolean {
-    return hydrated && reached < step;
-  }
-
-  function stepState(step: number, answered: boolean): StepState {
-    if (isLocked(step)) return "locked";
-    return answered ? "done" : "active";
-  }
-
-  function handleSelectFrontend(id: string) {
-    const firstTime = reached < 2;
-    setFrontendId(id);
-    if (firstTime) {
-      setReached(2);
-      const el = document.getElementById(STEP_DOM_ID[2]);
-      if (el) scrollElementIntoCenter(el);
+  // Runs the step-swap animation and moves focus to the new card's heading
+  // — on every `goTo`-driven step change, and only then: not on the first
+  // render, and not on the mount effect's URL restore (see
+  // `pendingTransitionRef`). `useLayoutEffect` so the measurement inside
+  // `runStepSwapAnimation` happens after the new card has committed but
+  // before the browser paints an un-animated jump.
+  React.useLayoutEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
     }
-  }
 
-  function handleToggleFeature(id: string) {
-    setFeatureIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    const pending = pendingTransitionRef.current;
+    pendingTransitionRef.current = null;
+    if (!pending) return;
+
+    headingRef.current?.focus();
+
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const toHeight = wrapper.getBoundingClientRect().height;
+    const plan = planStepSwap({
+      direction: pending.direction,
+      fromHeight: pending.fromHeight,
+      toHeight,
+      reducedMotion: prefersReducedMotion(),
     });
+
+    runStepSwapAnimation(wrapper, pending.outgoingSnapshot, plan);
+  }, [current]);
+
+  /** The only place `current`/`furthest` ever change once mounted. Always
+   *  records a pending transition first — cloning the about-to-be-replaced
+   *  wrapper synchronously, before React swaps its children — so the
+   *  layout effect above has something to animate once the new card lands. */
+  function goTo(step: number, direction: StepDirection) {
+    const wrapper = wrapperRef.current;
+    pendingTransitionRef.current = {
+      direction,
+      fromHeight: wrapper ? wrapper.getBoundingClientRect().height : 0,
+      outgoingSnapshot: wrapper
+        ? (wrapper.cloneNode(true) as HTMLElement)
+        : null,
+    };
+    setCurrent(step);
+    setFurthest((prev) => Math.max(prev, step));
   }
 
-  function handleStep2Continue() {
-    const firstTime = reached < 3;
-    if (firstTime) {
-      setReached(3);
-      const el = document.getElementById(STEP_DOM_ID[3]);
-      if (el) scrollElementIntoCenter(el);
-    }
+  /** Guards the progress rail against ever landing past `furthest` —
+   *  `wizard-stepper-parts` already disables that button's real `disabled`
+   *  attribute, but this is the second, independent check: nothing here
+   *  trusts the child component alone to enforce it. */
+  function handleJump(step: number) {
+    if (step > furthest) return;
+    if (step === current) return;
+    goTo(step, step > current ? "forward" : "back");
   }
 
-  function handleSelectBackend(id: string) {
-    const firstTime = reached < 4;
-    setBackendId(id);
-    if (firstTime) {
-      setReached(4);
-      pendingStep4ScrollRef.current = true;
-    }
+  function handleBack() {
+    goTo(current - 1, "back");
   }
 
   function capture(event: string, properties: Record<string, unknown>) {
@@ -301,124 +397,130 @@ export function SetupWizard({
     }, 1800);
   }
 
-  const frontendDone = frontendId !== null;
-  const step2Done = reached > 2;
-  const backendDone = backendId !== null;
-
-  const frontendName = frontendId
-    ? frontends.find((pick) => pick.id === frontendId)?.name
-    : undefined;
-  const backendName = backendId
-    ? backends.find((pick) => pick.id === backendId)?.name
-    : undefined;
-
   const selectedFeatureIds = React.useMemo(() => [...featureIds], [featureIds]);
 
-  return (
-    <div className={MAP_GRID_CLASS}>
-      <StepBlock
-        state={stepState(1, frontendDone)}
-        step={1}
-        name="Your frontend"
-        description="CopilotKit ships the same primitives for every one of these."
-        hint={frontendDone ? frontendName : undefined}
-      >
-        <PickGrid
-          picks={frontends}
-          selectedId={frontendId ?? undefined}
-          disabled={isLocked(1)}
-          onSelect={handleSelectFrontend}
-        />
-      </StepBlock>
+  let stepName: string;
+  let stepDescription: string;
+  let body: React.ReactNode;
+  let footer: React.ReactNode;
 
-      <StepConnector lit={reached >= 2} />
-
-      <StepBlock
-        id={STEP_DOM_ID[2]}
-        state={stepState(2, step2Done)}
-        step={2}
-        name="What you want to build"
-        description="Pick as many as you like, or skip — this guides your coding agent, it does not restrict it."
-        hint={isLocked(2) ? "Choose your frontend first" : undefined}
-      >
-        <CapabilityGrid
-          capabilities={capabilities}
-          selectedIds={selectedFeatureIds}
-          disabled={isLocked(2)}
-          onToggle={handleToggleFeature}
-        />
-        <div className="mt-4">
-          <button
-            type="button"
-            disabled={isLocked(2)}
-            onClick={handleStep2Continue}
-            className="shell-docs-radius-control inline-flex min-h-9 items-center justify-center border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {featureIds.size > 0 ? "Confirm" : "Skip"}
-          </button>
-        </div>
-      </StepBlock>
-
-      <StepConnector lit={reached >= 3} />
-
-      <StepBlock
-        id={STEP_DOM_ID[3]}
-        state={stepState(3, backendDone)}
-        step={3}
-        name="Your agent backend"
-        description="Any framework that speaks AG-UI, or CopilotKit's own built-in agent."
-        hint={
-          isLocked(3)
-            ? "Confirm your features first"
-            : backendDone
-              ? backendName
-              : undefined
+  if (current === 1) {
+    stepName = "Your frontend";
+    stepDescription =
+      "CopilotKit ships the same primitives for every one of these.";
+    body = (
+      <PickGrid
+        picks={frontends}
+        selectedId={frontendId ?? undefined}
+        disabled={false}
+        onSelect={setFrontendId}
+      />
+    );
+    footer = (
+      <WizardNav
+        onContinue={() => goTo(2, "forward")}
+        continueLabel="Continue"
+        continueDisabled={frontendId === null}
+      />
+    );
+  } else if (current === 2) {
+    stepName = "Your agent backend";
+    stepDescription =
+      "Any framework that speaks AG-UI, or CopilotKit's own built-in agent.";
+    body = (
+      <PickGrid
+        picks={backends}
+        selectedId={backendId ?? undefined}
+        disabled={false}
+        onSelect={setBackendId}
+      />
+    );
+    footer = (
+      <WizardNav
+        onBack={handleBack}
+        onContinue={() => goTo(3, "forward")}
+        continueLabel="Continue"
+        continueDisabled={backendId === null}
+      />
+    );
+  } else if (current === 3) {
+    stepName = "What you want to build";
+    stepDescription =
+      "Pick as many as you like, or skip — this guides your coding agent, it does not restrict it.";
+    body = (
+      <CapabilityGrid
+        capabilities={capabilities}
+        selectedIds={selectedFeatureIds}
+        disabled={false}
+        onToggle={(id) =>
+          setFeatureIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+          })
         }
-      >
-        <PickGrid
-          picks={backends}
-          selectedId={backendId ?? undefined}
-          disabled={isLocked(3)}
-          onSelect={handleSelectBackend}
-        />
-      </StepBlock>
+      />
+    );
+    footer = (
+      <WizardNav
+        onBack={handleBack}
+        onContinue={() => goTo(4, "forward")}
+        continueLabel={featureIds.size > 0 ? "Continue" : "Skip"}
+        continueDisabled={false}
+      />
+    );
+  } else {
+    stepName = "Copy your prompt";
+    stepDescription =
+      "The canonical onboarding prompt, with your answers appended so your coding agent does not have to ask again.";
+    body = (
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="shell-docs-radius-control inline-flex min-h-11 items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none"
+        >
+          {COPY_LABEL[copyState]}
+        </button>
+        <Link
+          href="/quickstart"
+          className="text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
+        >
+          Prefer to set it up yourself? Follow the manual quickstart.
+        </Link>
+      </div>
+    );
+    footer = null;
+  }
 
-      {backendId ? (
-        <>
-          <StepConnector lit={reached >= 4} />
-
-          <StepBlock
-            id={STEP_DOM_ID[4]}
-            state="active"
-            step={4}
-            name="Copy your prompt"
-            description="The canonical onboarding prompt, with your answers appended so your coding agent does not have to ask again."
-          >
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="shell-docs-radius-control inline-flex min-h-11 items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none"
-              >
-                {COPY_LABEL[copyState]}
-              </button>
-              <Link
-                href="/quickstart"
-                className="text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
-              >
-                Prefer to set it up yourself? Follow the manual quickstart.
-              </Link>
-            </div>
-            <span aria-live="polite" className="sr-only">
-              {copyState === "copied"
-                ? "Prompt copied"
-                : copyState === "error"
-                  ? "Prompt copy failed. Try again."
-                  : ""}
-            </span>
-          </StepBlock>
-        </>
-      ) : null}
+  return (
+    <div className="not-prose flex flex-col gap-5">
+      <WizardProgress
+        steps={STEPPER_STEPS}
+        current={current}
+        furthest={furthest}
+        onJump={handleJump}
+      />
+      <div ref={wrapperRef} className="relative">
+        <WizardCard
+          step={current}
+          total={TOTAL_STEPS}
+          name={stepName}
+          description={stepDescription}
+          headingRef={headingRef}
+          footer={footer}
+        >
+          {body}
+        </WizardCard>
+      </div>
+      <span aria-live="polite" className="sr-only">
+        {copyState === "copied"
+          ? "Prompt copied"
+          : copyState === "error"
+            ? "Prompt copy failed. Try again."
+            : ""}
+      </span>
     </div>
   );
 }
