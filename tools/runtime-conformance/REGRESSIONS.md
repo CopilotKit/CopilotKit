@@ -220,3 +220,41 @@ Framework AG-UI server and the runtime's HTTP agent over loopback HTTP. Its mode
 is deterministic. Both packed libraries contain net8.0 assemblies. CI installs
 .NET 8 and runs the same tests and complete shared suite. This does not prove
 hosted-model, browser, or deployed-platform behavior.
+
+## MCP model visibility and account selection
+
+Baseline: `f2926a54e3c0b2140b95c3bd984c1ac6c0d96649`.
+Review comments: `3983860329` and `3983860336` on CopilotKit PR #6967.
+
+The five `mcp-apps.visibility-*` cases cover omitted, model, app, both, and empty visibility.
+Before the fixes, `mcp-apps.visibility-app` failed in Python, Go, Ruby, and .NET:
+`Explicit visibility must include model before a tool enters model input` (`true !== false`).
+Discovery now excludes a tool when its explicit visibility does not include `model`.
+The cases also call each tool through the iframe proxy and require a tool result without another agent invocation.
+This preserves UI access independently of model visibility.
+The released TypeScript MCP Apps middleware already passes these cases.
+The source contract is the MCP Apps tool `_meta.ui.visibility` field and upstream middleware 0.1.0.
+
+The four `mcp-apps.server-selection-*` cases register two accounts at one URL with distinct credential headers.
+Before the fixes, every native runtime sent requests for an ambiguous hash and for an unknown explicit ID.
+The assertion was `Ambiguous hashes and unknown explicit IDs must fail before sending credentials`:
+Python sent five requests; Go, Ruby, and .NET sent four.
+Go also failed `Explicit server ID must select its own credentials` for the second registered account.
+Each runtime now resolves an explicit ID without falling back to the hash and requires exactly one matching registration.
+The cases require zero MCP requests for rejected selections and inspect every outgoing credential header for accepted selections.
+TypeScript middleware 0.1.0 already passes all four cases.
+
+Use either `mcp-apps.visibility` or `mcp-apps.server-selection` as `CASE_FILTER`:
+
+```sh
+pnpm nx run runtime-conformance:conformance -- --filter "$CASE_FILTER" -- packages/runtime-python/.venv/bin/python packages/runtime-python/examples/conformance.py
+pnpm nx exec --projects=runtime-go -- go build -o /tmp/pr6967-go-driver ./cmd/conformance
+pnpm nx run runtime-conformance:conformance -- --filter "$CASE_FILTER" -- /tmp/pr6967-go-driver
+pnpm nx run runtime-conformance:conformance -- --filter "$CASE_FILTER" -- ruby packages/runtime-ruby/examples/conformance.rb
+pnpm nx run runtime-dotnet:build
+pnpm nx run runtime-conformance:conformance -- --filter "$CASE_FILTER" -- dotnet packages/runtime-dotnet/driver/bin/Release/net8.0/Runtime.Driver.dll
+pnpm nx run runtime-conformance:conformance -- --filter "$CASE_FILTER" -- node tools/runtime-conformance/typescript-driver.mjs
+```
+
+These are local HTTP and Phoenix socket tests. They do not prove browser UI behavior or deployed-service compatibility.
+They do not establish support for MCP protocol revision `2026-07-28`.

@@ -62,7 +62,8 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                 var method = A2UIValidation.Text(proxy["method"]) ?? "";
                 if (method is not ("tools/call" or "resources/read" or "notifications/message" or "ping")) throw new RuntimeRequestException(400, "MCP method not allowed for UI proxy");
                 var id = A2UIValidation.Text(proxy["serverId"]); var hash = A2UIValidation.Text(proxy["serverHash"]);
-                var server = (id is null ? null : servers.LastOrDefault(server => server.ServerId == id)) ?? servers.LastOrDefault(server => server.Hash == hash) ?? throw new RuntimeRequestException(404, "Unknown MCP server");
+                var matches = servers.Where(server => id is null ? server.Hash == hash : server.ServerId == id).Take(2).ToArray();
+                var server = matches.Length == 1 ? matches[0] : throw new RuntimeRequestException(404, "Unknown or ambiguous MCP server");
                 await using var session = new McpHttpSession(server, httpClient);
                 await session.InitializeAsync(cancellationToken);
                 result = await session.RequestAsync(method, proxy["params"] as JsonObject, cancellationToken, notification: method == "notifications/message");
@@ -89,6 +90,8 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                     {
                         var meta = tool["_meta"] as JsonObject;
                         var ui = meta?["ui"] as JsonObject;
+                        if (ui?.ContainsKey("visibility") == true &&
+                            (ui["visibility"] is not JsonArray visibility || !visibility.Any(value => A2UIValidation.Text(value) == "model"))) continue;
                         var resource = A2UIValidation.Text(ui?["resourceUri"]) ?? A2UIValidation.Text(meta?["ui/resourceUri"]);
                         if (resource is null || A2UIValidation.Text(tool["name"]) is not { } name) continue;
                         tools.Add(new UiTool(new JsonObject { ["name"] = name, ["description"] = (A2UIValidation.Text(tool["description"]) ?? "") + "\n[UI Resource: " + resource + "]", ["parameters"] = tool["inputSchema"]?.DeepClone() ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } }, server, resource));

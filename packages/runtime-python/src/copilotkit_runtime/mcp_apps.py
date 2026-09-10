@@ -164,6 +164,10 @@ class MCPAppsMiddleware:
                 meta = tool.get("_meta")
                 meta = meta if isinstance(meta, dict) else {}
                 ui = meta.get("ui")
+                if isinstance(ui, dict) and "visibility" in ui:
+                    visibility = ui["visibility"]
+                    if not isinstance(visibility, list) or "model" not in visibility:
+                        continue
                 uri = ui.get("resourceUri") if isinstance(ui, dict) else None
                 if not isinstance(uri, str):
                     uri = meta.get("ui/resourceUri")
@@ -187,18 +191,17 @@ class MCPAppsMiddleware:
         """Bypass the agent for allowlisted browser iframe requests."""
         yield {"type": "RUN_STARTED"}
         servers = self._servers(agent_id)
-        server = next(
-            (
-                item
-                for item in servers
-                if request.get("serverId") and item.server_id == request["serverId"]
-            ),
-            None,
-        )
-        if server is None:
-            server = next(
-                (item for item in servers if item.server_hash == request.get("serverHash")), None
+        server_id = request.get("serverId")
+        matches = [
+            item
+            for item in servers
+            if (
+                item.server_id == server_id
+                if server_id
+                else item.server_hash == request.get("serverHash")
             )
+        ]
+        server = matches[0] if len(matches) == 1 else None
         if server is None:
             result: Json = {"error": "Unknown MCP server"}
         elif request.get("method") not in (

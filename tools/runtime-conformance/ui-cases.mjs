@@ -76,6 +76,136 @@ function mcpConfiguration(platform) {
 }
 
 export const uiCases = [
+  ...["ambiguous", "explicit-first", "explicit-second", "unknown-id"].map(
+    (selection) => ({
+      id: `mcp-apps.server-selection-${selection}`,
+      configuration(platform) {
+        return {
+          mcpApps: {
+            servers: ["first", "second"].map((serverId) => ({
+              ...mcpConfiguration(platform).mcpApps.servers[0],
+              serverId,
+              headers: {
+                "x-fixture-auth": "mcp-fixture-token",
+                "x-fixture-account": serverId,
+              },
+            })),
+          },
+        };
+      },
+      async run(context) {
+        const serverHash = createHash("md5")
+          .update(
+            JSON.stringify({ type: "http", url: context.platform.mcpUrl }),
+          )
+          .digest("hex");
+        const serverId =
+          selection === "ambiguous"
+            ? undefined
+            : selection.replace("explicit-", "");
+        const events = await runAndWait(
+          context,
+          input({
+            forwardedProps: {
+              __proxiedMCPRequest: {
+                serverHash,
+                ...(serverId ? { serverId } : {}),
+                method: "tools/call",
+                params: {
+                  name: "show_card",
+                  arguments: { title: "Account test" },
+                },
+              },
+            },
+          }),
+        );
+        const requests = context.platform.requests.filter(
+          (request) => request.path === "/mcp",
+        );
+        const result = events.find(
+          (event) => event.type === "RUN_FINISHED",
+        ).result;
+        if (selection === "ambiguous" || selection === "unknown-id") {
+          assert.equal(
+            requests.length,
+            0,
+            "Ambiguous hashes and unknown explicit IDs must fail before sending credentials",
+          );
+          assert.ok(result.error);
+        } else {
+          assert.deepEqual(context.platform.mcpCalls, [
+            { title: "Account test" },
+          ]);
+          assert.ok(requests.length > 0);
+          assert.ok(
+            requests.every(
+              (request) => request.headers["x-fixture-account"] === serverId,
+            ),
+            "Explicit server ID must select its own credentials",
+          );
+          assert.equal(result.content[0].text, "Card: Account test");
+        }
+        assert.equal(context.platform.agentInputs.length, 0);
+      },
+    }),
+  ),
+  ...[
+    ["omitted", undefined, true],
+    ["model", ["model"], true],
+    ["app", ["app"], false],
+    ["both", ["app", "model"], true],
+    ["empty", [], false],
+  ].map(([label, visibility, modelVisible]) => ({
+    id: `mcp-apps.visibility-${label}`,
+    configuration: mcpConfiguration,
+    async run(context) {
+      context.platform.mcp.addTool({
+        name: "visibility_card",
+        description: "Visibility contract",
+        inputSchema: { type: "object", properties: {} },
+        _meta: {
+          ui: {
+            resourceUri: "ui://fixture/card",
+            ...(visibility === undefined ? {} : { visibility }),
+          },
+        },
+      });
+      context.platform.mcp.onToolCall(
+        "visibility_card",
+        () => "Visible in app",
+      );
+      await runAndWait(context);
+      assert.equal(
+        context.platform.agentInputs[0].tools.some(
+          (tool) => tool.name === "visibility_card",
+        ),
+        modelVisible,
+        "Explicit visibility must include model before a tool enters model input",
+      );
+      const events = await runAndWait(
+        context,
+        input({
+          forwardedProps: {
+            __proxiedMCPRequest: {
+              serverId: "cards",
+              method: "tools/call",
+              params: { name: "visibility_card", arguments: {} },
+            },
+          },
+        }),
+      );
+      assert.equal(
+        events.find((event) => event.type === "RUN_FINISHED").result.content[0]
+          .text,
+        "Visible in app",
+      );
+      assert.equal(
+        context.platform.agentInputs.length,
+        1,
+        "UI proxy must bypass the model",
+      );
+    },
+  })),
   ...["nested", "both"].map((format) => ({
     id: `mcp-apps.current-metadata-${format}`,
     configuration: mcpConfiguration,

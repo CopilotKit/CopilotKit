@@ -225,6 +225,18 @@ func (a *uiAgent) discover(ctx context.Context, input map[string]any) (map[strin
 			for _, raw := range listed {
 				tool := object(raw)
 				meta := object(tool["_meta"])
+				if visibility, explicit := object(meta["ui"])["visibility"]; explicit {
+					values, _ := visibility.([]any)
+					modelVisible := false
+					for _, value := range values {
+						if str(value) == "model" {
+							modelVisible = true
+						}
+					}
+					if !modelVisible {
+						continue
+					}
+				}
 				resource, nested := object(meta["ui"])["resourceUri"].(string)
 				if !nested {
 					resource = str(meta["ui/resourceUri"])
@@ -292,11 +304,19 @@ func (a *uiAgent) proxy(ctx context.Context, input, request map[string]any, emit
 		return err
 	}
 	var server *MCPServer
+	id, hash := str(request["serverId"]), str(request["serverHash"])
 	for _, s := range a.mcp {
-		if (str(request["serverId"]) != "" && s.ServerID == str(request["serverId"])) || serverHash(s) == str(request["serverHash"]) {
+		matches := s.ServerID == id
+		if id == "" {
+			matches = serverHash(s) == hash
+		}
+		if matches {
+			if server != nil {
+				server = nil
+				break
+			}
 			copy := s
 			server = &copy
-			break
 		}
 	}
 	result := any(map[string]any{"error": "Unknown MCP server"})

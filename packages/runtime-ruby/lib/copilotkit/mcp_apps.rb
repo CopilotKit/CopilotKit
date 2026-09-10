@@ -104,8 +104,10 @@ module CopilotKit
     def proxy(request)
       raise Error.new(400, 'Invalid MCP proxy request') unless request.is_a?(Hash)
       raise Error.new(403, 'MCP method is not allowed') unless METHODS.include?(request['method'])
-      server = @servers.find { |entry| request['serverId'] && entry['serverId'] == request['serverId'] }
-      server ||= @servers.find { |entry| server_hash(entry) == request['serverHash'] }
+      matches = @servers.select do |entry|
+        request['serverId'] ? entry['serverId'] == request['serverId'] : server_hash(entry) == request['serverHash']
+      end
+      server = matches.first if matches.length == 1
       raise Error.new(404, 'Unknown MCP server') unless server
       with_client(server) { |client| client.rpc(request['method'], request['params'], notification: request['method'] == 'notifications/message') }
     rescue Error, ArgumentError, KeyError, SocketError, IOError, SystemCallError, Timeout::Error, Net::HTTPBadResponse, OpenSSL::SSL::SSLError
@@ -121,6 +123,10 @@ module CopilotKit
             raise Error.new(502, 'Invalid MCP tool listing') unless result.is_a?(Hash) && result['tools'].is_a?(Array)
             result['tools'].each do |tool|
               next unless tool.is_a?(Hash)
+              ui = tool.dig('_meta', 'ui')
+              if ui.is_a?(Hash) && ui.key?('visibility')
+                next unless ui['visibility'].is_a?(Array) && ui['visibility'].include?('model')
+              end
               resource = tool.dig('_meta', 'ui', 'resourceUri')
               resource = tool.dig('_meta', 'ui/resourceUri') unless resource.is_a?(String)
               next unless resource.is_a?(String) && tool['name'].is_a?(String)
