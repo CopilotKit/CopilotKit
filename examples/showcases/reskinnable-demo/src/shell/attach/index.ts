@@ -12,3 +12,11 @@ export type {
   AttachmentStaging,
   Beat3dTimings,
 } from "./stage-attachment";
+export {
+  uploadAttachment,
+  reportUploadFailure,
+  COMPOSER_ACCEPT,
+  COMPOSER_MAX_SIZE,
+} from "./upload-attachment";
+export { createSpreadsheetBridge } from "./spreadsheet-model-format";
+export type { SpreadsheetBridge } from "./spreadsheet-model-format";
