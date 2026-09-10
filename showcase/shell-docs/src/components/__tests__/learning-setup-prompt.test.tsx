@@ -59,3 +59,18 @@ test("configures the shared coding-agent prompt card for Automatic Learning", as
     }
   }
 });
+
+test("sends the coding agent to the Learning route and carries nothing else", () => {
+  // The route owns the guide link, the container-selection rules and the
+  // `getLearningContainerId` wiring this prompt used to repeat. That copy had
+  // already drifted from the shipped API once; OSS-1150 retired it.
+  expect(LEARNING_SETUP_PROMPT).toContain(
+    "npx --yes copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent add-learning",
+  );
+  expect(LEARNING_SETUP_PROMPT).not.toContain("docs.copilotkit.ai");
+  expect(LEARNING_SETUP_PROMPT).not.toContain("getLearningContainerId");
+  expect(LEARNING_SETUP_PROMPT).not.toContain("container");
+  // No run id: this string is static and llm-text inlines it into cached raw
+  // Markdown, so one minted here would be shared by every reader.
+  expect(LEARNING_SETUP_PROMPT).not.toContain("--run");
+});
