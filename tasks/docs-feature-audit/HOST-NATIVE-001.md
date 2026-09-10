@@ -55,6 +55,20 @@ The D6 runner was given each ready endpoint and owns strict feature execution. I
 was instructed to leave these services running. This checkpoint did not use the
 unknown-provenance stale Docker LGP container.
 
+## Selected-five LFS media setup
+
+The BIA multimodal run exposed `sample.png` as an LFS pointer. These are the only
+LFS objects restored for the selected-five local media tests:
+
+```text
+git lfs pull --include showcase/integrations/built-in-agent/public/demo-files/sample.png
+git lfs pull --include 'showcase/integrations/built-in-agent/public/demo-files/sample.pdf,showcase/integrations/built-in-agent/public/demo-audio/sample.wav,showcase/integrations/langgraph-python/public/demo-files/sample.png,showcase/integrations/langgraph-python/public/demo-files/sample.pdf,showcase/integrations/langgraph-python/public/demo-audio/sample.wav,showcase/integrations/langgraph-typescript/public/demo-files/sample.png,showcase/integrations/langgraph-typescript/public/demo-files/sample.pdf,showcase/integrations/langgraph-typescript/public/demo-audio/sample.wav,showcase/integrations/google-adk/public/demo-files/sample.png,showcase/integrations/google-adk/public/demo-files/sample.pdf,showcase/integrations/google-adk/public/demo-audio/sample.wav,showcase/integrations/strands/public/demo-files/sample.png,showcase/integrations/strands/public/demo-files/sample.pdf,showcase/integrations/strands/public/demo-audio/sample.wav'
+```
+
+`file` verified all 15 as a 393×90 PNG, one-page PDF 1.4, or RIFF/WAVE PCM mono
+16 kHz as appropriate. Path-limited `git status --short` for the five affected
+`public/` directories was empty.
+
 ## Google ADK frontend blocker: observed baseline defect
 
 The Google ADK agent and its health endpoint launch normally. Its UI cannot start,
