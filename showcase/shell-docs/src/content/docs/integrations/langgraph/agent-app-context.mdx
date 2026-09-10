@@ -103,6 +103,10 @@ This context can then be shared with your LangGraph agent.
                 The state of a LangGraph agent is the "hub" for applicative information used by the agent.
                 Naturally, the context from CopilotKit will be injected there.
 
+                In both Python and TypeScript, the CopilotKit state key is lowercase
+                `copilotkit`. Read `state.copilotkit.context` in TypeScript; the
+                SDK's state schema does not define a `copilotKit` field.
+
                 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
@@ -164,7 +168,7 @@ This context can then be shared with your LangGraph agent.
 
                         async function chat_node(state: AgentState, config: RunnableConfig) {
                           // Extract the colleagues from CopilotKit context
-                          const copilotKitContext = state.copilotKit.context
+                          const copilotKitContext = state.copilotkit.context
                           const colleaguesContextItem = copilotKitContext.find(contextItem => contextItem.description === "The current user's colleagues")
 
                           // [!code highlight:5]
