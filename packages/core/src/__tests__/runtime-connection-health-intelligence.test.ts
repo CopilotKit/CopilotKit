@@ -106,11 +106,19 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
     fetchMock = vi.fn(async (url: unknown, init?: RequestInit) => {
       const target = String(url);
       requestedUrls.push(target);
-      // Single-endpoint transport asks for `/info` as a POST envelope against
-      // the runtime root instead of a GET on `/info`.
+      // Single-endpoint transport routes both info and join envelopes through
+      // the runtime root. Count the method, not just the shared URL.
       if (target === RUNTIME_URL) {
-        infoCalls += 1;
-        return infoHandler();
+        const envelope = JSON.parse(String(init?.body));
+        if (envelope.method === "info") {
+          infoCalls += 1;
+          return infoHandler();
+        }
+        if (envelope.method === "agent/run") {
+          joinCalls += 1;
+          return joinHandler(envelope.body);
+        }
+        throw new Error(`Unexpected runtime method: ${envelope.method}`);
       }
       if (target === INFO_URL) {
         infoCalls += 1;
@@ -378,6 +386,7 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
 
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
     expect(infoCalls).toBe(2);
+    expect(joinCalls).toBe(1);
     // The conversation survives the transition here too.
     expect(core.getAgent("default")).toBe(agent);
   });
