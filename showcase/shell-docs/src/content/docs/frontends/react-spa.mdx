@@ -139,6 +139,19 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
           Every framework quickstart uses a relative `runtimeUrl="/api/copilotkit"`. That works **only** because Next.js serves the app and the runtime from the same origin. In a single-page app the runtime is a separate process on a separate port, so the URL has to name it in full — host and port included. Read it from an env var (`import.meta.env.VITE_COPILOT_RUNTIME_URL` in Vite) so you can point it at your deployed runtime in production.
         </Callout>
 
+        To use a named agent from an integration quickstart, set `agentId` to the key registered in the runtime's `agents` map:
+
+        ```tsx
+        <CopilotKitProvider
+          runtimeUrl="http://localhost:8200/api/copilotkit"
+          agentId="sample_agent"
+        >
+          <CopilotChat />
+        </CopilotKitProvider>
+        ```
+
+        `CopilotKitProvider` uses `agentId`; the `agent` prop shown in legacy `<CopilotKit>` examples is not a provider prop. Omit `agentId` when using the `default` agent above.
+
         <Callout type="info" title="Pick your chat layout">
           `CopilotChat` is a full-height chat. Swap it for `CopilotSidebar` (a collapsible side panel) or `CopilotPopup` (a floating widget) for a different layout. They take the same props.
         </Callout>
