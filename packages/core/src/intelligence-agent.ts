@@ -134,8 +134,10 @@ export function isRunCompletionAware(
 export interface IntelligenceAgentConfig {
   /** Phoenix websocket URL, e.g. "ws://localhost:4000/socket" */
   url: string;
-  /** Runtime REST URL, e.g. "http://localhost:4000" */
+  /** Runtime base URL, e.g. "http://localhost:4000" */
   runtimeUrl: string;
+  /** HTTP transport for run/connect requests. Defaults to REST. */
+  transport?: "rest" | "single";
   /** Agent identifier for REST endpoints */
   agentId: string;
   /** Optional params sent on socket connect (e.g. auth token) */
@@ -378,27 +380,40 @@ export class IntelligenceAgent extends AbstractAgent {
     return defer(async () => {
       try {
         const requestFetch = this.config.fetch ?? globalFetch;
-        const response = await requestFetch(this.buildRuntimeUrl(mode), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...this.headers,
+        const body = {
+          ...input,
+          ...(mode === "connect"
+            ? {
+                lastSeenEventId:
+                  replayCursor === undefined
+                    ? this.getReconnectCursor(input)
+                    : replayCursor,
+              }
+            : {}),
+        };
+        const single = this.config.transport === "single";
+        const response = await requestFetch(
+          single ? this.config.runtimeUrl : this.buildRuntimeUrl(mode),
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...this.headers,
+            },
+            // Post the whole RunAgentInput rather than naming each field, so a
+            // protocol field such as `resume` cannot be dropped here again.
+            body: JSON.stringify(
+              single
+                ? {
+                    method: `agent/${mode}`,
+                    params: { agentId: this.config.agentId },
+                    body,
+                  }
+                : body,
+            ),
+            ...(this.credentials ? { credentials: this.credentials } : {}),
           },
-          // Post the whole RunAgentInput rather than naming each field, so a
-          // protocol field such as `resume` cannot be dropped here again.
-          body: JSON.stringify({
-            ...input,
-            ...(mode === "connect"
-              ? {
-                  lastSeenEventId:
-                    replayCursor === undefined
-                      ? this.getReconnectCursor(input)
-                      : replayCursor,
-                }
-              : {}),
-          }),
-          ...(this.credentials ? { credentials: this.credentials } : {}),
-        });
+        );
 
         if (response.status === 204 && mode === "connect") {
           return null;

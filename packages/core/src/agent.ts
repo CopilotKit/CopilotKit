@@ -673,6 +673,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return new IntelligenceAgent({
       url: this.intelligence.wsUrl,
       runtimeUrl: this.runtimeUrl,
+      transport: this.transport === "single" ? "single" : "rest",
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
