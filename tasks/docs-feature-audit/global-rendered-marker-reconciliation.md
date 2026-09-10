@@ -1,0 +1,77 @@
+# Rendered marker reconciliation
+
+Marker paths were fetched only from local shell-docs HTML. This joins each visible error callout to declared context; it does not turn unshipped or frontend-not-declared cells into supported defects.
+
+- Marker paths: 64.
+- Marker records: 64.
+- Impacted context cells: 112.
+- Declared-supported/wired impacted cells: 29.
+- Frontend declarations: not-declared=74, supported=38.
+- Backend declarations: declared-wired=85, manifest-unsupported=3, unshipped=24.
+
+## Rendered callouts
+
+- `/ag2/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/ag2/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/agno/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/crewai-crews/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/langgraph-fastapi/generative-ui/state-rendering` (State Rendering) — missing_snippet; contexts=1.
+- `/langgraph-fastapi/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/langgraph-fastapi/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/mastra/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/ms-agent-dotnet/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/ms-agent-dotnet/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/ms-agent-harness-dotnet/generative-ui/tool-rendering` (Tool Rendering) — missing_snippet; contexts=4.
+- `/ms-agent-harness-dotnet/headless` (Headless UI) — missing_snippet; contexts=2.
+- `/ms-agent-python/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/ms-agent-python/headless` (Headless UI) — missing_snippet; contexts=2.
+- `/ms-agent-python/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/ms-agent-python/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/react-native/ag2/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/react-native/ag2/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/react-native/agno/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/react-native/crewai-crews/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/react-native/langgraph-fastapi/generative-ui/state-rendering` (State Rendering) — missing_snippet; contexts=1.
+- `/react-native/langgraph-fastapi/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/react-native/langgraph-fastapi/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/react-native/mastra/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/react-native/ms-agent-dotnet/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/react-native/ms-agent-dotnet/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/react-native/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/react-native/ms-agent-harness-dotnet/generative-ui/tool-rendering` (Tool Rendering) — missing_snippet; contexts=4.
+- `/react-native/ms-agent-harness-dotnet/headless` (Headless UI) — missing_snippet; contexts=2.
+- `/react-native/ms-agent-python/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/react-native/ms-agent-python/headless` (Headless UI) — missing_snippet; contexts=2.
+- `/react-native/ms-agent-python/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/react-native/ms-agent-python/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/react-native/strands-typescript/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/react-native/strands-typescript/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/react-native/strands-typescript/generative-ui/tool-rendering` (Tool Rendering) — missing_snippet; contexts=4.
+- `/react-native/strands/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/strands-typescript/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/strands-typescript/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/strands-typescript/generative-ui/tool-rendering` (Tool Rendering) — missing_snippet; contexts=4.
+- `/strands/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/vue/ag2/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/vue/ag2/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/vue/agno/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/vue/crewai-crews/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/vue/langgraph-fastapi/generative-ui/state-rendering` (State Rendering) — missing_snippet; contexts=1.
+- `/vue/langgraph-fastapi/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/vue/langgraph-fastapi/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/vue/mastra/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/vue/ms-agent-dotnet/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/vue/ms-agent-dotnet/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/vue/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/vue/ms-agent-harness-dotnet/generative-ui/tool-rendering` (Tool Rendering) — missing_snippet; contexts=4.
+- `/vue/ms-agent-harness-dotnet/headless` (Headless UI) — missing_snippet; contexts=2.
+- `/vue/ms-agent-python/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/vue/ms-agent-python/headless` (Headless UI) — missing_snippet; contexts=2.
+- `/vue/ms-agent-python/shared-state` (Shared State) — missing_snippet; contexts=2.
+- `/vue/ms-agent-python/shared-state/streaming` (State Streaming) — missing_snippet; contexts=1.
+- `/vue/strands-typescript/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.
+- `/vue/strands-typescript/generative-ui/a2ui/fixed-schema` (Fixed Schema A2UI) — missing_snippet; contexts=1.
+- `/vue/strands-typescript/generative-ui/tool-rendering` (Tool Rendering) — missing_snippet; contexts=4.
+- `/vue/strands/custom-look-and-feel/reasoning-messages` (Reasoning Messages) — missing_snippet; contexts=2.

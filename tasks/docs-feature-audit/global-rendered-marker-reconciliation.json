@@ -1,0 +1,1574 @@
+{
+  "schema_version": 1,
+  "scope": "visible rendered local HTML error markers joined to the source-of-truth context declarations; marker presence is a rendered-page defect signal, while context declarations determine support scope",
+  "context_encoding": "[cell_id, frontend_declaration, backend_declaration, integration, static_route_state]",
+  "summary": {
+    "marker_paths": 64,
+    "marker_records": 64,
+    "impacted_context_cells": 112,
+    "frontend_declarations": {
+      "not-declared": 74,
+      "supported": 38
+    },
+    "backend_declarations": {
+      "declared-wired": 85,
+      "manifest-unsupported": 3,
+      "unshipped": 24
+    },
+    "declared_supported_wired_impacted_cells": 29
+  },
+  "alerts": [
+    {
+      "final_path": "/ag2/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ag2/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react:ag2:reasoning-custom",
+          "supported",
+          "unshipped",
+          "ag2",
+          "framework-guide-content"
+        ],
+        [
+          "react:ag2:reasoning-default",
+          "supported",
+          "unshipped",
+          "ag2",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ag2/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ag2/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "react:ag2:a2ui-fixed-schema",
+          "supported",
+          "declared-wired",
+          "ag2",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/agno/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/agno/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "react:agno:a2ui-fixed-schema",
+          "supported",
+          "declared-wired",
+          "agno",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/crewai-crews/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/crewai-crews/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react:crewai-crews:shared-state-streaming",
+          "supported",
+          "declared-wired",
+          "crewai-crews",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/built-in-agent/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "react:built-in-agent:a2ui-fixed-schema",
+          "supported",
+          "declared-wired",
+          "built-in-agent",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/langgraph-fastapi/generative-ui/state-rendering",
+      "title": "State Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/langgraph-fastapi/generative-ui/state-rendering"
+      ],
+      "contexts": [
+        [
+          "react:langgraph-fastapi:gen-ui-agent",
+          "supported",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/langgraph-fastapi/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/langgraph-fastapi/shared-state"
+      ],
+      "contexts": [
+        [
+          "react:langgraph-fastapi:shared-state-read",
+          "supported",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ],
+        [
+          "react:langgraph-fastapi:shared-state-read-write",
+          "supported",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/langgraph-fastapi/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/langgraph-fastapi/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react:langgraph-fastapi:shared-state-streaming",
+          "supported",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/mastra/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/mastra/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react:mastra:shared-state-streaming",
+          "supported",
+          "declared-wired",
+          "mastra",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-dotnet/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-dotnet/shared-state"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-dotnet:shared-state-read",
+          "supported",
+          "unshipped",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-dotnet:shared-state-read-write",
+          "supported",
+          "declared-wired",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-dotnet/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-dotnet/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-dotnet:shared-state-streaming",
+          "supported",
+          "declared-wired",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-harness-dotnet:reasoning-custom",
+          "supported",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-harness-dotnet:reasoning-default",
+          "supported",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-harness-dotnet/generative-ui/tool-rendering",
+      "title": "Tool Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-harness-dotnet/generative-ui/tool-rendering"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-harness-dotnet:tool-rendering",
+          "supported",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-harness-dotnet:tool-rendering-custom-catchall",
+          "supported",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-harness-dotnet:tool-rendering-default-catchall",
+          "supported",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-harness-dotnet:tool-rendering-reasoning-chain",
+          "supported",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-harness-dotnet/headless",
+      "title": "Headless UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-harness-dotnet/headless"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-harness-dotnet:headless-complete",
+          "supported",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-harness-dotnet:headless-simple",
+          "supported",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-python/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-python/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-python:reasoning-custom",
+          "supported",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-python:reasoning-default",
+          "supported",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-python/headless",
+      "title": "Headless UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-python/headless"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-python:headless-complete",
+          "supported",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-python:headless-simple",
+          "supported",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-python/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-python/shared-state"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-python:shared-state-read",
+          "supported",
+          "unshipped",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "react:ms-agent-python:shared-state-read-write",
+          "supported",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/ms-agent-python/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/ms-agent-python/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react:ms-agent-python:shared-state-streaming",
+          "supported",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ag2/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ag2/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react-native:ag2:reasoning-custom",
+          "not-declared",
+          "unshipped",
+          "ag2",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ag2:reasoning-default",
+          "not-declared",
+          "unshipped",
+          "ag2",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ag2/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ag2/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "react-native:ag2:a2ui-fixed-schema",
+          "not-declared",
+          "declared-wired",
+          "ag2",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/agno/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/agno/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "react-native:agno:a2ui-fixed-schema",
+          "not-declared",
+          "declared-wired",
+          "agno",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/crewai-crews/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/crewai-crews/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react-native:crewai-crews:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "crewai-crews",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/langgraph-fastapi/generative-ui/state-rendering",
+      "title": "State Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/langgraph-fastapi/generative-ui/state-rendering"
+      ],
+      "contexts": [
+        [
+          "react-native:langgraph-fastapi:gen-ui-agent",
+          "not-declared",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/langgraph-fastapi/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/langgraph-fastapi/shared-state"
+      ],
+      "contexts": [
+        [
+          "react-native:langgraph-fastapi:shared-state-read",
+          "not-declared",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:langgraph-fastapi:shared-state-read-write",
+          "not-declared",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/langgraph-fastapi/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/langgraph-fastapi/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react-native:langgraph-fastapi:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/mastra/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/mastra/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react-native:mastra:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "mastra",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-dotnet/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-dotnet/shared-state"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-dotnet:shared-state-read",
+          "not-declared",
+          "unshipped",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-dotnet:shared-state-read-write",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-dotnet/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-dotnet/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-dotnet:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-harness-dotnet:reasoning-custom",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-harness-dotnet:reasoning-default",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-harness-dotnet/generative-ui/tool-rendering",
+      "title": "Tool Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-harness-dotnet/generative-ui/tool-rendering"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-harness-dotnet:tool-rendering",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-harness-dotnet:tool-rendering-custom-catchall",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-harness-dotnet:tool-rendering-default-catchall",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-harness-dotnet:tool-rendering-reasoning-chain",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-harness-dotnet/headless",
+      "title": "Headless UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-harness-dotnet/headless"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-harness-dotnet:headless-complete",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-harness-dotnet:headless-simple",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-python/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-python/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-python:reasoning-custom",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-python:reasoning-default",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-python/headless",
+      "title": "Headless UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-python/headless"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-python:headless-complete",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-python:headless-simple",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-python/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-python/shared-state"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-python:shared-state-read",
+          "not-declared",
+          "unshipped",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:ms-agent-python:shared-state-read-write",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/ms-agent-python/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/ms-agent-python/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "react-native:ms-agent-python:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/strands-typescript/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/strands-typescript/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react-native:strands-typescript:reasoning-custom",
+          "not-declared",
+          "unshipped",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:strands-typescript:reasoning-default",
+          "not-declared",
+          "unshipped",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/strands-typescript/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/strands-typescript/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "react-native:strands-typescript:a2ui-fixed-schema",
+          "not-declared",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/strands-typescript/generative-ui/tool-rendering",
+      "title": "Tool Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/strands-typescript/generative-ui/tool-rendering"
+      ],
+      "contexts": [
+        [
+          "react-native:strands-typescript:tool-rendering",
+          "not-declared",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:strands-typescript:tool-rendering-custom-catchall",
+          "not-declared",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:strands-typescript:tool-rendering-default-catchall",
+          "not-declared",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:strands-typescript:tool-rendering-reasoning-chain",
+          "not-declared",
+          "manifest-unsupported",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/react-native/strands/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/react-native/strands/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react-native:strands:reasoning-custom",
+          "not-declared",
+          "unshipped",
+          "strands",
+          "framework-guide-content"
+        ],
+        [
+          "react-native:strands:reasoning-default",
+          "not-declared",
+          "unshipped",
+          "strands",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/strands-typescript/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/strands-typescript/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react:strands-typescript:reasoning-custom",
+          "supported",
+          "unshipped",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "react:strands-typescript:reasoning-default",
+          "supported",
+          "unshipped",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/strands-typescript/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/strands-typescript/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "react:strands-typescript:a2ui-fixed-schema",
+          "supported",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/strands-typescript/generative-ui/tool-rendering",
+      "title": "Tool Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/strands-typescript/generative-ui/tool-rendering"
+      ],
+      "contexts": [
+        [
+          "react:strands-typescript:tool-rendering",
+          "supported",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "react:strands-typescript:tool-rendering-custom-catchall",
+          "supported",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "react:strands-typescript:tool-rendering-default-catchall",
+          "supported",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "react:strands-typescript:tool-rendering-reasoning-chain",
+          "supported",
+          "manifest-unsupported",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/strands/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/strands/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "react:strands:reasoning-custom",
+          "supported",
+          "unshipped",
+          "strands",
+          "framework-guide-content"
+        ],
+        [
+          "react:strands:reasoning-default",
+          "supported",
+          "unshipped",
+          "strands",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ag2/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ag2/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "vue:ag2:reasoning-custom",
+          "not-declared",
+          "unshipped",
+          "ag2",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ag2:reasoning-default",
+          "not-declared",
+          "unshipped",
+          "ag2",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ag2/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ag2/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "vue:ag2:a2ui-fixed-schema",
+          "not-declared",
+          "declared-wired",
+          "ag2",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/agno/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/agno/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "vue:agno:a2ui-fixed-schema",
+          "not-declared",
+          "declared-wired",
+          "agno",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/crewai-crews/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/crewai-crews/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "vue:crewai-crews:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "crewai-crews",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/langgraph-fastapi/generative-ui/state-rendering",
+      "title": "State Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/langgraph-fastapi/generative-ui/state-rendering"
+      ],
+      "contexts": [
+        [
+          "vue:langgraph-fastapi:gen-ui-agent",
+          "not-declared",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/langgraph-fastapi/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/langgraph-fastapi/shared-state"
+      ],
+      "contexts": [
+        [
+          "vue:langgraph-fastapi:shared-state-read",
+          "not-declared",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ],
+        [
+          "vue:langgraph-fastapi:shared-state-read-write",
+          "not-declared",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/langgraph-fastapi/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/langgraph-fastapi/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "vue:langgraph-fastapi:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "langgraph-fastapi",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/mastra/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/mastra/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "vue:mastra:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "mastra",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-dotnet/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-dotnet/shared-state"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-dotnet:shared-state-read",
+          "not-declared",
+          "unshipped",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-dotnet:shared-state-read-write",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-dotnet/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-dotnet/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-dotnet:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-harness-dotnet/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-harness-dotnet:reasoning-custom",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-harness-dotnet:reasoning-default",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-harness-dotnet/generative-ui/tool-rendering",
+      "title": "Tool Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-harness-dotnet/generative-ui/tool-rendering"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-harness-dotnet:tool-rendering",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-harness-dotnet:tool-rendering-custom-catchall",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-harness-dotnet:tool-rendering-default-catchall",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-harness-dotnet:tool-rendering-reasoning-chain",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-harness-dotnet/headless",
+      "title": "Headless UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-harness-dotnet/headless"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-harness-dotnet:headless-complete",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-harness-dotnet:headless-simple",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-harness-dotnet",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-python/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-python/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-python:reasoning-custom",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-python:reasoning-default",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-python/headless",
+      "title": "Headless UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-python/headless"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-python:headless-complete",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-python:headless-simple",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-python/shared-state",
+      "title": "Shared State",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-python/shared-state"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-python:shared-state-read",
+          "not-declared",
+          "unshipped",
+          "ms-agent-python",
+          "framework-guide-content"
+        ],
+        [
+          "vue:ms-agent-python:shared-state-read-write",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/ms-agent-python/shared-state/streaming",
+      "title": "State Streaming",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/ms-agent-python/shared-state/streaming"
+      ],
+      "contexts": [
+        [
+          "vue:ms-agent-python:shared-state-streaming",
+          "not-declared",
+          "declared-wired",
+          "ms-agent-python",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/strands-typescript/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/strands-typescript/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "vue:strands-typescript:reasoning-custom",
+          "not-declared",
+          "unshipped",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "vue:strands-typescript:reasoning-default",
+          "not-declared",
+          "unshipped",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/strands-typescript/generative-ui/a2ui/fixed-schema",
+      "title": "Fixed Schema A2UI",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/strands-typescript/generative-ui/a2ui/fixed-schema"
+      ],
+      "contexts": [
+        [
+          "vue:strands-typescript:a2ui-fixed-schema",
+          "not-declared",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/strands-typescript/generative-ui/tool-rendering",
+      "title": "Tool Rendering",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/strands-typescript/generative-ui/tool-rendering"
+      ],
+      "contexts": [
+        [
+          "vue:strands-typescript:tool-rendering",
+          "not-declared",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "vue:strands-typescript:tool-rendering-custom-catchall",
+          "not-declared",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "vue:strands-typescript:tool-rendering-default-catchall",
+          "not-declared",
+          "declared-wired",
+          "strands-typescript",
+          "framework-guide-content"
+        ],
+        [
+          "vue:strands-typescript:tool-rendering-reasoning-chain",
+          "not-declared",
+          "manifest-unsupported",
+          "strands-typescript",
+          "framework-guide-content"
+        ]
+      ]
+    },
+    {
+      "final_path": "/vue/strands/custom-look-and-feel/reasoning-messages",
+      "title": "Reasoning Messages",
+      "visible_error_markers": [
+        "missing_snippet"
+      ],
+      "initial_routes": [
+        "/vue/strands/custom-look-and-feel/reasoning-messages"
+      ],
+      "contexts": [
+        [
+          "vue:strands:reasoning-custom",
+          "not-declared",
+          "unshipped",
+          "strands",
+          "framework-guide-content"
+        ],
+        [
+          "vue:strands:reasoning-default",
+          "not-declared",
+          "unshipped",
+          "strands",
+          "framework-guide-content"
+        ]
+      ]
+    }
+  ]
+}
