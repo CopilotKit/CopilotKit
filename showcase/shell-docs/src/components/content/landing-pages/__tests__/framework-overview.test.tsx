@@ -40,7 +40,7 @@ describe("FrameworkOverview", () => {
     );
 
     // The prompt button carries the accent treatment...
-    expect(markup).toContain("COPY PROMPT");
+    expect(markup).toContain("Copy Prompt");
     expect(markup).toContain('data-surface="docs_framework_hero"');
     expect(markup).toContain("prompt-pill-dock");
     expect(markup).toContain("Open in Claude Code");
@@ -71,12 +71,12 @@ describe("FrameworkOverview", () => {
       />,
     );
 
-    expect(markup).toContain("COPY PROMPT");
+    expect(markup).toContain("Copy Prompt");
     expect(markup).toContain('data-surface="docs_framework_hero"');
     expect(markup).toContain(initCommand);
 
     // Prompt first, then Quickstart in the bordered treatment, then the chip.
-    expect(markup.indexOf("COPY PROMPT")).toBeLessThan(
+    expect(markup.indexOf("Copy Prompt")).toBeLessThan(
       markup.indexOf("Quickstart"),
     );
     expect(markup.indexOf("Quickstart")).toBeLessThan(

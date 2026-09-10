@@ -80,7 +80,7 @@ it("renders the onboarding button when a framework is passed", () => {
   renderRow({ slug: "mastra", name: "Mastra" });
 
   const button = screen.getByRole("button", { name: /copy prompt/i });
-  expect(button.textContent).toContain("COPY PROMPT");
+  expect(button.textContent).toContain("Copy Prompt");
   expect(
     screen.getByRole("button", { name: "Open in Claude Code" }),
   ).toBeTruthy();
