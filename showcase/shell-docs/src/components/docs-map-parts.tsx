@@ -74,6 +74,23 @@ const CAPABILITY_ICONS: Record<LucideIconName, LucideIcon> = {
   Wrench,
 };
 
+/** Looks up and draws a capability's icon. Exported (the lookup record
+ *  itself is not) so the wizard's review step can render the same mark
+ *  without keeping a second copy of `CAPABILITY_ICONS` — see the header
+ *  comment above on why that record is a named-import map rather than a
+ *  namespace import: a second copy would invite the same bundle-size
+ *  regression this one exists to avoid. */
+export function CapabilityIconMark({
+  icon,
+  className,
+}: {
+  icon: LucideIconName;
+  className?: string;
+}): React.JSX.Element {
+  const Icon = CAPABILITY_ICONS[icon];
+  return <Icon className={className ?? "h-3.5 w-3.5"} />;
+}
+
 /**
  * Shared by the wizard's feature grid. It lives in this boundary-neutral
  * module on purpose: a `"use client"` module's named exports are replaced by
@@ -82,7 +99,7 @@ const CAPABILITY_ICONS: Record<LucideIconName, LucideIcon> = {
  * string.
  */
 export const MAP_TILE_GRID_CLASS =
-  "grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3";
+  "grid content-start grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3";
 
 /** The grid the whole wizard lives in — a single full-width column on every
  *  step, four columns wide on `md` so `MAP_SLOT.full` below has something to
@@ -126,8 +143,13 @@ export function MapIntro({
 
 /** Draws whichever logo the pick's data asked for. The switch is the whole of
  *  this component's knowledge: which logo belongs to which pick is decided in
- *  `@/lib/homepage-map`. */
-function PickLogo({
+ *  `@/lib/homepage-map`. Exported so the wizard's review step can render the
+ *  same mark instead of re-deciding frontend-vs-framework on its own — which
+ *  logo belongs to which pick is one decision, not two implementations. The
+ *  agent-backend logos carry `--accent` (blue-violet), matching the identical
+ *  `FrameworkLogo` in `./framework-selector`'s own picker; `FrontendLogo` is a
+ *  different component and is left at its own default treatment. */
+export function PickLogoMark({
   logo,
   size = 14,
 }: {
@@ -142,7 +164,7 @@ function PickLogo({
       slug={logo.slug}
       fallbackSrc={logo.fallbackSrc}
       size={size}
-      className="shrink-0 text-[var(--text-secondary)]"
+      className="shrink-0 text-[var(--accent)]"
     />
   );
 }
@@ -165,17 +187,20 @@ export type PickGridSize = "compact" | "card";
 
 function pickGridClass(size: PickGridSize): string {
   return size === "card"
-    ? "grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
-    : "grid grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))]";
+    ? "grid content-start grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
+    : "grid content-start grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))]";
 }
 
 function pickButtonClass(size: PickGridSize, selected: boolean): string {
   const base =
-    "shell-docs-radius-control flex cursor-pointer border text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+    "shell-docs-radius-control cursor-pointer border text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+  // "card" mirrors `CapabilityGrid`'s own button shell: a block box holding
+  // a logo+name row, the summary below it — rather than the flex-col stack
+  // the compact row still uses, which has nothing to stack a summary under.
   const layout =
     size === "card"
-      ? "flex-col items-start gap-2 p-3.5"
-      : "items-center gap-2 px-2.5 py-2";
+      ? "block w-full p-3.5"
+      : "flex items-center gap-2 px-2.5 py-2";
   return `${base} ${layout} ${optionToneClass(selected)}`;
 }
 
@@ -207,19 +232,21 @@ export function PickGrid({
           >
             {size === "card" ? (
               <>
-                <PickLogo logo={pick.logo} size={22} />
-                <span className="text-sm font-semibold text-[var(--text)]">
-                  {pick.name}
+                <span className="flex min-w-0 items-center gap-2">
+                  <PickLogoMark logo={pick.logo} size={22} />
+                  <span className="truncate text-sm font-semibold text-[var(--text)]">
+                    {pick.name}
+                  </span>
                 </span>
                 {pick.summary ? (
-                  <span className="text-xs leading-relaxed text-[var(--text-muted)]">
+                  <span className="mt-2.5 block text-xs leading-relaxed text-[var(--text-muted)]">
                     {pick.summary}
                   </span>
                 ) : null}
               </>
             ) : (
               <>
-                <PickLogo logo={pick.logo} />
+                <PickLogoMark logo={pick.logo} />
                 <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
                   {pick.name}
                 </span>
@@ -246,7 +273,6 @@ export function CapabilityGrid({
   return (
     <div className={MAP_TILE_GRID_CLASS}>
       {capabilities.map((capability) => {
-        const Icon = CAPABILITY_ICONS[capability.icon];
         const selected = selectedIds.includes(capability.id);
         return (
           <button
@@ -265,7 +291,7 @@ export function CapabilityGrid({
                   aria-hidden="true"
                   className="shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]"
                 >
-                  <Icon className="h-3.5 w-3.5" />
+                  <CapabilityIconMark icon={capability.icon} />
                 </span>
                 <span className="truncate text-sm font-semibold leading-snug text-[var(--text)]">
                   {capability.title}

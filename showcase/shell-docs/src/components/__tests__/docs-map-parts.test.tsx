@@ -4,8 +4,18 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CapabilityGrid, MapIntro, PickGrid } from "../docs-map-parts";
-import type { MapCapability, MapPick } from "@/lib/homepage-map";
+import {
+  CapabilityGrid,
+  CapabilityIconMark,
+  MapIntro,
+  PickGrid,
+  PickLogoMark,
+} from "../docs-map-parts";
+import type {
+  LucideIconName,
+  MapCapability,
+  MapPick,
+} from "@/lib/homepage-map";
 
 afterEach(() => {
   cleanup();
@@ -36,6 +46,14 @@ const PICKS_WITH_SUMMARY: readonly MapPick[] = [
     name: "React",
     logo: { kind: "frontend", icon: "react" },
     summary: "The React provider, hooks, and UI components for CopilotKit.",
+  },
+];
+
+const FRAMEWORK_PICKS: readonly MapPick[] = [
+  {
+    id: "langgraph-python",
+    name: "LangGraph (Python)",
+    logo: { kind: "framework", slug: "langgraph-python" },
   },
 ];
 
@@ -242,6 +260,66 @@ describe("PickGrid", () => {
     // The button's only text is the name — no stray empty <span> sibling
     // left over from a summary that was never provided.
     expect(button.textContent).toBe("Vue");
+  });
+
+  // The reader wants the logo and name on one row, like `CapabilityGrid`'s
+  // tiles, with only the summary on its own line below. Assert this on DOM
+  // structure, not a class name: the element that contains the name must
+  // not also contain the summary — a class-based assertion would pass
+  // against a layout that never actually changed. Mirrors the equivalent
+  // `CapabilityGrid` assertion below.
+  it('puts the logo and name on one row, with the summary on its own line below in "card" size', () => {
+    render(
+      <PickGrid
+        picks={PICKS_WITH_SUMMARY}
+        disabled={false}
+        onSelect={vi.fn()}
+        size="card"
+      />,
+    );
+
+    // The accessible name now includes the summary too, same as
+    // `CapabilityGrid`'s title-plus-body buttons — so find the button via
+    // its name text rather than an exact-name role query.
+    const name = screen.getByText("Vue");
+    const button = name.closest("button");
+    expect(button).not.toBeNull();
+    const summary = screen.getByText(PICKS_WITH_SUMMARY[0]!.summary!);
+
+    const logo = button!.querySelector("svg");
+    expect(logo).not.toBeNull();
+
+    // Walk up from the logo to find the row it shares with the name, same
+    // shape as the icon-to-title walk in the `CapabilityGrid` test below.
+    let row: HTMLElement | null = logo!.parentElement;
+    while (row && !row.contains(name)) {
+      row = row.parentElement;
+    }
+    expect(row).not.toBeNull();
+    expect(row!.contains(name)).toBe(true);
+    expect(row!.contains(summary)).toBe(false);
+  });
+
+  // The nineteen agent-backend logos must read as the same blue-violet as
+  // the docs' own framework selector, which renders the identical
+  // `FrameworkLogo` with `text-[var(--accent)]` (see
+  // `framework-selector.tsx`). Assert both halves so swapping one token for
+  // an unrelated one still fails: the accent class must be present, and the
+  // old `--text-secondary` treatment must be gone, not just supplemented.
+  it("gives a framework-backed pick's logo the accent colour, not text-secondary", () => {
+    render(
+      <PickGrid picks={FRAMEWORK_PICKS} disabled={false} onSelect={vi.fn()} />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: FRAMEWORK_PICKS[0]!.name,
+    });
+    const logo = button.querySelector("svg");
+    expect(logo).not.toBeNull();
+    expect(logo!.getAttribute("class")).toContain("text-[var(--accent)]");
+    expect(logo!.getAttribute("class")).not.toContain(
+      "text-[var(--text-secondary)]",
+    );
   });
 });
 
@@ -474,6 +552,65 @@ describe("CapabilityGrid", () => {
 
     for (const capability of CAPABILITIES) {
       expect(screen.getByText(capability.body)).not.toBeNull();
+    }
+  });
+});
+
+describe("PickLogoMark", () => {
+  // `react` is a bundled `FrontendLogo` icon that sets an explicit `color`
+  // (see `FRONTEND_ICONS` in `frontend-logo.tsx`) — a marker no framework
+  // logo carries, so its presence proves the "frontend" branch actually ran
+  // rather than just proving *some* svg rendered.
+  it("renders the frontend logo for a frontend pick", () => {
+    const { container } = render(
+      <PickLogoMark logo={{ kind: "frontend", icon: "react" }} />,
+    );
+
+    const svg = container.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(svg!.getAttribute("color")).toBe("#61DAFB");
+  });
+
+  // An unregistered slug with a `fallbackSrc` forces `FrameworkLogo` down
+  // its `<img>` fallback branch — a shape `FrontendLogo` never produces —
+  // so this proves the "framework" branch actually ran.
+  it("renders the framework logo for a framework pick", () => {
+    const { container } = render(
+      <PickLogoMark
+        logo={{
+          kind: "framework",
+          slug: "not-a-real-slug",
+          fallbackSrc: "/fallback.png",
+        }}
+      />,
+    );
+
+    const img = container.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("src")).toBe("/fallback.png");
+  });
+});
+
+describe("CapabilityIconMark", () => {
+  // Driven off `LucideIconName` itself, not a hand-copied list: `satisfies
+  // Record<LucideIconName, true>` fails to compile if this object is
+  // missing a member the type allows or carries one it doesn't, so a new
+  // icon name that nobody wired up here fails at build time rather than
+  // only surfacing as a runtime crash the first time someone picks it.
+  const ALL_ICON_NAMES = Object.keys({
+    MessageSquare: true,
+    Paintbrush: true,
+    User: true,
+    Settings: true,
+    Repeat: true,
+    Wrench: true,
+  } satisfies Record<LucideIconName, true>) as LucideIconName[];
+
+  it("renders an icon for every LucideIconName the type allows", () => {
+    for (const icon of ALL_ICON_NAMES) {
+      const { container } = render(<CapabilityIconMark icon={icon} />);
+      expect(container.querySelector("svg")).not.toBeNull();
+      cleanup();
     }
   });
 });
