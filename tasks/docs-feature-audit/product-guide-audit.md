@@ -47,8 +47,9 @@ to the CLI intent.
 
 ## Validation still required
 
-- Resolve the focused `CONTENT-GEN-007` and `CONTENT-GEN-008` runtime evidence
-  assessment recorded in `candidate-007-008-d6-assessment.md`.
+- After repairing `CONTENT-GEN-007` and `CONTENT-GEN-008`, rerun their focused
+  browser-capture and state-bridge regression probes recorded in
+  `candidate-007-008-d6-assessment.md`.
 - Verify Channels on real Slack or Teams: install, identity, webhook,
   interactive action, history/reconnect, and error handling. The embedded-demo
   exception does not cover that platform behavior.

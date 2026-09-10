@@ -16,15 +16,16 @@ Status: in progress. This report records source and rendering findings only; it 
 3. `CONTENT-GEN-003` — selected guides still embed the external Feature Viewer instead of a Showcase-owned cell; Markdown has no source extraction for those frames (11 contexts).
 4. `CONTENT-GEN-004` — Declarative Hashbrown and JSON Render have real guides and wired demos, but no feature-catalog mapping to those guides (10 contexts).
 5. `CONTENT-GEN-006` — a transitive Built-in Agent tool-rendering snippet assigns v1's named-registration meaning to v2 `useRenderToolCall`; current v2 uses `useRenderTool` for that job (4 contexts).
-6. `CONTENT-GEN-007` — source confirms the Built-in Agent config demo publishes controls through `useAgentContext`, while its in-process factory reads only provider `properties`/`input.forwardedProps`; this is a wiring mismatch, not yet an observed runtime failure. The existing green D6 run does not falsify it because its distinct replies are selected by distinct user-message fixtures, not by the factory input; see `candidate-007-008-d6-assessment.md`.
+6. `CONTENT-GEN-007` — confirmed by an isolated local browser request capture: the Built-in Agent config controls are sent in protocol `context`, while `forwardedProps` is empty and the in-process factory reads only `input.forwardedProps`. The prior green D6 response check cannot detect this because its replies are selected by user-message fixtures; see `candidate-007-008-d6-assessment.md`.
 7. `CONTENT-GEN-009` — Strands requires a custom state/context prompt bridge for shared-state read/write, read-only context, and agent config, but supplies no native setup fragment for those three guides.
-8. `CONTENT-GEN-010` — the supported Built-in Agent fixed-schema A2UI route has a visible `Missing snippet` alert for its selected schema-inline source region, despite 200 HTML and Markdown responses.
-9. `CONTENT-GEN-011` — the shared LangGraph interactive guide contains two reader-facing grammar errors, affecting both selected LangGraph integrations.
-10. `CONTENT-GEN-012` — the Google ADK and AWS Strands setup instructions tell readers to install `@copilotkit/react-ui` even though the displayed v2 imports use only `react-core/v2`; this is a minimality finding, not a claim that the package is nonworking.
-11. `CONTENT-GEN-013` — Google ADK's committed exact and optional-catch-all auth routes make Next abort before the local frontend listens. This is observed baseline launch evidence, so all Google ADK Showcase guides/examples are unavailable locally until the route collision is repaired.
-12. `CONTENT-GEN-014` — the LangGraph, Google ADK, and AWS Strands Intelligence quickstarts equate per-user thread isolation with an identity copied from arbitrary browser request headers; the shared authentication guide requires server-verified identity and additional ownership guards.
-13. `CONTENT-GEN-015` — the Google ADK, AWS Strands, and Built-in Agent quickstarts give nonportable advice by suggesting wildcard server bind address `0.0.0.0` as a client connection target in troubleshooting.
-14. `CONTENT-GEN-016` — the Rich Threads overview duplicates a hand-written coding-agent setup flow instead of reusing the existing `RichThreadsSetupPrompt` and CLI-owned `add-rich-threads` intent.
+8. `CONTENT-GEN-017` — LangGraph TypeScript’s checked-in default dev command uses Turbopack, but its NodeNext `.js` import compatibility is configured only for Webpack. Local API routes compile to an overlay/500, invalidating the first 18 D6 attempts as qualification; an unchanged-source Webpack-mode control is healthy.
+9. `CONTENT-GEN-010` — the supported Built-in Agent fixed-schema A2UI route has a visible `Missing snippet` alert for its selected schema-inline source region, despite 200 HTML and Markdown responses.
+10. `CONTENT-GEN-011` — the shared LangGraph interactive guide contains two reader-facing grammar errors, affecting both selected LangGraph integrations.
+11. `CONTENT-GEN-012` — the Google ADK and AWS Strands setup instructions tell readers to install `@copilotkit/react-ui` even though the displayed v2 imports use only `react-core/v2`; this is a minimality finding, not a claim that the package is nonworking.
+12. `CONTENT-GEN-013` — Google ADK's committed exact and optional-catch-all auth routes make Next abort before the local frontend listens. This is observed baseline launch evidence, so all Google ADK Showcase guides/examples are unavailable locally until the route collision is repaired.
+13. `CONTENT-GEN-014` — the LangGraph, Google ADK, and AWS Strands Intelligence quickstarts equate per-user thread isolation with an identity copied from arbitrary browser request headers; the shared authentication guide requires server-verified identity and additional ownership guards.
+14. `CONTENT-GEN-015` — the Google ADK, AWS Strands, and Built-in Agent quickstarts give nonportable advice by suggesting wildcard server bind address `0.0.0.0` as a client connection target in troubleshooting.
+15. `CONTENT-GEN-016` — the Rich Threads overview duplicates a hand-written coding-agent setup flow instead of reusing the existing `RichThreadsSetupPrompt` and CLI-owned `add-rich-threads` intent.
 
 ## Candidate setup-contract gap
 
@@ -32,7 +33,7 @@ Status: in progress. This report records source and rendering findings only; it 
 
 ## Candidate behavior finding
 
-- `CONTENT-GEN-008` — the Strands recipe demo writes `state.recipe`, but its installed prompt-lifting function only adds `preferences` and `todos`. The manifest promises the agent reads the recipe. The current D6 script and fixture cannot answer the question because both are keyed to user-message text rather than an edited recipe sentinel; see `candidate-007-008-d6-assessment.md`. It remains a behavior candidate pending a discriminating local request/model-prompt probe.
+- `CONTENT-GEN-008` — confirmed at the installed Strands state-context bridge: an audit-only direct call with a unique recipe sentinel omits it from the constructed prompt, while a preferences sentinel is retained. The UI writes `state.recipe`, but the bridge adds only `preferences` and `todos`; the manifest promises the agent reads the recipe. The existing D6 fixture remains non-discriminating because it is keyed to user-message text; see `candidate-007-008-d6-assessment.md`.
 
 ## Current source findings that require no defect label yet
 

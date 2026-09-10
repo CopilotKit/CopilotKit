@@ -414,17 +414,17 @@
         }
       ],
       "root_cause": "A LangGraph-oriented context relay was reused in the Built-in Agent demo even though the Built-in Agent route consumes provider properties. The page comments also describe a Python middleware that does not exist in this in-process runtime.",
-      "impact": "Static source confirms that the showcased controls and factory use different input channels, so the selected public guide and demo wiring contradict one another. This audit has not yet observed a runtime request or response for this cell.",
-      "validation_needed": "The current green D6 run is not a valid end-to-end proof: its different replies are selected by different userMessage fixtures. After the register phase, use one neutral prompt across control values and assert the runtime POST puts the values in forwardedProps consumed by the factory, not only context.",
+      "impact": "Isolated local browser request capture confirms that changed controls are serialized in protocol context while forwardedProps is empty. The featured factory reads only forwardedProps, so it builds its default configuration prompt despite the control changes.",
+      "validation_needed": "Repair the channel mismatch, then add a neutral-message regression assertion that changed controls appear in forwardedProps consumed by the factory. The existing D6 response-difference fixture is not sufficient because it selects replies by userMessage.",
       "d6_assessment": {
-        "result": "not_discriminating",
-        "evidence": "The D6 script selects different user prompts per control value and the Built-in Agent fixture matches those userMessage tokens; its historical six-turn green result cannot prove context-to-forwardedProps delivery.",
+        "result": "focused_local_capture_confirmed",
+        "evidence": "An isolated Next server at 127.0.0.1:3127 and a temporary Playwright interceptor captured agent/run before the route handler or AIMock. With three changed controls and a neutral sentinel message, context held the values and forwardedProps was {}.",
         "artifact": "tasks/docs-feature-audit/candidate-007-008-d6-assessment.md"
       }
     },
     {
       "id": "CONTENT-GEN-008",
-      "status": "candidate",
+      "status": "confirmed",
       "severity": "high",
       "area": "runnable example behavior",
       "feature": "Strands shared-state read-only recipe",
@@ -459,11 +459,11 @@
         }
       ],
       "root_cause": "The showcased state key and the adapter's documented prompt-lifting allowlist diverge. Static inspection cannot rule out an unobserved adapter-level state injection, so this remains a behavior candidate.",
-      "impact": "If the explicit builder is the only state-to-model path, the agent cannot use the recipe that the UI and manifest say it reads.",
-      "validation_needed": "The current D6 shared-state-read script is not discriminating because its fixture matches userMessage and its assertion accepts generic recipe terms. After the register phase, edit a unique recipe sentinel and assert it reaches the outbound model request or a response fixture conditional on that sentinel.",
+      "impact": "Audit-only direct execution of the registered state_context_builder confirms that a unique recipe sentinel is omitted from the constructed prompt, while a preferences control sentinel is retained. The promised recipe is therefore absent from the explicit state-to-model bridge.",
+      "validation_needed": "Add recipe serialization to the state bridge and a sentinel regression test. The existing D6 reply assertion is not sufficient because its fixture matches userMessage and returns recipe terms without inspecting state.",
       "d6_assessment": {
-        "result": "not_discriminating",
-        "evidence": "The Strands fixture matches Italian/healthy user-message substrings and already returns recipe words, so it cannot prove state.recipe reached the model.",
+        "result": "direct_bridge_execution_confirmed",
+        "evidence": "The unchanged build_state_prompt was invoked with recipe.title=AUDIT_RECIPE_SENTINEL_7f3c9a and omitted it, while preferences.name=AUDIT_PREFERENCE_SENTINEL_7f3c9a was retained. This is bridge-scope execution, not a full transport capture.",
         "artifact": "tasks/docs-feature-audit/candidate-007-008-d6-assessment.md"
       }
     },
@@ -793,6 +793,46 @@
       "root_cause": "The Threads overview predates or bypasses the shared RichThreadsSetupPrompt contract and duplicates a setup flow in page content.",
       "impact": "The public overview has a second Rich Threads coding-agent flow whose assumptions and verification language can drift from the CLI-owned add-rich-threads route. This conflicts with the requirement to reuse the existing helper rather than create another prompt contract.",
       "validation_needed": "Replace the embedded hand-written handoff with RichThreadsSetupPrompt (or a wrapper that passes through its exact prompt), preserve only page-specific context outside the copied prompt, then assert browser and raw Markdown expose the same canonical command and that the CLI intent remains the source of setup steps."
+    },
+    {
+      "id": "CONTENT-GEN-017",
+      "status": "confirmed",
+      "severity": "high",
+      "area": "local runnable Showcase default development command",
+      "feature": "LangGraph TypeScript integration",
+      "affected_contexts": [
+        "react/langgraph-typescript/all active demo and feature-guide cells under the checked-in default dev command"
+      ],
+      "source_evidence": [
+        {
+          "path": "showcase/integrations/langgraph-typescript/package.json",
+          "line": 6,
+          "detail": "The checked-in dev script launches Next with --turbopack."
+        },
+        {
+          "path": "showcase/integrations/langgraph-typescript/next.config.ts",
+          "line": 13,
+          "detail": "The NodeNext .js-to-.ts/.tsx/.js resolver compatibility is configured only in the webpack callback."
+        },
+        {
+          "path": "showcase/integrations/langgraph-typescript/src/cvdiag/cvdiag-emitter.ts",
+          "line": 17,
+          "detail": "The staged emitter imports its co-located TypeScript leaves through explicit .js specifiers."
+        },
+        {
+          "path": "showcase/integrations/langgraph-typescript/src/app/api/copilotkit/route.ts",
+          "line": 11,
+          "detail": "The main API route imports the CVDIAG wrapper, so normal demo requests compile through the incompatible importer."
+        },
+        {
+          "path": "tasks/docs-feature-audit/HOST-NATIVE-001.md",
+          "line": 72,
+          "detail": "Local host evidence records the default Turbopack API-route overlay/500 and a healthy unchanged-source Webpack-mode control run."
+        }
+      ],
+      "root_cause": "The default command selects Turbopack, but only the webpack configuration supplies the extension alias needed for NodeNext-style .js imports to co-located .ts CVDIAG leaves.",
+      "impact": "The UI can initially load, then normal API route compilation overlays and returns 500. The first 18 LangGraph TypeScript D6 attempts launched this way are not valid behavior qualification, rather than passing or failing feature evidence.",
+      "validation_needed": "Make the checked-in default development command and resolver configuration compatible, then run the complete LangGraph TypeScript D6 matrix from a fresh local service. The observed unchanged-source Webpack control command served /api/health and /demos/agentic-chat with 200 but is not a repair."
     }
   ]
 }

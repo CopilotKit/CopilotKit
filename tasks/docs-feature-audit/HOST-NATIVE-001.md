@@ -69,6 +69,37 @@ git lfs pull --include 'showcase/integrations/built-in-agent/public/demo-files/s
 16 kHz as appropriate. Path-limited `git status --short` for the five affected
 `public/` directories was empty.
 
+## LangGraph TypeScript Turbopack blocker
+
+The LGTS UI starts and can initially serve pages, but later API-route compilation
+fails with unresolved `./schema.js`, `./edge-headers.js`, and `./emit.js` imports
+from `src/cvdiag/cvdiag-emitter.ts`. This is not a missing checkout: all referenced
+co-located `.ts` files are tracked and present. The emitter deliberately uses
+NodeNext `.js` specifiers; `next.config.ts:13-25` configures a Webpack-only
+`.js`-to-`.ts/.tsx/.js` extension alias for them. The checked-in `package.json:6`
+dev command uses `next dev --turbopack`, which does not apply that Webpack alias.
+The observed Next overlay imports trace through `cvdiag-backend.ts` to
+`src/app/api/copilotkit/route.ts`, and affected API responses return 500.
+
+The source and config were already present in `fa6041fc7b08fc5866099769038e43c44c1ce8df`;
+path-limited LGTS diff/status were clean. D6 outcomes from this Turbopack launch
+are setup-blocked and cannot qualify features. Use an existing compatible
+Webpack build/start contract for a rerun, or record a product repair after the
+audit; this checkpoint applies neither.
+
+The local rerun uses the existing default Next development mode instead of the
+checked-in Turbopack shortcut, with the same mock environment and deployment URL:
+
+```text
+cd showcase/integrations/langgraph-typescript
+LANGGRAPH_DEPLOYMENT_URL=http://localhost:8124 ./node_modules/.bin/next dev --hostname 127.0.0.1 --port 3101
+```
+
+It became ready on session `59763`; `/api/health` and `/demos/agentic-chat`
+returned 200 before the runner was notified. This establishes a valid local
+Webpack-mode rerun environment while leaving the default dev command defect
+recorded separately.
+
 ## Google ADK frontend blocker: observed baseline defect
 
 The Google ADK agent and its health endpoint launch normally. Its UI cannot start,
