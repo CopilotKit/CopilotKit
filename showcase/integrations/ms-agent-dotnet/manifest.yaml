@@ -217,6 +217,8 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
+    highlight:
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes notes back via a set_notes tool
