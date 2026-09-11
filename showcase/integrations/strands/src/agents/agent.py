@@ -1387,6 +1387,21 @@ class _HookInjectingAgentDict(dict):
 # ---- Factory ------------------------------------------------------------
 
 
+DEFAULT_MODEL = "gpt-4o"
+
+
+def model_id() -> str:
+    """Resolve the chat model at call time.
+
+    Read here rather than at module scope: the agent server imports this module
+    before it calls `load_dotenv()`, so a module-level read would always miss an
+    override from the environment file. Mirrors the TypeScript integration,
+    which already honours `MODEL_ID`, so both columns can be pointed at another
+    model without a rebuild.
+    """
+    return os.environ.get("MODEL_ID", DEFAULT_MODEL)
+
+
 def _build_model() -> OpenAIModel:
     """Construct the OpenAI model, failing fast on missing credentials."""
     api_key = os.getenv("OPENAI_API_KEY", "")
@@ -1394,7 +1409,7 @@ def _build_model() -> OpenAIModel:
         raise RuntimeError("OPENAI_API_KEY must be set for the strands showcase agent")
     return OpenAIModel(
         client_args={"api_key": api_key},
-        model_id="gpt-4o",
+        model_id=model_id(),
     )
 
 

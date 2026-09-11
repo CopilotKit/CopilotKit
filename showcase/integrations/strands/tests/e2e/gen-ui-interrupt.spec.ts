@@ -89,6 +89,12 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       card.getByRole("button", { name: "None of these work" }),
     ).toBeVisible();
 
+    // Count the bubbles BEFORE the pick so the assertion below can require a
+    // NEW one. The pre-pause bubble is already on screen, so asserting that
+    // "a bubble is visible" passes even when the resume never lands.
+    const bubbles = page.locator('[data-testid="copilot-assistant-message"]');
+    const bubblesBeforePick = await bubbles.count();
+
     await card.getByRole("button", { name: "Monday 9:00 AM" }).click();
 
     const picked = page.locator('[data-testid="time-picker-picked"]').first();
@@ -100,13 +106,23 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       0,
     );
 
-    // Assert the post-resume narration, not just that some bubble is visible:
-    // the pre-pause "let me check available times" text is on screen before the
-    // resume happens, so a visibility check passes even when the resume never
-    // lands. This wording only exists in the resumed leg's response.
-    await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').last(),
-    ).toContainText(/booked:|scheduled:/i, { timeout: 45_000 });
+    // A NEW bubble is necessary but nowhere near sufficient: a resume that
+    // loses the answer still narrates ("user did not pick a time"), so the
+    // count alone passes on a broken resume. Verified by breaking the tool's
+    // resume read and watching this block stay green on the count alone.
+    await expect
+      .poll(() => bubbles.count(), { timeout: 45_000 })
+      .toBeGreaterThan(bubblesBeforePick);
+
+    // The narration must carry the slot the user actually picked, and must not
+    // be the did-not-pick branch. That pins the DATA rather than the fixture's
+    // phrasing, so a real model saying "Monday at 9:00 AM" still passes while a
+    // lost answer fails.
+    const narration = bubbles.last();
+    await expect(narration).toContainText(/9:00/, { timeout: 45_000 });
+    await expect(narration).not.toContainText(
+      /not scheduled|did not pick|didn'?t pick/i,
+    );
   });
 
   test("cancel path: None-of-these-work transitions to cancelled state", async ({
@@ -121,6 +137,9 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     const card = page.locator('[data-testid="time-picker-card"]').first();
     await expect(card).toBeVisible({ timeout: 60_000 });
 
+    const bubbles = page.locator('[data-testid="copilot-assistant-message"]');
+    const bubblesBeforeCancel = await bubbles.count();
+
     await card.getByRole("button", { name: "None of these work" }).click();
 
     const cancelled = page
@@ -129,23 +148,22 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     await expect(cancelled).toBeVisible({ timeout: 10_000 });
     await expect(cancelled).toContainText("Cancelled");
 
-    // The LAST bubble, not the first: the first is the pre-pause "let me check
-    // available times" text, which is on screen before the resume happens, so
-    // asserting on it passes even when the resume never lands.
-    await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').last(),
-    ).toBeVisible({
-      timeout: 45_000,
-    });
+    // The cancelled resume has to produce a NEW assistant bubble: the pre-pause
+    // text is already on screen, so "a bubble is visible" passes even when the
+    // resume never lands. Counting is phrasing-agnostic, so it holds against a
+    // real model as well as the fixture.
+    await expect
+      .poll(() => bubbles.count(), { timeout: 45_000 })
+      .toBeGreaterThan(bubblesBeforeCancel);
 
     // Regression (cancel-path narration): a cancel resumes with the SAME
     // toolCallId as a pick, so before the cancelled leg was gated on the tool
     // result the resume replayed the booking confirmation after the user had
-    // declined.
+    // declined. Asserting the ABSENCE of a confirmation is the part that
+    // catches it, and unlike the fixture's exact wording it survives live.
     const narration = page
       .locator('[data-testid="copilot-assistant-message"]')
       .last();
-    await expect(narration).toContainText("Denied", { timeout: 45_000 });
     await expect(narration).not.toContainText("Booked:");
     await expect(narration).not.toContainText("Scheduled:");
   });

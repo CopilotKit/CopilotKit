@@ -93,9 +93,14 @@ test.describe("Interrupt (headless, app-surface picker)", () => {
       .locator('[data-testid="copilot-assistant-message"]')
       .last();
     await expect(narration).toBeVisible({ timeout: 45_000 });
-    await expect(narration).toContainText(/Booked|Scheduled/, {
-      timeout: 45_000,
-    });
+    // Pin the slot the user picked, not just the word "scheduled": the
+    // did-not-pick branch reads "Meeting NOT scheduled", which matches a bare
+    // /scheduled/i and let a broken resume pass. Matching the time keeps this
+    // phrasing-agnostic for a live model while still failing a lost answer.
+    await expect(narration).toContainText(/10:00/, { timeout: 45_000 });
+    await expect(narration).not.toContainText(
+      /not scheduled|did not pick|didn'?t pick/i,
+    );
   });
 
   test("cancel path: dismissing the picker resumes the run", async ({
@@ -108,6 +113,9 @@ test.describe("Interrupt (headless, app-surface picker)", () => {
     const popup = page.locator('[data-testid="interrupt-headless-popup"]');
     await expect(popup).toBeVisible({ timeout: 60_000 });
 
+    const bubbles = page.locator('[data-testid="copilot-assistant-message"]');
+    const bubblesBeforeCancel = await bubbles.count();
+
     await page.locator('[data-testid="interrupt-headless-cancel"]').click();
 
     // resolve({cancelled:true}) → resume → popup unmounts back to empty.
@@ -116,17 +124,21 @@ test.describe("Interrupt (headless, app-surface picker)", () => {
     ).toBeVisible({ timeout: 30_000 });
     await expect(popup).toHaveCount(0);
 
-    // The bridge emits the pre-pause text and the post-resume narration as
-    // separate assistant messages, so the narration is the LAST bubble.
-    const assistant = page
-      .locator('[data-testid="copilot-assistant-message"]')
-      .last();
-    await expect(assistant).toBeVisible({ timeout: 45_000 });
+    // The cancelled resume has to produce a NEW assistant bubble. The pre-pause
+    // text is already on screen, so asserting one is visible proves nothing;
+    // counting is phrasing-agnostic and holds against a real model too.
+    await expect
+      .poll(() => bubbles.count(), { timeout: 45_000 })
+      .toBeGreaterThan(bubblesBeforeCancel);
+
     // Regression (cancel-path narration): cancel resumes with the SAME
     // toolCallId as pick, so before aimock 1.37.0's toolResultContains gate the
     // resume matched the pick-confirmation fixture and the assistant replayed
-    // a booking confirmation after the user cancelled.
-    await expect(assistant).toContainText("Denied", { timeout: 45_000 });
+    // a booking confirmation after the user cancelled. The ABSENCE of a
+    // confirmation is what catches that, and it survives a live model.
+    const assistant = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .last();
     await expect(assistant).not.toContainText("Scheduled:");
     await expect(assistant).not.toContainText("Booked:");
   });
