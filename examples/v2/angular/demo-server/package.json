@@ -9,7 +9,7 @@
     "start": "tsx --env-file-if-exists ../demo/.env --env-file-if-exists .env src/index.ts"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@1084c9b8f5c8dd3137f75f219dfb17d25f426816",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@92d00fd1a7f544d7b91ec912553aa032956fc923",
     "@ag-ui/langgraph": "^0.0.11",
     "@ai-sdk/openai": "3.0.36",
     "@copilotkit/demo-agents": "workspace:^",

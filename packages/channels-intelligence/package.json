@@ -41,7 +41,7 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@1084c9b8f5c8dd3137f75f219dfb17d25f426816",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@92d00fd1a7f544d7b91ec912553aa032956fc923",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-slack": "workspace:^",
     "@copilotkit/channels-teams": "workspace:^",
@@ -49,7 +49,7 @@
     "phoenix": "^1.8.4"
   },
   "devDependencies": {
-    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@1084c9b8f5c8dd3137f75f219dfb17d25f426816",
+    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@92d00fd1a7f544d7b91ec912553aa032956fc923",
     "@copilotkit/typescript-config": "workspace:^",
     "@types/node": "^22.10.0",
     "@types/phoenix": "^1.6.6",
