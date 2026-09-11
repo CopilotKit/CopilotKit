@@ -13,8 +13,9 @@
     Tool-based HITL (`useHumanInTheLoop`) registers the picker UI on the
     frontend; CopilotKit forwards the tool definition to your model through
     `AGUIToolset()`. ADK doesn't have a native `interrupt(...)` primitive
-    like LangGraph — for graph-paused pauses, use the frontend
-    Promise-based `useFrontendTool` pattern instead.
+    like LangGraph. Use tool-based user confirmation instead:
+    `useHumanInTheLoop` for an in-chat picker, or an async
+    `useFrontendTool` handler for app-owned approval UI.
 
     <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
 
