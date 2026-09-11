@@ -8,11 +8,18 @@
       "id": "CONTENT-GEN-001",
       "area": "HTML/Markdown feature-availability parity",
       "severity": "high",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-001",
       "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "after_evidence": [
+        "Focused llm-text regression suite: 5 passed, including unsupported no-demo case and supported control. Reconstructed original three cases: 3 failed. See repair-generation.md."
+      ],
+      "sanity_review": {
+        "status": "approved",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "Revised check consults requested framework before fallback in both Snippet and InlineDemo.",
+        "remaining": "Local generated HTML/Markdown demonstration and broad regression check."
+      },
       "remaining": "After repair, render each affected framework URL in HTML and .md/.mdx, asserting the same availability notice and that no fallback framework code is emitted. Run generator, shell-docs typecheck/build, route probe, and local AIMock qualification separately."
     },
     {
@@ -132,7 +139,9 @@
       "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-013",
       "fix_commits": [],
-      "after_evidence": [],
+      "after_evidence": [
+        "Repaired local UI and auth page load; strict real-cell D6 results pending."
+      ],
       "sanity_review": null,
       "remaining": "Keep one unambiguous auth route shape, start the Google ADK frontend against the local agent, then run the manifest-wired cells with the local AIMock harness and recheck the affected guide routes."
     },

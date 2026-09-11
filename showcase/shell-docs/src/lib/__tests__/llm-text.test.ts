@@ -1040,3 +1040,73 @@ test("raw Markdown keeps only the active framework's <WhenFrameworkHas> branch",
   expect(mastra).not.toContain("Load the schema JSON at startup");
   expect(mastra).not.toContain("Define the schema inline");
 });
+
+test.each([
+  {
+    framework: "langgraph-python",
+    slug: "generative-ui/interactive",
+    notice: "Not supported on LangGraph (Python)",
+  },
+  {
+    framework: "strands",
+    slug: "shared-state/streaming",
+    notice: "Not supported on AWS Strands (Python)",
+  },
+  {
+    framework: "built-in-agent",
+    slug: "human-in-the-loop/headless",
+    notice: "Not supported on CopilotKit's Built-in Agent",
+  },
+])(
+  "matches the HTML unsupported state in raw Markdown for $framework/$slug",
+  ({ framework, slug, notice }) => {
+    const doc = loadDoc(slug);
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText({
+      url: `${framework}/${slug}`,
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: slug,
+      framework,
+    });
+
+    expect(output).toContain(notice);
+    expect(output).not.toContain(`<!-- interactive demo:`);
+  },
+);
+
+test("does not fall back to another demo for a no-demo unsupported framework cell", () => {
+  const doc = loadDoc("human-in-the-loop/headless");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText({
+    url: "google-adk/human-in-the-loop/headless",
+    title: doc!.fm.title,
+    description: doc!.fm.description,
+    filePath: doc!.filePath,
+    loadSlug: "human-in-the-loop/headless",
+    framework: "google-adk",
+  });
+
+  expect(output).toContain("Not supported on Google ADK");
+  expect(output).not.toContain("<!-- interactive demo: interrupt-headless -->");
+});
+
+test("keeps the live demo marker for a supported wired framework cell", () => {
+  const doc = loadDoc("human-in-the-loop");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText({
+    url: "google-adk/human-in-the-loop",
+    title: doc!.fm.title,
+    description: doc!.fm.description,
+    filePath: doc!.filePath,
+    loadSlug: "human-in-the-loop",
+    framework: "google-adk",
+  });
+
+  expect(output).toContain("<!-- interactive demo: hitl-in-chat -->");
+  expect(output).not.toContain("Not supported on Google ADK");
+});

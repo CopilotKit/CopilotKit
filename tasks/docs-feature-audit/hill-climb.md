@@ -86,9 +86,11 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 
 ## Iteration log
 
-| Iteration | Change                                | Before                                  | After                                                               | Position       |
-| --------- | ------------------------------------- | --------------------------------------- | ------------------------------------------------------------------- | -------------- |
-| 0         | Preserve audit and merge current main | Audit-only branch; 37 confirmed defects | Current source baseline established without rewriting audit history | Repair started |
+| Iteration | Change                                  | Before                                                                | After                                                                                                                                                           | Position                                        |
+| --------- | --------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 0         | Preserve audit and merge current main   | Audit-only branch; 37 confirmed defects                               | Current source baseline established without rewriting audit history                                                                                             | Repair started                                  |
+| 1         | C001 HTML/Markdown support parity       | Three focused cases fail on reconstructed before-state                | Three pass after the first patch, but independent review found fallback can still leak another framework's code when the requested unsupported cell has no demo | Back to implementing; add missing-demo coverage |
+| 2         | C013 ADK authentication route ownership | Exact repair-baseline checkout fails Next startup on duplicate routes | Repaired UI and auth demo load; three real feature checks still pending                                                                                         | Verifying, not qualified                        |
 
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.

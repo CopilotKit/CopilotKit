@@ -65,6 +65,7 @@ import {
   walkMdx,
 } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
+import catalogData from "@/data/catalog.json";
 import angularSourceContent from "@/data/angular-source-content.json";
 import setupContentData from "@/data/setup-content.json";
 import {
@@ -98,9 +99,24 @@ interface DemoRecord {
   files?: DemoFile[];
 }
 
+interface CatalogCell {
+  integration: string;
+  integration_name?: string;
+  feature: string;
+  feature_name?: string;
+  status: string;
+}
+
 const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
+
+const catalogByKey: Map<string, CatalogCell> = (() => {
+  const cells = (catalogData as { cells?: CatalogCell[] }).cells ?? [];
+  return new Map(
+    cells.map((cell) => [`${cell.integration}::${cell.feature}`, cell]),
+  );
+})();
 
 const angularRegions = (
   angularSourceContent as {
@@ -530,6 +546,21 @@ function pickFramework(
   return null;
 }
 
+function unsupportedFeatureNotice(
+  framework: string,
+  cell: string,
+): string | null {
+  const catalogEntry = catalogByKey.get(`${framework}::${cell}`);
+  if (catalogEntry?.status !== "unsupported") return null;
+
+  const integrationName = catalogEntry.integration_name ?? framework;
+  const featureName = catalogEntry.feature_name ?? cell;
+  return [
+    `> **Not supported on ${integrationName}**`,
+    `> ${integrationName} doesn't support ${featureName}. See [the framework grid](/) for which integrations support this feature.`,
+  ].join("\n");
+}
+
 function fenceFor(language: string, code: string): string {
   // Pick a fence string long enough to never collide with backtick
   // sequences inside `code`. Default to triple-backtick; bump to four
@@ -614,10 +645,22 @@ function resolveSnippet(
   if (!cell) {
     return "<!-- snippet skipped: no cell -->";
   }
+  // Catalog availability is authoritative for an explicitly selected or
+  // URL-default framework. Check it before `pickFramework()` falls back to a
+  // different integration's demo when this framework deliberately has none.
+  const requestedFramework = attrs.framework ?? defaultFramework;
+  const requestedUnsupported = requestedFramework
+    ? unsupportedFeatureNotice(requestedFramework, cell)
+    : null;
+  if (requestedUnsupported) return requestedUnsupported;
+
   const framework = pickFramework(cell, attrs.framework, defaultFramework);
   if (!framework) {
     return `<!-- snippet skipped: no demo for cell '${cell}' -->`;
   }
+
+  const unsupported = unsupportedFeatureNotice(framework, cell);
+  if (unsupported) return unsupported;
 
   const demo = demos[`${framework}::${cell}`];
   if (!demo) {
@@ -798,6 +841,24 @@ function expandInlineDemos(
       const note = demoAttr
         ? `\n<!-- interactive demo: ${demoAttr[1]} -->\n`
         : "\n<!-- interactive demo -->\n";
+      const explicitFramework = /framework\s*=\s*["']([^"']+)["']/.exec(
+        inner,
+      )?.[1];
+      const requestedFramework = explicitFramework ?? framework;
+      const requestedUnsupported =
+        demoAttr && requestedFramework
+          ? unsupportedFeatureNotice(requestedFramework, demoAttr[1])
+          : null;
+      if (requestedUnsupported) return `\n${requestedUnsupported}\n`;
+
+      const demoFramework = demoAttr
+        ? pickFramework(demoAttr[1], explicitFramework, framework)
+        : null;
+      const unsupported =
+        demoFramework && demoAttr
+          ? unsupportedFeatureNotice(demoFramework, demoAttr[1])
+          : null;
+      if (unsupported) return `\n${unsupported}\n`;
       const llmRegion = /llmRegion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
       if (!demoAttr || !llmRegion) return note;
 
