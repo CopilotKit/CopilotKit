@@ -79,6 +79,17 @@ await listener.channels.ready(); // listener.channels.stop() tears it down
 One package version gives you a tested snapshot of the core engine, JSX/UI vocabulary,
 testing helpers, and every adapter listed above.
 
+`@copilotkit/channels/teams` needs the Microsoft 365 Agents SDK, which is an
+**optional peer dependency** and is not installed for you:
+
+```sh
+pnpm add @microsoft/agents-hosting @microsoft/agents-activity
+```
+
+Only the self-hosted Teams adapter needs it. `@copilotkit/channels/teams/render`
+does not, which is why the SDK stays out of installs that never run a Teams
+ingress.
+
 For adapter authoring or a selective dependency graph, install
 `@copilotkit/channels-core` plus the direct adapter package you need, for example:
 
