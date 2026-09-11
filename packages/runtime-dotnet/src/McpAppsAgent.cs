@@ -162,7 +162,7 @@ internal sealed class McpHttpSession(McpAppServer server, HttpClient http) : IAs
         {
             ["protocolVersion"] = protocol,
             ["clientInfo"] = new JsonObject { ["name"] = "mcp-apps-middleware", ["version"] = "1.0.0" },
-            ["capabilities"] = new JsonObject { ["extensions"] = new JsonObject { ["io.modelcontextprotocol/ui"] = new JsonObject { ["mimeTypes"] = new JsonArray("text/html+mcp") } } }
+            ["capabilities"] = new JsonObject { ["extensions"] = new JsonObject { ["io.modelcontextprotocol/ui"] = new JsonObject { ["mimeTypes"] = new JsonArray("text/html;profile=mcp-app") } } }
         }, ct);
         protocol = A2UIValidation.Text(result?["protocolVersion"]) ?? throw new RuntimeRequestException(502, "MCP protocol negotiation failed");
         if (protocol is not ("2024-11-05" or "2025-03-26" or "2025-06-18" or "2025-11-25")) throw new RuntimeRequestException(502, "Unsupported MCP protocol version");

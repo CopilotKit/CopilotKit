@@ -82,7 +82,7 @@ class MCPAppsMiddleware:
                                         {
                                             "extensions": {
                                                 "io.modelcontextprotocol/ui": {
-                                                    "mimeTypes": ["text/html+mcp"]
+                                                    "mimeTypes": ["text/html;profile=mcp-app"]
                                                 }
                                             }
                                         }

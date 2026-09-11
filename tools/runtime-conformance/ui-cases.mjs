@@ -76,6 +76,79 @@ function mcpConfiguration(platform) {
 }
 
 export const uiCases = [
+  ...["agent", "resource-proxy", "tool-proxy"].map((path) => ({
+    id: `mcp-apps.standard-mime-${path}`,
+    configuration: mcpConfiguration,
+    async run(context) {
+      context.platform.faults.agentEvents = toolStream("show_card", [
+        '{"title":"MIME contract"}',
+      ]);
+      const proxy =
+        path === "resource-proxy"
+          ? { method: "resources/read", params: { uri: "ui://fixture/card" } }
+          : {
+              method: "tools/call",
+              params: {
+                name: "show_card",
+                arguments: { title: "MIME contract" },
+              },
+            };
+      const events = await runAndWait(
+        context,
+        input(
+          path === "agent"
+            ? {}
+            : {
+                forwardedProps: {
+                  __proxiedMCPRequest: { serverId: "cards", ...proxy },
+                },
+              },
+        ),
+      );
+      const requests = context.platform.requests.filter(
+        (request) => request.path === "/mcp",
+      );
+      const initializations = requests.filter(
+        (request) => request.body?.method === "initialize",
+      );
+      assert.ok(
+        initializations.length > 0,
+        "The test must observe MCP initialization",
+      );
+      for (const request of initializations) {
+        assert.ok(
+          request.body.params.capabilities?.extensions?.[
+            "io.modelcontextprotocol/ui"
+          ]?.mimeTypes?.includes("text/html;profile=mcp-app"),
+          "Every MCP connection must advertise the January MCP Apps MIME type",
+        );
+      }
+      assert.ok(
+        requests.some(
+          (request) =>
+            request.body?.method ===
+            (path === "resource-proxy" ? "resources/read" : "tools/call"),
+        ),
+      );
+      if (path === "agent") {
+        assert.ok(events.some((event) => event.activityType === "mcp-apps"));
+      } else {
+        assert.equal(context.platform.agentInputs.length, 0);
+        const result = events.find(
+          (event) => event.type === "RUN_FINISHED",
+        ).result;
+        if (path === "resource-proxy") {
+          assert.equal(
+            result.contents[0].mimeType,
+            "text/html;profile=mcp-app",
+          );
+          assert.match(result.contents[0].text, /Fixture card/);
+        } else {
+          assert.equal(result.content[0].text, "Card: MIME contract");
+        }
+      }
+    },
+  })),
   ...["ambiguous", "explicit-first", "explicit-second", "unknown-id"].map(
     (selection) => ({
       id: `mcp-apps.server-selection-${selection}`,
@@ -647,7 +720,10 @@ export const uiCases = [
       );
       assert.equal(context.platform.agentInputs.length, 0);
       const terminal = events.find((event) => event.type === "RUN_FINISHED");
-      assert.equal(terminal.result.contents[0].mimeType, "text/html+mcp");
+      assert.equal(
+        terminal.result.contents[0].mimeType,
+        "text/html;profile=mcp-app",
+      );
       assert.match(terminal.result.contents[0].text, /Fixture card/);
     },
   },

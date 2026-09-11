@@ -13,7 +13,7 @@ module CopilotKit
 
     def connect
       result = rpc('initialize', { 'protocolVersion' => @version,
-                   'capabilities' => { 'extensions' => { 'io.modelcontextprotocol/ui' => { 'mimeTypes' => ['text/html+mcp'] } } },
+                   'capabilities' => { 'extensions' => { 'io.modelcontextprotocol/ui' => { 'mimeTypes' => ['text/html;profile=mcp-app'] } } },
                    'clientInfo' => { 'name' => 'copilotkit-runtime-ruby', 'version' => '0.1.0' } })
       raise Error.new(502, 'Malformed MCP initialization') unless result.is_a?(Hash) && result['protocolVersion'].is_a?(String)
       @version = result['protocolVersion']

@@ -159,7 +159,7 @@ sealed class McpHandler : HttpMessageHandler
         {
             "initialize" => JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}"),
             "tools/list" => JsonNode.Parse("{\"tools\":[{\"name\":\"show_weather\",\"description\":\"Weather\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui/resourceUri\":\"ui://weather\"}},{\"name\":\"hidden_tool\",\"inputSchema\":{\"type\":\"object\"}}]}"),
-            "resources/read" => JsonNode.Parse("{\"contents\":[{\"uri\":\"ui://weather\",\"mimeType\":\"text/html+mcp\",\"text\":\"<h1>Weather</h1>\"}]}"),
+            "resources/read" => JsonNode.Parse("{\"contents\":[{\"uri\":\"ui://weather\",\"mimeType\":\"text/html;profile=mcp-app\",\"text\":\"<h1>Weather</h1>\"}]}"),
             _ => JsonNode.Parse("{\"content\":[{\"type\":\"text\",\"text\":\"Sunny\"}]}"),
         };
         var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };

@@ -258,3 +258,31 @@ pnpm nx run runtime-conformance:conformance -- --filter "$CASE_FILTER" -- node t
 
 These are local HTTP and Phoenix socket tests. They do not prove browser UI behavior or deployed-service compatibility.
 They do not establish support for MCP protocol revision `2026-07-28`.
+
+## January MCP Apps MIME advertisement
+
+Baseline: `6351fd34f9447e77f0746201a39693c2b5d4dc7a`, consuming upstream middleware 0.1.0.
+The [January 26 MCP Apps spec](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#clientserver-capability-negotiation)
+requires hosts to advertise `text/html;profile=mcp-app` in the `io.modelcontextprotocol/ui` extension capability.
+This extension correction does not require the deferred July core protocol migration.
+
+The three `mcp-apps.standard-mime-*` cases inspect every initialization request during
+agent discovery/execution, iframe resource reads, and iframe tool calls.
+They require real tool execution or resource content after initialization.
+The resource fixture now serves the standard MIME type and the proxy must preserve it.
+All three cases failed in Python, Go, Ruby, .NET, and the released TypeScript middleware:
+`Every MCP connection must advertise the January MCP Apps MIME type`.
+The four native clients now advertise the standard value.
+[AG-UI #2722](https://github.com/ag-ui-protocol/ag-ui/pull/2722) updates all three TypeScript client construction sites and adds a real HTTP regression covering them.
+The existing five `mcp-apps.visibility-*` cases remain in the full suite; native visibility filtering was fixed in the preceding commit.
+
+Reproduce the MIME cases using the driver commands above with `CASE_FILTER=mcp-apps.standard-mime`.
+Rebuild the Go and .NET drivers before checking a source change.
+RED logs are `/tmp/mime-{python,go,ruby,dotnet,typescript}-red.log`.
+The upstream wire test failed before its correction; its RED log is `/tmp/agui-mime-red.log`.
+
+TypeScript integration validation uses the built upstream correction through a temporary dependency symlink.
+The original dependency symlink is restored after the test run.
+This proves the proposed upstream fix against the shared contract, not availability in a published release.
+The committed dependency remains middleware 0.1.0 until the upstream correction is released.
+Consequently these three shared cases remain red for a normal TypeScript installation until that dependency is updated.

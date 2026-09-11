@@ -158,7 +158,7 @@ func (s *mcpSession) request(ctx context.Context, method string, params any, not
 }
 func newMCPSession(ctx context.Context, server MCPServer) (*mcpSession, error) {
 	s := &mcpSession{server: server, version: "2025-03-26", client: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
-	result, err := s.request(ctx, "initialize", map[string]any{"protocolVersion": s.version, "clientInfo": map[string]any{"name": "copilotkit-runtime-go", "version": "0.1.0"}, "capabilities": map[string]any{"extensions": map[string]any{"io.modelcontextprotocol/ui": map[string]any{"mimeTypes": []string{"text/html+mcp"}}}}}, false)
+	result, err := s.request(ctx, "initialize", map[string]any{"protocolVersion": s.version, "clientInfo": map[string]any{"name": "copilotkit-runtime-go", "version": "0.1.0"}, "capabilities": map[string]any{"extensions": map[string]any{"io.modelcontextprotocol/ui": map[string]any{"mimeTypes": []string{"text/html;profile=mcp-app"}}}}}, false)
 	if err != nil {
 		return nil, err
 	}

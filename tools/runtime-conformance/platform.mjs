@@ -99,8 +99,15 @@ export async function startPlatform() {
     return `Card: ${args.title}`;
   });
   mcp.addResource(
-    { uri: "ui://fixture/card", name: "Card", mimeType: "text/html+mcp" },
-    { text: "<!doctype html><h1>Fixture card</h1>", mimeType: "text/html+mcp" },
+    {
+      uri: "ui://fixture/card",
+      name: "Card",
+      mimeType: "text/html;profile=mcp-app",
+    },
+    {
+      text: "<!doctype html><h1>Fixture card</h1>",
+      mimeType: "text/html;profile=mcp-app",
+    },
   );
   const mcpBase = await mcp.start();
 
