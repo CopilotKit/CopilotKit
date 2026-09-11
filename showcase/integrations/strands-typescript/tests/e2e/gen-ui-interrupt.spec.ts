@@ -156,6 +156,15 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       .poll(() => bubbles.count(), { timeout: 45_000 })
       .toBeGreaterThan(bubblesBeforeCancel);
 
+    // Wait for the resumed run to actually finish before reading its final
+    // text. A bubble appears as soon as streaming starts, and a negative
+    // assertion passes against a partial string: a response streaming "B" and
+    // then "Booked: ..." would slip through while it is still one character
+    // long. With an empty composer this control disables once the run ends.
+    await expect(
+      page.locator('[data-testid="copilot-send-button"]').first(),
+    ).toBeDisabled({ timeout: 45_000 });
+
     // Regression (cancel-path narration): a cancel resumes with the SAME
     // toolCallId as a pick, so before the cancelled leg was gated on the tool
     // result the resume replayed the booking confirmation after the user had

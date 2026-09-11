@@ -89,8 +89,36 @@ export default function GenUiInterruptDemo() {
 }
 
 function Chat() {
-  useGenUiInterruptSuggestions();
+  // The failure banner lives OUTSIDE the interrupt element on purpose. The hook
+  // caches the element it rendered, so a picker already on screen never sees an
+  // updated prop: a flag threaded into the card would keep showing a stale
+  // failure on the NEXT booking, before that booking's resume has even started.
   const [resumeFailed, setResumeFailed] = useState(false);
+
+  return (
+    <div className="flex h-full flex-col">
+      {resumeFailed && (
+        <div
+          role="alert"
+          data-testid="time-picker-resume-error"
+          className="m-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
+          Your previous selection could not be sent. Please try booking again.
+        </div>
+      )}
+      <div className="min-h-0 flex-1">
+        <InterruptChat setResumeFailed={setResumeFailed} />
+      </div>
+    </div>
+  );
+}
+
+function InterruptChat({
+  setResumeFailed,
+}: {
+  setResumeFailed: (failed: boolean) => void;
+}) {
+  useGenUiInterruptSuggestions();
 
   // Native interrupt path. The backend `schedule_meeting` tool calls Strands'
   // `context.interrupt(...)`; the @ag-ui/aws-strands bridge finishes the run
@@ -112,8 +140,8 @@ function Chat() {
           topic={payload.topic ?? "a call"}
           attendee={payload.attendee}
           slots={slots}
-          resumeFailed={resumeFailed}
           onSubmit={(result) => {
+            setResumeFailed(false);
             // Defer resolve so React commits the picked/cancelled badge before
             // useInterrupt clears the interrupt element (a single rAF is not
             // reliable: it can fire before React's commit). The rejection is

@@ -131,6 +131,15 @@ test.describe("Interrupt (headless, app-surface picker)", () => {
       .poll(() => bubbles.count(), { timeout: 45_000 })
       .toBeGreaterThan(bubblesBeforeCancel);
 
+    // Wait for the resumed run to actually finish before reading its final
+    // text. A bubble appears as soon as streaming starts, and a negative
+    // assertion passes against a partial string: a response streaming "B" and
+    // then "Booked: ..." would slip through while it is still one character
+    // long. With an empty composer this control disables once the run ends.
+    await expect(
+      page.locator('[data-testid="copilot-send-button"]').first(),
+    ).toBeDisabled({ timeout: 45_000 });
+
     // Regression (cancel-path narration): cancel resumes with the SAME
     // toolCallId as pick, so before aimock 1.37.0's toolResultContains gate the
     // resume matched the pick-confirmation fixture and the assistant replayed
