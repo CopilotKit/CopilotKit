@@ -3,6 +3,13 @@
 from .client import Intelligence, IntelligenceError, MemoryGrant, RuntimeEntitlementError
 from .entitlements import RuntimeEntitlementResponse
 from .inspector import InspectorMetadata
+from .learned_skills import (
+    LearnedSkillsError,
+    LearnedSkillsErrorCode,
+    LearnedSkillsSnapshot,
+    LearnedSkillsSnapshotResult,
+    LearnedSkillsUnchanged,
+)
 from .resources import (
     AnnotateResponse,
     ListMemoriesResponse,
@@ -25,6 +32,11 @@ from .resources import (
 
 __all__ = [
     "Intelligence",
+    "LearnedSkillsError",
+    "LearnedSkillsErrorCode",
+    "LearnedSkillsSnapshot",
+    "LearnedSkillsSnapshotResult",
+    "LearnedSkillsUnchanged",
     "IntelligenceError",
     "MemoryGrant",
     "InspectorMetadata",
