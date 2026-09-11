@@ -51,13 +51,13 @@ at least three relevant cells; frontend and probe copies are not an acceptable s
   results below used Webpack because the default Turbopack command failed.
 - Keep new results in iteration records; do not overwrite the original failed verdicts.
 
-| Integration      | Original baseline                                  | Current repair status                             | Qualification |
-| ---------------- | -------------------------------------------------- | ------------------------------------------------- | ------------- |
-| LangGraph Python | 38/40; voice and multimodal failed                 | Investigating                                     | Not qualified |
-| LangGraph JS     | 37/40 under Webpack; default dev broken            | Default-command repair under verification         | Not qualified |
-| Google ADK       | UI startup blocked by conflicting routes           | Startup and browser context fixed; matrix pending | Not qualified |
-| Strands          | 34/36; voice and multimodal failed                 | Investigating                                     | Not qualified |
-| Built-in Agent   | 35/39; three confirmed fixture gaps plus a timeout | Investigating                                     | Not qualified |
+| Integration      | Original baseline                                  | Current repair status                                      | Qualification |
+| ---------------- | -------------------------------------------------- | ---------------------------------------------------------- | ------------- |
+| LangGraph Python | 38/40; voice and multimodal failed                 | Investigating                                              | Not qualified |
+| LangGraph JS     | 37/40 under Webpack; default dev broken            | Default command and three probes pass; full matrix pending | Not qualified |
+| Google ADK       | UI startup blocked by conflicting routes           | Startup and browser context fixed; matrix pending          | Not qualified |
+| Strands          | 34/36; voice and multimodal failed                 | Investigating                                              | Not qualified |
+| Built-in Agent   | 35/39; three confirmed fixture gaps plus a timeout | Investigating                                              | Not qualified |
 
 Check counts differ from routed-demo counts because D6 expands some features. The two LangGraph
 interrupt demos remain explicitly quarantined pending supported SDK behavior. See the
@@ -100,6 +100,8 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 | 6 | C016 canonical Threads prompt | Shared prompt left unresolved in Markdown | Canonical intent expands after snippet imports (`c9148cfb8a`) | Rendered reader review pending |
 | 7 | C006 tool-rendering source ownership | Copied examples and stale hook guidance | Shared guide extracts Showcase regions; 11 focused checks pass (`fe8b79f9d2`) | Rendered reader review pending |
 | 8 | C014 quickstart identity | Client headers treated as identity | Explicit local single-user example links complete authorization contract (`fa26645237`) | Source review clear; rendered checks pending |
+
+| 9 | C017 LangGraph JS default dev | Turbopack runtime route fails resolving diagnostics imports | Exact default command succeeds; chat, tool-rendering, frontend-tools probes pass (`1c7c2fb8d8`) | Specific startup defect qualified; full agent matrix open |
 
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.

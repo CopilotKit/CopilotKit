@@ -215,12 +215,21 @@
       "id": "CONTENT-GEN-017",
       "area": "local runnable Showcase default development command",
       "severity": "high",
-      "stage": "verifying",
+      "stage": "qualified_locally",
       "before_record": "content-defects.json#CONTENT-GEN-017",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Make the checked-in default development command and resolver configuration compatible, then run the complete LangGraph TypeScript D6 matrix from a fresh local service. The observed unchanged-source Webpack control command served /api/health and /demos/agentic-chat with 200 but is not a repair."
+      "fix_commits": [
+        "1c7c2fb8d8"
+      ],
+      "after_evidence": [
+        "Exact default development command now serves runtime route200; baseline Turbopack route500 missing relative JS modules.",
+        "Strict local agentic-chat, tool-rendering, frontend-tools probes3/3pass. See repair-runtime.md."
+      ],
+      "sanity_review": {
+        "status": "approved",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "Thin colocated bridges preserve canonical staged diagnostics imports across bundlers."
+      },
+      "remaining": "Specific default-command defect qualified. Complete LangGraph JS matrix, latest-stable dependencies, and reader-path review remain open."
     },
     {
       "id": "CONTENT-GEN-018",
