@@ -121,10 +121,10 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 - **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
 - **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
-- **Rich Threads** 🪁 – Conversations that survive reloads, devices, and sessions, with their generative UI intact.
-- **Automatic Learning** 🪁 – Agents that improve from real usage: completed threads become reviewed Skills, with no fine-tuning pipeline.
+- **Rich Threads** – Conversations that survive reloads, devices, and sessions, with their generative UI intact.
+- **Automatic Learning** – Agents that improve from real usage: completed threads become reviewed Skills, with no fine-tuning pipeline.
 
-## 🪁 CopilotKit Intelligence
+## CopilotKit Intelligence
 
 What CopilotKit gives you runs on your side: your frontend, your runtime, your agents. **CopilotKit Intelligence** is the production platform your runtime talks to once real users arrive — rich threads with generative UI, user memories, product analytics, inspection, and automatic learning, without changing your frontend SDK, the AG-UI protocol, or your agent framework. Run it cloud-hosted, or inside your own cluster.
 
