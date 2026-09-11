@@ -44,6 +44,7 @@ class SharedStateStreamingState(CopilotKitState):
 class SharedStateStreamingFlow(Flow[SharedStateStreamingState]):
     """Predict write_document arguments into state, then persist the result."""
 
+    # @region[state-streaming-middleware]
     @start()
     async def write(self) -> None:
         await copilotkit_predict_state(
@@ -55,6 +56,7 @@ class SharedStateStreamingFlow(Flow[SharedStateStreamingState]):
                 )
             ]
         )
+        # @endregion[state-streaming-middleware]
         tools = [*self.state.copilotkit.actions, WRITE_DOCUMENT_TOOL]
         response = await copilotkit_stream(
             await acompletion(

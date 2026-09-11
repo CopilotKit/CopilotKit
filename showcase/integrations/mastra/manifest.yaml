@@ -190,6 +190,7 @@ demos:
     highlight:
       - src/app/demos/shared-state-streaming/page.tsx
       - src/app/api/copilotkit/route.ts
+      - src/mastra/agents/index.ts
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext

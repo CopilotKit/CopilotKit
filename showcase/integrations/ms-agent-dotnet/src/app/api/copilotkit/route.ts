@@ -599,6 +599,7 @@ function extractStreamingDocument(argsBuffer: string): string | undefined {
 // are swallowed (like set_steps) — the document lives in state, not in a
 // chat tool-call bubble. The backend's final STATE_SNAPSHOT still passes
 // through as the authoritative commit.
+// @region[state-streaming-middleware]
 function createSharedStateStreamingAgent() {
   const agent = createAgent("/shared-state-streaming");
 
@@ -685,6 +686,7 @@ function createSharedStateStreamingAgent() {
 
   return agent;
 }
+// @endregion[state-streaming-middleware]
 
 function createReadonlyContextAgent() {
   const agent = createAgent("/readonly-state-agent-context");

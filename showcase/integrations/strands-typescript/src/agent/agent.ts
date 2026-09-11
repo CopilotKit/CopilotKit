@@ -177,6 +177,7 @@ const A2UI_FIXED_SYSTEM_PROMPT =
  * result comes through empty — unlike the Python SDK, which wraps strings.)
  */
 export async function buildA2uiFixedSchemaAgent(): Promise<StrandsAgent> {
+  // @region[backend-render-operations]
   const displayFlight = tool({
     name: "display_flight",
     description:
@@ -204,6 +205,7 @@ export async function buildA2uiFixedSchemaAgent(): Promise<StrandsAgent> {
       ],
     }),
   });
+  // @endregion[backend-render-operations]
 
   const strandsAgent = new Agent({
     // Chat Completions API: the Responses adapter buffers tool-call argument

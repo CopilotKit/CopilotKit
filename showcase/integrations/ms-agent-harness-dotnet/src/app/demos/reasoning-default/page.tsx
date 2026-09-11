@@ -29,7 +29,9 @@ export default function ReasoningDefaultDemo() {
   );
 }
 
+// @region[default-reasoning-zero-config]
 function Chat() {
   useReasoningDefaultSuggestions();
   return <CopilotChat agentId={AGENT_ID} className="h-full rounded-2xl" />;
 }
+// @endregion[default-reasoning-zero-config]

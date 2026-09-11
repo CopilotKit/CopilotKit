@@ -29,6 +29,7 @@ SURFACE_ID = "flight-fixed-schema"
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
 
+# @region[backend-schema-json-load]
 def _load_schema(filename: str) -> list[dict]:
     """Load an A2UI fixed schema from the local schemas directory."""
     with open(_SCHEMAS_DIR / filename, "r", encoding="utf-8") as fh:
@@ -36,8 +37,10 @@ def _load_schema(filename: str) -> list[dict]:
 
 
 FLIGHT_SCHEMA = _load_schema("flight_schema.json")
+# @endregion[backend-schema-json-load]
 
 
+# @region[backend-render-operations]
 async def display_flight(
     origin: Annotated[str, "Origin airport code, e.g. 'SFO'"],
     destination: Annotated[str, "Destination airport code, e.g. 'JFK'"],
@@ -88,6 +91,9 @@ async def display_flight(
         },
     ]
     return json.dumps({"a2ui_operations": operations})
+
+
+# @endregion[backend-render-operations]
 
 
 SYSTEM_PROMPT = (

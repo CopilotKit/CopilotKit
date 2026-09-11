@@ -245,6 +245,8 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
+    highlight:
+      - src/agents/shared_state_streaming.py
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />
@@ -289,6 +291,7 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/headless-simple/page.tsx
+      - src/app/demos/headless-simple/chat.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-complete
     name: Headless Chat (Complete)

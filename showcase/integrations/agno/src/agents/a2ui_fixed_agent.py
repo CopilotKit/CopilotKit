@@ -32,6 +32,7 @@ SURFACE_ID = "flight-fixed-schema"
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
 
+# @region[backend-schema-json-load]
 def _load_schema(filename: str) -> list[dict]:
     """Load an A2UI fixed schema from the local schemas directory."""
     with open(_SCHEMAS_DIR / filename, "r", encoding="utf-8") as fh:
@@ -43,8 +44,10 @@ FLIGHT_SCHEMA = _load_schema("flight_schema.json")
 # schema is ready to wire up once the SDK exposes per-button action handlers
 # for fixed-schema surfaces (matching the langgraph-python reference).
 BOOKED_SCHEMA = _load_schema("booked_schema.json")
+# @endregion[backend-schema-json-load]
 
 
+# @region[backend-render-operations]
 @tool
 def display_flight(origin: str, destination: str, airline: str, price: str):
     """Show a flight card for the given trip.
@@ -88,6 +91,9 @@ def display_flight(origin: str, destination: str, airline: str, price: str):
         },
     ]
     return json.dumps({"a2ui_operations": operations})
+
+
+# @endregion[backend-render-operations]
 
 
 SYSTEM_PROMPT = (
