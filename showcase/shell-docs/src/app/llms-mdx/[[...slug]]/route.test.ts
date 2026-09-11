@@ -202,6 +202,47 @@ describe("llms-mdx route", () => {
     );
   });
 
+  it("keeps Built-in Agent context when its bare route falls back to a shared guide", async () => {
+    getDocsModeMock.mockImplementation((slug: string) =>
+      slug === "built-in-agent" ? "authored" : "generated",
+    );
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "generative-ui/a2ui/fixed-schema"
+        ? {
+            source: "",
+            filePath: "generative-ui/a2ui/fixed-schema.mdx",
+            fm: {
+              title: "Fixed Schema A2UI",
+              description: "Shared fixed-schema guide.",
+            },
+          }
+        : null,
+    );
+
+    const response = await callLlmsMdxRoute([
+      "generative-ui",
+      "a2ui",
+      "fixed-schema",
+    ]);
+
+    expect(response.status).toBe(200);
+    expect(loadDocMock).toHaveBeenNthCalledWith(
+      1,
+      "integrations/built-in-agent/generative-ui/a2ui/fixed-schema",
+    );
+    expect(loadDocMock).toHaveBeenNthCalledWith(
+      2,
+      "generative-ui/a2ui/fixed-schema",
+    );
+    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        loadSlug: "generative-ui/a2ui/fixed-schema",
+        framework: "built-in-agent",
+      }),
+      { framework: "built-in-agent" },
+    );
+  });
+
   it("keeps an authored framework index ahead of the root quickstart fallback", async () => {
     loadDocMock.mockImplementation((slug: string) =>
       slug === "integrations/langgraph/index"

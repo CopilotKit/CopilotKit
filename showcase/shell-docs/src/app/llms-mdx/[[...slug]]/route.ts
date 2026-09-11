@@ -354,7 +354,6 @@ function resolvePage(slug: string[]): ResolvedPage | null {
   for (const candidate of candidates) {
     const doc = loadDoc(candidate);
     if (!doc) continue;
-    const isOverride = candidate !== url;
     return {
       page: {
         url,
@@ -362,9 +361,12 @@ function resolvePage(slug: string[]): ResolvedPage | null {
         description: doc.fm.description,
         filePath: doc.filePath,
         loadSlug: candidate,
-        framework: isOverride ? ROOT_FRAMEWORK : undefined,
+        // Bare routes are the Built-in Agent docs surface. Even when the
+        // source falls back to a shared root guide, its framework-gated
+        // prose and snippets must use that same root-framework context.
+        framework: ROOT_FRAMEWORK,
       },
-      framework: isOverride ? ROOT_FRAMEWORK : undefined,
+      framework: ROOT_FRAMEWORK,
     };
   }
   return null;
