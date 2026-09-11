@@ -106,6 +106,8 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 | 10 | C002/C004 guide bindings | ADK legacy Markdown404; missing catalog paths | Redirects preserve old URLs; 62 focused checks pass (`e93102e3b2`) | Routing fixed; feature behavior separate |
 | 11 | ADK feature setup sanity check | Display guide extracts an HITL agent that calls a different tool | REPAIR-002 recorded; framework setup selector repair pending | Back to investigating feature-specific setup |
 
+| 12 | C007 Built-in Agent configuration | Controls placed in context, factory reads forwardedProps | Neutral request captures correct controls after repair; three D6 cells pass (`6a58482e54`) | Strengthening fixtures to catch regressions |
+
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
 
