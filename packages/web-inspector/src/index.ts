@@ -1024,6 +1024,13 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "ACTIVITY_DELTA",
 ] as const;
 
+const THREADS_LOCKED_COPY = {
+  heading:
+    "Production-grade chat threads without the complexity. Self hostable.",
+  description:
+    "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
+} as const;
+
 type SanitizedValue =
   | string
   | number
@@ -18363,34 +18370,6 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  private getThreadsLockedCopy(): {
-    heading: string;
-    description: string;
-  } {
-    switch (this.inspectorMetadataProjection.licenseState) {
-      case "valid":
-        return {
-          heading: "Finish setting up Rich Threads",
-          description:
-            "Copy this prompt into your coding agent to finish the setup.",
-        };
-      case "none":
-      case "unknown":
-        return {
-          heading:
-            "Production-grade chat threads without the complexity. Self hostable.",
-          description:
-            "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
-        };
-      case "expired":
-        return {
-          heading: "Renew Intelligence to inspect Threads.",
-          description:
-            "Your Intelligence access has expired. Renew it to inspect saved thread history.",
-        };
-    }
-  }
-
   /**
    * Renders the realtime-connection indicator in the memory-store header.
    * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
@@ -18821,12 +18800,11 @@ export class WebInspectorElement extends LitElement {
     const locked = !this.areThreadEndpointsAvailable();
     if (locked) {
       this.trackThreadsViewStateOnce("locked");
-      const lockedCopy = this.getThreadsLockedCopy();
       return this.renderLockedFeatureOverview({
         serviceId: "threads",
         featureName: "Rich Threads",
-        heading: lockedCopy.heading,
-        description: lockedCopy.description,
+        heading: THREADS_LOCKED_COPY.heading,
+        description: THREADS_LOCKED_COPY.description,
         videoUrl: THREADS_LOCKED_VIDEO_URL,
         videoTitle: "Rich Threads overview",
         outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,

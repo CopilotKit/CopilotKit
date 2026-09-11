@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../src/CopilotKit.Intelligence.Runtime.csproj" /></ItemGroup>
+  <ItemGroup><PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="1.20.0-preview.260831.1" /></ItemGroup>
+</Project>

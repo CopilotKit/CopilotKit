@@ -111,7 +111,7 @@ test("sends the coding agent to the Rich Threads route and carries nothing else"
   // drifts the next time the Runtime API changes, which is what OSS-1150
   // retired.
   expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "npx --yes copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent add-rich-threads",
+    "npx --yes copilotkit@latest onboard start --intent add-rich-threads",
   );
   expect(RICH_THREADS_SETUP_PROMPT).not.toContain("docs.copilotkit.ai");
   expect(RICH_THREADS_SETUP_PROMPT).not.toContain("identifyUser");

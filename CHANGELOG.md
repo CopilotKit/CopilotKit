@@ -16,6 +16,39 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.71.1 - 2026-09-11
+
+This release focuses on runtime MCP fixes, React hook performance, and improvements to the Inspector's onboarding experience.
+
+## Fixes
+
+### Runtime
+
+- **MCP SSE headers now reach the wire** (#6930): v2 MCP `sse` servers accepted a `headers` auth map (for example, `Authorization: Bearer …`), but those headers were never sent, causing auth-required servers to 401 and drop their tools from the run. Headers are now passed via `requestInit`. No public type change.
+- **Removed a duplicate `@ag-ui/client` install** (#7095): `@copilotkit/runtime` bundled `@ag-ui/mcp-middleware@0.0.1`, which pinned `@ag-ui/client` as an exact dependency and nested a second copy alongside the one consumers already had. Because `@ag-ui/client` carries types, the duplicate produced confusing type errors (for example, a mismatch naming a private `_debug` property) for anyone also depending on `@ag-ui/client`. Bumping to `0.0.2` moves the client to a peer dependency, so it resolves to the host's copy.
+
+### React Core
+
+- **Stopped unnecessary `useInterrupt` re-renders** (#6969): `useInterrupt` receives interrupt events through its own agent subscription, but was still re-rendering on every message, state, and run-status update. It now skips that update subscription entirely.
+
+### Web Inspector
+
+- **Unified locked Threads onboarding** (#7094): Threads availability is now gated on the Runtime Threads capability rather than license metadata, so every locked state shows the same Rich Threads setup guidance (product header, Copy setup prompt, Talk to an Engineer CTA, and video). Empty Threads views no longer display local example threads.
+- **Learning setup prompt now targets Learning** (#7037): The Learning pane's "Copy setup prompt" button previously copied a Threads prompt (`--intent add-rich-threads`) and announced "Threads setup prompt copied." It now correctly targets Learning (`--intent add-learning`), including the accessible label. Learning does not require the Threads feature.
+- **Hide enabled features from the launcher HUD** (#7075): The launcher heads-up display no longer shows Rich Threads or Automatic Learning once they're enabled. When only the dismiss action remains, the HUD collapses to a compact, centered state with no pointer.
+
+## Improvements
+
+### Web Inspector
+
+- **Shorter copied onboarding prompt** (#7030): The prompt copied from the Inspector and feature cards now opens with a single command — `npx --yes copilotkit@latest onboard start --run <run-id>` — instead of two sentences of coding-agent identification. Identification moves into the prompt graph. The old wording still works against the published CLI.
+- **Feature buttons point at CLI intent routes** (#7004): The Inspector's seven per-feature "Copy setup prompt" buttons now emit `onboard start … --intent <slug>`, targeting the CLI's feature routes instead of duplicating setup prose in the Inspector. Each tile maps to exactly one intent, enforced by the type system and a test.
+
+### Skills
+
+- **Consolidated packaged skills** (#7029): The nine packaged knowledge skills have been replaced with two entry points (`copilotkit` and `copilotkit-cli`) that look answers up rather than restating a stale copy of the documentation. As part of this, the `skills` directory is no longer included in the published tarballs for `@copilotkit/react-core`, `@copilotkit/runtime`, and `@copilotkit/a2ui-renderer`.
+- **Audited react-core skill claims** (#6997): Corrected several stale or incorrect citations and stopped documenting Cloud keys (`publicApiKey` / `publicLicenseKey`) as the path to CopilotKit Intelligence, which is configured server-side on the runtime.
+
 ## 1.71.0 - 2026-09-09
 
 This release converges React Native's render-tool hooks onto react-core, improves Copilot context timing during page navigation, and adds provider-level agent configuration. It also includes fixes for nullable tool schemas, the Vue human-in-the-loop lifecycle, and the Inspector experience.

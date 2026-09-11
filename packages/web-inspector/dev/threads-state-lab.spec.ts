@@ -395,26 +395,12 @@ function expectedOverviewCopy(
   scenario: ThreadsStateScenario,
 ): Readonly<{ heading: string; description: string }> | null {
   if (scenario.data === "error") return null;
-  if (scenario.runtimeInfo.licenseStatus === "none") {
+  if (scenario.capability !== "enabled") {
     return {
       heading:
         "Production-grade chat threads without the complexity. Self hostable.",
       description:
         "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
-    };
-  }
-  if (scenario.runtimeInfo.licenseStatus === "expired") {
-    return {
-      heading: "Renew Intelligence to inspect Threads.",
-      description:
-        "Your Intelligence access has expired. Renew it to inspect saved thread history.",
-    };
-  }
-  if (scenario.capability !== "enabled") {
-    return {
-      heading: "Finish setting up Rich Threads",
-      description:
-        "Copy this prompt into your coding agent to finish the setup.",
     };
   }
   if (scenario.data === "existing") return null;

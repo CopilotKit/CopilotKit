@@ -103,12 +103,6 @@ non-React frontend docs:
 Do not use "showcase-driven" as a proxy for frontend availability. Showcase derivation is an
 authoring/source detail; frontend applicability controls routing and sidebar inclusion.
 
-### AG-UI Mirrored Docs
-
-AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`. The
-`src/content/ag-ui/` tree is a downstream mirror rendered on the CopilotKit docs host.
-Change AG-UI docs upstream first, then sync the mirror back into shell-docs.
-
 ## Top-Level Docs Symlink
 
 The repository's top-level `docs/` path is a symlink to `showcase/shell-docs/` for

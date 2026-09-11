@@ -1,0 +1,14 @@
+{
+  "name": "runtime-conformance",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Shared socket-level specifications for native Intelligence runtimes",
+  "dependencies": {
+    "@ag-ui/client": "0.0.59",
+    "@copilotkit/aimock": "1.10.0",
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "ws": "8.18.3"
+  }
+}
