@@ -164,3 +164,21 @@ telemetry disabled; it made no login, project, or cloud call and did not touch
 user state. This resolves REPAIR-005 for the published prompt contract. The
 residual limit is only local checkout/version skew; its stale `dist` must not
 be used to judge the public docs command.
+
+## Iteration 10 — shared chat and headless reader pass
+
+The Headless UI guide now names the concrete outcome: build a chat with app
+components while retaining the agent connection, streaming, and tool calls.
+It describes the complete cell as a complete message view rather than a
+"generative-UI weave," and links `useAgent`, `useCopilotKit`, `useComponent`,
+and `useRenderToolCall` to their v2 references. The Chat Components guide now
+starts with the choice a reader is making—use `CopilotChat` when they do not
+want to build message-list, streaming, and tool-call handling—and links both
+`CopilotChat` and `useConfigureSuggestions` to their v2 references. Neither
+edit changes the Showcase snippets, setup, or runtime contract.
+
+Shared-state review confirmed the source-backed guide structure and corrected
+the read-only-context transport wording. The Strands-specific setup fragments
+remain pending the runtime lane's final validated regions for recipe state,
+preferences, and context; they will use those regions rather than copy backend
+code.
