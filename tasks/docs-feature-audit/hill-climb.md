@@ -51,13 +51,13 @@ at least three relevant cells; frontend and probe copies are not an acceptable s
   results below used Webpack because the default Turbopack command failed.
 - Keep new results in iteration records; do not overwrite the original failed verdicts.
 
-| Integration      | Original baseline                                  | Current repair status       | Qualification |
-| ---------------- | -------------------------------------------------- | --------------------------- | ------------- |
-| LangGraph Python | 38/40; voice and multimodal failed                 | Investigating               | Not qualified |
-| LangGraph JS     | 37/40 under Webpack; default dev broken            | Investigating               | Not qualified |
-| Google ADK       | UI startup blocked by conflicting routes           | Implementing startup repair | Not qualified |
-| Strands          | 34/36; voice and multimodal failed                 | Investigating               | Not qualified |
-| Built-in Agent   | 35/39; three confirmed fixture gaps plus a timeout | Investigating               | Not qualified |
+| Integration      | Original baseline                                  | Current repair status                             | Qualification |
+| ---------------- | -------------------------------------------------- | ------------------------------------------------- | ------------- |
+| LangGraph Python | 38/40; voice and multimodal failed                 | Investigating                                     | Not qualified |
+| LangGraph JS     | 37/40 under Webpack; default dev broken            | Default-command repair under verification         | Not qualified |
+| Google ADK       | UI startup blocked by conflicting routes           | Startup and browser context fixed; matrix pending | Not qualified |
+| Strands          | 34/36; voice and multimodal failed                 | Investigating                                     | Not qualified |
+| Built-in Agent   | 35/39; three confirmed fixture gaps plus a timeout | Investigating                                     | Not qualified |
 
 Check counts differ from routed-demo counts because D6 expands some features. The two LangGraph
 interrupt demos remain explicitly quarantined pending supported SDK behavior. See the
@@ -95,8 +95,21 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 
 | 3 | ADK normal-browser sanity check | Harness injects fixture context and its three probes pass | Browser without the harness header gets AIMock no-match; new REPAIR-001 remains unresolved | Startup repair holds, overall ADK qualification blocked |
 
+| 4 | C001 fallback edge case | Unsupported no-demo framework leaked fallback source | Five focused checks pass; independent review clear (`93796fa393`) | Rendered and broad checks pending |
+| 5 | ADK startup and normal browser | Duplicate routes block startup; browser lacks fixture context | Auth, chat, tool rendering pass; normal browser screenshot recorded (`49702a5a17`, `7b55169065`) | Specific defects qualified; full ADK matrix open |
+| 6 | C016 canonical Threads prompt | Shared prompt left unresolved in Markdown | Canonical intent expands after snippet imports (`c9148cfb8a`) | Rendered reader review pending |
+| 7 | C006 tool-rendering source ownership | Copied examples and stale hook guidance | Shared guide extracts Showcase regions; 11 focused checks pass (`fe8b79f9d2`) | Rendered reader review pending |
+| 8 | C014 quickstart identity | Client headers treated as identity | Explicit local single-user example links complete authorization contract (`fa26645237`) | Source review clear; rendered checks pending |
+
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
+
+## Local rendered comparisons
+
+The [local rendered repair comparison](repair-render-comparison.md) links the
+preserved baseline and current local URLs, response results, and local-only
+screenshots for the representation repairs. It is before/after delivery
+evidence; runtime qualification remains governed by the gates above.
 
 ## Independent sanity checks
 
