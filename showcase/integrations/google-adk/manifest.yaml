@@ -472,7 +472,7 @@ demos:
       - src/app/demos/auth/page.tsx
       - src/app/demos/auth/auth-banner.tsx
       - src/app/demos/auth/demo-token.ts
-      - src/app/api/copilotkit-auth/route.ts
+      - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: declarative-hashbrown
     name: "Declarative UI: Hashbrown"
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)

@@ -6,7 +6,8 @@ LangGraph Python, LangGraph JS, Google ADK, Strands, and Built-in Agent.
 **Current position: repair underway. No integration is qualified yet.**
 
 The [per-defect ledger](repair-status.json) tracks all 37 confirmed findings, fix commits,
-after-evidence, and independent reviews. The original audit register remains unchanged as the
+after-evidence, and independent reviews. New failures found during repairs use separate `REPAIR-*`
+records. The original audit register remains unchanged as the
 before-state; a repaired issue advances in this ledger rather than disappearing from the audit.
 
 ## What counts as reaching the top
@@ -91,6 +92,8 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 | 0         | Preserve audit and merge current main   | Audit-only branch; 37 confirmed defects                               | Current source baseline established without rewriting audit history                                                                                             | Repair started                                  |
 | 1         | C001 HTML/Markdown support parity       | Three focused cases fail on reconstructed before-state                | Three pass after the first patch, but independent review found fallback can still leak another framework's code when the requested unsupported cell has no demo | Back to implementing; add missing-demo coverage |
 | 2         | C013 ADK authentication route ownership | Exact repair-baseline checkout fails Next startup on duplicate routes | Repaired UI and auth demo load; three real feature checks still pending                                                                                         | Verifying, not qualified                        |
+
+| 3 | ADK normal-browser sanity check | Harness injects fixture context and its three probes pass | Browser without the harness header gets AIMock no-match; new REPAIR-001 remains unresolved | Startup repair holds, overall ADK qualification blocked |
 
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.

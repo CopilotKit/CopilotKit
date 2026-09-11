@@ -136,13 +136,18 @@
       "id": "CONTENT-GEN-013",
       "area": "local Showcase guide/example availability",
       "severity": "high",
-      "stage": "verifying",
+      "stage": "sanity_review",
       "before_record": "content-defects.json#CONTENT-GEN-013",
       "fix_commits": [],
       "after_evidence": [
-        "Repaired local UI and auth page load; strict real-cell D6 results pending."
+        "Fresh isolated b007962 baseline: duplicate route specificity startup error.",
+        "Repaired ADK strict D6: auth 1/1, agentic-chat 1/1, tool-rendering 1/1 green. See repair-runtime.md."
       ],
-      "sanity_review": null,
+      "sanity_review": {
+        "status": "approved_for_startup_fix",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "ADK overall qualification blocked by newly discovered browser-only context gap REPAIR-001."
+      },
       "remaining": "Keep one unambiguous auth route shape, start the Google ADK frontend against the local agent, then run the manifest-wired cells with the local AIMock harness and recheck the affected guide routes."
     },
     {
@@ -419,6 +424,17 @@
       "after_evidence": [],
       "sanity_review": null,
       "remaining": "Publish a source-owned, typechecked JSON Render example that includes its parser, defineCatalog/defineRegistry setup, provider, and validation contract, then verify HTML and Markdown extraction."
+    },
+    {
+      "id": "REPAIR-001",
+      "area": "Normal-browser local AIMock context",
+      "severity": "high",
+      "stage": "investigating",
+      "before_record": "repair-runtime.md",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "ADK normal browser auth turn gets strict AIMock no-match without the context header injected by D6. Establish local defaults through shared/minimal backend wiring and verify without harness-only headers."
     }
   ]
 }
