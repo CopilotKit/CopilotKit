@@ -67,10 +67,7 @@
       "dependsOn": []
     }
   },
-  "tags": [
-    "scope:intelligence",
-    "lang:python"
-  ],
+  "tags": ["scope:intelligence", "lang:python"],
   "implicitDependencies": [
     "intelligence-delivery-python-core",
     "runtime-python"

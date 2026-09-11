@@ -18,8 +18,5 @@
       "cache": false
     }
   },
-  "tags": [
-    "scope:intelligence",
-    "type:test"
-  ]
+  "tags": ["scope:intelligence", "type:test"]
 }
