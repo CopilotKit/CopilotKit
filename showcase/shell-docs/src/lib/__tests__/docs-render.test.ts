@@ -259,7 +259,7 @@ describe("loadDoc", () => {
     expect(gettingStarted).toBeLessThan(why);
     expect(why).toBeLessThan(diagram);
     expect(overview).toContain("npx copilotkit@latest init");
-    expect(overview).toContain("Build and verify this with a coding agent");
+    expect(overview).toContain("<RichThreadsSetupPrompt />");
     expect(overview).toContain("Threads-capable CLI starters already include");
     expect(overview).toContain("Book time with a CopilotKit engineer");
     expect(overview).toContain("## Sync existing conversations");

@@ -101,9 +101,7 @@ test("BrandNav keeps space between the center rail and search", () => {
 test("BrandNav uses the docs grid desktop layout cap", () => {
   expect(brandNavSource).toContain("shell-docs-brand-nav-inner");
   expect(globalsCss).toContain(".shell-docs-brand-nav-inner");
-  expect(globalsCss).toContain(
-    "--shell-docs-layout-width: calc(97rem + 11px);",
-  );
+  expect(globalsCss).toContain("--shell-docs-layout-width: min(88rem, 100vw);");
   expect(brandNavSource).not.toContain("max-w-[calc(");
   expect(brandNavSource).not.toContain("max-w-[1534px]");
 });
