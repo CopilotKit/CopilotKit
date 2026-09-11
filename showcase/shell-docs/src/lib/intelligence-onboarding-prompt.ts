@@ -13,12 +13,9 @@ export const INTELLIGENCE_ONBOARDING_EVENTS = {
  * inspects the repository; the docs CTA only changes the feature promise.
  */
 export const INTELLIGENCE_ONBOARDING_PROMPT =
-  "Identify which coding-agent product you are, using a short slug such as " +
-  "`codex` or `claude-code`. From the root of the project where you want " +
-  "CopilotKit, run `npx --yes copilotkit@latest onboard start --run " +
-  `${RUN_ID_PLACEHOLDER}` +
-  " --coding-agent <coding-agent-slug>`. Follow the Markdown instructions it " +
-  "prints until onboarding is complete.";
+  "Help me get started with CopilotKit. Run this command and follow the " +
+  "instructions:\n\nnpx --yes copilotkit@latest onboard start --run " +
+  `${RUN_ID_PLACEHOLDER}`;
 
 const RUN_ID_LENGTH = 12;
 
@@ -78,12 +75,11 @@ export function createFeatureSetupPrompt(
   intent: FeatureOnboardingIntent,
 ): string {
   return (
-    "Identify your coding-agent slug (for example, `codex` or " +
-    "`claude-code`). From the root of this repository, run `npx --yes " +
-    `copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent ${intent}` +
-    "`. Follow the Markdown instructions it prints until setup is complete. " +
-    "If it requires a CopilotKit CLI session check, you have permission to " +
-    "run it; never reveal credentials or send optional diagnostic feedback " +
-    "reports."
+    "Help me set this up in my CopilotKit app. Run this command and follow " +
+    "the instructions:\n\nnpx --yes copilotkit@latest onboard start " +
+    `--intent ${intent}` +
+    "\n\nIf it requires a CopilotKit CLI session check, you have permission " +
+    "to run it. Never reveal credentials or send optional diagnostic " +
+    "feedback reports."
   );
 }

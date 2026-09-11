@@ -98,14 +98,7 @@ describe("docs-search build contract", () => {
 });
 
 describe("partially staged content", () => {
-  it.each([
-    ["reference"],
-    ["ag-ui"],
-    ["docs"],
-    ["reference", "ag-ui"],
-    ["docs", "reference"],
-    ["docs", "ag-ui"],
-  ])(
+  it.each([["reference"], ["docs"]])(
     "rejects a build containing only %j before writing either index",
     (...roots) => {
       const staged = fs.mkdtempSync(

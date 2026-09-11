@@ -65,7 +65,7 @@ test("sends the coding agent to the Learning route and carries nothing else", ()
   // `getLearningContainerId` wiring this prompt used to repeat. That copy had
   // already drifted from the shipped API once; OSS-1150 retired it.
   expect(LEARNING_SETUP_PROMPT).toContain(
-    "npx --yes copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent add-learning",
+    "npx --yes copilotkit@latest onboard start --intent add-learning",
   );
   expect(LEARNING_SETUP_PROMPT).not.toContain("docs.copilotkit.ai");
   expect(LEARNING_SETUP_PROMPT).not.toContain("getLearningContainerId");

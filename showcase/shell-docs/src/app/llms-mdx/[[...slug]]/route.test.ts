@@ -88,10 +88,6 @@ vi.mock("@/lib/reference-items", () => ({
   resolveReferencePage: vi.fn(),
 }));
 
-vi.mock("@/lib/sitemap-helpers", () => ({
-  AG_UI_CONTENT_DIR: "/tmp/ag-ui",
-}));
-
 const loadDocMock = vi.mocked(loadDoc);
 const resolveFrontendDocPageMock = vi.mocked(resolveFrontendDocPage);
 const getFrontendContentSlugMock = vi.mocked(getFrontendContentSlug);
