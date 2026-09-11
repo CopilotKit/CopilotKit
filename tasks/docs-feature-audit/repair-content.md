@@ -54,3 +54,28 @@ the existing `add-rich-threads` intent; it does not create a second prompt API
 or claim that a browser, cloud project, or persistence check has run.
 
 `npm --prefix showcase/shell-docs test -- src/lib/__tests__/tool-rendering-docs.test.ts src/lib/__tests__/llm-text.test.ts src/lib/__tests__/rich-threads-setup-docs.test.ts -t 'shared default-rendering guidance|dependency-complete canonical tool-rendering|HTML unsupported state|no-demo unsupported|supported wired|canonical Rich Threads prompt'` completed after generator pretest with 3 files passing, 10 checks passing, and 47 checks skipped. This verifies the selected-source/Markdown composition contracts; it is not runtime fixture proof.
+
+## Iteration 4 — source-owned named renderer
+
+The root and Mastra canonical Tool Rendering pages now select the current
+`render-weather-tool` region from each page's `tool-rendering` Showcase cell,
+rather than embedding the hand-maintained `ToolRenderingPerToolExample`. The
+region includes the actual `get_weather` name and Zod `parameters` schema;
+its card and parsing helper stay in the same Showcase demo. A static bundled
+source check confirmed that Google ADK, LangGraph Python, and Mastra each
+provide that region from `src/app/demos/tool-rendering/page.tsx` lines 15–96.
+
+The focused Vitest invocation completed generator pretest but did not execute
+its assertions because the local shell-docs test resolver could not find
+`gray-matter`. No dependency or lockfile was changed to work around that local
+environment state. `git diff --check` passed for the four changed source/test
+files. Rerun the focused renderer tests after shell-docs dependency resolution
+is restored.
+
+## Iteration 5 — validation after dependency restoration
+
+After the generation lane restored the existing locked shell-docs dependency
+tree, the focused source-region and raw-Markdown suite passed: 3 files, 11
+checks passed, 46 skipped. It confirms the shared root/Mastra body resolves
+through its `@/snippets` import, each selected context renders its own
+Showcase-owned named renderer, and the C001/C016 controls remain intact.

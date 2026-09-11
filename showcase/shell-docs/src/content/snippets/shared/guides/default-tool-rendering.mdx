@@ -1,44 +1,18 @@
-`useDefaultRenderTool` provides a catch-all renderer for **any tool** that doesn't have a specific `useRenderToolCall` defined. This is useful for:
+`useDefaultRenderTool()` registers CopilotKit's built-in catch-all card for
+every tool without a dedicated `useRenderTool` renderer. Use it when you want
+tool names, status, arguments, and results to remain visible before you build
+a custom card.
 
-- Displaying all tool calls during development
-- Rendering MCP (Model Context Protocol) tools
-- Providing a generic fallback UI for unexpected tools
+The working Showcase call needs no configuration:
 
-```tsx title="app/page.tsx"
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
-// ...
-
-const YourMainContent = () => {
-  // ...
-  // [!code highlight:15]
-  useDefaultRenderTool({
-    render: ({ name, args, status, result }) => {
-      return (
-        <div style={{ color: "black" }}>
-          <span>
-            {status === "complete" ? "✓" : "⏳"}
-            {name}
-          </span>
-          {status === "complete" && result && (
-            <pre>{JSON.stringify(result, null, 2)}</pre>
-          )}
-        </div>
-      );
-    },
-  });
-  // ...
-};
-```
+<Snippet
+  cell="tool-rendering-default-catchall"
+  region="default-catchall-zero-config"
+  title="frontend/src/app/page.tsx — default catch-all"
+/>
 
 <Callout type="info">
-  Unlike `useRenderToolCall`, which targets a specific tool by name,
-  `useDefaultRenderTool` catches **all** tools that don't have a dedicated
-  renderer.
-</Callout>
-
-<Callout type="info">
-  In v2, use [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool)
-  for wildcard fallback rendering, and
-  [`useRenderTool`](/reference/v2/hooks/useRenderTool) for named or wildcard
-  renderer registration.
+  For a branded fallback, use [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool).
+  For a named renderer with a typed `parameters` schema, use
+  [`useRenderTool`](/reference/hooks/useRenderTool).
 </Callout>

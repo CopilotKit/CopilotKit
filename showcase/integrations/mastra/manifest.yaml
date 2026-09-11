@@ -138,6 +138,7 @@ demos:
     route: /demos/tool-rendering
     animated_preview_url:
     highlight:
+      - src/mastra/agents/index.ts
       - src/mastra/tools/index.ts
       - shared-tools/get-weather.ts
       - shared-tools/query-data.ts
