@@ -9,6 +9,7 @@
       "_comment": "agent-config tone:professional pill — value-A. Fixture must return a professional-sounding introduction.",
       "match": {
         "userMessage": "tone:professional",
+        "systemMessage": "tone=professional",
         "context": "built-in-agent"
       },
       "response": {
@@ -19,6 +20,7 @@
       "_comment": "agent-config tone:casual pill — value-B. Must differ from value-A so the diff assertion passes.",
       "match": {
         "userMessage": "tone:casual",
+        "systemMessage": "tone=casual",
         "context": "built-in-agent"
       },
       "response": {
@@ -29,6 +31,7 @@
       "_comment": "agent-config expertise:beginner pill — value-A. Simple, jargon-free explanation.",
       "match": {
         "userMessage": "expertise:beginner",
+        "systemMessage": "expertise=beginner",
         "context": "built-in-agent"
       },
       "response": {
@@ -39,6 +42,7 @@
       "_comment": "agent-config expertise:expert pill — value-B. Technical, detailed explanation.",
       "match": {
         "userMessage": "expertise:expert",
+        "systemMessage": "expertise=expert",
         "context": "built-in-agent"
       },
       "response": {
@@ -49,6 +53,7 @@
       "_comment": "agent-config responseLength:concise pill — value-A. Short response.",
       "match": {
         "userMessage": "responseLength:concise",
+        "systemMessage": "responseLength=concise",
         "context": "built-in-agent"
       },
       "response": {
@@ -59,6 +64,7 @@
       "_comment": "agent-config responseLength:detailed pill — value-B. Must exceed concise by >= 80 chars.",
       "match": {
         "userMessage": "responseLength:detailed",
+        "systemMessage": "responseLength=detailed",
         "context": "built-in-agent"
       },
       "response": {
