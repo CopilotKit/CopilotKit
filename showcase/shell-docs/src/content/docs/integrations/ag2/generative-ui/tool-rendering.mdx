@@ -82,27 +82,11 @@ the UI.
   In order to render a tool call in the UI, the name of the action must match the name of the tool.
 </Callout>
 
-```tsx title="app/page.tsx"
-import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
-// ...
-
-const YourMainContent = () => {
-  // ...
-  // [!code highlight:12]
-  useRenderTool({
-    name: "get_weather",
-    render: ({status, args}) => {
-      return (
-        <p className="text-gray-500 mt-2">
-          {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
-        </p>
-      );
-    },
-  });
-  // ...
-}
-```
+<Snippet
+  framework="ag2"
+  cell="tool-rendering"
+  region="render-weather-tool"
+/>
 
 </Step>
 <Step>
