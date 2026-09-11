@@ -532,6 +532,17 @@
       "after_evidence": [],
       "sanity_review": null,
       "remaining": "Setup excerpt shows hitl_in_chat_agent.py instructing generate_task_steps confirmation while frontend registers render_bar_chart. Bind setup to correct Showcase feature and verify every affected ADK setup path."
+    },
+    {
+      "id": "REPAIR-003",
+      "area": "Selected HITL guide recommends unsupported graph interrupts after ADK-specific caveat",
+      "severity": "medium",
+      "stage": "implementing",
+      "before_record": "Root browser reader review /google-adk/human-in-the-loop on local docs3004",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Lead with supported tool-based ADK path; scope native LangGraph interrupts and headless instructions to supported frameworks. Preserve explicit differences and verify HTML/Markdown support parity."
     }
   ]
 }
