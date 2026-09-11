@@ -159,9 +159,17 @@ function DocsOverview() {
           </div>
         </section>
 
-        <DocsVideoCarousel />
+        {/* A hairline between each section, matching the one under the hero.
+         *  The page is one centred column of four blocks that answer four
+         *  different questions, and without a rule between them the eye has
+         *  nothing to tell it where one answer ends. The last section takes
+         *  none: a rule under the final block would fence off the page
+         *  footer rather than separate anything. */}
+        <div className="border-b border-[var(--border)] pb-8">
+          <DocsVideoCarousel />
+        </div>
 
-        <div className="pt-8">
+        <div className="border-b border-[var(--border)] pt-8 pb-8">
           <MapIntro
             heading="Set up CopilotKit for your project"
             body="Answer three quick questions about your frontend, your agent backend, and the features you want. We turn your answers into a prompt you paste into your coding agent, and it does the setup."

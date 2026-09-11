@@ -38,9 +38,6 @@ import { IntelligenceKiteIcon } from "@/components/intelligence-kite-icon";
 interface Recording {
   readonly id: string;
   readonly title: string;
-  /** One short line of what the recording shows — the title alone is
-   *  jargon to a first-time reader. */
-  readonly summary: string;
   readonly loomId: string;
   /** True for a CopilotKit Intelligence feature, false for core
    *  (open-source) CopilotKit. Drives the Intelligence mark on the tab;
@@ -59,24 +56,18 @@ const RECORDINGS: readonly Recording[] = [
   {
     id: "shared-state-harness",
     title: "Shared state and Harness",
-    summary:
-      "An agent updates a live UI directly through shared state, then runs a multi-agent background analysis of company expenses.",
     loomId: "0cad0c3d96e4454c83133a52d9ac8e7b",
     intelligence: false,
   },
   {
     id: "user-memories",
     title: "User Memories",
-    summary:
-      "An agent recalls past spending patterns, then turns a repeated manual approval into a reusable, published skill using Automatic Learning.",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
     intelligence: true,
   },
   {
     id: "rich-threads",
     title: "Rich Threads",
-    summary:
-      "Generative UI, uploaded files, and approval cards stay live and in sync as one thread moves across devices.",
     loomId: "79817778d29e490c97225127d2f17b3a",
     intelligence: true,
   },
@@ -200,14 +191,6 @@ export function DocsVideoCarousel() {
             loading="lazy"
           />
         </div>
-
-        {/* Below the video, not above it: the recording is what the reader
-         *  came for, and a line of prose between the tab they just clicked
-         *  and the player pushes the player down for no gain. Reading it
-         *  afterwards is also when it is useful, as a caption. */}
-        <p className="mt-3 text-sm text-[var(--text-secondary)]">
-          {active.summary}
-        </p>
       </div>
     </section>
   );

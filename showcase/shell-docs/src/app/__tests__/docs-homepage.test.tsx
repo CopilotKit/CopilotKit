@@ -249,6 +249,37 @@ describe("the docs homepage route", () => {
     expect(sectionOrder).toEqual(["hero", "video", "wizard", "backend-grid"]);
   });
 
+  // Four blocks answering four different questions, so each is fenced off
+  // from the next by the same hairline the hero already carried. The last
+  // one deliberately has none: a rule under the final block would fence off
+  // the page footer rather than separate two sections. Asserting the count
+  // rather than just "some border exists" is what catches both a missing
+  // rule and one too many.
+  it("separates every section but the last with a hairline", async () => {
+    const elements = await renderOverview();
+
+    const withRule = elements.filter((el) =>
+      String((el.props as { className?: string }).className ?? "").includes(
+        "border-b border-[var(--border)]",
+      ),
+    );
+    expect(withRule).toHaveLength(3);
+
+    // And the block holding the backend grid is not one of them: its nearest
+    // wrapper with a className carries no rule.
+    const backendWrapper = elements.find(
+      (el) =>
+        typeof el.type === "string" &&
+        collect(el.props.children as ReactNode).some(
+          (child) => child.type === docsLandingNextSpy,
+        ),
+    );
+    expect(backendWrapper).toBeTruthy();
+    expect(String(backendWrapper!.props.className ?? "")).not.toContain(
+      "border-b",
+    );
+  });
+
   // A reviewer named em-dashes explicitly as something to stop using. Cover
   // both the hero's own text children and the wizard intro's copy, which
   // arrives as props rather than children and so wouldn't be caught by

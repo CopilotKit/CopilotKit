@@ -45,22 +45,17 @@ describe("DocsVideoCarousel", () => {
   // so it belongs to the panel rather than sitting beside the tab strip.
   // Outside the panel it is orphaned for anyone who navigates by landmark
   // or moves straight into the panel from its tab.
-  it("puts the selected recording's summary inside the tab panel, with the video", () => {
+  // The panel holds the recording and nothing else. It used to carry a
+  // caption describing what the recording shows; that came out because the
+  // page is being kept short and the recording says it better than a
+  // sentence does. Guarding the absence keeps a caption from creeping back
+  // in without the decision being revisited.
+  it("puts the recording in the tab panel and no caption beside it", () => {
     render(<DocsVideoCarousel />);
 
     const panel = screen.getByRole("tabpanel");
-    const iframe = panel.querySelector("iframe");
-    expect(iframe).not.toBeNull();
-
-    const summary = panel.querySelector("p");
-    expect(summary).not.toBeNull();
-    expect(summary!.textContent!.trim().length).toBeGreaterThan(20);
-
-    // And it is the *selected* one's summary: switching tabs changes it.
-    const before = summary!.textContent;
-    fireEvent.click(screen.getAllByRole("tab")[1]!);
-    const after = screen.getByRole("tabpanel").querySelector("p")!.textContent;
-    expect(after).not.toBe(before);
+    expect(panel.querySelector("iframe")).not.toBeNull();
+    expect(panel.querySelector("p")).toBeNull();
   });
 
   it("selects exactly one tab, the first, initially", () => {
@@ -198,7 +193,7 @@ describe("DocsVideoCarousel", () => {
   // The section-level chrome centres to match the rest of the homepage
   // below the hero; the tabs' own behaviour (selection, keyboard, the
   // Intelligence mark) is covered separately above and untouched by this.
-  it("centres the section heading, the tab strip, and the caption", () => {
+  it("centres the section heading and the tab strip", () => {
     render(<DocsVideoCarousel />);
 
     const heading = screen.getByRole("heading", {
@@ -208,20 +203,9 @@ describe("DocsVideoCarousel", () => {
     expect(section).not.toBeNull();
     expect(section!.className).toContain("text-center");
 
+    // The strip centres as a group rather than starting at the left edge.
     const tablist = screen.getByRole("tablist");
     expect(tablist.className).toContain("justify-center");
-
-    const panel = screen.getByRole("tabpanel");
-    const caption = panel.querySelector("p");
-    expect(caption).not.toBeNull();
-    // The caption has no centring class of its own — it inherits the
-    // section's text-center, so walk up to confirm that ancestor exists
-    // rather than asserting on computed style, which jsdom never lays out.
-    let ancestor: HTMLElement | null = caption;
-    while (ancestor && !ancestor.className.includes("text-center")) {
-      ancestor = ancestor.parentElement;
-    }
-    expect(ancestor).not.toBeNull();
   });
 
   it("never renders an em-dash", () => {
