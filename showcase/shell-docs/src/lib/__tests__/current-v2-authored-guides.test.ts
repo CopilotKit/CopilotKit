@@ -20,9 +20,10 @@ function rendered(slug: string): string {
   });
 }
 
-test("keeps AG2 and Mastra frontend-tool guidance on the v2 reference", () => {
+test("keeps AG2, Agno, and Mastra frontend-tool guidance on the v2 reference", () => {
   for (const slug of [
     "integrations/ag2/frontend-tools",
+    "integrations/agno/frontend-tools",
     "integrations/mastra/frontend-tools",
   ]) {
     const guide = source(slug);
@@ -51,4 +52,20 @@ test("uses the Showcase-owned named-renderer example in the AG2 guide", () => {
   expect(renderedTool).toContain("parameters: z.object({");
   expect(renderedTool).toContain("parameters?.location");
   expect(renderedTool).toContain("[],");
+});
+
+test("uses the running AG2 state publisher and stream setup", () => {
+  const guide = source("integrations/ag2/generative-ui/state-rendering");
+  expect(guide).toContain('cell="gen-ui-agent"');
+  expect(guide).toContain('region="gen-ui-agent-steps-tool"');
+  expect(guide).toContain('region="gen-ui-agent-runtime"');
+  expect(guide).not.toContain("StateSnapshotEvent");
+  expect(guide).not.toContain('name="assistant"');
+
+  const output = rendered("integrations/ag2/generative-ui/state-rendering");
+  expect(output).toContain("async def set_steps(");
+  expect(output).toContain('context_variables.update({"steps": cleaned})');
+  expect(output).toContain('name="gen_ui_agent"');
+  expect(output).toContain("gen_ui_agent_app.mount");
+  expect(output).toContain('agentId: "gen-ui-agent"');
 });

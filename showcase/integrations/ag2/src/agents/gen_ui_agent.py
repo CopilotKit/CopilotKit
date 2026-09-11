@@ -30,6 +30,7 @@ import logging
 from textwrap import dedent
 from typing import Annotated, List
 
+# @region[gen-ui-agent-steps-tool]
 from autogen import ConversableAgent, LLMConfig
 from autogen.ag_ui import AGUIStream
 from autogen.agentchat import ContextVariables, ReplyResult
@@ -79,6 +80,9 @@ async def set_steps(
     )
 
 
+# @endregion[gen-ui-agent-steps-tool]
+
+
 SYSTEM_PROMPT = dedent(
     """
     You are an agentic planner. For each user request, follow this exact
@@ -109,6 +113,7 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+# @region[gen-ui-agent-runtime]
 agent = ConversableAgent(
     name="gen_ui_agent",
     system_message=SYSTEM_PROMPT,
@@ -124,3 +129,4 @@ agent = ConversableAgent(
 stream = AGUIStream(agent)
 gen_ui_agent_app = FastAPI()
 gen_ui_agent_app.mount("", stream.build_asgi())
+# @endregion[gen-ui-agent-runtime]

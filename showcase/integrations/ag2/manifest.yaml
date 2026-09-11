@@ -192,6 +192,7 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/agent.py
+      - src/agents/gen_ui_agent.py
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
