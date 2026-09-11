@@ -443,13 +443,15 @@
       "id": "declarative-hashbrown",
       "name": "Declarative UI: Hashbrown",
       "category": "byoc",
-      "description": "Hashbrown-style generative UI"
+      "description": "Hashbrown-style generative UI",
+      "shell_docs_path": "/generative-ui/hashbrown"
     },
     {
       "id": "declarative-json-render",
       "name": "Declarative UI: json-render",
       "category": "byoc",
-      "description": "Streaming structured-output generative UI via @json-render/react"
+      "description": "Streaming structured-output generative UI via @json-render/react",
+      "shell_docs_path": "/generative-ui/json-render"
     }
   ]
 }

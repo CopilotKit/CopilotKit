@@ -24,6 +24,34 @@ describe("next.config redirects", () => {
     );
   });
 
+  it("preserves the legacy Google ADK component URLs through scoped guide redirects", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
+    vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
+
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = await nextConfig.redirects?.();
+
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        {
+          source: "/google-adk/generative-ui/your-components/display-only",
+          destination: "/google-adk/generative-ui/display",
+          permanent: true,
+        },
+        {
+          source: "/google-adk/generative-ui/your-components/display-only.md",
+          destination: "/google-adk/generative-ui/display.md",
+          permanent: true,
+        },
+        {
+          source: "/google-adk/generative-ui/your-components/interactive.mdx",
+          destination: "/google-adk/human-in-the-loop.mdx",
+          permanent: true,
+        },
+      ]),
+    );
+  });
+
   it("strips the retired built-in-agent prefix to root URLs", async () => {
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
     vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");

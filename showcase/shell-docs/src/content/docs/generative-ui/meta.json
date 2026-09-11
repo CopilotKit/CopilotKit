@@ -18,7 +18,7 @@
       "title": "Declarative",
       "icon": "lucide/FileJson",
       "defaultOpen": true,
-      "pages": ["...a2ui"]
+      "pages": ["...a2ui", "hashbrown", "json-render"]
     },
     {
       "title": "Open-Ended",

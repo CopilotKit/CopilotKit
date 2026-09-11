@@ -852,11 +852,19 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
 
-      // No bare redirects for `/generative-ui/your-components/*`: the
-      // Built-in Agent docs are served at the root, and BIA authors real
-      // pages at those paths (display-only, interactive). Framework-scoped
-      // variants (`/:framework/generative-ui/your-components/*`) also
-      // render directly.
+      // No generic redirects for `/generative-ui/your-components/*`: the
+      // Built-in Agent and several framework docs author real pages there.
+      // Google ADK alone has no matching overrides, so preserve its two
+      // previously advertised URLs by routing them to root guides while
+      // retaining the selected ADK context and raw-Markdown suffix.
+      ...permanentRedirectsWithSuffixes(
+        "/google-adk/generative-ui/your-components/display-only",
+        "/google-adk/generative-ui/display",
+      ),
+      ...permanentRedirectsWithSuffixes(
+        "/google-adk/generative-ui/your-components/interactive",
+        "/google-adk/human-in-the-loop",
+      ),
     ];
   },
 };
