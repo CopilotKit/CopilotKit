@@ -155,6 +155,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "a2a-protocol": "agentic-protocols/a2a",
   "a2a/generative-ui/declarative-a2ui": "guides/a2ui",
   "connect-mcp-servers": "guides/frontend-tools-generative-ui",
+  "server-tools": "guides/frontend-tools-generative-ui",
   "langgraph/auth": "auth",
   "langgraph/quickstart": "langgraph-python/quickstart",
   "(other)/telemetry": "telemetry",
