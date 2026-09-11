@@ -31,5 +31,12 @@
       "dependsOn": []
     }
   },
-  "tags": ["scope:intelligence", "lang:python", "private"]
+  "tags": [
+    "scope:intelligence",
+    "lang:python",
+    "private"
+  ],
+  "implicitDependencies": [
+    "runtime-python"
+  ]
 }
