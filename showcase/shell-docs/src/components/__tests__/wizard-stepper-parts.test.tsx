@@ -306,6 +306,26 @@ describe("ChoiceGrid", () => {
     expect(yes.textContent).toContain("Add CopilotKit to what you have");
   });
 
+  // Two fixed-width centred columns, not two halves of the row. Stretched
+  // across the full width the pair read as flat and adrift in a card this
+  // tall, which is the thing this replaced; a later "simplify" back to
+  // `sm:grid-cols-2` would quietly undo it.
+  it("lays the options out as two narrow centred columns", () => {
+    const { container } = render(
+      <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
+    );
+
+    const grid = container.firstElementChild;
+    expect(grid).not.toBeNull();
+    expect(grid!.className).toMatch(/\bjustify-center\b/);
+    expect(grid!.className).toMatch(
+      /\bsm:grid-cols-\[repeat\(2,minmax\(0,12rem\)\)\]/,
+    );
+    // Full width below `sm`, so the narrowing is a wide-screen decision only.
+    expect(grid!.className).toMatch(/\bgrid-cols-1\b/);
+    expect(grid!.className).not.toMatch(/\bsm:grid-cols-2\b/);
+  });
+
   it("marks only the selected option with aria-pressed", () => {
     render(
       <ChoiceGrid
