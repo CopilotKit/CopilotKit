@@ -1,0 +1,16 @@
+<InlineDemo demo="frontend-tools" />
+
+## Register browser functions your agent can call
+
+Frontend tools run in the user's browser. Register one when the agent needs
+to update component state, use a browser API, or show UI your app owns. Keep
+server-side work in a backend tool.
+
+Use [`useFrontendTool`](/reference/hooks/useFrontendTool) to give the tool a
+name, a Zod parameter schema, and a handler. When the agent calls that name,
+the browser runs the handler and returns its result to the agent.
+
+<Snippet cell="frontend-tools" region="frontend-tool-registration" />
+
+Ask the Showcase agent to change the page background. Its tool call runs in
+the browser and updates the UI without a page reload.

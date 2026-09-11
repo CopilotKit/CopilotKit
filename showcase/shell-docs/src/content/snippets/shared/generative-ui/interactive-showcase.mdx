@@ -1,0 +1,17 @@
+<InlineDemo demo="hitl-in-chat" />
+
+## Let users answer before the agent continues
+
+Use Human-in-the-loop when the agent needs a choice, confirmation, or a
+piece of information from the person using the app. The Showcase example
+asks the user to choose a time, renders the choice in chat, and continues
+the same conversation with their answer.
+
+Register the picker with
+[`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop). The callback
+returns the selected value to the agent as the tool result.
+
+<Snippet cell="hitl-in-chat" region="hitl-hook" />
+
+Try asking the agent to arrange a meeting. Select a time in the chat card;
+the agent receives that choice and responds with the next step.
