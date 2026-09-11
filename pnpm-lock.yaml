@@ -202,6 +202,61 @@ importers:
         specifier: ^4.1.3
         version: 4.1.3(@opentelemetry/api@1.9.0)(@types/node@18.19.130)(@vitest/coverage-v8@3.2.4)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@18.19.130)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
+  examples/channels-a2ui-playground:
+    dependencies:
+      '@a2ui/web_core':
+        specifier: 0.10.4
+        version: 0.10.4
+      '@copilotkit/channels-slack':
+        specifier: workspace:*
+        version: link:../../packages/channels-slack
+      '@copilotkit/channels-ui':
+        specifier: workspace:*
+        version: link:../../packages/channels-ui
+      '@slack/types':
+        specifier: ^2.21.1
+        version: 2.21.1
+      '@tightknitai/storybook-addon-slack-block-kit':
+        specifier: 0.1.1
+        version: 0.1.1(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(storybook@10.6.0(@types/react@19.1.8)(prettier@3.7.4)(react@19.2.3))
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+      slack-blocks-to-jsx:
+        specifier: 1.1.2
+        version: 1.1.2(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.59.1
+        version: 1.59.1
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.11
+      '@types/react':
+        specifier: 19.1.8
+        version: 19.1.8
+      '@types/react-dom':
+        specifier: ^19.0.2
+        version: 19.2.3(@types/react@19.1.8)
+      storybook:
+        specifier: ^10.2.10
+        version: 10.6.0(@types/react@19.1.8)(prettier@3.7.4)(react@19.2.3)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: 7.3.2
+        version: 7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      vitest:
+        specifier: ^4.1.3
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+
   examples/showcases/generative-ui-playground:
     dependencies:
       '@a2a-js/sdk':
@@ -14245,6 +14300,18 @@ packages:
     peerDependencies:
       graphql: ^16.0.0
 
+  '@tightknitai/slack-block-kit-validator@0.1.0-alpha.0':
+    resolution: {integrity: sha512-mmZmH99dYSy4LNhm9WYhyq+DvEd2AXiAMNmh/E9c7QGo3D+IckVkjxYuMQ8k27JROkNKFYBNamJMKQtJ6u3gRg==}
+    engines: {node: '>=20'}
+
+  '@tightknitai/storybook-addon-slack-block-kit@0.1.1':
+    resolution: {integrity: sha512-RYmwK4LGTmh4+dYWYwhsA8tAg+erE5Q3PxXfMa3wfuP5l9fNJfjyRBr13PW5enKVRnB1Mg70U8JNOAN1RtSi7A==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      react: 19.2.3
+      react-dom: 19.2.3
+      storybook: ^10.0.0
+
   '@tokenizer/inflate@0.4.1':
     resolution: {integrity: sha512-2mAv+8pkG6GIZiF1kNg1jAjh27IDxEPKwdGul3snfztFerfPGI1LjDezZp3i7BElXompqEtPmoPx6c2wgtWsOA==}
     engines: {node: '>=18'}
@@ -24661,6 +24728,12 @@ packages:
   skin-tone@2.0.0:
     resolution: {integrity: sha512-kUMbT1oBJCpgrnKoSr0o6wPtvRWT9W9UKvGLwfJYO2WuahZRHOpEyL1ckyMGgMWh0UdpmaoFqKKD29WTomNEGA==}
     engines: {node: '>=8'}
+
+  slack-blocks-to-jsx@1.1.2:
+    resolution: {integrity: sha512-q6A/kPiLb7bWPAhBi2Av2N4owDpb79IqebnUxO0ydY25/4LOJoidoYG2d0Uo6MmVOOf17RzH/yKmItVuuQK1Hg==}
+    peerDependencies:
+      react: 19.2.3
+      react-dom: 19.2.3
 
   slash@3.0.0:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
@@ -41518,6 +41591,22 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@tightknitai/slack-block-kit-validator@0.1.0-alpha.0':
+    dependencies:
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
+
+  '@tightknitai/storybook-addon-slack-block-kit@0.1.1(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(storybook@10.6.0(@types/react@19.1.8)(prettier@3.7.4)(react@19.2.3))':
+    dependencies:
+      '@tightknitai/slack-block-kit-validator': 0.1.0-alpha.0
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+      slack-blocks-to-jsx: 1.1.2(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      storybook: 10.6.0(@types/react@19.1.8)(prettier@3.7.4)(react@19.2.3)
+    transitivePeerDependencies:
+      - '@types/react'
+      - supports-color
+
   '@tokenizer/inflate@0.4.1':
     dependencies:
       debug: 4.4.3(supports-color@5.5.0)
@@ -56262,6 +56351,17 @@ snapshots:
   skin-tone@2.0.0:
     dependencies:
       unicode-emoji-modifier-base: 1.0.0
+
+  slack-blocks-to-jsx@1.1.2(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+    dependencies:
+      node-emoji: 2.2.0
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+      react-markdown: 9.1.0(@types/react@19.1.8)(react@19.2.3)
+      remark-gfm: 4.0.1
+    transitivePeerDependencies:
+      - '@types/react'
+      - supports-color
 
   slash@3.0.0: {}
 

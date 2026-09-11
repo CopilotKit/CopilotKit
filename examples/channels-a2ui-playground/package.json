@@ -1,0 +1,46 @@
+{
+  "name": "channels-a2ui-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint src e2e *.ts",
+    "format": "oxfmt --write src e2e *.ts index.html README.md",
+    "check-format": "oxfmt --check src e2e *.ts index.html README.md",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@a2ui/web_core": "0.10.4",
+    "@copilotkit/channels-slack": "workspace:*",
+    "@copilotkit/channels-ui": "workspace:*",
+    "@slack/types": "^2.21.1",
+    "@tightknitai/storybook-addon-slack-block-kit": "0.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "slack-blocks-to-jsx": "1.1.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1",
+    "@types/node": "^22.10.0",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "^19.0.2",
+    "storybook": "^10.2.10",
+    "typescript": "^5.6.3",
+    "vite": "7.3.2",
+    "vitest": "^4.1.3"
+  },
+  "nx": {
+    "targets": {
+      "test": { "inputs": ["default", "^production"] },
+      "check-types": { "dependsOn": ["^build"] },
+      "e2e": { "dependsOn": ["build"], "cache": false },
+      "lint": { "cache": true },
+      "check-format": { "cache": true }
+    }
+  }
+}

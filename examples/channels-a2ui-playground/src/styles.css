@@ -1,0 +1,429 @@
+:root {
+  color: #1f2428;
+  background: #eef1f4;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.playground-shell {
+  min-height: 100vh;
+  padding: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0)),
+    #eef1f4;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
+  gap: 16px;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.editor-pane,
+.preview-pane {
+  min-width: 0;
+  border: 1px solid #d9dee5;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 48px rgba(31, 36, 40, 0.08);
+}
+
+.editor-pane {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+  padding: 18px;
+}
+
+.preview-pane {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.pane-header,
+.panel-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pane-header {
+  margin-bottom: 16px;
+}
+
+.pane-header.compact {
+  margin-bottom: 0;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #68717d;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: #171b20;
+}
+
+h1 {
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+h2 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+h3 {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.field-label,
+.theme-control {
+  display: grid;
+  gap: 6px;
+  color: #3c4652;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.theme-control {
+  min-width: 170px;
+}
+
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #cbd3dd;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #20262d;
+  outline: none;
+}
+
+select {
+  min-height: 38px;
+  padding: 0 34px 0 11px;
+}
+
+textarea {
+  flex: 1;
+  min-height: 360px;
+  margin-top: 6px;
+  padding: 14px;
+  resize: none;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+select:focus,
+textarea:focus {
+  border-color: #3f7fbf;
+  box-shadow: 0 0 0 3px rgba(63, 127, 191, 0.16);
+}
+
+.example-description {
+  min-height: 40px;
+  margin: 8px 0 16px;
+  color: #596472;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding-top: 12px;
+}
+
+.primary-button,
+.secondary-button {
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.primary-button {
+  min-height: 38px;
+  padding: 0 16px;
+  background: #1f2937;
+  color: #ffffff;
+}
+
+.secondary-button {
+  min-height: 32px;
+  padding: 0 11px;
+  background: #ffffff;
+  color: #28323d;
+}
+
+.primary-button:hover,
+.secondary-button:hover {
+  transform: translateY(-1px);
+}
+
+.stale-note {
+  color: #8a5a00;
+  font-size: 13px;
+}
+
+.status-pill,
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid #bad7c4;
+  border-radius: 999px;
+  background: #eef8f1;
+  color: #24663a;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-pill.dirty {
+  border-color: #e6c069;
+  background: #fff7df;
+  color: #795200;
+}
+
+.health-badge.error {
+  border-color: #efb4ad;
+  background: #fff0ee;
+  color: #9b2f25;
+}
+
+.slack-preview-card,
+.diagnostics-panel,
+.json-panel,
+.action-log {
+  border: 1px solid #d9dee5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.slack-preview-card {
+  min-height: 220px;
+  overflow: auto;
+  padding: 14px;
+}
+
+.diagnostics-panel,
+.action-log {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.diagnostic {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #dce2e8;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.diagnostic > span {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.diagnostic p {
+  margin: 3px 0 0;
+  color: #4e5967;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.diagnostic code,
+.log-entry pre,
+.json-panel pre {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.diagnostic.error {
+  border-color: #efb4ad;
+  background: #fff7f6;
+}
+
+.diagnostic.warning {
+  border-color: #e9cc87;
+  background: #fffaf0;
+}
+
+.diagnostic.info {
+  border-color: #b8d5ef;
+  background: #f4f9fd;
+}
+
+.json-panel {
+  overflow: hidden;
+}
+
+.json-panel summary {
+  padding: 13px 14px;
+  color: #28323d;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.json-panel pre,
+.log-entry pre {
+  margin: 0;
+  overflow: auto;
+  color: #27313d;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.json-panel pre {
+  max-height: 420px;
+  padding: 14px;
+  border-top: 1px solid #e4e8ed;
+  background: #f8fafc;
+}
+
+.action-log ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-entry {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce2e8;
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: #fbfcfd;
+}
+
+.log-entry.success {
+  border-left-color: #2f8d46;
+}
+
+.log-entry.error {
+  border-left-color: #bf3d32;
+}
+
+.log-entry.pending {
+  border-left-color: #4678aa;
+}
+
+.log-entry div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.log-entry span {
+  color: #68717d;
+}
+
+.empty-state {
+  margin: 0;
+  color: #68717d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.renderer-error {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #efb4ad;
+  border-radius: 6px;
+  background: #fff7f6;
+  color: #9b2f25;
+  font-size: 13px;
+}
+
+@media (max-width: 980px) {
+  .playground-shell {
+    padding: 12px;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-pane {
+    position: static;
+    height: auto;
+    min-height: 620px;
+  }
+}
+
+@media (max-width: 560px) {
+  .pane-header,
+  .panel-title-row,
+  .editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .theme-control {
+    min-width: 0;
+  }
+
+  .diagnostic {
+    grid-template-columns: 1fr;
+  }
+}
