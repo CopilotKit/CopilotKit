@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { FolderCode, Sparkles } from "lucide-react";
 
 import {
   ChoiceGrid,
@@ -270,8 +271,18 @@ describe("WizardCard", () => {
 
 describe("ChoiceGrid", () => {
   const OPTIONS = [
-    { id: "yes", label: "Yes", description: "Add CopilotKit to what you have" },
-    { id: "no", label: "No", description: "Start from scratch" },
+    {
+      id: "yes",
+      label: "Yes",
+      description: "Add CopilotKit to what you have",
+      icon: FolderCode,
+    },
+    {
+      id: "no",
+      label: "No",
+      description: "Start from scratch",
+      icon: Sparkles,
+    },
   ];
 
   // The same guards every other option control in this wizard carries. They
@@ -331,6 +342,55 @@ describe("ChoiceGrid", () => {
     expect(yes.className).toMatch(/\bcursor-pointer\b/);
     fireEvent.click(yes);
     expect(onSelect).toHaveBeenCalledWith("yes");
+  });
+
+  // The reader asked for an icon "like all the other choices". A checkmark
+  // was ruled out (it already means *selected* on `CapabilityGrid`'s toggle
+  // tiles, and a check/cross pair would read as right and wrong when
+  // neither answer here is wrong), so each option gets its own meaningful
+  // icon instead — decorative next to its own visible label, hence
+  // `aria-hidden`. This only asserts an icon renders and is hidden from
+  // assistive technology, not what it depicts.
+  it("renders each option's own icon, decorative and aria-hidden", () => {
+    const { container } = render(
+      <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
+    );
+
+    const icons = container.querySelectorAll('svg[aria-hidden="true"]');
+    expect(icons).toHaveLength(2);
+  });
+
+  // Single choice expresses selection purely through the accent border and
+  // fill, same as `PickGrid` — a checkmark here would collide with the
+  // option's own icon, which already carries meaning of its own. Asserting
+  // each button renders exactly one svg (its own icon) is what catches a
+  // regression that adds a second, selection-only icon back in.
+  it("renders no selection checkmark on either option, even when one is selected", () => {
+    render(
+      <ChoiceGrid
+        options={OPTIONS}
+        selectedId="yes"
+        disabled={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    for (const button of screen.getAllByRole("button")) {
+      expect(button.querySelectorAll("svg")).toHaveLength(1);
+    }
+  });
+
+  // Guards the fix for the empty-looking options: two wide, short tiles used
+  // to leave roughly 218px of a 292px-tall content area empty. Without this
+  // floor a future edit could flatten the cards back to that thin row.
+  it("gives each option card a minimum height so the pair fills its frame", () => {
+    render(
+      <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
+    );
+
+    for (const button of screen.getAllByRole("button")) {
+      expect(button.className).toMatch(/\bmin-h-\[13rem\]/);
+    }
   });
 });
 

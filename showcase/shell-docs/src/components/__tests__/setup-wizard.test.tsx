@@ -647,11 +647,12 @@ describe("progress rail", () => {
 });
 
 describe("step 5: copy your prompt", () => {
-  it("shows the copy button and the quickstart link, and renders neither the prompt text nor a reset control", () => {
+  it("shows the copy button and the Set up manually link, and renders neither the prompt text nor a reset control", () => {
     advanceToStep5({ frontend: "React", backend: "Mastra" });
 
     expect(screen.getByRole("button", { name: "Copy prompt" })).not.toBeNull();
-    expect(screen.getByRole("link", { name: /quickstart/i })).not.toBeNull();
+    const guideLink = screen.getByRole("link", { name: "Set up manually" });
+    expect(guideLink.getAttribute("href")).toBe("/quickstart");
     expect(screen.queryByText(/--coding-agent/)).toBeNull();
     expect(screen.queryByRole("button", { name: /reset/i })).toBeNull();
   });
@@ -724,35 +725,50 @@ describe("step 5: copy your prompt", () => {
 
   // The copy button lives back in the footer's primary slot, exactly where
   // Continue sits on every other step — an earlier version centred it in
-  // the card body instead, which the reader asked to have undone. Anchored
-  // on the shared container (the same immediate parent as Back) rather than
-  // on "is the button somewhere in the document": that parent is
-  // `WizardNav`'s own button row, so a regression that moves the copy
-  // button back into the card body would no longer share it with Back,
-  // which this explicitly requires.
-  it("puts the copy button in the footer alongside Back", () => {
+  // the card body instead, which the reader asked to have undone. This used
+  // to be anchored on the shared container being the *same immediate
+  // parent* as Back, but Copy is now grouped with "Set up manually" into
+  // its own right-aligned pair (see the grouping test below), so it no
+  // longer shares Back's immediate parent — a wrapper sits between them.
+  // What this actually protects is that Copy still lives in the footer and
+  // not back in the card body, so assert containment in the footer
+  // container itself (`data-testid="wizard-footer"` on `WizardCard`'s
+  // footer wrapper) rather than against a specific parent node.
+  it("keeps the copy button in the footer, alongside Back", () => {
     advanceToStep5({ frontend: "React", backend: "Mastra" });
 
     const backButton = screen.getByRole("button", { name: "Back" });
     const copyButton = screen.getByRole("button", { name: "Copy prompt" });
+    const footer = screen.getByTestId("wizard-footer");
 
-    expect(copyButton.parentElement).toBe(backButton.parentElement);
+    expect(footer.contains(backButton)).toBe(true);
+    expect(footer.contains(copyButton)).toBe(true);
   });
 
-  // The last step's footer gained a second, peer action alongside Copy
-  // prompt (see `wizard-stepper-parts.tsx`'s `secondaryAction` slot): a
-  // reader who would rather not copy a prompt still has an explicit way
-  // forward from the same row, distinct from the persistent quickstart link
-  // that already sits below the whole wizard (see the "manual quickstart
-  // link" describe block below).
-  it("shows a Follow this guide action pointing at /quickstart, alongside Copy prompt", () => {
+  // Renamed from "Follow this guide" per the reviewer's request, and moved:
+  // the footer row is `justify-between` with Back at one edge and (before
+  // this change) three more independently-spaced items drifting across it,
+  // which stranded this action midway between the hint and Copy prompt. It
+  // now groups with Copy prompt as a single right-aligned pair (see
+  // `wizard-stepper-parts.tsx`'s `secondaryAction` handling) — asserting
+  // they share a parent, and that Back does not share it, is what would
+  // catch a regression back to all three being independently spaced.
+  it("shows a Set up manually action pointing at /quickstart, grouped with Copy prompt and not with Back", () => {
     advanceToStep5({ frontend: "React", backend: "Mastra" });
 
-    const guideLink = screen.getByRole("link", { name: "Follow this guide" });
+    const guideLink = screen.getByRole("link", { name: "Set up manually" });
     expect(guideLink.getAttribute("href")).toBe("/quickstart");
 
     const copyButton = screen.getByRole("button", { name: "Copy prompt" });
-    expect(guideLink.closest("section")).toBe(copyButton.closest("section"));
+    const backButton = screen.getByRole("button", { name: "Back" });
+
+    // `guideLink` sits one level deeper than `copyButton` — `WizardNav`
+    // wraps `secondaryAction` in a span to carry its own mobile ordering
+    // class (see that file), so `closest("div")` is what actually reaches
+    // their shared grouping container, not `parentElement`.
+    const sharedGroup = guideLink.closest("div");
+    expect(sharedGroup).toBe(copyButton.parentElement);
+    expect(sharedGroup).not.toBe(backButton.parentElement);
   });
 
   it("returns to Copy prompt after the reset delay following a successful copy", async () => {
@@ -1434,42 +1450,25 @@ describe("step transition cleanup", () => {
   });
 });
 
-describe("manual quickstart link", () => {
-  it("is present on step 1", () => {
+// The persistent "Prefer to set it up yourself? Follow the manual
+// quickstart." link used to sit below the whole wizard as the only way out
+// for a reader with JavaScript disabled, stuck on step 1 with no working
+// Continue. That justification no longer holds: the page now ends with the
+// restored backend grid below the wizard, whose server-rendered HTML
+// carries real anchors — `/quickstart` first among them — reachable with no
+// script running at all (confirmed against the running app). This asserts
+// the line is gone by its exact wording, not merely that some other
+// quickstart link exists elsewhere (step 5's own "Set up manually" action
+// does, and must not be confused for this one).
+describe("persistent quickstart link", () => {
+  it("no longer renders the persistent manual-quickstart line below the wizard", () => {
     renderWizard();
 
-    expect(screen.getByRole("link", { name: /quickstart/i })).not.toBeNull();
-  });
-
-  it("is still present on step 5", () => {
-    advanceToStep5({ frontend: "React", backend: "Mastra" });
-
-    expect(screen.getByRole("link", { name: /quickstart/i })).not.toBeNull();
-  });
-
-  // Two distinct links now point at `/quickstart` on the last step: the
-  // persistent one below the whole wizard (the no-JS reader's only way
-  // out, present on every step) and the new in-card "Follow this guide"
-  // peer of Copy prompt (see `secondaryAction` in `wizard-stepper-parts.tsx`).
-  // They must stay distinct, not merge into one: the persistent link
-  // belongs to the page around the wizard, not to step 5's own card.
-  it("keeps the persistent quickstart link outside step 5's card, distinct from the in-card Follow this guide action", () => {
-    advanceToStep5({ frontend: "React", backend: "Mastra" });
-
-    const card = screen
-      .getByRole("heading", {
-        name: "Ready to set up",
-      })
-      .closest("section");
-    if (!card) throw new Error("step 5 card not found");
-
-    const persistentLink = screen.getByRole("link", {
-      name: /Prefer to set it up yourself/,
-    });
-    expect(card.contains(persistentLink)).toBe(false);
-
-    const guideLink = screen.getByRole("link", { name: "Follow this guide" });
-    expect(card.contains(guideLink)).toBe(true);
+    expect(
+      screen.queryByText(
+        "Prefer to set it up yourself? Follow the manual quickstart.",
+      ),
+    ).toBeNull();
   });
 });
 

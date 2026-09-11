@@ -54,7 +54,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { Copy } from "lucide-react";
+import { Copy, FolderCode, Sparkles } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
 import { WizardReview } from "@/components/wizard-review";
@@ -121,16 +122,39 @@ const COPY_LABEL: Record<CopyState, string> = {
  *  to carry can never drift apart. */
 const PROJECT_ANSWER_IDS = ["yes", "no"] as const;
 
+// Named imports into an explicit record, never `import * as icons` with a
+// runtime index — see `docs-map-parts.tsx`'s `CAPABILITY_ICONS` comment for
+// the bundle-size regression that guards against (605 KB minified for a
+// namespace import indexed at runtime, vs. 6 KB for named imports; a
+// namespace object forces the bundler to retain every lucide export and
+// blocks Next's optimizePackageImports from rewriting it).
+//
+// Neither icon is a checkmark: a checkmark already means *selected*
+// elsewhere in this wizard (`CapabilityGrid`'s toggle tiles), and using one
+// here for the option's own meaning would collide with that. Nor is it a
+// check/cross pair, which reads as right and wrong — starting fresh is not
+// a wrong answer. `FolderCode` stands for the existing codebase "Yes" adds
+// CopilotKit to; `Sparkles` stands for the fresh start "No" begins instead.
+const PROJECT_OPTION_ICONS: Record<
+  (typeof PROJECT_ANSWER_IDS)[number],
+  LucideIcon
+> = {
+  yes: FolderCode,
+  no: Sparkles,
+};
+
 const PROJECT_OPTIONS: readonly ChoiceOption[] = [
   {
     id: "yes",
     label: "Yes",
     description: "Add CopilotKit to what you have",
+    icon: PROJECT_OPTION_ICONS.yes,
   },
   {
     id: "no",
     label: "No",
     description: "Start from scratch",
+    icon: PROJECT_OPTION_ICONS.no,
   },
 ];
 
@@ -733,7 +757,7 @@ export function SetupWizard({
         continueIcon={<Copy aria-hidden="true" className="h-4 w-4" />}
         secondaryAction={
           <Link href="/quickstart" className={QUIET_BUTTON_CLASS}>
-            Follow this guide
+            Set up manually
           </Link>
         }
       />
@@ -761,21 +785,15 @@ export function SetupWizard({
           {body}
         </WizardCard>
       </div>
-      {/* Always present, not just on the review step: with JavaScript
-       *  disabled, Continue's click handler never fires, so a reader lands
-       *  on step 1 and cannot advance. Without this link that is a dead
-       *  end — the manual quickstart would be hidden behind four steps a
-       *  no-JS reader can never reach. This is the reader's only way out
-       *  without JavaScript, which is exactly why it stays here even now
-       *  that the review step also has its own "Follow this guide" action
-       *  in the footer (see `secondaryAction` above) — that one is
-       *  unreachable without JavaScript too. */}
-      <Link
-        href="/quickstart"
-        className="text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
-      >
-        Prefer to set it up yourself? Follow the manual quickstart.
-      </Link>
+      {/* The persistent "Prefer to set it up yourself?" link that used to sit
+       *  here is gone. It existed for the no-JavaScript reader, stuck on
+       *  step 1 with no working Continue and otherwise no way out. That
+       *  reason no longer holds: the page now ends with the restored
+       *  backend grid below the wizard, whose server-rendered HTML carries
+       *  real anchors — `/quickstart` first among them — reachable with no
+       *  script running at all. Step 5's own "Set up manually" action (see
+       *  `secondaryAction` above) covers the JavaScript case, same as
+       *  before. */}
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"
           ? "Prompt copied"

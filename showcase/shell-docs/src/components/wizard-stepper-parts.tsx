@@ -76,6 +76,7 @@
 // unconditional either way; only the ring's visibility varies.
 
 import React from "react";
+import type { LucideIcon } from "lucide-react";
 
 import { CORE_TREATMENT_CLASS } from "./docs-map-parts";
 
@@ -94,9 +95,9 @@ export type StepperStep = {
 export const ACCENT_BUTTON_CLASS =
   "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto";
 
-// Exported so step 5's "Follow this guide" action (`setup-wizard.tsx`,
-// handed in through `WizardNav`'s `secondaryAction` slot) renders with the
-// same quiet treatment Back already uses, rather than a second copy of this
+// Exported so step 5's "Set up manually" action (`setup-wizard.tsx`, handed
+// in through `WizardNav`'s `secondaryAction` slot) renders with the same
+// quiet treatment Back already uses, rather than a second copy of this
 // string living next to a routing concern this component doesn't have.
 export const QUIET_BUTTON_CLASS =
   "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-transparent px-4 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto";
@@ -290,7 +291,16 @@ export function WizardCard({
        *  ahead of any `flex-1` sibling, which would starve the content area
        *  above and stop the review step's review grid from filling the card. The
        *  growing content area pushes this to the bottom on its own. */}
-      <div className="border-t border-[var(--border)] pt-5 sm:pt-6">
+      {/* `data-testid` purely for test addressability: `setup-wizard.test.tsx`
+       *  needs to assert the copy button and Back both live in the footer
+       *  without depending on a specific parent node, since the footer's own
+       *  primary/secondary pairing (see `WizardNav`'s `secondaryAction`
+       *  handling below) puts Back and the copy button at different nesting
+       *  depths. */}
+      <div
+        data-testid="wizard-footer"
+        className="border-t border-[var(--border)] pt-5 sm:pt-6"
+      >
         {footer}
       </div>
     </section>
@@ -298,31 +308,50 @@ export function WizardCard({
 }
 
 /** One option for `ChoiceGrid` below: a plain labelled choice with no logo,
- *  optionally with a short supporting line. */
+ *  optionally with a short supporting line, and an icon that stands for the
+ *  choice itself. */
 export type ChoiceOption = {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
+  /** A real `lucide-react` icon component, handed in by the caller as a
+   *  named import (see `setup-wizard.tsx`'s `PROJECT_OPTION_ICONS`) — this
+   *  module has no option ids of its own to key a lookup record against, so
+   *  the component itself is the prop rather than a name string. Decorative:
+   *  `ChoiceGrid` always renders it `aria-hidden`, next to the option's own
+   *  visible label. */
+  readonly icon: LucideIcon;
 };
 
 /** A short list of plain, labelled choices — currently only step 1's "Do you
  *  already have a project?" (Yes/No). `docs-map-parts.tsx`'s `PickGrid`
  *  doesn't fit here: it always renders a `PickLogoMark`, which needs a
- *  `MapPick.logo`, and a plain Yes/No choice has no logo to give it. This
- *  control is built from the same option-button treatment `PickGrid`'s
- *  `size="card"` uses (the block layout, the border/fill tone, the
- *  disabled/cursor pairing) so the two read as one family of controls
- *  despite living in different files, rather than duplicating that file's
- *  private `pickButtonClass`/`optionToneClass` helpers here, which this
- *  module has no way to import (they aren't exported, and shouldn't be just
- *  for this).
+ *  `MapPick.logo`, and a plain Yes/No choice has no logo to give it.
+ *
+ *  Each card stacks its icon, label and description and centres them inside
+ *  a tall frame (`min-h-[13rem]`, no `flex-1`) rather than the shorter,
+ *  wide-and-thin tile this used to be: at a 644px card, two 292px-wide tiles
+ *  holding one line of text each left roughly 218px of the card's content
+ *  area empty. Not stretched to fill the grid row either — a stretched grid
+ *  was tried elsewhere on this page (the review step's summary grid) and
+ *  read as inflated boxes; a fixed floor gives the same "fills the frame"
+ *  result without that.
+ *
+ *  The icon is deliberately not a checkmark: a checkmark already means
+ *  *selected* everywhere else in this wizard (`CapabilityGrid`'s toggle
+ *  tiles), so reusing it here for the option's own meaning would collide
+ *  with that. Nor is it a check/cross pair — that reads as right and wrong,
+ *  and neither answer to "do you already have a project?" is wrong. Single
+ *  choice renders no selection checkmark at all, same as `PickGrid`: the
+ *  accent border and fill are the only selection signal.
  *
  *  Each option is a real `<button type="button">`: the real `disabled`
  *  attribute when the step is locked (matching every other option control in
  *  the wizard), `aria-pressed` for the selected one, and no `aria-label` —
  *  the accessible name is exactly the button's own visible text (label, then
- *  description when given), the same rule `PickGrid`/`CapabilityGrid` follow
- *  in `docs-map-parts.tsx`. */
+ *  description when given; the icon is `aria-hidden` and contributes
+ *  nothing to it), the same rule `PickGrid`/`CapabilityGrid` follow in
+ *  `docs-map-parts.tsx`. */
 export function ChoiceGrid({
   options,
   selectedId,
@@ -338,6 +367,7 @@ export function ChoiceGrid({
     <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
       {options.map((option) => {
         const selected = option.id === selectedId;
+        const Icon = option.icon;
         return (
           <button
             key={option.id}
@@ -345,17 +375,20 @@ export function ChoiceGrid({
             disabled={disabled}
             aria-pressed={selected}
             onClick={() => onSelect(option.id)}
-            className={`shell-docs-radius-control block w-full cursor-pointer border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`shell-docs-radius-control flex min-h-[13rem] w-full cursor-pointer flex-col items-center justify-center gap-2 border p-5 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               selected
                 ? "border-[var(--accent)] bg-[var(--accent-dim)]"
                 : "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)]"
             }`}
           >
-            <span className="block text-sm font-semibold text-[var(--text)]">
+            <span className="shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]">
+              <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+            </span>
+            <span className="text-sm font-semibold text-[var(--text)]">
               {option.label}
             </span>
             {option.description ? (
-              <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
+              <span className="text-xs leading-relaxed text-[var(--text-muted)]">
                 {option.description}
               </span>
             ) : null}
@@ -375,7 +408,9 @@ export function ChoiceGrid({
  *  Ordering is done with `order-*` rather than `flex-col-reverse`, since a
  *  reversed column only has two visual slots (first/last) and this row can
  *  have up to four participants whose order differs by breakpoint: on `sm`
- *  and up it reads Back, hint, secondaryAction, Continue left to right;
+ *  and up it reads Back, hint, [secondaryAction+Continue] left to right, the
+ *  bracketed pair rendered as one clustered flex item rather than two
+ *  independently `justify-between`-spaced ones (see the wrapper below);
  *  below `sm`, stacked, it reads Continue, secondaryAction, Back, hint top
  *  to bottom — the buttons keep the same relative order as before (primary
  *  first), and the hint gets the last line. */
@@ -405,26 +440,46 @@ export function WizardNav({
    *  by `setup-wizard.tsx`; this component only renders whatever it is
    *  given. */
   hint?: string;
-  /** A second, quieter action rendered as a peer of Continue, immediately
-   *  before it in visual order — currently only the review step's "Follow
-   *  this guide" link to `/quickstart` (see `setup-wizard.tsx`), so a reader
-   *  who would rather not copy a prompt still has an explicit way forward
-   *  from the same row instead of hunting for it elsewhere. A plain
-   *  `ReactNode` rather than a `{ label, href }` shape: this component has no
-   *  reason to know about routing, only where the slot sits and that it
-   *  shares Back's quiet treatment (`QUIET_BUTTON_CLASS`, exported for
-   *  exactly this). `undefined` on every other step, and only ever rendered
-   *  alongside `onContinue` — there is nothing for it to sit beside on the
-   *  review step's own Back-only render. */
+  /** A second, quieter action grouped with Continue as a right-aligned pair
+   *  — currently only the review step's "Set up manually" link to
+   *  `/quickstart` (see `setup-wizard.tsx`), so a reader who would rather not
+   *  copy a prompt still has an explicit way forward from the same row
+   *  instead of hunting for it elsewhere. A plain `ReactNode` rather than a
+   *  `{ label, href }` shape: this component has no reason to know about
+   *  routing, only where the slot sits and that it shares Back's quiet
+   *  treatment (`QUIET_BUTTON_CLASS`, exported for exactly this). `undefined`
+   *  on every other step, and only ever rendered alongside `onContinue` —
+   *  there is nothing for it to sit beside on the review step's own
+   *  Back-only render. */
   secondaryAction?: React.ReactNode;
 }): React.JSX.Element {
+  // Built once so both branches below (grouped-with-secondary and
+  // Continue-alone) render the identical button rather than two near-copies
+  // that could drift apart. Its own `order-*` differs by branch: alone, it
+  // is the row's fourth `justify-between` participant (`sm:order-4`,
+  // matching Back=1/hint=2); grouped, it is the *second* item inside the
+  // wrapper below (`sm:order-2`, secondary first) — the wrapper itself is
+  // the row's third participant, not this button.
+  const continueButton = onContinue ? (
+    <button
+      type="button"
+      onClick={(event) => onContinue(event.detail > 0)}
+      className={`${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS} ${
+        secondaryAction ? "order-1 sm:order-2" : "order-1 sm:order-4"
+      }`}
+    >
+      {continueIcon}
+      {continueLabel}
+    </button>
+  ) : null;
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       {onBack ? (
         <button
           type="button"
           onClick={(event) => onBack(event.detail > 0)}
-          className={`order-2 sm:order-1 ${QUIET_BUTTON_CLASS}`}
+          className={`order-3 sm:order-1 ${QUIET_BUTTON_CLASS}`}
         >
           Back
         </button>
@@ -433,31 +488,36 @@ export function WizardNav({
        *  there is something to say would never get announced, since screen
        *  readers only pick up *changes* to an already-present polite region.
        *  Its width comes and goes with its text, but that cannot shift Back
-       *  or Continue: both are `shrink-0` (Continue also has a fixed
-       *  min-width), and `justify-between` on the row keeps the first and
-       *  last items pinned to the row's own edges no matter how wide the
-       *  middle item is. Below `sm` this becomes its own stacked line
-       *  instead — the card has no minimum height on phones, so that line
-       *  appearing or clearing there is free to reflow. */}
+       *  or the trailing group: both are `shrink-0` (the group's own
+       *  Continue also has a fixed min-width), and `justify-between` on the
+       *  row keeps the first and last items pinned to the row's own edges no
+       *  matter how wide the middle item is. Below `sm` this becomes its own
+       *  stacked line instead — the card has no minimum height on phones, so
+       *  that line appearing or clearing there is free to reflow. */}
       <p
         aria-live="polite"
-        className="order-3 text-xs leading-tight text-[var(--accent)] sm:order-2"
+        className="order-4 text-xs leading-tight text-[var(--accent)] sm:order-2"
       >
         {hint ?? ""}
       </p>
       {onContinue && secondaryAction ? (
-        <span className="order-4 shrink-0 sm:order-3">{secondaryAction}</span>
-      ) : null}
-      {onContinue ? (
-        <button
-          type="button"
-          onClick={(event) => onContinue(event.detail > 0)}
-          className={`order-1 sm:order-4 ${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS}`}
-        >
-          {continueIcon}
-          {continueLabel}
-        </button>
-      ) : null}
+        // Secondary and primary rendered as one clustered flex item on `sm`
+        // and up, not two independent participants in the row's own
+        // `justify-between` — that spacing is what stranded "Set up
+        // manually" midway between the hint and Copy prompt before this
+        // change. `contents` below `sm` drops this wrapper out of the box
+        // tree entirely, so its children fall back to being ordinary
+        // top-level items of the stacked column (Continue still first, via
+        // its own `order-1`); at `sm` and up the wrapper becomes a real flex
+        // container with a small internal gap and is itself the row's third
+        // `justify-between` participant.
+        <div className="contents sm:order-3 sm:flex sm:shrink-0 sm:items-center sm:gap-3">
+          <span className="order-2 shrink-0 sm:order-1">{secondaryAction}</span>
+          {continueButton}
+        </div>
+      ) : (
+        continueButton
+      )}
     </div>
   );
 }
