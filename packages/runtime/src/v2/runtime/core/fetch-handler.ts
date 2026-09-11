@@ -408,6 +408,8 @@ export function createCopilotRuntimeHandler(
           route.method === "transcribe"
         ) {
           request = createJsonRequest(request, methodCall.body);
+        } else if (route.method === "agent/stop") {
+          request = createJsonRequest(request, methodCall.body === undefined ? {} : methodCall.body);
         } else if (route.method === "inspector/learning") {
           const learningUrl = new URL(request.url);
           for (const key of [

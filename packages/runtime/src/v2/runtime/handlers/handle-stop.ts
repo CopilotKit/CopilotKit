@@ -31,7 +31,31 @@ export async function handleStopAgent({
       );
     }
 
-    const stopped = await runtime.runner.stop({ threadId });
+    // An absent body preserves thread-wide stop for existing clients.
+    let runId: string | undefined;
+    try {
+      const text = await request.text();
+      const body: unknown = text.trim() ? JSON.parse(text) : {};
+      if (body === null || typeof body !== "object" || Array.isArray(body)) {
+        throw new Error("Expected an object");
+      }
+      if (Object.keys(body).some((key) => key !== "runId")) {
+        throw new Error("Unexpected stop request field");
+      }
+      if ("runId" in body && body.runId !== undefined) {
+        if (typeof body.runId !== "string" || body.runId.length === 0) {
+          throw new Error("Expected a non-empty runId");
+        }
+        runId = body.runId;
+      }
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid stop request" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const stopped = await runtime.runner.stop({ threadId, ...(runId === undefined ? {} : { runId }) });
 
     if (!stopped) {
       return new Response(
