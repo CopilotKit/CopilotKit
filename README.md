@@ -8,20 +8,20 @@
 
 [Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
 [Examples](https://www.copilotkit.ai/examples?ref=github_readme) ·
-[CopilotKit Intelligence](https://docs.copilotkit.ai/intelligence/overview?ref=github_readme) ·
+[CopilotKit Intelligence](https://go.copilotkit.ai/enterprise-intelligence-platform) ·
 [Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
 
 </div>
 
 Build **agent-native applications** — on any framework, on any surface.
 
-Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native — and in Slack and Microsoft Teams.
+Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native, and in Slack and Microsoft Teams.
 
-Add **CopilotKit Intelligence** when it goes to production: threads that persist, memory, and agents that learn from real use.
+Add **CopilotKit Intelligence** when it goes to production: rich threads that persist with generative UI, user memories, and agents that automatically learn from real use.
 
 </div>
 
-[![Bring Your Own Agent. Any Channel. — CopilotKit and AG-UI connect any agent framework to Slack, Microsoft Teams, Discord, WhatsApp, Telegram, Google Chat, iMessage, and SMS.](assets/bring-your-own-agent-any-channel.png)](https://docs.copilotkit.ai/?ref=github_readme)
+[![Bring Your Own Agent. Any Channel. — CopilotKit and AG-UI connect any agent framework to Slack, Microsoft Teams, Discord, WhatsApp, and Telegram, with more channels on the roadmap.](assets/bring-your-own-agent-any-channel.png)](https://go.copilotkit.ai/copilotkit-docs)
 
 <div align="center" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
@@ -58,9 +58,36 @@ We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protoc
 
 ## Quick Start
 
-Up and running in minutes. You need Node.js 20+ and an LLM key (OpenAI, Anthropic, Gemini, or any supported provider).
+You need Node.js 20+ and an LLM key (OpenAI, Anthropic, Gemini, or any supported provider).
 
-The fastest path is to let the coding agent you already use do the work. Paste this prompt into Claude Code, Codex, Cursor, Gemini, or any other coding agent with terminal access:
+### Adding CopilotKit to an app you already have
+
+```bash
+npx copilotkit@latest skills onboard
+```
+
+Installs the CopilotKit agent skills, signs you in, and hands your coding agent a prompt that does the integration. It stops before changing your code, so you can read the plan first.
+
+### Starting a new project
+
+```bash
+npx copilotkit@latest create
+```
+
+Scaffolds a project in its own directory. It does not modify an app you already have.
+
+https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
+
+<div align="center">Scaffolding a new project with <code>npx copilotkit@latest create</code></div>
+
+When setup finishes you have CopilotKit installed, the provider configured, your agent connected to the UI, and an app ready to deploy.
+
+### Already running CopilotKit
+
+Add Intelligence for rich threads, user memories, product analytics, and automatic learning — see the [Intelligence Quickstart](https://docs.copilotkit.ai/intelligence/quickstart?ref=github_readme).
+
+<details>
+<summary>Prefer to drive your coding agent directly? Copy this prompt.</summary>
 
 ```text
 Identify which coding-agent product you are, using a short slug such as `codex`
@@ -69,56 +96,17 @@ or `claude-code`. From the root of the project where you want CopilotKit, run
 Follow the Markdown instructions it prints until onboarding is complete.
 ```
 
-The CLI inspects the project first and prints the right instructions for your agent to follow, so the same prompt works whether the directory is empty or already holds an app.
+</details>
 
-Prefer to drive the setup yourself? `create` scaffolds a new project in its own directory — it signs you in to CopilotKit Intelligence and creates a project, and it does not modify an app you already have.
+### Agent Skills
 
-```bash
-npx copilotkit@latest create
-```
-
-https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
-
-<div align="center">Scaffolding a new project with <code>npx copilotkit@latest create</code></div>
-
-Either way, when setup finishes you have:
-
-- **CopilotKit installed** – Core packages are fully set up in your app
-- **Provider configured** – Context, state, and hooks ready to use
-- **Agent <> UI connected** – Agents can stream actions and render UI immediately
-- **Deployment-ready** – Your app is ready to deploy
-
-**Starting points:**
-
-- **New project** – Run the prompt above in an empty directory, then keep the [Quickstart](https://docs.copilotkit.ai/quickstart?ref=github_readme) open alongside it.
-- **Existing app or agent** – The same prompt, run from your project root. The CLI detects what is already there and adapts — see the [Quickstart](https://docs.copilotkit.ai/quickstart?ref=github_readme).
-- **Already running CopilotKit** – Add CopilotKit Intelligence for threads that persist, memory, and agents that learn: [Intelligence Quickstart](https://docs.copilotkit.ai/intelligence/quickstart?ref=github_readme).
-
-## Agent Skills
-
-CopilotKit ships [agent skills](https://docs.copilotkit.ai/cli?ref=github_readme) that teach your coding agent (Claude Code, Codex, Cursor, Gemini, and others) how to set up, build with, integrate, debug, and upgrade CopilotKit.
-
-Install them into any project directory:
+CopilotKit ships [agent skills](https://docs.copilotkit.ai/cli?ref=github_readme) that teach your coding agent (Claude Code, Codex, Cursor, Gemini, and others) how to set up, build with, integrate, debug, and upgrade CopilotKit. `skills onboard` installs them for you; to install them on their own:
 
 ```bash
 npx copilotkit@latest skills install
 ```
 
 Run it again any time to refresh to the latest skills.
-
-## CopilotKit Intelligence
-
-What CopilotKit gives you runs on your side: your frontend, your runtime, your agents. **CopilotKit Intelligence** is the production platform your runtime talks to once real users arrive — persistent threads, memory, inspection, and learning, without changing your frontend SDK, the AG-UI protocol, or your agent framework. Run it cloud-hosted, or inside your own cluster.
-
-- **[Rich Threads](https://docs.copilotkit.ai/threads?ref=github_readme)** – Conversations survive reloads, devices, and sessions, with messages, generative UI, and live runs restored as they were.
-- **[Memory](https://docs.copilotkit.ai/intelligence/memories?ref=github_readme)** – Durable facts and preferences carried across conversations, recalled semantically rather than by keyword.
-- **[Learning](https://docs.copilotkit.ai/learning?ref=github_readme)** – Completed threads become evidence-backed Insights and reviewed, reusable Skills you publish yourself. No fine-tuning pipeline.
-- **[Analytics](https://www.copilotkit.ai/copilotkit-intelligence?ref=github_readme#analytics-insights)** – See what your agents do and where users get value, from the same interaction data.
-- **[Self-hosting](https://docs.copilotkit.ai/intelligence/self-hosting?ref=github_readme)** – The same platform inside your own Kubernetes cluster, VPC, or data boundary.
-
-Free to start on the cloud-hosted Developer tier, with self-service plans for teams and the Enterprise Intelligence tier for larger deployments.
-
-👉 **[Connect Intelligence in 5 minutes →](https://docs.copilotkit.ai/intelligence/quickstart?ref=github_readme)**
 
 ## What you can build
 
@@ -133,12 +121,30 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 - **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
 - **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
+- 🪁 **Rich Threads** – Conversations that survive reloads, devices, and sessions, with their generative UI intact.
+- 🪁 **Automatic Learning** – Agents that improve from real usage: completed threads become reviewed Skills, with no fine-tuning pipeline.
+
+🪁 marks a capability that needs [CopilotKit Intelligence](https://docs.copilotkit.ai/intelligence/overview?ref=github_readme).
+
+## CopilotKit Intelligence
+
+What CopilotKit gives you runs on your side: your frontend, your runtime, your agents. **CopilotKit Intelligence** is the production platform your runtime talks to once real users arrive — rich threads with generative UI, user memories, product analytics, inspection, and automatic learning, without changing your frontend SDK, the AG-UI protocol, or your agent framework. Run it cloud-hosted, or inside your own cluster.
+
+- **[Rich Threads](https://docs.copilotkit.ai/threads?ref=github_readme)** – Conversations survive reloads, devices, and sessions, with messages, generative UI, and live runs restored as they were.
+- **[User Memories](https://docs.copilotkit.ai/intelligence/memories?ref=github_readme)** – Durable facts and preferences carried across conversations, recalled semantically rather than by keyword.
+- **[Automatic Learning](https://docs.copilotkit.ai/learning?ref=github_readme)** – Completed threads become evidence-backed Insights and reviewed, reusable Skills you publish yourself. No fine-tuning pipeline.
+- **[Product Analytics](https://www.copilotkit.ai/copilotkit-intelligence?ref=github_readme#analytics-insights)** – See what your agents do and where users get value, from the same interaction data.
+- **[Self-hosting](https://docs.copilotkit.ai/intelligence/self-hosting?ref=github_readme)** – The same platform inside your own Kubernetes cluster, VPC, or data boundary.
+
+See the [Intelligence overview](https://docs.copilotkit.ai/intelligence/overview?ref=github_readme) for what each plan includes.
+
+👉 **[Connect Intelligence in 5 minutes →](https://docs.copilotkit.ai/intelligence/quickstart?ref=github_readme)**
 
 ## How it works
 
 CopilotKit connects your UI, agents, and tools into a single interaction loop.
 
-![CopilotKit Diagram — Motion x2 6 sec version](https://github.com/user-attachments/assets/6f175d86-bd22-4c26-a13a-6013654ed542)
+![How CopilotKit connects your UI, your agents, and your tools in one loop](https://github.com/user-attachments/assets/6f175d86-bd22-4c26-a13a-6013654ed542)
 
 This enables:
 
@@ -205,7 +211,7 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
 <img width="708" height="311" alt="The three generative UI types compared" src="https://github.com/user-attachments/assets/962f49c2-31ea-43c5-b2a3-7cdde114705a" />
 
-**Explore:**
+#### Explore:
 
 - [Static (AG-UI Protocol)](https://docs.copilotkit.ai/agentic-protocols/ag-ui?ref=github_readme)
 - [Declarative (A2UI)](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme#using-a2ui-with-copilotkit)
@@ -217,7 +223,7 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
 Connect agent workflows to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangChain, CrewAI, Mastra, PydanticAI, and more.
 
-[![AG-UI](https://github.com/user-attachments/assets/a625237a-cfc1-45fc-8d0c-637316b81291)](https://github.com/ag-ui-protocol/ag-ui)
+[![AG-UI](https://github.com/user-attachments/assets/a625237a-cfc1-45fc-8d0c-637316b81291)](https://go.copilotkit.ai/ag-ui)
 
 Start a new AG-UI agent app:
 
@@ -229,17 +235,24 @@ npx create-ag-ui-app my-agent-app
 
 ## 🤝 Community
 
-### Have questions or need help?
-
-- [Join our Discord →](https://discord.gg/6dffbvGU3D?ref=github_readme)
-- [Read the Docs →](https://docs.copilotkit.ai/?ref=github_readme)
-- [Try CopilotKit Intelligence →](https://dashboard.operations.copilotkit.ai?ref=github_readme)
-
-### Stay up to date with our latest releases
-
-- [What's New](https://docs.copilotkit.ai/whats-new?ref=github_readme) — every release, with migration notes
-- [Follow us on LinkedIn →](https://www.linkedin.com/company/copilotkit/)
-- [Follow us on X →](https://x.com/copilotkit)
+- [What's New](https://docs.copilotkit.ai/whats-new?ref=github_readme)
+<h3>Have questions or need help?</h3>
+  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
+   Join our Discord →
+  </a> <br />
+    <a href="https://docs.copilotkit.ai/?ref=github_readme" target="_blank">
+  Read the Docs →
+  </a> <br />
+    <a href="https://dashboard.operations.copilotkit.ai?ref=github_readme" target="_blank">
+   Try CopilotKit Intelligence →
+  </a>
+<h3>Stay up to date with our latest releases!</h3>
+  <a href="https://www.linkedin.com/company/copilotkit/" target="_blank">
+   Follow us on LinkedIn →
+  </a> <br />
+    <a href="https://x.com/copilotkit" target="_blank">
+   Follow us on X →
+  </a>
 
 ## 🙋🏽‍♂️ Contributing
 
