@@ -3764,6 +3764,9 @@ importers:
       marked:
         specifier: ^12.0.2
         version: 12.0.2
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:*

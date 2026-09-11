@@ -74,6 +74,7 @@ const EXPECTED_EDGE_KEYS = [
   "pro-warning-4500-of-5000",
   "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
+  "oss-intelligence-disabled",
   "capability-absent",
   "unknown-limit",
   "missing-expiry",
@@ -488,7 +489,7 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 49-scenario route catalog", () => {
+test("exports the exact ordered 50-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
@@ -497,7 +498,7 @@ test("exports the exact ordered 49-scenario route catalog", () => {
     ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(49);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(50);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -732,6 +733,16 @@ test("uses safe actions, catalog limits, and newest thread fixtures", () => {
       expect(scenario.inspectorMetadata?.action).toBeUndefined();
     }
   }
+});
+
+test("distinguishes Intelligence usage from disabled Threads capability", () => {
+  const oss = getThreadsStateScenario("oss-intelligence-disabled");
+  expect(oss.runtimeInfo.mode).toBe("sse");
+  expect(oss.runtimeInfo.intelligence).toBeUndefined();
+  expect(oss.runtimeInfo.threadEndpoints).toBeUndefined();
+  expect(
+    getThreadsStateScenario("pro-disabled-existing").runtimeInfo.mode,
+  ).toBe("intelligence");
 });
 
 test("serves public info and optional inspector metadata shapes", async () => {
@@ -1254,11 +1265,16 @@ test("builds a clean launcher-notification replay", () => {
     selectedMenu: "agents",
   });
   expect(localRemoved).toEqual([
+    "cpk:inspector:notifications:v1",
     "cpk:inspector:announcement_read",
     "cpk:inspector:dismissed_until",
   ]);
-  expect(sessionRemoved).toEqual(["cpk:inspector:pulsed"]);
+  expect(sessionRemoved).toEqual([
+    "cpk:inspector:pulsed",
+    "cpk:inspector:notification-pulsed-id",
+  ]);
   expect(expiredCookies).toEqual([
+    "cpk_inspector_notifications_v1=; Path=/; Max-Age=0; SameSite=Lax",
     "cpk_inspector_announcements=; Path=/; Max-Age=0; SameSite=Lax",
     "cpk_inspector_dismissed_until=; Path=/; Max-Age=0; SameSite=Lax",
   ]);
@@ -1323,15 +1339,15 @@ test("runs teardown before real select and reset control navigation", async () =
 
 // The timeout below is 180s, not the 60s this started with.
 //
-// One test drives 34 routes against a real lab server, so its cost is the sum
-// of 34 bounded waits and it lands wherever the runner's load puts it. Measured
+// One test drives 35 routes against a real lab server, so its cost is the sum
+// of 35 bounded waits and it lands wherever the runner's load puts it. Measured
 // across `test / unit` shards of the SAME commit: 29.2s (Node 24/React 19),
 // 56.1s (Node 22/React 18), 57.1s (Node 20/React 19), and, on two runs of one
 // commit on Node 20/React 18, 41.4s and then a timeout at the old 60s ceiling.
 // A 5% margin on the slowest shard is not a budget, so this is sized at ~3x the
 // slowest passing run rather than just above it. The number is a ceiling for a
 // hang, not a performance assertion — nothing here asserts elapsed time.
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 Thread routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all 35 Thread routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,

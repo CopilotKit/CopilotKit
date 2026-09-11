@@ -1,3 +1,8 @@
+vi.mock("../lib/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotKitCore,
@@ -113,6 +118,7 @@ async function setup(
 ): Promise<InspectorNavigationContext> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
   if (options.persistedState !== undefined) {
     window.localStorage.setItem("cpk:inspector:state", options.persistedState);
   }
@@ -126,7 +132,7 @@ async function setup(
         telemetryBodies.push(parseTelemetryBody(String(init?.body)));
         return new Response(null, { status: 204 });
       }
-      if (url === "https://cdn.copilotkit.ai/announcements.json") {
+      if (url === "https://cdn.copilotkit.ai/notifications/v1.json") {
         if (!options.announcement) {
           return new Response(null, { status: 404 });
         }
@@ -214,6 +220,11 @@ async function setup(
     ]);
   }
   const inspector = new WebInspectorElement();
+  inspector.notificationContext = {
+    development: true,
+    framework: "react",
+    sdkVersion: "1.70.2",
+  };
   let selectedMenuBeforeCore: unknown;
   if (options.appendBeforeCore) {
     document.body.appendChild(inspector);
@@ -314,6 +325,7 @@ async function setup(
       vi.unstubAllGlobals();
       vi.restoreAllMocks();
       window.localStorage.clear();
+      document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
       document.body.replaceChildren();
       document.getElementById("cpk-inspector-brand-fonts")?.remove();
     },

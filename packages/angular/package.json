@@ -44,13 +44,13 @@
     }
   },
   "scripts": {
-    "build": "ng-packagr -p ng-package.json -c tsconfig.json && node scripts/normalize-package-exports.mjs && npm run build:css",
+    "build": "node scripts/generate-package-version.mjs && ng-packagr -p ng-package.json -c tsconfig.json && node scripts/normalize-package-exports.mjs && npm run build:css",
     "build:css": "tailwindcss -i ./src/styles/globals.css -o ./src/styles/generated.css && node scripts/scope-preflight.mjs ./src/styles/generated.css && node -e \"const fs=require('fs');fs.mkdirSync('./dist',{recursive:true});fs.cpSync('./src/styles/generated.css','./dist/styles.css')\"",
-    "dev": "concurrently \"ng-packagr -p ng-package.json -c tsconfig.json --watch\" \"npm run dev:css\"",
+    "dev": "node scripts/generate-package-version.mjs && concurrently \"ng-packagr -p ng-package.json -c tsconfig.json --watch\" \"npm run dev:css\"",
     "dev:css": "tailwindcss -i ./src/styles/globals.css -o ./src/styles/generated.css --watch",
-    "check-types": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest --watch",
+    "check-types": "node scripts/generate-package-version.mjs && tsc --noEmit",
+    "test": "node scripts/generate-package-version.mjs && vitest run",
+    "test:watch": "node scripts/generate-package-version.mjs && vitest --watch",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },

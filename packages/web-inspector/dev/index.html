@@ -20,8 +20,8 @@
           BlinkMacSystemFont,
           "Segoe UI",
           sans-serif;
-        background: #f2f7f9;
-        color: #023047;
+        background: #f6f6f8;
+        color: #282735;
       }
 
       * {
@@ -37,11 +37,11 @@
       button,
       select,
       input {
-        min-height: 40px;
-        border: 1px solid #69818c;
-        border-radius: 2px;
+        min-height: 36px;
+        border: 1px solid #cbcbd5;
+        border-radius: 6px;
         background: #ffffff;
-        color: #023047;
+        color: #282735;
         font: inherit;
         font-size: 13px;
       }
@@ -52,15 +52,15 @@
       }
 
       button:hover {
-        border-color: #023047;
-        background: #f8fbfc;
+        border-color: #282735;
+        background: #f6f5fb;
       }
 
       button:focus-visible,
       select:focus-visible,
       input:focus-visible,
       summary:focus-visible {
-        outline: 3px solid #087e99;
+        outline: 3px solid #7560cc;
         outline-offset: 2px;
       }
 
@@ -76,15 +76,18 @@
       }
 
       .topbar {
-        display: grid;
-        grid-template-columns: minmax(180px, 0.65fr) minmax(320px, 1.35fr) auto;
-        align-items: end;
-        gap: 16px;
-        padding: 14px 92px 14px 18px;
-        border-bottom: 1px solid #b7c8cf;
-        background: #ffffff;
+        display: flex;
+        align-items: center;
+        gap: 48px;
+        height: 80px;
+        padding: 0 96px 0 24px;
+        border-bottom: 1px solid #e8e8ef;
+        background: #fff;
       }
-
+      a:focus-visible {
+        outline: 3px solid #7560cc;
+        outline-offset: 3px;
+      }
       .title h1 {
         margin: 0;
         font-size: 17px;
@@ -96,7 +99,7 @@
       .field-label,
       .status-line {
         margin: 4px 0 0;
-        color: #48636f;
+        color: #626170;
         font-size: 12px;
         line-height: 1.4;
       }
@@ -105,35 +108,6 @@
         display: block;
         margin: 0 0 5px;
         font-weight: 600;
-      }
-
-      .notification-row,
-      .notification-custom-controls {
-        display: flex;
-        min-width: 0;
-        gap: 6px;
-      }
-
-      .notification-field[data-source="custom"] #notification-source {
-        width: 116px;
-        flex: 0 0 116px;
-      }
-
-      .notification-custom-controls {
-        flex: 1 1 auto;
-      }
-
-      .notification-custom-controls input {
-        flex: 1 1 auto;
-      }
-
-      .notification-custom-controls[hidden] {
-        display: none;
-      }
-
-      #apply-notification {
-        flex: 0 0 auto;
-        padding-inline: 10px;
       }
 
       .actions {
@@ -154,56 +128,118 @@
 
       .workspace {
         display: grid;
-        grid-template-columns: minmax(620px, 1fr) minmax(320px, 390px);
-        gap: 12px;
-        padding: 12px;
+        grid-template-columns: minmax(0, 1fr) 390px;
+        gap: 16px;
+        padding: 16px;
+        height: calc(100dvh - 80px);
       }
-
       .inspector-stage {
         position: relative;
-        min-height: calc(100vh - 112px);
+        min-width: 0;
+        min-height: 0;
         overflow: hidden;
-        border: 1px solid #b7c8cf;
-        border-radius: 2px;
+        border: 1px solid #dddde6;
+        border-radius: 8px;
         background:
-          linear-gradient(#eaf3f7 1px, transparent 1px),
-          linear-gradient(90deg, #eaf3f7 1px, transparent 1px), #ffffff;
-        background-size: 24px 24px;
+          radial-gradient(circle, #dcdce5 0.8px, transparent 1px) 0 0 / 20px
+            20px,
+          #fafafd;
+      }
+      .stage-toolbar {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #e8e8ef;
+        background: #fff;
+      }
+      .stage-toolbar h2 {
+        margin: 0;
+      }
+      .stage-toolbar p {
+        margin: 4px 0 0;
+        color: #626170;
+        font-size: 12px;
+      }
+      .stage-toolbar button {
+        white-space: nowrap;
       }
 
       .stage-label {
         position: absolute;
-        top: 14px;
-        left: 14px;
+        bottom: 16px;
+        left: 16px;
+        margin: 0;
         z-index: 0;
-        max-width: 280px;
-        padding: 8px 10px;
-        border-left: 3px solid #219ebc;
-        background: rgba(255, 255, 255, 0.92);
-        color: #48636f;
+        max-width: 320px;
+        color: #626170;
         font-size: 12px;
-        line-height: 1.45;
+        line-height: 1.6;
       }
-
       #inspector-host {
         position: relative;
         z-index: 1;
         display: block;
-        min-height: calc(100vh - 114px);
       }
-
       .console {
-        max-height: calc(100vh - 112px);
+        min-height: 0;
         overflow: auto;
-        border: 1px solid #b7c8cf;
-        border-radius: 2px;
-        background: #ffffff;
+        border: 1px solid #dddde6;
+        border-radius: 8px;
+        background: #fff;
+        scrollbar-color: #cccbd7 transparent;
       }
-
+      .section-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .section-heading h2 {
+        margin: 0;
+      }
+      .hint {
+        color: #626170;
+        font-size: 12px;
+        line-height: 1.55;
+        margin: 8px 0;
+      }
+      .text-button {
+        min-height: 28px;
+        padding: 3px 6px;
+        color: #5b45b0;
+        border-color: transparent;
+        background: transparent;
+      }
+      .status-line:empty {
+        display: none;
+      }
+      #replay-notification {
+        margin-top: 12px;
+        width: 100%;
+      }
+      .console > details[open] > summary {
+        margin-bottom: 12px;
+      }
+      ::selection {
+        background: #e7e0ff;
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: #747383;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
       .console > section,
       .console > details {
-        padding: 12px;
-        border-bottom: 1px solid #d7e2e6;
+        padding: 16px;
+        border-bottom: 1px solid #e8e8ef;
       }
 
       .console > :last-child {
@@ -225,7 +261,7 @@
       }
 
       .state-grid dt {
-        color: #48636f;
+        color: #626170;
       }
 
       .state-grid dd {
@@ -261,7 +297,7 @@
       th,
       td {
         padding: 6px 5px;
-        border-bottom: 1px solid #e5ecef;
+        border-bottom: 1px solid #ededf2;
         text-align: right;
         font-variant-numeric: tabular-nums;
       }
@@ -272,7 +308,7 @@
       }
 
       thead th {
-        color: #48636f;
+        color: #626170;
         font-weight: 600;
       }
 
@@ -290,7 +326,7 @@
         max-height: 360px;
         margin: 10px 0 0;
         overflow: auto;
-        color: #023047;
+        color: #282735;
         font:
           11px/1.55 "SFMono-Regular",
           Consolas,
@@ -304,83 +340,96 @@
         margin: 10px 0 0;
         padding-left: 20px;
         overflow: auto;
-        color: #48636f;
+        color: #626170;
         font:
           11px/1.55 "SFMono-Regular",
           Consolas,
           monospace;
       }
 
-      @media (max-width: 980px) {
-        .topbar {
-          grid-template-columns: 1fr;
-          align-items: start;
-        }
-
-        .actions {
-          justify-content: flex-start;
-        }
-
+      @media (max-width: 1100px) {
         .workspace {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr) 360px;
+          gap: 12px;
+          padding: 12px;
         }
-
-        .inspector-stage,
-        #inspector-host {
-          min-height: 720px;
+        .stage-toolbar {
+          flex-wrap: wrap;
+          gap: 10px;
         }
-
+      }
+      @media (max-width: 800px) {
+        .topbar {
+          height: auto;
+          min-height: 104px;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: center;
+          gap: 12px;
+          padding: 14px 88px 0 16px;
+        }
+        .workspace {
+          height: auto;
+          grid-template-columns: minmax(0, 1fr);
+        }
         .console {
-          max-height: none;
+          grid-row: 1;
+          overflow: visible;
+        }
+        .inspector-stage {
+          min-height: 480px;
+        }
+        .stage-toolbar {
+          padding: 12px;
         }
       }
 
-      @media (max-width: 680px) {
-        .topbar {
-          gap: 11px;
-          padding: 12px 84px 12px 12px;
-        }
-
-        .workspace {
-          padding: 8px;
-        }
-
-        .actions > button {
-          flex: 1 1 140px;
-        }
-
-        .stage-label {
-          display: none;
-        }
-
-        .inspector-stage,
-        #inspector-host {
-          min-height: 760px;
-        }
+      /* Consistent, generous disclosure targets in the workbench. */
+      details > summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 34px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        color: #626170;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        list-style: none;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      details > summary::after {
+        content: "";
+        flex: none;
+        width: 6px;
+        height: 6px;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(-45deg);
+        margin-right: 3px;
+      }
+      details[open] > summary::after {
+        transform: rotate(45deg);
+      }
+      details > summary:hover {
+        background: #f2f0f7;
+        color: #403354;
+      }
+      details[open] > summary {
+        background: #f6f5fa;
+        margin-bottom: 10px;
       }
     </style>
   </head>
   <body>
     <header class="topbar">
       <div class="title">
-        <h1>Inspector state workbench</h1>
-        <p>49 local fixtures · no external Intelligence service</p>
-      </div>
-      <label>
-        <span class="field-label">Scenario</span>
-        <select id="scenario-select"></select>
-      </label>
-      <div>
-        <div class="actions">
-          <button id="copy-link" type="button">Copy direct link</button>
-          <button id="replay-notification" type="button">
-            Replay notification
-          </button>
-          <button id="reset-scenario" type="button">Reset</button>
-        </div>
-        <p id="action-status" class="status-line" aria-live="polite">
-          Loading the local fixture…
-        </p>
+        <h1>Inspector workbench</h1>
+        <p>Local development</p>
       </div>
     </header>
 
@@ -388,45 +437,58 @@
 
     <main class="workspace">
       <section class="inspector-stage" aria-label="Actual Web Inspector">
-        <p class="stage-label">
-          This is the real <code>cpk-web-inspector</code> connected to the
-          selected loopback Runtime.
-        </p>
+        <div class="stage-toolbar">
+          <div>
+            <h2>Inspector preview</h2>
+            <p>Explore the selected scenario.</p>
+          </div>
+          <button id="open-inspector" type="button">Open Inspector</button>
+        </div>
+        <p class="stage-label">Real Inspector · local runtime</p>
         <div id="inspector-host"></div>
       </section>
 
       <aside class="console" aria-label="Scenario validation console">
         <section>
-          <h2>Notification</h2>
-          <div
-            id="notification-field"
-            class="notification-field"
-            data-source="live"
-          >
-            <div class="notification-row">
-              <select id="notification-source" aria-label="Notification source">
-                <option value="live">Live</option>
-                <option value="custom">Custom</option>
-              </select>
-              <div
-                id="notification-custom-controls"
-                class="notification-custom-controls"
-                hidden
-              >
-                <input
-                  id="notification-custom-text"
-                  type="text"
-                  maxlength="240"
-                  placeholder="Write notification text"
-                  aria-label="Custom notification text"
-                />
-                <button id="apply-notification" type="button">Apply</button>
-              </div>
-            </div>
+          <div class="section-heading">
+            <h2>Scenario</h2>
+            <button id="reset-scenario" class="text-button" type="button">
+              Reset
+            </button>
           </div>
+          <select id="scenario-select" aria-label="Scenario"></select>
+          <p id="scenario-description" class="hint"></p>
+          <button id="copy-link" type="button" class="text-button">
+            Copy scenario link
+          </button>
+          <p id="action-status" class="status-line" aria-live="polite">
+            Loading the local fixture…
+          </p>
         </section>
         <section>
-          <h2>Live state</h2>
+          <h2>Notification client</h2>
+          <div class="field-grid">
+            <label
+              >SDK version<input id="sdk-version" placeholder="1.70.2"
+            /></label>
+            <label
+              >Framework<select id="sdk-framework">
+                <option value="react">React</option>
+                <option value="vue">Vue</option>
+                <option value="angular">Angular</option>
+              </select></label
+            >
+          </div>
+          <p class="hint">
+            Intelligence, plan and license follow the selected scenario.
+          </p>
+          <button id="replay-notification" type="button">
+            Replay notification
+          </button>
+        </section>
+
+        <section>
+          <h2>Runtime</h2>
           <dl class="state-grid">
             <dt>Runtime</dt>
             <dd id="runtime-status">connecting</dd>
@@ -437,8 +499,8 @@
           </dl>
         </section>
 
-        <section>
-          <h2>Thread request ledger</h2>
+        <details>
+          <summary>Request checks</summary>
           <table>
             <thead>
               <tr>
@@ -487,15 +549,15 @@
               </tr>
             </tbody>
           </table>
-        </section>
+        </details>
 
-        <details open>
-          <summary>Normalized fixture</summary>
+        <details>
+          <summary>Scenario data</summary>
           <pre id="fixture-json" tabindex="0"></pre>
         </details>
 
         <details>
-          <summary>Chronological request log</summary>
+          <summary>Request log</summary>
           <ol id="request-log"></ol>
         </details>
       </aside>

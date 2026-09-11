@@ -1,3 +1,4 @@
+import packageInfo from "../../package.json";
 import {
   Component,
   EnvironmentInjector,
@@ -8,6 +9,7 @@ import {
 import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  configureWebInspectorElement,
   WEB_INSPECTOR_TAG,
   defineWebInspector,
 } from "@copilotkit/web-inspector";
@@ -103,6 +105,15 @@ describe("Angular inspector integration", () => {
     expect(coreAtAppend).toBe(fixture.componentInstance.copilotKit.core);
     expect(autoAttachCoreAtAppend).toBe(false);
     expect(defineWebInspector).toHaveBeenCalledTimes(1);
+    expect(configureWebInspectorElement).toHaveBeenLastCalledWith(
+      expect.any(HTMLElement),
+      fixture.componentInstance.copilotKit.core,
+      {
+        development: true,
+        framework: "angular",
+        sdkVersion: packageInfo.version,
+      },
+    );
   });
 
   it("never loads in production, even when explicitly enabled", async () => {
