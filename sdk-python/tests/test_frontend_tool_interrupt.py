@@ -281,6 +281,41 @@ def test_flag_off_never_interrupts():
     assert len(script["seen"]) == 1
 
 
+def test_agent_without_backend_tools_still_loops_back_to_the_model():
+    """Pins what makes ``jump_to`` unnecessary in ``_await_frontend_tool_calls``.
+
+    ``create_agent`` builds a ``tools`` node when there are tools *or* when a
+    middleware wraps tool calls. ``CopilotKitMiddleware`` defines
+    ``wrap_tool_call``/``awrap_tool_call``, so the node exists even at
+    ``tools=[]`` — and with it the conditional edge whose "tool calls, none
+    pending" branch re-enters the model once the frontend results are in.
+
+    Drop those wrappers and ``after_model`` collapses to a single plain edge to
+    the exit node, so every resume would end the run instead of letting the
+    model react. Nothing raises when that happens: the turn just stops. Assert
+    the wiring here so the cause is named, rather than leaving it to surface as
+    a missing second model call elsewhere.
+    """
+    graph, _ = _build(responses=[_ai([_fe_call()])], tools=[])
+    drawable = graph.get_graph()
+
+    assert "tools" in drawable.nodes, (
+        "create_agent built no ToolNode for a tools=[] agent. CopilotKitMiddleware "
+        "has to keep defining wrap_tool_call/awrap_tool_call, or after_model's "
+        "only edge is to the exit node and resuming silently ends the run."
+    )
+
+    after_model_targets = {
+        edge.target
+        for edge in drawable.edges
+        if edge.source.endswith(".after_model")
+    }
+    assert "model" in after_model_targets, (
+        "after_model cannot route back to the model, so the frontend results "
+        f"would never reach it; edges go to {sorted(after_model_targets)}"
+    )
+
+
 @pytest.mark.skipif(
     sys.version_info >= (3, 11), reason="only 3.10 hits the contextvar limit"
 )
