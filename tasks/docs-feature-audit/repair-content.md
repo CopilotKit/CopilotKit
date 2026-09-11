@@ -134,3 +134,33 @@ human-in-the-loop-context.test.ts` passed after generator pretest: 1 file and
 path, explicit capability boundary, current v2 reference link, and removal of
 the former LangGraph-first prose. This is documentation rendering evidence,
 not an ADK runtime qualification.
+
+## Iteration 9 — shared browser-tool language and prompt contract check
+
+The shared Frontend Tools guide now says that the developer registers browser
+functions and the agent calls them. It links to `useFrontendTool`, keeps the
+existing Showcase-backed sample, and distinguishes browser work from backend
+work. The shared Agent Config guide now leads with the user outcome (tone,
+expertise, and response length) and retains the meaningful runtime difference:
+separate runtimes read agent state while in-process agents receive forwarded
+provider properties. The read-only context guide no longer attributes every
+framework bridge to `CopilotKitMiddleware`; each integration's setup owns its
+actual bridge details.
+
+The existing `RichThreadsSetupPrompt` remains one shared component and raw
+Markdown expands it correctly. A first source-only check found that the local
+`~/Code/Intelligence` checkout (4.9.39) lacks the `--intent` parser branch, so
+that checkout cannot qualify the public prompt. The official registry reports
+`copilotkit@latest` as 4.9.50, however, and the exact copied command succeeded
+against that published package:
+
+```text
+npx --yes --package=copilotkit@4.9.50 copilotkit onboard start --coding-agent codex --intent add-rich-threads
+```
+
+It exited 0 and served the Add Rich Threads onboarding plan. The disposable
+run used `XDG_STATE_HOME` and the npm cache under `/private/tmp`, with
+telemetry disabled; it made no login, project, or cloud call and did not touch
+user state. This resolves REPAIR-005 for the published prompt contract. The
+residual limit is only local checkout/version skew; its stale `dist` must not
+be used to judge the public docs command.

@@ -111,6 +111,12 @@ The [per-guide reader checklist](selected-reader-sanity.md) tracks all 220 basel
 
 | 15 | C037/C038 renderer guides | Copied outdated APIs and imprecise output contracts | Selected Showcase source, explicit differing schemas, Try-it prompts; 20 local representations pass (`f6ffd97322`) | Final runtime/example demonstration pending |
 
+| 16 | REPAIR-004 Markdown framework context | Bare-root BIA guides fall back to LangGraph snippets | Route-level repair and C010 checks17pass; independent review pending | Verifying source selection across real routes |
+| 17 | REPAIR-005 copy prompt contract | Copied --intent flag absent from canonical CLI source parser | Latest published CLI verification and compatible repair pending | Investigating actual setup behavior |
+
+| 18 | C010/REPAIR-004 Built-in schema and Markdown | Wrong schema branch in actual Markdown route | Correct BIA source; 17 regression checks plus docs typecheck/build pass (`620020a53c`) | Route defect qualified; feature runtime matrix pending |
+| 19 | REPAIR-005 CLI verification | Older local checkout rejected current prompt contract | Published copilotkit4.9.50 runs exact Rich Threads command in isolated state | Closed as local version skew; no product defect |
+
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
 

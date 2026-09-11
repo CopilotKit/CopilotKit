@@ -138,11 +138,19 @@
       "id": "CONTENT-GEN-010",
       "area": "framework-scoped snippet resolution",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-010",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "620020a53c"
+      ],
+      "after_evidence": [
+        "Existing Built-in Agent inline-schema and operation regions bound; actual HTML/Markdown verified; focused17tests, full docs typecheck/build pass."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_and_representation",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "Full five-agent example matrix."
+      },
       "remaining": "Add a Built-in-Agent-appropriate region or a scoped guide branch that describes its actual fixed-schema factory, then assert no Missing snippet alert and useful HTML/Markdown source for the scoped route. Run its isolated AIMock cell separately."
     },
     {
@@ -604,6 +612,45 @@
         "finding": "Supported tool-based path explicit; native LangGraph guidance retained and ADK limit clear."
       },
       "remaining": "Repeat final local rendered path and include all5selected frameworks in reader inventory."
+    },
+    {
+      "id": "REPAIR-004",
+      "area": "Bare-root Markdown drops Built-in Agent framework context",
+      "severity": "high",
+      "stage": "qualified_locally",
+      "before_record": "repair-generation.md",
+      "fix_commits": [
+        "620020a53c"
+      ],
+      "after_evidence": [
+        "Fresh server reproduced incorrect LangGraph schema-loading output after BIA redirect; repaired canonical and legacy Markdown show BIA inline schema.",
+        "Route and C010 regressions17pass; independent review pending."
+      ],
+      "sanity_review": {
+        "status": "approved",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "Bare shared-root guides retain Built-in Agent context; reference/AG-UI routes unaffected."
+      },
+      "remaining": "Specific route-context defect qualified. Full selected reader/runtime matrix remains open."
+    },
+    {
+      "id": "REPAIR-005",
+      "area": "Rich Threads copy prompt CLI contract mismatch",
+      "severity": "high",
+      "stage": "closed_not_a_product_defect",
+      "before_record": "Canonical Intelligence source parser lacks copied --intent option; stale local dist also lacks onboard, not evidence about published CLI.",
+      "fix_commits": [],
+      "after_evidence": [
+        "Published copilotkit@4.9.50 accepts exact copied --intent add-rich-threads command in isolated local state, exit0, returns Rich Threads plan.",
+        "Local Intelligence checkout4.9.39 is older; its parser/dist failure does not describe current published behavior."
+      ],
+      "sanity_review": {
+        "status": "verified_published_contract",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "No docs-helper repair required; no cloud/login/project action occurred."
+      },
+      "remaining": "No product fix needed. Local checkout version difference remains explicit in repair-content.md.",
+      "disposition": "local_checkout_version_skew"
     }
   ]
 }
