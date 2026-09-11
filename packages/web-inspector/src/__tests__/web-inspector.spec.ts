@@ -2003,6 +2003,7 @@ type RuntimeEntitlementDiagnostics = NonNullable<
 >;
 
 type HeaderMockCore = {
+  intelligence: { wsUrl: string };
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
@@ -2052,6 +2053,7 @@ function createHeaderMockCore(
     globalThis.fetch(...args),
   );
   const core: HeaderMockCore = {
+    intelligence: { wsUrl: "" },
     agents,
     context: {},
     properties: {},
@@ -2391,7 +2393,7 @@ test.each([
     diagnostics: { licenseStatus: "expired" },
   },
 ] as const)(
-  "keeps Threads available for $diagnostic when the Runtime advertises list capability",
+  "shows setup for $diagnostic without Intelligence while still listing local Threads",
   async ({ diagnostics }) => {
     const fixture = setupRuntimeDiagnostics();
 
@@ -2407,10 +2409,14 @@ test.each([
       ).find((button) => button.textContent?.trim() === "Threads");
       expect(threadsButton).toBeDefined();
       await vi.waitFor(() => {
-        expect(threadListText(inspector)).toContain("Realtime thread sync");
+        expect(
+          inspector.shadowRoot?.querySelector(
+            '[data-inspector-locked-feature="threads"]',
+          ),
+        ).not.toBeNull();
       });
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
-        "Threads are persistent, inspectable conversations",
+        "Production-grade chat threads without the complexity. Self hostable.",
       );
       expect(inspector.shadowRoot?.textContent ?? "").not.toContain(
         "Enable Intelligence to inspect Threads.",

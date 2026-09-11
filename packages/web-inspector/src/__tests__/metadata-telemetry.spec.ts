@@ -148,6 +148,7 @@ async function setup(
           agents: {},
           audioFileTranscriptionEnabled: false,
           mode: "sse",
+          intelligence: { wsUrl: "" },
           threadEndpoints: {
             list: options.threadsAvailable ?? true,
             inspect: options.threadsAvailable ?? true,

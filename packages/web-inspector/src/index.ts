@@ -6600,6 +6600,7 @@ export class WebInspectorElement extends LitElement {
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
+  private ephemeralThreadsSetupOpen = false;
   private inAppThreadId: string | null = null;
   private inAppAgentId: string | null = null;
   private inAppSource: "app" | "override" | null = null;
@@ -6852,6 +6853,7 @@ export class WebInspectorElement extends LitElement {
     this.detachFromCore();
 
     const hadResolvedCore = this.hasResolvedCore;
+    this.ephemeralThreadsSetupOpen = false;
     this._core = value ?? null;
     if (this._core) {
       this.hasResolvedCore = true;
@@ -7147,6 +7149,7 @@ export class WebInspectorElement extends LitElement {
     if (
       this.selectedMenu !== "threads" ||
       this.settingsOpen ||
+      this.ephemeralThreadsSetupOpen ||
       !this.areThreadEndpointsAvailable()
     ) {
       return false;
@@ -18797,22 +18800,44 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderThreadsView() {
-    const locked = !this.areThreadEndpointsAvailable();
-    if (locked) {
-      this.trackThreadsViewStateOnce("locked");
-      return this.renderLockedFeatureOverview({
-        serviceId: "threads",
-        featureName: "Rich Threads",
-        heading: THREADS_LOCKED_COPY.heading,
-        description: THREADS_LOCKED_COPY.description,
-        videoUrl: THREADS_LOCKED_VIDEO_URL,
-        videoTitle: "Rich Threads overview",
-        outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
-      });
-    }
-
     const { displayThreads, threadsErrorMessage, threadsLoading } =
       this.getActiveThreadsState();
+    const ephemeral = !this._core?.intelligence;
+    const available = this.areThreadEndpointsAvailable();
+    const hasEphemeralThreads =
+      ephemeral && available && displayThreads.length > 0;
+    if (!ephemeral) this.ephemeralThreadsSetupOpen = false;
+    const locked = !available || (ephemeral && displayThreads.length === 0);
+    if (locked || this.ephemeralThreadsSetupOpen) {
+      this.trackThreadsViewStateOnce("locked");
+      return html`
+        ${
+          hasEphemeralThreads
+            ? html`
+          <nav class="cpk-threads-setup-navigation" aria-label="Threads setup navigation">
+            <button type="button" class="cpk-threads-setup-back"
+              data-inspector-ephemeral-back
+              @click=${() => {
+                this.ephemeralThreadsSetupOpen = false;
+                this.requestUpdate();
+              }}>
+              <span aria-hidden="true">←</span> Back to your threads
+            </button>
+          </nav>
+        `
+            : nothing
+        }
+        ${this.renderLockedFeatureOverview({
+          serviceId: "threads",
+          featureName: "Rich Threads",
+          heading: THREADS_LOCKED_COPY.heading,
+          description: THREADS_LOCKED_COPY.description,
+          videoUrl: THREADS_LOCKED_VIDEO_URL,
+          videoTitle: "Rich Threads overview",
+          outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
+        })}`;
+    }
+
     const loadingWithoutRows =
       threadsLoading && !threadsErrorMessage && displayThreads.length === 0;
 
@@ -18852,6 +18877,26 @@ export class WebInspectorElement extends LitElement {
       <div
         style="display:flex;height:100%;overflow:hidden;flex-direction:column;"
       >
+        ${
+          ephemeral
+            ? html`
+          <div class="cpk-ephemeral-threads-banner" data-inspector-ephemeral-banner role="status">
+            <span class="cpk-ephemeral-threads-icon" aria-hidden="true">${this.renderIcon("Clock")}</span>
+            <div class="cpk-ephemeral-threads-copy"><strong>Keep your threads.</strong>
+              <p>Ephemeral history can disappear on restart.</p>
+            </div>
+            <button type="button" class="cpk-ephemeral-threads-upgrade"
+              data-inspector-ephemeral-upgrade
+              @click=${() => {
+                this.ephemeralThreadsSetupOpen = true;
+                this.requestUpdate();
+              }}>
+              Make them permanent <span aria-hidden="true">${this.renderIcon("ArrowRight")}</span>
+            </button>
+          </div>
+        `
+            : nothing
+        }
         <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
           <!-- Left sidebar: thread list -->
           <div

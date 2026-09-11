@@ -935,6 +935,7 @@ test("enabled zero keeps all three local examples and their providers off real r
     initialEndpoints: LIST_AND_INSPECT,
     listHasRow: false,
   });
+  vi.spyOn(harness.core, "intelligence", "get").mockReturnValue({ wsUrl: "" });
   try {
     await vi.waitFor(() => expect(harness.requests().list).toBe(1));
     await harness.openThreads();
