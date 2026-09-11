@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import math
+import re
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
@@ -17,6 +18,13 @@ import httpx
 
 from .entitlements import RuntimeEntitlementResponse, normalize_runtime_entitlements
 from .inspector import InspectorMetadata, parse_inspector_metadata
+from .learned_skills import (
+    LearnedSkillsError,
+    LearnedSkillsSnapshotResult,
+)
+from .learned_skills import (
+    response_error as learned_skills_response_error,
+)
 from .resources import (
     AnnotateResponse,
     ListMemoriesResponse,
@@ -271,6 +279,103 @@ class Intelligence:
                 {"user": grant.user, "project": grant.project}, separators=(",", ":")
             )
         return headers
+
+    async def get_learned_skills_snapshot(
+        self,
+        *,
+        container_id: str,
+        revision: str | None = None,
+        if_none_match: str | None = None,
+    ) -> LearnedSkillsSnapshotResult:
+        """Read raw ZIP bytes with this client's credentials and HTTP pool.
+
+        No retries, parsing, or cache. The client deadline includes the body
+        read. Native asyncio cancellation propagates and request timeouts use
+        TIMEOUT, except that a confirmed HTTP denial remains a denial.
+        """
+        if (
+            not isinstance(container_id, str)
+            or not container_id.strip()
+            or (revision is not None and (not isinstance(revision, str) or not revision))
+            or (
+                if_none_match is not None
+                and (
+                    not isinstance(if_none_match, str)
+                    or not if_none_match
+                    or "\r" in if_none_match
+                    or "\n" in if_none_match
+                )
+            )
+        ):
+            raise LearnedSkillsError("INVALID_CONFIG", False)
+        headers = {"Authorization": f"Bearer {self.api_key}", "Accept": "application/zip"}
+        if if_none_match is not None:
+            headers["If-None-Match"] = if_none_match
+        status: int | None = None
+        try:
+            async with asyncio.timeout(self.request_timeout):
+                async with self.http_client.stream(
+                    "GET",
+                    self.api_url
+                    + "/api/v1/learning/containers/"
+                    + segment(container_id)
+                    + "/skills",
+                    params={"revision": revision} if revision is not None else None,
+                    headers=headers,
+                    timeout=self.request_timeout,
+                    follow_redirects=False,
+                ) as response:
+                    status = response.status_code
+                    if status == 401:
+                        raise LearnedSkillsError("AUTHENTICATION_FAILED", False)
+                    if status not in (200, 304):
+                        await response.aread()
+                        try:
+                            body = response.json()
+                        except (ValueError, UnicodeError):
+                            body = None
+                        raise learned_skills_response_error(status, body) from None
+                    returned_revision = response.headers.get("X-CopilotKit-Skills-Revision")
+                    etag = response.headers.get("ETag")
+                    if (
+                        not returned_revision
+                        or not etag
+                        or re.fullmatch(r'"[a-f0-9]{64}"', etag) is None
+                        or (revision is not None and revision != returned_revision)
+                    ):
+                        raise LearnedSkillsError("INVALID_SNAPSHOT", False)
+                    if status == 304:
+                        if if_none_match is None:
+                            raise LearnedSkillsError("INVALID_SNAPSHOT", False)
+                        return {"status": "unchanged", "revision": returned_revision, "etag": etag}
+                    content_type = response.headers.get("Content-Type")
+                    if (
+                        not content_type
+                        or content_type.split(";", 1)[0].strip().lower() != "application/zip"
+                    ):
+                        raise LearnedSkillsError("INVALID_SNAPSHOT", False)
+                    data = await response.aread()
+                    return {
+                        "status": "snapshot",
+                        "bytes": data,
+                        "revision": returned_revision,
+                        "etag": etag,
+                        "contentType": content_type,
+                    }
+        except (asyncio.CancelledError, TimeoutError, httpx.HTTPError) as error:
+            # Once access is denied, a failed or cancelled body read cannot
+            # turn that denial into a transient failure that permits stale data.
+            if status in (401, 403):
+                raise LearnedSkillsError(
+                    "AUTHENTICATION_FAILED" if status == 401 else "AUTHORIZATION_FAILED",
+                    False,
+                    error,
+                ) from None
+            if isinstance(error, asyncio.CancelledError):
+                raise
+            if isinstance(error, (TimeoutError, httpx.TimeoutException)):
+                raise LearnedSkillsError("TIMEOUT", True, error) from None
+            raise LearnedSkillsError("NETWORK_ERROR", True, error) from None
 
     async def get_inspector_metadata(self) -> InspectorMetadata | None:
         """Read sanitized project metadata within five seconds, or a shorter client deadline.
