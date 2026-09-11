@@ -2432,12 +2432,6 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.25.1
-        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -2451,6 +2445,9 @@ importers:
       vitest:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
 
   packages/channels-teams:
     dependencies:
@@ -2484,12 +2481,6 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.25.1
-        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -48583,7 +48574,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.15.2)
+      retry-axios: 2.6.0(axios@1.15.2(debug@4.4.3))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -55492,7 +55483,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.15.2):
+  retry-axios@2.6.0(axios@1.15.2(debug@4.4.3)):
     dependencies:
       axios: 1.15.2(debug@4.4.3)
 
