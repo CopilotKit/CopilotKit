@@ -1387,15 +1387,9 @@ export class BuiltInAgent extends AbstractAgent {
                 // actually ask for SSE ever load it.
                 const { SSEClientTransport } =
                   await import("@modelcontextprotocol/sdk/client/sse.js");
-                // `SSEClientTransport`'s second parameter is
-                // `SSEClientTransportOptions`, which has no top-level `headers`
-                // key — passing the map directly means the SDK reads nothing
-                // from it and the request goes out unauthenticated.
                 transport = new SSEClientTransport(
                   new URL(serverConfig.url),
-                  serverConfig.headers
-                    ? { requestInit: { headers: serverConfig.headers } }
-                    : undefined,
+                  serverConfig.headers,
                 );
               }
 
