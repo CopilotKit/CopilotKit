@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import path from "path";
-import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
@@ -24,7 +22,6 @@ import {
 import type { LlmPage } from "@/lib/llm-text";
 import { renderPageToLlmText } from "@/lib/llm-text";
 import { resolveReferencePage } from "@/lib/reference-items";
-import fs from "fs";
 import matter from "gray-matter";
 
 // Per-page raw-Markdown endpoint. The `next.config.ts` rewrites map
@@ -52,8 +49,7 @@ import matter from "gray-matter";
 //   - When the first segment is a known integration slug, we try
 //     `integrations/<docsFolder>/<rest>.mdx` first (or root depending on
 //     docs_mode), so framework-scoped URLs resolve the correct MDX.
-//   - Otherwise we walk the bare slug, then fall back to `/reference/...`
-//     and `/ag-ui/...` content roots.
+//   - Otherwise we walk the bare slug, then fall back to `/reference/...`.
 
 export async function GET(
   _req: Request,
@@ -324,21 +320,6 @@ function resolvePage(slug: string[]): ResolvedPage | null {
     };
   }
 
-  // /ag-ui/<slug>.md → src/content/ag-ui/<slug>.mdx
-  if (first === "ag-ui") {
-    const agSlug = rest || "index";
-    const filePath = findExistingMdx(AG_UI_CONTENT_DIR, agSlug);
-    if (!filePath) return null;
-    return {
-      page: {
-        url,
-        title: agSlug,
-        filePath,
-        loadSlug: `__ag-ui__/${agSlug}`,
-      },
-    };
-  }
-
   // Framework-scoped URL: first segment is an integration slug.
   const frameworkSlugs = new Set(getIntegrations().map((i) => i.slug));
   if (frameworkSlugs.has(first)) {
@@ -408,34 +389,6 @@ function resolveFrameworkScopedPage(
       },
       framework,
     };
-  }
-  return null;
-}
-
-/**
- * Resolve `<root>/<slug>.mdx` or `<root>/<slug>/index.mdx` if present.
- * Returns null when neither exists. Constrained to `root` via
- * `path.resolve()` + prefix check to keep slug input from escaping the
- * content dir.
- */
-function findExistingMdx(root: string, slug: string): string | null {
-  const candidates = [
-    path.join(root, `${slug}.mdx`),
-    path.join(root, slug, "index.mdx"),
-  ];
-  const resolvedRoot = path.resolve(root);
-  for (const cand of candidates) {
-    const resolved = path.resolve(cand);
-    if (!resolved.startsWith(resolvedRoot + path.sep)) {
-      console.warn(
-        "[llms-mdx] rejecting candidate outside content root",
-        cand,
-        "root:",
-        root,
-      );
-      continue;
-    }
-    if (fs.existsSync(resolved)) return resolved;
   }
   return null;
 }
