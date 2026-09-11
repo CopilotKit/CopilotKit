@@ -61,11 +61,19 @@
       "id": "CONTENT-GEN-006",
       "area": "current API semantics",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-006",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "fe8b79f9d2"
+      ],
+      "after_evidence": [
+        "Shared Showcase renderer source and actual authored Mastra Markdown: focused suite 11 passed. See repair-content.md."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Full rendered reader-path verification."
+      },
       "remaining": "Describe named registration with useRenderTool and reserve useRenderToolCall for rendering/consuming existing tool calls. Verify the selected Built-in Agent guide's browser and Markdown output against the v2 reference."
     },
     {
@@ -158,11 +166,19 @@
       "id": "CONTENT-GEN-014",
       "area": "quickstart thread authorization",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-014",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "fa26645237"
+      ],
+      "after_evidence": [
+        "Focused local-only identity contract check passed across four guides; canonical auth link checked. See repair-content.md."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Rendered quickstart checks; no multi-user runtime qualification claimed."
+      },
       "remaining": "Replace the header shortcut with a server-verified session example (or state it is strictly local single-user), add the required onRequest and ownership guards or link to the exact complete auth setup, then verify all four affected quickstart representations and a two-user local authorization probe."
     },
     {
@@ -199,7 +215,7 @@
       "id": "CONTENT-GEN-017",
       "area": "local runnable Showcase default development command",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-017",
       "fix_commits": [],
       "after_evidence": [],
@@ -441,9 +457,11 @@
       "id": "REPAIR-001",
       "area": "Normal-browser local AIMock context",
       "severity": "high",
-      "stage": "sanity_review",
+      "stage": "qualified_locally",
       "before_record": "repair-runtime.md",
-      "fix_commits": [],
+      "fix_commits": [
+        "7b55169065"
+      ],
       "after_evidence": [
         "Normal-browser auth turn without harness header succeeds in local mock mode; screenshot repair-adk-auth-manual-green.png.",
         "Strict D6 auth/chat/tool-rendering all passed after change."
@@ -453,7 +471,7 @@
         "reviewer": "intelligence_showcase_support",
         "finding": "Default context is conditional on AIMOCK_URL; explicit caller context wins; no auth/secret forwarding added."
       },
-      "remaining": "ADK normal browser auth turn gets strict AIMock no-match without the context header injected by D6. Establish local defaults through shared/minimal backend wiring and verify without harness-only headers."
+      "remaining": "Specific normal-browser ADK mock context defect fixed. Full ADK feature matrix and stable dependency qualification remain open."
     }
   ]
 }
