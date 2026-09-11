@@ -14,8 +14,10 @@ Example:
     )
 """
 
+import asyncio
 import json
 import re
+import sys
 from typing import Any, Callable, Awaitable, ClassVar, Iterable, Optional, Union
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
@@ -26,7 +28,9 @@ from langchain.agents.middleware import (
     ModelResponse,
 )
 from langgraph.runtime import Runtime
+from langgraph.types import interrupt
 
+from .exc import CopilotKitMisuseError
 from .header_propagation import install_httpx_hook, set_forwarded_headers
 from .langgraph import CopilotKitProperties
 
@@ -61,6 +65,97 @@ _a2ui_tools_by_thread: dict[str, Any] = {}
 # acceptable edge — the deployed path always carries a thread id.
 _DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__"
 _FRONTEND_TOOL_RESULT_CONTENT = json.dumps({"status": "forwarded_to_frontend"})
+
+# Placeholder LangGraph's ``patch_orphan_tool_calls`` writes for a tool call that
+# was still pending when a checkpoint was saved. Hoisted to module scope so both
+# ``_fix_messages_for_bedrock`` and the interrupt path can match it without
+# recompiling the pattern on every call.
+_INTERRUPTED_PAT = re.compile(
+    r"^Tool call '.+' with id '.+' was interrupted before completion\.$"
+)
+
+# Key carrying the batched frontend tool calls in the interrupt payload emitted
+# when ``interrupt_frontend_tools`` is on. Namespaced so a client can tell this
+# apart from a human-facing interrupt on the same thread (e.g. via
+# ``useInterrupt({ enabled })``). Deliberately NOT ``__copilotkit_interrupt_value__``
+# — that envelope means "render this to the user", which this is not.
+_FE_INTERRUPT_KEY = "__copilotkit_frontend_tool_calls__"
+
+# Content used when the client resumed without answering a frontend tool call.
+# Every call still gets a ToolMessage so no tool_call is left unpaired.
+_MISSING_TOOL_RESULT_CONTENT = json.dumps({"ok": False, "error": "missing_tool_result"})
+
+# Sentinel distinguishing "resumed with no results" from "this resume payload
+# was never meant for us" (e.g. a human interrupt's answer was consumed first).
+_UNRECOGNIZED_RESUME = object()
+
+
+def _coerce_result(raw: dict) -> "tuple[str, str]":
+    """Normalise one client tool result into ``(tool_call_id, content)``.
+
+    Accepts the id under ``toolCallId`` (the wire casing), ``tool_call_id`` or
+    ``id``, and the payload under ``content`` or ``result``. Non-string content
+    is JSON-encoded, since ``ToolMessage.content`` has to be a string.
+    """
+    tool_call_id = raw.get("toolCallId") or raw.get("tool_call_id") or raw.get("id")
+    content = raw.get("content")
+    if content is None:
+        content = raw.get("result")
+    if not isinstance(content, str):
+        content = json.dumps(content) if content is not None else ""
+    return (str(tool_call_id) if tool_call_id is not None else "", content)
+
+
+def _parse_frontend_tool_results(payload: Any) -> Any:
+    """Normalise a resume payload into ``{tool_call_id: content}``.
+
+    The wire shape is ``forwardedProps.command.resume = {"tool_results": [...]}``,
+    which ``ag_ui_langgraph`` passes to ``Command(resume=...)`` verbatim. It
+    JSON-decodes string payloads first, so the ``str`` branch here only matters
+    for callers driving the graph directly. A bare list is accepted too.
+
+    Returns ``_UNRECOGNIZED_RESUME`` when the payload is not a tool-result
+    container at all. That case is worth failing loudly on: a single
+    ``Command(resume=...)`` carries one value and the first pending interrupt
+    consumes it, so another interrupt's answer (say ``{"approved": True}``) can
+    land here. Turning that into "no tool ran" would leave the developer
+    debugging a model apology instead of a wiring mistake. A well-formed but
+    empty container (``{"tool_results": []}``) is *not* unrecognised — that is a
+    client legitimately answering nothing, and every call gets a placeholder.
+    """
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except (TypeError, ValueError):
+            return _UNRECOGNIZED_RESUME
+
+    if isinstance(payload, dict):
+        raw_results = payload.get("tool_results")
+    elif isinstance(payload, list):
+        raw_results = payload
+    else:
+        return _UNRECOGNIZED_RESUME
+
+    if not isinstance(raw_results, list):
+        return _UNRECOGNIZED_RESUME
+
+    results: dict[str, str] = {}
+    for raw in raw_results:
+        if not isinstance(raw, dict):
+            continue
+        tool_call_id, content = _coerce_result(raw)
+        if tool_call_id:
+            # Last wins, so a client retrying one call in the same batch is fine.
+            results[tool_call_id] = content
+    return results
+
+
+def _in_async_task() -> bool:
+    """Whether we are executing inside a running asyncio task."""
+    try:
+        return asyncio.current_task() is not None
+    except RuntimeError:
+        return False
 
 
 def _current_thread_id() -> "str | None":
@@ -249,6 +344,42 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             model (the host cannot supply the live, header-hooked model), and
             folds the registered catalog id + component schema into the params
             unless the host already set them — so host values win.
+        interrupt_frontend_tools: Opt in to awaiting frontend tool results
+            *within* the same agent turn, using LangGraph's native
+            ``interrupt()`` instead of the default strip-and-restore.
+
+            - ``False`` (default) — frontend tool calls are stripped off the
+              ``AIMessage`` in ``after_model`` and restored in ``after_agent``;
+              the real result only lands on the next run. The agent never awaits
+              it in-run.
+            - ``True`` — every frontend tool call in a turn is batched into a
+              single ``interrupt()``. The graph pauses, the client executes the
+              tools and resumes, and one real ``ToolMessage`` per call is
+              appended — so the model continues the same turn with the results
+              in hand, in the natural ``AIMessage`` → ``ToolMessage`` order.
+
+            Four requirements come with ``True``:
+
+            1. **A checkpointer is mandatory.** ``interrupt()`` cannot resume
+               without one; the middleware raises ``CopilotKitMisuseError``
+               rather than letting the run fail later with LangGraph's
+               ``Cannot use Command(resume=...) without checkpointer``.
+            2. **Python 3.11+ when the agent runs asynchronously** — which the
+               CopilotKit runtime always does. Below 3.11 the run config does
+               not propagate into asyncio tasks, so ``interrupt()`` cannot read
+               it. This constrains every async ``interrupt()``, not just this
+               flag; the middleware raises ``CopilotKitMisuseError`` instead of
+               LangGraph's opaque ``Called get_config outside of a runnable
+               context``.
+            3. **The client must resume explicitly.** The default frontend-tool
+               loop fires a plain follow-up run with no resume command, which an
+               interrupted thread ignores. Mount a client handler that reads
+               ``__copilotkit_frontend_tool_calls__`` off the interrupt and
+               resumes with
+               ``{"tool_results": [{"toolCallId": ..., "content": ...}, ...]}``.
+            4. **All calls share one interrupt.** Batching is required — a
+               resume cannot address multiple pending interrupts without
+               interrupt ids (ag-ui-protocol/ag-ui#2178).
     """
 
     state_schema = StateSchema
@@ -259,6 +390,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         *,
         expose_state: Union[bool, Iterable[str]] = False,
         a2ui_params: "Optional[A2UIToolParams]" = None,
+        interrupt_frontend_tools: bool = False,
     ):
         super().__init__()
         if isinstance(expose_state, bool):
@@ -270,6 +402,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # bleed into the middleware. ``model`` + the registered catalog are
         # layered in at build time; everything here is host-owned and wins.
         self._a2ui_params: dict = dict(a2ui_params or {})
+        # Off by default: interrupt-based frontend tools need a checkpointer and
+        # a client that resumes explicitly, so flipping this on for everyone
+        # would break every deployment without one.
+        self._interrupt_frontend_tools = interrupt_frontend_tools
 
     @property
     def name(self) -> str:
@@ -664,9 +800,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         #    result comes in as a separate message with a different ID, so both end
         #    up in the list. Keep the real (non-interrupted) one; if multiple real
         #    ones exist, keep the last.
-        _INTERRUPTED_PAT = re.compile(
-            r"^Tool call '.+' with id '.+' was interrupted before completion\.$"
-        )
         # Group ToolMessages by tool_call_id, preserving position
         tc_groups: dict[str, list] = {}
         for i, msg in enumerate(messages):
@@ -1054,22 +1187,213 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # Delegate to sync implementation
         return self.before_agent(state, runtime)
 
-    # Intercept frontend tool calls after model returns, before ToolNode executes
+    @classmethod
+    def _frontend_tool_names(
+        cls,
+        state: StateSchema,
+        runtime: Runtime[Any],
+    ) -> set:
+        """Names of the frontend tools the client forwarded for this run."""
+        frontend_tools = cls._get_copilotkit_context(
+            state,
+            getattr(runtime, "context", None),
+        ).get("actions", [])
+        return {
+            t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
+        }
+
+    @staticmethod
+    def _check_interrupt_preconditions() -> None:
+        """Fail early, and actionably, on the two ways interrupt mode cannot work.
+
+        LangGraph reports both of these late or cryptically:
+
+        * **Python 3.11+ when the agent runs async.** On 3.10 the run config does
+          not propagate into asyncio tasks, so ``interrupt()`` cannot read it and
+          dies with ``Called get_config outside of a runnable context``. This
+          applies to any ``interrupt()`` from an async node, not just this flag.
+        * **A checkpointer.** A paused run cannot be resumed without one, and
+          LangGraph only notices at resume time — by which point the turn is
+          lost and the message points nowhere near the flag that caused it.
+        """
+        try:
+            from langgraph.config import get_config
+
+            configurable = (get_config() or {}).get("configurable", {}) or {}
+        except RuntimeError as error:
+            if sys.version_info < (3, 11) and _in_async_task():
+                raise CopilotKitMisuseError(
+                    "CopilotKitMiddleware(interrupt_frontend_tools=True) needs "
+                    "Python 3.11+ when the agent runs asynchronously: on 3.10 the "
+                    "run config does not propagate into asyncio tasks, so "
+                    "LangGraph's interrupt() cannot read it. Upgrade to 3.11+, or "
+                    "leave the flag off to use the default frontend-tool flow."
+                ) from error
+            # Not inside a runnable context at all (e.g. a direct unit-test
+            # call) — nothing to validate.
+            return
+        except Exception:  # noqa: BLE001 - never block a run on a probe failure
+            return
+
+        # LangGraph always writes this key into a task's config; the value is
+        # None when the graph was compiled without a checkpointer. A missing key
+        # means we are not inside a Pregel task at all, so there is nothing to
+        # check.
+        if configurable.get("__pregel_checkpointer", "missing") is None:
+            raise CopilotKitMisuseError(
+                "CopilotKitMiddleware(interrupt_frontend_tools=True) requires a "
+                "checkpointer: the run pauses on interrupt() and has to be "
+                "restored when the client resumes. Compile the agent with one, "
+                "e.g. create_agent(..., checkpointer=InMemorySaver()). Without it "
+                "LangGraph fails later with 'Cannot use Command(resume=...) "
+                "without checkpointer'."
+            )
+
+    # Intercept frontend tool calls after model returns, before ToolNode executes.
+    #
+    # NOTE: this hook must stay free of side effects. In interrupt mode
+    # ``interrupt()`` raises out of it, LangGraph discards every write from the
+    # interrupting task, and the whole node re-runs from the top on resume —
+    # so anything that mutates module state here would fire twice.
     def after_model(
         self,
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        frontend_tools = self._get_copilotkit_context(
-            state,
-            getattr(runtime, "context", None),
-        ).get("actions", [])
-        if not frontend_tools:
+        if self._interrupt_frontend_tools:
+            return self._await_frontend_tool_calls(state, runtime)
+        return self._strip_frontend_tool_calls(state, runtime)
+
+    def _await_frontend_tool_calls(
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
+    ) -> dict[str, Any] | None:
+        """Pause the turn on one batched interrupt until the client answers.
+
+        Unlike the default path this leaves the AIMessage untouched and appends
+        a real ToolMessage per frontend call, so the model resumes the same turn
+        with the results in hand and the persisted history reads naturally.
+        Keeping the tool_calls in place is also what keeps each new ToolMessage
+        paired with a matching id, so ``_fix_messages_for_bedrock`` does not
+        strip them as orphans.
+        """
+        frontend_tool_names = self._frontend_tool_names(state, runtime)
+        if not frontend_tool_names:
             return None
 
-        frontend_tool_names = {
-            t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
+        messages = state.get("messages", [])
+
+        # Scan backwards rather than checking messages[-1]: on resume this node
+        # re-runs from the top, and a checkpointer that applies
+        # patch_orphan_tool_calls (see _fix_messages_for_bedrock) will have
+        # inserted placeholder ToolMessages after the AIMessage. Looking only at
+        # the last message would miss it, skip the interrupt, and leave the
+        # resume value unconsumed.
+        ai_index = next(
+            (
+                i
+                for i in range(len(messages) - 1, -1, -1)
+                if isinstance(messages[i], AIMessage)
+            ),
+            None,
+        )
+        if ai_index is None:
+            return None
+
+        tool_calls = getattr(messages[ai_index], "tool_calls", None) or []
+        if not tool_calls:
+            return None
+
+        # A call counts as answered only by a *real* result. The placeholders
+        # above say "was interrupted before completion"; accepting one as an
+        # answer would hand the model that sentence as the tool's output.
+        answered_ids = {
+            getattr(msg, "tool_call_id", None)
+            for msg in messages[ai_index + 1 :]
+            if isinstance(msg, ToolMessage)
+            and not (
+                isinstance(msg.content, str) and _INTERRUPTED_PAT.match(msg.content)
+            )
         }
+
+        frontend_calls = [
+            call
+            for call in tool_calls
+            if call.get("name") in frontend_tool_names
+            and call.get("id")
+            and call.get("id") not in answered_ids
+        ]
+        # Also makes the hook idempotent: once results are in state, re-entering
+        # this node finds nothing outstanding instead of interrupting again.
+        if not frontend_calls:
+            return None
+
+        self._check_interrupt_preconditions()
+
+        # One interrupt for the whole batch. A resume carries a single value and
+        # cannot address several pending interrupts without their ids
+        # (ag-ui-protocol/ag-ui#2178), so one interrupt per call would deadlock
+        # any turn where the model called more than one frontend tool.
+        #
+        # Not wrapped in try/except: interrupt() signals the pause by raising,
+        # and swallowing that would turn it into a silent no-op.
+        resumed = interrupt(
+            {
+                _FE_INTERRUPT_KEY: [
+                    {
+                        "id": call["id"],
+                        "name": call.get("name"),
+                        "args": call.get("args") or {},
+                    }
+                    for call in frontend_calls
+                ]
+            }
+        )
+
+        results = _parse_frontend_tool_results(resumed)
+        if results is _UNRECOGNIZED_RESUME:
+            raise CopilotKitMisuseError(
+                "CopilotKitMiddleware(interrupt_frontend_tools=True) was resumed "
+                "with a payload it does not recognise. Expected "
+                '{"tool_results": [{"toolCallId": ..., "content": ...}, ...]} or a '
+                f"bare list of those, got {type(resumed).__name__}. A resume "
+                "carries one value and the first pending interrupt consumes it, "
+                "so this usually means another interrupt's answer arrived here."
+            )
+
+        # One ToolMessage per call, in the order the model emitted them. Calls
+        # the client did not answer still get one, so no tool_call is left
+        # unpaired — an unanswered tool call is rejected outright by Bedrock and
+        # confuses every other provider.
+        #
+        # Messages ONLY. No "jump_to": create_agent's model->tools edge already
+        # routes correctly — it sends just the unanswered (backend) calls to
+        # ToolNode, and re-enters the model when an AIMessage has tool calls but
+        # none pending. And no "copilotkit" key: that channel has no reducer, so
+        # writing it would replace the whole dict and wipe "actions", which this
+        # hook re-reads on resume.
+        return {
+            "messages": [
+                ToolMessage(
+                    content=results.get(call["id"], _MISSING_TOOL_RESULT_CONTENT),
+                    tool_call_id=call["id"],
+                    name=call.get("name"),
+                    id=f"copilotkit-fe-tool-result-{call['id']}",
+                )
+                for call in frontend_calls
+            ]
+        }
+
+    def _strip_frontend_tool_calls(
+        self,
+        state: StateSchema,
+        runtime: Runtime[Any],
+    ) -> dict[str, Any] | None:
+        """Default path: park frontend calls until the next run answers them."""
+        frontend_tool_names = self._frontend_tool_names(state, runtime)
+        if not frontend_tool_names:
+            return None
 
         # Find last AI message with tool calls
         messages = state.get("messages", [])
