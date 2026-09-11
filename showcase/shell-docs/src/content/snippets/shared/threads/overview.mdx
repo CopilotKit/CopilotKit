@@ -1,4 +1,3 @@
-import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pane-threads.mdx";
 
 <IntelligenceOnboardingPrompt
@@ -23,39 +22,7 @@ import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pan
 
 Create a new CopilotKit app connected to cloud-hosted CopilotKit Intelligence. Your application and CopilotKit Runtime run locally while CopilotKit Intelligence stores and synchronizes Rich Threads.
 
-<Accordions>
-<Accordion title="Build and verify this with a coding agent">
-
-<DocsTrackedCopy surface="docs_threads_agent_prompt">
-
-```text
-Set up and verify a CopilotKit Rich Threads application with cloud-hosted
-CopilotKit Intelligence.
-
-First inspect this repository and follow its agent instructions. If this is not
-already a CLI-created CopilotKit Threads starter, run
-`npx copilotkit@latest init` and ask me to complete the interactive browser
-sign-in and CopilotKit Intelligence project selection when needed. Use the
-scaffolded local application and CopilotKit Runtime configuration.
-
-Keep the Threads Drawer that comes with the starter. Do not rebuild it or invent
-manual CopilotKit Intelligence environment configuration. Do not set up a local
-Intelligence service.
-
-Start the application and Runtime using the generated instructions. Create a
-conversation through the included Threads Drawer, reload or reopen it, and
-verify that the complete conversation returns. If browser interaction requires
-me, give me the exact step and continue after I confirm it.
-
-Finish by reporting the files changed, commands run, and the persistence check
-you completed. Stop and explain the blocker if the cloud-hosted setup cannot be
-completed; do not substitute an undocumented setup.
-```
-
-</DocsTrackedCopy>
-
-</Accordion>
-</Accordions>
+<RichThreadsSetupPrompt />
 
 Or follow the steps yourself:
 

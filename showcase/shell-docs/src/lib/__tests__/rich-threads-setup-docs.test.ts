@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
@@ -25,6 +26,36 @@ test("expands the Rich Threads agent prompt for Markdown and LLM readers", () =>
 
   // The route owns the instructions; the raw-Markdown route only has to
   // carry the command that reaches it. See `createFeatureSetupPrompt`.
+  expect(output).toContain(
+    "npx --yes copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent add-rich-threads",
+  );
+  expect(output).not.toContain("<RichThreadsSetupPrompt />");
+});
+
+test("reuses the canonical Rich Threads prompt in the Threads overview", () => {
+  const doc = loadDoc("threads");
+  if (!doc) throw new Error("Threads overview is missing");
+
+  const overviewSource = readFileSync(
+    new URL(
+      "../../content/snippets/shared/threads/overview.mdx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  expect(overviewSource).toContain("<RichThreadsSetupPrompt />");
+  expect(overviewSource).not.toContain(
+    "Set up and verify a CopilotKit Rich Threads application",
+  );
+
+  const output = renderPageToLlmText({
+    url: "threads",
+    title: doc.fm.title,
+    description: doc.fm.description,
+    filePath: doc.filePath,
+    loadSlug: "threads",
+  });
+
   expect(output).toContain(
     "npx --yes copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent add-rich-threads",
   );
