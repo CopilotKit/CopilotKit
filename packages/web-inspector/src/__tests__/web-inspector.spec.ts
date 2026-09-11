@@ -2258,7 +2258,8 @@ test.each([
         entitlementSource: "clerk_subscription",
       },
     },
-    lockedHeading: "Renew Intelligence to inspect Threads.",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "expired self-hosted entitlement",
@@ -2273,7 +2274,8 @@ test.each([
         traceId: "trace-expired",
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "misconfigured self-hosted entitlement",
@@ -2286,7 +2288,8 @@ test.each([
         retryable: false,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "unavailable managed entitlement",
@@ -2299,7 +2302,8 @@ test.each([
         retryable: true,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "SDK fail-soft entitlement lookup",
@@ -2312,7 +2316,8 @@ test.each([
         retryable: true,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ] as const)(
   "keeps the unified locked splash for $diagnostic",
@@ -2359,7 +2364,7 @@ test("keeps the unified locked splash for an expired legacy license", async () =
     );
     expect(diagnostics).toHaveLength(0);
     expect(inspector.shadowRoot?.textContent ?? "").toContain(
-      "Renew Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
   } finally {
     fixture.teardown();
@@ -2432,12 +2437,14 @@ test.each([
       },
       licenseStatus: "expired",
     },
-    lockedHeading: "Renew Intelligence to inspect Threads.",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "legacy valid license",
     diagnostics: { licenseStatus: "valid" },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ] as const)(
   "keeps Threads unavailable for $diagnostic when the Runtime omits list capability",

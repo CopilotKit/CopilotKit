@@ -1094,8 +1094,10 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "valid",
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/manage",
-    heading: "Finish setting up Rich Threads",
-    description: "Copy this prompt into your coding agent to finish the setup.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
+    description:
+      "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
   },
   {
     name: "none enable action",
@@ -1114,7 +1116,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "expired",
     actionKind: "renew",
     actionUrl: "https://cloud.copilotkit.ai/actions/renew",
-    heading: "Renew Intelligence to inspect Threads.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "expired manage action",
@@ -1122,7 +1125,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "expired",
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/manage-expired",
-    heading: "Renew Intelligence to inspect Threads.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "unknown action",
@@ -1155,7 +1159,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "expired",
     actionKind: "enable_intelligence",
     actionUrl: "https://cloud.copilotkit.ai/actions/conflict",
-    heading: "Renew Intelligence to inspect Threads.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ];
 
@@ -1380,7 +1385,9 @@ test.each(footerCases)(
       );
       if (state === "locked") {
         expect(footers).toHaveLength(0);
-        expect(root.textContent).toContain("Finish setting up Rich Threads");
+        expect(root.textContent).toContain(
+          "Production-grade chat threads without the complexity. Self hostable.",
+        );
         return;
       }
       const footer = footers[0];
