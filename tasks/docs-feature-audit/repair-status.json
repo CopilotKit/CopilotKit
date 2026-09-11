@@ -330,12 +330,16 @@
       "id": "CONTENT-GEN-019",
       "area": "AG2 authentication guide current provider contract",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-019",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "a7bc6c8a2a"
+      ],
+      "after_evidence": [
+        "AG2 guide now extracts the current request-header derivation, provider headers transport, and runtime onRequest gate; focused current-v2 authored-guide suite passed 5 checks."
+      ],
       "sanity_review": null,
-      "remaining": "Replace the frontend example with the current headers contract and verify the AG2 auth cell accepts a valid header and rejects its absence."
+      "remaining": "Render the repaired guide in the local reader path and run the exact AG2 auth behavior gate separately; no auth runtime qualification is claimed."
     },
     {
       "id": "CONTENT-GEN-020",
@@ -360,12 +364,16 @@
       "id": "CONTENT-GEN-021",
       "area": "AG2 state-rendering guide current v2 state API",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-021",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "3155ef7957"
+      ],
+      "after_evidence": [
+        "AG2 state guide now extracts the actual steps publisher, runtime mount, and frontend subscription; focused current-v2 authored-guide suite passed 5 checks."
+      ],
       "sanity_review": null,
-      "remaining": "Rewrite the guide around current useAgent updates and agent.state rendering (or the current supported renderer API), then typecheck the shown example."
+      "remaining": "Typecheck/run the displayed AG2 paths and repeat local HTML/Markdown reader checks; source and raw-Markdown proof do not qualify agent behavior."
     },
     {
       "id": "CONTENT-GEN-022",
@@ -390,34 +398,44 @@
       "id": "CONTENT-GEN-023",
       "area": "AGNO frontend-tools guide API reference",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-023",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "a7bc6c8a2a"
+      ],
+      "after_evidence": [
+        "Agno frontend-tools guide now links to the current v2 useFrontendTool reference; focused current-v2 authored-guide suite passed 5 checks."
+      ],
       "sanity_review": null,
-      "remaining": "Point the guide at the current v2 useFrontendTool reference and verify the rendered/Markdown link target."
+      "remaining": "Verify the rendered local guide link and keep runtime behavior separate."
     },
     {
       "id": "CONTENT-GEN-024",
       "area": "Claude SDK TypeScript quickstart dependency guidance",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-024",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "a7bc6c8a2a"
+      ],
+      "after_evidence": [
+        "Reader-facing Claude SDK and CrewAI install ranges were removed without changing package or lock requirements; focused current-v2 authored-guide suite passed 5 checks."
+      ],
       "sanity_review": null,
-      "remaining": "Remove the reader-facing version range and run the documented install/typecheck against the current stable dependency set."
+      "remaining": "Run documented install/typecheck against current stable dependencies before treating setup as qualified."
     },
     {
       "id": "CONTENT-GEN-025",
       "area": "CrewAI Flows human-in-the-loop guide current frontend contract",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "implementing",
       "before_record": "content-defects.json#CONTENT-GEN-025",
       "fix_commits": [],
-      "after_evidence": [],
+      "after_evidence": [
+        "Pending source-only rewrite uses canonical crewai-crews hitl-in-chat frontend and flow regions; independent source review approved it."
+      ],
       "sanity_review": null,
-      "remaining": "Replace the legacy action fields with current useHumanInTheLoop or a valid async frontend-tool handler, then typecheck and exercise the CrewAI flow path."
+      "remaining": "Paused by user with a source-backed CrewAI rewrite and raw-Markdown test pending the next approved docs slot; then run its focused render contract and separate local flow behavior check."
     },
     {
       "id": "CONTENT-GEN-026",
@@ -434,12 +452,17 @@
       "id": "CONTENT-GEN-027",
       "area": "framework guide navigation context",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-027",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "d083d8a7a4",
+        "2dcb359822"
+      ],
+      "after_evidence": [
+        "Authored CTACards now retain expression props and resolve root-relative card links through the active framework/variant; the Microsoft Agent Python overview regression checks its two scoped child guides."
+      ],
       "sanity_review": null,
-      "remaining": "Point cards to the framework- and variant-aware destinations, then verify rendered navigation preserves Mastra, Microsoft Agent Framework .NET, harness .NET, and Python context."
+      "remaining": "Recheck rendered navigation for Mastra, Microsoft Agent Framework .NET, harness .NET, and Python; link resolution is fixed but no complete guide qualification is claimed."
     },
     {
       "id": "CONTENT-GEN-028",
@@ -467,12 +490,14 @@
       "id": "CONTENT-GEN-030",
       "area": "framework-specific interactive example selection",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "implementing",
       "before_record": "content-defects.json#CONTENT-GEN-030",
       "fix_commits": [],
-      "after_evidence": [],
+      "after_evidence": [
+        "Pending source-only change replaces the hard-coded .NET selector with the active framework prop."
+      ],
       "sanity_review": null,
-      "remaining": "Use an active-binding-aware selector or provide distinct .NET and Python guide sources, then render both routes and confirm their selected examples."
+      "remaining": "Paused by user with the active-framework selector and regression assertion untested; render both .NET and Python routes when a docs slot is available."
     },
     {
       "id": "CONTENT-GEN-031",
@@ -481,64 +506,86 @@
       "stage": "investigating",
       "before_record": "content-defects.json#CONTENT-GEN-031",
       "fix_commits": [],
-      "after_evidence": [],
+      "after_evidence": [
+        "Static source review found no Showcase-backed Pydantic steps publisher/runtime to extract; this is an implementation gap, not a documentation-only completion."
+      ],
       "sanity_review": null,
-      "remaining": "Separate a valid Pydantic AI backend state example from a current React frontend example, then typecheck/run the displayed files and render the Pydantic route."
+      "remaining": "A runnable Pydantic state-rendering guide requires product implementation: the current gen-ui-agent documents its steps publisher as unimplemented and proxies to an agent that exposes todos. Keep the guide/runtime gap explicit; do not invent a replacement snippet."
     },
     {
       "id": "CONTENT-GEN-032",
       "area": "framework-scoped fixed-schema source excerpts",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-032",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "0fd6f3135e"
+      ],
+      "after_evidence": [
+        "Native source regions and raw-Markdown coverage were added; the focused source-coverage run passed 6 checks across 4 files."
+      ],
       "sanity_review": null,
-      "remaining": "Add the appropriate native regions or a framework-specific guide branch, regenerate bundled content, and re-render the three React routes without Missing snippet alerts."
+      "remaining": "Regenerate/render the affected routes and verify each formerly missing excerpt is useful in the selected framework context; no runtime qualification is claimed."
     },
     {
       "id": "CONTENT-GEN-033",
       "area": "reasoning-message source excerpt resolution",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-033",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "0fd6f3135e"
+      ],
+      "after_evidence": [
+        "Native source regions and raw-Markdown coverage were added; the focused source-coverage run passed 6 checks across 4 files."
+      ],
       "sanity_review": null,
-      "remaining": "Supply the native region or select a compatible guide branch for both variants, regenerate content, and render default and custom reasoning routes without the marker."
+      "remaining": "Regenerate/render the affected routes and verify each formerly missing excerpt is useful in the selected framework context; no runtime qualification is claimed."
     },
     {
       "id": "CONTENT-GEN-034",
       "area": "state-streaming backend excerpt resolution",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-034",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "0fd6f3135e"
+      ],
+      "after_evidence": [
+        "Native source regions and raw-Markdown coverage were added; the focused source-coverage run passed 6 checks across 4 files."
+      ],
       "sanity_review": null,
-      "remaining": "Provide native regions or integration-specific alternatives, regenerate content, and verify all ten qualified React contexts render useful backend code without markers."
+      "remaining": "Regenerate/render the affected routes and verify each formerly missing excerpt is useful in the selected framework context; no runtime qualification is claimed."
     },
     {
       "id": "CONTENT-GEN-035",
       "area": "headless guide frontend excerpt resolution",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-035",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "88ee9b4e70"
+      ],
+      "after_evidence": [
+        "Bounded frontend/backend source regions and regression coverage were committed for the affected headless and tool-rendering cells."
+      ],
       "sanity_review": null,
-      "remaining": "Add a compatible frontend region or a scoped guide branch, regenerate content, and verify simple and complete headless routes render without markers."
+      "remaining": "Run the focused renderer coverage and render affected routes before declaring the source excerpts repaired."
     },
     {
       "id": "CONTENT-GEN-036",
       "area": "tool-rendering backend excerpt resolution",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-036",
-      "fix_commits": [],
-      "after_evidence": [],
+      "fix_commits": [
+        "88ee9b4e70"
+      ],
+      "after_evidence": [
+        "Bounded frontend/backend source regions and regression coverage were committed for the affected headless and tool-rendering cells."
+      ],
       "sanity_review": null,
-      "remaining": "Add the correct backend regions or framework branches, regenerate content, and re-render each qualified React tool-rendering context without a marker."
+      "remaining": "Run the focused renderer coverage and render affected routes before declaring the source excerpts repaired."
     },
     {
       "id": "CONTENT-GEN-037",
@@ -714,6 +761,51 @@
       "sanity_review": null,
       "remaining": "Commit the source/test unit, complete the generator-owned Angular resolver mappings separately, and retain browser-level Angular validation as an open representation gate.",
       "disposition": "Angular content defect plus test-only MAF contract drift; no provider code belongs in the overview."
+    },
+    {
+      "id": "REPAIR-008",
+      "area": "local Showcase embed override configuration",
+      "severity": "medium",
+      "stage": "verifying",
+      "before_record": "Initial local-preview boot failed because a cross-app TypeScript helper compiled with CommonJS exports in shell-docs config loading.",
+      "fix_commits": ["bea9c584ac"],
+      "after_evidence": ["The in-app local-backend helper keeps shared local-ports.json as the map source; focused contract coverage passed 5 checks."],
+      "sanity_review": {"status": "approved_for_source_change", "reviewer": "intelligence_showcase_support", "remaining": "Actual local preview boot and iframe-local-origin reader proof."},
+      "remaining": "Paused by user while runtime owns the heavy slot. Confirm startup and selected iframe origin without changing the remote default."
+    },
+    {
+      "id": "REPAIR-009",
+      "area": "Built-in Agent agent-config guide provenance",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Reader walkthrough found illustrative agentConfigFactory/buildSystemPrompt/makeAgent stubs instead of the actual Showcase provider and in-process factory.",
+      "fix_commits": [],
+      "after_evidence": ["Pending guide change uses real provider-setup and agent-config-factory regions; independent source review approved the source/order contract."],
+      "sanity_review": null,
+      "remaining": "Paused by user before the focused raw-Markdown contract, local guide render, and behavior recheck."
+    },
+    {
+      "id": "REPAIR-010",
+      "area": "footer integrations link retains SSR placeholder after hydration",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Live reader walkthrough observed https://ssr-placeholder.invalid//integrations after hydration.",
+      "fix_commits": [],
+      "after_evidence": ["Pending layout/runtime-config change passes server-resolved shell configuration into RuntimeConfigProvider so SSR emits a real link instead of a suppressed sentinel."],
+      "sanity_review": null,
+      "remaining": "Paused by user before focused configuration validation and actual browser hydration proof."
+    },
+    {
+      "id": "REPAIR-011",
+      "area": "relative browser runtime URL for single-route Intelligence resources",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "Published core 1.71.0 produces Invalid URL for browser-relative runtime paths in the Built-in Agent reader flow.",
+      "fix_commits": ["6e7ad99316"],
+      "after_evidence": ["Core full suite passed 841 checks; uncached publint and attw passed; three patched-local Built-in Agent D6 probes are green. Independent static review cleared browser-relative, absolute URL, and SSR boundaries."],
+      "sanity_review": {"status": "approved_for_scoped_core_change", "reviewer": "intelligence_showcase_support", "remaining": "Remove the temporary patched node_modules overlay and repeat behavior through the published/package-consumed artifact."},
+      "remaining": "Core repair is verified at its scoped boundary. The Built-in Agent dependency overlay and full guide/integration qualification remain explicit."
     }
+
   ]
 }

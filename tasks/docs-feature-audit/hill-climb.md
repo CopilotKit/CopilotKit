@@ -117,8 +117,30 @@ The [per-guide reader checklist](selected-reader-sanity.md) tracks all 220 basel
 | 21        | REPAIR-006 shared recipe readiness           | Provisional agent state could be replaced before the first request                    | Canonical frontend waits for readiness; fanout and strict probes green for Strands, LangGraph Python, and LangGraph TypeScript (`cddc381133`)                   | Scoped readiness race qualified locally                   |
 | 22        | Bounded shell-docs suite                     | Earlier one-worker run exited at the heap cap without a verdict                       | Bounded two-worker suite completed: 117/122 files and 911/922 tests passed; 11 failures remain tracked                                                          | Not a full-suite pass; diagnose and repair each failure   |
 
+| 23 | C019/C023/C024 authored API repairs | AG2 auth used stale copied transport; AGNO link and reader-facing install ranges drifted | Source-backed AG2 auth plus current API/install guidance committed (`a7bc6c8a2a`); focused raw-Markdown suite passed 5 checks | Verifying; local reader/runtime checks remain open |
+| 24 | C021 AG2 state rendering | Copied state publisher and route disagreed with Showcase agent | Guide derives publisher, mount, and frontend IDs from Showcase (`3155ef7957`) | Verifying; no AG2 behavior qualification |
+| 25 | C032–C034 source-region coverage | Qualified routes showed missing backend/reasoning excerpts | Native regions and raw-Markdown coverage committed (`0fd6f3135e`; 6 focused checks across 4 files) | Verifying representation, not runtime |
+| 26 | C035–C036 source-region coverage | Headless/tool-rendering routes lacked compatible excerpts | Bounded frontend/backend regions and regression coverage committed (`88ee9b4e70`) | Verifying; renderer proof remains open |
+| 27 | Latest LangGraph Python dependencies | Stable dependency set had not been exercised against native graph boot | Updated requirements and three local D6 cells are green (`24401cb24f`) | Scoped 3-cell evidence only; not integration qualification |
+| 28 | User-requested pause checkpoint | C025/C030 edits and REPAIR-008–011 had incomplete reader/runtime gates | Sources and before-state evidence preserved; no new tests or repairs run | Paused by user; no framework fully qualified |
+
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
+
+## Pause checkpoint — user requested
+
+Work is paused at the user's request, not blocked or complete. The last bounded
+shell-docs suite remains **911/922 passing**; it is not a full-suite pass.
+`CONTENT-GEN-025` (CrewAI source-backed HITL rewrite) and `CONTENT-GEN-030`
+(active Microsoft Agent Framework interactive selector) are untested working
+changes. `CONTENT-GEN-031` remains a genuine Pydantic product/backend gap:
+the current Showcase has no `steps` publisher/runtime that the guide can
+truthfully extract. `REPAIR-008` through `REPAIR-011` remain explicit in the
+ledger: local embed boot, Built-in Agent guide provenance, hydrated footer
+link, and relative runtime URL respectively. The scoped core repair is committed
+as `6e7ad99316` with full core checks and patched-local D6 proof; its dependency
+overlay still needs removal before Built-in Agent qualification. The Copy/View prompt observation
+remains inconclusive until a real local browser recheck.
 
 ## Local rendered comparisons
 
