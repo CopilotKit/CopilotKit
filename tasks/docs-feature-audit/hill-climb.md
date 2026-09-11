@@ -5,6 +5,10 @@ LangGraph Python, LangGraph JS, Google ADK, Strands, and Built-in Agent.
 
 **Current position: repair underway. No integration is qualified yet.**
 
+The [per-defect ledger](repair-status.json) tracks all 37 confirmed findings, fix commits,
+after-evidence, and independent reviews. The original audit register remains unchanged as the
+before-state; a repaired issue advances in this ledger rather than disappearing from the audit.
+
 ## What counts as reaching the top
 
 Every applicable feature guide must be readable, consistent with its selected framework, sourced
@@ -15,10 +19,11 @@ Latest stable dependency verification is a separate requirement. Replay tests do
 provider compatibility. A missing test, unexplained failure, quarantined feature, or unavailable
 credential stays visible; it never becomes a pass through averaging.
 
-The broader audit findings remain in the [defect register](defect-register.md). This repair cycle
-prioritizes the selected five integrations and shared fixes. Findings unique to other integrations
-remain a visible follow-up; Vue, React Native, and further frontend expansion are not silently
-counted as complete.
+All confirmed audit findings remain tracked in the [defect register](defect-register.md). This
+repair cycle prioritizes the selected five integrations and shared fixes, then resolves the
+remaining audited guide defects. A corrected guide for another integration is not a claim of
+full runtime qualification for that integration. Vue, React Native, and further frontend expansion
+are not silently counted as complete.
 
 ## How to read the hill
 
