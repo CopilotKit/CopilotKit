@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 
 import { FrameworkOverview } from "./framework-overview";
 import type {
+  ConnectSection,
   FrameworkOverviewData,
   LiveDemo,
   OpsPlatformCTAData,
+  ShowcaseSection,
   SupportedFeature,
 } from "@/data/frameworks/types";
 
@@ -91,6 +93,27 @@ export interface MdxFrameworkOverviewProps {
    */
   currentFramework?: string;
   hrefPrefix?: string;
+  /**
+   * Capability-card layout. Setting `lede` is what switches the page over —
+   * see `FrameworkOverviewData.lede`. Authored files that leave these unset
+   * keep the video-per-feature layout.
+   */
+  lede?: string;
+  capabilitiesFootnote?: {
+    text: string;
+    linkLabel: string;
+    href: string;
+  };
+  connect?: ConnectSection;
+  showcase?: ShowcaseSection;
+  /**
+   * The "Connect your agent" snippet, authored as an ordinary fenced code
+   * block between the opening and closing tags. It renders through
+   * rehype-code and `MdxCodeBlock` like every other fence in the docs, which a
+   * multi-line template literal in a `connect.code` attribute does not: the
+   * MDX pipeline shortened every one of its lines by two spaces.
+   */
+  children?: ReactNode;
 }
 
 export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
@@ -122,6 +145,10 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
     liveDemos: props.liveDemos ?? [],
     tutorialLink: props.tutorialLink,
     cta: props.cta,
+    lede: props.lede,
+    capabilitiesFootnote: props.capabilitiesFootnote,
+    connect: props.connect,
+    showcase: props.showcase,
   };
   return (
     <FrameworkOverview
@@ -130,6 +157,7 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
       hrefPrefix={props.hrefPrefix}
       iconOverride={props.frameworkIcon}
       afterFeatures={props.afterFeatures}
+      connectSnippet={props.children}
     />
   );
 }
