@@ -15,7 +15,7 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
 - React 18+
-- Node.js 20+
+- Node.js 20.6+ (for `--env-file`)
 
 ## Getting started
 
@@ -146,12 +146,25 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
     <Step>
         ### Run the runtime and app
 
-        You are running two dev servers, so they need two different ports. Start Copilot Runtime in one terminal:
+        You are running two dev servers, so they need two different ports. Before creating the server credential file, add this entry to your project's `.gitignore`:
+
+        ```gitignore title=".gitignore"
+        .env
+        ```
+
+        Create `.env` beside `server.ts`:
+
+        ```dotenv title=".env"
+        OPENAI_API_KEY=sk-...
+        ```
+
+        Start Copilot Runtime from that directory in one terminal:
 
         ```bash
-        export OPENAI_API_KEY=sk-...
-        npx tsx server.ts
+        npx tsx --env-file=.env server.ts
         ```
+
+        A standalone Node process does not load `.env` automatically. The flag loads it before runtime imports run, including `CPK_INTELLIGENCE_API_KEY` when you connect [Intelligence](/intelligence/connect-your-runtime). If the CLI wrote `.env` in a parent directory, point `--env-file` at that file instead. Keep server credentials out of `VITE_*` variables, which are exposed to the browser.
 
         Start the React app in another terminal:
 
@@ -173,7 +186,7 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
                 - **404s on `/api/copilotkit`**: Your `runtimeUrl` is relative. A SPA needs the absolute `http://localhost:8200/api/copilotkit`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/react-core/v2/styles.css` in your app entry.
-                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+                - **Model auth errors or Intelligence remains unconfigured**: Confirm the runtime starts with `npx tsx --env-file=.env server.ts` and the selected env file contains the required server credentials. Vite loading its own env file does not configure the runtime process.
             </Accordion>
         </Accordions>
     </Step>
