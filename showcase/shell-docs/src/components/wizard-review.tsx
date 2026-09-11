@@ -41,17 +41,20 @@
 // ring; without it every row click reported as a keyboard activation
 // regardless of how the reader actually triggered it.
 //
-// The frontend and agent-backend marks come from `PickLogoMark`, and each
+// The frontend and agent-backend marks come from `PickLogoMark`, each
 // feature's own icon from `CapabilityIconMark` — both imported from
-// `./docs-map-parts`, never reimplemented here. `CapabilityIconMark` wraps a
-// deliberate named-import icon record rather than a namespace import (605 KB
-// minified against 6 KB for named imports — see that file's header comment
-// on `CAPABILITY_ICONS`); a second copy of that record here would invite the
-// same bundle-size regression straight back.
+// `./docs-map-parts` — and the project row's checkmark/cross from
+// `PROJECT_ANSWER_ICONS` in `./wizard-stepper-parts`, none of them
+// reimplemented here. `CapabilityIconMark` wraps a deliberate named-import
+// icon record rather than a namespace import (605 KB minified against 6 KB
+// for named imports — see that file's header comment on `CAPABILITY_ICONS`);
+// a second copy of any of these records here would invite the same
+// bundle-size regression straight back.
 
 import React from "react";
 
 import { CapabilityIconMark, PickLogoMark } from "@/components/docs-map-parts";
+import { PROJECT_ANSWER_ICONS } from "@/components/wizard-stepper-parts";
 import type { MapCapability, MapPick } from "@/lib/homepage-map";
 
 /** The panel wrapping every row: one hairline border around the whole
@@ -142,18 +145,28 @@ function PickValue({
   );
 }
 
-/** The project row's value content: no logo (see `ChoiceGrid`'s own doc
- *  comment in `wizard-stepper-parts.tsx` for why a plain Yes/No choice has
- *  none to show), just the answer in the same weight `PickValue` gives its
- *  name. */
+/** The project row's value content: the same checkmark/cross the step itself
+ *  shows (`PROJECT_ANSWER_ICONS` in `wizard-stepper-parts.tsx`) beside the
+ *  answer, the same icon-beside-value shape `PickValue` above gives its
+ *  logo. The wording differs from the step on purpose: "Existing"/"New"
+ *  reads as a fact about the project once the reader is looking back at a
+ *  review of their answers, where the step's own "Yes"/"No" answers the
+ *  question being asked in the moment. */
 function ProjectValue({
   project,
 }: {
   project: "yes" | "no";
 }): React.JSX.Element {
+  const Icon = PROJECT_ANSWER_ICONS[project];
   return (
-    <span className="text-sm font-semibold text-[var(--text)]">
-      {project === "yes" ? "Yes" : "No"}
+    <span className="flex items-center gap-2">
+      <Icon
+        aria-hidden="true"
+        className="h-4 w-4 shrink-0 text-[var(--accent)]"
+      />
+      <span className="text-sm font-semibold text-[var(--text)]">
+        {project === "yes" ? "Existing" : "New"}
+      </span>
     </span>
   );
 }

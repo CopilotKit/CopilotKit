@@ -39,14 +39,19 @@ describe("all four answers", () => {
       />,
     );
 
-    expect(screen.getByText("Yes")).not.toBeNull();
+    // The review reads "Existing"/"New" for the project answer, not the
+    // step's own "Yes"/"No" — see `ProjectValue`'s doc comment in
+    // `wizard-review.tsx`.
+    expect(screen.getByText("Existing")).not.toBeNull();
     expect(screen.getByText("Vue")).not.toBeNull();
     expect(screen.getByText("Mastra")).not.toBeNull();
     expect(screen.getByText("Chat surface")).not.toBeNull();
     expect(screen.getByText("Generative UI")).not.toBeNull();
   });
 
-  it("shows No when the reader answered no", () => {
+  // One of the five mutation-checked guards: showing "No" instead of "New"
+  // here must make this fail.
+  it("shows New when the reader answered no", () => {
     render(
       <WizardReview
         project="no"
@@ -57,7 +62,47 @@ describe("all four answers", () => {
       />,
     );
 
-    expect(screen.getByText("No")).not.toBeNull();
+    expect(screen.getByText("New")).not.toBeNull();
+    expect(screen.queryByText("No")).toBeNull();
+  });
+});
+
+// The project row used to render the answer as bare text while every other
+// row shows its mark beside the value (`PickValue`'s logo, each feature's
+// own icon) — this brings it in line. One of the five mutation-checked
+// guards: dropping the icon from this row must make this fail.
+describe("project row icon", () => {
+  it("renders the answer's icon beside its value, in the accent colour and aria-hidden", () => {
+    render(
+      <WizardReview
+        project="yes"
+        frontend={FRONTEND}
+        backend={BACKEND}
+        features={FEATURES}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByRole("button", { name: "Change project" });
+    const icon = row.querySelector("svg.lucide-check");
+    expect(icon).not.toBeNull();
+    expect(icon!.getAttribute("aria-hidden")).toBe("true");
+    expect(icon!.getAttribute("class")).toContain("text-[var(--accent)]");
+  });
+
+  it("renders a cross for a no answer", () => {
+    render(
+      <WizardReview
+        project="no"
+        frontend={FRONTEND}
+        backend={BACKEND}
+        features={FEATURES}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByRole("button", { name: "Change project" });
+    expect(row.querySelector("svg.lucide-x")).not.toBeNull();
   });
 });
 

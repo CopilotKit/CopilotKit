@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FolderCode, Sparkles } from "lucide-react";
+import { Check, X } from "lucide-react";
 
 import {
   ChoiceGrid,
@@ -270,18 +270,22 @@ describe("WizardCard", () => {
 });
 
 describe("ChoiceGrid", () => {
+  // Check/cross, matching the actual pair the wizard wires in
+  // `setup-wizard.tsx` (`PROJECT_ANSWER_ICONS` in `wizard-stepper-parts.tsx`)
+  // rather than arbitrary stand-ins, since two of the tests below assert the
+  // specific pair rather than just "some icon renders".
   const OPTIONS = [
     {
       id: "yes",
       label: "Yes",
       description: "Add CopilotKit to what you have",
-      icon: FolderCode,
+      icon: Check,
     },
     {
       id: "no",
       label: "No",
       description: "Start from scratch",
-      icon: Sparkles,
+      icon: X,
     },
   ];
 
@@ -344,13 +348,9 @@ describe("ChoiceGrid", () => {
     expect(onSelect).toHaveBeenCalledWith("yes");
   });
 
-  // The reader asked for an icon "like all the other choices". A checkmark
-  // was ruled out (it already means *selected* on `CapabilityGrid`'s toggle
-  // tiles, and a check/cross pair would read as right and wrong when
-  // neither answer here is wrong), so each option gets its own meaningful
-  // icon instead — decorative next to its own visible label, hence
-  // `aria-hidden`. This only asserts an icon renders and is hidden from
-  // assistive technology, not what it depicts.
+  // This only asserts an icon renders and is hidden from assistive
+  // technology, not which icon it is — see the pair-specific test below for
+  // that.
   it("renders each option's own icon, decorative and aria-hidden", () => {
     const { container } = render(
       <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
@@ -360,11 +360,41 @@ describe("ChoiceGrid", () => {
     expect(icons).toHaveLength(2);
   });
 
+  // The reader decided on a checkmark/cross pair, overriding the earlier
+  // reasoning that ruled it out for reading as right-and-wrong. There is no
+  // collision with a checkmark's other meaning in this wizard (marking a
+  // *selected* `CapabilityGrid` tile): this step is single choice and shows
+  // no selection checkmark of its own, asserted separately below. The
+  // accent colour lives on the icon's bordered box (it reaches the svg via
+  // `currentColor`), same shape as `CapabilityGrid`'s icon box in
+  // `docs-map-parts.tsx` — this is one of the five mutation-checked guards,
+  // dropping that class must make this fail.
+  it("renders Yes's answer as a checkmark and No's as a cross, both in the accent colour", () => {
+    render(
+      <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
+    );
+
+    const yesButton = screen.getByRole("button", { name: /^Yes/ });
+    const noButton = screen.getByRole("button", { name: /^No/ });
+
+    const checkIcon = yesButton.querySelector("svg.lucide-check");
+    const crossIcon = noButton.querySelector("svg.lucide-x");
+    expect(checkIcon).not.toBeNull();
+    expect(crossIcon).not.toBeNull();
+
+    expect(checkIcon!.parentElement!.className).toContain(
+      "text-[var(--accent)]",
+    );
+    expect(crossIcon!.parentElement!.className).toContain(
+      "text-[var(--accent)]",
+    );
+  });
+
   // Single choice expresses selection purely through the accent border and
-  // fill, same as `PickGrid` — a checkmark here would collide with the
-  // option's own icon, which already carries meaning of its own. Asserting
-  // each button renders exactly one svg (its own icon) is what catches a
-  // regression that adds a second, selection-only icon back in.
+  // fill, same as `PickGrid` — a second, selection-only checkmark here would
+  // collide with "yes"'s own icon, which is now literally a checkmark.
+  // Asserting each button renders exactly one svg (its own icon) is what
+  // catches a regression that adds that second icon back in.
   it("renders no selection checkmark on either option, even when one is selected", () => {
     render(
       <ChoiceGrid
@@ -380,17 +410,48 @@ describe("ChoiceGrid", () => {
     }
   });
 
-  // Guards the fix for the empty-looking options: two wide, short tiles used
-  // to leave roughly 218px of a 292px-tall content area empty. Without this
-  // floor a future edit could flatten the cards back to that thin row.
-  it("gives each option card a minimum height so the pair fills its frame", () => {
+  // Guards the reversal back to the compact shape every other option tile in
+  // the wizard uses — see this component's own header comment for the
+  // trade. One of the five mutation-checked guards: putting the minimum
+  // height back must make this fail.
+  it("carries no minimum height on either option", () => {
     render(
       <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
     );
 
     for (const button of screen.getAllByRole("button")) {
-      expect(button.className).toMatch(/\bmin-h-\[13rem\]/);
+      expect(button.className).not.toMatch(/\bmin-h-/);
     }
+  });
+
+  // The reader wants the icon on the same row as the label, with only the
+  // description on its own line below — the same shape `CapabilityGrid`'s
+  // tiles use. Assert this on DOM structure, not a class name: the element
+  // that contains the label must not also contain the description — a
+  // class-based assertion would pass against a layout that never actually
+  // changed. Mirrors the equivalent `CapabilityGrid` assertion in
+  // `docs-map-parts.test.tsx`. The other of the five mutation-checked
+  // guards: moving the icon back above the label must make this fail.
+  it("puts the icon and label on one row, with the description on its own line below", () => {
+    render(
+      <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
+    );
+
+    const yesButton = screen.getByRole("button", { name: /^Yes/ });
+    const icon = yesButton.querySelector("svg.lucide-check");
+    expect(icon).not.toBeNull();
+
+    const label = screen.getByText("Yes");
+    const description = screen.getByText("Add CopilotKit to what you have");
+
+    // Walk up from the icon to find the row it shares with the label.
+    let row: HTMLElement | null = icon!.parentElement;
+    while (row && !row.contains(label)) {
+      row = row.parentElement;
+    }
+    expect(row).not.toBeNull();
+    expect(row!.contains(label)).toBe(true);
+    expect(row!.contains(description)).toBe(false);
   });
 });
 

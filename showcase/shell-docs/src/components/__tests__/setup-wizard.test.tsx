@@ -851,10 +851,37 @@ describe("step 5: review list", () => {
       feature: "Chat surface",
     });
 
-    expect(screen.getByText("Yes")).not.toBeNull();
+    // The review reads "Existing" for a yes answer, not the step's own
+    // "Yes" — see the "step 1 vs. review wording" test below for the other
+    // half of that guard.
+    expect(screen.getByText("Existing")).not.toBeNull();
     expect(screen.getByText("Vue")).not.toBeNull();
     expect(screen.getByText("Mastra")).not.toBeNull();
     expect(screen.getByText("Chat surface")).not.toBeNull();
+  });
+
+  // The step itself keeps asking Yes/No; only the review rewords the answer
+  // to Existing/New. Assert both halves in one flow so a change that renames
+  // one place and not the other fails here rather than in two disconnected
+  // tests that could each be updated independently. One of the five
+  // mutation-checked guards: showing "No" instead of "New" in the review
+  // must make this fail.
+  it("step 1 vs. review wording: the step still says Yes/No, the review says Existing/New", () => {
+    renderWizard();
+
+    expect(projectButton("Yes")).not.toBeNull();
+    expect(projectButton("No")).not.toBeNull();
+
+    fireEvent.click(projectButton("No"));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+
+    expect(screen.getByText("New")).not.toBeNull();
+    expect(screen.queryByText("No")).toBeNull();
   });
 
   // Features is the one optional step — skipping it must still leave a row

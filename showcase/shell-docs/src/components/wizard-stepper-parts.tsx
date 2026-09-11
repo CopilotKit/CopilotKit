@@ -76,9 +76,36 @@
 // unconditional either way; only the ring's visibility varies.
 
 import React from "react";
+import { Check, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { CORE_TREATMENT_CLASS } from "./docs-map-parts";
+
+/** The mark for each of step 1's two answers ("Do you already have a
+ *  project?") — shared by the step itself (`setup-wizard.tsx`'s
+ *  `PROJECT_OPTIONS`, rendered through `ChoiceGrid` below) and the review's
+ *  project row (`wizard-review.tsx`), so the two surfaces can never drift
+ *  onto different icons for the same answer. Lives here rather than in
+ *  `setup-wizard.tsx`, which is `"use client"`: a client module's named
+ *  exports are replaced by throwing client references in the server layer,
+ *  so a server-rendered consumer of this record would get a function that
+ *  throws instead of the record itself.
+ *
+ *  A checkmark for "yes", a cross for "no". A checkmark already marks a
+ *  *selected* feature tile elsewhere in this wizard (`CapabilityGrid` in
+ *  `docs-map-parts.tsx`), but there is no collision here: this step is
+ *  single choice and renders no selection checkmark of its own (see
+ *  `ChoiceGrid`'s header comment below), so the checkmark is free to carry
+ *  the "yes" answer's own meaning instead.
+ *
+ *  Named imports in an explicit record, never `import * as icons` with a
+ *  runtime index — see `docs-map-parts.tsx`'s `CAPABILITY_ICONS` comment for
+ *  the bundle-size regression that guards against (605 KB minified for a
+ *  namespace import indexed at runtime, vs. 6 KB for named imports). */
+export const PROJECT_ANSWER_ICONS: Record<"yes" | "no", LucideIcon> = {
+  yes: Check,
+  no: X,
+};
 
 export type StepperStep = {
   readonly n: number; // 1-based
@@ -315,11 +342,11 @@ export type ChoiceOption = {
   readonly label: string;
   readonly description?: string;
   /** A real `lucide-react` icon component, handed in by the caller as a
-   *  named import (see `setup-wizard.tsx`'s `PROJECT_OPTION_ICONS`) — this
-   *  module has no option ids of its own to key a lookup record against, so
-   *  the component itself is the prop rather than a name string. Decorative:
-   *  `ChoiceGrid` always renders it `aria-hidden`, next to the option's own
-   *  visible label. */
+   *  named import (see `PROJECT_ANSWER_ICONS` above) — this module has no
+   *  option ids of its own to key a lookup record against, so the component
+   *  itself is the prop rather than a name string. Decorative: `ChoiceGrid`
+   *  always renders it `aria-hidden`, next to the option's own visible
+   *  label. */
   readonly icon: LucideIcon;
 };
 
@@ -328,22 +355,22 @@ export type ChoiceOption = {
  *  doesn't fit here: it always renders a `PickLogoMark`, which needs a
  *  `MapPick.logo`, and a plain Yes/No choice has no logo to give it.
  *
- *  Each card stacks its icon, label and description and centres them inside
- *  a tall frame (`min-h-[13rem]`, no `flex-1`) rather than the shorter,
- *  wide-and-thin tile this used to be: at a 644px card, two 292px-wide tiles
- *  holding one line of text each left roughly 218px of the card's content
- *  area empty. Not stretched to fill the grid row either — a stretched grid
- *  was tried elsewhere on this page (the review step's summary grid) and
- *  read as inflated boxes; a fixed floor gives the same "fills the frame"
- *  result without that.
+ *  Each option is the same shape as `CapabilityGrid`'s feature tiles in
+ *  `docs-map-parts.tsx`: the icon and label share the top row, the
+ *  description sits on its own line below, `p-3.5` padding, left-aligned,
+ *  no minimum height. It used to be a tall card (`min-h-[13rem]`, icon
+ *  stacked above a centred label) built specifically because two short,
+ *  wide-and-thin tiles left roughly 218px of the step's ~292px content area
+ *  empty; going back to this compact shape brings some of that air back; a
+ *  fixed floor is no longer how this step fills its frame.
  *
- *  The icon is deliberately not a checkmark: a checkmark already means
- *  *selected* everywhere else in this wizard (`CapabilityGrid`'s toggle
- *  tiles), so reusing it here for the option's own meaning would collide
- *  with that. Nor is it a check/cross pair — that reads as right and wrong,
- *  and neither answer to "do you already have a project?" is wrong. Single
- *  choice renders no selection checkmark at all, same as `PickGrid`: the
- *  accent border and fill are the only selection signal.
+ *  The icon is a checkmark for "yes" and a cross for "no" (`PROJECT_ANSWER_
+ *  ICONS` above) — a reversal of an earlier decision that ruled a check/cross
+ *  pair out for reading as right-and-wrong. It does not collide with a
+ *  checkmark's other meaning in this wizard, marking a *selected*
+ *  `CapabilityGrid` tile: this step is single choice and renders no
+ *  selection checkmark of its own, same as `PickGrid` — the accent border
+ *  and fill are the only selection signal here too.
  *
  *  Each option is a real `<button type="button">`: the real `disabled`
  *  attribute when the step is locked (matching every other option control in
@@ -375,20 +402,22 @@ export function ChoiceGrid({
             disabled={disabled}
             aria-pressed={selected}
             onClick={() => onSelect(option.id)}
-            className={`shell-docs-radius-control flex min-h-[13rem] w-full cursor-pointer flex-col items-center justify-center gap-2 border p-5 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`shell-docs-radius-control block w-full cursor-pointer border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               selected
                 ? "border-[var(--accent)] bg-[var(--accent-dim)]"
                 : "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)]"
             }`}
           >
-            <span className="shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]">
-              <Icon aria-hidden="true" className="h-3.5 w-3.5" />
-            </span>
-            <span className="text-sm font-semibold text-[var(--text)]">
-              {option.label}
+            <span className="flex items-center gap-2">
+              <span className="shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]">
+                <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-sm font-semibold text-[var(--text)]">
+                {option.label}
+              </span>
             </span>
             {option.description ? (
-              <span className="text-xs leading-relaxed text-[var(--text-muted)]">
+              <span className="mt-2.5 block text-xs leading-relaxed text-[var(--text-muted)]">
                 {option.description}
               </span>
             ) : null}

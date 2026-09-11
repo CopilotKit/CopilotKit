@@ -54,8 +54,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Copy, FolderCode, Sparkles } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Copy } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
 import { WizardReview } from "@/components/wizard-review";
@@ -82,6 +81,7 @@ import {
 } from "@/lib/intelligence-onboarding-prompt";
 import {
   ChoiceGrid,
+  PROJECT_ANSWER_ICONS,
   QUIET_BUTTON_CLASS,
   WizardCard,
   WizardNav,
@@ -122,39 +122,26 @@ const COPY_LABEL: Record<CopyState, string> = {
  *  to carry can never drift apart. */
 const PROJECT_ANSWER_IDS = ["yes", "no"] as const;
 
-// Named imports into an explicit record, never `import * as icons` with a
-// runtime index — see `docs-map-parts.tsx`'s `CAPABILITY_ICONS` comment for
-// the bundle-size regression that guards against (605 KB minified for a
-// namespace import indexed at runtime, vs. 6 KB for named imports; a
-// namespace object forces the bundler to retain every lucide export and
-// blocks Next's optimizePackageImports from rewriting it).
-//
-// Neither icon is a checkmark: a checkmark already means *selected*
-// elsewhere in this wizard (`CapabilityGrid`'s toggle tiles), and using one
-// here for the option's own meaning would collide with that. Nor is it a
-// check/cross pair, which reads as right and wrong — starting fresh is not
-// a wrong answer. `FolderCode` stands for the existing codebase "Yes" adds
-// CopilotKit to; `Sparkles` stands for the fresh start "No" begins instead.
-const PROJECT_OPTION_ICONS: Record<
-  (typeof PROJECT_ANSWER_IDS)[number],
-  LucideIcon
-> = {
-  yes: FolderCode,
-  no: Sparkles,
-};
-
+// The checkmark/cross pair itself — shared with the review's project row —
+// lives in `wizard-stepper-parts.tsx`'s `PROJECT_ANSWER_ICONS`, which is
+// boundary-neutral, rather than here: this module is `"use client"`, and a
+// client module's named exports are replaced by throwing client references
+// in the server layer, which would break a server-rendered consumer of the
+// same record. See that export's own doc comment for why the pair is a
+// checkmark and a cross rather than the two meaningful-but-arbitrary icons
+// this used to be.
 const PROJECT_OPTIONS: readonly ChoiceOption[] = [
   {
     id: "yes",
     label: "Yes",
     description: "Add CopilotKit to what you have",
-    icon: PROJECT_OPTION_ICONS.yes,
+    icon: PROJECT_ANSWER_ICONS.yes,
   },
   {
     id: "no",
     label: "No",
     description: "Start from scratch",
-    icon: PROJECT_OPTION_ICONS.no,
+    icon: PROJECT_ANSWER_ICONS.no,
   },
 ];
 
