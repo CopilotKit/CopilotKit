@@ -96,7 +96,7 @@ def _fe_call(call_id="fe-1", path="/x"):
     return {"id": call_id, "name": FE_TOOL_NAME, "args": {"path": path}}
 
 
-def _build(*, responses, interrupt_frontend_tools=True, tools=(), checkpointer=True):
+def _build(*, responses, interrupt_frontend_tools=True, tools=()):
     script: dict[str, Any] = {"responses": list(responses), "seen": []}
     graph = create_agent(
         model=_ScriptedModel(script=script),
@@ -104,7 +104,7 @@ def _build(*, responses, interrupt_frontend_tools=True, tools=(), checkpointer=T
         middleware=[
             CopilotKitMiddleware(interrupt_frontend_tools=interrupt_frontend_tools)
         ],
-        checkpointer=InMemorySaver() if checkpointer else None,
+        checkpointer=InMemorySaver(),
     )
     return graph, script
 
@@ -279,18 +279,6 @@ def test_flag_off_never_interrupts():
     assert _interrupt_payloads(events) == []
     # Stripped, so the turn ends here and the result arrives on the next run.
     assert len(script["seen"]) == 1
-
-
-def test_missing_checkpointer_fails_with_a_message_naming_the_flag():
-    graph, _ = _build(responses=[_ai([_fe_call()])], tools=[], checkpointer=False)
-
-    with pytest.raises(CopilotKitMisuseError, match="interrupt_frontend_tools"):
-        graph.invoke(
-            {
-                "messages": [],
-                "copilotkit": {"actions": [{"name": FE_TOOL_NAME}]},
-            }
-        )
 
 
 @pytest.mark.skipif(

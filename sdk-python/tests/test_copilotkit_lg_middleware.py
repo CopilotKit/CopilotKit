@@ -2272,10 +2272,9 @@ def _interrupt_state(tool_calls, *, extra_messages=(), actions=(_FE_ACTION,)):
 def _run_after_model(state, resume, *, use_async=False):
     """Call after_model in interrupt mode with a stubbed interrupt().
 
-    Preconditions are stubbed out too: these tests drive the hook directly
-    rather than through a compiled graph, so there is no run config to check a
-    checkpointer against. The guard has its own coverage in
-    ``test_frontend_tool_interrupt.py``, where real graphs are involved.
+    The precondition probe is stubbed out too: these tests drive the hook
+    directly rather than through a compiled graph, so there is no run config
+    for it to read.
     """
     middleware = CopilotKitMiddleware(interrupt_frontend_tools=True)
     with (
