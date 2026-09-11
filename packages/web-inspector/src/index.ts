@@ -12139,7 +12139,8 @@ export class WebInspectorElement extends LitElement {
     icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
-  }): TemplateResult {
+  }): TemplateResult | typeof nothing {
+    if (args.connected) return nothing;
     const detailId = `cpk-hud-detail-${args.id}`;
     return html`
       <li
@@ -12289,37 +12290,46 @@ export class WebInspectorElement extends LitElement {
                 `
               : nothing
           }
-          <ul
-            class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
-            role="list"
-            style=${styleMap({
-              "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-                featureBlockIntroIndex,
-              ),
-            })}
-          >
-            ${this.renderHudRow({
-              id: "threads",
-              label: HUD_THREADS_LABEL,
-              icon: "MessageSquare",
-              connected: threadsOn,
-              introIndex: featureBlockIntroIndex + 1,
-            })}
-            ${this.renderHudRow({
-              id: "learning",
-              label: HUD_LEARNING_LABEL,
-              icon: "Brain",
-              connected: learningOn,
-              introIndex: featureBlockIntroIndex + 2,
-            })}
-          </ul>
+          ${
+            threadsOn && learningOn
+              ? nothing
+              : html`
+                  <ul
+                    class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
+                    role="list"
+                    style=${styleMap({
+                      "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+                        featureBlockIntroIndex,
+                      ),
+                    })}
+                  >
+                    ${this.renderHudRow({
+                      id: "threads",
+                      label: HUD_THREADS_LABEL,
+                      icon: "MessageSquare",
+                      connected: threadsOn,
+                      introIndex: featureBlockIntroIndex + 1,
+                    })}
+                    ${this.renderHudRow({
+                      id: "learning",
+                      label: HUD_LEARNING_LABEL,
+                      icon: "Brain",
+                      connected: learningOn,
+                      introIndex: featureBlockIntroIndex + (threadsOn ? 1 : 2),
+                    })}
+                  </ul>
+                `
+          }
           <button
             type="button"
             class="cpk-launcher-hud__dismiss-day"
             data-cpk-dismiss-inspector="day"
             style=${styleMap({
               "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-                featureBlockIntroIndex + 3,
+                featureBlockIntroIndex +
+                  Number(!threadsOn) +
+                  Number(!learningOn) +
+                  1,
               ),
             })}
             @click=${this.handleHudDismissDayClick}
