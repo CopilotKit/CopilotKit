@@ -19,3 +19,25 @@
 - Command: `AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts google-adk --demo auth`.
 - Result: `d6:google-adk/auth` green (one executed, zero failed) after the auth control revealed the chat input and the request completed through `POST /api/copilotkit-auth/agent/auth-demo/run` and backend `/auth`.
 - Durable result: `tasks/docs-feature-audit/repair-adk-auth-d6.log`.
+
+## ADK local AIMock context default — strict fixture repair
+
+### Browser RED without harness headers
+
+- An ordinary local browser flow signed in, sent the D6 fixture prompt `auth check turn 1`, and received `503 UNAVAILABLE: Strict mode: no fixture matched`. The D6 fixture is scoped to `context: google-adk`; the browser does not add the harness-only request header.
+- The captured backend error excerpt is `tasks/docs-feature-audit/repair-adk-context-baseline-red.log`. This is independent of ADK-013: the repaired auth route returned 200 but omitted the fixture namespace on a human local request.
+
+### Change and independent review
+
+- `extractForwardedHeaders()` now provides the constant `google-adk` fixture context only when the server has `AIMOCK_URL` configured and no inbound context exists. An explicit incoming context remains authoritative.
+- Independent review found that only an `x-*` fixture namespace value is added; Authorization, cookies, and content-type remain excluded, and an unset `AIMOCK_URL` preserves live-provider behavior.
+
+### Browser GREEN without harness headers
+
+- A fresh browser context with all non-local requests blocked signed in, sent the same fixture prompt, and rendered the expected confirmation. Screenshot: `tasks/docs-feature-audit/repair-adk-auth-manual-green.png`; runner result: `tasks/docs-feature-audit/repair-adk-auth-manual-context-proof.log`.
+
+### D6 regression: 3/3 green
+
+- `auth`: `tasks/docs-feature-audit/repair-adk-context-auth-d6.log` — 1 passed, 0 failed.
+- `agentic-chat`: `tasks/docs-feature-audit/repair-adk-context-agentic-chat-d6.log` — 1 passed, 0 failed.
+- `tool-rendering`: `tasks/docs-feature-audit/repair-adk-context-tool-rendering-d6.log` — 1 passed, 0 failed and rendered the weather-card assertion.

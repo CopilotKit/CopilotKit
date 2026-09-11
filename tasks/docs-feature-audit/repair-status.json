@@ -10,7 +10,9 @@
       "severity": "high",
       "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-001",
-      "fix_commits": [],
+      "fix_commits": [
+        "93796fa393"
+      ],
       "after_evidence": [
         "Focused llm-text regression suite: 5 passed, including unsupported no-demo case and supported control. Reconstructed original three cases: 3 failed. See repair-generation.md."
       ],
@@ -136,17 +138,19 @@
       "id": "CONTENT-GEN-013",
       "area": "local Showcase guide/example availability",
       "severity": "high",
-      "stage": "sanity_review",
+      "stage": "qualified_locally",
       "before_record": "content-defects.json#CONTENT-GEN-013",
-      "fix_commits": [],
+      "fix_commits": [
+        "49702a5a17"
+      ],
       "after_evidence": [
         "Fresh isolated b007962 baseline: duplicate route specificity startup error.",
         "Repaired ADK strict D6: auth 1/1, agentic-chat 1/1, tool-rendering 1/1 green. See repair-runtime.md."
       ],
       "sanity_review": {
-        "status": "approved_for_startup_fix",
+        "status": "approved",
         "reviewer": "intelligence_showcase_support",
-        "remaining": "ADK overall qualification blocked by newly discovered browser-only context gap REPAIR-001."
+        "remaining": "Only the startup defect is qualified here; the full ADK guide/matrix remains open."
       },
       "remaining": "Keep one unambiguous auth route shape, start the Google ADK frontend against the local agent, then run the manifest-wired cells with the local AIMock harness and recheck the affected guide routes."
     },
@@ -176,11 +180,19 @@
       "id": "CONTENT-GEN-016",
       "area": "Rich Threads setup-prompt ownership",
       "severity": "medium",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-016",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "c9148cfb8a"
+      ],
+      "after_evidence": [
+        "Canonical shared prompt appears in actual Threads Markdown after snippet inlining; focused combined suite 10 passed. See repair-content.md."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "Local rendered demonstration and final guide review."
+      },
       "remaining": "Replace the embedded hand-written handoff with RichThreadsSetupPrompt (or a wrapper that passes through its exact prompt), preserve only page-specific context outside the copied prompt, then assert browser and raw Markdown expose the same canonical command and that the CLI intent remains the source of setup steps."
     },
     {
@@ -429,11 +441,18 @@
       "id": "REPAIR-001",
       "area": "Normal-browser local AIMock context",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "sanity_review",
       "before_record": "repair-runtime.md",
       "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "after_evidence": [
+        "Normal-browser auth turn without harness header succeeds in local mock mode; screenshot repair-adk-auth-manual-green.png.",
+        "Strict D6 auth/chat/tool-rendering all passed after change."
+      ],
+      "sanity_review": {
+        "status": "approved",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "Default context is conditional on AIMOCK_URL; explicit caller context wins; no auth/secret forwarding added."
+      },
       "remaining": "ADK normal browser auth turn gets strict AIMock no-match without the context header injected by D6. Establish local defaults through shared/minimal backend wiring and verify without harness-only headers."
     }
   ]

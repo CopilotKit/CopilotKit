@@ -20,6 +20,8 @@
 import { HttpAgent } from "@ag-ui/client";
 import type { NextRequest } from "next/server";
 
+const AIMOCK_CONTEXT = "google-adk";
+
 /**
  * Extract inbound `x-*` headers from a Next.js request into a flat
  * `Record<string, string>` suitable for the `HttpAgent` `headers` option.
@@ -37,6 +39,15 @@ export function extractForwardedHeaders(
       out[key] = value;
     }
   });
+
+  // Interactive local traffic has no Playwright extraHTTPHeaders. When this
+  // showcase is configured to use AIMock, attach its stable integration
+  // context so the provider can select the Google ADK fixture tree. Preserve
+  // a caller-supplied context so D6 diagnostics and explicit overrides still
+  // take precedence.
+  if (!out["x-aimock-context"] && process.env.AIMOCK_URL) {
+    out["x-aimock-context"] = AIMOCK_CONTEXT;
+  }
 
   // CVDIAG instrumentation: light up the Node inbound hop. Every ADK
   // copilotkit-* route funnels through this helper before building its
