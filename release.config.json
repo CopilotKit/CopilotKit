@@ -42,6 +42,11 @@
       ],
       "versionSource": "@copilotkit/channels",
       "sharedVersion": true
+    },
+    "intelligence-langgraph": {
+      "packages": ["@copilotkit/intelligence-langgraph"],
+      "versionSource": "@copilotkit/intelligence-langgraph",
+      "sharedVersion": false
     }
   }
 }
