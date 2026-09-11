@@ -124,6 +124,6 @@ internal sealed class SkillRegistry : IDisposable
         }
         shutdown.Cancel();
         if (configuration.OwnsClient) configuration.Client.Dispose();
-        // The source stays alive until outstanding refresh callbacks release their linked tokens.
+        // The managed source lives with the registry. Disposing it here can race linked-token creation in a pending refresh.
     }
 }
