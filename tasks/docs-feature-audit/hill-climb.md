@@ -87,26 +87,21 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 
 ## Iteration log
 
-| Iteration | Change                                  | Before                                                                | After                                                                                                                                                           | Position                                        |
-| --------- | --------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 0         | Preserve audit and merge current main   | Audit-only branch; 37 confirmed defects                               | Current source baseline established without rewriting audit history                                                                                             | Repair started                                  |
-| 1         | C001 HTML/Markdown support parity       | Three focused cases fail on reconstructed before-state                | Three pass after the first patch, but independent review found fallback can still leak another framework's code when the requested unsupported cell has no demo | Back to implementing; add missing-demo coverage |
-| 2         | C013 ADK authentication route ownership | Exact repair-baseline checkout fails Next startup on duplicate routes | Repaired UI and auth demo load; three real feature checks still pending                                                                                         | Verifying, not qualified                        |
-
-| 3 | ADK normal-browser sanity check | Harness injects fixture context and its three probes pass | Browser without the harness header gets AIMock no-match; new REPAIR-001 remains unresolved | Startup repair holds, overall ADK qualification blocked |
-
-| 4 | C001 fallback edge case | Unsupported no-demo framework leaked fallback source | Five focused checks pass; independent review clear (`93796fa393`) | Rendered and broad checks pending |
-| 5 | ADK startup and normal browser | Duplicate routes block startup; browser lacks fixture context | Auth, chat, tool rendering pass; normal browser screenshot recorded (`49702a5a17`, `7b55169065`) | Specific defects qualified; full ADK matrix open |
-| 6 | C016 canonical Threads prompt | Shared prompt left unresolved in Markdown | Canonical intent expands after snippet imports (`c9148cfb8a`) | Rendered reader review pending |
-| 7 | C006 tool-rendering source ownership | Copied examples and stale hook guidance | Shared guide extracts Showcase regions; 11 focused checks pass (`fe8b79f9d2`) | Rendered reader review pending |
-| 8 | C014 quickstart identity | Client headers treated as identity | Explicit local single-user example links complete authorization contract (`fa26645237`) | Source review clear; rendered checks pending |
-
-| 9 | C017 LangGraph JS default dev | Turbopack runtime route fails resolving diagnostics imports | Exact default command succeeds; chat, tool-rendering, frontend-tools probes pass (`1c7c2fb8d8`) | Specific startup defect qualified; full agent matrix open |
-
-| 10 | C002/C004 guide bindings | ADK legacy Markdown404; missing catalog paths | Redirects preserve old URLs; 62 focused checks pass (`e93102e3b2`) | Routing fixed; feature behavior separate |
-| 11 | ADK feature setup sanity check | Display guide extracts an HITL agent that calls a different tool | REPAIR-002 recorded; framework setup selector repair pending | Back to investigating feature-specific setup |
-
-| 12 | C007 Built-in Agent configuration | Controls placed in context, factory reads forwardedProps | Neutral request captures correct controls after repair; three D6 cells pass (`6a58482e54`) | Strengthening fixtures to catch regressions |
+| Iteration | Change                                  | Before                                                                | After                                                                                                                                                           | Position                                                  |
+| --------- | --------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 0         | Preserve audit and merge current main   | Audit-only branch; 37 confirmed defects                               | Current source baseline established without rewriting audit history                                                                                             | Repair started                                            |
+| 1         | C001 HTML/Markdown support parity       | Three focused cases fail on reconstructed before-state                | Three pass after the first patch, but independent review found fallback can still leak another framework's code when the requested unsupported cell has no demo | Back to implementing; add missing-demo coverage           |
+| 2         | C013 ADK authentication route ownership | Exact repair-baseline checkout fails Next startup on duplicate routes | Repaired UI and auth demo load; three real feature checks still pending                                                                                         | Verifying, not qualified                                  |
+| 3         | ADK normal-browser sanity check         | Harness injects fixture context and its three probes pass             | Browser without the harness header gets AIMock no-match; new REPAIR-001 remains unresolved                                                                      | Startup repair holds, overall ADK qualification blocked   |
+| 4         | C001 fallback edge case                 | Unsupported no-demo framework leaked fallback source                  | Five focused checks pass; independent review clear (`93796fa393`)                                                                                               | Rendered and broad checks pending                         |
+| 5         | ADK startup and normal browser          | Duplicate routes block startup; browser lacks fixture context         | Auth, chat, tool rendering pass; normal browser screenshot recorded (`49702a5a17`, `7b55169065`)                                                                | Specific defects qualified; full ADK matrix open          |
+| 6         | C016 canonical Threads prompt           | Shared prompt left unresolved in Markdown                             | Canonical intent expands after snippet imports (`c9148cfb8a`)                                                                                                   | Rendered reader review pending                            |
+| 7         | C006 tool-rendering source ownership    | Copied examples and stale hook guidance                               | Shared guide extracts Showcase regions; 11 focused checks pass (`fe8b79f9d2`)                                                                                   | Rendered reader review pending                            |
+| 8         | C014 quickstart identity                | Client headers treated as identity                                    | Explicit local single-user example links complete authorization contract (`fa26645237`)                                                                         | Source review clear; rendered checks pending              |
+| 9         | C017 LangGraph JS default dev           | Turbopack runtime route fails resolving diagnostics imports           | Exact default command succeeds; chat, tool-rendering, frontend-tools probes pass (`1c7c2fb8d8`)                                                                 | Specific startup defect qualified; full agent matrix open |
+| 10        | C002/C004 guide bindings                | ADK legacy Markdown404; missing catalog paths                         | Redirects preserve old URLs; 62 focused checks pass (`e93102e3b2`)                                                                                              | Routing fixed; feature behavior separate                  |
+| 11        | ADK feature setup sanity check          | Display guide extracts an HITL agent that calls a different tool      | REPAIR-002 recorded; framework setup selector repair pending                                                                                                    | Back to investigating feature-specific setup              |
+| 12        | C007 Built-in Agent configuration       | Controls placed in context, factory reads forwardedProps              | Neutral request captures correct controls after repair; three D6 cells pass (`6a58482e54`)                                                                      | Strengthening fixtures to catch regressions               |
 
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
@@ -117,6 +112,8 @@ The [local rendered repair comparison](repair-render-comparison.md) links the
 preserved baseline and current local URLs, response results, and local-only
 screenshots for the representation repairs. It is before/after delivery
 evidence; runtime qualification remains governed by the gates above.
+
+See [reader sanity observations](reader-sanity-review.md) for issues found by following the actual rendered instructions, including setup mismatches that source-extraction tests missed.
 
 ## Independent sanity checks
 
