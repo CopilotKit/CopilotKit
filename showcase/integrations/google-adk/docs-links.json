@@ -51,11 +51,11 @@
     },
     "gen-ui-tool-based": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/your-components/display-only",
-      "shell_docs_path": "/generative-ui/your-components/display-only"
+      "shell_docs_path": "/generative-ui/display"
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/human-in-the-loop",
-      "shell_docs_path": "/generative-ui/your-components/interactive"
+      "shell_docs_path": "/human-in-the-loop"
     },
     "hitl-in-app": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/frontend-tools",
