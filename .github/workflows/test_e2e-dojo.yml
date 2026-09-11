@@ -190,7 +190,6 @@ jobs:
           lfs: true
           path: ag-ui
           ref: main
-          lfs: true
           persist-credentials: false
 
       - name: Set up Node.js
