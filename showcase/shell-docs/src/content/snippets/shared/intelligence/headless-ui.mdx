@@ -28,6 +28,15 @@ from the ground up while still utilizing CopilotKit's core features and ease-of-
   surface="docs_intelligence_headless_ui"
 />
 
+<Callout type="warn">
+  `useCopilotChatHeadless_c` checks for a `publicLicenseKey` on the provider and
+  returns a non-functional fallback without one. Managed Intelligence projects
+  are issued a project-scoped `CPK_INTELLIGENCE_API_KEY` and no license key, so
+  this hook is not available to them. If the CopilotKit CLI created your
+  project, build your headless UI on the ungated primitives described in
+  [Fully Headless UI](/custom-look-and-feel/headless-ui) instead.
+</Callout>
+
 ## Navigation
 
 This page has all the information you need to get started with CopilotKit's headless UI. Select where you'd like to get started below.
@@ -107,6 +116,10 @@ To get there, let's start by building a simple chat interface.
   <Step>
     ### Set up your CopilotKit provider
     You will need to provide your public license key to the `CopilotKit` provider component. Get yours on [Copilot Cloud](https://dashboard.operations.copilotkit.ai) or read more about [CopilotKit Intelligence](/intelligence/overview).
+
+    A managed Intelligence project does not issue this key. Its project-scoped
+    `CPK_INTELLIGENCE_API_KEY` is a server-side Runtime credential and does not
+    unlock this hook.
 
     ```tsx title="src/app/layout.tsx"
     <CopilotKit
