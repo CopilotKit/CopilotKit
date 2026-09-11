@@ -226,3 +226,118 @@ useFrontendTool({
 In addition to letting the LLM decide when to call a frontend tool, you can emit tool calls directly from your LangGraph node code using `copilotkit_emit_tool_call`. This fires the `useFrontendTool` handler immediately, without waiting for an LLM decision.
 
 See [Connecting Backend Emit APIs to Frontend Hooks](/integrations/langgraph/advanced/emit-api-hook-mapping) for an end-to-end guide covering `copilotkit_emit_tool_call`, `copilotkit_customize_config`, and how they relate to `useFrontendTool` and `useComponent`.
+
+## Awaiting frontend tool results in the same turn
+
+By default, a frontend tool call ends the agent's turn. CopilotKit peels the call off the assistant
+message so the backend `ToolNode` does not try to run it, the client executes it, and the result
+reaches the agent on the *next* run. The agent never sees the result while it is still reasoning.
+
+`CopilotKitMiddleware(interrupt_frontend_tools=True)` opts into the alternative: the graph pauses on a
+LangGraph `interrupt()`, the client executes the tools and resumes, and a real `ToolMessage` is
+appended to the same turn. The agent continues with the results in hand, and the persisted history
+reads the way a backend tool call does:
+
+```text
+Agent calls a tool → tool runs on the client → ToolMessage appended → agent continues
+```
+
+<Callout type="warn" title="This is opt-in for four reasons">
+1. **A checkpointer is required.** The run pauses and has to be restored when the client resumes.
+   Without one the middleware raises `CopilotKitMisuseError`.
+2. **Python 3.11+ is required.** Below that, the run config does not propagate into asyncio tasks, so
+   `interrupt()` cannot read it. This limits every async `interrupt()`, not just this flag.
+3. **The client must resume explicitly.** The default frontend-tool loop fires a plain follow-up run,
+   which a paused thread ignores. You need the handler below.
+4. **All frontend calls in a turn share one interrupt.** A resume carries a single value and cannot
+   address several pending interrupts without their ids
+   ([ag-ui#2178](https://github.com/ag-ui-protocol/ag-ui/issues/2178)), so the middleware batches them.
+</Callout>
+
+### Enable it on the agent
+
+```python title="agent.py"
+from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+from copilotkit import CopilotKitMiddleware
+
+graph = create_agent(
+    model="openai:gpt-4o",
+    tools=[],  # backend tools go here
+    # [!code highlight:2]
+    middleware=[CopilotKitMiddleware(interrupt_frontend_tools=True)],
+    checkpointer=InMemorySaver(),  # required — swap in a durable saver for production
+)
+```
+
+When the agent calls a frontend tool, the graph pauses and the client receives an interrupt whose
+value carries every call in the turn:
+
+```json
+{
+  "__copilotkit_frontend_tool_calls__": [
+    { "id": "call_123", "name": "navigate", "args": { "path": "/reports" } }
+  ]
+}
+```
+
+### Resume it on the client
+
+Mount a `useInterrupt` handler that dispatches each call to its registered frontend tool and resumes
+with the results. `renderInChat: false` keeps it headless — this interrupt asks nothing of the user:
+
+```tsx title="app/page.tsx"
+import { useCopilotKit, useInterrupt } from "@copilotkit/react-core/v2";
+
+const FRONTEND_TOOL_CALLS = "__copilotkit_frontend_tool_calls__";
+
+type FrontendToolCall = { id: string; name: string; args: Record<string, unknown> };
+
+function useFrontendToolInterrupt() {
+  const { copilotkit } = useCopilotKit();
+
+  useInterrupt<{ [FRONTEND_TOOL_CALLS]?: FrontendToolCall[] }>({
+    renderInChat: false,
+    render: () => null,
+    // Leave every other interrupt — including your own human-facing ones — alone.
+    enabled: ({ value }) => Boolean(value && FRONTEND_TOOL_CALLS in value),
+    handler: async ({ event, resolve }) => {
+      const calls = event.value?.[FRONTEND_TOOL_CALLS] ?? [];
+
+      const tool_results = await Promise.all(
+        calls.map(async (call) => {
+          try {
+            const tool = copilotkit.getTool({ toolName: call.name });
+            const result = await tool?.handler?.(call.args, { toolCall: call } as never);
+            return {
+              toolCallId: call.id,
+              content: typeof result === "string" ? result : JSON.stringify(result ?? null),
+            };
+          } catch (error) {
+            // Resume anyway — a thrown handler must not strand the paused run.
+            return {
+              toolCallId: call.id,
+              content: JSON.stringify({ ok: false, error: String(error) }),
+            };
+          }
+        }),
+      );
+
+      await resolve({ tool_results });
+    },
+  });
+}
+```
+
+`resolve()` sends `forwardedProps.command.resume`, which LangGraph hands back as the return value of
+`interrupt()`. The middleware then appends one `ToolMessage` per call and re-enters the model.
+
+Any call you do not answer still gets a `ToolMessage`, with content
+`{"ok": false, "error": "missing_tool_result"}` — every tool call has to stay paired with a result, or
+providers such as Bedrock reject the conversation outright.
+
+<Callout type="info">
+First-class client support for this flow is planned; until then the handler above is the supported
+way to wire it. For interrupts that *do* ask the user something, see
+[Human in the Loop](/integrations/langgraph/human-in-the-loop/interrupt-flow).
+</Callout>
