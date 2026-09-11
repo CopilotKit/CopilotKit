@@ -1,5 +1,6 @@
 "use client";
 
+// @region[gen-ui-agent-state-rendering]
 import React from "react";
 import {
   CopilotChat,
@@ -73,3 +74,4 @@ function Chat() {
     />
   );
 }
+// @endregion[gen-ui-agent-state-rendering]
