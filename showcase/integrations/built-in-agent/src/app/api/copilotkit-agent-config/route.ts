@@ -71,6 +71,7 @@ function buildConfigSystemPrompt(props: Record<string, unknown>): string {
 function createAgentConfigAgent() {
   return new BuiltInAgent({
     type: "tanstack",
+    // @region[agent-config-factory]
     factory: ({ input, abortController }) => {
       const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
@@ -82,6 +83,7 @@ function createAgentConfigAgent() {
         abortController,
       });
     },
+    // @endregion[agent-config-factory]
   });
 }
 

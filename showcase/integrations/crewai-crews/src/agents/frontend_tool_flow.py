@@ -19,6 +19,7 @@ SYSTEM_PROMPT = (
 class FrontendToolFlow(Flow[CopilotKitState]):
     """Stream one model step and let CopilotKit own frontend execution."""
 
+    # @region[hitl-flow]
     @start()
     async def chat(self) -> None:
         response = await copilotkit_stream(
@@ -44,6 +45,8 @@ class FrontendToolFlow(Flow[CopilotKitState]):
         # ends this Flow run; CopilotKit executes it in the browser and resumes
         # with the authoritative result in the next request.
         self.state.messages.append(response.choices[0].message)
+
+    # @endregion[hitl-flow]
 
 
 frontend_tool_flow = FrontendToolFlow()

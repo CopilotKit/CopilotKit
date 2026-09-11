@@ -108,3 +108,16 @@
 - Local stack: latest agent `127.0.0.1:8123`, Showcase UI `127.0.0.1:3100`, strict isolated AIMock `127.0.0.1:4410`, fake provider variables only. The agent booted and loaded the full graph catalog under `langgraph-api 0.14.0`.
 - Strict D6 green: `agentic-chat` (3 turns, `stable-langgraph-python-agentic-chat-d6.log`), `tool-rendering` (weather-card assertion, `stable-langgraph-python-tool-rendering-d6.log`), and `shared-state-read` (2 turns, `stable-langgraph-python-shared-state-read-d6.log`). Each executed one cell with zero failures.
 - Scope limit: this establishes three representative current-source cells after the Python dependency change. It does not qualify LangGraph Python's full routed-feature matrix, media paths, guide rendering, or the still-old JavaScript frontend CopilotKit packages; those remain separate gates.
+
+## REPAIR-011 — latest published core rejects relative runtime URLs
+
+### Fresh RED on published 1.71.0
+
+- Built-in Agent was upgraded to published CopilotKit `1.71.0` packages and normally installed from its regenerated lockfile. Its local UI started at `http://127.0.0.1:3117`; strict AIMock was `http://127.0.0.1:4410` with fake provider variables only.
+- The existing browser provider URL is relative (`/api/copilotkit`). The runtime sent `GET /api/copilotkit/info` (404) and `POST /api/copilotkit` (200), then the browser raised `Failed to construct 'URL': Invalid URL` before the agent or AIMock ran. Strict `agentic-chat` reproduced the failure twice and had zero AIMock journal entries: `tasks/docs-feature-audit/stable-built-in-agent-agentic-chat-d6.log`.
+- Separate local iframe/browser evidence selected `professional` / `intermediate` / `concise`, sent literal `tone:professional`, and showed the same error without an assistant response. This is current published-SDK evidence, not a fixture mismatch.
+
+### Shared owning source and scope
+
+- `packages/core/src/utils/single-route-resource-request.ts` constructed `new URL(runtimeUrl)` without a browser base, while 206 selected-five frontend providers pass relative `/api/...` runtime URLs. The shared core source now resolves those paths against the browser location and keeps absolute server runtime URLs valid; its focused regression tests cover relative browser and absolute server inputs.
+- This needs a new CopilotKit package release before the selected demos can claim latest _published_ SDK qualification. The local build/relink and D6 green proof are tracked separately from the published-1.71.0 RED.

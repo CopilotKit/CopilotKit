@@ -98,3 +98,30 @@ test("keeps audited quickstart install commands on current package-manager defau
   );
   expect(crewai).not.toContain("crewai>=");
 });
+
+test("uses the CrewAI Showcase flow and browser tool for HITL", () => {
+  const guide = source("integrations/crewai-flows/human-in-the-loop/flow");
+  expect(guide).toContain('framework="crewai-crews"');
+  expect(guide).toContain('cell="hitl-in-chat"');
+  expect(guide).toContain('region="hitl-hook"');
+  expect(guide).toContain('region="hitl-flow"');
+  expect(guide).not.toContain("renderAndWaitForResponse");
+  expect(guide).not.toContain('available: "remote"');
+
+  const output = rendered("integrations/crewai-flows/human-in-the-loop/flow");
+  expect(output).toContain("useHumanInTheLoop({");
+  expect(output).toContain('name: "book_call"');
+  expect(output).toContain("tools=self.state.copilotkit.actions or None");
+  expect(output).toContain(
+    "self.state.messages.append(response.choices[0].message)",
+  );
+  expect(output).not.toContain("SampleAgentFlow");
+});
+
+test("selects the active Microsoft Agent Framework interactive example", () => {
+  const guide = source(
+    "integrations/microsoft-agent-framework/generative-ui/your-components/interactive",
+  );
+  expect(guide).toContain("framework={props.framework}");
+  expect(guide).not.toContain('framework="microsoft-agent-framework-dotnet"');
+});

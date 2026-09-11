@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useFramework } from "./framework-provider";
-import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import { useRuntimeConfig } from "@/lib/runtime-config.client";
 
 export function IntegrationGrid({
   path,
@@ -22,7 +22,7 @@ export function IntegrationGrid({
   // current deploy's NEXT_PUBLIC_SHELL_URL without a rebuild. Pulled
   // after the early-return so we never call into the client reader on
   // renders that produce no DOM.
-  const shellHost = getRuntimeConfig().shellUrl;
+  const shellHost = useRuntimeConfig().shellUrl;
 
   return (
     <>
@@ -32,15 +32,7 @@ export function IntegrationGrid({
       )}
       <div className="shell-docs-radius-surface mb-4 bg-[var(--bg-elevated)] p-4 text-sm text-[var(--text-muted)]">
         See{" "}
-        <a
-          href={`${shellHost}/integrations`}
-          className="text-[var(--accent)]"
-          // shellHost is the SSR placeholder during server-render and the
-          // real value post-hydration (runtime-config.client.ts). React
-          // would otherwise log a hydration mismatch on this href every
-          // pageload; suppression scopes to THIS attribute mismatch only.
-          suppressHydrationWarning
-        >
+        <a href={`${shellHost}/integrations`} className="text-[var(--accent)]">
           Integrations
         </a>{" "}
         for all available frameworks{path ? ` (${path})` : ""}.

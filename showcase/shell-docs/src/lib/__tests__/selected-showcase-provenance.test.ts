@@ -84,3 +84,18 @@ test("Built-in Agent frontend and tool rendering guides use local Showcase regio
   expect(toolRendering).not.toContain("<Snippet");
   expect(toolRendering).not.toContain("Missing snippet");
 });
+
+test("Built-in Agent agent config shows its provider and in-process factory", () => {
+  const output = render(
+    "agent-config",
+    "built-in-agent/agent-config",
+    "built-in-agent",
+  );
+
+  expect(output).toContain("properties={config}");
+  expect(output).toContain("input.forwardedProps");
+  expect(output).toContain("buildConfigSystemPrompt(props)");
+  expect(output).not.toContain("agentConfigFactory");
+  expect(output).not.toContain("makeAgent({ systemPrompt");
+  expect(output).not.toContain("Missing snippet");
+});
