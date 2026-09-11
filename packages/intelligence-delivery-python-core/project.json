@@ -1,0 +1,11 @@
+{
+  "name": "intelligence-delivery-python-core",
+  "projectType": "library",
+  "root": "packages/intelligence-delivery-python-core",
+  "targets": {
+    "test": {"executor": "nx:run-commands", "options": {"command": "uv run pytest", "cwd": "packages/intelligence-delivery-python-core"}, "cache": false, "dependsOn": []},
+    "lint": {"executor": "nx:run-commands", "options": {"command": "uv run ruff check . && uv run ruff format --check .", "cwd": "packages/intelligence-delivery-python-core"}, "cache": false, "dependsOn": []},
+    "typecheck": {"executor": "nx:run-commands", "options": {"command": "uv run mypy src", "cwd": "packages/intelligence-delivery-python-core"}, "cache": false, "dependsOn": []}
+  },
+  "tags": ["scope:intelligence", "lang:python", "private"]
+}
