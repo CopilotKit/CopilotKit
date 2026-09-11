@@ -103,6 +103,9 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 
 | 9 | C017 LangGraph JS default dev | Turbopack runtime route fails resolving diagnostics imports | Exact default command succeeds; chat, tool-rendering, frontend-tools probes pass (`1c7c2fb8d8`) | Specific startup defect qualified; full agent matrix open |
 
+| 10 | C002/C004 guide bindings | ADK legacy Markdown404; missing catalog paths | Redirects preserve old URLs; 62 focused checks pass (`e93102e3b2`) | Routing fixed; feature behavior separate |
+| 11 | ADK feature setup sanity check | Display guide extracts an HITL agent that calls a different tool | REPAIR-002 recorded; framework setup selector repair pending | Back to investigating feature-specific setup |
+
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
 

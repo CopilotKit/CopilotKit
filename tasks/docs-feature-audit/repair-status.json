@@ -28,11 +28,19 @@
       "id": "CONTENT-GEN-002",
       "area": "guide source resolution",
       "severity": "high",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-002",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "e93102e3b2"
+      ],
+      "after_evidence": [
+        "Scoped ADK legacy HTML/Markdown308 redirects resolve to canonical200 guides; baseline Markdown404. Focused docs suite62passed."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "independent lane review",
+        "remaining": "Final selected guide reader review and applicable runtime gates remain open."
+      },
       "remaining": "Add or deliberately remap the source-of-truth guide routes, regenerate docs data, then assert meaningful HTML and 200 Markdown output for both /google-adk URLs with ADK-owned snippets. Run their isolated AIMock cells before claiming behavior qualification."
     },
     {
@@ -50,11 +58,19 @@
       "id": "CONTENT-GEN-004",
       "area": "catalog-to-guide mapping",
       "severity": "medium",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-004",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "e93102e3b2"
+      ],
+      "after_evidence": [
+        "Hashbrown and JSON root HTML/Markdown200 and catalog mappings verified; content correctness remains separate C037/38."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "independent lane review",
+        "remaining": "Final selected guide reader review and applicable runtime gates remain open."
+      },
       "remaining": "Add canonical shell_docs_path values that point to the existing guides, regenerate the inventory, and validate the generated feature links and selected framework HTML/Markdown routes."
     },
     {
@@ -124,22 +140,38 @@
       "id": "CONTENT-GEN-011",
       "area": "human-readable guide prose",
       "severity": "low",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-011",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "13e31325d4"
+      ],
+      "after_evidence": [
+        "Two LangGraph sentences corrected; independent prose review clear."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "independent lane review",
+        "remaining": "Final selected guide reader review and applicable runtime gates remain open."
+      },
       "remaining": "Edit the two sentences and confirm the LangGraph Python and TypeScript HTML/Markdown pages retain their shared source and feature routing."
     },
     {
       "id": "CONTENT-GEN-012",
       "area": "setup instruction minimality",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-012",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "fa26645237"
+      ],
+      "after_evidence": [
+        "Unused react-ui install removed from ADK/Strands selected quickstarts."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "independent lane review",
+        "remaining": "Final selected guide reader review and applicable runtime gates remain open."
+      },
       "remaining": "When the adjacent setup instructions are next changed, remove @copilotkit/react-ui if no omitted step requires it, retain the required runtime and AG-UI client packages, then run the scoped quickstart doctests/build and confirm the generated instructions in HTML and Markdown."
     },
     {
@@ -185,11 +217,19 @@
       "id": "CONTENT-GEN-015",
       "area": "quickstart connection troubleshooting",
       "severity": "medium",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-015",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "13e31325d4"
+      ],
+      "after_evidence": [
+        "BIA address correction completes selected quickstart wording with fa26645237."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "independent lane review",
+        "remaining": "Final selected guide reader review and applicable runtime gates remain open."
+      },
       "remaining": "Remove 0.0.0.0 as a client target, explain it only as an optional server bind address if needed, retain valid loopback targets, then recheck both starter and bring-your-own rendered troubleshooting sections."
     },
     {
@@ -481,6 +521,17 @@
         "finding": "Default context is conditional on AIMOCK_URL; explicit caller context wins; no auth/secret forwarding added."
       },
       "remaining": "Specific normal-browser ADK mock context defect fixed. Full ADK feature matrix and stable dependency qualification remain open."
+    },
+    {
+      "id": "REPAIR-002",
+      "area": "ADK feature-specific setup selects HITL agent for display guide",
+      "severity": "high",
+      "stage": "investigating",
+      "before_record": "Root local browser review of /google-adk/generative-ui/display on repaired docs3004",
+      "fix_commits": [],
+      "after_evidence": [],
+      "sanity_review": null,
+      "remaining": "Setup excerpt shows hitl_in_chat_agent.py instructing generate_task_steps confirmation while frontend registers render_bar_chart. Bind setup to correct Showcase feature and verify every affected ADK setup path."
     }
   ]
 }
