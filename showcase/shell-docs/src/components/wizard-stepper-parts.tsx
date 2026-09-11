@@ -381,7 +381,7 @@ export type ChoiceOption = {
  *  `docs-map-parts.tsx`. */
 /** Two fixed-width centred columns, not two halves of the row: a Yes/No pair
  *  stretched across the full width reads as flat and adrift in a card this
- *  tall. `12rem` is the width the frontend options get from their own
+ *  tall. `13rem` sits just above the width the frontend options get from their
  *  auto-fill grid, so an option here is the same size as an option anywhere
  *  else in the wizard. Full width below `sm`, where there is no room to be
  *  choosy. */
@@ -397,7 +397,7 @@ export function ChoiceGrid({
   onSelect: (id: string) => void;
 }): React.JSX.Element {
   return (
-    <div className="grid grid-cols-1 justify-center gap-2.5 sm:grid-cols-[repeat(2,minmax(0,12rem))]">
+    <div className="grid grid-cols-1 justify-center gap-2.5 sm:grid-cols-[repeat(2,minmax(0,13rem))]">
       {options.map((option) => {
         const selected = option.id === selectedId;
         const Icon = option.icon;

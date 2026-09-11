@@ -174,7 +174,7 @@ export function DocsVideoCarousel() {
         id={`${PANEL_ID_PREFIX}${active.id}`}
         role="tabpanel"
         aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
-        className="mt-2"
+        className="mt-4"
       >
         <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
           <iframe

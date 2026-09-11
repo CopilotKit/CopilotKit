@@ -319,7 +319,7 @@ describe("ChoiceGrid", () => {
     expect(grid).not.toBeNull();
     expect(grid!.className).toMatch(/\bjustify-center\b/);
     expect(grid!.className).toMatch(
-      /\bsm:grid-cols-\[repeat\(2,minmax\(0,12rem\)\)\]/,
+      /\bsm:grid-cols-\[repeat\(2,minmax\(0,13rem\)\)\]/,
     );
     // Full width below `sm`, so the narrowing is a wide-screen decision only.
     expect(grid!.className).toMatch(/\bgrid-cols-1\b/);

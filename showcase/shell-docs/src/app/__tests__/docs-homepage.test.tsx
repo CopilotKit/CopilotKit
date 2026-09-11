@@ -197,16 +197,23 @@ describe("the docs homepage route", () => {
     expect(elements.some((el) => el.type === docsVideoCarouselSpy)).toBe(true);
   });
 
-  it("renders the wizard intro heading and body", async () => {
+  // A reviewer asked the page to make clear you can add CopilotKit to a
+  // project you already have rather than only starting from scratch. The
+  // wizard's first step asks it outright, and this line is where the page
+  // says it before the reader gets there, so assert both halves rather than
+  // merely that some non-empty string arrived.
+  it("renders the wizard intro, saying it works for an existing project or a new one", async () => {
     const elements = await renderOverview();
 
     const intro = elements.find((el) => el.type === MapIntro);
     expect(intro).toBeTruthy();
     const { heading, body } = intro!.props as { heading: string; body: string };
-    expect(typeof heading).toBe("string");
     expect(heading.length).toBeGreaterThan(0);
-    expect(typeof body).toBe("string");
-    expect(body.length).toBeGreaterThan(0);
+    expect(body).toMatch(/already have/i);
+    expect(body).toMatch(/new one|new project|starting/i);
+    // The enumeration of the individual steps came out to keep the page
+    // short; the wizard itself names them a moment later.
+    expect(body).not.toMatch(/agent backend/i);
   });
 
   it("renders the setup wizard", async () => {

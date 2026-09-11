@@ -172,7 +172,7 @@ function DocsOverview() {
         <div className="border-b border-[var(--border)] pt-8 pb-8">
           <MapIntro
             heading="Set up CopilotKit for your project"
-            body="Answer three quick questions about your frontend, your agent backend, and the features you want. We turn your answers into a prompt you paste into your coding agent, and it does the setup."
+            body="Answer a few questions, whether you are adding CopilotKit to a project you already have or starting a new one. We turn your answers into a prompt you paste into your coding agent, and it does the setup."
           />
           <DocsSetupWizard />
         </div>
