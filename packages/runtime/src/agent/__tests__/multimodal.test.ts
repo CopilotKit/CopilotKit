@@ -28,7 +28,7 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
     expect(result).toEqual({ role: "user", content: "Hello" });
   });
 
-  it("converts text-only InputContent[] to parts array", () => {
+  it("converts text-only ContentPart[] to parts array", () => {
     const result = convertUserContent([{ type: "text", text: "Hello world" }]);
     expect(result.role).toBe("user");
     expect(result.content).toEqual([{ type: "text", text: "Hello world" }]);
@@ -147,9 +147,18 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
       expect(part.output).toEqual({ type: "text", value: "3 results found." });
     });
 
-    it("maps parts onto the AI SDK content output", () => {
+    it("keeps a text-only parts result as one text output, so providers see one response per call", () => {
       const part = convertToolResult([
-        { type: "text", text: "Invoice attached." },
+        { type: "text", text: "a" },
+        { type: "text", text: "b" },
+      ]);
+      expect(part.output).toEqual({ type: "text", value: "ab" });
+    });
+
+    it("maps parts with inline media onto the AI SDK content output, merging adjacent text", () => {
+      const part = convertToolResult([
+        { type: "text", text: "Invoice " },
+        { type: "text", text: "attached." },
         {
           type: "document",
           source: dataSource("JVBERi0x", "application/pdf"),
@@ -159,6 +168,9 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
           source: urlSource("https://example.com/scan.png", "image/png"),
         },
       ]);
+      // The URL-referenced image rides as its URL for now: the AI SDK media
+      // entry wants bytes. Passing typed URLs to the adapters that accept them
+      // is a follow-up, not something this mapping does yet.
       expect(part.output).toEqual({
         type: "content",
         value: [
@@ -166,6 +178,19 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
           { type: "media", data: "JVBERi0x", mediaType: "application/pdf" },
           { type: "text", text: "https://example.com/scan.png" },
         ],
+      });
+    });
+
+    it("treats a URL-only media result as text carrying the URL", () => {
+      const part = convertToolResult([
+        {
+          type: "image",
+          source: urlSource("https://example.com/scan.png", "image/png"),
+        },
+      ]);
+      expect(part.output).toEqual({
+        type: "text",
+        value: "https://example.com/scan.png",
       });
     });
 
@@ -198,7 +223,7 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
         {
           id: "1",
           role: "user",
-          content: [legacyPart] as unknown as InputContent[],
+          content: [legacyPart] as unknown as ContentPart[],
         },
       ];
       const result = convertMessagesToVercelAISDKMessages(messages);
@@ -218,7 +243,7 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
         {
           id: "1",
           role: "user",
-          content: [legacyPart] as unknown as InputContent[],
+          content: [legacyPart] as unknown as ContentPart[],
         },
       ];
       const result = convertMessagesToVercelAISDKMessages(messages);

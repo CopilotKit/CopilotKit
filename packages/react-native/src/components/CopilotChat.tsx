@@ -189,18 +189,35 @@ function objectContentKey(content: object): string {
  * indistinguishable from an empty one. Serialise faithfully — the same
  * representation core uses for non-string results — and warn in dev.
  */
+const MEDIA_PART_TYPES = new Set(["image", "audio", "video", "document"]);
+
+/**
+ * Whether a value is one of the protocol's content parts: a text part with a
+ * string `text`, or a media part with a `source` that names its kind and
+ * value. Anything else — an array of typed records from restored history,
+ * say — is not parts and keeps the serialise-and-warn path.
+ */
+function isContentPart(part: unknown): boolean {
+  if (typeof part !== "object" || part === null) return false;
+  const record = part as { type?: unknown; text?: unknown; source?: unknown };
+  if (record.type === "text") return typeof record.text === "string";
+  if (typeof record.type !== "string" || !MEDIA_PART_TYPES.has(record.type))
+    return false;
+  const source = record.source as
+    | { type?: unknown; value?: unknown }
+    | undefined;
+  return (
+    typeof source === "object" &&
+    source !== null &&
+    (source.type === "data" || source.type === "url") &&
+    typeof source.value === "string"
+  );
+}
+
 function toolResultContent(content: unknown, toolCallId: string): string {
   if (typeof content === "string") return content;
 
-  if (
-    Array.isArray(content) &&
-    content.every(
-      (part) =>
-        typeof part === "object" &&
-        part !== null &&
-        typeof (part as { type?: unknown }).type === "string",
-    )
-  ) {
+  if (Array.isArray(content) && content.every(isContentPart)) {
     return contentToText(content as ToolMessage["content"]);
   }
 
