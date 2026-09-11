@@ -242,14 +242,12 @@ reads the way a backend tool call does:
 Agent calls a tool → tool runs on the client → ToolMessage appended → agent continues
 ```
 
-<Callout type="warn" title="This is opt-in for four reasons">
-1. **A checkpointer is required.** The run pauses and has to be restored when the client resumes.
-   Without one the middleware raises `CopilotKitMisuseError`.
-2. **Python 3.11+ is required.** Below that, the run config does not propagate into asyncio tasks, so
+<Callout type="warn" title="This is opt-in for three reasons">
+1. **Python 3.11+ is required.** Below that, the run config does not propagate into asyncio tasks, so
    `interrupt()` cannot read it. This limits every async `interrupt()`, not just this flag.
-3. **The client must resume explicitly.** The default frontend-tool loop fires a plain follow-up run,
+2. **The client must resume explicitly.** The default frontend-tool loop fires a plain follow-up run,
    which a paused thread ignores. You need the handler below.
-4. **All frontend calls in a turn share one interrupt.** A resume carries a single value and cannot
+3. **All frontend calls in a turn share one interrupt.** A resume carries a single value and cannot
    address several pending interrupts without their ids
    ([ag-ui#2178](https://github.com/ag-ui-protocol/ag-ui/issues/2178)), so the middleware batches them.
 </Callout>
@@ -266,7 +264,7 @@ graph = create_agent(
     tools=[],  # backend tools go here
     # [!code highlight:2]
     middleware=[CopilotKitMiddleware(interrupt_frontend_tools=True)],
-    checkpointer=InMemorySaver(),  # required — swap in a durable saver for production
+    checkpointer=InMemorySaver(),  # use a durable saver in production
 )
 ```
 
