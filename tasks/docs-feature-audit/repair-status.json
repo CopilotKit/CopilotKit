@@ -96,12 +96,21 @@
       "id": "CONTENT-GEN-007",
       "area": "runnable example and native runtime-properties guidance",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-007",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Repair the channel mismatch, then add a neutral-message regression assertion that changed controls appear in forwardedProps consumed by the factory. The existing D6 response-difference fixture is not sufficient because it selects replies by userMessage."
+      "fix_commits": [
+        "6a58482e54"
+      ],
+      "after_evidence": [
+        "Neutral-message captured request: before empty forwardedProps plus context controls; after forwardedProps includes selected tone/expertise/length. Sanitized RED/GREEN JSON committed.",
+        "Three strict local D6 cells pass: agent-config (six control turns), agentic-chat, tool-rendering."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "Provider properties now matches sole factory consumer input.forwardedProps; unused relay removed."
+      },
+      "remaining": "Strengthen integration fixtures to require actual consumed system-prompt config with unchanged shared probe, then final guide/local matrix sanity review."
     },
     {
       "id": "CONTENT-GEN-008",
