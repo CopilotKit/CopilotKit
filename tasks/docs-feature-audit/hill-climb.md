@@ -74,6 +74,8 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 | Copy prompts and product guides                   | Investigating | Reuse current helpers and verify the produced local setup path.                       |
 | Complete five-agent verification                  | Investigating | Fresh matrix results, latest-stable versions, and a per-guide sanity review.          |
 
+The [per-guide reader checklist](selected-reader-sanity.md) tracks all 220 baseline feature/agent bindings and the two additional renderer guides. Its [machine-readable version](selected-reader-sanity.json) separates source, setup, API, prompt, representation, and runtime evidence. Pending checks stay pending.
+
 ## Qualification gates for each feature guide
 
 - [ ] Support and limitations are correctly declared for this agent.
