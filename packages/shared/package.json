@@ -61,7 +61,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@390d432a0ed01ca4ddcee8165b6c6f7f22045c4e",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@92d00fd1a7f544d7b91ec912553aa032956fc923",
     "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",

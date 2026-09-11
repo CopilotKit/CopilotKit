@@ -20,6 +20,7 @@ import { AssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage } from "./messages/UserMessage";
 import type { Message } from "@copilotkit/shared";
 import type { ToolMessage } from "@ag-ui/client";
+import { contentToText } from "@ag-ui/client";
 
 /** Shape of an assistant message with optional tool calls. */
 interface AssistantMessageShape {
@@ -173,21 +174,52 @@ function objectContentKey(content: object): string {
  * requires (`ReactToolCallRenderer`'s Complete branch declares `result: string`)
  * WITHOUT inventing an empty result.
  *
- * Tool content is a string by construction across the stack: `ToolMessageSchema`
- * declares `content: z.string()`, the SSE transport zod-parses every
- * TOOL_CALL_RESULT before it reaches `agent.messages`, and core stringifies
- * non-string handler results itself (`JSON.stringify(result)` in run-handler)
- * before inserting the tool message. Non-string content is only reachable from a
- * producer that skipped that validation — restored thread history, a non-SSE
- * transport, or app code casting on `addMessage`. Core hedges against exactly
- * that case too (core accepts `unknown` content and handles arrays of text
- * parts), so this must not answer it with `""`:
- * an empty string is a LEGITIMATE tool result, which makes a dropped result
+ * AG-UI 1.0 models tool content as `string | ContentPart[]`: a plain string, or
+ * an ordered list of typed parts (text, image, audio, video, document). A
+ * string passes through; a list of parts is rendered as its text parts
+ * concatenated — the flattening the spec permits for a string-only consumer —
+ * and the media parts stay on the message for anything that can show them.
+ * Neither is malformed, so neither warns.
+ *
+ * Anything else is only reachable from a producer that skipped validation —
+ * restored thread history, a non-SSE transport, or app code casting on
+ * `addMessage`. Core hedges against that case too (it accepts `unknown` content
+ * and handles arrays of text parts), so this must not answer it with `""`: an
+ * empty string is a LEGITIMATE tool result, which makes a dropped result
  * indistinguishable from an empty one. Serialise faithfully — the same
  * representation core uses for non-string results — and warn in dev.
  */
+const MEDIA_PART_TYPES = new Set(["image", "audio", "video", "document"]);
+
+/**
+ * Whether a value is one of the protocol's content parts: a text part with a
+ * string `text`, or a media part with a `source` that names its kind and
+ * value. Anything else — an array of typed records from restored history,
+ * say — is not parts and keeps the serialise-and-warn path.
+ */
+function isContentPart(part: unknown): boolean {
+  if (typeof part !== "object" || part === null) return false;
+  const record = part as { type?: unknown; text?: unknown; source?: unknown };
+  if (record.type === "text") return typeof record.text === "string";
+  if (typeof record.type !== "string" || !MEDIA_PART_TYPES.has(record.type))
+    return false;
+  const source = record.source as
+    | { type?: unknown; value?: unknown }
+    | undefined;
+  return (
+    typeof source === "object" &&
+    source !== null &&
+    (source.type === "data" || source.type === "url") &&
+    typeof source.value === "string"
+  );
+}
+
 function toolResultContent(content: unknown, toolCallId: string): string {
   if (typeof content === "string") return content;
+
+  if (Array.isArray(content) && content.every(isContentPart)) {
+    return contentToText(content as ToolMessage["content"]);
+  }
 
   // null/undefined carry no payload, so "" loses nothing — but the message is
   // still malformed, so it warns below rather than passing silently.
