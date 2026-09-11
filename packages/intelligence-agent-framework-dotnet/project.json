@@ -1,8 +1,29 @@
 {
   "name": "intelligence-agent-framework-dotnet",
   "targets": {
-    "test": { "executor": "nx:run-commands", "options": { "command": "dotnet run --project packages/intelligence-agent-framework-dotnet/tests/Skills.Tests.csproj" }, "cache": false, "dependsOn": [] },
-    "build": { "executor": "nx:run-commands", "options": { "command": "dotnet build packages/intelligence-agent-framework-dotnet/src/CopilotKit.Intelligence.AgentFramework.csproj --configuration Release -warnaserror" }, "cache": false, "dependsOn": [] },
-    "pack": { "executor": "nx:run-commands", "options": { "command": "dotnet pack packages/intelligence-agent-framework-dotnet/src/CopilotKit.Intelligence.AgentFramework.csproj --configuration Release" }, "cache": false, "dependsOn": [] }
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet run --project packages/intelligence-agent-framework-dotnet/tests/Skills.Tests.csproj"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet build packages/intelligence-agent-framework-dotnet/src/CopilotKit.Intelligence.AgentFramework.csproj --configuration Release -warnaserror"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "pack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet pack packages/intelligence-agent-framework-dotnet/src/CopilotKit.Intelligence.AgentFramework.csproj --configuration Release"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
   }
 }
