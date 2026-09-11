@@ -3,18 +3,17 @@ import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
 import { getAllLlmPages, renderPageToLlmText } from "../llm-text";
 
-const routes = [
+const stableApiRoutes = [
   "generative-ui/tool-rendering",
   "generative-ui/state-rendering",
   "frontend-tools",
   "auth",
-  "human-in-the-loop",
   "quickstart",
   "shared-state/in-app-agent-read",
   "shared-state/in-app-agent-write",
 ];
 
-test.each(routes)(
+test.each(stableApiRoutes)(
   "renders the stable Microsoft Agent Python API on %s",
   (route) => {
     const page = getAllLlmPages().find(
@@ -58,6 +57,30 @@ test.each(routes)(
     expect(output).not.toContain("model_id=");
   },
 );
+
+test("keeps the Microsoft Agent Python HITL overview focused on its two patterns", () => {
+  const page = getAllLlmPages().find(
+    (candidate) => candidate.url === "ms-agent-python/human-in-the-loop",
+  );
+  expect(page).toBeDefined();
+
+  const doc = loadDoc(page!.loadSlug);
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      ...page!,
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+    },
+    { framework: "ms-agent-python" },
+  );
+
+  expect(output).toContain("/human-in-the-loop/interrupt-flow");
+  expect(output).toContain("/human-in-the-loop/tool-based");
+  expect(output).not.toContain("OpenAIChatClient");
+});
 
 test("renders request-local app context forwarding for Microsoft Agent Python", () => {
   const page = getAllLlmPages().find(
