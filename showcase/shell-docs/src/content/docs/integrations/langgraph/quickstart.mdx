@@ -21,6 +21,16 @@ Before you begin, you'll need the following:
 - Your favorite package manager
 - (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
+<Callout type="info" title="Zod version for TypeScript agents">
+When adding `@copilotkit/sdk-js` 1.71.0 to a TypeScript agent, install Zod 3 alongside it:
+
+```bash
+npm install @copilotkit/sdk-js@1.71.0 zod@3
+```
+
+An unversioned `zod` install selects Zod 4, which does not satisfy this SDK release's peer dependency. Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
+</Callout>
+
 ## Getting started
 
 <Steps>

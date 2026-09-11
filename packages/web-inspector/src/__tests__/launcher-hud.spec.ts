@@ -231,7 +231,7 @@ test("the HUD stays closed during the initial page-settle delay", async () => {
   expect(hud(inspector)).toBeNull();
 });
 
-test("the HUD previews every feature in sequence on page load, then leaves", async () => {
+test("the HUD previews only disabled features in sequence on page load, then leaves", async () => {
   vi.useFakeTimers();
   const { inspector } = await setup({
     intelligence: true,
@@ -244,10 +244,7 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
 
   const introHud = requireElement(hud(inspector));
   expect(introHud.getAttribute("data-cpk-hud-intro")).toBe("true");
-  expect(hudRowLabels(inspector)).toEqual([
-    "Rich Threads",
-    "Automatic Learning",
-  ]);
+  expect(hudRowLabels(inspector)).toEqual(["Automatic Learning"]);
   expect(
     [
       root(inspector).querySelector<HTMLElement>(
@@ -259,7 +256,7 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
     ].map((item) =>
       requireElement(item).style.getPropertyValue("--cpk-hud-waterfall-delay"),
     ),
-  ).toEqual(["180ms", "350ms", "520ms"]);
+  ).toEqual(["180ms", "350ms"]);
 
   await vi.advanceTimersByTimeAsync(3400);
   await settle(inspector);
@@ -308,26 +305,16 @@ test("hovering the launcher shows its feature states without a redundant header"
   expect(hud(inspector)?.getAttribute("data-cpk-hud-vertical")).toBe("top");
 });
 
-test("feature toggles reflect only capability states the Inspector has proved", async () => {
+test("enabled features are hidden while unconfigured features remain available", async () => {
   const { inspector, openHud } = await setup({
     intelligence: true,
     endpoints: ENABLED_ENDPOINTS,
   });
   await openHud();
-  expect(hudRowLabels(inspector)).toEqual([
-    "Rich Threads",
-    "Automatic Learning",
-  ]);
-  const threadsToggle = requireElement(
-    root(inspector).querySelector<HTMLButtonElement>(
-      '[data-cpk-hud-toggle="threads"]',
-    ),
-  );
-  expect(threadsToggle.getAttribute("data-enabled")).toBe("true");
-  expect(threadsToggle.disabled).toBe(true);
-  expect(threadsToggle.getAttribute("aria-label")).toBe(
-    "Rich Threads is enabled",
-  );
+  expect(hudRowLabels(inspector)).toEqual(["Automatic Learning"]);
+  expect(
+    root(inspector).querySelector('[data-cpk-hud-row="threads"]'),
+  ).toBeNull();
 
   const learningToggle = requireElement(
     root(inspector).querySelector<HTMLButtonElement>(
@@ -381,27 +368,14 @@ test("the floating window does not cover the sidebar toggle with a SW handle", a
   expect(tree.querySelector("[data-inspector-sidebar-toggle]")).not.toBeNull();
 });
 
-test("an enabled row body keeps its Inspector destination", async () => {
-  const { inspector, openHud } = await setup({
-    intelligence: true,
-    endpoints: ENABLED_ENDPOINTS,
-  });
+test("a disabled row body keeps its Inspector destination", async () => {
+  const { inspector, openHud } = await setup();
   await openHud();
   const row = requireElement(
     root(inspector).querySelector<HTMLElement>('[data-cpk-hud-row="threads"]'),
   );
   row.click();
   await settle(inspector);
-  expect(currentMenu(inspector)).toBe("threads");
-});
-
-test("Rich Threads on still lands on the Threads view", async () => {
-  const { inspector, openHud, clickHud } = await setup({
-    intelligence: true,
-    endpoints: ENABLED_ENDPOINTS,
-  });
-  await openHud();
-  await clickHud("threads");
   expect(currentMenu(inspector)).toBe("threads");
 });
 
@@ -466,11 +440,13 @@ test("disabled feature rows open their landing pages, where setup prompts can be
 
     expect(writeText).toHaveBeenCalledTimes(1);
     const threadsPrompt = String(writeText.mock.calls[0]?.[0]);
-    expect(threadsPrompt).toContain(
+    // The Threads button names the outcome and lets the route carry the rest;
+    // the guide link it used to paste belongs to feature/rich-threads.
+    expect(threadsPrompt).toContain("--intent add-rich-threads");
+    expect(threadsPrompt).not.toContain(
       "This task is specifically to enable Threads",
     );
-    expect(threadsPrompt).toContain("https://docs.copilotkit.ai/threads");
-    expect(threadsPrompt).not.toContain("--intent");
+    expect(threadsPrompt).not.toContain("https://docs.copilotkit.ai/threads");
     expect(copyThreads.dataset.copyState).toBe("copied");
     expect(copyThreads.getAttribute("aria-label")).toBe(
       "Threads setup prompt copied",
@@ -556,7 +532,7 @@ const configuredLearning: InspectorLearningSnapshotV1 = {
   },
 };
 
-test("launcher shows configured Learning as enabled before any runs, without probing Memory", async () => {
+test("launcher hides enabled features before any Learning runs, without probing Memory", async () => {
   const memoryProbe = vi.spyOn(CopilotKitCore.prototype, "getMemoryStore");
   const { inspector, openHud } = await setup({
     intelligence: true,
@@ -565,17 +541,27 @@ test("launcher shows configured Learning as enabled before any runs, without pro
   });
   await openHud();
   await vi.waitFor(() => {
-    expect(
-      root(inspector)
-        .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
-        ?.getAttribute("data-enabled"),
-    ).toBe("true");
+    expect(hudRowLabels(inspector)).toEqual([]);
   });
   expect(
-    root(inspector)
-      .querySelector('[data-cpk-hud-row="threads"] [data-cpk-hud-toggle]')
-      ?.getAttribute("data-enabled"),
-  ).toBe("true");
+    root(inspector).querySelector(".cpk-launcher-hud__feature-list"),
+  ).toBeNull();
+  expect(
+    root(inspector).querySelector('[data-cpk-dismiss-inspector="day"]'),
+  ).not.toBeNull();
+  expect(hud(inspector)?.hasAttribute("data-cpk-hud-dismiss-only")).toBe(true);
+  expect(root(inspector).querySelector(".cpk-launcher-hud__arrow")).toBeNull();
+  const dismiss = requireElement(
+    root(inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+  expect(dismiss.style.getPropertyValue("--cpk-hud-waterfall-delay")).toBe(
+    "180ms",
+  );
+  dismiss.click();
+  await settle(inspector);
+  expect(hud(inspector)).toBeNull();
   expect(memoryProbe).not.toHaveBeenCalled();
 });
 

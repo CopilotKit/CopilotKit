@@ -105,26 +105,22 @@ test("copies the canonical Rich Threads repair prompt and announces success", as
   }
 });
 
-test("keeps the Rich Threads repair prompt anchored and safe for autonomous edits", () => {
+test("sends the coding agent to the Rich Threads route and carries nothing else", () => {
+  // The route owns the guide links, the identity rules, the ownership checks
+  // and the Inspector proof this prompt used to repeat. A copy of them here
+  // drifts the next time the Runtime API changes, which is what OSS-1150
+  // retired.
   expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes",
+    "npx --yes copilotkit@latest onboard start --coding-agent <coding-agent-slug> --intent add-rich-threads",
   );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "existing server-verified signed-in application user",
-  );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "Preserve existing authentication middleware and access checks",
-  );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
+  expect(RICH_THREADS_SETUP_PROMPT).not.toContain("docs.copilotkit.ai");
+  expect(RICH_THREADS_SETUP_PROMPT).not.toContain("identifyUser");
+  expect(RICH_THREADS_SETUP_PROMPT).not.toContain(
     "Never use a fixed demo identity in production",
   );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "Home shows Intelligence connected",
-  );
-  expect(RICH_THREADS_SETUP_PROMPT).toContain("open Threads in Inspector");
-  expect(RICH_THREADS_SETUP_PROMPT).toContain(
-    "React Native does not include Inspector",
-  );
+  // No run id: this string is static and llm-text inlines it into cached raw
+  // Markdown, so one minted here would be shared by every reader.
+  expect(RICH_THREADS_SETUP_PROMPT).not.toContain("--run");
 });
 
 test("reports a blocked Rich Threads prompt copy without claiming success", async () => {

@@ -98,7 +98,6 @@ import type {
 } from "./lib/inspector-metadata.js";
 import {
   buildHomeModel,
-  homeFeatureImplementationPrompt,
   runtimeConnectionNeedsAttention,
 } from "./lib/home-briefing.js";
 import type {
@@ -161,6 +160,7 @@ import {
   trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import {
+  createFeatureOnboardingPrompt,
   createOnboardingPrompt,
   createOnboardingRunId,
 } from "./lib/onboarding-prompt.js";
@@ -412,7 +412,6 @@ type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
   id: HomeFeaturePromptId;
   label: string;
-  docsUrl: string;
 }>;
 
 const LAUNCHER_SIGNALS: Readonly<
@@ -8144,9 +8143,7 @@ export class WebInspectorElement extends LitElement {
     if (!clipboard?.writeText) return false;
     try {
       await clipboard.writeText(
-        homeFeatureImplementationPrompt(service, {
-          onboardingRunId,
-        }),
+        createFeatureOnboardingPrompt(service.id, onboardingRunId),
       );
       return true;
     } catch {
@@ -8158,7 +8155,18 @@ export class WebInspectorElement extends LitElement {
     event?: Event,
     recopy = false,
   ): Promise<void> => {
-    const service = this.getHomeFeaturePromptTarget("threads");
+    // The Learning tile, not the Threads one. This pane borrowed the Threads
+    // target, so its button copied a Threads prompt and announced itself as
+    // "Threads setup prompt copied" under a Learning heading (OSS-1151).
+    //
+    // Learning does not need the Threads feature first. A runtime mounted
+    // `mode: "single-route"` serves no thread route at all and still binds
+    // Containers, because the binding happens server-side while a run starts;
+    // and `learningOn` reads the `memory` tile independently of `threadsOn`.
+    // `add-learning` inspects its own prerequisites and refuses through
+    // `feature/stop` when one is missing, which is why the route decides that
+    // rather than this pane.
+    const service = this.getHomeFeaturePromptTarget("memory");
     if (!service || !this.core?.runtimeUrl) return;
     const request = ++this.learningSetupCopyRequest;
     const copied = await this.copyFeaturePromptToClipboard(
@@ -10411,6 +10419,24 @@ export class WebInspectorElement extends LitElement {
         );
       }
 
+      /* With no news or setup actions, the dismissal is the whole HUD. */
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] {
+        --hud-dismiss-day-height: 36px;
+        width: max-content;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only][data-cpk-hud-vertical="top"] {
+        top: calc((var(--cpk-launcher-size) - var(--hud-dismiss-day-height)) / 2);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only][data-cpk-hud-vertical="bottom"] {
+        bottom: calc((var(--cpk-launcher-size) - var(--hud-dismiss-day-height)) / 2);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] .cpk-launcher-hud__card {
+        width: max-content;
+      }
+
       .cpk-launcher-hud__list {
         margin: 0;
         padding: 0;
@@ -10575,6 +10601,11 @@ export class WebInspectorElement extends LitElement {
           border-color 120ms ease,
           background 120ms ease,
           color 120ms ease;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] .cpk-launcher-hud__dismiss-day {
+        font-size: 11px;
+        white-space: nowrap;
       }
 
       .cpk-launcher-hud__dismiss-day:hover,
@@ -12131,7 +12162,8 @@ export class WebInspectorElement extends LitElement {
     icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
-  }): TemplateResult {
+  }): TemplateResult | typeof nothing {
+    if (args.connected) return nothing;
     const detailId = `cpk-hud-detail-${args.id}`;
     return html`
       <li
@@ -12222,11 +12254,13 @@ export class WebInspectorElement extends LitElement {
     );
     const announcementTitle = this.getUnreadAnnouncementTitle();
     const featureBlockIntroIndex = announcementTitle ? 1 : 0;
+    const dismissOnly = !announcementTitle && threadsOn && learningOn;
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
+        ?data-cpk-hud-dismiss-only=${dismissOnly}
         data-cpk-hud-side=${this.launcherHudSide}
         data-cpk-hud-vertical=${this.contextState.button.anchor.vertical}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
@@ -12236,7 +12270,13 @@ export class WebInspectorElement extends LitElement {
           "--cpk-launcher-hud-waterfall-duration": `${LAUNCHER_HUD_INTRO_MS.waterfallDuration}ms`,
         })}
       >
-        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+        ${
+          dismissOnly
+            ? nothing
+            : html`
+                <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+              `
+        }
         <div class="cpk-launcher-hud__card">
           ${
             announcementTitle
@@ -12281,37 +12321,48 @@ export class WebInspectorElement extends LitElement {
                 `
               : nothing
           }
-          <ul
-            class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
-            role="list"
-            style=${styleMap({
-              "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-                featureBlockIntroIndex,
-              ),
-            })}
-          >
-            ${this.renderHudRow({
-              id: "threads",
-              label: HUD_THREADS_LABEL,
-              icon: "MessageSquare",
-              connected: threadsOn,
-              introIndex: featureBlockIntroIndex + 1,
-            })}
-            ${this.renderHudRow({
-              id: "learning",
-              label: HUD_LEARNING_LABEL,
-              icon: "Brain",
-              connected: learningOn,
-              introIndex: featureBlockIntroIndex + 2,
-            })}
-          </ul>
+          ${
+            threadsOn && learningOn
+              ? nothing
+              : html`
+                  <ul
+                    class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
+                    role="list"
+                    style=${styleMap({
+                      "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+                        featureBlockIntroIndex,
+                      ),
+                    })}
+                  >
+                    ${this.renderHudRow({
+                      id: "threads",
+                      label: HUD_THREADS_LABEL,
+                      icon: "MessageSquare",
+                      connected: threadsOn,
+                      introIndex: featureBlockIntroIndex + 1,
+                    })}
+                    ${this.renderHudRow({
+                      id: "learning",
+                      label: HUD_LEARNING_LABEL,
+                      icon: "Brain",
+                      connected: learningOn,
+                      introIndex: featureBlockIntroIndex + (threadsOn ? 1 : 2),
+                    })}
+                  </ul>
+                `
+          }
           <button
             type="button"
             class="cpk-launcher-hud__dismiss-day"
             data-cpk-dismiss-inspector="day"
             style=${styleMap({
               "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-                featureBlockIntroIndex + 3,
+                dismissOnly
+                  ? 0
+                  : featureBlockIntroIndex +
+                      Number(!threadsOn) +
+                      Number(!learningOn) +
+                      1,
               ),
             })}
             @click=${this.handleHudDismissDayClick}
@@ -18405,7 +18456,7 @@ export class WebInspectorElement extends LitElement {
         videoTitle: "CopilotKit Learning overview",
         outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
         setupPrompt: {
-          serviceId: "threads",
+          serviceId: "memory",
           copyState: this.learningPromptCopyState,
           onClick: (event) => void this.handleLearningSetupCopy(event),
         },
@@ -18422,14 +18473,10 @@ export class WebInspectorElement extends LitElement {
         .setupActive=${this.isLearningSetupActive()}
         .copyState=${this.learningPromptCopyState}
         .recopyState=${this.learningPromptRecopyState}
-        .setupPrompt=${
-          this.getHomeFeaturePromptTarget("threads")
-            ? homeFeatureImplementationPrompt(
-                this.getHomeFeaturePromptTarget("threads")!,
-                { onboardingRunId: this.getOnboardingRunId() },
-              )
-            : ""
-        }
+        .setupPrompt=${createFeatureOnboardingPrompt(
+          "memory",
+          this.getOnboardingRunId(),
+        )}
         @learning-retry=${() =>
           this.refreshLearningSnapshot({
             preserve: this.learningSnapshot !== null,
