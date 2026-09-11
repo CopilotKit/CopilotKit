@@ -41,6 +41,7 @@ import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
 import { AngularSnippet } from "@/components/angular-snippet";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
+import { resolveInlineDemoBackendUrl } from "@/lib/inline-demo-url";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
 import {
@@ -402,7 +403,10 @@ export const docsComponents = {
     // more demo content fits in the same visual footprint at a smaller
     // effective size: useful for chat surfaces where the composer,
     // suggested prompts, and early messages should all be visible at once.
-    const demoUrl = `${int.backend_url}/demos/${demo}`;
+    const demoUrl = `${resolveInlineDemoBackendUrl(
+      int.slug,
+      int.backend_url,
+    )}/demos/${demo}`;
     const SCALE = 0.7;
     const WRAPPER_HEIGHT = 550;
     const wrapperStyle: React.CSSProperties = {

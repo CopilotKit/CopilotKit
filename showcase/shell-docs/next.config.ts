@@ -1,4 +1,15 @@
 import type { NextConfig } from "next";
+import path from "path";
+import { fileURLToPath } from "url";
+import { localBackendsEnv } from "../shell/src/lib/local-backends-env";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOCAL_PORTS_PATH = path.resolve(
+  __dirname,
+  "..",
+  "shared",
+  "local-ports.json",
+);
 
 interface PermanentRedirect {
   readonly source: string;
@@ -304,6 +315,11 @@ const CHANNEL_REDIRECTS: PermanentRedirect[] = [
 // `console.error` from `runtime-config.ts` instead.
 
 const nextConfig: NextConfig = {
+  env: {
+    // Keep local iframe targets opt-in. The shared helper validates the port
+    // map and emits an empty value unless SHOWCASE_LOCAL=1.
+    NEXT_PUBLIC_LOCAL_BACKENDS: localBackendsEnv(LOCAL_PORTS_PATH),
+  },
   // The raw-MDX route intentionally traces runtime-readable content. Next
   // 16.2.10 also reports this config file as an "unexpected" NFT entry even
   // though the config has no application imports. Keep the filter exact so
