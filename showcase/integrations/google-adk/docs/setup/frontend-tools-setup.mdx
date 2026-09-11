@@ -10,13 +10,51 @@
   <Step>
     ### Add `AGUIToolset()` to your agent
 
-    `AGUIToolset()` is the tool that exposes CopilotKit's frontend-tool
-    channel to the model — drop it into your `LlmAgent`'s `tools=` list and
-    frontend tools become available on every turn. Pair it with
-    `stop_on_terminal_text` as the `after_model_callback` so CopilotKit's UI
-    knows when the agent has finished its turn.
+    `AGUIToolset()` exposes CopilotKit's frontend tools to the model.
+    Add it to your `LlmAgent`'s `tools=` list. Use an ADK-supported model
+    available to your project.
 
-    <DemoCode file="src/agents/hitl_in_chat_agent.py" region="setup" />
+    The callback below preserves the Gemini termination safeguard: it stops on
+    final text with a `STOP` finish reason, while leaving partial responses and
+    pending tool calls alone. It is defined here in full, not imported from
+    `ag-ui-adk` or a showcase-only module.
+
+    ```python
+    from ag_ui_adk import AGUIToolset
+    from google.adk.agents import LlmAgent
+    from google.adk.agents.callback_context import CallbackContext
+    from google.adk.models.llm_response import LlmResponse
+
+
+    def stop_on_terminal_text(
+        callback_context: CallbackContext, llm_response: LlmResponse
+    ) -> None:
+        content = llm_response.content
+        if llm_response.partial or not content or content.role != "model":
+            return
+        finish_reason = llm_response.finish_reason
+        if getattr(finish_reason, "name", finish_reason) != "STOP":
+            return
+        parts = content.parts or []
+        if not any(part.text for part in parts) or any(part.function_call for part in parts):
+            return
+        # ADK's invocation context is private; tolerate SDK changes.
+        invocation = getattr(callback_context, "_invocation_context", None)
+        if invocation is not None:
+            try:
+                invocation.end_invocation = True
+            except AttributeError:
+                pass
+
+
+    agent = LlmAgent(
+        name="assistant",
+        model="gemini-3.1-flash-lite",
+        instruction="Help the user and call the available frontend tools when appropriate.",
+        tools=[AGUIToolset()],
+        after_model_callback=stop_on_terminal_text,
+    )
+    ```
 
   </Step>
 </Steps>
