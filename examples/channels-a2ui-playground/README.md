@@ -43,7 +43,8 @@ invalid or incomplete surfaces produce diagnostics. This version takes a
 completed surface rather than an incremental A2UI message stream.
 
 The **Intermediate Channels UI** panel on the right shows the resolved component
-tree passed into the Slack converter, including button action IDs. Expand
+tree passed into the Slack converter, including button action IDs. It starts
+expanded; click its heading to minimize or expand it. Expand
 **Generated Block Kit JSON** directly below it to compare the intermediate tree
 with the Slack payload. Both views use the last rendered input, update together
 when you render or select an example, and clear when conversion fails.

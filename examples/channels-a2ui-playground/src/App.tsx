@@ -142,6 +142,7 @@ export default function App() {
   const [previewIssue, setPreviewIssue] = useState<string | null>(null);
   const [previewTheme, setPreviewTheme] = useState<SlackPreviewTheme>("light");
   const [logEntries, setLogEntries] = useState<ActionLogEntry[]>([]);
+  const [irOpen, setIrOpen] = useState(true);
   const [blocksOpen, setBlocksOpen] = useState(false);
   const nextLogId = useRef(1);
 
@@ -404,16 +405,23 @@ export default function App() {
             className="json-panel intermediate-panel"
             aria-labelledby="channels-ui-title"
           >
-            <div className="intermediate-panel-heading">
-              <p className="eyebrow">A2UI → Channels UI → Block Kit</p>
-              <h3 id="channels-ui-title">Intermediate Channels UI</h3>
-              <p className="empty-state">
-                Resolved component tree used to generate the Block Kit below.
-              </p>
-            </div>
-            <pre tabIndex={0}>
-              <code>{renderedIrJson}</code>
-            </pre>
+            <details
+              open={irOpen}
+              onToggle={(event) => setIrOpen(event.currentTarget.open)}
+            >
+              <summary>
+                <h3 id="channels-ui-title">Intermediate Channels UI</h3>
+              </summary>
+              <div className="intermediate-panel-heading">
+                <p className="eyebrow">A2UI → Channels UI → Block Kit</p>
+                <p className="empty-state">
+                  Resolved component tree used to generate the Block Kit below.
+                </p>
+              </div>
+              <pre tabIndex={0}>
+                <code>{renderedIrJson}</code>
+              </pre>
+            </details>
           </section>
 
           <details

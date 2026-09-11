@@ -313,7 +313,11 @@ textarea:focus {
 .intermediate-panel-heading {
   display: grid;
   gap: 6px;
-  padding: 14px;
+  padding: 0 14px 14px;
+}
+
+.intermediate-panel summary h3 {
+  display: inline;
 }
 
 .json-panel summary {
