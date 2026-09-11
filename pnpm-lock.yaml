@@ -4122,7 +4122,7 @@ packages:
     version: 0.0.59
 
   '@ag-ui/langgraph@https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@1084c9b8f5c8dd3137f75f219dfb17d25f426816':
-    resolution: {integrity: sha512-6yHB7Ik9lL+ZH1mpwOSzC7AKwvWIVwyHTq+f+VMUVOfeLYET9iYKD1O09kYPK2wrMsNmE4UR07wsER5aZ2Ut9w==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@1084c9b8f5c8dd3137f75f219dfb17d25f426816}
+    resolution: {integrity: sha512-6Opsp+rmHMxmlrpVNcbrCn8gj0NOoDsCm3BUtBBDukCMRpBzNFgOPGKGk5UCRG73//izUdX3blnkiM2yg34+Ag==, tarball: https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/langgraph@1084c9b8f5c8dd3137f75f219dfb17d25f426816}
     version: 0.0.43
     peerDependencies:
       '@ag-ui/client': '>=0.0.42'
