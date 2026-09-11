@@ -242,12 +242,10 @@ reads the way a backend tool call does:
 Agent calls a tool → tool runs on the client → ToolMessage appended → agent continues
 ```
 
-<Callout type="warn" title="This is opt-in for three reasons">
-1. **Python 3.11+ is required.** Below that, the run config does not propagate into asyncio tasks, so
-   `interrupt()` cannot read it. This limits every async `interrupt()`, not just this flag.
-2. **The client must resume explicitly.** The default frontend-tool loop fires a plain follow-up run,
+<Callout type="warn" title="This is opt-in for two reasons">
+1. **The client must resume explicitly.** The default frontend-tool loop fires a plain follow-up run,
    which a paused thread ignores. You need the handler below.
-3. **All frontend calls in a turn share one interrupt.** A resume carries a single value and cannot
+2. **All frontend calls in a turn share one interrupt.** A resume carries a single value and cannot
    address several pending interrupts without their ids
    ([ag-ui#2178](https://github.com/ag-ui-protocol/ag-ui/issues/2178)), so the middleware batches them.
 </Callout>

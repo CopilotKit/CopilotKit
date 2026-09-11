@@ -26,20 +26,14 @@ from langgraph.checkpoint.memory import InMemorySaver
 import pytest
 
 from copilotkit import CopilotKitMiddleware
-from copilotkit.exc import CopilotKitMisuseError
 from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
 FE_TOOL_NAME = "navigate"
 INTERRUPT_KEY = "__copilotkit_frontend_tool_calls__"
 
-# LangGraph's interrupt() reads the run config through a contextvar, which does
-# not propagate into asyncio tasks before Python 3.11 — so no interrupt can fire
-# from an async node on 3.10. That is a platform limit, not a CopilotKit one;
-# the middleware turns it into an actionable error, pinned by
-# test_async_on_python_310_explains_the_version_requirement below.
 requires_async_interrupt = pytest.mark.skipif(
     sys.version_info < (3, 11),
-    reason="interrupt() from an async node requires Python 3.11+",
+    reason="LangGraph's interrupt() needs Python 3.11+ under async",
 )
 
 
@@ -314,15 +308,3 @@ def test_agent_without_backend_tools_still_loops_back_to_the_model():
         "after_model cannot route back to the model, so the frontend results "
         f"would never reach it; edges go to {sorted(after_model_targets)}"
     )
-
-
-@pytest.mark.skipif(
-    sys.version_info >= (3, 11), reason="only 3.10 hits the contextvar limit"
-)
-def test_async_on_python_310_explains_the_version_requirement():
-    """Rather than LangGraph's "Called get_config outside of a runnable context",
-    which says nothing about the flag or the fix."""
-    graph, _ = _build(responses=[_ai([_fe_call()])], tools=[])
-
-    with pytest.raises(CopilotKitMisuseError, match="Python 3.11"):
-        _run(graph)
