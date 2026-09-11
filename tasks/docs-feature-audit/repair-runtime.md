@@ -41,3 +41,20 @@
 - `auth`: `tasks/docs-feature-audit/repair-adk-context-auth-d6.log` — 1 passed, 0 failed.
 - `agentic-chat`: `tasks/docs-feature-audit/repair-adk-context-agentic-chat-d6.log` — 1 passed, 0 failed.
 - `tool-rendering`: `tasks/docs-feature-audit/repair-adk-context-tool-rendering-d6.log` — 1 passed, 0 failed and rendered the weather-card assertion.
+
+## LGTS-017 — default Turbopack CVDIAG module resolution
+
+### Fresh RED
+
+- Current-source default Turbopack UI compiled `/demos/agentic-chat`, but a request to `/api/copilotkit` returned 500. Turbopack could not resolve the CVDIAG's NodeNext-style relative `.js` module specifiers (`schema.js`, `emit.js`, and `pb-writer-fetch.js`).
+- Command and durable log: `NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true LANGGRAPH_DEPLOYMENT_URL=http://127.0.0.1:8124 ./node_modules/.bin/next dev --turbopack --hostname 127.0.0.1 --port 3101`; `/private/tmp/lgts017-baseline-turbopack.log`.
+
+### Change
+
+- Added five source-scoped ESM `.js` bridge modules next to the CVDIAG TypeScript modules. The existing canonical relative `.js` specifiers now resolve under both Turbopack and Webpack without a global alias that could affect dependency imports.
+- Removed the obsolete Webpack-only extension-alias configuration.
+
+### Green
+
+- The same `/api/copilotkit` request compiled and returned 200 under direct Turbopack (`/private/tmp/lgts017-final-turbopack.log`) and under the checked-in `npm --prefix showcase/integrations/langgraph-typescript run dev` command (`/private/tmp/lgts017-default-dev.log`).
+- Strict D6 3/3 green through the final Turbopack UI and local AIMock: `agentic-chat`, `tool-rendering`, and `frontend-tools` each executed one passing cell with zero failures. Logs: `tasks/docs-feature-audit/repair-lgts017-final-*-d6.log`.
