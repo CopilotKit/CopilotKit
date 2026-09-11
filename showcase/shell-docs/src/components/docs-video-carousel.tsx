@@ -1,13 +1,14 @@
-// <DocsVideoCarousel> — the homepage's "see it in action" section: a
-// heading, a short intro paragraph, and a switcher between three recorded
-// product walkthroughs.
+// <DocsVideoCarousel>: the homepage's "What is CopilotKit?" section, a
+// heading with no supporting paragraph and a switcher between three recorded
+// product walkthroughs. The recordings are the answer; nothing else needs to
+// explain what CopilotKit is here.
 //
 // Self-contained by design: it takes no props and owns its own list of
 // recordings, so `page.tsx` renders a single `<DocsVideoCarousel />` rather
 // than assembling the section itself.
 //
 // The switcher is a real ARIA tab pattern (three named buttons, not
-// next/prev arrows — three recordings with meaningful names are better
+// next/prev arrows, since three recordings with meaningful names are better
 // chosen directly than cycled through) rather than a generic carousel:
 //
 //   - `role="tablist"` of `role="tab"` buttons, each `aria-selected` on
@@ -20,18 +21,19 @@
 //
 // Only the active recording's iframe is ever mounted. Three third-party
 // Loom players on the homepage would open three sets of connections and
-// scripts for two videos nobody asked for yet — mount one, and give it
+// scripts for two videos nobody asked for yet, so mount one, and give it
 // `loading="lazy"`. Do NOT "improve" this into rendering all three and
 // hiding the inactive ones with CSS.
 //
 // The switch itself is not animated: the iframe reloads whenever its `src`
 // changes, so a slide transition would carry a blank frame across the
-// screen mid-animation — worse than a clean swap.
+// screen mid-animation, worse than a clean swap.
 
 "use client";
 
 import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import { IntelligenceKiteIcon } from "@/components/intelligence-kite-icon";
 
 interface Recording {
   readonly id: string;
@@ -40,11 +42,19 @@ interface Recording {
    *  jargon to a first-time reader. */
   readonly summary: string;
   readonly loomId: string;
+  /** True for a CopilotKit Intelligence feature, false for core
+   *  (open-source) CopilotKit. Drives the Intelligence mark on the tab;
+   *  add new recordings by setting this rather than special-casing an
+   *  index somewhere else. */
+  readonly intelligence: boolean;
 }
 
-// Order matches the recordings as produced. "Learning and memory" and
-// "Rich threads" are CopilotKit Intelligence features; "Shared state and
-// Harness" is core CopilotKit.
+// Order matches the recordings as produced. Titles use the product's own
+// names where one exists: "Rich Threads" and "User Memories" are canonical
+// CopilotKit Intelligence feature names. "Shared state" is a core,
+// open-source CopilotKit feature, not an Intelligence one. "Harness" in the
+// first title is carried over as-is; it is not a confirmed product name and
+// is left untouched pending confirmation, not silently renamed or dropped.
 const RECORDINGS: readonly Recording[] = [
   {
     id: "shared-state-harness",
@@ -52,20 +62,23 @@ const RECORDINGS: readonly Recording[] = [
     summary:
       "An agent updates a live UI directly through shared state, then runs a multi-agent background analysis of company expenses.",
     loomId: "0cad0c3d96e4454c83133a52d9ac8e7b",
+    intelligence: false,
   },
   {
-    id: "learning-memory",
-    title: "Learning and memory",
+    id: "user-memories",
+    title: "User Memories",
     summary:
-      "An agent recalls past spending patterns and turns a repeated manual approval into a reusable, published skill.",
+      "An agent recalls past spending patterns, then turns a repeated manual approval into a reusable, published skill using Automatic Learning.",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
+    intelligence: true,
   },
   {
     id: "rich-threads",
-    title: "Rich threads",
+    title: "Rich Threads",
     summary:
       "Generative UI, uploaded files, and approval cards stay live and in sync as one thread moves across devices.",
     loomId: "79817778d29e490c97225127d2f17b3a",
+    intelligence: true,
   },
 ] as const;
 
@@ -114,15 +127,8 @@ export function DocsVideoCarousel() {
   return (
     <section className="mt-8">
       <h2 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.375rem]">
-        See it in action
+        What is CopilotKit?
       </h2>
-      <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">
-        Three recordings show CopilotKit running in a real app: an agent
-        updating your UI directly through shared state, plus two things
-        CopilotKit Intelligence adds — agents that learn from repeated work, and
-        threads that keep generative UI and files in sync across sessions and
-        devices.
-      </p>
 
       <div
         role="tablist"
@@ -145,13 +151,22 @@ export function DocsVideoCarousel() {
               tabIndex={isActive ? 0 : -1}
               onClick={() => setActiveIndex(index)}
               onKeyDown={handleKeyDown}
-              className={`shell-docs-radius-control cursor-pointer border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none ${
+              className={`shell-docs-radius-control inline-flex cursor-pointer items-center gap-1.5 border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none ${
                 isActive
                   ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
                   : "border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)]"
               }`}
             >
-              {recording.title}
+              <span data-testid="tab-title">{recording.title}</span>
+              {recording.intelligence && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium opacity-80">
+                  {/* Decorative: the "Intelligence" text right after it is
+                   *  what a screen reader announces, so the mark itself
+                   *  stays out of the accessible name. */}
+                  <IntelligenceKiteIcon className="h-3 w-3" />
+                  Intelligence
+                </span>
+              )}
             </button>
           );
         })}
@@ -170,7 +185,7 @@ export function DocsVideoCarousel() {
         <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
           <iframe
             src={`https://www.loom.com/embed/${active.loomId}`}
-            title={`${active.title} — CopilotKit product walkthrough`}
+            title={`${active.title}: CopilotKit product walkthrough`}
             className="h-full w-full"
             frameBorder="0"
             allowFullScreen
@@ -186,7 +201,7 @@ export function DocsVideoCarousel() {
         {/* Below the video, not above it: the recording is what the reader
          *  came for, and a line of prose between the tab they just clicked
          *  and the player pushes the player down for no gain. Reading it
-         *  afterwards is also when it is useful — as a caption. */}
+         *  afterwards is also when it is useful, as a caption. */}
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
           {active.summary}
         </p>

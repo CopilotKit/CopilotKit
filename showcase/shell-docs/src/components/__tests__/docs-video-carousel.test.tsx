@@ -4,11 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 
-const TITLES = [
-  "Shared state and Harness",
-  "Learning and memory",
-  "Rich threads",
-];
+const TITLES = ["Shared state and Harness", "User Memories", "Rich Threads"];
 
 const LOOM_IDS = [
   "0cad0c3d96e4454c83133a52d9ac8e7b",
@@ -20,17 +16,29 @@ function embedUrl(id: string): string {
   return `https://www.loom.com/embed/${id}`;
 }
 
+function tabTitle(tab: HTMLElement): string | null | undefined {
+  return tab.querySelector('[data-testid="tab-title"]')?.textContent;
+}
+
 afterEach(() => {
   cleanup();
 });
 
 describe("DocsVideoCarousel", () => {
+  it("titles the section with the question it answers", () => {
+    render(<DocsVideoCarousel />);
+
+    expect(() =>
+      screen.getByRole("heading", { name: "What is CopilotKit?" }),
+    ).not.toThrow();
+  });
+
   it("renders all three tabs, in the documented order, with their titles", () => {
     render(<DocsVideoCarousel />);
 
     const tabs = screen.getAllByRole("tab");
     expect(tabs).toHaveLength(3);
-    expect(tabs.map((tab) => tab.textContent)).toEqual(TITLES);
+    expect(tabs.map((tab) => tabTitle(tab))).toEqual(TITLES);
   });
 
   // The summary describes the selected recording and changes with the tab,
@@ -84,7 +92,7 @@ describe("DocsVideoCarousel", () => {
       .getAllByRole("tab")
       .filter((tab) => tab.getAttribute("aria-selected") === "true");
     expect(reselected).toHaveLength(1);
-    expect(reselected[0].textContent).toBe("Rich threads");
+    expect(tabTitle(reselected[0])).toBe("Rich Threads");
 
     const iframes = document.querySelectorAll("iframe");
     expect(iframes).toHaveLength(1);
@@ -154,6 +162,45 @@ describe("DocsVideoCarousel", () => {
       fireEvent.click(tab);
       const iframe = document.querySelector("iframe");
       expect(iframe?.getAttribute("title")).toBeTruthy();
+    }
+  });
+
+  // The two CopilotKit Intelligence recordings carry the product's kite
+  // mark; the open-source shared-state one does not. Asserted on what
+  // actually renders, not by reading the recordings array back.
+  it("marks exactly the two Intelligence recordings, and only those, as Intelligence", () => {
+    render(<DocsVideoCarousel />);
+
+    const tabs = screen.getAllByRole("tab");
+    const marked = tabs.filter((tab) =>
+      tab.textContent?.includes("Intelligence"),
+    );
+    expect(marked).toHaveLength(2);
+
+    expect(tabs[0].textContent).not.toContain("Intelligence");
+    expect(tabs[1].textContent).toContain("Intelligence");
+    expect(tabs[2].textContent).toContain("Intelligence");
+  });
+
+  // The kite mark is `aria-hidden`, so a screen reader only learns what it
+  // means if the word itself is real, visible text next to it, not merely
+  // implied by an icon.
+  it("carries the Intelligence mark's meaning to assistive technology as text, not only as an icon", () => {
+    render(<DocsVideoCarousel />);
+
+    const markedTab = screen.getAllByRole("tab")[1];
+    const icon = markedTab.querySelector("svg");
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute("aria-hidden")).toBe("true");
+    expect(markedTab.textContent).toContain("Intelligence");
+  });
+
+  it("never renders an em-dash", () => {
+    const { container } = render(<DocsVideoCarousel />);
+
+    for (const tab of screen.getAllByRole("tab")) {
+      fireEvent.click(tab);
+      expect(container.innerHTML).not.toContain("—");
     }
   });
 });
