@@ -1,32 +1,33 @@
-// wizard-review.tsx — the homepage setup wizard's step 4 review panel: one
-// row per answer (frontend, agent backend, features), stacked inside a
-// single bordered panel with hairline separators between them, each row a
-// full navigation control back to the step that answer came from.
+// wizard-review.tsx — the homepage setup wizard's final review panel: one
+// row per answer (whether the reader already has a project, frontend,
+// agent backend, features), stacked inside a single bordered panel with
+// hairline separators between them, each row a full navigation control back
+// to the step that answer came from.
 //
 // Boundary-neutral (no "use client"), same as `./docs-map-parts`, so it can
 // be rendered and tested on its own. This component holds no wizard state:
-// the three answers and the `onNavigate` callback are handed in by
+// the four answers and the `onNavigate` callback are handed in by
 // `./setup-wizard`, which is the only place that knows "which step is
 // current" or "what has been picked so far" — see that file's header
 // comment. `onNavigate` is the same callback the progress rail uses
 // (`handleJump` in `setup-wizard.tsx`), so a row click animates as an
 // ordinary backward step rather than a special-cased jump.
 //
-// Rows over tiles: three tiles side by side, each stretched to fill the
-// card, used to read as another set of choices rather than as a
-// confirmation of what was chosen — every tile held one short value in a
-// lot of air. A single row per answer, led by the same numbered circle the
-// reader already knows from the progress rail above the card, reads instead
-// as "here is your answer to each step". A full-width row also means the
-// feature list — up to six selected values — fits on one line rather than
-// forcing the tile that held it to grow taller than the other two or wrap
-// its values into a stretched box.
+// Rows over tiles: tiles side by side, each stretched to fill the card, used
+// to read as another set of choices rather than as a confirmation of what
+// was chosen — every tile held one short value in a lot of air. A single
+// row per answer, led by the same numbered circle the reader already knows
+// from the progress rail above the card, reads instead as "here is your
+// answer to each step". A full-width row also means the feature list — up
+// to six selected values — fits on one line rather than forcing the tile
+// that held it to grow taller than the others or wrap its values into a
+// stretched box.
 //
 // These rows are never `PickGrid` itself, despite reusing its hover
 // treatment: they are never selected and never carry `aria-pressed`, since
 // they are navigation, not a choice. The whole row is the click target, and
-// the whole row's accessible name comes from `aria-label` ("Change
-// frontend", "Change agent backend", "Change features"): three rows that
+// the whole row's accessible name comes from `aria-label` ("Change project",
+// "Change frontend", "Change agent backend", "Change features"): rows that
 // all read "Change" in a screen reader's element list would be
 // indistinguishable, so each carries its own name even though the visible
 // word at the end of every row is the same, which is what keeps the
@@ -141,37 +142,58 @@ function PickValue({
   );
 }
 
+/** The project row's value content: no logo (see `ChoiceGrid`'s own doc
+ *  comment in `wizard-stepper-parts.tsx` for why a plain Yes/No choice has
+ *  none to show), just the answer in the same weight `PickValue` gives its
+ *  name. */
+function ProjectValue({
+  project,
+}: {
+  project: "yes" | "no";
+}): React.JSX.Element {
+  return (
+    <span className="text-sm font-semibold text-[var(--text)]">
+      {project === "yes" ? "Yes" : "No"}
+    </span>
+  );
+}
+
 export interface WizardReviewProps {
-  /** `null` only in the unreachable case of arriving at step 4 without a
-   *  frontend picked yet — `SetupWizard` never actually lands here without
-   *  one (see `landingStep` there), but the type stays honest rather than
-   *  asserting non-null for a case this component cannot itself rule out. */
+  /** `null` only in the unreachable case of arriving at the review step
+   *  without having answered the project question yet — `SetupWizard` never
+   *  actually lands here without an answer (see `landingStep` there), but
+   *  the type stays honest rather than asserting non-null for a case this
+   *  component cannot itself rule out. */
+  readonly project: "yes" | "no" | null;
+  /** `null` only in the same unreachable sense as `project` above, for the
+   *  frontend pick. */
   readonly frontend: Pick<MapPick, "name" | "logo"> | null;
   readonly backend: Pick<MapPick, "name" | "logo"> | null;
   /** The selected features, already filtered to the reader's choices and in
    *  display order — this component does not know about `featureIds`, only
    *  the resulting list. Empty renders a muted "None"; the row still
-   *  navigates to step 3. */
+   *  navigates to the features step. */
   readonly features: readonly Pick<MapCapability, "id" | "title" | "icon">[];
   /** The same callback `WizardProgress`'s rail uses (`handleJump` in
-   *  `setup-wizard.tsx`): 1 for frontend, 2 for agent backend, 3 for
-   *  features, plus the `pointerActivated` flag every other navigation path
-   *  already reports (see the header comment above). Which row maps to
-   *  which step number is fixed layout, not wizard state, so it is
-   *  hard-coded here — but how navigation itself works is entirely the
-   *  caller's concern. */
+   *  `setup-wizard.tsx`): 1 for the project question, 2 for frontend, 3 for
+   *  agent backend, 4 for features, plus the `pointerActivated` flag every
+   *  other navigation path already reports (see the header comment above).
+   *  Which row maps to which step number is fixed layout, not wizard state,
+   *  so it is hard-coded here — but how navigation itself works is entirely
+   *  the caller's concern. */
   readonly onNavigate: (step: number, pointerActivated: boolean) => void;
 }
 
-/** Step 4's review panel: one row per answer, replacing the old three-tile
- *  grid — see this file's header comment for why. Carries no `flex-1`: the
- *  card's content area (`WizardCard` in `wizard-stepper-parts.tsx`) is
- *  `flex flex-1 flex-col justify-center`, so a panel with no `flex-1` of
- *  its own is centred in the leftover room automatically, the same as
- *  every other step's options. The old grid opted into `flex-1` to fill the
- *  card top to bottom; a row panel has no reason to grow that tall, so it
- *  must not carry that class here. */
+/** The review step's panel: one row per answer, replacing the old
+ *  three-tile grid — see this file's header comment for why. Carries no
+ *  `flex-1`: the card's content area (`WizardCard` in
+ *  `wizard-stepper-parts.tsx`) is `flex flex-1 flex-col justify-center`, so
+ *  a panel with no `flex-1` of its own is centred in the leftover room
+ *  automatically, the same as every other step's options. The old grid
+ *  opted into `flex-1` to fill the card top to bottom; a row panel has no
+ *  reason to grow that tall, so it must not carry that class here. */
 export function WizardReview({
+  project,
   frontend,
   backend,
   features,
@@ -181,9 +203,17 @@ export function WizardReview({
     <div className={PANEL_CLASS}>
       <ReviewRow
         step={1}
+        kicker="Project"
+        changeLabel="Change project"
+        onChange={(pointerActivated) => onNavigate(1, pointerActivated)}
+      >
+        {project ? <ProjectValue project={project} /> : NONE_VALUE}
+      </ReviewRow>
+      <ReviewRow
+        step={2}
         kicker="Frontend"
         changeLabel="Change frontend"
-        onChange={(pointerActivated) => onNavigate(1, pointerActivated)}
+        onChange={(pointerActivated) => onNavigate(2, pointerActivated)}
       >
         {frontend ? (
           <PickValue name={frontend.name} logo={frontend.logo} />
@@ -192,10 +222,10 @@ export function WizardReview({
         )}
       </ReviewRow>
       <ReviewRow
-        step={2}
+        step={3}
         kicker="Agent backend"
         changeLabel="Change agent backend"
-        onChange={(pointerActivated) => onNavigate(2, pointerActivated)}
+        onChange={(pointerActivated) => onNavigate(3, pointerActivated)}
       >
         {backend ? (
           <PickValue name={backend.name} logo={backend.logo} />
@@ -204,10 +234,10 @@ export function WizardReview({
         )}
       </ReviewRow>
       <ReviewRow
-        step={3}
+        step={4}
         kicker="Features"
         changeLabel="Change features"
-        onChange={(pointerActivated) => onNavigate(3, pointerActivated)}
+        onChange={(pointerActivated) => onNavigate(4, pointerActivated)}
       >
         {features.length > 0
           ? features.map((feature) => (

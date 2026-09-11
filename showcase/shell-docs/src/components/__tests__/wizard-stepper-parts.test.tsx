@@ -3,7 +3,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { WizardCard, WizardNav, WizardProgress } from "../wizard-stepper-parts";
+import {
+  ChoiceGrid,
+  WizardCard,
+  WizardNav,
+  WizardProgress,
+} from "../wizard-stepper-parts";
 import type { StepperStep } from "../wizard-stepper-parts";
 
 afterEach(() => {
@@ -260,6 +265,72 @@ describe("WizardCard", () => {
     // An auto margin would absorb the free space that step 4's review grid
     // needs in order to fill the card.
     expect(footerWrapper!.className).not.toMatch(/\bmt-auto\b/);
+  });
+});
+
+describe("ChoiceGrid", () => {
+  const OPTIONS = [
+    { id: "yes", label: "Yes", description: "Add CopilotKit to what you have" },
+    { id: "no", label: "No", description: "Start from scratch" },
+  ];
+
+  // The same guards every other option control in this wizard carries. They
+  // live here because `ChoiceGrid` is a second implementation of that shared
+  // treatment (see its header comment for why it cannot reuse `PickGrid`),
+  // and a second implementation is exactly where the rules quietly drift.
+  it("renders each option as a real button whose accessible name is its own visible text", () => {
+    render(
+      <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
+    );
+
+    // Anchored on the label, because the description is part of the name.
+    const yes = screen.getByRole("button", { name: /^Yes/ });
+    expect(yes.tagName).toBe("BUTTON");
+    expect(yes.getAttribute("type")).toBe("button");
+    expect(yes.getAttribute("aria-label")).toBeNull();
+    expect(yes.textContent).toContain("Add CopilotKit to what you have");
+  });
+
+  it("marks only the selected option with aria-pressed", () => {
+    render(
+      <ChoiceGrid
+        options={OPTIONS}
+        selectedId="no"
+        disabled={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const pressed = screen
+      .getAllByRole("button")
+      .filter((button) => button.getAttribute("aria-pressed") === "true");
+    expect(pressed).toHaveLength(1);
+    expect(pressed[0]!.textContent).toContain("No");
+  });
+
+  // Dimming alone is not enough: without the real attribute a locked step's
+  // options still take a click and still sit in the tab order.
+  it("gives every option the real disabled attribute when the grid is disabled", () => {
+    render(<ChoiceGrid options={OPTIONS} disabled onSelect={vi.fn()} />);
+
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) {
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+      expect(button.className).toMatch(/\bdisabled:cursor-not-allowed\b/);
+    }
+  });
+
+  it("shows a pointer cursor while enabled and calls onSelect with the option's id", () => {
+    const onSelect = vi.fn();
+    render(
+      <ChoiceGrid options={OPTIONS} disabled={false} onSelect={onSelect} />,
+    );
+
+    const yes = screen.getByRole("button", { name: /^Yes/ });
+    expect(yes.className).toMatch(/\bcursor-pointer\b/);
+    fireEvent.click(yes);
+    expect(onSelect).toHaveBeenCalledWith("yes");
   });
 });
 

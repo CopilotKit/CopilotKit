@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WizardReview } from "../wizard-review";
 
+const PROJECT = "yes" as const;
+
 const FRONTEND = {
   name: "Vue",
   logo: { kind: "frontend", icon: "vue" },
@@ -25,10 +27,11 @@ afterEach(() => {
   cleanup();
 });
 
-describe("all three answers", () => {
+describe("all four answers", () => {
   it("render with their values", () => {
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -36,15 +39,30 @@ describe("all three answers", () => {
       />,
     );
 
+    expect(screen.getByText("Yes")).not.toBeNull();
     expect(screen.getByText("Vue")).not.toBeNull();
     expect(screen.getByText("Mastra")).not.toBeNull();
     expect(screen.getByText("Chat surface")).not.toBeNull();
     expect(screen.getByText("Generative UI")).not.toBeNull();
   });
+
+  it("shows No when the reader answered no", () => {
+    render(
+      <WizardReview
+        project="no"
+        frontend={FRONTEND}
+        backend={BACKEND}
+        features={FEATURES}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No")).not.toBeNull();
+  });
 });
 
 // Each row is the whole click target, not a small trailing control, and
-// each needs its own accessible name — three separate cases, one per row,
+// each needs its own accessible name — four separate cases, one per row,
 // each starting its own render, so a mutation that points every row at the
 // same step (or gives every row the same name) fails here rather than being
 // masked by only ever checking the first row. `fireEvent.click`'s default
@@ -52,10 +70,28 @@ describe("all three answers", () => {
 // so every plain `fireEvent.click` below exercises the keyboard branch; see
 // "row activation reports how it was triggered" below for the pointer one.
 describe("row navigation", () => {
-  it("Change frontend calls onNavigate with 1", () => {
+  it("Change project calls onNavigate with 1", () => {
     const onNavigate = vi.fn();
     render(
       <WizardReview
+        project={PROJECT}
+        frontend={FRONTEND}
+        backend={BACKEND}
+        features={FEATURES}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change project" }));
+
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(1, false);
+  });
+
+  it("Change frontend calls onNavigate with 2", () => {
+    const onNavigate = vi.fn();
+    render(
+      <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -65,13 +101,14 @@ describe("row navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Change frontend" }));
 
-    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(1, false);
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(2, false);
   });
 
-  it("Change agent backend calls onNavigate with 2", () => {
+  it("Change agent backend calls onNavigate with 3", () => {
     const onNavigate = vi.fn();
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -83,13 +120,14 @@ describe("row navigation", () => {
       screen.getByRole("button", { name: "Change agent backend" }),
     );
 
-    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(2, false);
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(3, false);
   });
 
-  it("Change features calls onNavigate with 3", () => {
+  it("Change features calls onNavigate with 4", () => {
     const onNavigate = vi.fn();
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -99,7 +137,7 @@ describe("row navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Change features" }));
 
-    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(3, false);
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(4, false);
   });
 });
 
@@ -114,6 +152,7 @@ describe("row activation reports how it was triggered", () => {
     const onNavigate = vi.fn();
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -124,7 +163,7 @@ describe("row activation reports how it was triggered", () => {
     // A programmatic `.click()` — and `fireEvent.click`'s default — reports
     // `detail: 0`, indistinguishable from a keyboard activation, so the
     // pointer case needs an explicit non-zero `detail`.
-    fireEvent.click(screen.getByRole("button", { name: "Change frontend" }), {
+    fireEvent.click(screen.getByRole("button", { name: "Change project" }), {
       detail: 1,
     });
 
@@ -135,6 +174,7 @@ describe("row activation reports how it was triggered", () => {
     const onNavigate = vi.fn();
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -144,17 +184,18 @@ describe("row activation reports how it was triggered", () => {
 
     // No `detail` override: fireEvent.click's default of 0 is the keyboard
     // branch (see the header comment above).
-    fireEvent.click(screen.getByRole("button", { name: "Change frontend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change project" }));
 
     expect(onNavigate).toHaveBeenCalledExactlyOnceWith(1, false);
   });
 });
 
 describe("empty features", () => {
-  it("renders a muted None, and the row still calls onNavigate with 3", () => {
+  it("renders a muted None, and the row still calls onNavigate with 4", () => {
     const onNavigate = vi.fn();
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={[]}
@@ -166,7 +207,28 @@ describe("empty features", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Change features" }));
 
-    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(3, false);
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(4, false);
+  });
+});
+
+describe("unanswered project", () => {
+  it("renders a muted None for the unreachable null case, and the row still calls onNavigate with 1", () => {
+    const onNavigate = vi.fn();
+    render(
+      <WizardReview
+        project={null}
+        frontend={FRONTEND}
+        backend={BACKEND}
+        features={FEATURES}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    expect(screen.getByText("None")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Change project" }));
+
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(1, false);
   });
 });
 
@@ -174,6 +236,7 @@ describe("several features", () => {
   it("renders one entry per feature, each with its own icon", () => {
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -196,6 +259,7 @@ describe("selection state", () => {
   it("no row carries aria-pressed — these are navigation, never a choice", () => {
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -215,9 +279,10 @@ describe("selection state", () => {
 // numbers every row the same or numbers them out of order would otherwise
 // go unnoticed.
 describe("step numbers", () => {
-  it("each row leads with its own step number, 1, 2, 3 in order", () => {
+  it("each row leads with its own step number, 1, 2, 3, 4 in order", () => {
     render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}
@@ -226,13 +291,14 @@ describe("step numbers", () => {
     );
 
     const rows = [
+      screen.getByRole("button", { name: "Change project" }),
       screen.getByRole("button", { name: "Change frontend" }),
       screen.getByRole("button", { name: "Change agent backend" }),
       screen.getByRole("button", { name: "Change features" }),
     ];
     const numbers = rows.map((row) => row.firstElementChild?.textContent);
 
-    expect(numbers).toEqual(["1", "2", "3"]);
+    expect(numbers).toEqual(["1", "2", "3", "4"]);
   });
 });
 
@@ -245,6 +311,7 @@ describe("panel layout", () => {
   it("does not carry flex-1, so it is centred rather than stretched", () => {
     const { container } = render(
       <WizardReview
+        project={PROJECT}
         frontend={FRONTEND}
         backend={BACKEND}
         features={FEATURES}

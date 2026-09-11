@@ -7,6 +7,12 @@ export interface WizardPromptSelection {
   backend: { id: string; name: string } | null;
   frontend: { id: string; name: string } | null;
   featureTitles: readonly string[];
+  /** The wizard's first-step answer to "Do you already have a project?".
+   *  `null` when unanswered (the unreachable case of composing a prompt
+   *  before step 1, mirrored from `backend`/`frontend` above). Unlike those
+   *  two, this has no CLI graph slug to translate -- see the sentence it
+   *  drives, below. */
+  project: "yes" | "no" | null;
 }
 
 /**
@@ -20,11 +26,15 @@ export interface WizardPromptSelection {
  * thing, and `page-actions.tsx` appends the two suffixes in that order for
  * exactly that reason.
  *
- * The features sentence comes last and has no CLI axis at all: the graph's
- * classification matrix is starting-state × agent-framework × frontend, with
- * no node for a CopilotKit feature. Naming features here is advisory prose
- * for the coding agent to read, not a selection the graph can walk — unlike
- * the framework and frontend sentences, which each name a graph slug.
+ * The project and features sentences come last and have no CLI axis at all:
+ * the graph classifies the starting state itself by inspecting the
+ * repository the coding agent is dropped into, and its classification
+ * matrix is starting-state × agent-framework × frontend, with no node for
+ * a CopilotKit feature either. Naming the project answer and the features
+ * here is advisory prose for the coding agent to read, not a selection the
+ * graph can walk or a starting state it steers -- unlike the framework and
+ * frontend sentences, which each name a graph slug, this pair just tells
+ * the coding agent what the developer said.
  */
 export function composeWizardOnboardingPrompt(
   runId: string,
@@ -40,6 +50,16 @@ export function composeWizardOnboardingPrompt(
   const frontendSentence = selection.frontend
     ? frontendPromptSuffix(selection.frontend.id, selection.frontend.name)
     : "";
+  // Advisory prose naming which of the two the developer said, not an
+  // instruction to the graph (see the header comment above). Omitted when
+  // unanswered, the same as a framework or frontend the graph doesn't
+  // recognize.
+  const projectSentence =
+    selection.project === "yes"
+      ? " They already have an existing project and want CopilotKit added to it."
+      : selection.project === "no"
+        ? " They are starting a brand new project."
+        : "";
   // Omitted entirely for an empty list rather than rendered as an empty
   // clause — there is nothing to append, and it wasn't the previous
   // sentence's concern the way "" is for a framework or frontend the graph
@@ -53,6 +73,7 @@ export function composeWizardOnboardingPrompt(
     createIntelligenceOnboardingPrompt(runId) +
     frameworkSentence +
     frontendSentence +
+    projectSentence +
     featuresSentence
   );
 }

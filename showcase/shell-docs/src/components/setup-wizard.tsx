@@ -4,16 +4,17 @@
 // state and drives the presentational parts in `./docs-map-parts`,
 // `./wizard-stepper-parts` and `./wizard-review`.
 //
-// Classic one-card-at-a-time stepper: frontend, agent backend, features,
-// copy prompt. This component owns exactly three pieces of bookkeeping: the
-// three selections, the currently displayed step (`current`), and the
-// furthest step the reader has reached (`furthest`, 1-based, never
-// decreases). The progress rail's disabled treatment for steps beyond
-// `furthest` is `wizard-stepper-parts`' job; this file only ever hands it
-// the number. On mount, `furthest` is seeded from which answers are
-// actually present in the restored URL (`furthestFromAnswers`), not from
-// `landingStep` alone — `landingStep` stops at the first unanswered step, so
-// a restored `?frontend=vue&features=gen-ui` lands on step 2, but step 3's
+// Classic one-card-at-a-time stepper: whether the reader already has a
+// project, frontend, agent backend, features, copy prompt. This component
+// owns exactly three pieces of bookkeeping: the four selections, the
+// currently displayed step (`current`), and the furthest step the reader
+// has reached (`furthest`, 1-based, never decreases). The progress rail's
+// disabled treatment for steps beyond `furthest` is `wizard-stepper-parts`'
+// job; this file only ever hands it the number. On mount, `furthest` is
+// seeded from which answers are actually present in the restored URL
+// (`furthestFromAnswers`), not from `landingStep` alone — `landingStep`
+// stops at the first unanswered step, so a restored
+// `?project=yes&frontend=vue&features=gen-ui` lands on step 3, but step 4's
 // answer is already sitting in state and the rail must let the reader jump
 // straight to it.
 //
@@ -21,21 +22,22 @@
 // `currentRef`/`furthestRef` rather than closing over the state values —
 // see the comment on those refs for why.
 //
-// Steps 1 and 2 each have a required choice, and Continue is never disabled
-// — `WizardNav`'s primary button always takes the click. When the required
-// choice is still missing, `handleContinueStep1`/`handleContinueStep2` below
-// catch the click instead of calling `goTo`: they set `hint` to a short
-// instruction (`WizardNav` renders it in a reserved, always-present row so
-// it cannot move the footer) and move focus into that step's option list via
-// `step1OptionsRef`/`step2OptionsRef`, so a keyboard user lands where the
-// work is instead of stuck on a button that just did nothing. `hint` clears
-// the moment the choice is made (the `PickGrid` `onSelect` handlers below
-// clear it directly) and on every navigation (`goTo` clears it too), so it
-// never lingers once it is no longer true and never reappears on a plain
-// step change.
+// Steps 1, 2 and 3 each have a required choice, and Continue is never
+// disabled — `WizardNav`'s primary button always takes the click. When the
+// required choice is still missing, `handleContinueProject`/
+// `handleContinueFrontend`/`handleContinueBackend` below catch the click
+// instead of calling `goTo`: they set `hint` to a short instruction
+// (`WizardNav` renders it in a reserved, always-present row so it cannot
+// move the footer) and move focus into that step's option list via
+// `projectOptionsRef`/`frontendOptionsRef`/`backendOptionsRef`, so a
+// keyboard user lands where the work is instead of stuck on a button that
+// just did nothing. `hint` clears the moment the choice is made (the
+// `ChoiceGrid`/`PickGrid` `onSelect` handlers below clear it directly) and
+// on every navigation (`goTo` clears it too), so it never lingers once it
+// is no longer true and never reappears on a plain step change.
 //
 // Changing an earlier answer must never clear a later one: going back to
-// step 1 and picking a different frontend leaves the backend and the
+// step 2 and picking a different frontend leaves the backend and the
 // features exactly as they were. There is simply no code path here that
 // resets `backendId` or `featureIds` from the frontend picker (or any other
 // cross-step reset) — that absence is the guarantee, not something asserted
@@ -78,11 +80,16 @@ import {
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
 import {
+  ChoiceGrid,
+  QUIET_BUTTON_CLASS,
   WizardCard,
   WizardNav,
   WizardProgress,
 } from "@/components/wizard-stepper-parts";
-import type { StepperStep } from "@/components/wizard-stepper-parts";
+import type {
+  ChoiceOption,
+  StepperStep,
+} from "@/components/wizard-stepper-parts";
 
 export interface SetupWizardProps {
   frontends: readonly MapPick[];
@@ -92,13 +99,14 @@ export interface SetupWizardProps {
 
 type CopyState = "idle" | "copied" | "error";
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 const STEPPER_STEPS: readonly StepperStep[] = [
-  { n: 1, label: "Frontend" },
-  { n: 2, label: "Backend" },
-  { n: 3, label: "Features" },
-  { n: 4, label: "Prompt" },
+  { n: 1, label: "Project" },
+  { n: 2, label: "Frontend" },
+  { n: 3, label: "Backend" },
+  { n: 4, label: "Features" },
+  { n: 5, label: "Prompt" },
 ];
 
 const COPY_LABEL: Record<CopyState, string> = {
@@ -107,18 +115,39 @@ const COPY_LABEL: Record<CopyState, string> = {
   error: "Copy blocked",
 };
 
+/** The two answers to step 1's "Do you already have a project?" — also the
+ *  allow-list `parseWizardUrlState` validates a restored `project` query
+ *  value against, so the ids a reader can pick and the ids a URL is allowed
+ *  to carry can never drift apart. */
+const PROJECT_ANSWER_IDS = ["yes", "no"] as const;
+
+const PROJECT_OPTIONS: readonly ChoiceOption[] = [
+  {
+    id: "yes",
+    label: "Yes",
+    description: "Add CopilotKit to what you have",
+  },
+  {
+    id: "no",
+    label: "No",
+    description: "Start from scratch",
+  },
+];
+
 /**
  * The step a restored URL — or a fresh mount with no query at all — should
- * land on: the first step whose answer is still missing, in the new step
- * order (frontend, backend, features, prompt), or step 4 once every answer,
- * including the optional features step, has something in it. A shared link
- * should open where there is something left to do, not back at step 1.
+ * land on: the first step whose answer is still missing, in the step order
+ * (project, frontend, backend, features, prompt), or step 5 once every
+ * answer, including the optional features step, has something in it. A
+ * shared link should open where there is something left to do, not back at
+ * step 1.
  */
 function landingStep(restored: WizardUrlState): number {
-  if (!restored.frontend) return 1;
-  if (!restored.backend) return 2;
-  if (restored.features.length === 0) return 3;
-  return 4;
+  if (!restored.project) return 1;
+  if (!restored.frontend) return 2;
+  if (!restored.backend) return 3;
+  if (restored.features.length === 0) return 4;
+  return 5;
 }
 
 /**
@@ -130,22 +159,23 @@ function landingStep(restored: WizardUrlState): number {
  *
  * Deliberately independent of `landingStep`: that function walks the steps
  * in order and stops at the first *unanswered* one, so a restored
- * `?frontend=vue&features=gen-ui` (no backend) lands on step 2 even though
- * step 3 already has an answer sitting in `features`. `furthest` has a
- * different job — it gates which steps the progress rail lets the reader
- * jump to — so it has to credit every answer independently instead of
- * stopping at the first gap. Without this, that same URL would disable
- * step 3 on the rail despite its answer already being in state, which is
- * exactly the bug this fixes.
+ * `?project=yes&frontend=vue&features=gen-ui` (no backend) lands on step 3
+ * even though step 4 already has an answer sitting in `features`.
+ * `furthest` has a different job — it gates which steps the progress rail
+ * lets the reader jump to — so it has to credit every answer independently
+ * instead of stopping at the first gap. Without this, that same URL would
+ * disable step 4 on the rail despite its answer already being in state,
+ * which is exactly the bug this fixes.
  */
 function furthestFromAnswers(
   restored: WizardUrlState,
   landing: number,
 ): number {
   let furthest = landing;
-  if (restored.frontend) furthest = Math.max(furthest, 1);
-  if (restored.backend) furthest = Math.max(furthest, 2);
-  if (restored.features.length > 0) furthest = Math.max(furthest, 3);
+  if (restored.project) furthest = Math.max(furthest, 1);
+  if (restored.frontend) furthest = Math.max(furthest, 2);
+  if (restored.backend) furthest = Math.max(furthest, 3);
+  if (restored.features.length > 0) furthest = Math.max(furthest, 4);
   return furthest;
 }
 
@@ -209,6 +239,7 @@ export function SetupWizard({
 }: SetupWizardProps): React.JSX.Element {
   const posthog = usePostHog();
 
+  const [projectAnswer, setProjectAnswer] = React.useState<string | null>(null);
   const [frontendId, setFrontendId] = React.useState<string | null>(null);
   const [backendId, setBackendId] = React.useState<string | null>(null);
   const [featureIds, setFeatureIds] = React.useState<ReadonlySet<string>>(
@@ -237,12 +268,14 @@ export function SetupWizard({
    *  above. `null` the rest of the time, including on every step that has
    *  no required choice. */
   const [hint, setHint] = React.useState<string | null>(null);
-  /** Wraps step 1's and step 2's `PickGrid` so a blocked Continue click can
-   *  move focus to the first option — see `focusFirstOption` below. Only
-   *  one is ever mounted at a time, since the wizard renders one step's body
-   *  at a time. */
-  const step1OptionsRef = React.useRef<HTMLDivElement | null>(null);
-  const step2OptionsRef = React.useRef<HTMLDivElement | null>(null);
+  /** Wraps the project, frontend and backend steps' option list (a
+   *  `ChoiceGrid` or a `PickGrid`) so a blocked Continue click can move
+   *  focus to the first option — see `focusFirstOption` below. Only one is
+   *  ever mounted at a time, since the wizard renders one step's body at a
+   *  time. */
+  const projectOptionsRef = React.useRef<HTMLDivElement | null>(null);
+  const frontendOptionsRef = React.useRef<HTMLDivElement | null>(null);
+  const backendOptionsRef = React.useRef<HTMLDivElement | null>(null);
 
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -295,6 +328,7 @@ export function SetupWizard({
 
   const allowlists: WizardUrlAllowlists = React.useMemo(
     () => ({
+      projectAnswers: PROJECT_ANSWER_IDS,
       frontends: frontends.map((pick) => pick.id),
       features: capabilities.map((capability) => capability.id),
       backends: backends.map((pick) => pick.id),
@@ -322,6 +356,7 @@ export function SetupWizard({
     const restored = parseWizardUrlState(window.location.search, allowlists);
     const landing = landingStep(restored);
 
+    setProjectAnswer(restored.project ?? null);
     setFrontendId(restored.frontend ?? null);
     setBackendId(restored.backend ?? null);
     setFeatureIds(new Set(restored.features));
@@ -340,6 +375,7 @@ export function SetupWizard({
   React.useEffect(() => {
     if (!hydrated) return;
     const search = serializeWizardUrlState({
+      project: projectAnswer ?? undefined,
       frontend: frontendId ?? undefined,
       features: [...featureIds],
       backend: backendId ?? undefined,
@@ -348,7 +384,7 @@ export function SetupWizard({
       ? `${window.location.pathname}?${search}`
       : window.location.pathname;
     window.history.replaceState(window.history.state, "", url);
-  }, [frontendId, featureIds, backendId, hydrated]);
+  }, [projectAnswer, frontendId, featureIds, backendId, hydrated]);
 
   // Runs the step-swap animation and moves focus to the new card's heading
   // — on every `goTo`-driven step change, and only then: not on the first
@@ -413,27 +449,39 @@ export function SetupWizard({
     setShowHeadingFocusRing(!pointerActivated);
   }
 
-  /** Step 1's Continue: advances only once a frontend is picked. Otherwise
-   *  shows the hint and moves focus into the frontend list instead of
-   *  advancing. */
-  function handleContinueStep1(pointerActivated: boolean) {
-    if (frontendId === null) {
-      setHint("Choose your frontend first");
-      focusFirstOption(step1OptionsRef);
+  /** Step 1's Continue: advances only once the project question is
+   *  answered. Otherwise shows the hint and moves focus into the option
+   *  list instead of advancing. */
+  function handleContinueProject(pointerActivated: boolean) {
+    if (projectAnswer === null) {
+      setHint("Answer this question first");
+      focusFirstOption(projectOptionsRef);
       return;
     }
     goTo(2, "forward", pointerActivated);
   }
 
-  /** Step 2's Continue: same shape as `handleContinueStep1`, for the agent
-   *  backend choice. */
-  function handleContinueStep2(pointerActivated: boolean) {
-    if (backendId === null) {
-      setHint("Choose your agent backend first");
-      focusFirstOption(step2OptionsRef);
+  /** Step 2's Continue: advances only once a frontend is picked. Otherwise
+   *  shows the hint and moves focus into the frontend list instead of
+   *  advancing. */
+  function handleContinueFrontend(pointerActivated: boolean) {
+    if (frontendId === null) {
+      setHint("Choose your frontend first");
+      focusFirstOption(frontendOptionsRef);
       return;
     }
     goTo(3, "forward", pointerActivated);
+  }
+
+  /** Step 3's Continue: same shape as `handleContinueFrontend`, for the
+   *  agent backend choice. */
+  function handleContinueBackend(pointerActivated: boolean) {
+    if (backendId === null) {
+      setHint("Choose your agent backend first");
+      focusFirstOption(backendOptionsRef);
+      return;
+    }
+    goTo(4, "forward", pointerActivated);
   }
 
   /** Guards the progress rail against ever landing past `furthest` —
@@ -496,6 +544,13 @@ export function SetupWizard({
         ? { id: backendPick.id, name: backendPick.name }
         : null,
       featureTitles,
+      // `parseWizardUrlState`/`ChoiceGrid` only ever put "yes" or "no" here
+      // (see `PROJECT_ANSWER_IDS`), so the narrowing below is exhaustive,
+      // not a guess.
+      project:
+        projectAnswer === "yes" || projectAnswer === "no"
+          ? projectAnswer
+          : null,
     });
 
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
@@ -520,6 +575,7 @@ export function SetupWizard({
     setCopyState("copied");
     capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
       onboarding_run_id: runId,
+      project: projectAnswer,
       frontend: frontendId,
       backend: backendId,
       features: [...featureIds],
@@ -537,11 +593,35 @@ export function SetupWizard({
   let footer: React.ReactNode;
 
   if (current === 1) {
+    stepName = "Do you already have a project?";
+    stepDescription =
+      "This decides whether the prompt below tells your coding agent to add CopilotKit to it or to start fresh.";
+    body = (
+      <div ref={projectOptionsRef}>
+        <ChoiceGrid
+          options={PROJECT_OPTIONS}
+          selectedId={projectAnswer ?? undefined}
+          disabled={false}
+          onSelect={(id) => {
+            setProjectAnswer(id);
+            setHint(null);
+          }}
+        />
+      </div>
+    );
+    footer = (
+      <WizardNav
+        onContinue={handleContinueProject}
+        continueLabel="Continue"
+        hint={hint ?? undefined}
+      />
+    );
+  } else if (current === 2) {
     stepName = "Your frontend";
     stepDescription =
       "CopilotKit ships the same primitives for every one of these.";
     body = (
-      <div ref={step1OptionsRef}>
+      <div ref={frontendOptionsRef}>
         <PickGrid
           picks={frontends}
           selectedId={frontendId ?? undefined}
@@ -556,17 +636,18 @@ export function SetupWizard({
     );
     footer = (
       <WizardNav
-        onContinue={handleContinueStep1}
+        onBack={handleBack}
+        onContinue={handleContinueFrontend}
         continueLabel="Continue"
         hint={hint ?? undefined}
       />
     );
-  } else if (current === 2) {
+  } else if (current === 3) {
     stepName = "Your agent backend";
     stepDescription =
       "Any framework that speaks AG-UI, or CopilotKit's own built-in agent.";
     body = (
-      <div ref={step2OptionsRef}>
+      <div ref={backendOptionsRef}>
         <PickGrid
           picks={backends}
           selectedId={backendId ?? undefined}
@@ -581,15 +662,15 @@ export function SetupWizard({
     footer = (
       <WizardNav
         onBack={handleBack}
-        onContinue={handleContinueStep2}
+        onContinue={handleContinueBackend}
         continueLabel="Continue"
         hint={hint ?? undefined}
       />
     );
-  } else if (current === 3) {
+  } else if (current === 4) {
     stepName = "What you want to build";
     stepDescription =
-      "Pick as many as you like, or skip — this guides your coding agent, it does not restrict it.";
+      "Pick as many as you like, or skip. This guides your coding agent, it does not restrict it.";
     body = (
       <CapabilityGrid
         capabilities={capabilities}
@@ -608,7 +689,7 @@ export function SetupWizard({
     footer = (
       <WizardNav
         onBack={handleBack}
-        onContinue={(pointerActivated) => goTo(4, "forward", pointerActivated)}
+        onContinue={(pointerActivated) => goTo(5, "forward", pointerActivated)}
         continueLabel={featureIds.size > 0 ? "Continue" : "Skip"}
       />
     );
@@ -624,7 +705,7 @@ export function SetupWizard({
       featureIds.has(capability.id),
     );
 
-    // A review panel, not a fourth pick: the three answers so far, each its
+    // A review panel, not a fifth pick: the four answers so far, each its
     // own row in `WizardReview` with a `Change` back to the step it came
     // from — see that file's header comment for why the whole row is the
     // control rather than a small trailing button. The copy action lives in
@@ -633,6 +714,11 @@ export function SetupWizard({
     // for the shared control this still reuses.
     body = (
       <WizardReview
+        project={
+          projectAnswer === "yes" || projectAnswer === "no"
+            ? projectAnswer
+            : null
+        }
         frontend={frontendPick}
         backend={backendPick}
         features={selectedCapabilities}
@@ -645,6 +731,11 @@ export function SetupWizard({
         onContinue={handleCopy}
         continueLabel={COPY_LABEL[copyState]}
         continueIcon={<Copy aria-hidden="true" className="h-4 w-4" />}
+        secondaryAction={
+          <Link href="/quickstart" className={QUIET_BUTTON_CLASS}>
+            Follow this guide
+          </Link>
+        }
       />
     );
   }
@@ -670,11 +761,15 @@ export function SetupWizard({
           {body}
         </WizardCard>
       </div>
-      {/* Always present, not just on step 4: with JavaScript disabled,
-       *  Continue's click handler never fires, so a reader lands on step 1
-       *  and cannot advance. Without this link that is a dead end — the
-       *  manual quickstart would be hidden behind three steps a
-       *  no-JS reader can never reach. */}
+      {/* Always present, not just on the review step: with JavaScript
+       *  disabled, Continue's click handler never fires, so a reader lands
+       *  on step 1 and cannot advance. Without this link that is a dead
+       *  end — the manual quickstart would be hidden behind four steps a
+       *  no-JS reader can never reach. This is the reader's only way out
+       *  without JavaScript, which is exactly why it stays here even now
+       *  that the review step also has its own "Follow this guide" action
+       *  in the footer (see `secondaryAction` above) — that one is
+       *  unreachable without JavaScript too. */}
       <Link
         href="/quickstart"
         className="text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"

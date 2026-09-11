@@ -1,12 +1,12 @@
 /**
- * Round-trips the setup wizard's three selections (frontend, features,
- * backend) through a URL query string.
+ * Round-trips the setup wizard's four selections (project, frontend,
+ * features, backend) through a URL query string.
  *
  * This module is deliberately DOM-free: no `window`, no `history`, no
  * React. The wizard component owns the actual state and calls
  * `serializeWizardUrlState` / `parseWizardUrlState` as pure functions, so
  * this file can be unit-tested without a browser and reused anywhere a
- * query string needs to carry the same three values (e.g. a server-side
+ * query string needs to carry the same four values (e.g. a server-side
  * redirect).
  *
  * `search` handed to `parseWizardUrlState` is untrusted input straight off
@@ -18,12 +18,18 @@
  */
 
 export type WizardUrlState = {
+  /** The wizard's first question -- "Do you already have a project?" --
+   *  answered as one of the caller's `projectAnswers` ids (in practice
+   *  `"yes"` / `"no"`). Named and validated exactly like `frontend` and
+   *  `backend` below, not specially. */
+  readonly project?: string;
   readonly frontend?: string;
   readonly features: readonly string[];
   readonly backend?: string;
 };
 
 export type WizardUrlAllowlists = {
+  readonly projectAnswers: readonly string[];
   readonly frontends: readonly string[];
   readonly features: readonly string[];
   readonly backends: readonly string[];
@@ -33,11 +39,11 @@ export type WizardUrlAllowlists = {
  * Serializes to a query string with no leading `?`, so the caller can
  * check for `""` and decide whether writing a URL is even worthwhile.
  *
- * Key order is fixed (frontend, features, backend) rather than insertion
- * order, so the resulting URL is stable and diff-friendly across calls.
- * A key whose value is absent or empty is omitted entirely -- an empty
- * `features=` or a literal `frontend=undefined` would parse back into a
- * wrong, non-empty selection.
+ * Key order is fixed (project, frontend, features, backend) rather than
+ * insertion order, so the resulting URL is stable and diff-friendly across
+ * calls. A key whose value is absent or empty is omitted entirely -- an
+ * empty `features=` or a literal `frontend=undefined` would parse back
+ * into a wrong, non-empty selection.
  *
  * `URLSearchParams` percent-encodes `,` (as `%2C`) along with everything
  * else it escapes. We deliberately do NOT use it for the `features`
@@ -52,6 +58,12 @@ export type WizardUrlAllowlists = {
  */
 export function serializeWizardUrlState(state: WizardUrlState): string {
   const parts: string[] = [];
+
+  if (state.project) {
+    const params = new URLSearchParams();
+    params.set("project", state.project);
+    parts.push(params.toString());
+  }
 
   if (state.frontend) {
     const params = new URLSearchParams();
@@ -108,6 +120,12 @@ export function parseWizardUrlState(
   // "?frontend=vue", "frontend=vue", and "" all parse correctly as-is.
   const params = new URLSearchParams(search);
 
+  const rawProject = firstValue(params, "project");
+  const project =
+    rawProject !== undefined && isAllowed(rawProject, allowed.projectAnswers)
+      ? rawProject
+      : undefined;
+
   const rawFrontend = firstValue(params, "frontend");
   const frontend =
     rawFrontend !== undefined && isAllowed(rawFrontend, allowed.frontends)
@@ -134,5 +152,5 @@ export function parseWizardUrlState(
   // (possibly repeated) list up.
   const features = allowed.features.filter((id) => requested.has(id));
 
-  return { frontend, features, backend };
+  return { project, frontend, features, backend };
 }

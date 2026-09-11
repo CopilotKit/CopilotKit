@@ -35,10 +35,11 @@
 // present, Continue stays anchored to where the row's trailing edge would
 // be.
 //
-// The review step (step 4) has no forward action in the footer at all — its
-// copy button moved into the card body, centred between the selection list
-// and the footer, so it reads as the same accent control without being a
-// second copy of `ACCENT_BUTTON_CLASS`/`PRIMARY_BUTTON_MIN_WIDTH_CLASS`. So
+// The review step (the last of the five) has no forward action in the
+// footer at all — its copy button moved into the card body, centred between
+// the selection list and the footer, so it reads as the same accent control
+// without being a second copy of
+// `ACCENT_BUTTON_CLASS`/`PRIMARY_BUTTON_MIN_WIDTH_CLASS`. So
 // `onContinue`/`continueLabel` are optional: with no `onContinue`, the row
 // renders Back alone on the left and nothing on the right. Everything else
 // about the row is unchanged.
@@ -87,28 +88,33 @@ export type StepperStep = {
 // attribute (see the header comment above), so styling for that state would
 // be dead weight.
 //
-// Exported so step 4's copy button (`setup-wizard.tsx`) renders the same
-// control instead of keeping a second copy of this string — it left the
-// footer, but it is still the wizard's one accent action.
+// Exported so the review step's copy button (`setup-wizard.tsx`) renders
+// the same control instead of keeping a second copy of this string — it
+// left the footer, but it is still the wizard's one accent action.
 export const ACCENT_BUTTON_CLASS =
   "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-[var(--accent-fill)] bg-[var(--accent-fill)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto";
 
-const QUIET_BUTTON_CLASS =
+// Exported so step 5's "Follow this guide" action (`setup-wizard.tsx`,
+// handed in through `WizardNav`'s `secondaryAction` slot) renders with the
+// same quiet treatment Back already uses, rather than a second copy of this
+// string living next to a routing concern this component doesn't have.
+export const QUIET_BUTTON_CLASS =
   "shell-docs-radius-control inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-transparent px-4 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none sm:w-auto";
 
 // The primary button's label changes shape across the wizard — Skip vs.
 // Continue on the earlier steps, then Copy prompt / Copied / Copy blocked
-// once it doubles as step 4's copy button — and without a floor the button
-// itself resized on every swap, which read as a layout hiccup rather than a
-// label change. The floor is sized for "Copy blocked", the longest label
-// this button ever shows (12 characters, one longer than "Copy prompt"):
-// roughly its text at text-sm font-semibold, plus the icon and icon-label
-// gap step 4's copy button adds, plus the button's own horizontal padding,
-// with a little slack rather than a value that only just fits.
+// once it doubles as the review step's copy button — and without a floor
+// the button itself resized on every swap, which read as a layout hiccup
+// rather than a label change. The floor is sized for "Copy blocked", the
+// longest label this button ever shows (12 characters, one longer than
+// "Copy prompt"): roughly its text at text-sm font-semibold, plus the icon
+// and icon-label gap the review step's copy button adds, plus the button's
+// own horizontal padding, with a little slack rather than a value that only
+// just fits.
 //
-// Exported for the same reason as `ACCENT_BUTTON_CLASS` above — step 4's
-// copy button keeps this floor even though it is no longer rendered by this
-// component.
+// Exported for the same reason as `ACCENT_BUTTON_CLASS` above — the review
+// step's copy button keeps this floor even though it is no longer rendered
+// by this component.
 export const PRIMARY_BUTTON_MIN_WIDTH_CLASS = "min-w-[9.5rem]";
 
 /** The heading's own focus ring — applied through `:focus`, never
@@ -192,14 +198,15 @@ export function WizardProgress({
 /** The card shell for the one step currently on screen. `footer` is where
  *  the caller places `WizardNav`.
  *
- *  Measured in the running app at a card width of 644px, the four steps'
- *  cards were 306, 516, 500 and 252px tall — the wizard sits at the bottom
- *  of the page, so every advance reflowed everything under it. `md:min-h-`
- *  gives the card a floor matching the tallest step (the 19-option agent
- *  backend list, 516px), and the flex column plus the footer's `mt-auto`
- *  keeps Back/Continue pinned to that same bottom edge on every step, so a
- *  short step's options sit at the top of an otherwise-empty card instead of
- *  the row also drifting.
+ *  Measured in the running app at a card width of 644px, the four original
+ *  steps' cards were 306, 516, 500 and 252px tall (the project question
+ *  added since is shorter still) — the wizard sits at the bottom of the
+ *  page, so every advance reflowed everything under it. `md:min-h-` gives
+ *  the card a floor matching the tallest step (the 19-option agent backend
+ *  list, 516px), and the flex column plus the footer's `mt-auto` keeps
+ *  Back/Continue pinned to that same bottom edge on every step, so a short
+ *  step's options sit at the top of an otherwise-empty card instead of the
+ *  row also drifting.
  *
  *  Deliberately `md:` and up only, not unconditional: below `md` the option
  *  grid collapses toward a single column, so the backend step grows far
@@ -281,7 +288,7 @@ export function WizardCard({
        *
        *  No `mt-auto`: an auto margin absorbs a flex container's free space
        *  ahead of any `flex-1` sibling, which would starve the content area
-       *  above and stop step 4's review grid from filling the card. The
+       *  above and stop the review step's review grid from filling the card. The
        *  growing content area pushes this to the bottom on its own. */}
       <div className="border-t border-[var(--border)] pt-5 sm:pt-6">
         {footer}
@@ -290,26 +297,95 @@ export function WizardCard({
   );
 }
 
+/** One option for `ChoiceGrid` below: a plain labelled choice with no logo,
+ *  optionally with a short supporting line. */
+export type ChoiceOption = {
+  readonly id: string;
+  readonly label: string;
+  readonly description?: string;
+};
+
+/** A short list of plain, labelled choices — currently only step 1's "Do you
+ *  already have a project?" (Yes/No). `docs-map-parts.tsx`'s `PickGrid`
+ *  doesn't fit here: it always renders a `PickLogoMark`, which needs a
+ *  `MapPick.logo`, and a plain Yes/No choice has no logo to give it. This
+ *  control is built from the same option-button treatment `PickGrid`'s
+ *  `size="card"` uses (the block layout, the border/fill tone, the
+ *  disabled/cursor pairing) so the two read as one family of controls
+ *  despite living in different files, rather than duplicating that file's
+ *  private `pickButtonClass`/`optionToneClass` helpers here, which this
+ *  module has no way to import (they aren't exported, and shouldn't be just
+ *  for this).
+ *
+ *  Each option is a real `<button type="button">`: the real `disabled`
+ *  attribute when the step is locked (matching every other option control in
+ *  the wizard), `aria-pressed` for the selected one, and no `aria-label` —
+ *  the accessible name is exactly the button's own visible text (label, then
+ *  description when given), the same rule `PickGrid`/`CapabilityGrid` follow
+ *  in `docs-map-parts.tsx`. */
+export function ChoiceGrid({
+  options,
+  selectedId,
+  disabled,
+  onSelect,
+}: {
+  options: readonly ChoiceOption[];
+  selectedId?: string;
+  disabled: boolean;
+  onSelect: (id: string) => void;
+}): React.JSX.Element {
+  return (
+    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+      {options.map((option) => {
+        const selected = option.id === selectedId;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            disabled={disabled}
+            aria-pressed={selected}
+            onClick={() => onSelect(option.id)}
+            className={`shell-docs-radius-control block w-full cursor-pointer border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              selected
+                ? "border-[var(--accent)] bg-[var(--accent-dim)]"
+                : "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)]"
+            }`}
+          >
+            <span className="block text-sm font-semibold text-[var(--text)]">
+              {option.label}
+            </span>
+            {option.description ? (
+              <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
+                {option.description}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** The Back/hint/Continue footer row. Back is omitted entirely — not merely
  *  hidden — when `onBack` is absent. Continue is always enabled; see the
  *  header comment above for why and for how `hint` is announced. The
- *  primary itself is optional: step 4 (the review step) passes no
- *  `onContinue`, and the row then renders Back alone on the left with
- *  nothing on the right.
+ *  primary itself is optional: the review step passes no `onContinue`, and
+ *  the row then renders Back alone on the left with nothing on the right.
  *
  *  Ordering is done with `order-*` rather than `flex-col-reverse`, since a
- *  reversed column only has two visual slots (first/last) and this row now
- *  has three participants whose order differs by breakpoint: on `sm` and up
- *  it reads Back, hint, Continue left to right; below `sm`, stacked, it
- *  reads Continue, Back, hint top to bottom — the buttons keep the same
- *  relative order as before (primary first), and the hint gets the new
- *  third line. */
+ *  reversed column only has two visual slots (first/last) and this row can
+ *  have up to four participants whose order differs by breakpoint: on `sm`
+ *  and up it reads Back, hint, secondaryAction, Continue left to right;
+ *  below `sm`, stacked, it reads Continue, secondaryAction, Back, hint top
+ *  to bottom — the buttons keep the same relative order as before (primary
+ *  first), and the hint gets the last line. */
 export function WizardNav({
   onBack,
   onContinue,
   continueLabel,
   continueIcon,
   hint,
+  secondaryAction,
 }: {
   /** `pointerActivated` is `event.detail > 0` — see the header comment
    *  above. Computed here, next to the click, so the caller only ever
@@ -317,10 +393,10 @@ export function WizardNav({
   onBack?: (pointerActivated: boolean) => void;
   onContinue?: (pointerActivated: boolean) => void;
   continueLabel?: string;
-  /** Rendered before the label — e.g. the clipboard glyph on step 4's copy
-   *  button. An optional prop rather than asking every caller to build the
-   *  whole button: the other three steps pass nothing and get exactly the
-   *  same button as before. */
+  /** Rendered before the label — e.g. the clipboard glyph on the review
+   *  step's copy button. An optional prop rather than asking every caller to
+   *  build the whole button: every other step passes nothing and gets
+   *  exactly the same button as before. */
   continueIcon?: React.ReactNode;
   /** A short instruction — e.g. "Choose your frontend first" — shown when
    *  the reader clicks Continue with the step's required choice still
@@ -329,6 +405,18 @@ export function WizardNav({
    *  by `setup-wizard.tsx`; this component only renders whatever it is
    *  given. */
   hint?: string;
+  /** A second, quieter action rendered as a peer of Continue, immediately
+   *  before it in visual order — currently only the review step's "Follow
+   *  this guide" link to `/quickstart` (see `setup-wizard.tsx`), so a reader
+   *  who would rather not copy a prompt still has an explicit way forward
+   *  from the same row instead of hunting for it elsewhere. A plain
+   *  `ReactNode` rather than a `{ label, href }` shape: this component has no
+   *  reason to know about routing, only where the slot sits and that it
+   *  shares Back's quiet treatment (`QUIET_BUTTON_CLASS`, exported for
+   *  exactly this). `undefined` on every other step, and only ever rendered
+   *  alongside `onContinue` — there is nothing for it to sit beside on the
+   *  review step's own Back-only render. */
+  secondaryAction?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -357,11 +445,14 @@ export function WizardNav({
       >
         {hint ?? ""}
       </p>
+      {onContinue && secondaryAction ? (
+        <span className="order-4 shrink-0 sm:order-3">{secondaryAction}</span>
+      ) : null}
       {onContinue ? (
         <button
           type="button"
           onClick={(event) => onContinue(event.detail > 0)}
-          className={`order-1 sm:order-3 ${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS}`}
+          className={`order-1 sm:order-4 ${ACCENT_BUTTON_CLASS} ${PRIMARY_BUTTON_MIN_WIDTH_CLASS}`}
         >
           {continueIcon}
           {continueLabel}

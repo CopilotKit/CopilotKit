@@ -11,6 +11,7 @@ import type {
 // Small literal allow-lists, deliberately not the real ones, so this
 // suite doesn't churn when the actual option lists change.
 const allowed: WizardUrlAllowlists = {
+  projectAnswers: ["yes", "no"],
   frontends: ["react", "vue", "angular"],
   features: ["chat", "hitl", "generative-ui"],
   backends: ["langgraph", "crewai"],
@@ -44,6 +45,7 @@ describe("serializeWizardUrlState", () => {
 describe("round-trip", () => {
   it("parseWizardUrlState(serializeWizardUrlState(s), allowed) equals s", () => {
     const state: WizardUrlState = {
+      project: "yes",
       frontend: "vue",
       features: ["chat", "hitl"],
       backend: "langgraph",
@@ -61,10 +63,23 @@ describe("parseWizardUrlState", () => {
     expect(parseWizardUrlState("?frontend=vue", allowed).frontend).toBe("vue");
     expect(parseWizardUrlState("frontend=vue", allowed).frontend).toBe("vue");
     expect(parseWizardUrlState("", allowed)).toEqual({
+      project: undefined,
       frontend: undefined,
       features: [],
       backend: undefined,
     });
+  });
+
+  it("round-trips the project answer through the query string", () => {
+    const result = parseWizardUrlState("project=yes", allowed);
+    expect(result.project).toBe("yes");
+  });
+
+  it("degrades an unknown project value to undefined rather than throwing", () => {
+    expect(() => parseWizardUrlState("project=maybe", allowed)).not.toThrow();
+    expect(
+      parseWizardUrlState("project=maybe", allowed).project,
+    ).toBeUndefined();
   });
 
   it("drops an unknown frontend but keeps valid siblings", () => {
@@ -107,12 +122,13 @@ describe("parseWizardUrlState", () => {
     expect(result.features).toEqual(["chat", "hitl", "generative-ui"]);
   });
 
-  it("rejects 'constructor' and '__proto__' for frontend, backend, and features", () => {
+  it("rejects 'constructor' and '__proto__' for project, frontend, backend, and features", () => {
     const result = parseWizardUrlState(
-      "frontend=constructor&backend=__proto__&features=constructor,__proto__",
+      "project=constructor&frontend=constructor&backend=__proto__&features=constructor,__proto__",
       allowed,
     );
 
+    expect(result.project).toBeUndefined();
     expect(result.frontend).toBeUndefined();
     expect(result.backend).toBeUndefined();
     expect(result.features).toEqual([]);

@@ -10,6 +10,7 @@ const NO_SELECTION: WizardPromptSelection = {
   backend: null,
   frontend: null,
   featureTitles: [],
+  project: null,
 };
 
 describe("composeWizardOnboardingPrompt", () => {
@@ -24,6 +25,7 @@ describe("composeWizardOnboardingPrompt", () => {
       backend: { id: "mastra", name: "Mastra" },
       frontend: { id: "vue", name: "Vue" },
       featureTitles: [],
+      project: null,
     });
 
     const frameworkIndex = result.indexOf("agent framework");
@@ -42,6 +44,7 @@ describe("composeWizardOnboardingPrompt", () => {
       backend: { id: "spring-ai", name: "Spring AI" },
       frontend: null,
       featureTitles: [],
+      project: null,
     });
 
     expect(result).toBe(createIntelligenceOnboardingPrompt(RUN_ID));
@@ -52,6 +55,7 @@ describe("composeWizardOnboardingPrompt", () => {
       backend: null,
       frontend: { id: "react", name: "React" },
       featureTitles: [],
+      project: null,
     });
 
     expect(result).toContain("`nextjs`");
@@ -62,6 +66,7 @@ describe("composeWizardOnboardingPrompt", () => {
       backend: { id: "built-in-agent", name: "Built-in" },
       frontend: null,
       featureTitles: [],
+      project: null,
     });
 
     expect(result).toContain("`built-in`");
@@ -78,6 +83,7 @@ describe("composeWizardOnboardingPrompt", () => {
       backend: null,
       frontend: null,
       featureTitles: ["Human in the Loop", "Generative UI"],
+      project: null,
     });
 
     expect(result).toContain(
@@ -85,11 +91,43 @@ describe("composeWizardOnboardingPrompt", () => {
     );
   });
 
+  it("includes the existing-project sentence when project is yes", () => {
+    const result = composeWizardOnboardingPrompt(RUN_ID, {
+      backend: null,
+      frontend: null,
+      featureTitles: [],
+      project: "yes",
+    });
+
+    expect(result).toContain(
+      " They already have an existing project and want CopilotKit added to it.",
+    );
+  });
+
+  it("includes the brand-new-project sentence when project is no", () => {
+    const result = composeWizardOnboardingPrompt(RUN_ID, {
+      backend: null,
+      frontend: null,
+      featureTitles: [],
+      project: "no",
+    });
+
+    expect(result).toContain(" They are starting a brand new project.");
+  });
+
+  it("omits the project sentence entirely when unanswered", () => {
+    const result = composeWizardOnboardingPrompt(RUN_ID, NO_SELECTION);
+
+    expect(result).not.toContain("existing project");
+    expect(result).not.toContain("brand new project");
+  });
+
   it("keeps the coding-agent CLI flag literal and resolves the run-id placeholder", () => {
     const result = composeWizardOnboardingPrompt(RUN_ID, {
       backend: { id: "mastra", name: "Mastra" },
       frontend: { id: "vue", name: "Vue" },
       featureTitles: ["Human in the Loop"],
+      project: null,
     });
 
     // The exact placeholder spelling, per `intelligence-onboarding-prompt.ts`.
