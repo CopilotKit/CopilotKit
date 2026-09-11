@@ -912,6 +912,7 @@ def _flatten_tool_result(result_data) -> str:
 # ---- State management ---------------------------------------------------
 
 
+# @region[shared-state-preferences-prompt]
 def _format_preferences_block(prefs: dict) -> Optional[str]:
     """Render the UI-supplied preferences as a system-style block.
 
@@ -941,6 +942,22 @@ def _format_preferences_block(prefs: dict) -> Optional[str]:
     )
 
 
+# @endregion[shared-state-preferences-prompt]
+# @region[shared-state-recipe-prompt]
+def _format_recipe_block(recipe: dict) -> Optional[str]:
+    """Render the recipe editor's UI-owned state for the model.
+
+    The shared-state-read demo writes this object through ``agent.setState``.
+    It remains read-only from the agent's perspective, but every turn needs a
+    current snapshot so the assistant can answer about edits the user made in
+    the recipe card.
+    """
+    if not isinstance(recipe, dict) or not recipe:
+        return None
+    return "Current recipe from the editor:\n" + json.dumps(recipe, indent=2)
+
+
+# @endregion[shared-state-recipe-prompt]
 def _recover_original_user_message(input_data) -> Optional[str]:
     """Extract the original user message for HITL continuation runs.
 
@@ -988,6 +1005,7 @@ def _recover_original_user_message(input_data) -> Optional[str]:
     return None
 
 
+# @region[agent-context-prompt]
 def _format_context_block(context) -> Optional[str]:
     """Format the AG-UI ``context`` array into a prompt block.
 
@@ -1024,11 +1042,15 @@ def _format_context_block(context) -> Optional[str]:
     )
 
 
+# @endregion[agent-context-prompt]
+# @region[state-context-builder]
 def build_state_prompt(input_data, user_message: str) -> str:
     """Inject UI-owned shared state slots into the outgoing prompt.
 
     Handles every demo whose backend reads from ``state``:
 
+    * ``shared-state-read`` — recipe data written by the UI; the agent reads
+      it but does not mutate it.
     * ``shared-state-read-write`` — preferences (name, tone, language,
       interests) written by the UI via ``agent.setState``.
     * sales pipeline (legacy ``manage_sales_todos`` flow) — todos seeded
@@ -1052,6 +1074,10 @@ def build_state_prompt(input_data, user_message: str) -> str:
 
     state_dict = getattr(input_data, "state", None)
     if isinstance(state_dict, dict):
+        recipe_block = _format_recipe_block(state_dict.get("recipe") or {})
+        if recipe_block:
+            blocks.append(recipe_block)
+
         prefs_block = _format_preferences_block(state_dict.get("preferences") or {})
         if prefs_block:
             blocks.append(prefs_block)
@@ -1070,6 +1096,7 @@ def build_state_prompt(input_data, user_message: str) -> str:
     return "\n\n".join(blocks) + f"\n\nUser request: {user_message}"
 
 
+# @endregion[state-context-builder]
 # Back-compat alias: tests / scripts may import the old name.
 build_sales_prompt = build_state_prompt
 

@@ -215,6 +215,13 @@ jobs:
         # showcase/scripts/validate-shared-symlinks.ts and showcase/AGENTS.md.
         run: pnpm exec tsx validate-shared-symlinks.ts
 
+      - name: Check shared React frontend fanout
+        working-directory: showcase/scripts
+        # Next resolves packages from each integration, so canonical shared
+        # React demo sources are materialized into their package roots. This
+        # check prevents a copied integration page from drifting afterward.
+        run: pnpm exec tsx sync-shared-frontends.ts
+
       - name: Run validate-fixture-tool-surface (aimock drift)
         working-directory: showcase/scripts
         # Cross-references every aimock fixture's returned tool-call names
