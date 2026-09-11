@@ -1,0 +1,29 @@
+{
+  "captured": [
+    {
+      "method": "agent/run",
+      "topLevelKeys": [
+        "body",
+        "method",
+        "params"
+      ],
+      "inputKeys": [
+        "context",
+        "forwardedProps",
+        "messages",
+        "runId",
+        "state",
+        "threadId",
+        "tools"
+      ],
+      "forwardedProps": {},
+      "context": [
+        {
+          "description": "Agent response preferences. Apply tone, expertise level, and response length to every reply.",
+          "value": "{\"tone\":\"enthusiastic\",\"expertise\":\"expert\",\"responseLength\":\"detailed\"}"
+        }
+      ],
+      "lastMessage": "AUDIT_NEUTRAL_SENTINEL_BIA_7f3c9a"
+    }
+  ]
+}

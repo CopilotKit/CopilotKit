@@ -1,0 +1,28 @@
+{
+  "captured": [
+    {
+      "method": "agent/run",
+      "topLevelKeys": [
+        "body",
+        "method",
+        "params"
+      ],
+      "inputKeys": [
+        "context",
+        "forwardedProps",
+        "messages",
+        "runId",
+        "state",
+        "threadId",
+        "tools"
+      ],
+      "forwardedProps": {
+        "tone": "enthusiastic",
+        "expertise": "expert",
+        "responseLength": "detailed"
+      },
+      "context": [],
+      "lastMessage": "AUDIT_NEUTRAL_SENTINEL_BIA_7f3c9a"
+    }
+  ]
+}

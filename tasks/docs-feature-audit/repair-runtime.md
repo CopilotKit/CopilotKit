@@ -58,3 +58,30 @@
 
 - The same `/api/copilotkit` request compiled and returned 200 under direct Turbopack (`/private/tmp/lgts017-final-turbopack.log`) and under the checked-in `npm --prefix showcase/integrations/langgraph-typescript run dev` command (`/private/tmp/lgts017-default-dev.log`).
 - Strict D6 3/3 green through the final Turbopack UI and local AIMock: `agentic-chat`, `tool-rendering`, and `frontend-tools` each executed one passing cell with zero failures. Logs: `tasks/docs-feature-audit/repair-lgts017-final-*-d6.log`.
+
+## LGTS-017 — complete execution record
+
+### Fresh RED
+
+- Command: `cd showcase/integrations/langgraph-typescript && NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true LANGGRAPH_DEPLOYMENT_URL=http://127.0.0.1:8124 ./node_modules/.bin/next dev --turbopack --hostname 127.0.0.1 --port 3101`.
+- Result: the current source compiled `/demos/agentic-chat`, but `GET /api/copilotkit` returned 500 because Turbopack could not resolve the canonical CVDIAG relative `.js` specifiers. Durable log: `/private/tmp/lgts017-baseline-turbopack.log`.
+
+### GREEN
+
+- Direct Turbopack verification: the same route compiled and returned 200 after the source bridge fix; durable log: `/private/tmp/lgts017-final-turbopack.log`.
+- Default-command verification: `PORT=3101 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true LANGGRAPH_DEPLOYMENT_URL=http://localhost:8124 OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://127.0.0.1:4410/v1 AIMOCK_URL=http://127.0.0.1:4410 npm --prefix showcase/integrations/langgraph-typescript run dev`; the default Turbopack command compiled and served `/api/copilotkit` with HTTP 200. Durable log: `/private/tmp/lgts017-default-dev.log`.
+- Strict local-AIMock D6 regression, all green: `agentic-chat`, `tool-rendering`, and `frontend-tools`, each one executed / zero failed. Commands used `AIMOCK_URL_LOCAL=http://127.0.0.1:4410 AIMOCK_URL=http://127.0.0.1:4410 SHOWCASE_LOCAL=1 NEXT_TELEMETRY_DISABLED=1 COPILOTKIT_TELEMETRY_DISABLED=true node_modules/.bin/tsx tasks/docs-feature-audit/run-local-d6.mts langgraph-typescript --demo <id>`. Logs: `tasks/docs-feature-audit/repair-lgts017-final-agentic-chat-d6.log`, `tasks/docs-feature-audit/repair-lgts017-final-tool-rendering-d6.log`, `tasks/docs-feature-audit/repair-lgts017-final-frontend-tools-d6.log`.
+- Independent review: source-scoped ESM bridges preserve canonical CVDIAG imports and remove the bundler-specific alias, with no auth or secret impact.
+
+## BIA-007 — Agent Config controls routed to the factory input
+
+### Fresh local RED
+
+- Current unmodified demo at `http://127.0.0.1:3117/demos/agent-config`; a browser capture selected `enthusiastic` / `expert` / `detailed` then sent a neutral sentinel. The outgoing `agent/run` payload contained the values only in `context`, with `forwardedProps: {}`. Durable capture: `tasks/docs-feature-audit/repair-bia007-current-red.json`.
+- The in-process factory reads only `input.forwardedProps`, so it used defaults. The existing `agent-config` fixture selects canned answers by user-message text and integration context and therefore could not expose this routing fault.
+
+### Change and GREEN
+
+- The page now passes its typed config as the provider `properties` value, the contract declared by the Built-in Agent manifest. The obsolete context relay was removed.
+- The identical browser capture now has the selected `tone`, `expertise`, and `responseLength` in `forwardedProps` and no context entry: `tasks/docs-feature-audit/repair-bia007-green-request.json`.
+- Strict local-AIMock D6 regression: `agent-config` green with six completed control turns; `agentic-chat` green with three turns; `tool-rendering` green with its weather-card assertion. Logs: `tasks/docs-feature-audit/repair-bia007-agent-config-d6.log`, `tasks/docs-feature-audit/repair-bia007-agentic-chat-d6.log`, `tasks/docs-feature-audit/repair-bia007-tool-rendering-d6.log`.
