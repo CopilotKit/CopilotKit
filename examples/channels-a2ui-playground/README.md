@@ -42,6 +42,12 @@ Children reference other components by ID. The included catalog supports
 invalid or incomplete surfaces produce diagnostics. This version takes a
 completed surface rather than an incremental A2UI message stream.
 
+The **Intermediate Channels UI** panel on the right shows the resolved component
+tree passed into the Slack converter, including button action IDs. Expand
+**Generated Block Kit JSON** directly below it to compare the intermediate tree
+with the Slack payload. Both views use the last rendered input, update together
+when you render or select an example, and clear when conversion fails.
+
 Click **Acknowledge** in the Slack preview to log the corresponding A2UI client
 action. The renderer's separate **Simulate** controls reach the same local
 action mapping and are labeled separately in the log. Neither invokes an
@@ -79,4 +85,5 @@ pnpm exec nx run channels-a2ui-playground:e2e
 The browser tests start a production preview on `CONDUCTOR_PORT + 9` (or 4179).
 Set `PLAYGROUND_TEST_PORT` to override the test port. They require Playwright's
 Chromium installation and cover the market table, actual button clicks,
-simulated actions, edited input, diagnostics, recovery, and theme switching.
+simulated actions, edited input, diagnostics, recovery, theme switching, and the
+intermediate Channels UI panel on desktop and narrow screens.

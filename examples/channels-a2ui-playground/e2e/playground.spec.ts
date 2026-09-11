@@ -1,5 +1,70 @@
 import { expect, test } from "@playwright/test";
 
+test("shows the intermediate Channels UI for the rendered input", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page
+    .getByLabel("Example", { exact: true })
+    .selectOption("basic-text-button");
+  const intermediate = page.getByRole("region", {
+    name: "Intermediate Channels UI",
+    exact: true,
+  });
+  await expect(intermediate).toBeVisible();
+  const tree = intermediate.locator("pre");
+  const initialTree = JSON.parse(await tree.innerText());
+  expect(initialTree.map((node: { type: string }) => node.type)).toEqual([
+    "header",
+    "actions",
+  ]);
+  const button = initialTree[1].props.children[0];
+  expect(button.type).toBe("button");
+  expect(button.props.onClick.id).toBe("a2ui|basic|button|retry");
+
+  await page.getByText("Generated Block Kit JSON", { exact: true }).click();
+  const blocks = page
+    .getByLabel("Generated Block Kit JSON", { exact: true })
+    .locator("pre");
+  const initialBlocks = JSON.parse(await blocks.innerText());
+  expect(initialBlocks[1].elements[0].action_id).toBe(button.props.onClick.id);
+
+  const editor = page.getByRole("textbox", { name: "A2UI JSON" });
+  const input = JSON.parse(await editor.inputValue());
+  input.components.find(
+    (component: { id: string }) => component.id === "title",
+  ).text = "Updated status";
+  await editor.fill(JSON.stringify(input));
+  await expect(tree).toContainText("Status ready");
+  await expect(tree).not.toContainText("Updated status");
+  await page.getByRole("button", { name: "Render preview" }).click();
+  await expect(tree).toContainText("Updated status");
+  await expect(blocks).toContainText("Updated status");
+
+  await page.screenshot({
+    path: testInfo.outputPath("intermediate-channels-ui.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(intermediate).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("intermediate-channels-ui-mobile.png"),
+    fullPage: true,
+  });
+
+  await editor.fill("{broken");
+  await page.getByRole("button", { name: "Render preview" }).click();
+  await expect(tree).toHaveText("[]");
+  await expect(blocks).toHaveText("[]");
+  await page
+    .getByLabel("Example", { exact: true })
+    .selectOption("market-snapshot");
+  await expect(tree).toContainText("Live energy market snapshot");
+});
+
 test("renders Retry and logs its edited data-bound action", async ({
   page,
 }, testInfo) => {

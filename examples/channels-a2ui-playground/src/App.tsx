@@ -160,6 +160,10 @@ export default function App() {
     () => [...compileResult.diagnostics, ...actionDiagnostics],
     [actionDiagnostics, compileResult.diagnostics],
   );
+  const renderedIrJson = useMemo(
+    () => formatJson(compileResult.ir),
+    [compileResult.ir],
+  );
   const renderedBlocksJson = useMemo(
     () => formatJson(compileResult.blocks),
     [compileResult.blocks],
@@ -356,7 +360,7 @@ export default function App() {
           <div className="pane-header compact">
             <div>
               <p className="eyebrow">Slack Block Kit output</p>
-              <h2>Preview and diagnostics</h2>
+              <h2>Preview and conversion</h2>
             </div>
             <label className="theme-control">
               Preview theme
@@ -395,6 +399,32 @@ export default function App() {
               </RendererBoundary>
             )}
           </section>
+
+          <section
+            className="json-panel intermediate-panel"
+            aria-labelledby="channels-ui-title"
+          >
+            <div className="intermediate-panel-heading">
+              <p className="eyebrow">A2UI → Channels UI → Block Kit</p>
+              <h3 id="channels-ui-title">Intermediate Channels UI</h3>
+              <p className="empty-state">
+                Resolved component tree used to generate the Block Kit below.
+              </p>
+            </div>
+            <pre tabIndex={0}>
+              <code>{renderedIrJson}</code>
+            </pre>
+          </section>
+
+          <details
+            className="json-panel"
+            aria-label="Generated Block Kit JSON"
+            open={blocksOpen}
+            onToggle={(event) => setBlocksOpen(event.currentTarget.open)}
+          >
+            <summary>Generated Block Kit JSON</summary>
+            <pre tabIndex={0}>{renderedBlocksJson}</pre>
+          </details>
 
           <section
             className="diagnostics-panel"
@@ -439,15 +469,6 @@ export default function App() {
               </p>
             )}
           </section>
-
-          <details
-            className="json-panel"
-            open={blocksOpen}
-            onToggle={(event) => setBlocksOpen(event.currentTarget.open)}
-          >
-            <summary>Generated Block Kit JSON</summary>
-            <pre>{renderedBlocksJson}</pre>
-          </details>
 
           <section className="action-log" aria-label="Action log">
             <div className="panel-title-row">
