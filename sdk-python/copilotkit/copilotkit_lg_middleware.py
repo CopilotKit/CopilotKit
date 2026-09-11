@@ -14,10 +14,8 @@ Example:
     )
 """
 
-import asyncio
 import json
 import re
-import sys
 from typing import Any, Callable, Awaitable, ClassVar, Iterable, Optional, Union
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
@@ -147,14 +145,6 @@ def _parse_frontend_tool_results(payload: Any) -> Any:
             # Last wins, so a client retrying one call in the same batch is fine.
             results[tool_call_id] = content
     return results
-
-
-def _in_async_task() -> bool:
-    """Whether we are executing inside a running asyncio task."""
-    try:
-        return asyncio.current_task() is not None
-    except RuntimeError:
-        return False
 
 
 def _current_thread_id() -> "str | None":
@@ -355,17 +345,13 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             appended, so the model finishes the turn with the results in hand,
             in natural ``AIMessage`` → ``ToolMessage`` order. ``True`` requires:
 
-            1. **Python 3.11+ when async**, which the runtime always is: below
-               3.11 the run config does not reach asyncio tasks, so *any* async
-               ``interrupt()`` cannot read it. Raises ``CopilotKitMisuseError``,
-               not ``Called get_config outside of a runnable context``.
-            2. **An explicit client resume** — the default frontend-tool loop
+            1. **An explicit client resume** — the default frontend-tool loop
                fires a follow-up run with no resume command, which an
                interrupted thread ignores. Mount a handler that reads
                ``__copilotkit_frontend_tool_calls__`` off the interrupt and
                resumes with ``{"tool_results": [{"toolCallId": ...,
                "content": ...}, ...]}``.
-            3. **One interrupt per turn** — a resume cannot address multiple
+            2. **One interrupt per turn** — a resume cannot address multiple
                pending interrupts without interrupt ids
                (ag-ui-protocol/ag-ui#2178), so batching is mandatory.
     """
@@ -1187,34 +1173,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
         }
 
-    @staticmethod
-    def _check_interrupt_preconditions() -> None:
-        """Fail early, and actionably, when interrupt mode cannot work.
-
-        On Python 3.10 the run config does not propagate into asyncio tasks, so
-        ``interrupt()`` cannot read it and dies with LangGraph's opaque ``Called
-        get_config outside of a runnable context``. This applies to any
-        ``interrupt()`` from an async node, not just this flag.
-        """
-        try:
-            from langgraph.config import get_config
-
-            get_config()
-        except RuntimeError as error:
-            if sys.version_info < (3, 11) and _in_async_task():
-                raise CopilotKitMisuseError(
-                    "CopilotKitMiddleware(interrupt_frontend_tools=True) needs "
-                    "Python 3.11+ when the agent runs asynchronously: on 3.10 the "
-                    "run config does not propagate into asyncio tasks, so "
-                    "LangGraph's interrupt() cannot read it. Upgrade to 3.11+, or "
-                    "leave the flag off to use the default frontend-tool flow."
-                ) from error
-            # Not inside a runnable context at all (e.g. a direct unit-test
-            # call) — nothing to validate.
-            return
-        except Exception:  # noqa: BLE001 - never block a run on a probe failure
-            return
-
     # Intercept frontend tool calls after model returns, before ToolNode executes.
     #
     # NOTE: this hook must stay free of side effects. In interrupt mode
@@ -1294,8 +1252,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # this node finds nothing outstanding instead of interrupting again.
         if not frontend_calls:
             return None
-
-        self._check_interrupt_preconditions()
 
         # One interrupt for the whole batch. A resume carries a single value and
         # cannot address several pending interrupts without their ids
