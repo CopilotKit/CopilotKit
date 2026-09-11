@@ -381,3 +381,81 @@ async def test_caller_cancellation_before_headers_stays_native():
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
+
+
+async def test_confirmed_denial_does_not_wait_for_async_cleanup():
+    started, closing, release, closed = (asyncio.Event() for _ in range(4))
+
+    class Body(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            started.set()
+            await asyncio.Event().wait()
+            yield b""
+
+        async def aclose(self):
+            closing.set()
+            await release.wait()
+            closed.set()
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(403, stream=Body()))
+    ) as http:
+        sdk = Intelligence(api_key="key", http_client=http)
+        task = asyncio.create_task(sdk.get_learned_skills_snapshot(container_id="c"))
+        await started.wait()
+        task.cancel()
+        try:
+            done, _ = await asyncio.wait({task}, timeout=0.02)
+            assert task in done, "denial waited for asynchronous cleanup"
+            with pytest.raises(Exception) as error:
+                await task
+            assert error.value.code == "AUTHORIZATION_FAILED"
+            await closing.wait()
+            assert not closed.is_set()
+        finally:
+            release.set()
+            await asyncio.gather(task, return_exceptions=True)
+            await sdk.aclose()
+        assert closed.is_set()
+        assert not http.is_closed
+
+
+@pytest.mark.parametrize("status,code", [(200, "TIMEOUT"), (403, "AUTHORIZATION_FAILED")])
+async def test_per_request_deadline_bounds_stalled_body_and_preserves_denial(status, code):
+    closed = asyncio.Event()
+
+    class Body(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            await asyncio.Event().wait()
+            yield b""
+
+        async def aclose(self):
+            for _ in range(10):
+                await asyncio.sleep(0)
+            closed.set()
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(status, headers=HEADERS, stream=Body())
+        )
+    ) as http:
+        sdk = Intelligence(api_key="key", http_client=http, request_timeout=30)
+        with pytest.raises(Exception) as error:
+            await asyncio.wait_for(
+                sdk.get_learned_skills_snapshot(container_id="c", request_timeout=0.01), 0.5
+            )
+        assert error.value.code == code
+        await sdk.aclose()
+        assert closed.is_set()
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("nan"), float("inf"), True])
+async def test_invalid_per_request_deadline(timeout):
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: pytest.fail("request sent"))
+    ) as http:
+        with pytest.raises(Exception) as error:
+            await Intelligence(api_key="key", http_client=http).get_learned_skills_snapshot(
+                container_id="c", request_timeout=timeout
+            )
+        assert error.value.code == "INVALID_CONFIG"

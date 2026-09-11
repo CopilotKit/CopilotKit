@@ -5,7 +5,7 @@ import json
 import logging
 import math
 import re
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from time import monotonic as _entitlement_now
@@ -85,6 +85,34 @@ def segment(value: str) -> str:
     return quote(value, safe="")
 
 
+class _LearnedSkillsStream(httpx.AsyncByteStream):
+    """Keep response cleanup alive independently of delivery cancellation."""
+
+    def __init__(self, stream: httpx.AsyncByteStream, pending: set[asyncio.Task[None]]) -> None:
+        self._stream = stream
+        self._pending = pending
+        self._close_task: asyncio.Task[None] | None = None
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        async for chunk in self._stream:
+            yield chunk
+
+    def close(self) -> asyncio.Task[None]:
+        if self._close_task is None:
+            self._close_task = asyncio.create_task(self._stream.aclose())
+            self._pending.add(self._close_task)
+            self._close_task.add_done_callback(self._finished)
+        return self._close_task
+
+    def _finished(self, task: asyncio.Task[None]) -> None:
+        self._pending.discard(task)
+        if not task.cancelled():
+            task.exception()  # Observe cleanup failures without disclosing content.
+
+    async def aclose(self) -> None:
+        await asyncio.shield(self.close())
+
+
 class Intelligence:
     """Call Intelligence from scripts, workers, or a Runtime with one pooled client.
 
@@ -128,6 +156,7 @@ class Intelligence:
         self.request_timeout = request_timeout
         self.http_client = http_client or httpx.AsyncClient()
         self._owns_http_client = http_client is None
+        self._learned_skills_cleanup: set[asyncio.Task[None]] = set()
         self._entitlements_task: asyncio.Task[RuntimeEntitlementResponse] | None = None
         self._entitlements_waiters = 0
         self._entitlements_cache: (
@@ -214,6 +243,10 @@ class Intelligence:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
         self._entitlements_cache = None
+        if self._learned_skills_cleanup:
+            await asyncio.shield(
+                asyncio.gather(*self._learned_skills_cleanup, return_exceptions=True)
+            )
         if self._owns_http_client:
             await self.http_client.aclose()
 
@@ -286,15 +319,21 @@ class Intelligence:
         container_id: str,
         revision: str | None = None,
         if_none_match: str | None = None,
+        request_timeout: float | None = None,
     ) -> LearnedSkillsSnapshotResult:
         """Read raw ZIP bytes with this client's credentials and HTTP pool.
 
         No retries, parsing, or cache. The client deadline includes the body
         read. Native asyncio cancellation propagates and request timeouts use
         TIMEOUT, except that a confirmed HTTP denial remains a denial.
+        request_timeout overrides the client default for this operation only.
         """
+        deadline = self.request_timeout if request_timeout is None else request_timeout
         if (
-            not isinstance(container_id, str)
+            type(deadline) not in (int, float)
+            or not math.isfinite(deadline)
+            or deadline <= 0
+            or not isinstance(container_id, str)
             or not container_id.strip()
             or (revision is not None and (not isinstance(revision, str) or not revision))
             or (
@@ -312,9 +351,10 @@ class Intelligence:
         if if_none_match is not None:
             headers["If-None-Match"] = if_none_match
         status: int | None = None
+        cleanup: _LearnedSkillsStream | None = None
         try:
-            async with asyncio.timeout(self.request_timeout):
-                async with self.http_client.stream(
+            async with asyncio.timeout(deadline):
+                request = self.http_client.build_request(
                     "GET",
                     self.api_url
                     + "/api/v1/learning/containers/"
@@ -322,46 +362,49 @@ class Intelligence:
                     + "/skills",
                     params={"revision": revision} if revision is not None else None,
                     headers=headers,
-                    timeout=self.request_timeout,
-                    follow_redirects=False,
-                ) as response:
-                    status = response.status_code
-                    if status == 401:
-                        raise LearnedSkillsError("AUTHENTICATION_FAILED", False)
-                    if status not in (200, 304):
-                        await response.aread()
-                        try:
-                            body = response.json()
-                        except (ValueError, UnicodeError):
-                            body = None
-                        raise learned_skills_response_error(status, body) from None
-                    returned_revision = response.headers.get("X-CopilotKit-Skills-Revision")
-                    etag = response.headers.get("ETag")
-                    if (
-                        not returned_revision
-                        or not etag
-                        or re.fullmatch(r'"[a-f0-9]{64}"', etag) is None
-                        or (revision is not None and revision != returned_revision)
-                    ):
+                    timeout=deadline,
+                )
+                response = await self.http_client.send(request, stream=True, follow_redirects=False)
+                assert isinstance(response.stream, httpx.AsyncByteStream)
+                cleanup = _LearnedSkillsStream(response.stream, self._learned_skills_cleanup)
+                response.stream = cleanup
+                status = response.status_code
+                if status == 401:
+                    raise LearnedSkillsError("AUTHENTICATION_FAILED", False)
+                if status not in (200, 304):
+                    await response.aread()
+                    try:
+                        body = response.json()
+                    except (ValueError, UnicodeError):
+                        body = None
+                    raise learned_skills_response_error(status, body) from None
+                returned_revision = response.headers.get("X-CopilotKit-Skills-Revision")
+                etag = response.headers.get("ETag")
+                if (
+                    not returned_revision
+                    or not etag
+                    or re.fullmatch(r'"[a-f0-9]{64}"', etag) is None
+                    or (revision is not None and revision != returned_revision)
+                ):
+                    raise LearnedSkillsError("INVALID_SNAPSHOT", False)
+                if status == 304:
+                    if if_none_match is None:
                         raise LearnedSkillsError("INVALID_SNAPSHOT", False)
-                    if status == 304:
-                        if if_none_match is None:
-                            raise LearnedSkillsError("INVALID_SNAPSHOT", False)
-                        return {"status": "unchanged", "revision": returned_revision, "etag": etag}
-                    content_type = response.headers.get("Content-Type")
-                    if (
-                        not content_type
-                        or content_type.split(";", 1)[0].strip().lower() != "application/zip"
-                    ):
-                        raise LearnedSkillsError("INVALID_SNAPSHOT", False)
-                    data = await response.aread()
-                    return {
-                        "status": "snapshot",
-                        "bytes": data,
-                        "revision": returned_revision,
-                        "etag": etag,
-                        "contentType": content_type,
-                    }
+                    return {"status": "unchanged", "revision": returned_revision, "etag": etag}
+                content_type = response.headers.get("Content-Type")
+                if (
+                    not content_type
+                    or content_type.split(";", 1)[0].strip().lower() != "application/zip"
+                ):
+                    raise LearnedSkillsError("INVALID_SNAPSHOT", False)
+                data = await response.aread()
+                return {
+                    "status": "snapshot",
+                    "bytes": data,
+                    "revision": returned_revision,
+                    "etag": etag,
+                    "contentType": content_type,
+                }
         except (asyncio.CancelledError, TimeoutError, httpx.HTTPError) as error:
             # Once access is denied, a failed or cancelled body read cannot
             # turn that denial into a transient failure that permits stale data.
@@ -376,6 +419,11 @@ class Intelligence:
             if isinstance(error, (TimeoutError, httpx.TimeoutException)):
                 raise LearnedSkillsError("TIMEOUT", True, error) from None
             raise LearnedSkillsError("NETWORK_ERROR", True, error) from None
+        finally:
+            if cleanup is not None:
+                # Do not delay a known denial behind asynchronous pool cleanup.
+                # The client retains this task and aclose awaits its completion.
+                cleanup.close()
 
     async def get_inspector_metadata(self) -> InspectorMetadata | None:
         """Read sanitized project metadata within five seconds, or a shorter client deadline.
