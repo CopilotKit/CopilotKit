@@ -6,7 +6,7 @@
 // UnscopedDocsPage). Other frameworks remain at `/<framework>/<slug>`.
 
 import type { Metadata } from "next";
-import Link from "next/link";
+import { DocsLandingNext } from "@/components/docs-landing-next";
 import { DocsSetupWizard } from "@/components/docs-setup-wizard";
 import { DocsVideoCarousel } from "@/components/docs-video-carousel";
 import { MapIntro } from "@/components/docs-map-parts";
@@ -46,15 +46,6 @@ export const dynamic = "force-dynamic";
 // Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = ROOT_FRAMEWORK;
 
-// The three starting points a visitor recognises themselves in. They are
-// reassurance, not navigation: one prompt serves all three, because the CLI
-// classifies the starting state itself.
-const HERO_STARTING_POINTS = [
-  "New project",
-  "Existing app or agent",
-  "Already on CopilotKit → add Intelligence",
-];
-
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
 // (etc.) at its own URL rather than collapsing them all onto the bare
@@ -81,7 +72,7 @@ export async function generateMetadata({
       // benefit, so the tab, the search result and the page disagreed.
       title: "CopilotKit: give your app an agent your users can use",
       description:
-        "Build chat, generative UI, and approval steps into your React app on any agent framework — then add CopilotKit Intelligence for threads that persist, memory, and agents that learn from real use.",
+        "Build chat, generative UI, and approval steps into your React app on any agent framework, then add CopilotKit Intelligence for threads that persist, memory, and agents that learn from real use.",
       canonicalPath: "/",
     });
   }
@@ -139,42 +130,23 @@ function DocsOverview() {
 
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
-      <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
+      <div className="docs-inner-content max-w-[760px] mx-auto px-4 md:px-6 pt-0 pb-6">
+        {/* Three things only: name, one line of positioning, two buttons.
+            The reader can add CopilotKit to an existing project too — the
+            wizard's first step asks that, so the hero doesn't have to. */}
         <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
-          <div className="flex max-w-[765px] flex-col">
-            <div>
-              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
-                CopilotKit
-              </h1>
-              {/* Names a benefit rather than a category. The previous line,
-                  "The frontend stack for agentic user experience", is jargon
-                  to a first-time reader — it says what shelf the product sits
-                  on, not what it does for them. */}
-              <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
-                Give your app an agent your users can actually use.
-              </p>
-              <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Chat, generative UI, and approval steps inside your own React
-                app — connected to whatever agent framework you already run.
-              </p>
-              {/* Intelligence belongs in the hero: without it, the first
-                  answer to "what is this" describes only half the product.
-                  Intelligence has no block of its own further down this
-                  page — this sentence is what keeps the page honest about
-                  the whole product. */}
-              <p className="mt-3 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Add{" "}
-                <Link
-                  href="/intelligence/overview"
-                  className="font-medium text-[var(--text)] underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--accent)]"
-                >
-                  CopilotKit Intelligence
-                </Link>{" "}
-                when it goes to production: threads that persist, memory, and
-                agents that learn from real use.
-              </p>
-            </div>
-            <div className="mt-7">
+          <div className="mx-auto flex max-w-[58ch] flex-col items-center text-center">
+            <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
+              CopilotKit
+            </h1>
+            {/* Names a benefit rather than a category. The previous line,
+                "The frontend stack for agentic user experience", is jargon
+                to a first-time reader: it says what shelf the product sits
+                on, not what it does for them. */}
+            <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
+              Give your app an agent your users can actually use.
+            </p>
+            <div className="mt-7 flex justify-center">
               <HeroStartActions
                 prompt={
                   <HeroOnboardingPromptButton surface="docs_landing_hero" />
@@ -184,27 +156,6 @@ function DocsOverview() {
                 }
               />
             </div>
-            {/* Quiet reassurance, not navigation — see the constant above for
-                why these are plain text rather than links.
-                A list, not a paragraph of spans: the middot separators are
-                `aria-hidden` so nobody hears "middle dot", and list items are
-                then what gives a screen reader the boundary between the three
-                labels. Spans alone announced them as one run-on string. */}
-            {/* `role="list"` is not redundant: Safari drops the list role when
-                `list-style: none` is set, which would undo the whole reason
-                this is a list. Inline items keep the single flowing line the
-                paragraph had — a flex row wrapped it onto two. */}
-            <ul
-              role="list"
-              className="mt-4 block list-none p-0 text-xs leading-relaxed text-[var(--text-muted)]"
-            >
-              {HERO_STARTING_POINTS.map((label, index) => (
-                <li key={label} className="inline">
-                  {index > 0 ? <span aria-hidden="true"> · </span> : null}
-                  {label}
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
 
@@ -213,9 +164,13 @@ function DocsOverview() {
         <div className="pt-8">
           <MapIntro
             heading="Set up CopilotKit for your project"
-            body="Answer three quick questions about your frontend, your agent backend, and the features you want. We turn your answers into a prompt — paste it into your coding agent, and it does the setup."
+            body="Answer three quick questions about your frontend, your agent backend, and the features you want. We turn your answers into a prompt you paste into your coding agent, and it does the setup."
           />
           <DocsSetupWizard />
+        </div>
+
+        <div className="pt-8">
+          <DocsLandingNext />
         </div>
       </div>
     </ShellDocsLayout>

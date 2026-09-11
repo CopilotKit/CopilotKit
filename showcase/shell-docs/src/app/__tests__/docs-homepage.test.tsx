@@ -5,19 +5,22 @@ import { MapIntro } from "@/components/docs-map-parts";
 import { visibleIntegrations } from "@/lib/homepage-map";
 import { ROOT_FRAMEWORK } from "@/lib/registry";
 
-// The homepage route composes the hero, a video placeholder, and the setup
-// wizard's intro + widget. Mounting the whole route with `render()` would
-// pull in the fumadocs shell `ShellDocsLayout` wraps (no test anywhere in
-// this app mounts that) and the registry-backed wizard (~646 KB per
-// `docs-setup-wizard.tsx`'s own header comment) — neither of which this file
-// is responsible for verifying. So these assertions call the route function
-// directly and read the plain React element tree it returns, the same
-// technique `cookbook-onboarding.test.tsx` uses for the same reason. The
-// setup wizard itself is mocked out, both because its own render is someone
-// else's test's job and because it currently pulls in a sibling component
-// that another task is still writing.
+// The homepage route composes the hero, a video placeholder, the setup
+// wizard's intro + widget, and the backend logo grid. Mounting the whole
+// route with `render()` would pull in the fumadocs shell `ShellDocsLayout`
+// wraps (no test anywhere in this app mounts that) and the registry-backed
+// wizard (~646 KB per `docs-setup-wizard.tsx`'s own header comment) — neither
+// of which this file is responsible for verifying. So these assertions call
+// the route function directly and read the plain React element tree it
+// returns, the same technique `cookbook-onboarding.test.tsx` uses for the
+// same reason. The setup wizard, the video carousel and the backend grid are
+// all mocked out here, both because each one's own render is someone else's
+// test's job (docs-setup-wizard.test.tsx, docs-video-carousel.test.tsx,
+// docs-landing-next.test.tsx) and to keep this file's job to composition and
+// ordering only.
 const docsSetupWizardSpy = vi.hoisted(() => vi.fn(() => null));
 const docsVideoCarouselSpy = vi.hoisted(() => vi.fn(() => null));
+const docsLandingNextSpy = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock("@/components/docs-setup-wizard", () => ({
   DocsSetupWizard: docsSetupWizardSpy,
@@ -29,6 +32,13 @@ vi.mock("@/components/docs-setup-wizard", () => ({
 // placeholder.
 vi.mock("@/components/docs-video-carousel", () => ({
   DocsVideoCarousel: docsVideoCarouselSpy,
+}));
+
+// Restored from `origin/main` — see docs-landing-next.test.tsx for its own
+// render. Here we only need to know the homepage route renders it, and
+// renders it after the wizard.
+vi.mock("@/components/docs-landing-next", () => ({
+  DocsLandingNext: docsLandingNextSpy,
 }));
 
 import DocsPage from "../[[...slug]]/page";
@@ -87,7 +97,9 @@ async function renderOverview(): Promise<AnyElement[]> {
 }
 
 describe("the docs homepage route", () => {
-  it("renders the hero heading, positioning line and Intelligence link", async () => {
+  // The hero is down to three things: the name, one line of positioning,
+  // and the two actions (checked separately below). No body paragraphs.
+  it("renders the hero heading and single subtitle line", async () => {
     const elements = await renderOverview();
 
     const heading = elements.find((el) => el.type === "h1");
@@ -100,25 +112,12 @@ describe("the docs homepage route", () => {
     expect(positioning && textOf(positioning)).toBe(
       "Give your app an agent your users can actually use.",
     );
-
-    const intelligenceLink = elements.find((el) => el.type === Link);
-    expect(intelligenceLink).toBeTruthy();
-    expect(intelligenceLink?.props.href).toBe("/intelligence/overview");
-    expect(intelligenceLink && textOf(intelligenceLink)).toBe(
-      "CopilotKit Intelligence",
-    );
   });
 
-  // The hero carries both actions and the three starting points, matching
-  // the header the product-map draft used.
-  //
   // The two buttons reach `HeroStartActions` as element-valued *props*
   // (`prompt`, `quickstart`), not as children, so the element walk below
-  // never descends into them — read them off the props instead. Asserting
-  // the labels as well as the components matters: the components alone
-  // would still pass with an empty option list, and the labels alone would
-  // pass if the buttons were dropped but the list kept.
-  it("renders the copy-prompt button, the quickstart dropdown and the three starting points", async () => {
+  // never descends into them — read them off the props instead.
+  it("renders the copy-prompt button and the quickstart dropdown", async () => {
     const elements = await renderOverview();
 
     const startActions = elements.find(
@@ -137,11 +136,24 @@ describe("the docs homepage route", () => {
     expect(nameOf(startActions!.props.quickstart)).toBe(
       "HeroQuickstartDropdown",
     );
+  });
 
+  // The hero used to carry a "CopilotKit Intelligence" paragraph/link and a
+  // reassurance list of three starting points ("New project", "Existing app
+  // or agent", "Already on CopilotKit → add Intelligence"). Both are gone:
+  // Intelligence now carries itself through the recordings further down the
+  // page, and "existing project" is the wizard's first question instead of
+  // the hero's job. These strings did appear verbatim in the old hero copy,
+  // so this assertion can actually fail if either comes back.
+  it("renders no Intelligence link and none of the three starting points", async () => {
+    const elements = await renderOverview();
     const allText = elements.map((el) => textOf(el)).join(" | ");
-    expect(allText).toContain("New project");
-    expect(allText).toContain("Existing app or agent");
-    expect(allText).toContain("Already on CopilotKit");
+
+    expect(elements.some((el) => el.type === Link)).toBe(false);
+    expect(allText).not.toContain("CopilotKit Intelligence");
+    expect(allText).not.toContain("New project");
+    expect(allText).not.toContain("Existing app or agent");
+    expect(allText).not.toContain("Already on CopilotKit");
   });
 
   // The dropdown is useless without options, and they come from the
@@ -203,22 +215,52 @@ describe("the docs homepage route", () => {
     expect(elements.some((el) => el.type === docsSetupWizardSpy)).toBe(true);
   });
 
-  // Exact ordered equality over the headings' own texts — not `indexOf`
-  // on a substring, which is how this test previously passed for the wrong
-  // reason (an `indexOf("Frontend")` match inside "Frontend tools" text
-  // that had nothing to do with ordering).
-  it("keeps the hero heading before the wizard intro heading, in document order", async () => {
+  it("renders the backend logo grid", async () => {
     const elements = await renderOverview();
 
-    const headingTexts = elements
-      .filter((el) => el.type === "h1" || el.type === MapIntro)
-      .map((el) =>
-        el.type === "h1" ? textOf(el) : (el.props.heading as string),
-      );
+    expect(elements.some((el) => el.type === docsLandingNextSpy)).toBe(true);
+  });
 
-    expect(headingTexts).toEqual([
-      "CopilotKit",
-      "Set up CopilotKit for your project",
-    ]);
+  // Exact ordered equality over each section's own marker — not `indexOf`
+  // on a substring, which is how this test previously passed for the wrong
+  // reason (an `indexOf("Frontend")` match inside "Frontend tools" text
+  // that had nothing to do with ordering). The reviewer's sketched shape is
+  // hero, then video, then wizard, then the backend grid last — so the
+  // backend grid restored from `origin/main` must land after the wizard,
+  // not before it.
+  it("keeps the sections in the reviewer's order: hero, video, wizard, then the backend grid", async () => {
+    const elements = await renderOverview();
+
+    const sectionOrder = elements
+      .filter(
+        (el) =>
+          el.type === "h1" ||
+          el.type === docsVideoCarouselSpy ||
+          el.type === docsSetupWizardSpy ||
+          el.type === docsLandingNextSpy,
+      )
+      .map((el) => {
+        if (el.type === "h1") return "hero";
+        if (el.type === docsVideoCarouselSpy) return "video";
+        if (el.type === docsSetupWizardSpy) return "wizard";
+        return "backend-grid";
+      });
+
+    expect(sectionOrder).toEqual(["hero", "video", "wizard", "backend-grid"]);
+  });
+
+  // A reviewer named em-dashes explicitly as something to stop using. Cover
+  // both the hero's own text children and the wizard intro's copy, which
+  // arrives as props rather than children and so wouldn't be caught by
+  // `textOf` alone.
+  it("keeps the page copy free of em-dashes", async () => {
+    const elements = await renderOverview();
+    const allText = elements.map((el) => textOf(el)).join(" | ");
+    const mapIntro = elements.find((el) => el.type === MapIntro);
+    const propsCopy = mapIntro
+      ? `${mapIntro.props.heading as string} ${mapIntro.props.body as string}`
+      : "";
+
+    expect(`${allText} ${propsCopy}`).not.toMatch(/—/);
   });
 });
