@@ -88,6 +88,9 @@
   outline: 2px solid #8b78bd;
   outline-offset: 3px;
 }
+.cpk-ephemeral-threads-banner:focus-visible {
+  outline-offset: -3px;
+}
 .inspector-window[data-color-scheme="dark"] .cpk-ephemeral-threads-banner {
   background: #292b43;
   color: #d8d9ff;

@@ -18807,7 +18807,12 @@ export class WebInspectorElement extends LitElement {
     const hasEphemeralThreads =
       ephemeral && available && displayThreads.length > 0;
     if (!ephemeral) this.ephemeralThreadsSetupOpen = false;
-    const locked = !available || (ephemeral && displayThreads.length === 0);
+    const locked =
+      !available ||
+      (ephemeral &&
+        displayThreads.length === 0 &&
+        !threadsLoading &&
+        !threadsErrorMessage);
     if (locked || this.ephemeralThreadsSetupOpen) {
       this.trackThreadsViewStateOnce("locked");
       return html`

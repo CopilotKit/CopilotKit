@@ -2393,7 +2393,7 @@ test.each([
     diagnostics: { licenseStatus: "expired" },
   },
 ] as const)(
-  "shows setup for $diagnostic without Intelligence while still listing local Threads",
+  "shows setup for $diagnostic without Intelligence while still requesting local Threads",
   async ({ diagnostics }) => {
     const fixture = setupRuntimeDiagnostics();
 

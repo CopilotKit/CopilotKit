@@ -1549,6 +1549,57 @@ test.each([
   },
 );
 
+test.each([false, true])(
+  "ephemeral Threads loading resolves to rows=%s without flashing setup",
+  async (hasThreads) => {
+    const harness = await setupLoadingState({ intelligenceEnabled: false });
+    try {
+      await harness.openThreads();
+      const root = harness.inspector.shadowRoot!;
+      expect(root.querySelector('[role="status"]')?.textContent).toContain(
+        "Loading threads",
+      );
+      expect(
+        root.querySelector('[data-inspector-locked-feature="threads"]'),
+      ).toBeNull();
+      harness.resolveList(hasThreads ? [realThread()] : []);
+      await vi.waitFor(() =>
+        expect(ɵselectThreadsIsLoading(harness.store.getState())).toBe(false),
+      );
+      await harness.flush();
+      expect(
+        Boolean(
+          root.querySelector('[data-inspector-locked-feature="threads"]'),
+        ),
+      ).toBe(!hasThreads);
+      expect(Boolean(root.querySelector("cpk-thread-list"))).toBe(hasThreads);
+    } finally {
+      await harness.teardown();
+    }
+  },
+);
+
+test("ephemeral Threads show empty-list errors instead of setup", async () => {
+  const harness = await setupSettledState({
+    endpoints: ENABLED_ENDPOINTS,
+    intelligenceEnabled: false,
+    initialThreads: [],
+    listErrorAfterRows: "Local runtime unavailable",
+  });
+  try {
+    const root = harness.inspector.shadowRoot!;
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain(
+      "Local runtime unavailable",
+    );
+    expect(
+      root.querySelector('[data-inspector-locked-feature="threads"]'),
+    ).toBeNull();
+    expect(harness.threadList().threads).toEqual([]);
+  } finally {
+    await harness.teardown();
+  }
+});
+
 test("ephemeral Threads replace setup after the first thread and can reopen it", async () => {
   const harness = await setupSettledState({
     endpoints: ENABLED_ENDPOINTS,
