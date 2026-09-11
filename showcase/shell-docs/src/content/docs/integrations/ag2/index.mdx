@@ -3,57 +3,88 @@ title: Introduction
 icon: "custom/ag2"
 description: Bring your AG2 agents to your users with CopilotKit via AG-UI.
 hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page, which the data-record
+# partner pages do not have.
+hidePageActions: true
 ---
 
 <FrameworkOverview
   frameworkName="AG2"
-  frameworkIcon={<Ag2Icon className="h-10 w-10 text-foreground" />}
+  frameworkIcon={<Ag2Icon className="h-12 w-12" />}
   header="Bring your AG2 agents to your users"
-  subheader="Give your AG2 agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
-  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  subheader="AG2 runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/ag2/quickstart"
   initCommand="npx copilotkit@latest init"
-  featuresLink="/ag2/generative-ui"
+  lede="AG2 gives you the conversation between your agents: roles, turns and the tools they call. What it does not give you is the surface a person joins it through. Each capability below builds on something your agents already do."
   supportedFeatures={[
     {
       title: "Generative UI",
-      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/ag2/generative-ui",
-      demoLink: "/ag2/generative-ui",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+      iconKey: "paintbrush",
+      description:
+        "Your agents call tools as the conversation runs. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
+      documentationLink: "/ag2/generative-ui"
     },
     {
-      title: "Human in the Loop",
-      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
-      documentationLink: "/ag2/human-in-the-loop",
-      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      documentationLink: "/ag2/human-in-the-loop"
     },
     {
-      title: "Shared State",
-      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
-      documentationLink: "/ag2/shared-state",
-      demoLink: "/ag2/shared-state",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "Your agents carry state across turns. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/ag2/shared-state"
     }
   ]}
-  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/ag2/architecture.png"
-  liveDemos={[
-    {
-      type: "saas",
-      title: "SaaS Copilot",
-      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
-      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
-    },
-    {
-      type: "canvas",
-      title: "Canvas Copilot",
-      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
-      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
-    }
-  ]}
-/>
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with AG2 too.",
+    linkLabel: "And more",
+    href: "/ag2/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your agents keep running as their own Python service, with AGUIStream from autogen.ag_ui in front of them. CopilotKit reaches that service over HTTP, so nothing inside AG2 changes.",
+    filename: "app/api/copilotkit/route.ts",
+    language: "ts",
+    guideLink: "/ag2/quickstart"
+  }}
+  showcase={{
+    integration: "ag2",
+    intro:
+      "AG2 and CopilotKit running together, in the React frontend. Every demo below is the same integration with one capability turned on.",
+    demos: [
+      { slug: "agentic-chat", title: "Pre-Built: CopilotChat" },
+      { slug: "hitl-in-chat", title: "Human In the Loop: In-chat" },
+      { slug: "shared-state-read-write", title: "Shared State: Read + Write" },
+      { slug: "gen-ui-agent", title: "Generative UI: Agent State" }
+    ]
+  }}
+>
 
-<Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
-</Callout>
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+```
+
+</FrameworkOverview>

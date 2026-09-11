@@ -2,6 +2,11 @@
 // read through `frameworkOverviews`. An earlier header credited
 // `scripts/extract-framework-overviews.ts`; no such script exists in this
 // repository and none ever has, so edit this file directly.
+//
+// This record serves /strands and /strands-typescript, so the copy stays
+// language-neutral. Links carry the `/aws-strands/` docs-folder prefix and are
+// rewritten onto the URL slug by `FrameworkOverview`; the showcase embed picks
+// the matching cell per slug (see `showcase.integrationBySlug`).
 import type { FrameworkOverviewData } from "./types";
 
 const data: FrameworkOverviewData = {
@@ -10,63 +15,86 @@ const data: FrameworkOverviewData = {
   iconKey: "awsStrands",
   header: "Bring your AWS Strands agents to your users",
   subheader:
-    "Give your AWS Strands agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications.",
-  bannerVideo:
-    "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4",
+    "Strands runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer.",
   guideLink: "/aws-strands/quickstart",
   initCommand: "npx copilotkit@latest init",
   featuresLink:
     "https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_chat",
+
+  lede: "Strands gives you the agent: a model, a tool loop and the state it carries between turns. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does.",
   supportedFeatures: [
     {
       title: "Generative UI",
+      iconKey: "paintbrush",
       description:
-        "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/aws-strands/generative-ui/backend-tools",
-      demoLink:
-        "https://feature-viewer.copilotkit.ai/aws-strands/feature/tool_based_generative_ui",
-      videoUrl:
-        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
+        "Your agent calls tools and reports progress as it works. CopilotKit streams that to the browser and renders each step as a React component, instead of leaving the user with a spinner.",
+      documentationLink: "/aws-strands/generative-ui",
     },
     {
-      title: "Human in the Loop",
+      title: "Human-in-the-loop",
+      iconKey: "user",
       description:
-        "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
+        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
       documentationLink: "/aws-strands/human-in-the-loop",
-      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
-      videoUrl:
-        "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
     },
     {
-      title: "Shared State",
+      title: "Shared state",
+      iconKey: "repeat",
       description:
-        "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
-      documentationLink: "/aws-strands/shared-state/in-app-agent-read",
-      demoLink:
-        "https://feature-viewer.copilotkit.ai/aws-strands/feature/shared_state",
-      videoUrl:
-        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
+        "Your agent keeps state on the server between turns. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/aws-strands/shared-state",
     },
   ],
-  architectureImage:
-    "https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png",
-  liveDemos: [
-    {
-      type: "saas",
-      title: "SaaS Copilot",
-      description:
-        "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
-      iframeUrl:
-        "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true",
+  capabilitiesFootnote: {
+    text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with Strands too.",
+    linkLabel: "And more",
+    href: "/aws-strands/build-with-agents",
+  },
+
+  connect: {
+    intro:
+      "Your agent keeps running as its own Python service, with the AG-UI bridge from ag_ui_strands in front of it. CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
+    filename: "app/api/copilotkit/route.ts",
+    language: "ts",
+    code: `import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;`,
+    guideLink: "/aws-strands/quickstart",
+  },
+
+  showcase: {
+    integration: "strands",
+    integrationBySlug: {
+      strands: "strands",
+      "strands-typescript": "strands-typescript",
     },
-    {
-      type: "canvas",
-      title: "Canvas Copilot",
-      description:
-        "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
-      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/",
-    },
-  ],
+    intro:
+      "Strands and CopilotKit running together, in the React frontend. Every demo below is the same integration with one capability turned on.",
+    demos: [
+      { slug: "agentic-chat", title: "Pre-Built: CopilotChat" },
+      { slug: "hitl-in-chat", title: "Human In the Loop: In-chat" },
+      { slug: "shared-state-read-write", title: "Shared State: Read + Write" },
+      { slug: "gen-ui-agent", title: "Generative UI: Agent State" },
+    ],
+  },
+
+  liveDemos: [],
 };
 
 export default data;
