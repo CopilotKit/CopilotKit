@@ -40,20 +40,21 @@ than by the shared agent, because the shared agent already owns a
 `schedule_meeting` that answers straight away. One tool name cannot both answer
 immediately for the other demos and pause for these two.
 
-Two live bridge differences, both handled in this package rather than papered
-over:
+The two bridges once disagreed on two points, and both are resolved as of
+`ag_ui_strands` 0.4.0 and `@ag-ui/aws-strands` 0.3.0. The reading code on both
+sides still accepts the older shapes, so the demos keep working against an
+earlier bridge:
 
-- **Interrupt payload channel.** `ag_ui_strands` (Python) carries the tool's
-  `interrupt()` reason under the AG-UI interrupt's `metadata.reason`, while the
-  published `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` and puts
-  only `strandsName` in metadata. The demo pages read both channels.
-  `metadata.reason` is already in the TypeScript bridge's source and ships with
-  its next release.
-- **Resume envelope.** Python hands the tool `{"response": payload}` for a
-  resolved answer and `{"cancelled": True}` for a cancel; the published
-  TypeScript 0.2.3 hands the payload through untouched and cancels with
-  `{ status: "cancelled" }`. Each language's tool normalises both shapes, so a
-  picked slot is never reported back to the model as "no time picked".
+- **Interrupt payload channel.** Both bridges now carry the tool's
+  `interrupt()` reason under the AG-UI interrupt's `metadata.reason`. The
+  TypeScript bridge used to JSON-encode it into `message` instead, so the demo
+  pages read either channel.
+- **Resume envelope.** Both bridges now hand the tool `{"response": payload}`
+  for a resolved answer and a `cancelled` sentinel for a cancel. The TypeScript
+  bridge used to pass the payload through unwrapped, so each language's tool
+  normalises both shapes. That normalisation is what keeps a picked slot from
+  being reported back to the model as "no time picked", and it is covered by a
+  unit test in each language.
 
 ## Reasoning: shipped
 
