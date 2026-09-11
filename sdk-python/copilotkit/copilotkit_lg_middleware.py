@@ -118,8 +118,7 @@ def _parse_frontend_tool_results(payload: Any) -> Any:
     container at all. That case is worth failing loudly on: a single
     ``Command(resume=...)`` carries one value and the first pending interrupt
     consumes it, so another interrupt's answer (say ``{"approved": True}``) can
-    land here. Turning that into "no tool ran" would leave the developer
-    debugging a model apology instead of a wiring mistake. A well-formed but
+    land here. A well-formed but
     empty container (``{"tool_results": []}``) is *not* unrecognised — that is a
     client legitimately answering nothing, and every call gets a placeholder.
     """
@@ -344,42 +343,31 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             model (the host cannot supply the live, header-hooked model), and
             folds the registered catalog id + component schema into the params
             unless the host already set them — so host values win.
-        interrupt_frontend_tools: Opt in to awaiting frontend tool results
-            *within* the same agent turn, using LangGraph's native
-            ``interrupt()`` instead of the default strip-and-restore.
+        interrupt_frontend_tools: Await frontend tool results *in the same
+            turn* via LangGraph's ``interrupt()``, instead of the default
+            strip-and-restore.
 
-            - ``False`` (default) — frontend tool calls are stripped off the
-              ``AIMessage`` in ``after_model`` and restored in ``after_agent``;
-              the real result only lands on the next run. The agent never awaits
-              it in-run.
-            - ``True`` — every frontend tool call in a turn is batched into a
-              single ``interrupt()``. The graph pauses, the client executes the
-              tools and resumes, and one real ``ToolMessage`` per call is
-              appended — so the model continues the same turn with the results
-              in hand, in the natural ``AIMessage`` → ``ToolMessage`` order.
+            ``False`` (default) strips the calls off the ``AIMessage`` in
+            ``after_model`` and restores them in ``after_agent``, so the result
+            only lands on the next run, never in-run. ``True`` batches a turn's
+            calls into one ``interrupt()``: the graph pauses, the client runs
+            the tools and resumes, and one real ``ToolMessage`` per call is
+            appended, so the model finishes the turn with the results in hand,
+            in natural ``AIMessage`` → ``ToolMessage`` order. ``True`` requires:
 
-            Four requirements come with ``True``:
-
-            1. **A checkpointer is mandatory.** ``interrupt()`` cannot resume
-               without one; the middleware raises ``CopilotKitMisuseError``
-               rather than letting the run fail later with LangGraph's
-               ``Cannot use Command(resume=...) without checkpointer``.
-            2. **Python 3.11+ when the agent runs asynchronously** — which the
-               CopilotKit runtime always does. Below 3.11 the run config does
-               not propagate into asyncio tasks, so ``interrupt()`` cannot read
-               it. This constrains every async ``interrupt()``, not just this
-               flag; the middleware raises ``CopilotKitMisuseError`` instead of
-               LangGraph's opaque ``Called get_config outside of a runnable
-               context``.
-            3. **The client must resume explicitly.** The default frontend-tool
-               loop fires a plain follow-up run with no resume command, which an
-               interrupted thread ignores. Mount a client handler that reads
+            1. **Python 3.11+ when async**, which the runtime always is: below
+               3.11 the run config does not reach asyncio tasks, so *any* async
+               ``interrupt()`` cannot read it. Raises ``CopilotKitMisuseError``,
+               not ``Called get_config outside of a runnable context``.
+            2. **An explicit client resume** — the default frontend-tool loop
+               fires a follow-up run with no resume command, which an
+               interrupted thread ignores. Mount a handler that reads
                ``__copilotkit_frontend_tool_calls__`` off the interrupt and
-               resumes with
-               ``{"tool_results": [{"toolCallId": ..., "content": ...}, ...]}``.
-            4. **All calls share one interrupt.** Batching is required — a
-               resume cannot address multiple pending interrupts without
-               interrupt ids (ag-ui-protocol/ag-ui#2178).
+               resumes with ``{"tool_results": [{"toolCallId": ...,
+               "content": ...}, ...]}``.
+            3. **One interrupt per turn** — a resume cannot address multiple
+               pending interrupts without interrupt ids
+               (ag-ui-protocol/ag-ui#2178), so batching is mandatory.
     """
 
     state_schema = StateSchema
@@ -402,9 +390,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # bleed into the middleware. ``model`` + the registered catalog are
         # layered in at build time; everything here is host-owned and wins.
         self._a2ui_params: dict = dict(a2ui_params or {})
-        # Off by default: interrupt-based frontend tools need a checkpointer and
-        # a client that resumes explicitly, so flipping this on for everyone
-        # would break every deployment without one.
         self._interrupt_frontend_tools = interrupt_frontend_tools
 
     @property
@@ -1204,22 +1189,17 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
     @staticmethod
     def _check_interrupt_preconditions() -> None:
-        """Fail early, and actionably, on the two ways interrupt mode cannot work.
+        """Fail early, and actionably, when interrupt mode cannot work.
 
-        LangGraph reports both of these late or cryptically:
-
-        * **Python 3.11+ when the agent runs async.** On 3.10 the run config does
-          not propagate into asyncio tasks, so ``interrupt()`` cannot read it and
-          dies with ``Called get_config outside of a runnable context``. This
-          applies to any ``interrupt()`` from an async node, not just this flag.
-        * **A checkpointer.** A paused run cannot be resumed without one, and
-          LangGraph only notices at resume time — by which point the turn is
-          lost and the message points nowhere near the flag that caused it.
+        On Python 3.10 the run config does not propagate into asyncio tasks, so
+        ``interrupt()`` cannot read it and dies with LangGraph's opaque ``Called
+        get_config outside of a runnable context``. This applies to any
+        ``interrupt()`` from an async node, not just this flag.
         """
         try:
             from langgraph.config import get_config
 
-            configurable = (get_config() or {}).get("configurable", {}) or {}
+            get_config()
         except RuntimeError as error:
             if sys.version_info < (3, 11) and _in_async_task():
                 raise CopilotKitMisuseError(
@@ -1234,20 +1214,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             return
         except Exception:  # noqa: BLE001 - never block a run on a probe failure
             return
-
-        # LangGraph always writes this key into a task's config; the value is
-        # None when the graph was compiled without a checkpointer. A missing key
-        # means we are not inside a Pregel task at all, so there is nothing to
-        # check.
-        if configurable.get("__pregel_checkpointer", "missing") is None:
-            raise CopilotKitMisuseError(
-                "CopilotKitMiddleware(interrupt_frontend_tools=True) requires a "
-                "checkpointer: the run pauses on interrupt() and has to be "
-                "restored when the client resumes. Compile the agent with one, "
-                "e.g. create_agent(..., checkpointer=InMemorySaver()). Without it "
-                "LangGraph fails later with 'Cannot use Command(resume=...) "
-                "without checkpointer'."
-            )
 
     # Intercept frontend tool calls after model returns, before ToolNode executes.
     #
