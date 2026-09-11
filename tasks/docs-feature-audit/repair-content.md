@@ -94,3 +94,41 @@ multi-user safety claim. `npm --prefix showcase/shell-docs test --
 src/lib/__tests__/intelligence-quickstart-docs.test.ts -t 'keeps selected
 quickstart identities local-only'` passed after generator pretest: 1 check
 passed, 4 skipped.
+
+## Iteration 7 — source-owned authored-guide contracts
+
+`CONTENT-GEN-020` updates the AG2 and Mastra Frontend Tools pages to the v2
+`useFrontendTool` reference. The AG2 page now renders its actual
+`frontend-tool-registration` region from the `frontend-tools` Showcase cell,
+rather than maintaining a second action sample. `CONTENT-GEN-021` replaces the
+removed AG2 `useAgent({ render })` callback and its unsupported outside-chat
+claim with the actual `gen-ui-agent-state-rendering` region from the working
+AG2 cell. `CONTENT-GEN-022` replaces the copied named renderer with the exact
+`render-weather-tool` region from the `tool-rendering` cell, including its Zod
+parameters, state-safe location access, and dependency array.
+
+The newly bounded state region is owned by the generation lane; all three
+Markdown snippets pin `framework="ag2"` and their correct cell, so the browser
+and raw-Markdown renderer select the same source. `npm --prefix
+showcase/shell-docs test -- src/lib/__tests__/current-v2-authored-guides.test.ts`
+passed after generator pretest: 2 checks passed. It proves source selection and
+rendered Markdown content, not an agent/browser runtime run.
+
+## Iteration 8 — Google ADK tool-first HITL path
+
+The shared HITL overview now leads with the tool-based
+[`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) path. It states the
+expected decision flow, expands each framework's existing setup fragment, and
+then names native LangGraph graph interrupts as a separate capability. The
+Google ADK route explicitly says that its supported path is the tool-based
+in-chat decision and that `useInterrupt` and the headless-interrupt guide do
+not apply because ADK has no native interrupt primitive. The page still uses
+the existing Showcase `hitl-in-chat` source region; it adds no replacement
+backend example.
+
+`npm --prefix showcase/shell-docs test --
+human-in-the-loop-context.test.ts` passed after generator pretest: 1 file and
+1 test. It renders the Google ADK Markdown context and asserts the supported
+path, explicit capability boundary, current v2 reference link, and removal of
+the former LangGraph-first prose. This is documentation rendering evidence,
+not an ADK runtime qualification.

@@ -51,33 +51,14 @@ Without frontend actions, agents are limited to just processing and returning da
     <Step>
         ### Create a frontend action
 
-        First, you'll need to create a frontend action using the [useFrontendTool](/reference/v1/hooks/useFrontendTool) hook. Here's a simple one to get you started
-        that says hello to the user.
+        First, create a frontend action with the current [useFrontendTool](/reference/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that changes the page background.
 
-        ```tsx title="page.tsx"
-        import { z } from "zod";
-        import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
-
-        export function Page() {
-          // ...
-
-          // [!code highlight:13]
-          useFrontendTool({
-            name: "sayHello",
-            description: "Say hello to the user",
-            available: "remote", // optional, makes it so the action is *only* available to the AG2 backend over AG-UI
-            parameters: z.object({
-              name: z.string().describe("The name of the user to say hello to"),
-            }),
-            handler: async ({ name }) => {
-              alert(`Hello, ${name}!`);
-              return `Said hello to ${name}!`;
-            },
-          });
-
-          // ...
-        }
-        ```
+        <Snippet
+          framework="ag2"
+          cell="frontend-tools"
+          region="frontend-tool-registration"
+        />
     </Step>
     <Step>
         ###  Modify your agent
