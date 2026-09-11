@@ -2,10 +2,10 @@
 
 .cpk-ephemeral-threads-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex-shrink: 0;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 12px;
   border-bottom: 1px solid #dbdbe5;
   background: #f3f0ff;
   color: #37314f;
@@ -25,6 +25,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 .cpk-ephemeral-threads-headline {
   display: flex;
@@ -47,6 +48,7 @@
   color: #6750a4;
   font-size: 11px;
   font-weight: 600;
+  margin-top: 4px;
 }
 .cpk-ephemeral-threads-banner:hover .cpk-ephemeral-threads-upgrade {
   text-decoration: underline;

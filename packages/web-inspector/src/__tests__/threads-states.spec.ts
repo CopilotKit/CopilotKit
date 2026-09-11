@@ -1570,9 +1570,11 @@ test("ephemeral Threads replace setup after the first thread and can reopen it",
     );
     await harness.flush();
     expect(harness.rows()).toHaveLength(1);
-    expect(
-      root.querySelector("[data-inspector-ephemeral-banner]"),
-    ).not.toBeNull();
+    const banner = root.querySelector("[data-inspector-ephemeral-banner]");
+    expect(banner).not.toBeNull();
+    expect(banner?.nextElementSibling).toBe(
+      root.querySelector("cpk-thread-list"),
+    );
     root
       .querySelector<HTMLButtonElement>("[data-inspector-ephemeral-upgrade]")!
       .click();

@@ -18877,6 +18877,13 @@ export class WebInspectorElement extends LitElement {
       <div
         style="display:flex;height:100%;overflow:hidden;flex-direction:column;"
       >
+        <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
+          <!-- Left sidebar: thread list -->
+          <div
+            style="width:${
+              this.threadListWidth
+            }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+          >
         ${
           ephemeral
             ? html`
@@ -18891,21 +18898,14 @@ export class WebInspectorElement extends LitElement {
             <span class="cpk-ephemeral-threads-copy">
               <span class="cpk-ephemeral-threads-headline">
                 <strong>Keep your threads.</strong>
-                <span class="cpk-ephemeral-threads-upgrade">Make them permanent <span aria-hidden="true">${this.renderIcon("ArrowRight")}</span></span>
               </span>
               <span class="cpk-ephemeral-threads-description">Ephemeral history can disappear on restart.</span>
+              <span class="cpk-ephemeral-threads-upgrade">Make them permanent <span aria-hidden="true">${this.renderIcon("ArrowRight")}</span></span>
             </span>
           </button>
         `
             : nothing
         }
-        <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
-          <!-- Left sidebar: thread list -->
-          <div
-            style="width:${
-              this.threadListWidth
-            }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
-          >
             <cpk-thread-list
               style="min-height:0;flex:1;"
               data-color-scheme=${this.colorScheme}
