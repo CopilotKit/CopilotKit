@@ -29,6 +29,7 @@ const runtime = new CopilotRuntime({
 
 const BASE_PATH = "/api/copilotkit-auth";
 
+// @region[auth-on-request-gate]
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: BASE_PATH,
@@ -51,6 +52,7 @@ const handler = createCopilotRuntimeHandler({
     },
   },
 });
+// @endregion[auth-on-request-gate]
 
 export const POST = (req: NextRequest) => handler(req);
 export const GET = (req: NextRequest) => handler(req);

@@ -26,11 +26,8 @@
 // sign-out path produces.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  type CopilotKitCoreErrorCode,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
 import { AuthBanner } from "./auth-banner";
 import { SignInCard } from "./sign-in-card";
 import { useDemoAuth } from "./use-demo-auth";
@@ -55,10 +52,12 @@ export default function AuthDemoPage() {
     signOut,
   } = useDemoAuth();
 
+  // @region[auth-request-headers]
   const headers = useMemo<Record<string, string>>(
     () => (authorizationHeader ? { Authorization: authorizationHeader } : {}),
     [authorizationHeader],
   );
+  // @endregion[auth-request-headers]
 
   const [authError, setAuthError] = useState<AuthDemoErrorState | null>(null);
 
@@ -99,6 +98,7 @@ export default function AuthDemoPage() {
   }
 
   return (
+    // @region[auth-runtime-transport]
     // `useSingleEndpoint={false}` opts into the V2 multi-endpoint protocol
     // (separate /info, /agents/<id>/run, etc.), which is what this demo's
     // runtime route is wired up for.
@@ -143,5 +143,6 @@ export default function AuthDemoPage() {
         </div>
       </div>
     </CopilotKit>
+    // @endregion[auth-runtime-transport]
   );
 }

@@ -96,7 +96,7 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
             CopilotKit connects to agents over [AG-UI](https://docs.ag-ui.com). A CrewAI Enterprise Live Automation URL or another plain CrewAI endpoint is not automatically AG-UI-compatible, even if it returns HTTP 200. Add the official CrewAI adapter to the service that hosts your Flow:
 
             ```bash title="Terminal"
-            pip install -U "crewai>=1.15.11,<2" ag-ui-crewai fastapi uvicorn
+            pip install -U crewai ag-ui-crewai fastapi uvicorn
             ```
 
             ```python title="server.py"

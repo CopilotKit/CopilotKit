@@ -39,6 +39,9 @@ test("keeps AG2, Agno, and Mastra frontend-tool guidance on the v2 reference", (
   expect(rendered("integrations/ag2/frontend-tools")).toContain(
     'name: "change_background"',
   );
+  expect(rendered("integrations/agno/frontend-tools")).toContain(
+    "](/reference/hooks/useFrontendTool)",
+  );
 });
 
 test("uses the Showcase-owned named-renderer example in the AG2 guide", () => {
@@ -68,4 +71,30 @@ test("uses the running AG2 state publisher and stream setup", () => {
   expect(output).toContain('name="gen_ui_agent"');
   expect(output).toContain("gen_ui_agent_app.mount");
   expect(output).toContain('agentId: "gen-ui-agent"');
+});
+
+test("uses the AG2 runtime header and server gate for authentication", () => {
+  const guide = source("integrations/ag2/auth");
+  expect(guide).toContain('region="auth-request-headers"');
+  expect(guide).toContain('region="auth-runtime-transport"');
+  expect(guide).toContain('region="auth-on-request-gate"');
+  expect(guide).not.toContain("properties={{");
+  expect(guide).not.toContain("LangGraph Platform equivalent");
+
+  const output = rendered("integrations/ag2/auth");
+  expect(output).toContain("headers={headers}");
+  expect(output).toContain('request.headers.get("authorization")');
+  expect(output).toContain("onRequest");
+});
+
+test("keeps audited quickstart install commands on current package-manager defaults", () => {
+  const claude = source("integrations/claude-sdk-typescript/quickstart");
+  expect(claude).toContain("@anthropic-ai/claude-agent-sdk @anthropic-ai/sdk");
+  expect(claude).not.toContain("@anthropic-ai/claude-agent-sdk@^");
+
+  const crewai = source("integrations/crewai-flows/quickstart");
+  expect(crewai).toContain(
+    "pip install -U crewai ag-ui-crewai fastapi uvicorn",
+  );
+  expect(crewai).not.toContain("crewai>=");
 });
