@@ -1,0 +1,358 @@
+
+ NX   Running target attw for project @copilotkit/core and 2 tasks it depends on:
+
+
+
+> nx run @copilotkit/shared:build
+
+(node:46185) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> @copilotkit/shared@1.71.0 build /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/packages/shared
+> tsdown
+
+(node:46218) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ℹ tsdown v0.20.3 powered by rolldown v1.0.0-rc.3
+ℹ config file: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/packages/shared/tsdown.config.ts (unrun)
+ℹ entry: src/index.ts, src/telemetry/index.ts
+ℹ target: es2022
+ℹ tsconfig: tsconfig.json
+ℹ entry: src/index.ts
+ℹ target: es2018
+ℹ tsconfig: tsconfig.json
+ℹ Build start
+ℹ Cleaning 258 files
+ℹ [UMD] dist/index.umd.js       86.86 kB │ gzip: 24.07 kB
+ℹ [UMD] dist/index.umd.js.map  148.84 kB │ gzip: 40.87 kB
+ℹ [UMD] 2 files, total: 235.69 kB
+✔ Build complete in 590ms
+ℹ [CJS] dist/index.cjs                              9.99 kB │ gzip: 2.63 kB
+ℹ [CJS] dist/telemetry/index.cjs                    0.99 kB │ gzip: 0.32 kB
+ℹ [CJS] dist/utils/errors.cjs.map                  25.47 kB │ gzip: 6.64 kB
+ℹ [CJS] dist/utils/errors.cjs                      18.33 kB │ gzip: 4.51 kB
+ℹ [CJS] dist/utils/inspector-learning.cjs.map      17.98 kB │ gzip: 4.70 kB
+ℹ [CJS] dist/utils/json-schema.cjs.map             17.22 kB │ gzip: 4.22 kB
+ℹ [CJS] dist/telemetry/telemetry-client.cjs.map    12.84 kB │ gzip: 4.27 kB
+ℹ [CJS] dist/utils/inspector-metadata.cjs.map      10.56 kB │ gzip: 2.96 kB
+ℹ [CJS] dist/telemetry/lambda-client.cjs.map        9.35 kB │ gzip: 3.93 kB
+ℹ [CJS] dist/utils/json-schema.cjs                  8.46 kB │ gzip: 1.97 kB
+ℹ [CJS] dist/utils/inspector-learning.cjs           8.15 kB │ gzip: 2.38 kB
+ℹ [CJS] dist/index.cjs.map                          7.65 kB │ gzip: 2.88 kB
+ℹ [CJS] dist/attachments/utils.cjs.map              7.49 kB │ gzip: 2.70 kB
+ℹ [CJS] dist/finalize-events.cjs.map                6.98 kB │ gzip: 2.23 kB
+ℹ [CJS] dist/a2ui-prompts.cjs.map                   6.84 kB │ gzip: 2.93 kB
+ℹ [CJS] dist/a2ui-prompts.cjs                       6.54 kB │ gzip: 2.85 kB
+ℹ [CJS] dist/telemetry/telemetry-client.cjs         5.81 kB │ gzip: 1.83 kB
+ℹ [CJS] dist/utils/console-styling.cjs.map          5.08 kB │ gzip: 1.76 kB
+ℹ [CJS] dist/utils/types.cjs.map                    5.04 kB │ gzip: 1.79 kB
+ℹ [CJS] dist/utils/inspector-metadata.cjs           4.61 kB │ gzip: 1.46 kB
+ℹ [CJS] dist/utils/index.cjs.map                    4.57 kB │ gzip: 1.78 kB
+ℹ [CJS] dist/attachments/utils.cjs                  4.54 kB │ gzip: 1.74 kB
+ℹ [CJS] dist/utils/conditions.cjs.map               4.46 kB │ gzip: 1.26 kB
+ℹ [CJS] dist/transcription-errors.cjs.map           4.05 kB │ gzip: 1.22 kB
+ℹ [CJS] dist/utils/index.cjs                        3.77 kB │ gzip: 1.43 kB
+ℹ [CJS] dist/telemetry/lambda-client.cjs            3.51 kB │ gzip: 1.59 kB
+ℹ [CJS] dist/standard-schema.cjs.map                3.51 kB │ gzip: 1.40 kB
+ℹ [CJS] dist/finalize-events.cjs                    3.43 kB │ gzip: 1.05 kB
+ℹ [CJS] dist/utils/requests.cjs.map                 3.37 kB │ gzip: 1.35 kB
+ℹ [CJS] dist/utils/console-styling.cjs              3.28 kB │ gzip: 1.23 kB
+ℹ [CJS] dist/telemetry/sampling.cjs.map             3.16 kB │ gzip: 1.48 kB
+ℹ [CJS] dist/transcription-errors.cjs               3.00 kB │ gzip: 0.95 kB
+ℹ [CJS] dist/debug.cjs.map                          2.17 kB │ gzip: 0.96 kB
+ℹ [CJS] dist/utils/random-id.cjs.map                2.02 kB │ gzip: 0.94 kB
+ℹ [CJS] dist/standard-schema.cjs                    1.73 kB │ gzip: 0.74 kB
+ℹ [CJS] dist/telemetry/utils.cjs.map                1.69 kB │ gzip: 0.72 kB
+ℹ [CJS] dist/utils/conditions.cjs                   1.64 kB │ gzip: 0.54 kB
+ℹ [CJS] dist/utils/requests.cjs                     1.61 kB │ gzip: 0.71 kB
+ℹ [CJS] dist/utils/random-id.cjs                    1.27 kB │ gzip: 0.62 kB
+ℹ [CJS] dist/telemetry/telemetry-disabled.cjs.map   1.23 kB │ gzip: 0.59 kB
+ℹ [CJS] dist/utils/clipboard.cjs.map                1.04 kB │ gzip: 0.56 kB
+ℹ [CJS] dist/_virtual/_rolldown/runtime.cjs         1.04 kB │ gzip: 0.52 kB
+ℹ [CJS] dist/telemetry/sampling.cjs                 0.98 kB │ gzip: 0.49 kB
+ℹ [CJS] dist/debug.cjs                              0.91 kB │ gzip: 0.45 kB
+ℹ [CJS] dist/telemetry/telemetry-disabled.cjs       0.86 kB │ gzip: 0.45 kB
+ℹ [CJS] dist/constants/index.cjs                    0.83 kB │ gzip: 0.36 kB
+ℹ [CJS] dist/utils/clipboard.cjs                    0.76 kB │ gzip: 0.41 kB
+ℹ [CJS] dist/utils/inspector-visibility.cjs.map     0.73 kB │ gzip: 0.41 kB
+ℹ [CJS] dist/constants/index.cjs.map                0.72 kB │ gzip: 0.42 kB
+ℹ [CJS] dist/telemetry/utils.cjs                    0.50 kB │ gzip: 0.32 kB
+ℹ [CJS] dist/utils/inspector-visibility.cjs         0.47 kB │ gzip: 0.28 kB
+ℹ [CJS] dist/utils/types.cjs                        0.27 kB │ gzip: 0.16 kB
+ℹ [CJS] dist/package.cjs                            0.21 kB │ gzip: 0.18 kB
+ℹ [CJS] dist/logger.cjs.map                         0.16 kB │ gzip: 0.14 kB
+ℹ [CJS] dist/logger.cjs                             0.12 kB │ gzip: 0.11 kB
+ℹ [CJS] dist/package.cjs.map                        0.11 kB │ gzip: 0.10 kB
+ℹ [CJS] 56 files, total: 263.06 kB
+ℹ [CJS] dist/utils/errors.d.cts.map                   1.89 kB │ gzip: 0.65 kB
+ℹ [CJS] dist/types/action.d.cts.map                   1.44 kB │ gzip: 0.52 kB
+ℹ [CJS] dist/utils/types.d.cts.map                    1.29 kB │ gzip: 0.59 kB
+ℹ [CJS] dist/utils/inspector-learning.d.cts.map       1.29 kB │ gzip: 0.41 kB
+ℹ [CJS] dist/telemetry/telemetry-client.d.cts.map     0.99 kB │ gzip: 0.42 kB
+ℹ [CJS] dist/attachments/types.d.cts.map              0.78 kB │ gzip: 0.37 kB
+ℹ [CJS] dist/utils/json-schema.d.cts.map              0.70 kB │ gzip: 0.30 kB
+ℹ [CJS] dist/types/message.d.cts.map                  0.69 kB │ gzip: 0.31 kB
+ℹ [CJS] dist/types/error.d.cts.map                    0.68 kB │ gzip: 0.28 kB
+ℹ [CJS] dist/types/openai-assistant.d.cts.map         0.62 kB │ gzip: 0.30 kB
+ℹ [CJS] dist/utils/inspector-metadata.d.cts.map       0.61 kB │ gzip: 0.27 kB
+ℹ [CJS] dist/utils/conditions.d.cts.map               0.56 kB │ gzip: 0.28 kB
+ℹ [CJS] dist/transcription-errors.d.cts.map           0.48 kB │ gzip: 0.28 kB
+ℹ [CJS] dist/telemetry/events.d.cts.map               0.48 kB │ gzip: 0.24 kB
+ℹ [CJS] dist/attachments/utils.d.cts.map              0.45 kB │ gzip: 0.26 kB
+ℹ [CJS] dist/utils/index.d.cts.map                    0.44 kB │ gzip: 0.26 kB
+ℹ [CJS] dist/telemetry/lambda-client.d.cts.map        0.43 kB │ gzip: 0.26 kB
+ℹ [CJS] dist/utils/console-styling.d.cts.map          0.39 kB │ gzip: 0.25 kB
+ℹ [CJS] dist/telemetry/sampling.d.cts.map             0.36 kB │ gzip: 0.24 kB
+ℹ [CJS] dist/index.d.cts.map                          0.34 kB │ gzip: 0.21 kB
+ℹ [CJS] dist/standard-schema.d.cts.map                0.33 kB │ gzip: 0.23 kB
+ℹ [CJS] dist/debug.d.cts.map                          0.28 kB │ gzip: 0.20 kB
+ℹ [CJS] dist/types/utility.d.cts.map                  0.26 kB │ gzip: 0.18 kB
+ℹ [CJS] dist/utils/inspector-visibility.d.cts.map     0.24 kB │ gzip: 0.17 kB
+ℹ [CJS] dist/types/copilot-cloud-config.d.cts.map     0.22 kB │ gzip: 0.17 kB
+ℹ [CJS] dist/finalize-events.d.cts.map                0.22 kB │ gzip: 0.17 kB
+ℹ [CJS] dist/utils/random-id.d.cts.map                0.21 kB │ gzip: 0.16 kB
+ℹ [CJS] dist/debug-event-envelope.d.cts.map           0.20 kB │ gzip: 0.15 kB
+ℹ [CJS] dist/constants/index.d.cts.map                0.19 kB │ gzip: 0.14 kB
+ℹ [CJS] dist/utils/requests.d.cts.map                 0.18 kB │ gzip: 0.15 kB
+ℹ [CJS] dist/telemetry/telemetry-disabled.d.cts.map   0.16 kB │ gzip: 0.14 kB
+ℹ [CJS] dist/a2ui-prompts.d.cts.map                   0.15 kB │ gzip: 0.14 kB
+ℹ [CJS] dist/utils/clipboard.d.cts.map                0.15 kB │ gzip: 0.14 kB
+ℹ [CJS] dist/logger.d.cts.map                         0.11 kB │ gzip: 0.12 kB
+ℹ [CJS] dist/index.d.cts                             10.35 kB │ gzip: 2.92 kB
+ℹ [CJS] dist/telemetry/index.d.cts                    0.78 kB │ gzip: 0.27 kB
+ℹ [CJS] dist/utils/errors.d.cts                      10.39 kB │ gzip: 2.68 kB
+ℹ [CJS] dist/a2ui-prompts.d.cts                       6.79 kB │ gzip: 2.89 kB
+ℹ [CJS] dist/utils/types.d.cts                        4.88 kB │ gzip: 1.74 kB
+ℹ [CJS] dist/utils/index.d.cts                        4.18 kB │ gzip: 1.69 kB
+ℹ [CJS] dist/utils/inspector-learning.d.cts           3.41 kB │ gzip: 1.06 kB
+ℹ [CJS] dist/utils/console-styling.d.cts              2.98 kB │ gzip: 1.05 kB
+ℹ [CJS] dist/telemetry/telemetry-client.d.cts         2.95 kB │ gzip: 1.03 kB
+ℹ [CJS] dist/attachments/types.d.cts                  2.70 kB │ gzip: 1.07 kB
+ℹ [CJS] dist/types/action.d.cts                       2.36 kB │ gzip: 0.71 kB
+ℹ [CJS] dist/transcription-errors.d.cts               2.09 kB │ gzip: 0.79 kB
+ℹ [CJS] dist/types/message.d.cts                      2.07 kB │ gzip: 0.76 kB
+ℹ [CJS] dist/attachments/utils.d.cts                  1.80 kB │ gzip: 0.78 kB
+ℹ [CJS] dist/types/openai-assistant.d.cts             1.78 kB │ gzip: 0.78 kB
+ℹ [CJS] dist/utils/inspector-metadata.d.cts           1.57 kB │ gzip: 0.65 kB
+ℹ [CJS] dist/standard-schema.d.cts                    1.50 kB │ gzip: 0.69 kB
+ℹ [CJS] dist/telemetry/sampling.d.cts                 1.47 kB │ gzip: 0.73 kB
+ℹ [CJS] dist/utils/json-schema.d.cts                  1.39 kB │ gzip: 0.49 kB
+ℹ [CJS] dist/types/error.d.cts                        1.38 kB │ gzip: 0.55 kB
+ℹ [CJS] dist/telemetry/lambda-client.d.cts            1.30 kB │ gzip: 0.62 kB
+ℹ [CJS] dist/debug.d.cts                              1.22 kB │ gzip: 0.58 kB
+ℹ [CJS] dist/telemetry/events.d.cts                   1.12 kB │ gzip: 0.43 kB
+ℹ [CJS] dist/utils/conditions.d.cts                   1.08 kB │ gzip: 0.42 kB
+ℹ [CJS] dist/constants/index.d.cts                    0.68 kB │ gzip: 0.34 kB
+ℹ [CJS] dist/telemetry/telemetry-disabled.d.cts       0.67 kB │ gzip: 0.41 kB
+ℹ [CJS] dist/utils/inspector-visibility.d.cts         0.58 kB │ gzip: 0.31 kB
+ℹ [CJS] dist/utils/clipboard.d.cts                    0.51 kB │ gzip: 0.33 kB
+ℹ [CJS] dist/utils/requests.d.cts                     0.48 kB │ gzip: 0.33 kB
+ℹ [CJS] dist/finalize-events.d.cts                    0.36 kB │ gzip: 0.23 kB
+ℹ [CJS] dist/utils/random-id.d.cts                    0.36 kB │ gzip: 0.20 kB
+ℹ [CJS] dist/types/copilot-cloud-config.d.cts         0.34 kB │ gzip: 0.21 kB
+ℹ [CJS] dist/debug-event-envelope.d.cts               0.31 kB │ gzip: 0.20 kB
+ℹ [CJS] dist/types/utility.d.cts                      0.26 kB │ gzip: 0.19 kB
+ℹ [CJS] dist/logger.d.cts                             0.13 kB │ gzip: 0.12 kB
+ℹ [CJS] 69 files, total: 94.02 kB
+✔ Build complete in 657ms
+ℹ [ESM] dist/index.mjs                                7.14 kB │ gzip: 2.26 kB
+ℹ [ESM] dist/telemetry/index.mjs                      0.56 kB │ gzip: 0.22 kB
+ℹ [ESM] dist/utils/errors.mjs.map                    25.43 kB │ gzip: 6.62 kB
+ℹ [ESM] dist/utils/inspector-learning.mjs.map        17.97 kB │ gzip: 4.70 kB
+ℹ [ESM] dist/utils/errors.mjs                        17.54 kB │ gzip: 4.42 kB
+ℹ [ESM] dist/utils/json-schema.mjs.map               17.20 kB │ gzip: 4.21 kB
+ℹ [ESM] dist/telemetry/telemetry-client.mjs.map      12.68 kB │ gzip: 4.21 kB
+ℹ [ESM] dist/utils/inspector-metadata.mjs.map        10.56 kB │ gzip: 2.97 kB
+ℹ [ESM] dist/telemetry/lambda-client.mjs.map          9.35 kB │ gzip: 3.93 kB
+ℹ [ESM] dist/utils/json-schema.mjs                    8.20 kB │ gzip: 1.91 kB
+ℹ [ESM] dist/utils/inspector-learning.mjs             8.04 kB │ gzip: 2.37 kB
+ℹ [ESM] dist/index.mjs.map                            7.68 kB │ gzip: 2.89 kB
+ℹ [ESM] dist/attachments/utils.mjs.map                7.49 kB │ gzip: 2.70 kB
+ℹ [ESM] dist/finalize-events.mjs.map                  6.93 kB │ gzip: 2.22 kB
+ℹ [ESM] dist/a2ui-prompts.mjs.map                     6.84 kB │ gzip: 2.93 kB
+ℹ [ESM] dist/a2ui-prompts.mjs                         6.47 kB │ gzip: 2.85 kB
+ℹ [ESM] dist/telemetry/telemetry-client.mjs           5.57 kB │ gzip: 1.77 kB
+ℹ [ESM] dist/utils/console-styling.mjs.map            5.07 kB │ gzip: 1.76 kB
+ℹ [ESM] dist/utils/types.mjs.map                      5.04 kB │ gzip: 1.79 kB
+ℹ [ESM] dist/utils/inspector-metadata.mjs             4.58 kB │ gzip: 1.46 kB
+ℹ [ESM] dist/utils/index.mjs.map                      4.55 kB │ gzip: 1.77 kB
+ℹ [ESM] dist/utils/conditions.mjs.map                 4.46 kB │ gzip: 1.26 kB
+ℹ [ESM] dist/attachments/utils.mjs                    4.33 kB │ gzip: 1.70 kB
+ℹ [ESM] dist/utils/index.mjs                          4.25 kB │ gzip: 1.72 kB
+ℹ [ESM] dist/transcription-errors.mjs.map             4.04 kB │ gzip: 1.22 kB
+ℹ [ESM] dist/standard-schema.mjs.map                  3.50 kB │ gzip: 1.40 kB
+ℹ [ESM] dist/telemetry/lambda-client.mjs              3.39 kB │ gzip: 1.58 kB
+ℹ [ESM] dist/utils/requests.mjs.map                   3.37 kB │ gzip: 1.35 kB
+ℹ [ESM] dist/telemetry/sampling.mjs.map               3.16 kB │ gzip: 1.48 kB
+ℹ [ESM] dist/finalize-events.mjs                      3.15 kB │ gzip: 1.00 kB
+ℹ [ESM] dist/utils/console-styling.mjs                3.13 kB │ gzip: 1.21 kB
+ℹ [ESM] dist/transcription-errors.mjs                 2.95 kB │ gzip: 0.94 kB
+ℹ [ESM] dist/debug.mjs.map                            2.17 kB │ gzip: 0.96 kB
+ℹ [ESM] dist/utils/random-id.mjs.map                  2.05 kB │ gzip: 0.95 kB
+ℹ [ESM] dist/utils/errors.d.mts.map                   1.89 kB │ gzip: 0.65 kB
+ℹ [ESM] dist/standard-schema.mjs                      1.71 kB │ gzip: 0.74 kB
+ℹ [ESM] dist/telemetry/utils.mjs.map                  1.69 kB │ gzip: 0.72 kB
+ℹ [ESM] dist/utils/conditions.mjs                     1.62 kB │ gzip: 0.54 kB
+ℹ [ESM] dist/utils/requests.mjs                       1.60 kB │ gzip: 0.70 kB
+ℹ [ESM] dist/types/action.d.mts.map                   1.44 kB │ gzip: 0.52 kB
+ℹ [ESM] dist/utils/types.d.mts.map                    1.29 kB │ gzip: 0.58 kB
+ℹ [ESM] dist/utils/inspector-learning.d.mts.map       1.29 kB │ gzip: 0.41 kB
+ℹ [ESM] dist/telemetry/telemetry-disabled.mjs.map     1.23 kB │ gzip: 0.59 kB
+ℹ [ESM] dist/utils/random-id.mjs                      1.08 kB │ gzip: 0.56 kB
+ℹ [ESM] dist/utils/clipboard.mjs.map                  1.04 kB │ gzip: 0.56 kB
+ℹ [ESM] dist/telemetry/telemetry-client.d.mts.map     0.99 kB │ gzip: 0.42 kB
+ℹ [ESM] dist/telemetry/sampling.mjs                   0.90 kB │ gzip: 0.48 kB
+ℹ [ESM] dist/debug.mjs                                0.89 kB │ gzip: 0.45 kB
+ℹ [ESM] dist/telemetry/telemetry-disabled.mjs         0.84 kB │ gzip: 0.45 kB
+ℹ [ESM] dist/attachments/types.d.mts.map              0.78 kB │ gzip: 0.37 kB
+ℹ [ESM] dist/utils/clipboard.mjs                      0.74 kB │ gzip: 0.41 kB
+ℹ [ESM] dist/utils/inspector-visibility.mjs.map       0.73 kB │ gzip: 0.41 kB
+ℹ [ESM] dist/constants/index.mjs.map                  0.72 kB │ gzip: 0.42 kB
+ℹ [ESM] dist/utils/json-schema.d.mts.map              0.70 kB │ gzip: 0.30 kB
+ℹ [ESM] dist/types/message.d.mts.map                  0.69 kB │ gzip: 0.31 kB
+ℹ [ESM] dist/types/error.d.mts.map                    0.68 kB │ gzip: 0.28 kB
+ℹ [ESM] dist/constants/index.mjs                      0.65 kB │ gzip: 0.35 kB
+ℹ [ESM] dist/types/openai-assistant.d.mts.map         0.62 kB │ gzip: 0.30 kB
+ℹ [ESM] dist/utils/inspector-metadata.d.mts.map       0.61 kB │ gzip: 0.27 kB
+ℹ [ESM] dist/utils/conditions.d.mts.map               0.56 kB │ gzip: 0.28 kB
+ℹ [ESM] dist/transcription-errors.d.mts.map           0.48 kB │ gzip: 0.28 kB
+ℹ [ESM] dist/telemetry/events.d.mts.map               0.48 kB │ gzip: 0.24 kB
+ℹ [ESM] dist/utils/inspector-visibility.mjs           0.45 kB │ gzip: 0.28 kB
+ℹ [ESM] dist/attachments/utils.d.mts.map              0.45 kB │ gzip: 0.26 kB
+ℹ [ESM] dist/utils/index.d.mts.map                    0.44 kB │ gzip: 0.26 kB
+ℹ [ESM] dist/telemetry/lambda-client.d.mts.map        0.43 kB │ gzip: 0.26 kB
+ℹ [ESM] dist/telemetry/utils.mjs                      0.41 kB │ gzip: 0.28 kB
+ℹ [ESM] dist/utils/console-styling.d.mts.map          0.39 kB │ gzip: 0.25 kB
+ℹ [ESM] dist/telemetry/sampling.d.mts.map             0.36 kB │ gzip: 0.24 kB
+ℹ [ESM] dist/index.d.mts.map                          0.34 kB │ gzip: 0.21 kB
+ℹ [ESM] dist/standard-schema.d.mts.map                0.33 kB │ gzip: 0.23 kB
+ℹ [ESM] dist/debug.d.mts.map                          0.28 kB │ gzip: 0.20 kB
+ℹ [ESM] dist/types/utility.d.mts.map                  0.26 kB │ gzip: 0.18 kB
+ℹ [ESM] dist/utils/inspector-visibility.d.mts.map     0.24 kB │ gzip: 0.17 kB
+ℹ [ESM] dist/types/copilot-cloud-config.d.mts.map     0.22 kB │ gzip: 0.17 kB
+ℹ [ESM] dist/finalize-events.d.mts.map                0.22 kB │ gzip: 0.17 kB
+ℹ [ESM] dist/utils/types.mjs                          0.21 kB │ gzip: 0.16 kB
+ℹ [ESM] dist/utils/random-id.d.mts.map                0.21 kB │ gzip: 0.16 kB
+ℹ [ESM] dist/debug-event-envelope.d.mts.map           0.20 kB │ gzip: 0.15 kB
+ℹ [ESM] dist/constants/index.d.mts.map                0.19 kB │ gzip: 0.14 kB
+ℹ [ESM] dist/utils/requests.d.mts.map                 0.18 kB │ gzip: 0.15 kB
+ℹ [ESM] dist/telemetry/telemetry-disabled.d.mts.map   0.16 kB │ gzip: 0.14 kB
+ℹ [ESM] dist/logger.mjs.map                           0.16 kB │ gzip: 0.14 kB
+ℹ [ESM] dist/a2ui-prompts.d.mts.map                   0.15 kB │ gzip: 0.14 kB
+ℹ [ESM] dist/utils/clipboard.d.mts.map                0.15 kB │ gzip: 0.14 kB
+ℹ [ESM] dist/package.mjs                              0.12 kB │ gzip: 0.12 kB
+ℹ [ESM] dist/logger.mjs                               0.12 kB │ gzip: 0.11 kB
+ℹ [ESM] dist/logger.d.mts.map                         0.11 kB │ gzip: 0.12 kB
+ℹ [ESM] dist/package.mjs.map                          0.11 kB │ gzip: 0.10 kB
+ℹ [ESM] dist/index.d.mts                             10.35 kB │ gzip: 2.92 kB
+ℹ [ESM] dist/telemetry/index.d.mts                    0.78 kB │ gzip: 0.27 kB
+ℹ [ESM] dist/utils/errors.d.mts                      10.39 kB │ gzip: 2.68 kB
+ℹ [ESM] dist/a2ui-prompts.d.mts                       6.79 kB │ gzip: 2.89 kB
+ℹ [ESM] dist/utils/types.d.mts                        4.88 kB │ gzip: 1.74 kB
+ℹ [ESM] dist/utils/index.d.mts                        4.18 kB │ gzip: 1.69 kB
+ℹ [ESM] dist/utils/inspector-learning.d.mts           3.41 kB │ gzip: 1.06 kB
+ℹ [ESM] dist/utils/console-styling.d.mts              2.98 kB │ gzip: 1.05 kB
+ℹ [ESM] dist/telemetry/telemetry-client.d.mts         2.95 kB │ gzip: 1.03 kB
+ℹ [ESM] dist/attachments/types.d.mts                  2.70 kB │ gzip: 1.07 kB
+ℹ [ESM] dist/types/action.d.mts                       2.36 kB │ gzip: 0.71 kB
+ℹ [ESM] dist/transcription-errors.d.mts               2.09 kB │ gzip: 0.79 kB
+ℹ [ESM] dist/types/message.d.mts                      2.07 kB │ gzip: 0.76 kB
+ℹ [ESM] dist/attachments/utils.d.mts                  1.80 kB │ gzip: 0.78 kB
+ℹ [ESM] dist/types/openai-assistant.d.mts             1.78 kB │ gzip: 0.78 kB
+ℹ [ESM] dist/utils/inspector-metadata.d.mts           1.57 kB │ gzip: 0.65 kB
+ℹ [ESM] dist/standard-schema.d.mts                    1.50 kB │ gzip: 0.69 kB
+ℹ [ESM] dist/telemetry/sampling.d.mts                 1.47 kB │ gzip: 0.73 kB
+ℹ [ESM] dist/utils/json-schema.d.mts                  1.39 kB │ gzip: 0.49 kB
+ℹ [ESM] dist/types/error.d.mts                        1.38 kB │ gzip: 0.55 kB
+ℹ [ESM] dist/telemetry/lambda-client.d.mts            1.30 kB │ gzip: 0.62 kB
+ℹ [ESM] dist/debug.d.mts                              1.22 kB │ gzip: 0.58 kB
+ℹ [ESM] dist/telemetry/events.d.mts                   1.12 kB │ gzip: 0.43 kB
+ℹ [ESM] dist/utils/conditions.d.mts                   1.08 kB │ gzip: 0.42 kB
+ℹ [ESM] dist/constants/index.d.mts                    0.68 kB │ gzip: 0.34 kB
+ℹ [ESM] dist/telemetry/telemetry-disabled.d.mts       0.67 kB │ gzip: 0.41 kB
+ℹ [ESM] dist/utils/inspector-visibility.d.mts         0.58 kB │ gzip: 0.31 kB
+ℹ [ESM] dist/utils/clipboard.d.mts                    0.51 kB │ gzip: 0.33 kB
+ℹ [ESM] dist/utils/requests.d.mts                     0.48 kB │ gzip: 0.33 kB
+ℹ [ESM] dist/finalize-events.d.mts                    0.36 kB │ gzip: 0.23 kB
+ℹ [ESM] dist/utils/random-id.d.mts                    0.36 kB │ gzip: 0.20 kB
+ℹ [ESM] dist/types/copilot-cloud-config.d.mts         0.34 kB │ gzip: 0.21 kB
+ℹ [ESM] dist/debug-event-envelope.d.mts               0.31 kB │ gzip: 0.20 kB
+ℹ [ESM] dist/types/utility.d.mts                      0.26 kB │ gzip: 0.19 kB
+ℹ [ESM] dist/logger.d.mts                             0.13 kB │ gzip: 0.12 kB
+ℹ [ESM] 124 files, total: 349.84 kB
+✔ Build complete in 665ms
+
+> nx run @copilotkit/core:build
+
+(node:46224) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46239) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+> @copilotkit/core@1.71.0 build /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/packages/core
+> cross-env NODE_OPTIONS=--max-old-space-size=8192 tsdown
+(node:46262) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ℹ tsdown v0.20.3 powered by rolldown v1.0.0-rc.3
+ℹ config file: /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/packages/core/tsdown.config.ts (unrun)
+ℹ entry: src/index.ts
+ℹ target: es2022
+ℹ tsconfig: tsconfig.json
+ℹ entry: src/index.ts
+ℹ target: es2018
+ℹ tsconfig: tsconfig.json
+ℹ Build start
+ℹ Cleaning 10 files
+ℹ [CJS] dist/index.cjs      266.10 kB │ gzip:  62.81 kB
+ℹ [CJS] dist/index.cjs.map  584.74 kB │ gzip: 139.00 kB
+ℹ [CJS] 2 files, total: 850.84 kB
+ℹ [UMD] dist/index.umd.js      300.42 kB │ gzip:  66.75 kB
+ℹ [UMD] dist/index.umd.js.map  584.77 kB │ gzip: 139.95 kB
+ℹ [UMD] 2 files, total: 885.19 kB
+[33m[MISSING_GLOBAL_NAME] Warning:[0m No name was provided for external module "@tanstack/pacer" in "output.globals" – guessing "_tanstack_pacer".
+[33m[MISSING_GLOBAL_NAME] Warning:[0m No name was provided for external module "phoenix" in "output.globals" – guessing "phoenix".
+✔ Build complete in 717ms
+ℹ [CJS] dist/index.d.cts.map   29.87 kB │ gzip:  8.70 kB
+ℹ [CJS] dist/index.d.cts      120.31 kB │ gzip: 33.98 kB
+ℹ [CJS] 2 files, total: 150.18 kB
+✔ Build complete in 719ms
+ℹ [ESM] dist/index.mjs        258.68 kB │ gzip:  62.30 kB
+ℹ [ESM] dist/index.mjs.map    585.67 kB │ gzip: 138.77 kB
+ℹ [ESM] dist/index.d.mts.map   29.87 kB │ gzip:   8.70 kB
+ℹ [ESM] dist/index.d.mts      120.31 kB │ gzip:  33.98 kB
+ℹ [ESM] 4 files, total: 994.53 kB
+✔ Build complete in 732ms
+
+> nx run @copilotkit/core:attw
+
+(node:46268) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46283) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+> @copilotkit/core@1.71.0 attw /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/packages/core
+> attw --pack . --profile node16
+@copilotkit/core v1.71.0
+Build tools:
+- typescript@5.8.2
+- tsdown@^0.20.3
+[90m (ignoring resolutions: 'node10')[39m
+[90m[39m
+[0m No problems found 🌟[0m
+[90m┌───────────────────[39m[90m┬────────────────────[39m[90m┬─────────────────────────────────┐[39m
+[90m│[39m[31m                   [39m[90m│[39m[31m [1m[92m"@copilotkit/core"[31m[22m [39m[90m│[39m[31m [1m[92m"@copilotkit/core/package.json"[31m[22m [39m[90m│[39m
+[90m├───────────────────[39m[90m┼────────────────────[39m[90m┼─────────────────────────────────┤[39m
+[90m│[39m node16 (from CJS) [90m│[39m 🟢 (CJS)           [90m│[39m 🟢 (JSON)                       [90m│[39m
+[90m├───────────────────[39m[90m┼────────────────────[39m[90m┼─────────────────────────────────┤[39m
+[90m│[39m node16 (from ESM) [90m│[39m 🟢 (ESM)           [90m│[39m 🟢 (JSON)                       [90m│[39m
+[90m├───────────────────[39m[90m┼────────────────────[39m[90m┼─────────────────────────────────┤[39m
+[90m│[39m bundler           [90m│[39m 🟢                 [90m│[39m 🟢 (JSON)                       [90m│[39m
+[90m├───────────────────[39m[90m┼────────────────────[39m[90m┼─────────────────────────────────┤[39m
+[90m│[39m node10            [90m│[39m (ignored) 🟢       [90m│[39m (ignored) 🟢 (JSON)             [90m│[39m
+[90m└───────────────────[39m[90m┴────────────────────[39m[90m┴─────────────────────────────────┘[39m
+
+
+
+ NX   Successfully ran target attw for project @copilotkit/core and 2 tasks it depends on
+
+

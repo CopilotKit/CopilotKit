@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 
 import { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } from "../core";
+import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
 
 const RUNTIME_URL = "https://runtime.example.com/api/copilotkit";
 
@@ -148,6 +149,63 @@ test("single transport sends every Intelligence resource operation to one URL", 
     });
   } finally {
     context.teardown();
+  }
+});
+
+test("single transport resolves a relative runtime URL in the browser", async () => {
+  const originalWindow = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = {
+    location: { href: "https://showcase.example.com/demos/agentic-chat" },
+  };
+
+  try {
+    const request = await createSingleRouteResourceRequest(
+      "/api/copilotkit/threads?agentId=researcher",
+      { method: "GET" },
+      "/api/copilotkit",
+    );
+
+    expect(request).toMatchObject({
+      input: "/api/copilotkit",
+      init: {
+        method: "POST",
+        body: JSON.stringify({
+          method: "resource/request",
+          params: {
+            path: "/threads?agentId=researcher",
+            httpMethod: "GET",
+          },
+        }),
+      },
+    });
+  } finally {
+    if (originalWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
+  }
+});
+
+test("single transport retains absolute runtime URLs outside the browser", async () => {
+  const originalWindow = (globalThis as { window?: unknown }).window;
+  delete (globalThis as { window?: unknown }).window;
+
+  try {
+    const request = await createSingleRouteResourceRequest(
+      `${RUNTIME_URL}/threads`,
+      { method: "GET" },
+      RUNTIME_URL,
+    );
+
+    expect(request).toMatchObject({
+      input: RUNTIME_URL,
+      init: { method: "POST" },
+    });
+  } finally {
+    if (originalWindow !== undefined) {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
   }
 });
 

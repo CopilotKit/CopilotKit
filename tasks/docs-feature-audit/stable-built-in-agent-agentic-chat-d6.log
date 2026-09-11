@@ -1,0 +1,93 @@
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-09-11T03:57:46.878Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureCount":1,"backendUrl":"http://localhost:3117"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=88044271-ab00-43e5-b0eb-a573c7de4ea0 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-88044271-ab00-43e5-b0eb-a573c7de4ea0 error=","ts":"2026-09-11T03:57:47.252Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/agentic-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/agentic-chat',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-11T03:57:47.627Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agentic-chat","hydrated":true,"hydrationMs":34}
+[conversation-runner] starting conversation { totalTurns: 3, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/3 — sending message { inputLength: 65, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 65,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/3 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 32648,
+  bodyTextLength: 178,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-09-11T03:58:20.326Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agentic-chat","error":"waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)","diagnostics":{"userMsgCount":1,"apiRequestCount":14,"apiRequests":[{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_29ec4558._.js","duration":36,"transferSize":54090,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_ed052c50._.js","duration":44,"transferSize":2477,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbbcdc32._.js","duration":55,"transferSize":69785,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_copilotkit-snbJkMqQ_mjs_13618f38._.js","duration":64,"transferSize":146902,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_a2ui-renderer_dist_ff0b6948._.js","duration":63,"transferSize":18511,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3117/demos/agentic-chat","title":"CopilotKit's Built-in Agent","bodyTextSnippet":"Failed to construct 'URL': Invalid URL\nShow Details\nx\nHi! Can you suggest a good name for a goldfish I'm bringing home?\nAI can make mistakes. Please verify important information.","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Failed to load resource: the server responded with a status of 404 (Not Found)","[error] Access to fetch at 'https://cdn.copilotkit.ai/announcements.json' from origin 'http://localhost:3117' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: ","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load announcement TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at WebInspectorElement.fetchAnnouncement (http://localhost:3117/_next/static/chunks","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[warning] Element cpk-web-inspector scheduled an update (generally because a property was set) after an update completed, causing a new update to be scheduled. This is inefficient and should be avoided unless t","[error] [CopilotKit] Agent error: Failed to construct 'URL': Invalid URL \n  Code: agent_run_failed_event \n  Context: {source: onRunFailed, agentId: agentic_chat} \n  Stack: TypeError: Invalid URL\n    at create","[error] [CopilotKit] Error (agent_run_failed_event): TypeError: Failed to construct 'URL': Invalid URL\n    at createSingleRouteResourceRequest (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_co","[error] Agent execution failed: TypeError: Failed to construct 'URL': Invalid URL\n    at createSingleRouteResourceRequest (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbb","[error] [CopilotKit] Agent error: Failed to construct 'URL': Invalid URL \n  Code: agent_run_failed \n  Context: {agentId: agentic_chat} \n  Stack: TypeError: Invalid URL\n    at createSingleRouteResourceRequest ","[error] [CopilotKit] Error (agent_run_failed): TypeError: Failed to construct 'URL': Invalid URL\n    at createSingleRouteResourceRequest (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dis"],"requestFailures":["GET https://cdn.copilotkit.ai/announcements.json => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=88044271-ab00-43e5-b0eb-a573c7de4ea0 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=miss test_id=d6-built-in-agent-88044271-ab00-43e5-b0eb-a573c7de4ea0 error=waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)","ts":"2026-09-11T03:58:20.326Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry","ts":"2026-09-11T03:58:20.332Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agentic-chat","attempt":1,"errorClass":"conversation-error","errorDesc":"waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)","attempt1DurationMs":33086}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=88044271-ab00-43e5-b0eb-a573c7de4ea0 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-88044271-ab00-43e5-b0eb-a573c7de4ea0 error=","ts":"2026-09-11T03:58:20.334Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/agentic-chat',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/agentic-chat',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-11T03:58:20.583Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agentic-chat","hydrated":true,"hydrationMs":31}
+[conversation-runner] starting conversation { totalTurns: 3, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/3 — sending message { inputLength: 65, timeoutMs: 30000 }
+[conversation-runner] fillAndVerifySend — start {
+  inputLength: 65,
+  selector: '[data-testid="copilot-chat-textarea"]',
+  userMessageBaseline: 0,
+  maxAttempts: 3
+}
+[conversation-runner] fillAndVerifySend — attempt 1/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — attempt 1 timed out (no user message growth from baseline=0)
+[conversation-runner] fillAndVerifySend — attempt 2/3 fill+Enter done
+[conversation-runner] fillAndVerifySend — user message appeared on attempt 2 { userMessageCount: 1, baseline: 0 }
+[conversation-runner] turn 1/3 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/3 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 32647,
+  bodyTextLength: 178,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-09-11T03:58:53.243Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agentic-chat","error":"waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)","diagnostics":{"userMsgCount":1,"apiRequestCount":14,"apiRequests":[{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_29ec4558._.js","duration":33,"transferSize":54090,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_ed052c50._.js","duration":40,"transferSize":2477,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbbcdc32._.js","duration":48,"transferSize":69785,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_copilotkit-snbJkMqQ_mjs_13618f38._.js","duration":59,"transferSize":146902,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_a2ui-renderer_dist_ff0b6948._.js","duration":55,"transferSize":18511,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3117/demos/agentic-chat","title":"CopilotKit's Built-in Agent","bodyTextSnippet":"Failed to construct 'URL': Invalid URL\nShow Details\nx\nHi! Can you suggest a good name for a goldfish I'm bringing home?\nAI can make mistakes. Please verify important information.","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Failed to load resource: the server responded with a status of 404 (Not Found)","[error] Access to fetch at 'https://cdn.copilotkit.ai/announcements.json' from origin 'http://localhost:3117' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: ","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load announcement TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at WebInspectorElement.fetchAnnouncement (http://localhost:3117/_next/static/chunks","[warning] Element cpk-web-inspector scheduled an update (generally because a property was set) after an update completed, causing a new update to be scheduled. This is inefficient and should be avoided unless t","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] [CopilotKit] Agent error: Failed to construct 'URL': Invalid URL \n  Code: agent_run_failed_event \n  Context: {source: onRunFailed, agentId: agentic_chat} \n  Stack: TypeError: Invalid URL\n    at create","[error] [CopilotKit] Error (agent_run_failed_event): TypeError: Failed to construct 'URL': Invalid URL\n    at createSingleRouteResourceRequest (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_co","[error] Agent execution failed: TypeError: Failed to construct 'URL': Invalid URL\n    at createSingleRouteResourceRequest (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbb","[error] [CopilotKit] Agent error: Failed to construct 'URL': Invalid URL \n  Code: agent_run_failed \n  Context: {agentId: agentic_chat} \n  Stack: TypeError: Invalid URL\n    at createSingleRouteResourceRequest ","[error] [CopilotKit] Error (agent_run_failed): TypeError: Failed to construct 'URL': Invalid URL\n    at createSingleRouteResourceRequest (http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dis"],"requestFailures":["GET https://cdn.copilotkit.ai/announcements.json => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=88044271-ab00-43e5-b0eb-a573c7de4ea0 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=miss test_id=d6-built-in-agent-88044271-ab00-43e5-b0eb-a573c7de4ea0 error=waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)","ts":"2026-09-11T03:58:53.243Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry-result","ts":"2026-09-11T03:58:53.246Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agentic-chat","attempt":2,"ok":false,"errorClass":"conversation-error"}
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-09-11T03:58:53.246Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/agentic-chat"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-09-11T03:58:53.246Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"agentic-chat","pass":false,"errorDesc":"waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)","durationMs":66000}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=88044271-ab00-43e5-b0eb-a573c7de4ea0 slug=MISSING header_present=false header_value_prefix= hop=- status=miss test_id=d6-built-in-agent-88044271-ab00-43e5-b0eb-a573c7de4ea0 error=no aimock journal entry for run","ts":"2026-09-11T03:58:53.259Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-09-11T03:58:53.259Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","passed":0,"failed":1,"skipped":0,"incapable":0,"total":1,"state":"red","durationMs":66381}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-09-11T03:58:53.259Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent"}
+  [31m✗[0m d6:built-in-agent [31mred[0m [2m(67.5s)[0m
+    [31magentic-chat: waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)[0m
+{"slug":"built-in-agent","results":[{"key":"d6:built-in-agent","state":"red","durationMs":67512,"signal":{"shape":"package","slug":"built-in-agent","backendUrl":"http://localhost:3117","total":1,"passed":0,"failed":["agentic-chat"],"skipped":[],"failureSummary":"agentic-chat: waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)"},"error":"agentic-chat: waitForTurnComplete: turn 1 did not complete within 30000ms (reason=dom-missing, runsFinished=0, count=0, attrPresent=true, runningNow=false, runStartCount=1)"}]}

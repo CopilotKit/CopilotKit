@@ -51,7 +51,9 @@ export async function createSingleRouteResourceRequest(
   init: RequestInit | undefined,
   runtimeUrl: string,
 ): Promise<SingleRouteResourceRequest | null> {
-  const runtime = new URL(runtimeUrl);
+  const runtimeBaseUrl =
+    typeof window === "undefined" ? undefined : window.location?.href;
+  const runtime = new URL(runtimeUrl, runtimeBaseUrl);
   const inputUrl =
     input instanceof Request
       ? input.url

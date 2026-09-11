@@ -1,0 +1,246 @@
+
+ NX   Running target test for project @copilotkit/core and 1 task it depends on:
+
+
+
+> nx run @copilotkit/shared:build  [existing outputs match the cache, left as is]
+
+
+> nx run @copilotkit/core:test --maxWorkers=1 --no-file-parallelism
+
+(node:45021) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45036) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+> @copilotkit/core@1.71.0 test /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/packages/core
+> vitest run --maxWorkers=1 --no-file-parallelism
+(node:45053) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ RUN  v3.2.4 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/packages/core
+(node:45063) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/runtime-connection-health.test.ts (67 tests) 3897ms
+   ✓ runtime connection health (OSS-904) > answers a burst of simultaneous failures with exactly one probe  522ms
+(node:45131) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/intelligence-agent.test.ts (61 tests) 389ms
+(node:45133) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/memory.test.ts (70 tests) 92ms
+(node:45135) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-suggestions-e2e.test.ts (37 tests) 569ms
+(node:45140) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/state-manager.test.ts (46 tests) 19ms
+(node:45143) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/threads.test.ts (31 tests) 86ms
+(node:45148) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-inspector-metadata.test.ts (22 tests) 544ms
+(node:45150) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-subscribe-to-agent.test.ts (36 tests) 12ms
+(node:45167) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/proxied-runtime-transport.test.ts (35 tests) 638ms
+(node:45169) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-suggestions-stateless.test.ts (13 tests) 618ms
+(node:45171) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/runtime-entitlements.test.ts (13 tests) 679ms
+(node:45183) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/micro-redux.test.ts (20 tests) 5ms
+(node:45185) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/state-manager-tool-result-history.test.ts (14 tests) 35ms
+(node:45188) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-error-handling.test.ts (10 tests) 61ms
+(node:45190) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-suggestions.test.ts (22 tests) 265ms
+(node:45192) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-headers.test.ts (20 tests) 63ms
+(node:45197) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/runtime-connection-health-intelligence.test.ts (8 tests) 170ms
+(node:45200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/state-manager-raw-event.test.ts (10 tests) 10ms
+(node:45202) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/run-handler-webmcp.test.ts (15 tests) 58ms
+(node:45207) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-run-tool.test.ts (16 tests) 8ms
+(node:45209) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/thread-store-registry.test.ts (13 tests) 6ms
+(node:45211) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-register-proxied-agent.test.ts (16 tests) 8ms
+(node:45213) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-full.test.ts (9 tests) 160ms
+(node:45215) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/run-handler-zod-regression.test.ts (20 tests) 5ms
+(node:45217) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/single-route-resource-transport.test.ts (7 tests) 318ms
+(node:45219) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-edge-cases.test.ts (10 tests) 6ms
+(node:45221) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-follow-up.test.ts (8 tests) 5ms
+(node:45223) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/run-handler-tool-registry.test.ts (13 tests) 3ms
+(node:45225) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-frontend-tool-placeholder.test.ts (7 tests) 5ms
+(node:45227) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-connect-thread-switch.test.ts (5 tests) 4ms
+(node:45229) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/agent-registry-preserve-instance.test.ts (3 tests) 103ms
+(node:45231) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-parallel-tool-order.test.ts (3 tests) 4ms
+(node:45233) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-context-timing.test.ts (2 tests) 4ms
+(node:45244) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-context-injection.test.ts (7 tests) 4ms
+(node:45258) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-credentials.test.ts (6 tests) 82ms
+(node:45260) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-defer-runtime-connection.test.ts (7 tests) 347ms
+(node:45263) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/run-handler-standard-schema.test.ts (6 tests) 5ms
+(node:45265) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-thread-store-auto-unregister.test.ts (3 tests) 3ms
+(node:45267) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/proxied-connect-replay-multi-run.test.ts (2 tests) 7ms
+(node:45269) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-basic-functionality.test.ts (8 tests) 4ms
+(node:45274) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/runtime-info-error-detail.test.ts (7 tests) 264ms
+(node:45276) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/phoenix-observable.test.ts (5 tests) 3ms
+(node:45278) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-abort-during-tool.test.ts (4 tests) 4ms
+(node:45280) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-agent-id-validation.test.ts (6 tests) 3ms
+(node:45282) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/inspector-thread-bridge.test.ts (7 tests) 2ms
+(node:45344) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/run-handler-capability-toggle.test.ts (6 tests) 3ms
+(node:45346) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-thread-switch-race.test.ts (3 tests) 4ms
+(node:45348) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/debug-config-threading.test.ts (9 tests) 3ms
+(node:45350) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/run-handler-available.test.ts (5 tests) 2ms
+(node:45352) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-a2ui-scoping.test.ts (4 tests) 47ms
+(node:45354) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/memory-store.test.ts (3 tests) 107ms
+(node:45356) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-agent-constraints.test.ts (3 tests) 2ms
+(node:45358) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-tool-simple.test.ts (2 tests) 4ms
+(node:45360) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/agent-registry-resync.test.ts (1 test) 44ms
+(node:45362) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-suggestions-capability.test.ts (3 tests) 36ms
+(node:45364) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/catalog-components.test.ts (5 tests) 2ms
+(node:45366) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-agent-run-started.test.ts (2 tests) 3ms
+(node:45368) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-connect-passive-replay.test.ts (2 tests) 3ms
+(node:45370) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/interrupt-state.test.ts (3 tests) 2ms
+(node:45372) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-tool-minimal.test.ts (2 tests) 3ms
+(node:45374) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-run-agent-resume.test.ts (3 tests) 2ms
+(node:45376) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/run-handler-ensureObjectArgs.test.ts (8 tests) 2ms
+(node:45378) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/run-handler-schema.test.ts (3 tests) 2ms
+(node:45381) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-wildcard.test.ts (2 tests) 2ms
+(node:45383) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/core/__tests__/core-capability-toggle.test.ts (2 tests) 2ms
+(node:45385) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-simple.test.ts (1 test) 2ms
+(node:45387) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/tool-result-content.test.ts (11 tests) 2ms
+(node:45389) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/features.test.ts (4 tests) 1ms
+(node:45391) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/core-basic.test.ts (2 tests) 2ms
+(node:45393) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/import.test.ts (1 test) 1ms
+(node:45395) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/simple.test.ts (1 test) 1ms
+ Test Files  71 passed (71)
+      Tests  841 passed (841)
+   Start at  21:05:21
+   Duration  23.07s (transform 442ms, setup 0ms, collect 6.79s, tests 9.86s, environment 4ms, prepare 1.83s)
+(node:45397) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+
+ NX   Successfully ran target test for project @copilotkit/core and 1 task it depends on
+
+Nx read the output from the cache instead of running the command for 1 out of 2 tasks.
+
