@@ -16,7 +16,7 @@ description: Create components that your agent can use to interact with the user
 Frontend tools enable you to define client-side functions that your LangGraph agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
-This can be utilized for to let [your agent control the UI](/langgraph/frontend-tools), [generative UI](/langgraph/frontend-tools), or for Human-in-the-loop interactions.
+Use frontend tools to let [your agent control the UI](/langgraph/frontend-tools), create [generative UI](/langgraph/frontend-tools), or run human-in-the-loop interactions.
 
 In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
@@ -42,7 +42,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
         of the tool is gated by a user's decision.
 
-        In this example we will simulate a "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
+        In this example we will simulate an approval flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
         prompts the user for approval.
 
         ```tsx title="page.tsx"
