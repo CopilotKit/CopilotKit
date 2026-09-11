@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "tools/runtime-conformance"
+  - "tools/learned-skill-conformance"
   - "examples/v1/*"
   - "examples/v2/*"
   - "examples/v2/*/apps/*"

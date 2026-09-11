@@ -1,0 +1,7 @@
+{
+  "name": "learned-skill-conformance",
+  "private": true,
+  "type": "module",
+  "description": "AIMock acceptance against the real learned-skill delivery API",
+  "dependencies": { "@copilotkit/aimock": "1.10.0" }
+}
