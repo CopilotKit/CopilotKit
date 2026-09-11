@@ -16,6 +16,12 @@ description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-b
   This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
 </Callout>
 
+<Callout type="info">
+  Interrupts can also back frontend *tools*, so the agent awaits a client-side tool result mid-turn
+  instead of ending its turn. See
+  [Awaiting frontend tool results in the same turn](/integrations/langgraph/frontend-tools#awaiting-frontend-tool-results-in-the-same-turn).
+</Callout>
+
 ## What is this?
 
 [LangGraph's interrupt flow](https://docs.langchain.com/oss/python/langgraph/interrupts) provides an intuitive way to implement Human-in-the-loop workflows.
