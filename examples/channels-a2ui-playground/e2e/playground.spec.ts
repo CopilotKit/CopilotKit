@@ -1,5 +1,42 @@
 import { expect, test } from "@playwright/test";
 
+test("renders Retry and logs its edited data-bound action", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page
+    .getByLabel("Example", { exact: true })
+    .selectOption("basic-text-button");
+  const preview = page.getByRole("region", { name: "Slack preview" });
+  await expect(
+    preview.getByRole("button", { name: "Retry", exact: true }),
+  ).toBeVisible();
+
+  const editor = page.getByRole("textbox", { name: "A2UI JSON" });
+  const input = JSON.parse(await editor.inputValue());
+  input.data.service = "billing";
+  await editor.fill(JSON.stringify(input));
+  await page.getByRole("button", { name: "Render preview" }).click();
+  await preview.getByRole("button", { name: "Retry", exact: true }).click();
+
+  const log = page.getByRole("region", { name: "Action log" });
+  await expect(log).toContainText('"name": "retry"');
+  await expect(log).toContainText('"service": "billing"');
+  await expect(log).toContainText("direct click");
+  await preview.getByRole("button", { name: "Simulate", exact: true }).click();
+  await expect(log.getByRole("listitem")).toHaveCount(2);
+  await expect(log.getByRole("listitem").first()).toContainText(
+    '"service": "billing"',
+  );
+  await expect(log.getByRole("listitem").first()).toContainText(
+    "renderer simulate",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("text-and-button.png"),
+    fullPage: true,
+  });
+});
+
 test("reports a rendered button with an unmapped action ID", async ({
   page,
 }) => {

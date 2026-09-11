@@ -80,6 +80,7 @@ describe("compileA2UIToSlackPreview", () => {
     const action = await result.actions[actionId]!();
 
     expect(actionId).toBe("a2ui|status|button|retry");
+    expect(slackActionIds(result)).toEqual([actionId]);
     expect(action).toMatchObject({
       name: "retry",
       surfaceId: "status",
@@ -87,6 +88,81 @@ describe("compileA2UIToSlackPreview", () => {
       context: { service: "api" },
     });
   });
+
+  it("renders the Retry button from the built-in text and button example", () => {
+    const example = PLAYGROUND_EXAMPLES.find(
+      (item) => item.id === "basic-text-button",
+    )!;
+    const result = compileA2UIToSlackPreview(example.input);
+
+    expect(result.diagnostics.filter((d) => d.level === "error")).toEqual([]);
+    expect(result.blocks).toMatchObject([
+      { type: "header", text: { text: "Status ready" } },
+      {
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: { text: "Retry" },
+            action_id: "a2ui|basic|button|retry",
+          },
+        ],
+      },
+    ]);
+    expect(slackActionIds(result)).toEqual(Object.keys(result.actions));
+  });
+
+  it.each([
+    {
+      placement: "at the surface root",
+      containers: [],
+      buttonId: "root",
+      expectedBlocks: ["actions"],
+    },
+    {
+      placement: "inside a card",
+      containers: [{ id: "root", component: "Card", child: "button" }],
+      buttonId: "button",
+      expectedBlocks: ["actions"],
+    },
+    {
+      placement: "between text in a mixed row",
+      containers: [
+        {
+          id: "root",
+          component: "Row",
+          children: ["before", "button", "after"],
+        },
+        { id: "before", component: "Text", text: "Before" },
+        { id: "after", component: "Text", text: "After" },
+      ],
+      buttonId: "button",
+      expectedBlocks: ["section", "actions", "section"],
+    },
+  ])(
+    "preserves a button $placement in the Slack output",
+    ({ containers, buttonId, expectedBlocks }) => {
+      const result = compileA2UIToSlackPreview({
+        surfaceId: "placement",
+        components: [
+          ...containers,
+          { id: "label", component: "Text", text: "Retry" },
+          {
+            id: buttonId,
+            component: "Button",
+            child: "label",
+            action: { event: { name: "retry" } },
+          },
+        ],
+      });
+
+      expect(result.diagnostics.filter((d) => d.level === "error")).toEqual([]);
+      expect(blockTypes(result)).toEqual(expectedBlocks);
+      expect(slackActionIds(result)).toEqual([
+        `a2ui|placement|${buttonId}|retry`,
+      ]);
+    },
+  );
 
   it("returns diagnostics instead of throwing for invalid shapes, duplicate ids, missing roots, and cycles", () => {
     const invalid = compileA2UIToSlackPreview({ components: [] });

@@ -4,7 +4,7 @@ import {
   GenericBinder,
 } from "@a2ui/web_core/v0_9";
 import type { Action, SurfaceModel } from "@a2ui/web_core/v0_9";
-import { renderToIR } from "@copilotkit/channels-ui";
+import { Actions, renderToIR } from "@copilotkit/channels-ui";
 import type {
   ChannelNode,
   InteractionContext,
@@ -105,5 +105,9 @@ export function lowerSurface(
     }
   };
 
-  return lower("root", "/", new Set());
+  // A2UI buttons can be roots or children of flattened layouts. Message-level
+  // channel buttons need an Actions container to render in Slack.
+  return lower("root", "/", new Set()).map((node) =>
+    node.type === "button" ? Actions({ children: [node] }) : node,
+  );
 }
