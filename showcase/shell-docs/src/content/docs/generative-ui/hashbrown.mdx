@@ -7,7 +7,10 @@ snippet_cell: declarative-hashbrown
 
 <InlineDemo demo="declarative-hashbrown" />
 
-You have a chat surface and you want the agent to draw a dashboard, not just describe one in prose. By the end of this guide, the agent will stream a structured output object, [`@hashbrownai/react`](https://www.npmjs.com/package/@hashbrownai/react)'s progressive JSON parser will hand each finished slice to your renderer as it arrives, and the user sees the dashboard fill in live.
+Use Hashbrown when you already have a component library and want an agent's
+structured JSON response to render as a dashboard in chat. The selected
+Showcase demo sends one schema-valid JSON object; Hashbrown parses it as the
+response streams and renders the pieces that are ready.
 
 ## When to use this
 
@@ -19,86 +22,65 @@ If you'd rather work with an explicit catalog of registered components rather th
 
 ## Frontend
 
-The integration point is `<CopilotChat>`'s `messageView.assistantMessage` slot. Replace the default assistant-message renderer with a Hashbrown-backed one, and the chat takes care of everything else:
+The selected Showcase demo mounts a Hashbrown dashboard provider around the
+chat, then replaces the assistant-message slot with its source-backed
+renderer:
 
-```tsx title="frontend/src/app/page.tsx"
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
-import { HashBrownAssistantMessage } from "./hashbrown-renderer";
+<Snippet
+  cell="declarative-hashbrown"
+  file="src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx"
+  lines="190-201"
+  title="frontend/src/app/hashbrown-renderer.tsx — provider"
+/>
 
-export default function ByocHashbrownDemo() {
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Sales overview", message: "Show me a sales dashboard." },
-      { title: "Region split", message: "Break down sales by region." },
-    ],
-    available: "always",
-  });
+`useUiKit` builds the component schema and renderer from the exposed
+components. The same kit schema is passed to `useJsonParser`, and the parsed
+value is rendered only after it is valid for that schema:
 
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit-byoc-hashbrown" agent="byoc_hashbrown">
-      <CopilotChat
-        messageView={{ assistantMessage: HashBrownAssistantMessage }}
-      />
-    </CopilotKit>
-  );
-}
-```
+<Snippet
+  cell="declarative-hashbrown"
+  file="src/app/demos/declarative-hashbrown/chat.tsx"
+  lines="10-24"
+  title="frontend/src/app/chat.tsx — assistant-message slot"
+/>
 
-The custom renderer is where Hashbrown earns its keep. `useJsonParser` consumes the streaming text content of an assistant message and emits typed JSON values as they parse; `useUiKit` resolves component names against your catalog and renders them with their props:
+<Snippet
+  cell="declarative-hashbrown"
+  file="src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx"
+  lines="122-185"
+  title="frontend/src/app/hashbrown-renderer.tsx — component schema"
+/>
 
-```tsx title="frontend/src/app/hashbrown-renderer.tsx"
-import { useJsonParser, useUiKit } from "@hashbrownai/react";
-import { MetricCard } from "./metric-card";
-import { PieChart, BarChart } from "./charts";
+<Snippet
+  cell="declarative-hashbrown"
+  file="src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx"
+  lines="203-239"
+  title="frontend/src/app/hashbrown-renderer.tsx — parser and message renderer"
+/>
 
-const catalog = {
-  MetricCard,
-  PieChart,
-  BarChart,
-};
+The exposed components are the allowlist. A streamed value must match the kit
+schema before the selected demo renders it.
 
-export function HashBrownAssistantMessage({ message }: { message: AssistantMessage }) {
-  const parsed = useJsonParser(message.content ?? "");
-  const ui = useUiKit({ catalog, value: parsed });
-  return <div className="space-y-3">{ui}</div>;
-}
-```
+## Try it
 
-Each component in the catalog is just a regular React component. The catalog acts as a typed allowlist: anything the agent emits that isn't in the catalog won't render, so the agent can't draw arbitrary HTML into the page.
+Open the demo above and ask: **“Show a Q4 sales dashboard with revenue by
+segment and a monthly trend.”** The selected agent must return one JSON object
+whose `ui` array uses the component names registered in the kit.
 
 ## Backend
 
-The agent's job is to stream structured output, not text. How you do that depends on your framework, but the shape is always the same: emit a JSON object at the top level of the assistant message, where each child references a component name and props matching the catalog.
-
-```text title="example agent output (streaming)"
-{
-  "type": "MetricCard",
-  "title": "Total revenue",
-  "value": 184302,
-  "delta": 0.07
-}
-```
-
-Or a tree:
-
-```text
-{
-  "type": "Stack",
-  "children": [
-    { "type": "MetricCard", "title": "Total revenue", "value": 184302 },
-    { "type": "BarChart",   "data": [...] }
-  ]
-}
-```
-
-Hashbrown's parser tolerates partial JSON, so the user sees `MetricCard` resolve before `BarChart` even starts streaming.
+The agent streams one JSON object that matches the `useUiKit` schema. In the
+selected demo, its top-level `ui` array contains single-key nodes such as
+`metric`, `pieChart`, `barChart`, `dealCard`, and `Markdown`; their props must
+match the component declarations above. The agent must emit JSON with no prose
+prefix because the parser receives its assistant content directly.
 
 ## Comparing the two BYOC patterns
 
-Both `byoc-hashbrown` and [`byoc-json-render`](/generative-ui/json-render) solve the same problem (agent-authored structured UI, rendered through a typed catalog), with two different rendering libraries. Pick whichever you already use elsewhere — the agent contract is the same shape; the React glue is what changes.
+Both patterns let an agent produce structured UI from an allowlisted component
+set, but their wire contracts differ. Hashbrown consumes a `ui` array of
+single-key component nodes and can progressively render the stream. JSON
+Render consumes a `{ root, elements }` element map validated against its
+catalog. Pick the library you already use and keep its wire format intact.
 
 <IntegrationGrid path="declarative-hashbrown" />
