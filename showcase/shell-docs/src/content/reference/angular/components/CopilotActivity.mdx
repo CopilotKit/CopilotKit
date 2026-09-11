@@ -7,7 +7,7 @@ description: "Angular component that renders a single activity message through t
 
 `CopilotActivity` renders one activity message. It looks up the renderer registered for the message's `activityType` — via `provideCopilotKit({ renderActivityMessages })` or [`registerRenderActivityMessage`](/reference/angular/functions/registerRenderActivityMessage) — validates the message content against the renderer's schema, and mounts the renderer component with the `activityType`, `content`, `message`, and `agent` inputs.
 
-It is the activity counterpart of `RenderToolCalls` and the Angular equivalent of React's `useRenderActivityMessage()`. [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView) uses it for every message with `role: "activity"`, so the built-in chat and your own templates share one implementation.
+It renders activity messages alongside `RenderToolCalls`. [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView) uses it for every message with `role: "activity"`, so the built-in chat and your own templates share one implementation.
 
 Use it directly when you build a custom chat shell without `CopilotChatMessageView`, or when you host activities outside of a chat entirely — a dashboard, a side panel, an output area.
 

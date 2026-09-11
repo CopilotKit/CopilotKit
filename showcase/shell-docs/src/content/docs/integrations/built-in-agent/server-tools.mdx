@@ -16,12 +16,19 @@ Server tools are functions that run on your backend that the Built-in Agent can 
 
 <Callout type="warn" title="The tool runs on the server; the UI still runs in the browser">
 `execute` runs on your server, so it can reach secrets, a database, or an internal service —
-and it cannot touch the DOM, component state, or anything else in the page. When the *action*
-itself belongs in the browser, use [`useFrontendTool`](/frontend-tools) instead.
+and it cannot touch the DOM, component state, or anything else in the page.
 
+<FrontendOnly frontend="react">
+When the *action* itself belongs in the browser, use [`useFrontendTool`](/frontend-tools) instead.
 Rendering is separate from executing. A server tool's call still streams to the browser, so
 you can give it UI with a render-only `useRenderTool` registration under the same tool name
 while `execute` keeps running on the server.
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+For a browser action, register an Angular [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool).
+For a server tool that only needs a browser view, register [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall).
+</FrontendOnly>
 </Callout>
 
 ## Defining a tool

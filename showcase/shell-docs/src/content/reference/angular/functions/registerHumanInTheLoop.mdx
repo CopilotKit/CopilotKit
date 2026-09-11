@@ -109,7 +109,7 @@ type HumanInTheLoopToolCall<Args extends Record<string, unknown>> =
     };
 ```
 
-The `respond(result)` callback is how your component resumes the agent. The value you pass to `respond` becomes the tool result directly: a string is stored as-is, and any other value is serialized to JSON by core. It is not wrapped in an envelope, so the agent sees the same shape it would from the React and Vue adapters. While the agent waits, `status` is `executing` (or `in-progress` while the arguments are still streaming). Once the tool message arrives, `status` becomes `complete` and `result` contains the stored tool-message string.
+The `respond(result)` callback is how your component resumes the agent. The value you pass to `respond` becomes the tool result directly: a string is stored as-is, and any other value is serialized to JSON by core. It is not wrapped in an envelope, so the agent receives that value's original shape. While the agent waits, `status` is `executing` (or `in-progress` while the arguments are still streaming). Once the tool message arrives, `status` becomes `complete` and `result` contains the stored tool-message string.
 
 ## Usage
 

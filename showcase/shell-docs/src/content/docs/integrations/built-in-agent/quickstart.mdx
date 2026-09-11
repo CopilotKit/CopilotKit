@@ -37,9 +37,17 @@ Before you begin, you'll need the following:
         cd my-copilot-app
         ```
 
+        <FrontendOnly frontend="react">
         <Callout type="info" title="Already have an app?">
           Keep your current setup and install CopilotKit there. Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
         </Callout>
+        </FrontendOnly>
+
+        <FrontendOnly frontend="angular">
+        <Callout type="info" title="Already have an app?">
+          Keep your current app and follow the [Angular quickstart](/angular) to configure its provider and chat. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
+        </Callout>
+        </FrontendOnly>
     </Step>
     <Step>
         ### Install CopilotKit packages
@@ -134,6 +142,7 @@ Before you begin, you'll need the following:
         }
         ```
 
+        <FrontendOnly frontend="react">
         <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
           `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
           same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
@@ -141,6 +150,13 @@ Before you begin, you'll need the following:
           `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
           `/angular` and `/react-native` each show that setup.
         </Callout>
+        </FrontendOnly>
+
+        <FrontendOnly frontend="angular">
+        <Callout type="info" title="Choose an Angular runtime URL">
+          Configure the provider and runtime URL from the [Angular quickstart](/angular). Use a relative URL only when the Angular app and runtime share an origin; otherwise use the absolute runtime URL that your app can reach.
+        </Callout>
+        </FrontendOnly>
     </Step>
     <Step>
         ### Add the chat interface

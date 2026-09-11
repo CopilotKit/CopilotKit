@@ -480,6 +480,12 @@ test("canonicalizes React-only frontend topics to Angular-native task guides", (
   expect(getFrontendCanonicalSlug("angular", "frontend-tools")).toBe(
     "guides/frontend-tools-generative-ui",
   );
+  expect(getFrontendCanonicalSlug("angular", "server-tools")).toBe(
+    "guides/frontend-tools-generative-ui",
+  );
+  expect(
+    getFrontendCanonicalSlug("angular", "human-in-the-loop/governed-actions"),
+  ).toBe("guides/human-in-the-loop");
   expect(
     getFrontendCanonicalSlug(
       "angular",
