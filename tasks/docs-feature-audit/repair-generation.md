@@ -136,3 +136,32 @@ Local `:3004` response checks then confirmed six 200 responses (HTML and
 `generate_task_steps`, missing-snippet markers, or literal setup tags. The
 two generative-UI pages retain their own `render_bar_chart` renderer later in
 the page; the frontend-tools route does not inherit it from setup.
+
+## C037/C038 — Hashbrown and JSON Render source-backed guide code
+
+The two root BYOC guides were reachable but their frontend examples had
+separated from the selected Showcase implementations. Hashbrown showed a
+nonexistent `useJsonParser(message.content)` / `useUiKit({ catalog, value })`
+shape. JSON Render showed a handwritten parser and catalog API that did not
+exist in the demos.
+
+Each guide now resolves compact, source-backed excerpts from its selected
+`declarative-hashbrown` or `declarative-json-render` cell: Hashbrown's kit,
+provider, chat slot, and parser; JSON Render's catalog, registry, assistant
+renderer, and guarded parser. The guide does not duplicate either library's
+API. The renderer copies are currently integration-owned source files, so the
+guide uses bounded file excerpts rather than creating another shared copy or
+changing each frontend copy merely to add annotations.
+
+```sh
+npm --prefix showcase/shell-docs test -- --run \
+  src/lib/__tests__/byoc-source-guides.test.ts
+```
+
+Result: **1 file passed, 2 tests passed** after generation. The test renders
+both guides as raw Markdown for LangGraph Python, LangGraph TypeScript, Google
+ADK, Strands, and the built-in agent, and asserts their actual APIs resolve
+without skipped snippets. Local `:3004` delivery then checked both HTML and
+`.mdx` for both guides across those five frameworks: **20/20 responses were
+200**, contained all required selected-source terms, and contained no missing
+or unexpanded snippet marker.
