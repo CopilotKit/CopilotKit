@@ -2270,17 +2270,9 @@ def _interrupt_state(tool_calls, *, extra_messages=(), actions=(_FE_ACTION,)):
 
 
 def _run_after_model(state, resume, *, use_async=False):
-    """Call after_model in interrupt mode with a stubbed interrupt().
-
-    The precondition probe is stubbed out too: these tests drive the hook
-    directly rather than through a compiled graph, so there is no run config
-    for it to read.
-    """
+    """Call after_model in interrupt mode with a stubbed interrupt()."""
     middleware = CopilotKitMiddleware(interrupt_frontend_tools=True)
-    with (
-        patch(_INTERRUPT_TARGET) as fake_interrupt,
-        patch.object(CopilotKitMiddleware, "_check_interrupt_preconditions"),
-    ):
+    with patch(_INTERRUPT_TARGET) as fake_interrupt:
         fake_interrupt.return_value = resume
         runtime = MagicMock(name="runtime")
         runtime.context = None
@@ -2556,10 +2548,7 @@ def test_after_agent_is_a_no_op_in_interrupt_mode():
     middleware = CopilotKitMiddleware(interrupt_frontend_tools=True)
     state = _interrupt_state([_FE_CALL])
 
-    with (
-        patch(_INTERRUPT_TARGET) as fake_interrupt,
-        patch.object(CopilotKitMiddleware, "_check_interrupt_preconditions"),
-    ):
+    with patch(_INTERRUPT_TARGET) as fake_interrupt:
         fake_interrupt.return_value = {
             "tool_results": [{"toolCallId": "fe-1", "content": "ok"}]
         }
