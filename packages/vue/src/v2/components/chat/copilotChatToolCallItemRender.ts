@@ -1,4 +1,5 @@
 import type { Message, ToolCall, ToolMessage } from "@ag-ui/core";
+import { contentToText } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { ToolCallStatus } from "@copilotkit/core";
 import { partialJSONParse } from "@copilotkit/shared";
@@ -53,7 +54,7 @@ export function getToolCallRenderProps(
       name: toolCall.function.name,
       args: parsedArgs,
       status: ToolCallStatus.Complete,
-      result: toolMessage.content,
+      result: contentToText(toolMessage.content),
       toolCall,
       toolMessage,
     };
@@ -84,7 +85,7 @@ export function getCoreRenderProps(
       toolCallId: toolCall.id,
       args: parsedArgs,
       status: ToolCallStatus.Complete,
-      result: toolMessage.content,
+      result: contentToText(toolMessage.content),
     };
   }
 

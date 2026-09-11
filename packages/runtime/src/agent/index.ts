@@ -2,7 +2,7 @@ import type {
   BaseEvent,
   RunAgentInput,
   Message,
-  InputContent,
+  ContentPart,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
@@ -18,6 +18,7 @@ import type {
   RunErrorEvent,
   Interrupt,
   ResumeEntry,
+  ToolMessage,
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
@@ -174,6 +175,37 @@ export interface MCPClientProvider {
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
+
+/**
+ * An AG-UI tool result as the AI SDK's tool result output. A string is text.
+ * A list of parts becomes a content list: text parts as text, inline media as
+ * media with its bytes and media type, and a URL-referenced part as the URL
+ * it carries — the bytes are not here to hand over, and the reference is the
+ * content the tool actually returned. Nothing is invented for what cannot be
+ * represented, and an empty list is the empty result it is.
+ */
+function toolResultOutput(
+  content: ToolMessage["content"],
+): ToolResultPart["output"] {
+  if (typeof content === "string") return { type: "text", value: content };
+  if (content.length === 0) return { type: "text", value: "" };
+  return {
+    type: "content",
+    value: content.map((part) => {
+      if (part.type === "text")
+        return { type: "text" as const, text: part.text };
+      if (part.source.type === "data") {
+        return {
+          type: "media" as const,
+          data: part.source.value,
+          mediaType: part.source.mimeType,
+        };
+      }
+      return { type: "text" as const, text: part.source.value };
+    }),
+  };
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
@@ -349,7 +381,7 @@ type LegacyBinaryInputContent = {
  * and legacy BinaryInputContent for backward compatibility.
  */
 function convertUserMessageContent(
-  content: string | Array<InputContent | LegacyBinaryInputContent>,
+  content: string | Array<ContentPart | LegacyBinaryInputContent>,
 ): string | Array<TextPart | ImagePart | FilePart> {
   if (!content) {
     return "";
@@ -553,10 +585,7 @@ export function convertMessagesToVercelAISDKMessages(
         type: "tool-result",
         toolCallId: message.toolCallId,
         toolName: toolName,
-        output: {
-          type: "text",
-          value: message.content,
-        },
+        output: toolResultOutput(message.content),
       };
 
       const toolMsg: ToolModelMessage = {

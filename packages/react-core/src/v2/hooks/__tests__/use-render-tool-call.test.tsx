@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import type { ToolCall } from "@ag-ui/core";
+import type { ToolCall, ToolMessage } from "@ag-ui/core";
 
 import type { ReactToolCallRenderer } from "../../types/react-tool-call-renderer";
 import type { DefaultRenderProps } from "../use-default-render-tool";
@@ -68,9 +68,9 @@ const toolCall: ToolCall = {
 };
 
 // Resolves and renders the tool call using the production resolver.
-function ResolverProbe() {
+function ResolverProbe({ toolMessage }: { toolMessage?: ToolMessage } = {}) {
   const renderToolCall = useRenderToolCall();
-  return <>{renderToolCall({ toolCall })}</>;
+  return <>{renderToolCall({ toolCall, toolMessage })}</>;
 }
 
 describe("useRenderToolCall — opt-in default tool-call rendering", () => {
@@ -116,6 +116,63 @@ describe("useRenderToolCall — opt-in default tool-call rendering", () => {
     expect(custom.textContent).toBe("generate_a2ui");
     // The built-in card must not also render.
     expect(screen.queryByTestId("copilot-tool-render")).toBeNull();
+  });
+
+  // AG-UI 1.0: a tool result may be a list of content parts. The renderer
+  // contract is `result: string`, so the parts reach the renderer as their
+  // text, concatenated in order; a media part contributes nothing.
+  it("hands a parts-shaped tool result to the renderer as its text", async () => {
+    const toolMessage: ToolMessage = {
+      id: "tm-1",
+      role: "tool",
+      toolCallId: toolCall.id,
+      content: [
+        { type: "text", text: "Invoice " },
+        {
+          type: "document",
+          source: { type: "url", value: "https://example.com/INV-2291.pdf" },
+        },
+        { type: "text", text: "INV-2291 attached." },
+      ],
+    };
+    function Harness() {
+      useDefaultRenderTool({
+        render: ({ result, status }: DefaultRenderProps) => (
+          <div data-testid="custom-card">
+            {status}:{result}
+          </div>
+        ),
+      });
+      return <ResolverProbe toolMessage={toolMessage} />;
+    }
+
+    render(<Harness />);
+
+    const custom = await screen.findByTestId("custom-card");
+    expect(custom.textContent).toBe("complete:Invoice INV-2291 attached.");
+  });
+
+  it("hands a string tool result to the renderer unchanged", async () => {
+    const toolMessage: ToolMessage = {
+      id: "tm-1",
+      role: "tool",
+      toolCallId: toolCall.id,
+      content: "3 results found.",
+    };
+    function Harness() {
+      useDefaultRenderTool({
+        render: ({ result }: DefaultRenderProps) => (
+          <div data-testid="custom-card">{result}</div>
+        ),
+      });
+      return <ResolverProbe toolMessage={toolMessage} />;
+    }
+
+    render(<Harness />);
+
+    expect((await screen.findByTestId("custom-card")).textContent).toBe(
+      "3 results found.",
+    );
   });
 
   // Scenario 3: no hook -> nothing renders (no leaked card in production).

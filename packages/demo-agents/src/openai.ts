@@ -1,9 +1,5 @@
-import {
-  AbstractAgent,
-  RunAgentInput,
-  EventType,
-  BaseEvent,
-} from "@ag-ui/client";
+import type { RunAgentInput, BaseEvent } from "@ag-ui/client";
+import { AbstractAgent, EventType, contentToText } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { OpenAI } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
@@ -45,7 +41,9 @@ export class OpenAIAgent extends AbstractAgent {
               if (message.role === "tool") {
                 return {
                   role: "tool",
-                  content: message.content ?? "",
+                  // Chat Completions takes text here; a parts-shaped result is
+                  // rendered as its text parts (media stays on the AG-UI message).
+                  content: contentToText(message.content),
                   tool_call_id: message.toolCallId ?? "",
                 };
               } else if (message.role === "assistant" && message.toolCalls) {

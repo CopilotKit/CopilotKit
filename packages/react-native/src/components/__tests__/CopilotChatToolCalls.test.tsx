@@ -424,14 +424,33 @@ describe("CopilotChat tool-result content", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("serialises ARRAY tool content instead of collapsing it to an empty result", () => {
-    // The silent-failure regression: array content (structured / attachment
-    // parts) was coerced to "", which a renderer cannot distinguish from a tool
-    // that genuinely returned nothing.
+  it("renders PARTS tool content as its text, without a warning", () => {
+    // AG-UI 1.0: a tool result may be a list of content parts. That is
+    // legitimate content, not a malformed message: the renderer gets the text
+    // parts concatenated and the media part contributes nothing to the string.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    renderWithResult([{ type: "text", text: "hello" }]);
+    renderWithResult([
+      { type: "text", text: "hello " },
+      {
+        type: "image",
+        source: { type: "url", value: "https://example.com/x.png" },
+      },
+      { type: "text", text: "world" },
+    ]);
     expect(screen.getByTestId("result").textContent).toBe(
-      'complete|[{"type":"text","text":"hello"}]',
+      "complete|hello world",
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("serialises an ARRAY that is not parts instead of collapsing it to an empty result", () => {
+    // The silent-failure regression: array content that is not a parts list
+    // was coerced to "", which a renderer cannot distinguish from a tool that
+    // genuinely returned nothing.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult(["hello", 42]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|["hello",42]',
     );
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain("tc1");

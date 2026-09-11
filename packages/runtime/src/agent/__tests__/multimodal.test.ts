@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { convertMessagesToVercelAISDKMessages } from "../index";
-import type { Message, InputContent } from "@ag-ui/client";
-import type { UserModelMessage } from "ai";
+import type { Message, ContentPart } from "@ag-ui/client";
+import type { ToolModelMessage, ToolResultPart, UserModelMessage } from "ai";
 
 /**
  * Helper: build a user message with the given content parts and convert it.
  * Returns the converted UserModelMessage for assertion.
  */
-function convertUserContent(content: string | InputContent[]) {
+function convertUserContent(content: string | ContentPart[]) {
   const messages: Message[] = [{ id: "1", role: "user", content }];
   const result = convertMessagesToVercelAISDKMessages(messages);
   return result[0] as UserModelMessage;
@@ -114,6 +114,65 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
   it("returns empty string for empty content array", () => {
     const result = convertUserContent([]);
     expect(result.content).toBe("");
+  });
+
+  // AG-UI 1.0: a tool result is a string or a list of the same parts. The AI
+  // SDK's tool result output has a matching content form, so parts reach the
+  // model as parts rather than as flattened text.
+  describe("tool result content", () => {
+    function convertToolResult(content: string | ContentPart[]) {
+      const messages: Message[] = [
+        {
+          id: "a1",
+          role: "assistant",
+          toolCalls: [
+            {
+              id: "tc-1",
+              type: "function",
+              function: { name: "get_invoice", arguments: "{}" },
+            },
+          ],
+        },
+        { id: "t1", role: "tool", toolCallId: "tc-1", content },
+      ];
+      const result = convertMessagesToVercelAISDKMessages(messages);
+      const tool = result[1] as ToolModelMessage;
+      expect(tool.role).toBe("tool");
+      return tool.content[0] as ToolResultPart;
+    }
+
+    it("passes a string result through as text output", () => {
+      const part = convertToolResult("3 results found.");
+      expect(part.toolCallId).toBe("tc-1");
+      expect(part.output).toEqual({ type: "text", value: "3 results found." });
+    });
+
+    it("maps parts onto the AI SDK content output", () => {
+      const part = convertToolResult([
+        { type: "text", text: "Invoice attached." },
+        {
+          type: "document",
+          source: dataSource("JVBERi0x", "application/pdf"),
+        },
+        {
+          type: "image",
+          source: urlSource("https://example.com/scan.png", "image/png"),
+        },
+      ]);
+      expect(part.output).toEqual({
+        type: "content",
+        value: [
+          { type: "text", text: "Invoice attached." },
+          { type: "media", data: "JVBERi0x", mediaType: "application/pdf" },
+          { type: "text", text: "https://example.com/scan.png" },
+        ],
+      });
+    });
+
+    it("treats an empty parts list as an empty text result", () => {
+      const part = convertToolResult([]);
+      expect(part.output).toEqual({ type: "text", value: "" });
+    });
   });
 
   it("skips image parts with malformed URLs without crashing", () => {
