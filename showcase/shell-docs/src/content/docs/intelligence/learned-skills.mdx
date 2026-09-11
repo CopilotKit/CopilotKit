@@ -22,6 +22,77 @@ Attach an adapter to the agents that need skills. Adapters do not inspect or reb
 
 TypeScript uses the canonical client from `@copilotkit/runtime/v2`. Python uses `copilotkit-intelligence-runtime`. These dependencies include Runtime features beyond skill delivery. The .NET adapter targets `net9.0` and uses `CopilotKit.Intelligence`.
 
+## Native setup
+
+These adapters require the server and canonical client releases described below. The TypeScript native middleware remains blocked on an upstream LangChain fix; its planned API is not available yet.
+
+### LangGraph Python
+
+Use the middleware with native asynchronous agents from `langchain.agents.create_agent`:
+
+```python
+from copilotkit_intelligence_langgraph import create_skill_registry_middleware
+from langchain.agents import create_agent
+
+skills = create_skill_registry_middleware()  # Uses the environment below.
+try:
+    await skills.initialize()
+    agent = create_agent(
+        "your-provider:your-model",
+        system_prompt="Follow the application's support policy.",
+        middleware=[skills],
+    )
+    result = await agent.ainvoke(
+        {"messages": [{"role": "user", "content": "Help with a refund"}]}
+    )
+finally:
+    await skills.aclose()
+```
+
+Use `ainvoke` or `astream`; synchronous execution is unsupported. The adapter supports LangChain `>=1.2.16,<2` and LangGraph `>=1.1.10,<2`. Attach middleware explicitly to each agent that needs skills. Arbitrary compiled graphs are outside this integration.
+
+### Google ADK
+
+Add `SkillToolset` to a standard ADK `LlmAgent`:
+
+```python
+from copilotkit_intelligence_adk import SkillRegistry, SkillToolset
+from google.adk.agents import LlmAgent
+
+registry = SkillRegistry()
+await registry.initialize()
+agent = LlmAgent(
+    name="support",
+    model="your-model",
+    instruction="Follow the application's support policy.",
+    tools=[SkillToolset(registry)],
+)
+# Run this agent with your application's normal async ADK Runner.
+# Call await registry.aclose() after all runners finish.
+```
+
+The adapter supports `google-adk>=1.17,<2`. Several selected agents can share one registry. Closing a toolset does not close that shared registry. Native resumed runs receive a fresh invocation pin; session state contains no snapshot or lock.
+
+### Microsoft Agent Framework
+
+Use the provider's native agent factory with your application's `IChatClient`:
+
+```csharp
+using CopilotKit.Intelligence.AgentFramework;
+using Microsoft.Agents.AI;
+
+using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions());
+await skills.InitializeAsync();
+var agent = skills.CreateAgent(chatClient, new ChatClientAgentOptions
+{
+    Name = "support",
+    ChatOptions = new() { Instructions = "Follow the application's support policy." }
+});
+var response = await agent.RunAsync("Help with a refund.");
+```
+
+The adapter targets .NET 9 and Agent Framework `>=1.0.0,<2.0.0`. `AddCopilotKitIntelligenceSkills` also registers a keyed provider and native agent through dependency injection. Use this extension or `CreateAgent` for complete invocation checks. Background responses and continuation tokens are unsupported because the framework bypasses context providers for those calls.
+
 ## Configure one container
 
 An injected canonical Intelligence client supplies its existing project key, endpoint, and HTTP lifecycle. Your application retains ownership of that client. The adapter does not construct a second authenticated transport.
