@@ -17,6 +17,7 @@
     "bundle-content": "tsx bundle-demo-content.ts",
     "bundle-angular-content": "tsx bundle-angular-source-content.ts",
     "bundle-setup-content": "tsx bundle-setup-content.ts",
+    "sync-shared-frontends": "tsx sync-shared-frontends.ts",
     "extract-starter": "tsx extract-starter.ts",
     "test": "vitest run",
     "test:watch": "vitest"

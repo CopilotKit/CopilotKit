@@ -7,9 +7,9 @@
   },
   "fixtures": [
     {
-      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. Substring 'Italian pasta recipe' is unique. Text-only — agent has no tools.",
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. The state-context builder rewrites the final user turn with this recipe-editor marker; requiring it makes a missing UI-to-agent state bridge fail strict mode. Text-only — agent has no tools.",
       "match": {
-        "userMessage": "Italian pasta recipe",
+        "userMessage": "Current recipe from the editor",
         "turnIndex": 0,
         "context": "strands"
       },
@@ -18,9 +18,9 @@
       }
     },
     {
-      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. The same final-user marker proves the current editor state still reaches the model; the reply mentions recipe-context tokens for the shared probe assertion.",
       "match": {
-        "userMessage": "healthier with more vegetables",
+        "userMessage": "Current recipe from the editor",
         "context": "strands"
       },
       "response": {

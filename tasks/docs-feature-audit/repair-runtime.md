@@ -85,3 +85,17 @@
 - The page now passes its typed config as the provider `properties` value, the contract declared by the Built-in Agent manifest. The obsolete context relay was removed.
 - The identical browser capture now has the selected `tone`, `expertise`, and `responseLength` in `forwardedProps` and no context entry: `tasks/docs-feature-audit/repair-bia007-green-request.json`.
 - Strict local-AIMock D6 regression: `agent-config` green with six completed control turns; `agentic-chat` green with three turns; `tool-rendering` green with its weather-card assertion. Logs: `tasks/docs-feature-audit/repair-bia007-agent-config-d6.log`, `tasks/docs-feature-audit/repair-bia007-agentic-chat-d6.log`, `tasks/docs-feature-audit/repair-bia007-tool-rendering-d6.log`.
+
+## Strands C008 — backend recipe state lifting
+
+- Fresh direct builder RED showed the recipe sentinel absent from the outgoing model prompt while existing preference state was present. The backend had no `state.recipe` branch.
+- The state-context builder now formats the recipe snapshot on every turn. Direct sentinel GREEN: `tasks/docs-feature-audit/repair-strands008-recipe-builder-green.txt` contains both the title and ingredient sentinels.
+- The Strands fixture now requires the emitted `Current recipe from the editor` marker. The pre-readiness strict D6 RED is retained in `tasks/docs-feature-audit/repair-strands008-recipe-prompt-gated-d6.log` (AIMock 503 no fixture match). After the repair it is green in `tasks/docs-feature-audit/repair-strands008-recipe-prompt-gated-green3-d6.log`.
+
+## REPAIR-006 — shared recipe initialization readiness race
+
+- Separate from C008: the shared React page seeded a provisional `useAgent` object in an empty-dependency effect. Runtime synchronization then replaced that object, so the first real request could omit recipe state.
+- The canonical page waits for `isReady`, seeds the synchronized agent, and exposes the sidebar/send path only after initialization. It is materialized identically into Strands, LangGraph Python, and LangGraph TypeScript by `showcase/scripts/sync-shared-frontends.ts`; CI runs the checker from `showcase_validate.yml`.
+- Focused fanout test: one worker / no file parallelism, `tasks/docs-feature-audit/repair-shared-frontend-fanout-test.log` — 1 passing test.
+- Fresh strict D6 GREEN (one stack at a time): Strands `repair-shared-frontend-strands-shared-state-read-d6.log` (7.3s), LangGraph Python `repair-shared-frontend-langgraph-python-shared-state-read-d6.log` (8.9s), LangGraph TypeScript `repair-shared-frontend-langgraph-typescript-shared-state-read-d6.log` (12.4s). Each ran two shared-probe turns with one pass and zero failures.
+- The first LangGraph TypeScript retry was invalid setup only: local `AGENT_URL` was ignored and the runtime retained its default `localhost:8123`; the corrected `LANGGRAPH_DEPLOYMENT_URL=http://localhost:8124` green result above is authoritative. Audit stacks were stopped after every cell; final listener check found no audit ports or probe workers, and only pre-existing cpki containers remained.
