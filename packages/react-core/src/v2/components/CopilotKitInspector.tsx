@@ -1,3 +1,4 @@
+import packageInfo from "../../../package.json";
 import * as React from "react";
 import type { CopilotKitCore } from "@copilotkit/core";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
@@ -44,7 +45,11 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
         inspector = mountRef.current.ownerDocument.createElement(
           mod.WEB_INSPECTOR_TAG,
         ) as WebInspectorElement;
-        mod.configureWebInspectorElement(inspector, latestCoreRef.current);
+        mod.configureWebInspectorElement(inspector, latestCoreRef.current, {
+          development: process.env.NODE_ENV === "development",
+          framework: "react",
+          sdkVersion: packageInfo.version,
+        });
 
         inspector.addEventListener(
           "cpk-inspector-visibility-change",

@@ -1,0 +1,163 @@
+{
+  "feed": {
+    "schemaVersion": 1,
+    "notifications": [
+      {
+        "id": "5fbcde10-532d-55ae-855d-9ab61547589d",
+        "title": "fix",
+        "body": "Markdown **body**.",
+        "publishedAt": "2026-09-08T12:00:00.000Z",
+        "priority": "High",
+        "audiences": [
+          {
+            "framework": "react",
+            "sdkVersion": ">=1.70.1 <1.70.3"
+          },
+          {
+            "framework": "angular",
+            "sdkVersion": "~0.5.1"
+          }
+        ]
+      },
+      {
+        "id": "37aedef3-2ea4-5b1f-91f6-02c6490a3221",
+        "title": "pro-news",
+        "body": "Markdown **body**.",
+        "publishedAt": "2026-09-08T12:00:00.000Z",
+        "priority": "Normal",
+        "audiences": [
+          {
+            "intelligence": "enabled",
+            "plan": "pro",
+            "deployment": "managed"
+          }
+        ]
+      },
+      {
+        "id": "fcf31865-fc5d-58ee-aaed-ae7e750a404c",
+        "title": "try-intelligence",
+        "body": "Markdown **body**.",
+        "publishedAt": "2026-09-08T12:00:00.000Z",
+        "priority": "Low",
+        "audiences": [
+          {
+            "intelligence": "disabled"
+          }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "react boundary lower",
+      "context": {
+        "development": true,
+        "framework": "react",
+        "sdkVersion": "1.70.0"
+      },
+      "matching": []
+    },
+    {
+      "name": "react included",
+      "context": {
+        "development": true,
+        "framework": "react",
+        "sdkVersion": "1.70.2"
+      },
+      "matching": ["5fbcde10-532d-55ae-855d-9ab61547589d"]
+    },
+    {
+      "name": "react upper excluded",
+      "context": {
+        "development": true,
+        "framework": "react",
+        "sdkVersion": "1.70.3"
+      },
+      "matching": []
+    },
+    {
+      "name": "angular own line",
+      "context": {
+        "development": true,
+        "framework": "angular",
+        "sdkVersion": "0.5.2"
+      },
+      "matching": ["5fbcde10-532d-55ae-855d-9ab61547589d"]
+    },
+    {
+      "name": "vue not react",
+      "context": {
+        "development": true,
+        "framework": "vue",
+        "sdkVersion": "1.70.2"
+      },
+      "matching": []
+    },
+    {
+      "name": "prerelease",
+      "context": {
+        "development": true,
+        "framework": "react",
+        "sdkVersion": "1.70.2-beta.1"
+      },
+      "matching": []
+    },
+    {
+      "name": "unknown intelligence",
+      "context": {
+        "development": true,
+        "framework": "react",
+        "sdkVersion": "1.70.3"
+      },
+      "matching": []
+    },
+    {
+      "name": "confirmed disabled",
+      "context": {
+        "development": true,
+        "framework": "react",
+        "sdkVersion": "1.70.2",
+        "intelligence": "disabled"
+      },
+      "matching": [
+        "5fbcde10-532d-55ae-855d-9ab61547589d",
+        "fcf31865-fc5d-58ee-aaed-ae7e750a404c"
+      ]
+    },
+    {
+      "name": "managed pro",
+      "context": {
+        "development": true,
+        "framework": "react",
+        "sdkVersion": "1.70.2",
+        "intelligence": "enabled",
+        "plan": "pro",
+        "deployment": "managed"
+      },
+      "matching": [
+        "5fbcde10-532d-55ae-855d-9ab61547589d",
+        "37aedef3-2ea4-5b1f-91f6-02c6490a3221"
+      ]
+    },
+    {
+      "name": "unknown plan",
+      "context": {
+        "development": true,
+        "framework": "react",
+        "sdkVersion": "1.70.2",
+        "intelligence": "enabled",
+        "deployment": "managed"
+      },
+      "matching": ["5fbcde10-532d-55ae-855d-9ab61547589d"]
+    },
+    {
+      "name": "production",
+      "context": {
+        "development": false,
+        "framework": "react",
+        "sdkVersion": "1.70.2"
+      },
+      "matching": []
+    }
+  ]
+}

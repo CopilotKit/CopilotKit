@@ -1,3 +1,9 @@
+import { notificationTestId } from "./notification-fixture.js";
+vi.mock("../lib/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 // Launcher error signal (OSS-903)
 //
 // Same discipline as launcher-signal.spec.ts, whose helpers this suite mirrors:
@@ -33,9 +39,9 @@ import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
 
 const RUNTIME_URL = "https://runtime.error-signal.test";
 const AGENT_ID = "error-signal-agent";
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/notifications/v1.json";
 const INSPECTOR_STATE_KEY = "cpk:inspector:state";
-const PULSED_SESSION_KEY = "cpk:inspector:pulsed";
+const PULSED_SESSION_KEY = "cpk:inspector:notification-pulsed-id";
 const TIMESTAMP = "2026-08-01T09:00:00.000Z";
 
 // The contract, not an implementation detail: an error beats faster than
@@ -578,6 +584,7 @@ afterEach(() => {
 async function setup(options: Options = {}): Promise<Harness> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
   window.sessionStorage.clear();
   stubMatchMedia(options.reducedMotion === true);
   if (options.optedOut) {
@@ -703,6 +710,11 @@ async function setup(options: Options = {}): Promise<Harness> {
   }
 
   const inspector = new WebInspectorElement();
+  inspector.notificationContext = {
+    development: true,
+    framework: "react",
+    sdkVersion: "1.70.2",
+  };
   document.body.append(inspector);
   inspector.core = core;
   // A configured runtime that answered its handshake: the baseline every
@@ -725,6 +737,7 @@ async function setup(options: Options = {}): Promise<Harness> {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     window.localStorage.clear();
+    document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
     window.sessionStorage.clear();
     document.body.replaceChildren();
     document.getElementById("cpk-inspector-brand-fonts")?.remove();
@@ -1159,7 +1172,9 @@ test("a beat deferred because another signal owns the dot runs when that clears"
 
   expect(pulsing(context.inspector)).toBe(true);
   // Spent only now that it has actually been shown.
-  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(TIMESTAMP);
+  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(
+    notificationTestId(TIMESTAMP),
+  );
 });
 
 test("the one pending slot goes to the more urgent beat, and loses nothing", async () => {

@@ -33,10 +33,7 @@ import {
   hasTelemetryDisclosureBeenShown,
   isTelemetryOptedOut,
   loadAnnouncementPulsedTimestamp,
-  loadAnnouncementReadTimestamp,
   markTelemetryDisclosureShown,
-  saveAnnouncementPulsedTimestamp,
-  saveAnnouncementReadTimestamp,
   setTelemetryOptOut,
 } from "../persistence.js";
 
@@ -592,88 +589,6 @@ describe("distinct ID lifecycle", () => {
  * by host and survives. Everything the read state has to do is a consequence
  * of that asymmetry.
  */
-function moveToAnotherLocalhostPort(): void {
-  window.localStorage.clear();
-}
-
-/** A browser that blocks cookies: writes are dropped, reads come back empty. */
-function blockCookies(): void {
-  Object.defineProperty(document, "cookie", {
-    get: () => "",
-    set: () => {},
-    configurable: true,
-  });
-}
-
-describe("announcement read state", () => {
-  it("reports nothing read before anything is read", () => {
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
-  });
-
-  it("stays read after moving to another localhost port", () => {
-    saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z");
-
-    moveToAnotherLocalhostPort();
-
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
-  });
-
-  it("reports the announcement it was last given, so a newer one reads as unread", () => {
-    saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z");
-    saveAnnouncementReadTimestamp("2026-08-20T10:00:00.000Z");
-
-    moveToAnotherLocalhostPort();
-
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-20T10:00:00.000Z");
-  });
-
-  it("degrades to per-port memory when cookies are blocked", () => {
-    blockCookies();
-
-    expect(() =>
-      saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z"),
-    ).not.toThrow();
-    // Still remembered on the port the developer is working on…
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
-
-    // …and re-armed on the next one, which is the documented degradation.
-    moveToAnotherLocalhostPort();
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
-  });
-
-  it("ignores a malformed stored value instead of throwing", () => {
-    document.cookie = "cpk_inspector_announcements=%7Bnot-json";
-
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
-  });
-
-  it("does not throw when cookie access itself throws", () => {
-    // Sandboxed documents throw on `document.cookie` rather than returning
-    // an empty string, which must degrade to the mirror just as quietly.
-    Object.defineProperty(document, "cookie", {
-      get: () => {
-        throw new DOMException("SecurityError");
-      },
-      set: () => {
-        throw new DOMException("SecurityError");
-      },
-      configurable: true,
-    });
-
-    expect(() =>
-      saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z"),
-    ).not.toThrow();
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
-  });
-
-  it("does not throw in SSR (window undefined)", () => {
-    vi.stubGlobal("window", undefined);
-
-    expect(() => saveAnnouncementReadTimestamp("ts")).not.toThrow();
-    expect(() => loadAnnouncementReadTimestamp()).not.toThrow();
-  });
-});
-
 // ─── Pulse suppression (per browser tab) ────────────────────────────────────
 
 describe("announcement pulse suppression", () => {
@@ -684,17 +599,17 @@ describe("announcement pulse suppression", () => {
   // Deliberately the timestamp and not a boolean: a boolean would swallow a
   // newly published announcement for the rest of the tab's life.
   it("records which announcement the tab pulsed for", () => {
-    saveAnnouncementPulsedTimestamp("2026-08-19T10:00:00.000Z");
+    window.sessionStorage.setItem(
+      "cpk:inspector:pulsed",
+      "2026-08-19T10:00:00.000Z",
+    );
     expect(loadAnnouncementPulsedTimestamp()).toBe("2026-08-19T10:00:00.000Z");
 
-    saveAnnouncementPulsedTimestamp("2026-08-20T10:00:00.000Z");
+    window.sessionStorage.setItem(
+      "cpk:inspector:pulsed",
+      "2026-08-20T10:00:00.000Z",
+    );
     expect(loadAnnouncementPulsedTimestamp()).toBe("2026-08-20T10:00:00.000Z");
-  });
-
-  it("is not shared with the read state, which outlives the tab", () => {
-    saveAnnouncementPulsedTimestamp("2026-08-19T10:00:00.000Z");
-
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
   });
 
   it("does not throw when sessionStorage is unavailable", () => {
@@ -707,7 +622,6 @@ describe("announcement pulse suppression", () => {
       },
     });
 
-    expect(() => saveAnnouncementPulsedTimestamp("ts")).not.toThrow();
     // Losing the suppression costs one extra pulse, never correctness.
     expect(loadAnnouncementPulsedTimestamp()).toBeNull();
   });
@@ -727,21 +641,6 @@ describe("legacy announcement read state", () => {
     clearLegacyAnnouncementReadState();
 
     expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
-    expect(loadAnnouncementReadTimestamp()).toBeNull();
-  });
-
-  it("cannot resurrect the value once a new announcement is read", () => {
-    window.localStorage.setItem(
-      LEGACY_KEY,
-      JSON.stringify({ timestamp: "2026-08-01T10:00:00.000Z" }),
-    );
-
-    clearLegacyAnnouncementReadState();
-    saveAnnouncementReadTimestamp("2026-08-20T10:00:00.000Z");
-    clearLegacyAnnouncementReadState();
-
-    expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
-    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-20T10:00:00.000Z");
   });
 
   it("is safe on every startup, with or without a value to remove", () => {

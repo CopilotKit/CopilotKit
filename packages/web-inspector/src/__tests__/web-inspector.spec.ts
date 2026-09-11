@@ -1,3 +1,8 @@
+vi.mock("../lib/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 import {
   CpkThreadInspector,
   configureWebInspectorElement,
@@ -1516,7 +1521,7 @@ describe("CpkThreadInspector provider contract", () => {
 // cannot inflate itself by counting people who opened the Inspector for an
 // unrelated reason, or who arrived before the feed resolved.
 
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/notifications/v1.json";
 
 type OpenTelemetryInternals = {
   isOpen: boolean;
@@ -1539,6 +1544,10 @@ async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
   await inspector.updateComplete;
   inspector.shadowRoot
     ?.querySelector<HTMLElement>('button[data-inspector-menu-key="whats-new"]')
+    ?.click();
+  await inspector.updateComplete;
+  inspector.shadowRoot
+    ?.querySelector<HTMLButtonElement>(".cpk-notification-row")
     ?.click();
   await inspector.updateComplete;
 }
@@ -1597,6 +1606,11 @@ describe("WebInspectorElement open + What's new telemetry", () => {
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     }
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     document.body.appendChild(inspector);
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
     return {
@@ -1631,7 +1645,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     const viewed = eventsNamed("oss.inspector.whats_new_signal_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      banner_id: timestamp,
+      banner_id: "notice-" + Date.parse(timestamp),
       surface: "launcher",
       presentation: "animated",
       package_name: "@copilotkit/web-inspector",
@@ -1729,7 +1743,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     const viewed = eventsNamed("oss.inspector.whats_new_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      banner_id: timestamp,
+      banner_id: "notice-" + Date.parse(timestamp),
       surface: "whats_new",
       package_name: "@copilotkit/web-inspector",
     });
@@ -2210,6 +2224,11 @@ function setupRuntimeDiagnostics() {
 
     localStorage.removeItem("cpk:inspector:state");
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     document.body.appendChild(inspector);
     inspector.core = core;
     await inspector.updateComplete;

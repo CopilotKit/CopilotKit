@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import packageInfo from "../../../package.json";
 defineOptions({
   inheritAttrs: false,
 });
@@ -42,7 +43,12 @@ onMounted(() => {
       if (!isMounted) return;
 
       mod.defineWebInspector?.();
-      configureInspector = mod.configureWebInspectorElement;
+      configureInspector = (element, core) =>
+        mod.configureWebInspectorElement(element, core, {
+          development: process.env.NODE_ENV === "development",
+          framework: "vue",
+          sdkVersion: packageInfo.version,
+        });
       inspectorTag.value = mod.WEB_INSPECTOR_TAG;
     })
     .catch((error: unknown) => {

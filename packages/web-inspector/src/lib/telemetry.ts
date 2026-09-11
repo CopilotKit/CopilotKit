@@ -216,6 +216,7 @@ export type InspectorErrorSignalSource =
  */
 export function trackWhatsNewViewed(props: {
   banner_id: string;
+  notification_id?: string;
   surface: WhatsNewSurface;
   cta_label?: string;
 }): void {
@@ -225,6 +226,7 @@ export function trackWhatsNewViewed(props: {
 /** Fires when the unread launcher signal is presented in a visible tab. */
 export function trackWhatsNewSignalViewed(props: {
   banner_id: string;
+  notification_id?: string;
   surface: "launcher";
   presentation: WhatsNewSignalPresentation;
   cta_label?: string;
@@ -278,6 +280,7 @@ export function trackErrorSignalViewed(props: {
  */
 export function trackWhatsNewClicked(props: {
   banner_id: string;
+  notification_id?: string;
   cta: "body";
   cta_label?: string;
 }): void {
