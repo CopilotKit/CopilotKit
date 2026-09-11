@@ -125,15 +125,18 @@ export function DocsVideoCarousel() {
   }
 
   return (
-    <section className="mt-8">
+    <section className="mt-8 text-center">
       <h2 className="text-xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.375rem]">
         What is CopilotKit?
       </h2>
 
+      {/* justify-center groups the tabs at the strip's centre rather than
+       *  its left edge; the tabs themselves (and everything they control)
+       *  are untouched. */}
       <div
         role="tablist"
         aria-label="Product walkthrough recordings"
-        className="mt-4 flex flex-wrap gap-2"
+        className="mt-4 flex flex-wrap justify-center gap-2"
       >
         {RECORDINGS.map((recording, index) => {
           const isActive = index === activeIndex;

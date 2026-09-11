@@ -195,6 +195,35 @@ describe("DocsVideoCarousel", () => {
     expect(markedTab.textContent).toContain("Intelligence");
   });
 
+  // The section-level chrome centres to match the rest of the homepage
+  // below the hero; the tabs' own behaviour (selection, keyboard, the
+  // Intelligence mark) is covered separately above and untouched by this.
+  it("centres the section heading, the tab strip, and the caption", () => {
+    render(<DocsVideoCarousel />);
+
+    const heading = screen.getByRole("heading", {
+      name: "What is CopilotKit?",
+    });
+    const section = heading.closest("section");
+    expect(section).not.toBeNull();
+    expect(section!.className).toContain("text-center");
+
+    const tablist = screen.getByRole("tablist");
+    expect(tablist.className).toContain("justify-center");
+
+    const panel = screen.getByRole("tabpanel");
+    const caption = panel.querySelector("p");
+    expect(caption).not.toBeNull();
+    // The caption has no centring class of its own — it inherits the
+    // section's text-center, so walk up to confirm that ancestor exists
+    // rather than asserting on computed style, which jsdom never lays out.
+    let ancestor: HTMLElement | null = caption;
+    while (ancestor && !ancestor.className.includes("text-center")) {
+      ancestor = ancestor.parentElement;
+    }
+    expect(ancestor).not.toBeNull();
+  });
+
   it("never renders an em-dash", () => {
     const { container } = render(<DocsVideoCarousel />);
 

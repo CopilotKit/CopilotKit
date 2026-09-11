@@ -48,7 +48,7 @@ function BackendGrid() {
 
   return (
     <section id="backends" className="not-prose">
-      <div className="mb-5 max-w-2xl">
+      <div className="mx-auto mb-5 flex max-w-2xl flex-col items-center text-center">
         <h2 className="text-xl font-semibold tracking-tight text-[var(--text)] sm:text-2xl">
           What can I use it with?
         </h2>
@@ -75,6 +75,12 @@ function BackendGrid() {
                 className="text-[var(--accent)]"
               />
             </span>
+            {/* This name and description stay left-aligned under the logo
+             *  even though the section heading above centres — a card is
+             *  scanned as a row (logo, then name, then description), the
+             *  same reading order every other row in this grid uses, and
+             *  centring it would only make the grid harder to scan down.
+             *  Don't add text-center here to "match" the heading. */}
             <span className="min-w-0 flex-1 sm:pr-2">
               <span className="block text-sm font-semibold leading-snug text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
                 {i.name}

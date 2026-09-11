@@ -121,7 +121,14 @@ export const CORE_TREATMENT_CLASS =
 
 /** The heading and paragraph that frame the wizard. One step up from a
  *  step's own heading, so it reads as their parent rather than a fifth
- *  step. */
+ *  step.
+ *
+ *  Centred like every other section title on the homepage (the video
+ *  heading, the backend grid heading) — this component stops at the
+ *  frame. The wizard card itself, and the option tiles `PickGrid` and
+ *  `CapabilityGrid` render inside it, are a different register (content
+ *  read top to bottom, not a section banner) and stay left-aligned;
+ *  resist the urge to carry `text-center` down into them too. */
 export function MapIntro({
   heading,
   body,
@@ -130,7 +137,9 @@ export function MapIntro({
   body: string;
 }): React.JSX.Element {
   return (
-    <div className={`not-prose mb-7 md:mb-9 ${MAP_SLOT.full}`}>
+    <div
+      className={`not-prose mb-7 flex flex-col items-center text-center md:mb-9 ${MAP_SLOT.full}`}
+    >
       <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-[1.625rem]">
         {heading}
       </h2>

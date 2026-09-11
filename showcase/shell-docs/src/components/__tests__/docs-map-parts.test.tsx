@@ -81,6 +81,54 @@ describe("MapIntro", () => {
     expect(markup).toMatch(/<h2[^>]*>Set up CopilotKit<\/h2>/);
     expect(markup).toContain("One paragraph.");
   });
+
+  // The intro frames the wizard the same way the video and backend-grid
+  // headings frame their own sections; the wizard card underneath it is a
+  // different matter (see the guard below and the comment on MapIntro
+  // itself).
+  it("centres the heading and body", () => {
+    const markup = renderToStaticMarkup(
+      <MapIntro heading="Set up CopilotKit" body="One paragraph." />,
+    );
+
+    expect(markup).toContain("text-center");
+    expect(markup).toContain("items-center");
+  });
+});
+
+// The wizard's own step content — its option tiles — must not pick up the
+// centring added to MapIntro above it. This is the guard that actually
+// matters: an over-centred card is the likely regression, and nothing in
+// the "things that should centre" tests would ever catch it.
+describe("wizard card content stays left-aligned", () => {
+  it("keeps PickGrid's option buttons left-aligned", () => {
+    render(<PickGrid picks={PICKS} disabled={false} onSelect={vi.fn()} />);
+
+    for (const pick of PICKS) {
+      const button = screen.getByRole("button", { name: pick.name });
+      expect(button.className).toContain("text-left");
+      expect(button.className).not.toContain("text-center");
+    }
+  });
+
+  it("keeps CapabilityGrid's option buttons left-aligned", () => {
+    render(
+      <CapabilityGrid
+        capabilities={CAPABILITIES}
+        selectedIds={[]}
+        disabled={false}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    for (const capability of CAPABILITIES) {
+      const button = screen.getByRole("button", {
+        name: startsWithTitle(capability.title),
+      });
+      expect(button.className).toContain("text-left");
+      expect(button.className).not.toContain("text-center");
+    }
+  });
 });
 
 describe("PickGrid", () => {
