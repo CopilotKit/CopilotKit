@@ -1,6 +1,6 @@
 ---
 title: Agent Config
-description: Forward typed configuration from your UI into the agent's reasoning loop.
+description: Let users change the agent's tone, expertise, and response length.
 icon: "lucide/SlidersHorizontal"
 snippet_cell: agent-config
 frontend: universal
@@ -8,7 +8,9 @@ frontend: universal
 
 <InlineDemo demo="agent-config" />
 
-You have a working agent and want the user to be able to tune how it behaves: tone, expertise level, response length, language, persona. By the end of this guide, your UI will own a typed config object that the agent reads on every run and rebuilds its system prompt from.
+Let users tune how the agent responds: its tone, expertise level, response
+length, language, or persona. This guide shows how the UI sends those settings
+with each run so the agent can rebuild its system prompt.
 
 ## When to use this
 
@@ -19,9 +21,13 @@ Reach for agent config whenever the agent's behaviour depends on user-controllab
 - **Response shape**: short / medium / long, structured / prose, language
 - **Domain switches**: which knowledge base to consult, which tool subset to enable
 
-If the values are a *channel* the user occasionally tunes (a settings panel, a toolbar of selects), agent config is the right shape. If the values are *content* the agent should write back to (notes, a document, a plan), use [Shared State](/shared-state) instead.
+Use agent config for settings people adjust occasionally, such as a settings
+panel or toolbar. For content the agent should write back, such as notes, a
+document, or a plan, use [Shared State](/shared-state) instead.
 
-How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Agents living behind a runtime read it from agent state on every run, while in-process agents receive the same object as forwarded properties on the provider — same UX, slightly different wiring on each side.
+How the settings reach the agent depends on the runtime. Agents behind a
+separate runtime read them from agent state on each run. In-process agents
+receive the same object as forwarded provider properties.
 
 <WhenFrameworkHas flag="agent_config_pattern" equals="shared-state">
 
