@@ -1,8 +1,7 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import { WebSocketServer } from "ws";
-import type { WebSocket } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import { expect, test, vi } from "vitest";
 import { IntelligenceAgentRunner } from "../intelligence";
 import { CopilotRuntime } from "../../core/runtime";
@@ -48,6 +47,10 @@ function reply(
 
 /** Exercises the real Phoenix client against a controllable gateway transport. */
 async function setup(batch = false) {
+  // Node 20 does not expose a global WebSocket. Keep Node 22+ on its native
+  // transport and supply the same protocol transport for the older CI lane.
+  const needsWebSocket = typeof globalThis.WebSocket === "undefined";
+  if (needsWebSocket) vi.stubGlobal("WebSocket", WebSocket);
   const server = new WebSocketServer({ port: 0 });
   await new Promise<void>((resolve) => server.once("listening", resolve));
   const address = server.address();
@@ -139,6 +142,7 @@ async function setup(batch = false) {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
     );
+    if (needsWebSocket) vi.unstubAllGlobals();
   }
 
   return {
