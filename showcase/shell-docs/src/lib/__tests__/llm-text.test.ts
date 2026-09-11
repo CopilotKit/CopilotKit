@@ -848,9 +848,13 @@ test("renders executable Claude SDK tool wiring on both tool-rendering routes", 
 });
 
 test.each(["google-adk", "langgraph-python", "mastra"])(
-  "renders one dependency-complete canonical tool-rendering example for %s",
+  "renders the Showcase-owned named tool renderer for %s",
   (framework) => {
-    const doc = loadDoc("generative-ui/tool-rendering");
+    const loadSlug =
+      framework === "mastra"
+        ? "integrations/mastra/generative-ui/tool-rendering"
+        : "generative-ui/tool-rendering";
+    const doc = loadDoc(loadSlug);
     expect(doc).not.toBeNull();
 
     const output = renderPageToLlmText(
@@ -859,38 +863,25 @@ test.each(["google-adk", "langgraph-python", "mastra"])(
         title: doc!.fm.title,
         description: doc!.fm.description,
         filePath: doc!.filePath,
-        loadSlug: "generative-ui/tool-rendering",
+        loadSlug,
         framework,
       },
       { framework },
     );
 
-    for (const dependency of [
-      'import { WeatherCard } from "../components/weather-card";',
-      'import { FlightListCard, type Flight } from "../components/flight-list-card";',
-      'import { parseJsonResult } from "../lib/parse-json-result";',
-      'import { ToolRenderers } from "./tool-renderers";',
+    for (const sourceDetail of [
+      "useRenderTool,\n  useDefaultRenderTool,",
+      'import { WeatherCard } from "./weather-card";',
       "interface WeatherResult",
-      "interface FlightSearchResult",
-      "export function WeatherCard",
-      "export function FlightListCard",
-      "export function parseJsonResult",
-      "export default function Page",
-      '<CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">',
-      "<ToolRenderers />",
-      '<CopilotChat agentId="tool-rendering" />',
+      'name: "get_weather",',
+      "parameters: z.object({",
+      "const parsed = parseJsonResult<WeatherResult>(result);",
+      "<WeatherCard",
     ]) {
-      expect(output, `${framework}: ${dependency}`).toContain(dependency);
+      expect(output, `${framework}: ${sourceDetail}`).toContain(sourceDetail);
     }
 
-    expect(
-      output.match(/const parsed = parseJsonResult<WeatherResult>\(result\);/g),
-    ).toHaveLength(1);
-    expect(
-      output.match(
-        /const parsed = parseJsonResult<FlightSearchResult>\(result\);/g,
-      ),
-    ).toHaveLength(1);
+    expect(output).not.toContain("ToolRenderingPerToolExample");
     expect(output).not.toContain("snippet skipped");
 
     if (framework === "google-adk") {
@@ -903,6 +894,7 @@ test.each(["google-adk", "langgraph-python", "mastra"])(
       expect(output).toContain(
         'import { createTool } from "@mastra/core/tools";',
       );
+      expect(output).toContain("export const toolRenderingAgent = new Agent({");
       expect(output).not.toContain("from google.adk.tools import ToolContext");
     }
   },
