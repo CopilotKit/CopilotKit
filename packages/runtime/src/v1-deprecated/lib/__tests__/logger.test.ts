@@ -38,10 +38,9 @@ describe("createLogger", () => {
   // first path in the array ("invalid path (pid)"). Any redact path fails, not
   // just `pid`, so the only safe configuration is to pass none.
   //
-  // This monorepo pins pino to 10 through a pnpm override, and pino 10 swapped
-  // fast-redact for @pinojs/redact, which uses no code generation. That means
-  // the failure cannot be reproduced by running a logger here; the assertion
-  // has to be on the options we hand pino.
+  // The runtime now declares pino 10, which uses @pinojs/redact without code
+  // generation. Keep checking the options directly so this regression guard
+  // does not depend on the installed redaction implementation.
   it("passes no redact option to pino, because redact paths need code generation", () => {
     createLogger();
 

@@ -17,7 +17,6 @@ overrides:
   path-to-regexp@<=0.1.12: 0.1.13
   serve-static@<=1.16.0: 1.16.0
   prismjs@<=1.30.0: 1.30.0
-  pino@<=10.1.1: 10.1.1
   '@copilotkit/license-verifier': ~0.5.0
   next: ^16.0.10
   defu@<=6.1.4: '>=6.1.5'
@@ -3242,7 +3241,7 @@ importers:
         specifier: ^1.8.4
         version: 1.8.4
       pino:
-        specifier: 10.1.1
+        specifier: ^10.1.1
         version: 10.1.1
       pino-pretty:
         specifier: ^11.2.1
