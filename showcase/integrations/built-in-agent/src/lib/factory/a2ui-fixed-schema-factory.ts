@@ -16,7 +16,7 @@ const A2UI_OPERATIONS_KEY = "a2ui_operations";
 // Fixed flight-card schema. Inlined as a TS const so it ships into the
 // Next.js route bundle without runtime fs access. Mirrors
 // `showcase/integrations/langgraph-python/src/agents/a2ui_schemas/flight_schema.json`.
-// @region[backend-schema]
+// @region[backend-schema-json-load]
 const FLIGHT_SCHEMA: unknown[] = [
   { id: "root", component: "Card", child: "content" },
   {
@@ -67,7 +67,7 @@ const FLIGHT_SCHEMA: unknown[] = [
   },
   { id: "bookButtonLabel", component: "Text", text: "Book flight" },
 ];
-// @endregion[backend-schema]
+// @endregion[backend-schema-json-load]
 
 function createSurfaceOp(surfaceId: string, catalogId: string) {
   return {
@@ -98,7 +98,7 @@ function renderA2uiOperations(operations: unknown[]) {
   return { [A2UI_OPERATIONS_KEY]: operations };
 }
 
-// @region[display-flight-tool]
+// @region[backend-render-operations]
 // `display_flight` returns an `a2ui_operations` container directly. The runtime's
 // A2UI middleware (configured with `injectA2UITool: false`) detects this shape
 // in the tool result and forwards the operations to the frontend renderer, which
@@ -120,7 +120,7 @@ const displayFlightTool = toolDefinition({
     updateDataModelOp(SURFACE_ID, { origin, destination, airline, price }),
   ]),
 );
-// @endregion[display-flight-tool]
+// @endregion[backend-render-operations]
 
 const A2UI_FIXED_SCHEMA_SYSTEM_PROMPT = `\
 You help users find flights. When asked about a flight, call display_flight \

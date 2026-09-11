@@ -165,3 +165,32 @@ without skipped snippets. Local `:3004` delivery then checked both HTML and
 `.mdx` for both guides across those five frameworks: **20/20 responses were
 200**, contained all required selected-source terms, and contained no missing
 or unexpanded snippet marker.
+
+## C010 / REPAIR-004 — Built-in Agent A2UI source and raw-Markdown context
+
+The Built-in Agent fixed-schema factory already had both the inline schema and
+the `display_flight` operation builder, but exposed neither under the shared
+guide's source-region names. The guide now resolves those existing regions and
+identifies Built-in Agent as schema-inline.
+
+The initial rendered HTML was correct, while the canonical raw Markdown route
+still selected LangGraph's schema-loading branch. This was a distinct resolver
+defect: `/built-in-agent/...` canonically redirects to the bare route, and the
+bare Markdown resolver applied Built-in Agent context only when an authored
+override file existed. Shared root guides had no context, so snippet lookup
+fell back to LangGraph. The resolver now keeps the root-framework context for
+all bare routes, matching the live root docs surface.
+
+```sh
+npm --prefix showcase/shell-docs test -- --run \
+  src/app/llms-mdx/[[...slug]]/route.test.ts \
+  src/lib/__tests__/a2ui-fixed-schema-builtin-agent.test.ts
+```
+
+Result: **2 files passed, 17 tests passed** after generation. The route suite
+keeps the generated framework-scoped control and adds the authored-root shared
+fallback control. On a freshly restarted local `:3004`, HTML and canonical
+Markdown both returned 200 with the Built-in Agent inline schema and operation
+builder, no LangGraph `a2ui.load_schema` excerpt, and no missing/unexpanded
+snippet marker. The legacy Built-in Agent Markdown URL redirects to that same
+canonical response.
