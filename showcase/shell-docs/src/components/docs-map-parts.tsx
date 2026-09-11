@@ -143,7 +143,6 @@ export function MapIntro({
 
 export function MapBlock({
   variant,
-  kicker,
   name,
   nameSize = "lg",
   icon,
@@ -154,7 +153,6 @@ export function MapBlock({
   children,
 }: {
   variant: BlockVariant;
-  kicker: string;
   name: string;
   nameSize?: "lg" | "sm";
   /** Rendered beside the name, never inside the heading — a heading's text
@@ -166,8 +164,6 @@ export function MapBlock({
   id?: string;
   children: React.ReactNode;
 }): React.JSX.Element {
-  const isPlus = variant === "plus";
-
   return (
     <section
       id={id}
@@ -175,14 +171,7 @@ export function MapBlock({
     >
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start sm:gap-6">
         <div className="min-w-0">
-          <p
-            className={`text-[10px] font-bold uppercase tracking-[0.12em] ${
-              isPlus ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
-            }`}
-          >
-            {kicker}
-          </p>
-          <div className="mt-1 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {icon ? (
               <span
                 aria-hidden="true"

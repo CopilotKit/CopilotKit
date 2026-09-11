@@ -6,8 +6,8 @@
 // The arrangement is not a stack. A stack reads Frontend → CopilotKit →
 // Intelligence → Agent, which says the agent talks to Intelligence; it does
 // not. The agent talks to the runtime over AG-UI, and Intelligence attaches
-// to that runtime as a side branch — so Intelligence is inset to the right,
-// the `+ adds` elbow reaches into it from CopilotKit, and the AG-UI axis
+// to that runtime as a side branch, so Intelligence is inset to the right,
+// the `+ adds` branch drops into it from CopilotKit, and the AG-UI axis
 // runs down the left, past Intelligence, to the Agent block. The grid that
 // does this lives in `./docs-map-parts`; see that file's header for the row
 // map.
@@ -87,15 +87,14 @@ export function DocsProductMap(): React.JSX.Element {
     <div className={MAP_GRID_CLASS}>
       <MapIntro
         heading="How CopilotKit fits together"
-        body="Your frontend and your agent are yours to choose. CopilotKit sits between them — the SDK in your app, the runtime on your server. CopilotKit Intelligence attaches to that runtime when you take it to production."
+        body="Your frontend and your agent are yours to choose. CopilotKit sits between them: the SDK in your app, the runtime on your server. CopilotKit Intelligence attaches to that runtime when you take it to production."
       />
 
       <MapBlock
         variant="choice"
         nameSize="sm"
-        kicker="Bring your own · your choice"
         name="Frontend"
-        description="CopilotKit ships the same primitives for every one of these. Pick the one you already use — nothing else on this page changes."
+        description="CopilotKit ships the same primitives for every one of these. Pick the one you already use. Nothing else on this page changes."
       >
         <PickGrid picks={frontendPicks()} />
       </MapBlock>
@@ -104,7 +103,6 @@ export function DocsProductMap(): React.JSX.Element {
 
       <MapBlock
         variant="core"
-        kicker="Open source · the product"
         name="CopilotKit"
         description="The SDK in your app and the runtime on your server. Everything your users actually touch, running entirely on your side."
         // Deliberately unscoped: the spec scopes only the six capability
@@ -124,10 +122,9 @@ export function DocsProductMap(): React.JSX.Element {
         variant="plus"
         placement="inset"
         id="intelligence"
-        kicker="When real users arrive"
         name="CopilotKit Intelligence"
         icon={<IntelligenceKiteIcon />}
-        description="The platform your runtime talks to. Remembers, learns, and shows you what happened — without changing your frontend or your agent framework."
+        description="The platform your runtime talks to. Remembers, learns, and shows you what happened, without changing your frontend or your agent framework."
         action={{
           label: "Connect in 5 minutes",
           href: "/intelligence/quickstart",
@@ -157,7 +154,6 @@ export function DocsProductMap(): React.JSX.Element {
         variant="choice"
         nameSize="sm"
         id={DOCS_MAP_FRAMEWORKS_ANCHOR}
-        kicker="Bring your own · your choice"
         name="Agent"
         description="Any framework that speaks AG-UI, or CopilotKit's own built-in agent."
       >

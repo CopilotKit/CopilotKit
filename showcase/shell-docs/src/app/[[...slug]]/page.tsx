@@ -6,7 +6,6 @@
 // UnscopedDocsPage). Other frameworks remain at `/<framework>/<slug>`.
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { DocsProductMap } from "@/components/docs-product-map";
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
@@ -44,16 +43,6 @@ export const dynamic = "force-dynamic";
 // Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = ROOT_FRAMEWORK;
 
-// The three starting points a visitor recognises themselves in. They are
-// reassurance, not navigation: one prompt serves all three, because the CLI
-// classifies the starting state itself. The Start section they used to link
-// at duplicated the hero and has been removed.
-const HERO_STARTING_POINTS = [
-  "New project",
-  "Existing app or agent",
-  "Already on CopilotKit → add Intelligence",
-];
-
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
 // (etc.) at its own URL rather than collapsing them all onto the bare
@@ -80,7 +69,7 @@ export async function generateMetadata({
       // benefit, so the tab, the search result and the page disagreed.
       title: "CopilotKit: give your app an agent your users can use",
       description:
-        "Build chat, generative UI, and approval steps into your React app on any agent framework — then add CopilotKit Intelligence for threads that persist, memory, and agents that learn from real use.",
+        "Add chat, generative UI, and approval steps to a React app you already have, or start a new one, on any agent framework. CopilotKit Intelligence adds persistent threads, memory, and agents that learn from real use.",
       canonicalPath: "/",
     });
   }
@@ -146,28 +135,22 @@ function DocsOverview() {
               </h1>
               {/* Names a benefit rather than a category. The previous line,
                   "The frontend stack for agentic user experience", is jargon
-                  to a first-time reader — it says what shelf the product sits
+                  to a first-time reader: it says what shelf the product sits
                   on, not what it does for them. */}
               <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
                 Give your app an agent your users can actually use.
               </p>
+              {/* One sentence, and it leads with the existing app. The most
+                  common wrong assumption about CopilotKit is that it wants a
+                  greenfield project, so the answer to that belongs in the
+                  first thing a reader meets, not in a line below the buttons.
+                  Intelligence is not named here: its own block sits a screen
+                  below with the same link, and repeating it up here made the
+                  hero a third paragraph long. */}
               <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Chat, generative UI, and approval steps inside your own React
-                app — connected to whatever agent framework you already run.
-              </p>
-              {/* Intelligence belongs in the hero: without it, the first
-                  answer to "what is this" describes only half the product.
-                  Section 3 is where it is actually explained. */}
-              <p className="mt-3 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Add{" "}
-                <Link
-                  href="/intelligence/overview"
-                  className="font-medium text-[var(--text)] underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--accent)]"
-                >
-                  CopilotKit Intelligence
-                </Link>{" "}
-                when it goes to production: threads that persist, memory, and
-                agents that learn from real use.
+                Drop chat, generative UI, and approval steps into a React app
+                you already have, or start a new one, on whatever agent
+                framework you run.
               </p>
             </div>
             <div className="mt-7">
@@ -180,27 +163,6 @@ function DocsOverview() {
                 }
               />
             </div>
-            {/* Quiet reassurance, not navigation — see the constant above for
-                why these are plain text rather than links.
-                A list, not a paragraph of spans: the middot separators are
-                `aria-hidden` so nobody hears "middle dot", and list items are
-                then what gives a screen reader the boundary between the three
-                labels. Spans alone announced them as one run-on string. */}
-            {/* `role="list"` is not redundant: Safari drops the list role when
-                `list-style: none` is set, which would undo the whole reason
-                this is a list. Inline items keep the single flowing line the
-                paragraph had — a flex row wrapped it onto two. */}
-            <ul
-              role="list"
-              className="mt-4 block list-none p-0 text-xs leading-relaxed text-[var(--text-muted)]"
-            >
-              {HERO_STARTING_POINTS.map((label, index) => (
-                <li key={label} className="inline">
-                  {index > 0 ? <span aria-hidden="true"> · </span> : null}
-                  {label}
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
 

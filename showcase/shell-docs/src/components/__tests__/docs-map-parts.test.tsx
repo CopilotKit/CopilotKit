@@ -35,7 +35,6 @@ function render(variant: "choice" | "core" | "plus") {
   return renderToStaticMarkup(
     <MapBlock
       variant={variant}
-      kicker="Kicker text"
       name="Block name"
       description="What this block is."
       action={{ label: "Go there", href: "/somewhere" }}
@@ -68,10 +67,9 @@ describe("MapIntro", () => {
 });
 
 describe("MapBlock", () => {
-  it("renders kicker, name, description, action and children", () => {
+  it("renders name, description, action and children", () => {
     const markup = render("core");
 
-    expect(markup).toContain("Kicker text");
     expect(markup).toContain("Block name");
     expect(markup).toContain("What this block is.");
     expect(markup).toContain('href="/somewhere"');
@@ -112,7 +110,7 @@ describe("MapBlock", () => {
 
   it("omits the action element when no action is given", () => {
     const markup = renderToStaticMarkup(
-      <MapBlock variant="choice" kicker="K" name="N" description="D">
+      <MapBlock variant="choice" name="N" description="D">
         <span />
       </MapBlock>,
     );
@@ -126,18 +124,12 @@ describe("MapBlock", () => {
 
   it("sizes the name from nameSize instead of a fixed size", () => {
     const small = renderToStaticMarkup(
-      <MapBlock
-        variant="core"
-        kicker="K"
-        name="N"
-        nameSize="sm"
-        description="D"
-      >
+      <MapBlock variant="core" name="N" nameSize="sm" description="D">
         <span />
       </MapBlock>,
     );
     const large = renderToStaticMarkup(
-      <MapBlock variant="core" kicker="K" name="N" description="D">
+      <MapBlock variant="core" name="N" description="D">
         <span />
       </MapBlock>,
     );
@@ -155,7 +147,6 @@ describe("MapBlock", () => {
     const markup = renderToStaticMarkup(
       <MapBlock
         variant="plus"
-        kicker="K"
         name="CopilotKit Intelligence"
         description="D"
         icon={<svg viewBox="0 0 1 1" />}
@@ -173,13 +164,7 @@ describe("MapBlock", () => {
   // four columns, starting at column 2 — 75%, flush right.
   it("insets a block to the right three of four columns on request", () => {
     const inset = renderToStaticMarkup(
-      <MapBlock
-        variant="plus"
-        placement="inset"
-        kicker="K"
-        name="N"
-        description="D"
-      >
+      <MapBlock variant="plus" placement="inset" name="N" description="D">
         <span />
       </MapBlock>,
     );

@@ -114,13 +114,13 @@ export const INTELLIGENCE_CAPABILITIES: readonly MapCapability[] = [
     icon: "MessageSquareMore",
   },
   {
-    title: "Memory",
+    title: "User Memories",
     body: "Durable facts and preferences across conversations.",
     href: "/intelligence/memories",
     icon: "Brain",
   },
   {
-    title: "Learning",
+    title: "Automatic Learning",
     body: "Completed threads become reviewed, reusable Skills.",
     href: "/learning",
     icon: "Sparkles",
@@ -132,7 +132,7 @@ export const INTELLIGENCE_CAPABILITIES: readonly MapCapability[] = [
     icon: "SearchCheck",
   },
   {
-    title: "Analytics",
+    title: "Product Analytics",
     body: "Where users get value, from the same interaction data.",
     href: "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
     icon: "BarChart3",

@@ -80,11 +80,11 @@ describe("DocsProductMap", () => {
     const markup = render();
 
     expect(markup).toContain("How CopilotKit fits together");
-    // Verbatim, em dash included: this paragraph is what states the
-    // relationship in words, and it is the only thing carrying it on a
-    // narrow screen where the map collapses to one column.
+    // Verbatim: this paragraph is what states the relationship in words,
+    // and it is the only thing carrying it on a narrow screen where the map
+    // collapses to one column.
     expect(markup).toContain(
-      "Your frontend and your agent are yours to choose. CopilotKit sits between them — the SDK in your app, the runtime on your server. CopilotKit Intelligence attaches to that runtime when you take it to production.",
+      "Your frontend and your agent are yours to choose. CopilotKit sits between them: the SDK in your app, the runtime on your server. CopilotKit Intelligence attaches to that runtime when you take it to production.",
     );
   });
 
@@ -143,7 +143,7 @@ describe("DocsProductMap", () => {
     expect(intelligence?.classes).toContain("bg-[var(--accent-dim)]");
   });
 
-  it("gives the + adds elbow the accent treatment and the AG-UI axis the plain one", () => {
+  it("gives the + adds branch the accent treatment and the AG-UI axis the plain one", () => {
     const markup = render();
 
     const adds = markup.match(/<span class="([^"]*)">\+ adds<\/span>/);
@@ -215,25 +215,38 @@ describe("DocsProductMap", () => {
     expect(markup).not.toContain("Change framework");
   });
 
-  it("renders the four blocks' kickers, descriptions and actions verbatim", () => {
+  // The eyebrow labels that used to sit above each block name were removed on
+  // review: they read as generated filler rather than as information. They are
+  // asserted absent, not merely un-asserted, because nothing else on the page
+  // would notice them coming back.
+  it("renders no eyebrow label above a block name", () => {
     const markup = render();
 
-    // The four blocks' kickers. Frontend and Agent deliberately share the
-    // same kicker text.
-    expect(markup).toContain("Bring your own · your choice");
-    expect(markup).toContain("Open source · the product");
-    expect(markup).toContain("When real users arrive");
+    expect(markup).not.toContain("Bring your own");
+    expect(markup).not.toContain("Open source · the product");
+    expect(markup).not.toContain("When real users arrive");
+    expect(markup).not.toContain("uppercase tracking-[0.12em]");
+  });
 
-    // The four blocks' description lines, copied verbatim (middots and em
-    // dashes included) so a copy edit that drifts from the spec fails.
+  // Em dashes were called out on review as a tell of generated prose. Asserted
+  // on the rendered output rather than the source, so it covers the copy that
+  // reaches a reader from every module the map composes.
+  it("keeps em dashes out of the rendered copy", () => {
+    expect(render()).not.toContain("—");
+  });
+
+  it("renders the four blocks' descriptions and actions verbatim", () => {
+    const markup = render();
+
+    // Copied verbatim so a copy edit that drifts from the spec fails here.
     expect(markup).toContain(
-      "CopilotKit ships the same primitives for every one of these. Pick the one you already use — nothing else on this page changes.",
+      "CopilotKit ships the same primitives for every one of these. Pick the one you already use. Nothing else on this page changes.",
     );
     expect(markup).toContain(
       "The SDK in your app and the runtime on your server. Everything your users actually touch, running entirely on your side.",
     );
     expect(markup).toContain(
-      "The platform your runtime talks to. Remembers, learns, and shows you what happened — without changing your frontend or your agent framework.",
+      "The platform your runtime talks to. Remembers, learns, and shows you what happened, without changing your frontend or your agent framework.",
     );
     // `renderToStaticMarkup` escapes the apostrophe in text content.
     expect(markup).toContain(
