@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { localBackendsEnv } from "../../../../shell/src/lib/local-backends-env";
 import { resolveInlineDemoBackendUrl } from "../inline-demo-url";
 
 const REMOTE = "https://showcase-google-adk-production.up.railway.app";
@@ -50,8 +49,23 @@ describe("InlineDemo backend URLs", () => {
     }
   });
 
-  it("derives the local map from the shared validated port registry", () => {
+  it("keeps the shell-docs Next config remote by default", async () => {
+    vi.stubEnv("SHOWCASE_LOCAL", "");
+    vi.resetModules();
+
+    const nextConfig = (await import("../../../next.config")).default;
+    expect(nextConfig.env?.NEXT_PUBLIC_LOCAL_BACKENDS).toBe("");
+  });
+
+  it("derives the validated shared port map through the shell-docs Next config", async () => {
     vi.stubEnv("SHOWCASE_LOCAL", "1");
+    vi.resetModules();
+
+    const nextConfig = (await import("../../../next.config")).default;
+    const localBackends = JSON.parse(
+      String(nextConfig.env?.NEXT_PUBLIC_LOCAL_BACKENDS),
+    ) as Record<string, string>;
+
     const portsPath = path.resolve(
       process.cwd(),
       "..",
@@ -62,11 +76,6 @@ describe("InlineDemo backend URLs", () => {
       string,
       number
     >;
-    const localBackends = JSON.parse(localBackendsEnv(portsPath)) as Record<
-      string,
-      string
-    >;
-
     expect(localBackends).toEqual(
       Object.fromEntries(
         Object.entries(ports).map(([slug, port]) => [

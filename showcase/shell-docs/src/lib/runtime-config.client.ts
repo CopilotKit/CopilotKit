@@ -1,9 +1,13 @@
+"use client";
+
 // Client-side runtime config reader for shell-docs. Reads from
 // window.__SHOWCASE_CONFIG__ which the root layout injects via an
 // inline <script> tag BEFORE React hydrates (see app/layout.tsx).
 // This is the ONLY public API for these URLs/keys in client code —
 // never read process.env.NEXT_PUBLIC_* directly.
 
+import { createContext, createElement, useContext } from "react";
+import type { ReactNode, ReactElement } from "react";
 import type { RuntimeConfig } from "./runtime-config";
 
 export type { RuntimeConfig };
@@ -19,20 +23,19 @@ declare global {
  * components in the Next.js App Router are server-side rendered on the
  * initial request (that's how the HTML is streamed before hydration),
  * which means their function bodies execute on the server too. We can't
- * throw here without breaking SSR — instead we return a placeholder, and
- * post-hydration the next render reads the real values out of
- * window.__SHOWCASE_CONFIG__. Server components that need the live env
- * values MUST import getRuntimeConfig from runtime-config.ts (the server
- * variant), not this file.
+ * throw here without breaking SSR — instead we return a placeholder for
+ * isolated client-only consumers. URL-rendering components must use
+ * `useRuntimeConfig()`, which receives the root layout's server-resolved
+ * value. Server components that need the live env values MUST import
+ * getRuntimeConfig from runtime-config.ts (the server variant), not this file.
  *
  * URL fields use a parseable `https://ssr-placeholder.invalid/` sentinel
  * — NOT the empty string — because consumer components call
  * `new URL(cfg.someUrl)` inline during render, and `new URL("")` throws
  * a TypeError that escapes the SSR response as a 500. The `.invalid`
- * TLD is reserved by RFC 2606 so the URL also can't accidentally
- * resolve. The post-hydration re-read swaps in the real value and the
- * href is fixed up before any user interaction (consumers also use
- * `suppressHydrationWarning` to silence the benign href diff).
+ * TLD is reserved by RFC 2606 so the URL also can't accidentally resolve.
+ * It is a safe fallback for client-only calculations, never an acceptable
+ * rendered document link.
  *
  * Analytics-KEY fields STAY the empty string because every consumer
  * gates side-effects on `if (key)` truthiness — populating them with a
@@ -79,4 +82,37 @@ export function getRuntimeConfig(): RuntimeConfig {
     );
   }
   return cfg;
+}
+
+const RuntimeConfigContext = createContext<RuntimeConfig | null>(null);
+
+/**
+ * Makes the request-resolved config available to URL-rendering client
+ * components during both SSR and hydration. The root layout supplies this
+ * value from its server-side reader, so anchors never need an SSR placeholder.
+ */
+export function RuntimeConfigProvider({
+  config,
+  children,
+}: {
+  config: RuntimeConfig;
+  children: ReactNode;
+}): ReactElement {
+  return createElement(
+    RuntimeConfigContext.Provider,
+    { value: config },
+    children,
+  );
+}
+
+/**
+ * Read runtime config in a client component. URL-rendering components under
+ * the root layout receive the server-resolved value from context, so they emit
+ * the same valid href during SSR and hydration.
+ *
+ * The direct browser reader remains a fallback for isolated consumers and
+ * tests. It must not be used to render an SSR anchor outside the provider.
+ */
+export function useRuntimeConfig(): RuntimeConfig {
+  return useContext(RuntimeConfigContext) ?? getRuntimeConfig();
 }

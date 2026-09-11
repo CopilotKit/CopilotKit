@@ -150,6 +150,9 @@ demos:
     tags:
       - interactivity
     route: /demos/hitl-in-chat
+    highlight:
+      - src/app/demos/hitl-in-chat/page.tsx
+      - src/agents/frontend_tool_flow.py
     animated_preview_url:
   - id: hitl-in-chat-booking
     name: In-Chat HITL (Booking)

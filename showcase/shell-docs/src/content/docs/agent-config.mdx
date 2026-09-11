@@ -93,17 +93,14 @@ to push state into: the typed object becomes the input to the agent factory
 directly.
 
 <FrontendOnly frontend="react">
-Pass the typed object as `properties` on `<CopilotKit>`:
+The Built-in Agent Showcase passes its typed config unchanged through
+`properties` on `<CopilotKit>`:
 
-```tsx title="frontend/src/app/page.tsx — config flows through the provider"
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  properties={{ tone, expertise, responseLength }}
-  useSingleEndpoint
->
-  <Demo />
-</CopilotKit>
-```
+<Snippet
+  framework="built-in-agent"
+  cell="agent-config"
+  region="provider-setup"
+/>
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -136,15 +133,15 @@ export class AgentConfigComponent {
 ```
 </FrontendOnly>
 
-The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt before returning the agent for that turn:
+The runtime hands the same object to the agent factory on every call as
+`input.forwardedProps`. The Showcase factory turns those fields into the first
+system prompt for that turn:
 
-```ts title="backend/agent factory — synthesise the system prompt per turn"
-export const agentConfigFactory = async (input: AgentFactoryInput) => {
-  const { tone, expertise, responseLength } = input.forwardedProps ?? {};
-  const systemPrompt = buildSystemPrompt(tone, expertise, responseLength);
-  return makeAgent({ systemPrompt /* ... */ });
-};
-```
+<Snippet
+  framework="built-in-agent"
+  cell="agent-config"
+  region="agent-config-factory"
+/>
 
 </WhenFrameworkHas>
 

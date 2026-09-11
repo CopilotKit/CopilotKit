@@ -253,7 +253,9 @@ working-memory streaming agent, Microsoft Agent Framework Python's predictive
 state config, and Microsoft Agent Framework .NET's event-to-snapshot bridge.
 
 The repair adds bounded regions where absent and highlights the existing source
-file once for each `shared-state-streaming` cell. It does not change a runtime
+file once for each `shared-state-streaming` cell. CrewAI's region includes its
+`@start()` decorator as well as the predictive state call, so the extracted
+method remains an executable Flow entry point. It does not change a runtime
 mapping, fixture, or guide body.
 
 ### Focused validation
@@ -285,4 +287,31 @@ small hook setup. The Microsoft Agent Harness tool-rendering agent and Strands
 TypeScript weather tool likewise now expose `weather-tool-backend`; the harness
 manifest highlights its existing agent implementation. These are source-binding
 changes only. `headless-and-tool-region-coverage.test.ts` records the raw
-Markdown contract; validation is pending the next approved docs slot.
+Markdown contract. After one pretypecheck, it passed in the focused two-worker
+gate with `frontend-options`, C034 state-streaming, and the local preview URL
+contracts: **4 files passed, 34 tests passed**. No Vitest or generator workers
+remained after the run.
+
+## Local InlineDemo preview routing
+
+Shell-docs previously always used the generated registry backend URL for every
+`InlineDemo` iframe. Local reader passes would therefore request deployed demo
+origins rather than the local showcase stacks. Shell-docs now reuses the
+existing shell build-time helper to derive `NEXT_PUBLIC_LOCAL_BACKENDS` from
+`showcase/shared/local-ports.json` only when `SHOWCASE_LOCAL=1`, and resolves a
+validated localhost origin only for the selected integration. Without that
+explicit flag, malformed mappings, and unknown slugs, it preserves the registry
+URL exactly.
+
+`inline-demo-url.test.ts` verifies the default, selected-local, unknown-slug,
+malformed-origin, and complete shared port-map cases in the same **34-test**
+focused gate. The local preview command, once a runtime owner has started a
+selected stack, is:
+
+```sh
+SHOWCASE_LOCAL=1 npm --prefix showcase/shell-docs run dev -- --port 3004
+```
+
+The browser pass must not treat an iframe as working until the runtime owner
+has reported that integration's local port ready. No docs server was started by
+this repair.

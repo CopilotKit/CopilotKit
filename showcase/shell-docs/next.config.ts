@@ -1,15 +1,39 @@
 import type { NextConfig } from "next";
+import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
-import { localBackendsEnv } from "../shell/src/lib/local-backends-env";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOCAL_PORTS_PATH = path.resolve(
-  __dirname,
+  process.cwd(),
   "..",
   "shared",
   "local-ports.json",
 );
+
+function localBackendsEnv(portsPath: string): string {
+  if (process.env.SHOWCASE_LOCAL?.trim() !== "1") return "";
+
+  const parsed: unknown = JSON.parse(fs.readFileSync(portsPath, "utf8"));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${portsPath} must map integration slugs to TCP ports.`);
+  }
+
+  const localBackends: Record<string, string> = Object.create(null);
+  for (const [slug, port] of Object.entries(parsed)) {
+    if (
+      !/^[a-z0-9-]+$/.test(slug) ||
+      typeof port !== "number" ||
+      !Number.isInteger(port) ||
+      port <= 0 ||
+      port > 65535
+    ) {
+      throw new Error(
+        `${portsPath} has an invalid local backend entry for ${slug}.`,
+      );
+    }
+    localBackends[slug] = `http://localhost:${port}`;
+  }
+  return JSON.stringify(localBackends);
+}
 
 interface PermanentRedirect {
   readonly source: string;
