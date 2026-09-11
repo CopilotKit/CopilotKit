@@ -100,19 +100,21 @@ passed, 4 skipped.
 `CONTENT-GEN-020` updates the AG2 and Mastra Frontend Tools pages to the v2
 `useFrontendTool` reference. The AG2 page now renders its actual
 `frontend-tool-registration` region from the `frontend-tools` Showcase cell,
-rather than maintaining a second action sample. `CONTENT-GEN-021` replaces the
-removed AG2 `useAgent({ render })` callback and its unsupported outside-chat
-claim with the actual `gen-ui-agent-state-rendering` region from the working
-AG2 cell. `CONTENT-GEN-022` replaces the copied named renderer with the exact
-`render-weather-tool` region from the `tool-rendering` cell, including its Zod
-parameters, state-safe location access, and dependency array.
+rather than maintaining a second action sample. `CONTENT-GEN-022` replaces the
+copied named renderer with the exact `render-weather-tool` region from the
+`tool-rendering` cell, including its Zod parameters, state-safe location access,
+and dependency array.
 
-The newly bounded state region is owned by the generation lane; all three
-Markdown snippets pin `framework="ag2"` and their correct cell, so the browser
-and raw-Markdown renderer select the same source. `npm --prefix
-showcase/shell-docs test -- src/lib/__tests__/current-v2-authored-guides.test.ts`
-passed after generator pretest: 2 checks passed. It proves source selection and
-rendered Markdown content, not an agent/browser runtime run.
+`CONTENT-GEN-021` remains **pending**. Its new frontend state region is valid,
+but the guide still contains a copied backend that does not match the Showcase
+`gen-ui-agent` (`searches`/`StateSnapshotEvent` versus the actual
+`steps`/`ReplyResult` agent and route). Do not treat the frontend region alone
+as a complete source-backed guide repair.
+
+`npm --prefix showcase/shell-docs test -- src/lib/__tests__/current-v2-authored-guides.test.ts`
+passed after generator pretest: 2 checks covering only C020/C022. It proves
+their source selection and rendered Markdown content, not an agent/browser
+runtime run.
 
 ## Iteration 8 — Google ADK tool-first HITL path
 
