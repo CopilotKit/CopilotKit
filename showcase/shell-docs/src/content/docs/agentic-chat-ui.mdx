@@ -10,8 +10,9 @@ snippet_cell: agentic-chat
 
 ## Pre-built components for agentic chat
 
-CopilotKit's chat components give you a fully functional, customizable AI chat interface out of the box.
-They handle streaming, generative UI, and deep customization so you can focus on your agent's behavior, not UI plumbing.
+Use [`CopilotChat`](/reference/components/CopilotChat) when you want a working
+chat interface without building the message list, streaming states, and tool
+call rendering yourself. You can still customize the UI as your app needs.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
@@ -29,8 +30,9 @@ The live `agentic-chat` cell above is built from a single, small page. Wrap your
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — CopilotKit provider" />
 
-Inside the chat, the `useConfigureSuggestions` hook lets you show contextual
-starter prompts. The example below uses it to seed a simple "Write a sonnet"
+Inside the chat,
+[`useConfigureSuggestions`](/reference/hooks/useConfigureSuggestions) adds
+contextual starter prompts. The example below adds a simple "Write a sonnet"
 suggestion:
 
 <Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — starter suggestions" />

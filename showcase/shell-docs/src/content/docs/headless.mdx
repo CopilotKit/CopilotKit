@@ -8,17 +8,17 @@ snippet_cell: headless-complete
 
 ## Full rendering control via hooks
 
-CopilotKit's headless hooks give you complete control over the chat
-experience: you compose messages, streaming, and tool-call surfaces
-yourself with zero UI opinions. Bring your own design system and render
-everything your way.
+CopilotKit's headless hooks let you build the chat UI with your own
+components while keeping the agent connection, streaming, and tool calls.
+Bring your own design system instead of using CopilotKit's prebuilt chat
+components.
 
 There are two live cells on this page. Start with
 [**Minimal**](#minimal-headless-simple) for the smallest possible custom
 chat on `useAgent` + `useCopilotKit`, then jump to
-[**Complete**](#complete-headless-complete) to see the full generative-UI
-composition (tool calls, reasoning, activity messages, custom
-before/after slots) rebuilt by hand from the low-level hooks.
+[**Complete**](#complete-headless-complete) to see a complete message view
+(tool calls, reasoning, activity messages, and custom before/after slots)
+built from the low-level hooks.
 
 ## When should I use this?
 
@@ -37,14 +37,14 @@ Use headless UI when you want to:
 
 The bare minimum: three hooks do the heavy lifting.
 
-- `useAgent({ agentId })` exposes the current conversation (`messages`,
+- [`useAgent`](/reference/hooks/useAgent) with `agentId` exposes the current conversation (`messages`,
   `isRunning`) and the run-state object.
-- `useCopilotKit()` returns the runtime handle you call
+- [`useCopilotKit`](/reference/hooks/useCopilotKit) returns the runtime handle you call
   `runAgent({ agent })` on (the same entry point `<CopilotChat />`
   uses internally).
-- `useComponent(...)` (sugar over `useFrontendTool`) lets you register a
+- [`useComponent`](/reference/hooks/useComponent) (sugar over `useFrontendTool`) lets you register a
   React component the agent can render by invoking a named tool call.
-  `useRenderToolCall()` then returns a function that paints any tool
+  [`useRenderToolCall`](/reference/hooks/useRenderToolCall) then returns a function that paints any tool
   call inline.
 
 <Snippet region="use-agent-simple" cell="headless-simple" title="frontend/src/app/page.tsx — useAgent + useCopilotKit + useComponent" />
@@ -64,7 +64,7 @@ next section covers.
 ## Complete (`headless-complete`)
 
 This is the heart of the page. The `headless-complete` cell rebuilds
-the **full** generative-UI weave (text, tool calls
+a complete message view (text, tool calls
 via `useRenderTool` / `useDefaultRenderTool` / `useComponent` /
 `useFrontendTool`, reasoning cards, A2UI + MCP Apps activity messages,
 and custom before/after message slots) from the low-level hooks
@@ -85,7 +85,7 @@ canonical primitive:
 
 Three low-level hooks feed it:
 
-- `useRenderToolCall()` — returns the renderer for any registered tool
+- [`useRenderToolCall`](/reference/hooks/useRenderToolCall) — returns the renderer for any registered tool
   call (per-tool via `useRenderTool` / `useComponent`, plus the
   wildcard from `useDefaultRenderTool`).
 - `useRenderActivityMessage()` — renders A2UI + MCP Apps activity
