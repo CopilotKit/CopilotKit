@@ -11,7 +11,7 @@
  * the small component catalog exposed by the frontend kit.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
@@ -21,7 +21,10 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
@@ -100,10 +103,17 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // so locking the model to JSON at the API layer keeps the wire
   // contract honest. Passed via `modelKwargs` so it survives the
   // LangChain → OpenAI chat-completions mapping.
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: "gpt-4o-mini",
     modelKwargs: { response_format: { type: "json_object" } },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     model: "gpt-4o-mini",
+  //     modelKwargs: { response_format: { type: "json_object" } },
+  //   });
+  // @doc-end
   const response = await model.invoke(
     [
       new SystemMessage({ content: BYOC_HASHBROWN_SYSTEM_PROMPT }),

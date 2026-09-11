@@ -11,7 +11,10 @@
  * the system prompt from three small rulebooks before invoking the model.
  */
 
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 // @region[agent-config-setup]
 import type { RunnableConfig } from "@langchain/core/runnables";
@@ -185,6 +188,7 @@ function compileGraph(node: typeof chatNode) {
 export const graph = compileGraph(chatNode);
 // @endregion[agent-config-setup]
 
+// @doc-replace
 // The LangGraph CLI targets this export so showcase probes retain inbound
 // x-* header forwarding; the public `graph` above stays copy-pasteable.
 async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
@@ -196,3 +200,5 @@ async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
 }
 
 export const showcaseGraph = compileGraph(chatNodeWithHeaders);
+// @doc-as
+// @doc-end

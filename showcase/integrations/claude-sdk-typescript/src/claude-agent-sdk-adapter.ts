@@ -39,6 +39,7 @@ export function shouldUseClaudeAgentSdk({
   runtimeToolCount: number;
   enableThinking?: boolean;
 }): boolean {
+  // @doc-replace
   if ((process.env.ANTHROPIC_BASE_URL ?? "").includes("aimock")) {
     return false;
   }
@@ -47,6 +48,8 @@ export function shouldUseClaudeAgentSdk({
   if (hasHeader(forwardedHeaders, "x-aimock-context")) {
     return false;
   }
+  // @doc-as
+  // @doc-end
   if (enableThinking) {
     return false;
   }

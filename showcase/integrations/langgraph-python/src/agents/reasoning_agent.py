@@ -19,7 +19,10 @@ import os
 from deepagents import create_deep_agent
 from langchain.chat_models import init_chat_model
 
+# @doc-replace
 from src.agents._header_forwarding_middleware import HeaderForwardingMiddleware
+# @doc-as
+# @doc-end
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. For each user question, first think "
@@ -28,6 +31,7 @@ SYSTEM_PROMPT = (
 
 REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
 
+# @doc-replace
 # No full CopilotKitMiddleware — this demo exercises only reasoning-token
 # streaming through the OpenAI Responses API and doesn't consume frontend
 # tools or app context. We still attach the minimal HeaderForwardingMiddleware
@@ -46,3 +50,14 @@ graph = create_deep_agent(
     system_prompt=SYSTEM_PROMPT,
     middleware=[HeaderForwardingMiddleware()],
 )
+# @doc-as
+# graph = create_deep_agent(
+#     model=init_chat_model(
+#         f"openai:{REASONING_MODEL}",
+#         use_responses_api=True,
+#         reasoning={"effort": "medium", "summary": "detailed"},
+#     ),
+#     tools=[],
+#     system_prompt=SYSTEM_PROMPT,
+# )
+# @doc-end

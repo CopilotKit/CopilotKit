@@ -30,7 +30,10 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import {
   copilotkitCustomizeConfig,
@@ -108,10 +111,17 @@ const SYSTEM_PROMPT =
   "UI renders it live as you type.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: "gpt-5.4",
     modelKwargs: { parallel_tool_calls: false },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     model: "gpt-5.4",
+  //     modelKwargs: { parallel_tool_calls: false },
+  //   });
+  // @doc-end
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

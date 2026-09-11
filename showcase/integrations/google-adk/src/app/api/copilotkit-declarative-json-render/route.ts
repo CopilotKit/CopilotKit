@@ -17,19 +17,26 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
   try {
-    // Per-request build conveys inbound `x-aimock-context` to the Python
-    // agent_server. See `src/lib/header-forwarding.ts`.
+    // @doc-replace
     const headers = extractForwardedHeaders(req);
     const byocJsonRenderAgent = new HttpAgent({
       url: `${AGENT_URL}/byoc_json_render`,
       headers,
     });
+    // @doc-as
+    // const byocJsonRenderAgent = new HttpAgent({
+    //   url: `${AGENT_URL}/byoc_json_render`,
+    // });
+    // @doc-end
 
     const runtime = new CopilotRuntime({
       agents: { byoc_json_render: byocJsonRenderAgent },

@@ -29,14 +29,20 @@ builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 
+// @doc-replace
 // STOPGAP: seed the static accessor the outbound header-forwarding policy reads
 // (the policy is created without DI, mirroring CvDiag.Logger).
+// @doc-as
+// // STOPGAP: seed the static accessor the outbound header-forwarding policy reads
+// // (the policy is created without DI).
+// @doc-end
 AimockHeaderPolicy.HttpContextAccessor = app.Services.GetRequiredService<IHttpContextAccessor>();
 
 // Forward D5/aimock x-* headers from incoming AG-UI requests to outgoing
 // OpenAI calls until the .NET SDK owns this propagation centrally.
 app.UseMiddleware<AimockHeaderMiddleware>();
 
+// @doc-replace
 // CVDIAG: backend flap-observability emitter (plan unit L1-F; spec §3). OFF by
 // default (CVDIAG_BACKEND_EMITTER=on to arm). Seed the static singleton the
 // outbound LLM policy reads (created without DI), then register the
@@ -45,10 +51,15 @@ app.UseMiddleware<AimockHeaderMiddleware>();
 CvdiagBackend.Instance = new CvdiagBackend();
 app.UseMiddleware<CvdiagInstrumentationMiddleware>();
 
+// @doc-as
+// @doc-end
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+// @doc-replace
 // CVDIAG: seed the static logger used by AimockHeaderPolicy (created without DI)
 // to emit the outbound-LLM header-forwarding breadcrumb.
 CvDiag.Logger = loggerFactory.CreateLogger("CvDiag");
+// @doc-as
+// @doc-end
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions;
 
 // Single shared OpenAIClient for the whole column. Built once via the harness

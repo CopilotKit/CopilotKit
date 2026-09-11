@@ -1,11 +1,14 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+// @doc-as
+// @doc-end
 import { jsonSchemaToZod } from "./tanstack-factory";
 import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
@@ -40,7 +43,11 @@ export function createOguiAgent() {
         }),
       );
       return chat({
+        // @doc-replace
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        // @doc-as
+        // adapter: openaiText("gpt-5.4"),
+        // @doc-end
         messages,
         systemPrompts,
         tools,

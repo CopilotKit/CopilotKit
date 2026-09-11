@@ -2,13 +2,15 @@
 
 import type { ChangeEvent } from "react";
 import {
-  type AgentConfig,
   EXPERTISE_OPTIONS,
-  type Expertise,
   RESPONSE_LENGTH_OPTIONS,
-  type ResponseLength,
   TONE_OPTIONS,
-  type Tone,
+} from "./config-types";
+import type {
+  AgentConfig,
+  Expertise,
+  ResponseLength,
+  Tone,
 } from "./config-types";
 
 interface ConfigCardProps {

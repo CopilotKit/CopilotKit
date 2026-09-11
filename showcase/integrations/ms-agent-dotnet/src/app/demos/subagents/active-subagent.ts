@@ -1,4 +1,4 @@
-import { Delegation, SubAgentName } from "./delegation-log";
+import type { Delegation, SubAgentName } from "./delegation-log";
 
 // Inspect the live message stream to find the most recent supervisor
 // tool call to a sub-agent that has not yet produced a ToolMessage

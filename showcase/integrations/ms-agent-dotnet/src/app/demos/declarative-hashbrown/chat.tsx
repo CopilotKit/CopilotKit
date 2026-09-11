@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  CopilotChat,
-  CopilotChatAssistantMessage,
-} from "@copilotkit/react-core/v2";
+import type { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 import { HashBrownRenderMessage } from "./hashbrown-renderer";
 import { useByocHashbrownSuggestions } from "./suggestions";
 

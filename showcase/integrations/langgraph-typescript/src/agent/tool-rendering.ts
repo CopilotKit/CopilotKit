@@ -10,7 +10,11 @@
  * renders the same tool calls.
  */
 
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// import { ChatOpenAI } from "@langchain/openai";
+// @doc-end
 
 // @region[weather-tool-backend]
 import { z } from "zod";
@@ -187,7 +191,11 @@ const tools = [getWeather, searchFlights, getStockPrice, rollD20];
 // ---------------------------------------------------------------------------
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, { model: "gpt-5.4" });
+  // @doc-as
+  // const model = new ChatOpenAI({ model: "gpt-5.4" });
+  // @doc-end
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

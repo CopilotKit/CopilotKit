@@ -3,7 +3,8 @@
 import React from "react";
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
-import { PreferencesCard, Preferences } from "./preferences-card";
+import type { Preferences } from "./preferences-card";
+import { PreferencesCard } from "./preferences-card";
 import { NotesCard } from "./notes-card";
 
 interface DemoLayoutProps {

@@ -17,6 +17,7 @@
  * via `@ag-ui/langgraph` `getA2UITools`, whose body runs the `render_a2ui`
  * sub-agent + the toolkit recovery loop IN-GRAPH. The dedicated route sets
  * `injectA2UITool: false` so the runtime does not inject a second copy.
+ * @doc-replace
  *
  * Header forwarding (load-bearing for aimock D6 stability — OSS-583):
  * `getA2UITools` invokes its inner `render_a2ui` sub-agent via a CONFIG-LESS
@@ -41,6 +42,8 @@
  * handler). A `beforeAgent`+`enterWith` binding does NOT work here: Pregel runs
  * each node in a separate async context, so the store would not reach the tool
  * node.
+ * @doc-as
+ * @doc-end
  *
  * Mirrors `showcase/integrations/langgraph-python/src/agents/recovery_agent.py`.
  * Catalog is reused from declarative-gen-ui ("declarative-gen-ui-catalog"); the
@@ -48,8 +51,15 @@
  * App Context (declarative-gen-ui/sales-context.ts).
  */
 
+// @doc-replace
 import { AsyncLocalStorage } from "node:async_hooks";
+// @doc-as
+// @doc-end
+// @doc-replace
 import { createAgent, createMiddleware } from "langchain";
+// @doc-as
+// import { createAgent } from "langchain";
+// @doc-end
 import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { getA2UITools } from "@ag-ui/langgraph";
@@ -63,6 +73,7 @@ const SYSTEM_PROMPT =
   "dataset from your App Context. `generate_a2ui` handles the rendering — and " +
   "its automatic recovery — for you.";
 
+// @doc-replace
 /**
  * ALS-bound snapshot of the inbound `x-*` headers for the current graph run.
  * Populated by `headerForwardingMiddleware`'s `wrapModelCall` / `wrapToolCall`
@@ -132,12 +143,17 @@ const headerForwardingMiddleware = createMiddleware({
     return forwardedHeadersStore.run(headers, () => handler(request));
   },
 });
-
+// @doc-as
+// @doc-end
 const a2uiTool = getA2UITools({
+  // @doc-replace
   model: new ChatOpenAI({
     model: "gpt-4.1",
     configuration: { fetch: forwardingFetch },
   }),
+  // @doc-as
+  // model: new ChatOpenAI({ model: "gpt-4.1" }),
+  // @doc-end
   defaultCatalogId: "declarative-gen-ui-catalog",
   // Recovery loop runs by default; pinned here so the renderer's "Retrying…
   // (N/M)" label matches the adapter's cap.
@@ -153,12 +169,20 @@ const a2uiTool = getA2UITools({
 });
 
 export const graph = createAgent({
+  // @doc-replace
   model: new ChatOpenAI({
     model: "gpt-4.1",
     configuration: { fetch: forwardingFetch },
   }),
+  // @doc-as
+  // model: new ChatOpenAI({ model: "gpt-4.1" }),
+  // @doc-end
   // Cast: tool typed against @ag-ui/langgraph's own @langchain/core peer.
   tools: [a2uiTool as any],
+  // @doc-replace
   middleware: [headerForwardingMiddleware, copilotkitMiddleware],
+  // @doc-as
+  // middleware: [copilotkitMiddleware],
+  // @doc-end
   systemPrompt: SYSTEM_PROMPT,
 });

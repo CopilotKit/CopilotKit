@@ -19,6 +19,7 @@
 import type { Model } from "@strands-agents/sdk";
 import { forwardingFetch } from "./header-forwarding.js";
 
+// @doc-replace
 /**
  * aimock keys its fixtures on the `x-aimock-context` header of the outbound
  * OpenAI request — it identifies which integration's fixtures to match. An
@@ -29,6 +30,8 @@ import { forwardingFetch } from "./header-forwarding.js";
  */
 export const AIMOCK_CONTEXT =
   process.env.AIMOCK_CONTEXT ?? "strands-typescript";
+// @doc-as
+// @doc-end
 
 export interface CreateModelOptions {
   /**
@@ -69,6 +72,7 @@ export async function createModel(
       ...(reasoning
         ? { params: { reasoning: { effort: "medium", summary: "auto" } } }
         : {}),
+      // @doc-replace
       clientConfig: {
         ...(baseURL ? { baseURL } : {}),
         // Identify this integration to aimock so it matches the right fixtures.
@@ -82,6 +86,11 @@ export async function createModel(
         // a plain fetch when no x-* are in scope (demo traffic unaffected).
         fetch: forwardingFetch,
       },
+      // @doc-as
+      // clientConfig: {
+      //   ...(baseURL ? { baseURL } : {}),
+      // },
+      // @doc-end
     });
   }
 

@@ -18,23 +18,31 @@
  * is unset, so the reasoning slot still lights up in local dev without extra
  * configuration.
  *
+ * @doc-replace
  * Note: we use a custom StateGraph rather than `createReactAgent` so that the
  * per-invocation `config` (with `copilotkit_forwarded_headers`) reaches the
  * `ChatOpenAI` construction — required for `x-aimock-context` propagation.
+ * @doc-as
+ * Note: we use a custom StateGraph rather than `createReactAgent` so that the
+ * per-invocation `config` reaches the `ChatOpenAI` construction.
+ * @doc-end
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage, AIMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/langgraph";
 import {
   Annotation,
   MemorySaver,
   START,
   StateGraph,
   messagesStateReducer,
-  BaseMessage,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 const SYSTEM_PROMPT =
   "You are a helpful assistant. For each user question, first think " +
@@ -52,6 +60,7 @@ const AgentStateAnnotation = Annotation.Root({
 type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: REASONING_MODEL,
     useResponsesApi: true,
@@ -73,6 +82,13 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
     // the assistant answer, matching langgraph-python's rendering.
     disableStreaming: true,
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     model: REASONING_MODEL,
+  //     useResponsesApi: true,
+  //     reasoning: { effort: "low", summary: "auto" },
+  //   });
+  // @doc-end
 
   const response = await model.invoke(
     [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],

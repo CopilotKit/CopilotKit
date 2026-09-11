@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { SubAgentName } from "./delegation-log";
+import type { SubAgentName } from "./delegation-log";
 
 // @region[active-subagent-banner]
 // Compact sticky banner at the top of the chat panel that names the

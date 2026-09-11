@@ -5,12 +5,8 @@ import path from "node:path";
 import { Hono } from "hono";
 import type { ListOpts, ListResult, PbClient } from "../storage/pb-client.js";
 import type { Logger } from "../types/index.js";
-import {
-  keyFor,
-  mergeRowsToMap,
-  type StatusRow,
-  type State,
-} from "../shared/cell-model/live-status.js";
+import { keyFor, mergeRowsToMap } from "../shared/cell-model/live-status.js";
+import type { StatusRow, State } from "../shared/cell-model/live-status.js";
 import { buildCellModel } from "../shared/cell-model/cell-model.js";
 import { catalogCellToInput } from "../shared/cell-model/catalog-input.js";
 import { E2E_STALE_AFTER_MS } from "../shared/cell-model/staleness.js";
@@ -19,11 +15,15 @@ import {
   loadIntegrationManifests,
   ManifestValidationError,
   MissingReferenceIntegrationError,
-  type CatalogCell,
-  type FeatureRegistry,
 } from "../shared/catalog/catalog-flatten.js";
-import { registerMatrixRoute, type MatrixResponse } from "./matrix.js";
-import { computeMatrix, type MatrixCell } from "./matrix-compute.js";
+import type {
+  CatalogCell,
+  FeatureRegistry,
+} from "../shared/catalog/catalog-flatten.js";
+import { registerMatrixRoute } from "./matrix.js";
+import type { MatrixResponse } from "./matrix.js";
+import { computeMatrix } from "./matrix-compute.js";
+import type { MatrixCell } from "./matrix-compute.js";
 
 // ── Fixed clock + freshness helpers ────────────────────────────────────────
 const NOW = Date.parse("2026-06-04T12:00:00.000Z");

@@ -17,6 +17,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { applyDocSwaps } from "./doc-swap";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -278,7 +279,7 @@ function rewriteDemoCode(source: string, packageRoot: string): string {
       );
     }
 
-    const raw = fs.readFileSync(resolved, "utf-8");
+    const raw = applyDocSwaps(fs.readFileSync(resolved, "utf-8"), file);
     const ext = file.includes(".")
       ? file.slice(file.lastIndexOf(".") + 1).toLowerCase()
       : "";
