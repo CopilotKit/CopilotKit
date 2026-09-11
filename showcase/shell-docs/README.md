@@ -24,6 +24,21 @@ The local dev server runs on port `3003`.
 http://localhost:3003
 ```
 
+### Local Showcase embeds
+
+Docs normally iframe the generated integration backend URLs. For a local reader
+pass, opt in to the shared local-port map and start the chosen integration at
+its registered port in `showcase/shared/local-ports.json`:
+
+```bash
+SHOWCASE_LOCAL=1 npm run dev -- --port 3004
+```
+
+`SHOWCASE_LOCAL=1` maps an integration with a local-port entry to its local
+origin. It never starts that integration for you. An integration without a map
+entry continues to use its generated registry URL, so verify the selected
+integration's local stack is ready before treating its embedded demo as local.
+
 The shell-docs npm lifecycle generates registry, demo-content, setup-content, and search
 data before `dev`, `build`, and `typecheck`.
 
