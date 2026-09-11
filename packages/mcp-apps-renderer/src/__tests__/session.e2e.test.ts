@@ -356,3 +356,443 @@ describe("bindMcpApp ui/initialize negotiation", () => {
     expect(response.result.protocolVersion).toBe(LATEST_PROTOCOL_VERSION);
   });
 });
+
+// ---------------------------------------------------------------------------
+// F8: self-driving mode. When `messageId` is set, bindMcpApp subscribes to the
+// agent's activity stream, filters by that id, and pushes tool input/result to
+// the widget itself (the adapter no longer forwards them).
+// ---------------------------------------------------------------------------
+describe("bindMcpApp self-subscription (messageId)", () => {
+  /** Agent mock that captures the subscriber so the test can emit activity events. */
+  function makeSubscribingAgent() {
+    const base = makeAgent();
+    let subscriber: any = null;
+    const unsubscribe = vi.fn();
+    (base as any).subscribe = (s: any) => {
+      subscriber = s;
+      return { unsubscribe };
+    };
+    return {
+      agent: base,
+      unsubscribe,
+      get hasSubscriber() {
+        return subscriber !== null;
+      },
+    };
+  }
+
+  function bindSelfDriving(
+    iframe: HTMLIFrameElement,
+    agent: AbstractAgent,
+    content: MCPAppsActivityContent,
+  ) {
+    const session = bindMcpApp({
+      iframe,
+      getContent: () => content,
+      getAgent: () => agent,
+      host: { runAgent: async () => ({ result: undefined, newMessages: [] }) },
+      messageId: "act-1",
+    });
+    sessions.push(session);
+    return session;
+  }
+
+  async function connect(iframe: HTMLIFrameElement) {
+    await tick(60);
+    const captured = captureOutgoing(iframe);
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/sandbox-proxy-ready",
+    });
+    await tick(30);
+    // Widget reports initialized so buffered pushes flush.
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/initialized",
+    });
+    await tick(20);
+    return captured;
+  }
+
+  it("pushes the initial tool input/result on initialize (from the message store)", async () => {
+    const { agent } = makeSubscribingAgent();
+    const content = makeContent({
+      toolInput: { a: 1 },
+      result: { content: [{ type: "text", text: "r" }], isError: false },
+    });
+    // Init reads the CURRENT activity from agent.messages, not the getContent()
+    // prop - so the store must hold the activity message.
+    (agent as any).messages = [
+      { id: "act-1", role: "activity", activityType: "mcp-apps", content },
+    ];
+    const iframe = mount();
+    bindSelfDriving(iframe, agent, content);
+    const captured = await connect(iframe);
+
+    const input = captured.find(
+      (m) => m && m.method === "ui/notifications/tool-input",
+    );
+    const result = captured.find(
+      (m) => m && m.method === "ui/notifications/tool-result",
+    );
+    expect(input?.params?.arguments).toEqual({ a: 1 });
+    expect(result).toBeDefined();
+  });
+
+  it.each(["before", "after"])(
+    "ignores stale syncContent props %s initialization when the activity is in the store",
+    async (timing) => {
+      const { agent } = makeSubscribingAgent();
+      const current = makeContent({
+        toolInput: { city: "Paris" },
+        result: { content: [{ type: "text", text: "Current forecast" }] },
+      });
+      const stale = makeContent({
+        toolInput: { city: "London" },
+        result: { content: [{ type: "text", text: "Old forecast" }] },
+      });
+      agent.messages = [
+        {
+          id: "act-1",
+          role: "activity",
+          activityType: "mcp-apps",
+          content: current,
+        },
+      ];
+      const iframe = mount();
+      const session = bindSelfDriving(iframe, agent, stale);
+
+      if (timing === "before") session.syncContent(stale);
+      const captured = await connect(iframe);
+      if (timing === "after") session.syncContent(stale);
+      await tick(20);
+
+      // Assert the complete notification history: even a temporary stale send
+      // followed by the correct store value would overwrite the widget's state.
+      expect(
+        captured
+          .filter((m) => m.method === "ui/notifications/tool-input")
+          .map((m) => m.params.arguments),
+      ).toEqual([current.toolInput]);
+      expect(
+        captured
+          .filter((m) => m.method === "ui/notifications/tool-result")
+          .map((m) => m.params),
+      ).toEqual([current.result]);
+    },
+  );
+
+  // Content forwarding on activity updates (snapshot / delta / messages-snapshot)
+  // is covered against the real AG-UI pipeline below; mock-emitting the activity
+  // callbacks would hide the pre-apply-content bug that motivated onMessagesChanged.
+
+  it("unsubscribes from the agent on teardown", async () => {
+    const sub = makeSubscribingAgent();
+    const iframe = mount();
+    const session = bindSelfDriving(
+      iframe,
+      sub.agent,
+      makeContent({ toolInput: undefined }),
+    );
+    await connect(iframe);
+    expect(sub.hasSubscriber).toBe(true);
+
+    session.teardown();
+    expect(sub.unsubscribe).toHaveBeenCalled();
+  });
+
+  it("forwards content via syncContent when the activity is absent from agent.messages (external messages list)", async () => {
+    const sub = makeSubscribingAgent(); // agent.messages is empty
+    const iframe = mount();
+    const session = bindSelfDriving(
+      iframe,
+      sub.agent,
+      makeContent({ toolInput: undefined }),
+    );
+    const captured = await connect(iframe);
+    // The activity is not in the store, so the subscription/init pushed nothing.
+    expect(
+      captured.find((m) => m && m.method === "ui/notifications/tool-input"),
+    ).toBeUndefined();
+
+    // The adapter forwards the prop content explicitly (external messages case).
+    session.syncContent(
+      makeContent({
+        toolInput: { via: "props" },
+        result: { content: [{ type: "text", text: "props result" }] },
+      }),
+    );
+    await tick(20);
+
+    const input = captured.find(
+      (m) => m && m.method === "ui/notifications/tool-input",
+    );
+    const result = captured.find(
+      (m) => m && m.method === "ui/notifications/tool-result",
+    );
+    expect(input?.params?.arguments).toEqual({ via: "props" });
+    expect(result?.params?.content?.[0]?.text).toBe("props result");
+  });
+});
+
+// Use the real AG-UI event pipeline: activity callbacks receive the existing
+// message BEFORE the snapshot/delta is applied. A mock that passes the updated
+// message directly to those callbacks hides stale or missing widget updates.
+describe("bindMcpApp real AG-UI activity updates", () => {
+  it.each(["ACTIVITY_SNAPSHOT", "ACTIVITY_DELTA", "MESSAGES_SNAPSHOT"])(
+    "forwards the updated tool result after %s",
+    async (eventType) => {
+      const { HttpAgent } = await import("@ag-ui/client");
+      const { MCPAppsActivityContentSchema } =
+        await import("../content-schema");
+      const initialContent = makeContent({
+        result: { content: [{ type: "text", text: "initial result" }] },
+      });
+      const updatedContent = makeContent({
+        result: { content: [{ type: "text", text: "updated result" }] },
+      });
+      const message = {
+        id: "activity-under-test",
+        role: "activity" as const,
+        activityType: "mcp-apps",
+        content: initialContent,
+      };
+      const updateEvent =
+        eventType === "ACTIVITY_SNAPSHOT"
+          ? {
+              type: eventType,
+              messageId: message.id,
+              activityType: message.activityType,
+              content: updatedContent,
+            }
+          : eventType === "ACTIVITY_DELTA"
+            ? {
+                type: eventType,
+                messageId: message.id,
+                activityType: message.activityType,
+                patch: [
+                  {
+                    op: "replace",
+                    path: "/result/content/0/text",
+                    value: "updated result",
+                  },
+                ],
+              }
+            : {
+                type: eventType,
+                messages: [{ ...message, content: updatedContent }],
+              };
+      const events = [
+        { type: "RUN_STARTED", threadId: "test-thread", runId: "test-run" },
+        updateEvent,
+        { type: "RUN_FINISHED", threadId: "test-thread", runId: "test-run" },
+      ];
+      const agent = new HttpAgent({
+        url: "https://example.test/agent",
+        threadId: "test-thread",
+        initialMessages: [message],
+        // Only the network boundary is mocked; parsing, event application,
+        // subscriptions, and message state use the real HttpAgent.
+        fetch: async () =>
+          new Response(
+            events
+              .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+              .join(""),
+            { headers: { "Content-Type": "text/event-stream" } },
+          ),
+      });
+      const runAgent = agent.runAgent.bind(agent);
+      vi.spyOn(agent, "runAgent").mockImplementation(async (params) => {
+        // Resource loading must not consume the activity stream under test.
+        if (params?.forwardedProps?.__proxiedMCPRequest) {
+          return {
+            result: {
+              contents: [
+                {
+                  uri: initialContent.resourceUri,
+                  text: "<html>Widget</html>",
+                },
+              ],
+            },
+            newMessages: [],
+          };
+        }
+        return runAgent(params);
+      });
+      const getContent = () => {
+        const current = agent.messages.find((item) => item.id === message.id);
+        if (current?.role !== "activity") {
+          throw new Error("Expected the activity message to exist");
+        }
+        return MCPAppsActivityContentSchema.parse(current.content);
+      };
+      const iframe = mount();
+      sessions.push(
+        bindMcpApp({
+          iframe,
+          getAgent: () => agent,
+          getContent,
+          messageId: message.id,
+          host: {
+            runAgent: async () => ({ result: undefined, newMessages: [] }),
+          },
+        }),
+      );
+      await vi.waitFor(() => {
+        expect(iframe.srcdoc).toContain("sandbox-proxy-ready");
+      });
+      const captured = captureOutgoing(iframe);
+      fromIframe(iframe, {
+        jsonrpc: "2.0",
+        id: "initialize-under-test",
+        method: "ui/initialize",
+        params: {
+          appInfo: { name: "test-widget", version: "1.0.0" },
+          appCapabilities: {},
+          protocolVersion: "2026-01-26",
+        },
+      });
+      await vi.waitFor(() => {
+        expect(
+          captured.find((item) => item.id === "initialize-under-test")?.result,
+        ).toBeDefined();
+      });
+      fromIframe(iframe, {
+        jsonrpc: "2.0",
+        method: "ui/notifications/initialized",
+      });
+      const toolResults = () =>
+        captured.filter(
+          (item) => item.method === "ui/notifications/tool-result",
+        );
+      await vi.waitFor(() => {
+        expect(toolResults().at(-1)?.params?.content?.[0]?.text).toBe(
+          "initial result",
+        );
+      });
+      captured.length = 0;
+
+      await agent.runAgent({ runId: "test-run" });
+
+      // First establish that AG-UI actually applied the update. The regression
+      // is specifically in forwarding that updated state to the initialized app.
+      expect(getContent().result).toEqual(updatedContent.result);
+      await vi.waitFor(() => {
+        expect(toolResults().at(-1)?.params?.content?.[0]?.text).toBe(
+          "updated result",
+        );
+      });
+    },
+  );
+
+  it("uses the applied activity, not a stale getContent, when the update precedes initialize", async () => {
+    const { HttpAgent } = await import("@ag-ui/client");
+    const { MCPAppsActivityContentSchema } = await import("../content-schema");
+    const initialContent = makeContent({
+      result: { content: [{ type: "text", text: "initial result" }] },
+    });
+    const updatedContent = makeContent({
+      result: { content: [{ type: "text", text: "updated result" }] },
+    });
+    const message = {
+      id: "activity-pre-init",
+      role: "activity" as const,
+      activityType: "mcp-apps",
+      content: initialContent,
+    };
+    const events = [
+      { type: "RUN_STARTED", threadId: "test-thread", runId: "test-run" },
+      {
+        type: "ACTIVITY_SNAPSHOT",
+        messageId: message.id,
+        activityType: message.activityType,
+        content: updatedContent,
+      },
+      { type: "RUN_FINISHED", threadId: "test-thread", runId: "test-run" },
+    ];
+    const agent = new HttpAgent({
+      url: "https://example.test/agent",
+      threadId: "test-thread",
+      initialMessages: [message],
+      fetch: async () =>
+        new Response(
+          events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
+    });
+    const runAgent = agent.runAgent.bind(agent);
+    vi.spyOn(agent, "runAgent").mockImplementation(async (params) => {
+      if (params?.forwardedProps?.__proxiedMCPRequest) {
+        return {
+          result: {
+            contents: [
+              { uri: initialContent.resourceUri, text: "<html>Widget</html>" },
+            ],
+          },
+          newMessages: [],
+        };
+      }
+      return runAgent(params);
+    });
+    // getContent is intentionally STALE (always the initial content): the fix
+    // must read the CURRENT activity from agent.messages at initialize, not this.
+    const getContent = () => MCPAppsActivityContentSchema.parse(initialContent);
+    const iframe = mount();
+    sessions.push(
+      bindMcpApp({
+        iframe,
+        getAgent: () => agent,
+        getContent,
+        messageId: message.id,
+        host: {
+          runAgent: async () => ({ result: undefined, newMessages: [] }),
+        },
+      }),
+    );
+    await vi.waitFor(() => {
+      expect(iframe.srcdoc).toContain("sandbox-proxy-ready");
+    });
+    const captured = captureOutgoing(iframe);
+
+    // Apply the update BEFORE the widget initializes.
+    await agent.runAgent({ runId: "test-run" });
+    expect(
+      agent.messages.find((item) => item.id === message.id)?.content,
+    ).toMatchObject({ result: updatedContent.result });
+
+    // Initialize the widget only now.
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      id: "init-pre",
+      method: "ui/initialize",
+      params: {
+        appInfo: { name: "test-widget", version: "1.0.0" },
+        appCapabilities: {},
+        protocolVersion: "2026-01-26",
+      },
+    });
+    await vi.waitFor(() => {
+      expect(
+        captured.find((item) => item.id === "init-pre")?.result,
+      ).toBeDefined();
+    });
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/initialized",
+    });
+
+    const toolResults = () =>
+      captured.filter((item) => item.method === "ui/notifications/tool-result");
+    // The widget receives the CURRENT (updated) result, never the stale initial.
+    await vi.waitFor(() => {
+      expect(toolResults().at(-1)?.params?.content?.[0]?.text).toBe(
+        "updated result",
+      );
+    });
+    expect(
+      toolResults().some(
+        (item) => item.params?.content?.[0]?.text === "initial result",
+      ),
+    ).toBe(false);
+  });
+});

@@ -52,8 +52,12 @@ interface MCPAppsActivityRendererProps {
  * owns the iframe; `bindMcpApp` owns the protocol.
  */
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
-  function MCPAppsActivityRenderer({ content, agent }) {
+  function MCPAppsActivityRenderer({ content, message, agent }) {
     const { copilotkit } = useCopilotKit();
+    // The activity message id. Passed to the session so it self-subscribes to the
+    // agent's activity stream and pushes tool input/result itself (the adapter no
+    // longer forwards them).
+    const messageId = (message as { id?: string } | undefined)?.id;
     const containerRef = useRef<HTMLDivElement>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
     const sessionRef = useRef<McpAppSession | null>(null);
@@ -130,6 +134,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             getContent: () => contentRef.current,
             getAgent: () => agentRef.current,
             host: copilotkit,
+            // Self-driving: the session subscribes to the agent's activity stream
+            // (filtered by messageId) and pushes tool input/result to the widget
+            // itself, so this adapter does not forward them.
+            messageId,
             hooks: {
               onResource: (resource) => {
                 if (!mounted) return;
@@ -147,18 +155,13 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             },
           });
           sessionRef.current = session;
-
-          // Push any tool input/result already present at bind time (the session
-          // buffers until the widget reports initialized).
-          const current = contentRef.current;
-          if (current.toolInput) {
-            session.sendToolInput(current.toolInput as Record<string, unknown>);
-          }
-          if (current.result) {
-            session.sendToolResult(
-              current.result as Parameters<McpAppSession["sendToolResult"]>[0],
-            );
-          }
+          // Seed the initial content now: the forwarding effect below first runs
+          // at mount, before this async import resolved sessionRef, so it no-ops
+          // and never re-runs for unchanged props. Without this seed, an activity
+          // rendered from an external messages list (absent from agent.messages)
+          // would never receive its initial tool input/result. Deduped + store
+          // precedence make this a no-op for agent-backed activities.
+          session.syncContent(contentRef.current);
         } catch (err) {
           console.error("[MCPAppsRenderer] Setup error:", err);
           if (mounted) {
@@ -181,6 +184,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     }, [
       agent,
       copilotkit,
+      messageId,
       content.resourceUri,
       content.serverHash,
       content.serverId,
@@ -200,24 +204,15 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       }
     }, [iframeSize]);
 
-    // Effect 3: forward tool input to the widget (buffered by the session until
-    // the widget is ready).
+    // Forward tool input/result from the content prop. The session is
+    // self-driving for activities that live in the agent's message store, but a
+    // host can render an activity from an EXTERNAL messages list (CopilotChatView's
+    // `messages` prop) that is absent from `agent.messages`; this keeps such
+    // widgets fed. `syncContent` is deduped and shares the subscription's dedup,
+    // so the agent-driven path never double-sends.
     useEffect(() => {
-      if (content.toolInput) {
-        sessionRef.current?.sendToolInput(
-          content.toolInput as Record<string, unknown>,
-        );
-      }
-    }, [content.toolInput]);
-
-    // Effect 4: forward tool result to the widget.
-    useEffect(() => {
-      if (content.result) {
-        sessionRef.current?.sendToolResult(
-          content.result as Parameters<McpAppSession["sendToolResult"]>[0],
-        );
-      }
-    }, [content.result]);
+      sessionRef.current?.syncContent(contentRef.current);
+    }, [content.toolInput, content.result]);
 
     // Determine border styling based on prefersBorder metadata from fetched resource
     // true = show border/background, false = none, undefined = host decides (we default to none)

@@ -11,8 +11,28 @@ import { buildSandboxHTML } from "./sandbox";
 import { mcpAppsRequestQueue } from "./request-queue";
 import { ɵrunMcpFollowUp } from "./follow-up";
 import type { ɵMcpFollowUpHost } from "./follow-up";
-import { MCP_OPEN_LINK_BLOCKED_SCHEMES } from "./constants";
+import {
+  MCP_OPEN_LINK_BLOCKED_SCHEMES,
+  MCPAppsActivityType,
+} from "./constants";
+import { MCPAppsActivityContentSchema } from "./content-schema";
 import type { MCPAppsActivityContent } from "./content-schema";
+
+/** Structural shape of an ag-ui activity message (avoids a hard type import). */
+interface ActivityLike {
+  id?: string;
+  activityType?: string;
+  content?: unknown;
+}
+
+/** JSON key for dedup; falls back to empty string on a cyclic/unserializable value. */
+function keyOf(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? "";
+  } catch {
+    return "";
+  }
+}
 
 /**
  * The MCP Apps protocol version this host negotiates. Sourced directly from the
@@ -90,6 +110,19 @@ export interface BindMcpAppOptions {
   getAgent: () => AbstractAgent | undefined;
   /** CopilotKit host, for ui/message follow-up runs (issue #5819). */
   host: ɵMcpFollowUpHost;
+  /**
+   * The id of the activity message this session renders. When provided, the
+   * session subscribes to the agent's message store, finds this activity, and
+   * pushes its tool input/result to the widget itself (self-driving), so the
+   * adapter does not re-implement the agent-driven forwarding loop.
+   *
+   * The store is authoritative only for activities that live in it. When a host
+   * renders an activity from an EXTERNAL message list (e.g. CopilotChatView's
+   * `messages` prop), that activity is not in `agent.messages`; the adapter must
+   * then call `syncContent` on content change so the widget still receives its
+   * tool input/result. Both paths share one dedup, so they never double-send.
+   */
+  messageId?: string;
   hooks?: McpAppSessionHooks;
 }
 
@@ -98,6 +131,14 @@ export interface McpAppSession {
   sendToolInput(args: Record<string, unknown>): void;
   /** Forward the tool result to the widget (host -> app). Buffered until ready. */
   sendToolResult(result: CallToolResult): void;
+  /**
+   * Forward the tool input/result carried by `content` to the widget, deduped so
+   * an unchanged value is not re-sent. The prop-driven counterpart to the agent
+   * subscription: the adapter calls this on content change so activities rendered
+   * from an external message list (absent from `agent.messages`) still reach the
+   * widget. No-op for values already sent (shared dedup with the subscription).
+   */
+  syncContent(content: MCPAppsActivityContent): void;
   /** Disconnect the bridge and release listeners. Does NOT remove the iframe. */
   teardown(): void;
 }
@@ -111,13 +152,19 @@ export interface McpAppSession {
  * `hooks`, but all protocol logic lives here.
  */
 export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
-  const { iframe, getContent, getAgent, host, hooks } = opts;
+  const { iframe, getContent, getAgent, host, messageId, hooks } = opts;
 
   let disposed = false;
   let ready = false;
   let bridge: AppBridge | null = null;
   let pendingToolInput: Record<string, unknown> | undefined;
   let pendingToolResult: CallToolResult | undefined;
+  // Self-driving mode (messageId set): dedup keys so a re-emitted activity with
+  // unchanged tool input/result does not re-notify the widget, and the agent
+  // subscription handle so teardown can unsubscribe.
+  let lastToolInputKey: string | undefined;
+  let lastToolResultKey: string | undefined;
+  let activitySub: { unsubscribe(): void } | null = null;
 
   /** Flush any buffered tool input/result to the widget once it is initialized. */
   const flushPending = () => {
@@ -130,6 +177,50 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       void bridge.sendToolResult(pendingToolResult);
       pendingToolResult = undefined;
     }
+  };
+
+  /**
+   * Push tool input/result from an activity content to the widget, deduped so an
+   * unchanged value (e.g. a re-emitted snapshot) is not re-sent. Buffered by the
+   * imperative sender until the widget is initialized. Self-driving mode only.
+   */
+  const pushFromContent = (content: MCPAppsActivityContent) => {
+    const { toolInput, result } = content;
+    if (toolInput !== undefined) {
+      const key = keyOf(toolInput);
+      if (key !== lastToolInputKey) {
+        lastToolInputKey = key;
+        pendingToolInput = toolInput as Record<string, unknown>;
+        flushPending();
+      }
+    }
+    if (result !== undefined) {
+      const key = keyOf(result);
+      if (key !== lastToolResultKey) {
+        lastToolResultKey = key;
+        pendingToolResult = result as CallToolResult;
+        flushPending();
+      }
+    }
+  };
+
+  /**
+   * Push the CURRENT content of this activity (read from the agent's message
+   * store, the authoritative post-apply source) to the widget. Used both at
+   * initialize and on every `onMessagesChanged`, so the widget always reflects
+   * the applied state - never a stale React prop or a pre-apply activity message.
+   * Self-driving mode only. `messages` overrides the store lookup when provided.
+   */
+  const pushFromMessages = (messages?: readonly ActivityLike[]) => {
+    if (disposed || !messageId) return;
+    const list = (messages ??
+      (getAgent()?.messages as readonly ActivityLike[] | undefined)) as
+      | readonly ActivityLike[]
+      | undefined;
+    const msg = list?.find((m) => m?.id === messageId);
+    if (!msg || msg.activityType !== MCPAppsActivityType) return;
+    const parsed = MCPAppsActivityContentSchema.safeParse(msg.content);
+    if (parsed.success) pushFromContent(parsed.data);
   };
 
   /** Fetch the widget resource (`resources/read`) through the agent proxy queue. */
@@ -341,6 +432,12 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         ready = true;
         hooks?.onInitialized?.();
         flushPending();
+        // Self-driving: push the CURRENT tool input/result now that the widget
+        // is ready. Read it from the agent's message store (the authoritative
+        // post-apply state), NOT from getContent(): an update that arrived before
+        // initialize must not be overwritten by a possibly-stale React prop, and
+        // the forwarding effects that used to correct it are gone.
+        if (messageId) pushFromMessages();
       };
       bridge.onloggingmessage = (p) => {
         console.log("[MCPAppsRenderer] App log:", p);
@@ -352,6 +449,24 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         await bridge.close();
         bridge = null;
         return;
+      }
+
+      // Self-driving: subscribe to the agent and push tool input/result for THIS
+      // activity to the widget, so the framework adapter does not forward them.
+      //
+      // We read from `onMessagesChanged`, NOT `onActivitySnapshotEvent` /
+      // `onActivityDeltaEvent`: those fire with the PRE-update `activityMessage`
+      // (the snapshot's new content / the delta patch is applied only after the
+      // callback returns), so reading them yields stale content and the dedup
+      // below can suppress the send entirely. `onMessagesChanged` fires AFTER the
+      // store is updated, so `messages` holds the applied content - and it also
+      // covers full messages-snapshot updates, which the activity callbacks miss.
+      if (messageId) {
+        activitySub =
+          getAgent()?.subscribe({
+            onMessagesChanged: ({ messages }) =>
+              pushFromMessages(messages as readonly ActivityLike[]),
+          }) ?? null;
       }
     } catch (err) {
       console.error("[MCPAppsRenderer] Setup error:", err);
@@ -372,8 +487,26 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       pendingToolResult = result;
       flushPending();
     },
+    syncContent(content) {
+      // Store precedence: when this activity lives in the agent's message store,
+      // the subscription is authoritative (it reads the applied post-update
+      // content), so ignore the prop to avoid pushing a possibly-stale React
+      // prop over it. Forward props only for activities absent from the store
+      // (rendered from an external messages list).
+      if (messageId) {
+        const inStore = (
+          getAgent()?.messages as readonly ActivityLike[] | undefined
+        )?.some(
+          (m) => m?.id === messageId && m?.activityType === MCPAppsActivityType,
+        );
+        if (inStore) return;
+      }
+      pushFromContent(content);
+    },
     teardown() {
       disposed = true;
+      activitySub?.unsubscribe();
+      activitySub = null;
       const b = bridge;
       bridge = null;
       void b?.close();
