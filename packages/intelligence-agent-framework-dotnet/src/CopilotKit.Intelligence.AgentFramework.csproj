@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PackageId>CopilotKit.Intelligence.AgentFramework</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Learned skill delivery for Microsoft Agent Framework through CopilotKit Intelligence.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/CopilotKit/CopilotKit</RepositoryUrl>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../runtime-dotnet/sdk/CopilotKit.Intelligence.csproj" /></ItemGroup>
+  <ItemGroup><InternalsVisibleTo Include="Skills.Tests" /></ItemGroup>
+</Project>
