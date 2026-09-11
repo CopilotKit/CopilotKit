@@ -46,8 +46,8 @@ runtime that is:
 
 - Refreshed whenever `value` changes (React re-renders).
 - Automatically removed when the component unmounts.
-- Surfaced to the agent via the backend's `CopilotKitMiddleware`, which
-  threads the entries into the model's message history on every turn.
+- Read by the framework's backend bridge on every turn. The setup section for
+  your integration shows where that bridge receives the entries.
 
 <Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
 
