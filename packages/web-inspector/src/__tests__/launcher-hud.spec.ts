@@ -549,6 +549,19 @@ test("launcher hides enabled features before any Learning runs, without probing 
   expect(
     root(inspector).querySelector('[data-cpk-dismiss-inspector="day"]'),
   ).not.toBeNull();
+  expect(hud(inspector)?.hasAttribute("data-cpk-hud-dismiss-only")).toBe(true);
+  expect(root(inspector).querySelector(".cpk-launcher-hud__arrow")).toBeNull();
+  const dismiss = requireElement(
+    root(inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+  expect(dismiss.style.getPropertyValue("--cpk-hud-waterfall-delay")).toBe(
+    "180ms",
+  );
+  dismiss.click();
+  await settle(inspector);
+  expect(hud(inspector)).toBeNull();
   expect(memoryProbe).not.toHaveBeenCalled();
 });
 
