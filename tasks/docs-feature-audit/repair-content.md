@@ -211,3 +211,25 @@ context-to-prompt bridge. The recipe gate and the shared-state read/read-write
 and read-only-context D6 cells were green before this documentation change.
 Documentation rendering is pending the next approved shell-docs slot; this
 does not claim a new runtime qualification.
+
+## Iteration 13 — Angular reader isolation and Microsoft Agent Framework overview contract
+
+The Angular reference now describes its own activity and human-response
+contracts without comparing them to another frontend. Built-in Agent's shared
+quickstart keeps its existing default-frontend instructions, but its Angular
+rendered branch now points readers to the Angular quickstart for provider and
+runtime-URL setup. Its server-tools callout likewise selects Angular's
+`registerFrontendTool` or `registerRenderToolCall` guidance instead of
+React-only hooks.
+
+The Microsoft Agent Framework Python HITL overview is intentionally a chooser
+for interrupt-based and tool-based child guides. Its stable-API test now checks
+those two CTA paths and confirms the overview does not present provider setup;
+it does not add copied backend code to the overview.
+
+`npm --prefix showcase/shell-docs test --
+src/lib/__tests__/angular-docs-content.test.ts
+src/lib/__tests__/ms-agent-python-stable-api.test.ts --pool=forks
+--maxWorkers=1 --no-file-parallelism` passed after generator pretest: 2 files,
+17 tests. This is raw-Markdown/source-contract evidence only. Angular browser
+representation and generator-owned resolver mappings remain separate gates.

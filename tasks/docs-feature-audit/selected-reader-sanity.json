@@ -425,18 +425,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/langgraph-python/generative-ui/your-components/interactive",
       "current_public_route": "/langgraph-python/generative-ui/your-components/interactive",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -1745,18 +1747,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/langgraph-typescript/generative-ui/your-components/interactive",
       "current_public_route": "/langgraph-typescript/generative-ui/your-components/interactive",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -4391,18 +4395,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/strands/generative-ui/your-components/interactive",
       "current_public_route": "/strands/generative-ui/your-components/interactive",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -4991,19 +4997,19 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
+        "source_and_clarity": "C009 native Strands setup fragments are committed and source-reviewed; final route reader check pending.",
+        "showcase_example": "C009 setup fragments bind exact Strands state/context builder regions; local docs route check pending.",
+        "setup": "C009 native setup is source-backed; final route clarity and rendered-output checks pending.",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
-        "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
+        "html_markdown": "C009 source bindings are present; final HTML/Markdown route check pending.",
+        "runtime": "C008 recipe bridge and strict gate are green locally where applicable; no provider/platform qualification.",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C009 setup source proven; rendered reader, copy-preview, and broader local matrix checks pending."
         ]
       },
       "targeted_notes": [
-        "C009 runtime/setup repair owned by runtime lane; joined reader/runtime proof pending"
+        "C009 uses the actual Strands state/context-builder regions; C008 preserves a strict local recipe-state RED/GREEN record."
       ],
       "baseline_public_route": "/strands/shared-state",
       "current_public_route": "/strands/shared-state",
@@ -5023,19 +5029,19 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
+        "source_and_clarity": "C009 native Strands setup fragments are committed and source-reviewed; final route reader check pending.",
+        "showcase_example": "C009 setup fragments bind exact Strands state/context builder regions; local docs route check pending.",
+        "setup": "C009 native setup is source-backed; final route clarity and rendered-output checks pending.",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
-        "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
+        "html_markdown": "C009 source bindings are present; final HTML/Markdown route check pending.",
+        "runtime": "C008 recipe bridge and strict gate are green locally where applicable; no provider/platform qualification.",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C009 setup source proven; rendered reader, copy-preview, and broader local matrix checks pending."
         ]
       },
       "targeted_notes": [
-        "C009 runtime/setup repair owned by runtime lane; joined reader/runtime proof pending"
+        "C009 uses the actual Strands state/context-builder regions; C008 preserves a strict local recipe-state RED/GREEN record."
       ],
       "baseline_public_route": "/strands/shared-state",
       "current_public_route": "/strands/shared-state",
@@ -5085,19 +5091,19 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
+        "source_and_clarity": "C009 native Strands setup fragments are committed and source-reviewed; final route reader check pending.",
+        "showcase_example": "C009 setup fragments bind exact Strands state/context builder regions; local docs route check pending.",
+        "setup": "C009 native setup is source-backed; final route clarity and rendered-output checks pending.",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
-        "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
+        "html_markdown": "C009 source bindings are present; final HTML/Markdown route check pending.",
+        "runtime": "C008 recipe bridge and strict gate are green locally where applicable; no provider/platform qualification.",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C009 setup source proven; rendered reader, copy-preview, and broader local matrix checks pending."
         ]
       },
       "targeted_notes": [
-        "C009 runtime/setup repair owned by runtime lane; joined reader/runtime proof pending"
+        "C009 uses the actual Strands state/context-builder regions; C008 preserves a strict local recipe-state RED/GREEN record."
       ],
       "baseline_public_route": "/strands/shared-state/agent-readonly",
       "current_public_route": "/strands/shared-state/agent-readonly",
@@ -5267,19 +5273,19 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "shared guide clarity correction applied; final framework-specific reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
+        "source_and_clarity": "C009 native Strands setup fragments are committed and source-reviewed; final route reader check pending.",
+        "showcase_example": "C009 setup fragments bind exact Strands state/context builder regions; local docs route check pending.",
+        "setup": "C009 native setup is source-backed; final route clarity and rendered-output checks pending.",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
-        "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
+        "html_markdown": "C009 source bindings are present; final HTML/Markdown route check pending.",
+        "runtime": "C008 recipe bridge and strict gate are green locally where applicable; no provider/platform qualification.",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C009 setup source proven; rendered reader, copy-preview, and broader local matrix checks pending."
         ]
       },
       "targeted_notes": [
-        "C009 runtime/setup repair owned by runtime lane; joined reader/runtime proof pending"
+        "C009 uses the actual Strands state/context-builder regions; C008 preserves a strict local recipe-state RED/GREEN record."
       ],
       "baseline_public_route": "/strands/agent-config",
       "current_public_route": "/strands/agent-config",
@@ -5719,18 +5725,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/built-in-agent/generative-ui/your-components/interactive",
       "current_public_route": "/built-in-agent/generative-ui/your-components/interactive",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -5989,18 +5997,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/built-in-agent/generative-ui/tool-rendering",
       "current_public_route": "/built-in-agent/generative-ui/tool-rendering",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -6019,18 +6029,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/built-in-agent/generative-ui/tool-rendering",
       "current_public_route": "/built-in-agent/generative-ui/tool-rendering",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -6049,18 +6061,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/built-in-agent/generative-ui/tool-rendering",
       "current_public_route": "/built-in-agent/generative-ui/tool-rendering",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -6079,18 +6093,20 @@
         "availability": "manifest-unsupported"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/built-in-agent/generative-ui/tool-rendering",
       "current_public_route": "/built-in-agent/generative-ui/tool-rendering",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -6199,18 +6215,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/built-in-agent/frontend-tools",
       "current_public_route": "/built-in-agent/frontend-tools",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -6229,18 +6247,20 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/built-in-agent/frontend-tools",
       "current_public_route": "/built-in-agent/frontend-tools",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -6259,18 +6279,20 @@
         "availability": "unshipped"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "C003 local Showcase replacement committed; selected framework binding verified. Final route reader review pending.",
+        "showcase_example": "C003 raw-Markdown provenance contract verifies the selected cell and source region; local embedded-demo check pending.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C003 raw-Markdown contract passes; final HTML and local embedded-demo route check pending.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "C003 source/provenance proven; local embedded demo, reader, setup/API, and copy-preview checks pending."
         ]
       },
-      "targeted_notes": [],
+      "targeted_notes": [
+        "C003 replaces the remote viewer with the selected local Showcase cell and extracted source."
+      ],
       "baseline_public_route": "/built-in-agent/frontend-tools",
       "current_public_route": "/built-in-agent/frontend-tools",
       "current_route_reason": "canonical route unchanged from baseline projection"
@@ -6589,19 +6611,19 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "BIA runtime bridge is repaired; shared guide clarity correction awaits independent prose review",
-        "showcase_example": "C007 request capture confirms selected controls reach factory forwarded props",
+        "source_and_clarity": "BIA runtime bridge repaired; shared guide clarity independently reviewed.",
+        "showcase_example": "C007 capture confirms selected controls reach the factory through forwarded provider properties.",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "post-clarity-edit reader check pending",
-        "runtime": "C007 local browser capture plus targeted D6 regression; no hosted/provider qualification",
+        "html_markdown": "Shared-guide clarity source review complete; rendered route reader check pending.",
+        "runtime": "C007 local browser capture plus strict fixture D6 regression; no hosted/provider qualification.",
         "current_disposition": [
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
       "targeted_notes": [
-        "C007 source bridge repaired and local request capture passed; fixture/runtime qualification remains separate"
+        "C007 source bridge repaired; strict fixture now requires all consumed system-prompt fields."
       ],
       "baseline_public_route": "/built-in-agent/agent-config",
       "current_public_route": "/built-in-agent/agent-config",

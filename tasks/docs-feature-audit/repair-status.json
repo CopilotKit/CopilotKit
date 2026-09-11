@@ -47,12 +47,20 @@
       "id": "CONTENT-GEN-003",
       "area": "canonical runnable examples and Markdown parity",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-003",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Replace the selected-guide viewer embeds with the matching Showcase cell and explicit source region where an LLM-readable excerpt is needed. Verify browser and Markdown output per affected framework, then run the corresponding isolated AIMock cells."
+      "fix_commits": [
+        "f8947f2f3a"
+      ],
+      "after_evidence": [
+        "Selected provenance contracts passed in the bounded suite: local selected cells and extracted regions replace five remote viewer sources across eleven selected bindings."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Final HTML/local embedded-demo and reader checks remain open."
+      },
+      "remaining": "Verify browser and Markdown output per affected framework with the local embed override, then run the corresponding isolated AIMock cells."
     },
     {
       "id": "CONTENT-GEN-004",
@@ -99,40 +107,59 @@
       "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-007",
       "fix_commits": [
-        "6a58482e54"
+        "6a58482e54",
+        "3bd8bfb428"
       ],
       "after_evidence": [
         "Neutral-message captured request: before empty forwardedProps plus context controls; after forwardedProps includes selected tone/expertise/length. Sanitized RED/GREEN JSON committed.",
-        "Three strict local D6 cells pass: agent-config (six control turns), agentic-chat, tool-rendering."
+        "Three strict local D6 cells pass: agent-config (six control turns), agentic-chat, tool-rendering; the fixture now requires the consumed system-prompt fields."
       ],
       "sanity_review": {
         "status": "approved_for_source_change",
         "reviewer": "intelligence_showcase_support",
         "finding": "Provider properties now matches sole factory consumer input.forwardedProps; unused relay removed."
       },
-      "remaining": "Strengthen integration fixtures to require actual consumed system-prompt config with unchanged shared probe, then final guide/local matrix sanity review."
+      "remaining": "Fixture coverage is strengthened. Complete final guide/local matrix sanity review; no hosted/provider qualification is claimed."
     },
     {
       "id": "CONTENT-GEN-008",
       "area": "runnable example behavior",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-008",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Add recipe serialization to the state bridge and a sentinel regression test. The existing D6 reply assertion is not sufficient because its fixture matches userMessage and returns recipe terms without inspecting state."
+      "fix_commits": [
+        "cddc381133"
+      ],
+      "after_evidence": [
+        "Preserved direct-builder RED lacked the recipe sentinel; repaired builder capture includes title and ingredient sentinels.",
+        "Strict Strands fixture requires the emitted recipe marker: pre-readiness D6 RED is retained and the repaired strict D6 gate is green. See repair-runtime.md."
+      ],
+      "sanity_review": {
+        "status": "approved_for_scoped_runtime_change",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "The state-context builder consumes recipe state and the strict matcher requires its emitted prompt marker; the fixture does not rely on a loose user-message fallback.",
+        "remaining": "Complete Strands matrix and guide-level local rendering remain open."
+      },
+      "remaining": "Specific recipe propagation is proven locally. Re-run the remaining Strands cells and verify the C009 setup fragments in rendered HTML and Markdown before qualifying the guide matrix."
     },
     {
       "id": "CONTENT-GEN-009",
       "area": "native backend setup guidance",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-009",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Add concise Strands setup fragments that expose the existing state_context_builder pattern for each relevant concept, regenerate setup content, and verify HTML and Markdown show matching native guidance. Re-run the three isolated cells with AIMock."
+      "fix_commits": [
+        "d4d3c7e524"
+      ],
+      "after_evidence": [
+        "Three native Strands setup fragments bind the tested state/context-builder regions; the bounded suite includes their focused raw-Markdown contracts."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Rendered local route and broader matrix checks remain open."
+      },
+      "remaining": "Verify HTML and Markdown show matching native guidance, then run the three isolated cells with AIMock before qualifying the guide matrix."
     },
     {
       "id": "CONTENT-GEN-010",
@@ -651,6 +678,42 @@
       },
       "remaining": "No product fix needed. Local checkout version difference remains explicit in repair-content.md.",
       "disposition": "local_checkout_version_skew"
+    },
+    {
+      "id": "REPAIR-006",
+      "area": "shared recipe initialization readiness",
+      "severity": "high",
+      "stage": "qualified_locally",
+      "before_record": "repair-runtime.md#repair-006-shared-recipe-initialization-readiness-race",
+      "fix_commits": [
+        "cddc381133"
+      ],
+      "after_evidence": [
+        "The canonical shared page waits for synchronized agent readiness before seeding recipe state and exposing the send path.",
+        "Fanout checker passed; strict shared-state-read probes are green for Strands, LangGraph Python, and LangGraph TypeScript with the same canonical frontend."
+      ],
+      "sanity_review": {
+        "status": "approved_for_scoped_runtime_change",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "One canonical source is materialized byte-identically into the three integrations, while each retains its local Next dependency resolution."
+      },
+      "remaining": "Scoped readiness race is qualified locally. Keep the original recipe-absent RED and run the wider framework matrices before claiming integration qualification."
+    },
+    {
+      "id": "REPAIR-007",
+      "area": "Angular reader isolation and Microsoft Agent Framework overview test contract",
+      "severity": "medium",
+      "stage": "verifying",
+      "before_record": "The bounded suite found Angular output with cross-frontend comparisons and React-only Built-in Agent links; its Microsoft Agent Python HITL overview was incorrectly required to contain provider setup.",
+      "fix_commits": [],
+      "after_evidence": [
+        "Scoped Angular wording and frontend branches remove cross-frontend copy from the rendered Angular surface.",
+        "The Microsoft Agent Python HITL overview test now verifies its two child paths instead of backend provider imports.",
+        "Focused raw-Markdown suite: angular-docs-content plus ms-agent-python-stable-api, 17 passing tests."
+      ],
+      "sanity_review": null,
+      "remaining": "Commit the source/test unit, complete the generator-owned Angular resolver mappings separately, and retain browser-level Angular validation as an open representation gate.",
+      "disposition": "Angular content defect plus test-only MAF contract drift; no provider code belongs in the overview."
     }
   ]
 }
