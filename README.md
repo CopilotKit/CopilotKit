@@ -100,13 +100,11 @@ Follow the Markdown instructions it prints until onboarding is complete.
 
 ### Agent Skills
 
-CopilotKit ships [agent skills](https://docs.copilotkit.ai/cli?ref=github_readme) that teach your coding agent (Claude Code, Codex, Cursor, Gemini, and others) how to set up, build with, integrate, debug, and upgrade CopilotKit. `skills onboard` installs them for you; to install them on their own:
+`skills onboard` installs them for you. To add or refresh the [agent skills](https://docs.copilotkit.ai/cli?ref=github_readme) on their own — they teach Claude Code, Codex, Cursor, Gemini and others how to build with, debug and upgrade CopilotKit:
 
 ```bash
 npx copilotkit@latest skills install
 ```
-
-Run it again any time to refresh to the latest skills.
 
 ## What you can build
 
@@ -124,7 +122,7 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 - **Rich Threads** – Conversations that survive reloads, devices, and sessions, with their generative UI intact.
 - **Automatic Learning** – Agents that improve from real usage: completed threads become reviewed Skills, with no fine-tuning pipeline.
 
-## CopilotKit Intelligence
+## 🪁 CopilotKit Intelligence
 
 What CopilotKit gives you runs on your side: your frontend, your runtime, your agents. **CopilotKit Intelligence** is the production platform your runtime talks to once real users arrive — rich threads with generative UI, user memories, product analytics, inspection, and automatic learning, without changing your frontend SDK, the AG-UI protocol, or your agent framework. Run it cloud-hosted, or inside your own cluster.
 
