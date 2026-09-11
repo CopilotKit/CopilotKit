@@ -37,6 +37,7 @@ on:
           - monorepo
           - angular
           - channels
+          - intelligence-langgraph
           # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts):
           # publishes every scope from this commit under one shared canary id.
           # Required whenever the change spans scopes, because cross-scope
