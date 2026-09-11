@@ -509,23 +509,41 @@
       "id": "CONTENT-GEN-037",
       "area": "BYOC Hashbrown guide API provenance",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "sanity_review",
       "before_record": "content-defects.json#CONTENT-GEN-037",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Replace the copied renderer with a tested source-owned example or an accurately scoped excerpt, then typecheck the example and confirm both HTML and Markdown present the same current API."
+      "fix_commits": [
+        "f6ffd97322"
+      ],
+      "after_evidence": [
+        "Selected-five Showcase source checks2pass after generation; local HTML/Markdown20of20 routes200 with expected APIs and no missing markers.",
+        "Independent clarity review confirms scoped source excerpts, distinct wire formats, and Try-it prompts."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_and_representation",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "Complete selected runtime matrix and local embedded-example demonstration."
+      },
+      "remaining": "Verify source-backed renderer example behavior through complete five-agent local matrix; no live-provider qualification implied."
     },
     {
       "id": "CONTENT-GEN-038",
       "area": "BYOC JSON Render guide renderer and catalog contract",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "sanity_review",
       "before_record": "content-defects.json#CONTENT-GEN-038",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Publish a source-owned, typechecked JSON Render example that includes its parser, defineCatalog/defineRegistry setup, provider, and validation contract, then verify HTML and Markdown extraction."
+      "fix_commits": [
+        "f6ffd97322"
+      ],
+      "after_evidence": [
+        "Selected-five Showcase source checks2pass after generation; local HTML/Markdown20of20 routes200 with expected APIs and no missing markers.",
+        "Independent clarity review confirms scoped source excerpts, distinct wire formats, and Try-it prompts."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_and_representation",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "Complete selected runtime matrix and local embedded-example demonstration."
+      },
+      "remaining": "Verify source-backed renderer example behavior through complete five-agent local matrix; no live-provider qualification implied."
     },
     {
       "id": "REPAIR-001",

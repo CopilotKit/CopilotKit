@@ -65,14 +65,14 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 
 ## Workstreams
 
-| Workstream                                        | Current stage | Next proof                                                                            |
-| ------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------- |
-| Local startup and deterministic examples          | Implementing  | ADK starts and existing shared probes run; default LangGraph JS dev works.            |
-| Context, configuration, and state propagation     | Investigating | Values reach the actual consumer; message-only fixtures cannot fake a pass.           |
-| Generated guides and code extraction              | Implementing  | Matching support decisions in HTML/Markdown; no missing snippets for supported cells. |
-| Readable, framework-specific implementation paths | Implementing  | Follow each selected guide; extracted examples, setup, and API references agree.      |
-| Copy prompts and product guides                   | Investigating | Reuse current helpers and verify the produced local setup path.                       |
-| Complete five-agent verification                  | Investigating | Fresh matrix results, latest-stable versions, and a per-guide sanity review.          |
+| Workstream                                       | Current stage | Next proof                                                                         |
+| ------------------------------------------------ | ------------- | ---------------------------------------------------------------------------------- |
+| Local startup and deterministic examples         | Verifying     | Full fresh matrix after ADK and LangGraph JS startup repairs.                      |
+| Context, configuration, and state propagation    | Implementing  | Strict fixture assertions for consumed configuration; Strands recipe-state bridge. |
+| Generated guides and code extraction             | Verifying     | Remaining missing regions and real HTML/Markdown source-selection parity.          |
+| Readable framework-specific implementation paths | Implementing  | Complete shared-guide groups and each framework’s setup differences.               |
+| Copy prompts and product guides                  | Verifying     | Actual copy/preview behavior and reproducible local setup.                         |
+| Complete five-agent verification                 | Investigating | Latest stable dependencies, full matrix, and locally embedded demonstrations.      |
 
 The [per-guide reader checklist](selected-reader-sanity.md) tracks all 220 baseline feature/agent bindings and the two additional renderer guides. Its [machine-readable version](selected-reader-sanity.json) separates source, setup, API, prompt, representation, and runtime evidence. Pending checks stay pending.
 
@@ -108,6 +108,8 @@ The [per-guide reader checklist](selected-reader-sanity.md) tracks all 220 basel
 | 13 | REPAIR-002 shared ADK setup | HITL source on chart guide; first fix moved mismatch to frontend-tools | Neutral shared factory region passes all three consumers and six local representations (`7c7a5ff016`) | Scoped source mismatch qualified |
 
 | 14 | REPAIR-003 HITL scope and clarity | ADK page recommended native LangGraph interrupts | Tool-based path leads; explicit ADK difference and LangGraph control pass (`b50e674547`) | Final reader pass pending |
+
+| 15 | C037/C038 renderer guides | Copied outdated APIs and imprecise output contracts | Selected Showcase source, explicit differing schemas, Try-it prompts; 20 local representations pass (`f6ffd97322`) | Final runtime/example demonstration pending |
 
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.

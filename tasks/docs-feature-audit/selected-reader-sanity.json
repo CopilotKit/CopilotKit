@@ -136,7 +136,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/quickstart",
+      "current_public_route": "/langgraph-python/quickstart",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:beautiful-chat",
@@ -163,7 +166,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/agentic-chat-ui",
+      "current_public_route": "/langgraph-python/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:agentic-chat",
@@ -190,7 +196,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/agentic-chat-ui",
+      "current_public_route": "/langgraph-python/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:prebuilt-sidebar",
@@ -217,7 +226,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/prebuilt-components/sidebar",
+      "current_public_route": "/langgraph-python/prebuilt-components/sidebar",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:prebuilt-popup",
@@ -244,7 +256,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/prebuilt-components/popup",
+      "current_public_route": "/langgraph-python/prebuilt-components/popup",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:chat-slots",
@@ -271,7 +286,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/custom-look-and-feel/slots",
+      "current_public_route": "/langgraph-python/custom-look-and-feel/slots",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:chat-customization-css",
@@ -298,7 +316,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/custom-look-and-feel/css",
+      "current_public_route": "/langgraph-python/custom-look-and-feel/css",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:headless-simple",
@@ -325,7 +346,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/headless",
+      "current_public_route": "/langgraph-python/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:headless-complete",
@@ -352,7 +376,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/headless",
+      "current_public_route": "/langgraph-python/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:gen-ui-tool-based",
@@ -379,7 +406,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/your-components/display-only",
+      "current_public_route": "/langgraph-python/generative-ui/your-components/display-only",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:hitl-in-chat",
@@ -406,7 +436,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/your-components/interactive",
+      "current_public_route": "/langgraph-python/generative-ui/your-components/interactive",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:gen-ui-interrupt",
@@ -433,7 +466,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/human-in-the-loop/useInterrupt",
+      "current_public_route": "/langgraph-python/human-in-the-loop/useInterrupt",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:interrupt-headless",
@@ -460,7 +496,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/human-in-the-loop/headless",
+      "current_public_route": "/langgraph-python/human-in-the-loop/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:declarative-gen-ui",
@@ -487,7 +526,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/langgraph-python/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:a2ui-fixed-schema",
@@ -514,7 +556,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/a2ui/fixed-schema",
+      "current_public_route": "/langgraph-python/generative-ui/a2ui/fixed-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:a2ui-recovery",
@@ -541,7 +586,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/langgraph-python/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:mcp-apps",
@@ -568,7 +616,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/mcp-apps",
+      "current_public_route": "/langgraph-python/generative-ui/mcp-apps",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:open-gen-ui",
@@ -595,7 +646,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/open-generative-ui",
+      "current_public_route": "/langgraph-python/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:open-gen-ui-advanced",
@@ -622,7 +676,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/open-generative-ui",
+      "current_public_route": "/langgraph-python/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:tool-rendering-default-catchall",
@@ -649,7 +706,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/tool-rendering",
+      "current_public_route": "/langgraph-python/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:tool-rendering-custom-catchall",
@@ -676,7 +736,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/tool-rendering",
+      "current_public_route": "/langgraph-python/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:tool-rendering",
@@ -703,7 +766,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/tool-rendering",
+      "current_public_route": "/langgraph-python/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:tool-rendering-reasoning-chain",
@@ -730,7 +796,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/tool-rendering",
+      "current_public_route": "/langgraph-python/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:reasoning-default",
@@ -757,7 +826,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/langgraph-python/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:reasoning-custom",
@@ -784,7 +856,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/langgraph-python/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:gen-ui-agent",
@@ -811,7 +886,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/generative-ui/state-rendering",
+      "current_public_route": "/langgraph-python/generative-ui/state-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:frontend-tools",
@@ -838,7 +916,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/frontend-tools",
+      "current_public_route": "/langgraph-python/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:frontend-tools-async",
@@ -865,7 +946,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/frontend-tools",
+      "current_public_route": "/langgraph-python/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:threadid-frontend-tool-roundtrip",
@@ -892,7 +976,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/frontend-tools",
+      "current_public_route": "/langgraph-python/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:hitl-in-app",
@@ -919,7 +1006,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/human-in-the-loop",
+      "current_public_route": "/langgraph-python/human-in-the-loop",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:shared-state-read-write",
@@ -946,7 +1036,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/shared-state",
+      "current_public_route": "/langgraph-python/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:shared-state-read",
@@ -973,7 +1066,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/shared-state",
+      "current_public_route": "/langgraph-python/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:shared-state-streaming",
@@ -1000,7 +1096,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/shared-state/streaming",
+      "current_public_route": "/langgraph-python/shared-state/streaming",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:readonly-state-agent-context",
@@ -1027,7 +1126,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/shared-state/agent-readonly",
+      "current_public_route": "/langgraph-python/shared-state/agent-readonly",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:subagents",
@@ -1054,7 +1156,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/multi-agent/subagents",
+      "current_public_route": "/langgraph-python/multi-agent/subagents",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:background-agents",
@@ -1081,7 +1186,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/background-tasks",
+      "current_public_route": "/langgraph-python/background-tasks",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:observational-memory",
@@ -1108,7 +1216,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/observational-memory",
+      "current_public_route": "/langgraph-python/observational-memory",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:browser-use",
@@ -1135,7 +1246,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/browser-use",
+      "current_public_route": "/langgraph-python/browser-use",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:auth",
@@ -1162,7 +1276,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/auth",
+      "current_public_route": "/langgraph-python/auth",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:agent-config",
@@ -1178,7 +1295,7 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
+        "source_and_clarity": "shared guide clarity correction applied; final framework-specific reader check pending",
         "showcase_example": "source ownership audited where resolved; post-repair route check pending",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
@@ -1189,7 +1306,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/agent-config",
+      "current_public_route": "/langgraph-python/agent-config",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:voice",
@@ -1216,7 +1336,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/voice",
+      "current_public_route": "/langgraph-python/voice",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:multimodal",
@@ -1243,7 +1366,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-python/multimodal-attachments",
+      "current_public_route": "/langgraph-python/multimodal-attachments",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:declarative-hashbrown",
@@ -1259,18 +1385,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/langgraph-python/generative-ui/hashbrown",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:langgraph-python:declarative-json-render",
@@ -1286,18 +1415,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/langgraph-python/generative-ui/json-render",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:cli-start",
@@ -1324,7 +1456,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/quickstart",
+      "current_public_route": "/langgraph-typescript/quickstart",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:beautiful-chat",
@@ -1351,7 +1486,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/agentic-chat-ui",
+      "current_public_route": "/langgraph-typescript/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:agentic-chat",
@@ -1378,7 +1516,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/agentic-chat-ui",
+      "current_public_route": "/langgraph-typescript/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:prebuilt-sidebar",
@@ -1405,7 +1546,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/prebuilt-components/sidebar",
+      "current_public_route": "/langgraph-typescript/prebuilt-components/sidebar",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:prebuilt-popup",
@@ -1432,7 +1576,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/prebuilt-components/popup",
+      "current_public_route": "/langgraph-typescript/prebuilt-components/popup",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:chat-slots",
@@ -1459,7 +1606,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/custom-look-and-feel/slots",
+      "current_public_route": "/langgraph-typescript/custom-look-and-feel/slots",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:chat-customization-css",
@@ -1486,7 +1636,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/custom-look-and-feel/css",
+      "current_public_route": "/langgraph-typescript/custom-look-and-feel/css",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:headless-simple",
@@ -1513,7 +1666,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/headless",
+      "current_public_route": "/langgraph-typescript/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:headless-complete",
@@ -1540,7 +1696,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/headless",
+      "current_public_route": "/langgraph-typescript/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:gen-ui-tool-based",
@@ -1567,7 +1726,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/your-components/display-only",
+      "current_public_route": "/langgraph-typescript/generative-ui/your-components/display-only",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:hitl-in-chat",
@@ -1594,7 +1756,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/your-components/interactive",
+      "current_public_route": "/langgraph-typescript/generative-ui/your-components/interactive",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:gen-ui-interrupt",
@@ -1621,7 +1786,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/human-in-the-loop/useInterrupt",
+      "current_public_route": "/langgraph-typescript/human-in-the-loop/useInterrupt",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:interrupt-headless",
@@ -1648,7 +1816,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/human-in-the-loop/headless",
+      "current_public_route": "/langgraph-typescript/human-in-the-loop/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:declarative-gen-ui",
@@ -1675,7 +1846,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/langgraph-typescript/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:a2ui-fixed-schema",
@@ -1702,7 +1876,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/a2ui/fixed-schema",
+      "current_public_route": "/langgraph-typescript/generative-ui/a2ui/fixed-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:a2ui-recovery",
@@ -1729,7 +1906,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/langgraph-typescript/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:mcp-apps",
@@ -1756,7 +1936,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/mcp-apps",
+      "current_public_route": "/langgraph-typescript/generative-ui/mcp-apps",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:open-gen-ui",
@@ -1783,7 +1966,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/open-generative-ui",
+      "current_public_route": "/langgraph-typescript/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:open-gen-ui-advanced",
@@ -1810,7 +1996,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/open-generative-ui",
+      "current_public_route": "/langgraph-typescript/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:tool-rendering-default-catchall",
@@ -1837,7 +2026,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/tool-rendering",
+      "current_public_route": "/langgraph-typescript/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:tool-rendering-custom-catchall",
@@ -1864,7 +2056,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/tool-rendering",
+      "current_public_route": "/langgraph-typescript/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:tool-rendering",
@@ -1891,7 +2086,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/tool-rendering",
+      "current_public_route": "/langgraph-typescript/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:tool-rendering-reasoning-chain",
@@ -1918,7 +2116,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/tool-rendering",
+      "current_public_route": "/langgraph-typescript/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:reasoning-default",
@@ -1945,7 +2146,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/langgraph-typescript/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:reasoning-custom",
@@ -1972,7 +2176,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/langgraph-typescript/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:gen-ui-agent",
@@ -1999,7 +2206,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/generative-ui/state-rendering",
+      "current_public_route": "/langgraph-typescript/generative-ui/state-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:frontend-tools",
@@ -2026,7 +2236,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/frontend-tools",
+      "current_public_route": "/langgraph-typescript/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:frontend-tools-async",
@@ -2053,7 +2266,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/frontend-tools",
+      "current_public_route": "/langgraph-typescript/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:threadid-frontend-tool-roundtrip",
@@ -2080,7 +2296,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/frontend-tools",
+      "current_public_route": "/langgraph-typescript/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:hitl-in-app",
@@ -2107,7 +2326,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/human-in-the-loop",
+      "current_public_route": "/langgraph-typescript/human-in-the-loop",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:shared-state-read-write",
@@ -2134,7 +2356,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/shared-state",
+      "current_public_route": "/langgraph-typescript/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:shared-state-read",
@@ -2161,7 +2386,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/shared-state",
+      "current_public_route": "/langgraph-typescript/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:shared-state-streaming",
@@ -2188,7 +2416,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/shared-state/streaming",
+      "current_public_route": "/langgraph-typescript/shared-state/streaming",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:readonly-state-agent-context",
@@ -2215,7 +2446,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/shared-state/agent-readonly",
+      "current_public_route": "/langgraph-typescript/shared-state/agent-readonly",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:subagents",
@@ -2242,7 +2476,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/multi-agent/subagents",
+      "current_public_route": "/langgraph-typescript/multi-agent/subagents",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:background-agents",
@@ -2269,7 +2506,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/background-tasks",
+      "current_public_route": "/langgraph-typescript/background-tasks",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:observational-memory",
@@ -2296,7 +2536,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/observational-memory",
+      "current_public_route": "/langgraph-typescript/observational-memory",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:browser-use",
@@ -2323,7 +2566,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/browser-use",
+      "current_public_route": "/langgraph-typescript/browser-use",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:auth",
@@ -2350,7 +2596,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/auth",
+      "current_public_route": "/langgraph-typescript/auth",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:agent-config",
@@ -2366,7 +2615,7 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
+        "source_and_clarity": "shared guide clarity correction applied; final framework-specific reader check pending",
         "showcase_example": "source ownership audited where resolved; post-repair route check pending",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
@@ -2377,7 +2626,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/agent-config",
+      "current_public_route": "/langgraph-typescript/agent-config",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:voice",
@@ -2404,7 +2656,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/voice",
+      "current_public_route": "/langgraph-typescript/voice",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:multimodal",
@@ -2431,7 +2686,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/langgraph-typescript/multimodal-attachments",
+      "current_public_route": "/langgraph-typescript/multimodal-attachments",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:declarative-hashbrown",
@@ -2447,18 +2705,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/langgraph-typescript/generative-ui/hashbrown",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:langgraph-typescript:declarative-json-render",
@@ -2474,18 +2735,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/langgraph-typescript/generative-ui/json-render",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:google-adk:cli-start",
@@ -2512,7 +2776,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/quickstart",
+      "current_public_route": "/google-adk/quickstart",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:beautiful-chat",
@@ -2539,7 +2806,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/agentic-chat-ui",
+      "current_public_route": "/google-adk/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:agentic-chat",
@@ -2566,7 +2836,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/agentic-chat-ui",
+      "current_public_route": "/google-adk/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:prebuilt-sidebar",
@@ -2593,7 +2866,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/prebuilt-components/sidebar",
+      "current_public_route": "/google-adk/prebuilt-components/sidebar",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:prebuilt-popup",
@@ -2620,7 +2896,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/prebuilt-components/popup",
+      "current_public_route": "/google-adk/prebuilt-components/popup",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:chat-slots",
@@ -2647,7 +2926,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/custom-look-and-feel/slots",
+      "current_public_route": "/google-adk/custom-look-and-feel/slots",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:chat-customization-css",
@@ -2674,7 +2956,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/custom-look-and-feel/css",
+      "current_public_route": "/google-adk/custom-look-and-feel/css",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:headless-simple",
@@ -2701,7 +2986,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/headless",
+      "current_public_route": "/google-adk/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:headless-complete",
@@ -2728,7 +3016,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/headless",
+      "current_public_route": "/google-adk/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:gen-ui-tool-based",
@@ -2744,12 +3035,12 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
+        "source_and_clarity": "C002 canonical route remap and REPAIR-002 neutral setup source are verified in focused docs checks; final reader review pending",
         "showcase_example": "not applicable without selected baseline source",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
+        "setup": "REPAIR-002 raw Markdown checked across all three generic setup consumers",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "C002 local canonical/legacy route responses verified by generation lane; final reader review pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C002 route remap repaired; baseline record is retained until final reader-path reconciliation"
@@ -2757,7 +3048,10 @@
       },
       "targeted_notes": [
         "C002 baseline source-resolution gap is repaired by canonical route remap; final reader/runtime checks remain"
-      ]
+      ],
+      "baseline_public_route": "/google-adk/generative-ui/your-components/display-only",
+      "current_public_route": "/google-adk/generative-ui/display",
+      "current_route_reason": "C002 canonical remap; legacy display-only URL redirects here"
     },
     {
       "binding_id": "react:google-adk:hitl-in-chat",
@@ -2773,12 +3067,12 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
+        "source_and_clarity": "REPAIR-003 local Markdown control passed; tool-based ADK distinction independently reviewed",
         "showcase_example": "not applicable without selected baseline source",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "not applicable without selected baseline source",
+        "setup": "REPAIR-003 corrected ADK setup wording to tool-based confirmation; final browser review pending",
+        "api_links": "current `useHumanInTheLoop` reference linked and rendered by focused control",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "focused local Markdown controls passed for ADK and LangGraph; final browser route check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C002 route remap repaired; baseline record is retained until final reader-path reconciliation"
@@ -2786,7 +3080,10 @@
       },
       "targeted_notes": [
         "C002 baseline source-resolution gap is repaired by canonical route remap; REPAIR-003 content control passed; final reader/runtime checks remain"
-      ]
+      ],
+      "baseline_public_route": "/google-adk/generative-ui/your-components/interactive",
+      "current_public_route": "/google-adk/human-in-the-loop",
+      "current_route_reason": "C002 canonical remap; legacy interactive URL redirects here"
     },
     {
       "binding_id": "react:google-adk:gen-ui-interrupt",
@@ -2813,7 +3110,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/human-in-the-loop/useInterrupt",
+      "current_public_route": "/google-adk/human-in-the-loop/useInterrupt",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:interrupt-headless",
@@ -2840,7 +3140,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/human-in-the-loop/headless",
+      "current_public_route": "/google-adk/human-in-the-loop/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:declarative-gen-ui",
@@ -2867,7 +3170,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/google-adk/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:a2ui-fixed-schema",
@@ -2894,7 +3200,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/a2ui/fixed-schema",
+      "current_public_route": "/google-adk/generative-ui/a2ui/fixed-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:a2ui-recovery",
@@ -2921,7 +3230,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/google-adk/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:mcp-apps",
@@ -2948,7 +3260,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/mcp-apps",
+      "current_public_route": "/google-adk/generative-ui/mcp-apps",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:open-gen-ui",
@@ -2975,7 +3290,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/open-generative-ui",
+      "current_public_route": "/google-adk/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:open-gen-ui-advanced",
@@ -3002,7 +3320,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/open-generative-ui",
+      "current_public_route": "/google-adk/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:tool-rendering-default-catchall",
@@ -3029,7 +3350,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/tool-rendering",
+      "current_public_route": "/google-adk/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:tool-rendering-custom-catchall",
@@ -3056,7 +3380,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/tool-rendering",
+      "current_public_route": "/google-adk/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:tool-rendering",
@@ -3083,7 +3410,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/tool-rendering",
+      "current_public_route": "/google-adk/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:tool-rendering-reasoning-chain",
@@ -3110,7 +3440,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/tool-rendering",
+      "current_public_route": "/google-adk/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:reasoning-default",
@@ -3137,7 +3470,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/google-adk/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:reasoning-custom",
@@ -3164,7 +3500,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/google-adk/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:gen-ui-agent",
@@ -3191,7 +3530,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/generative-ui/state-rendering",
+      "current_public_route": "/google-adk/generative-ui/state-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:frontend-tools",
@@ -3220,7 +3562,10 @@
       },
       "targeted_notes": [
         "REPAIR-002 neutral generic setup source passed focused route checks; final reader/runtime checks remain"
-      ]
+      ],
+      "baseline_public_route": "/google-adk/frontend-tools",
+      "current_public_route": "/google-adk/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:frontend-tools-async",
@@ -3247,7 +3592,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/frontend-tools",
+      "current_public_route": "/google-adk/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:threadid-frontend-tool-roundtrip",
@@ -3274,7 +3622,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/frontend-tools",
+      "current_public_route": "/google-adk/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:hitl-in-app",
@@ -3301,7 +3652,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/human-in-the-loop",
+      "current_public_route": "/google-adk/human-in-the-loop",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:shared-state-read-write",
@@ -3328,7 +3682,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/shared-state",
+      "current_public_route": "/google-adk/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:shared-state-read",
@@ -3355,7 +3712,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/shared-state",
+      "current_public_route": "/google-adk/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:shared-state-streaming",
@@ -3382,7 +3742,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/shared-state/streaming",
+      "current_public_route": "/google-adk/shared-state/streaming",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:readonly-state-agent-context",
@@ -3409,7 +3772,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/shared-state/agent-readonly",
+      "current_public_route": "/google-adk/shared-state/agent-readonly",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:subagents",
@@ -3436,7 +3802,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/multi-agent/subagents",
+      "current_public_route": "/google-adk/multi-agent/subagents",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:background-agents",
@@ -3463,7 +3832,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/background-tasks",
+      "current_public_route": "/google-adk/background-tasks",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:observational-memory",
@@ -3490,7 +3862,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/observational-memory",
+      "current_public_route": "/google-adk/observational-memory",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:browser-use",
@@ -3517,7 +3892,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/browser-use",
+      "current_public_route": "/google-adk/browser-use",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:auth",
@@ -3544,7 +3922,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/auth",
+      "current_public_route": "/google-adk/auth",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:agent-config",
@@ -3560,7 +3941,7 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
+        "source_and_clarity": "shared guide clarity correction applied; final framework-specific reader check pending",
         "showcase_example": "source ownership audited where resolved; post-repair route check pending",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
@@ -3571,7 +3952,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/agent-config",
+      "current_public_route": "/google-adk/agent-config",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:voice",
@@ -3598,7 +3982,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/voice",
+      "current_public_route": "/google-adk/voice",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:multimodal",
@@ -3625,7 +4012,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/google-adk/multimodal-attachments",
+      "current_public_route": "/google-adk/multimodal-attachments",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:google-adk:declarative-hashbrown",
@@ -3641,18 +4031,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/google-adk/generative-ui/hashbrown",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:google-adk:declarative-json-render",
@@ -3668,18 +4061,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/google-adk/generative-ui/json-render",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:strands:cli-start",
@@ -3706,7 +4102,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/quickstart",
+      "current_public_route": "/strands/quickstart",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:beautiful-chat",
@@ -3733,7 +4132,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/agentic-chat-ui",
+      "current_public_route": "/strands/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:agentic-chat",
@@ -3760,7 +4162,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/agentic-chat-ui",
+      "current_public_route": "/strands/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:prebuilt-sidebar",
@@ -3787,7 +4192,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/prebuilt-components/sidebar",
+      "current_public_route": "/strands/prebuilt-components/sidebar",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:prebuilt-popup",
@@ -3814,7 +4222,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/prebuilt-components/popup",
+      "current_public_route": "/strands/prebuilt-components/popup",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:chat-slots",
@@ -3841,7 +4252,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/custom-look-and-feel/slots",
+      "current_public_route": "/strands/custom-look-and-feel/slots",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:chat-customization-css",
@@ -3868,7 +4282,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/custom-look-and-feel/css",
+      "current_public_route": "/strands/custom-look-and-feel/css",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:headless-simple",
@@ -3895,7 +4312,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/headless",
+      "current_public_route": "/strands/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:headless-complete",
@@ -3922,7 +4342,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/headless",
+      "current_public_route": "/strands/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:gen-ui-tool-based",
@@ -3949,7 +4372,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/your-components/display-only",
+      "current_public_route": "/strands/generative-ui/your-components/display-only",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:hitl-in-chat",
@@ -3976,7 +4402,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/your-components/interactive",
+      "current_public_route": "/strands/generative-ui/your-components/interactive",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:gen-ui-interrupt",
@@ -4003,7 +4432,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/human-in-the-loop/useInterrupt",
+      "current_public_route": "/strands/human-in-the-loop/useInterrupt",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:interrupt-headless",
@@ -4030,7 +4462,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/human-in-the-loop/headless",
+      "current_public_route": "/strands/human-in-the-loop/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:declarative-gen-ui",
@@ -4057,7 +4492,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/strands/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:a2ui-fixed-schema",
@@ -4084,7 +4522,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/a2ui/fixed-schema",
+      "current_public_route": "/strands/generative-ui/a2ui/fixed-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:a2ui-recovery",
@@ -4111,7 +4552,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/strands/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:mcp-apps",
@@ -4138,7 +4582,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/mcp-apps",
+      "current_public_route": "/strands/generative-ui/mcp-apps",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:open-gen-ui",
@@ -4165,7 +4612,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/open-generative-ui",
+      "current_public_route": "/strands/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:open-gen-ui-advanced",
@@ -4192,7 +4642,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/open-generative-ui",
+      "current_public_route": "/strands/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:tool-rendering-default-catchall",
@@ -4219,7 +4672,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/tool-rendering",
+      "current_public_route": "/strands/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:tool-rendering-custom-catchall",
@@ -4246,7 +4702,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/tool-rendering",
+      "current_public_route": "/strands/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:tool-rendering",
@@ -4273,7 +4732,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/tool-rendering",
+      "current_public_route": "/strands/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:tool-rendering-reasoning-chain",
@@ -4300,7 +4762,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/tool-rendering",
+      "current_public_route": "/strands/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:reasoning-default",
@@ -4327,7 +4792,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/strands/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:reasoning-custom",
@@ -4354,7 +4822,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/strands/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:gen-ui-agent",
@@ -4381,7 +4852,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/generative-ui/state-rendering",
+      "current_public_route": "/strands/generative-ui/state-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:frontend-tools",
@@ -4408,7 +4882,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/frontend-tools",
+      "current_public_route": "/strands/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:frontend-tools-async",
@@ -4435,7 +4912,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/frontend-tools",
+      "current_public_route": "/strands/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:threadid-frontend-tool-roundtrip",
@@ -4462,7 +4942,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/frontend-tools",
+      "current_public_route": "/strands/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:hitl-in-app",
@@ -4489,7 +4972,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/human-in-the-loop",
+      "current_public_route": "/strands/human-in-the-loop",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:shared-state-read-write",
@@ -4518,7 +5004,10 @@
       },
       "targeted_notes": [
         "C009 runtime/setup repair owned by runtime lane; joined reader/runtime proof pending"
-      ]
+      ],
+      "baseline_public_route": "/strands/shared-state",
+      "current_public_route": "/strands/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:shared-state-read",
@@ -4547,7 +5036,10 @@
       },
       "targeted_notes": [
         "C009 runtime/setup repair owned by runtime lane; joined reader/runtime proof pending"
-      ]
+      ],
+      "baseline_public_route": "/strands/shared-state",
+      "current_public_route": "/strands/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:shared-state-streaming",
@@ -4574,7 +5066,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/shared-state/streaming",
+      "current_public_route": "/strands/shared-state/streaming",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:readonly-state-agent-context",
@@ -4603,7 +5098,10 @@
       },
       "targeted_notes": [
         "C009 runtime/setup repair owned by runtime lane; joined reader/runtime proof pending"
-      ]
+      ],
+      "baseline_public_route": "/strands/shared-state/agent-readonly",
+      "current_public_route": "/strands/shared-state/agent-readonly",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:subagents",
@@ -4630,7 +5128,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/multi-agent/subagents",
+      "current_public_route": "/strands/multi-agent/subagents",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:background-agents",
@@ -4657,7 +5158,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/background-tasks",
+      "current_public_route": "/strands/background-tasks",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:observational-memory",
@@ -4684,7 +5188,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/observational-memory",
+      "current_public_route": "/strands/observational-memory",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:browser-use",
@@ -4711,7 +5218,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/browser-use",
+      "current_public_route": "/strands/browser-use",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:auth",
@@ -4738,7 +5248,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/auth",
+      "current_public_route": "/strands/auth",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:agent-config",
@@ -4754,7 +5267,7 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
+        "source_and_clarity": "shared guide clarity correction applied; final framework-specific reader check pending",
         "showcase_example": "source ownership audited where resolved; post-repair route check pending",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
@@ -4767,7 +5280,10 @@
       },
       "targeted_notes": [
         "C009 runtime/setup repair owned by runtime lane; joined reader/runtime proof pending"
-      ]
+      ],
+      "baseline_public_route": "/strands/agent-config",
+      "current_public_route": "/strands/agent-config",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:voice",
@@ -4794,7 +5310,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/voice",
+      "current_public_route": "/strands/voice",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:multimodal",
@@ -4821,7 +5340,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/strands/multimodal-attachments",
+      "current_public_route": "/strands/multimodal-attachments",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:strands:declarative-hashbrown",
@@ -4837,18 +5359,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/strands/generative-ui/hashbrown",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:strands:declarative-json-render",
@@ -4864,18 +5389,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/strands/generative-ui/json-render",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:cli-start",
@@ -4902,7 +5430,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/quickstart",
+      "current_public_route": "/built-in-agent/quickstart",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:beautiful-chat",
@@ -4929,7 +5460,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/agentic-chat-ui",
+      "current_public_route": "/built-in-agent/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:agentic-chat",
@@ -4956,7 +5490,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/agentic-chat-ui",
+      "current_public_route": "/built-in-agent/agentic-chat-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:prebuilt-sidebar",
@@ -4983,7 +5520,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/prebuilt-components/sidebar",
+      "current_public_route": "/built-in-agent/prebuilt-components/sidebar",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:prebuilt-popup",
@@ -5010,7 +5550,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/prebuilt-components/popup",
+      "current_public_route": "/built-in-agent/prebuilt-components/popup",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:chat-slots",
@@ -5037,7 +5580,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/custom-look-and-feel/slots",
+      "current_public_route": "/built-in-agent/custom-look-and-feel/slots",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:chat-customization-css",
@@ -5064,7 +5610,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/custom-look-and-feel/css",
+      "current_public_route": "/built-in-agent/custom-look-and-feel/css",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:headless-simple",
@@ -5091,7 +5640,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/headless",
+      "current_public_route": "/built-in-agent/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:headless-complete",
@@ -5118,7 +5670,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/headless",
+      "current_public_route": "/built-in-agent/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:gen-ui-tool-based",
@@ -5145,7 +5700,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/your-components/display-only",
+      "current_public_route": "/built-in-agent/generative-ui/your-components/display-only",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:hitl-in-chat",
@@ -5172,7 +5730,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/your-components/interactive",
+      "current_public_route": "/built-in-agent/generative-ui/your-components/interactive",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:gen-ui-interrupt",
@@ -5199,7 +5760,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/human-in-the-loop/useInterrupt",
+      "current_public_route": "/built-in-agent/human-in-the-loop/useInterrupt",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:interrupt-headless",
@@ -5226,7 +5790,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/human-in-the-loop/headless",
+      "current_public_route": "/built-in-agent/human-in-the-loop/headless",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:declarative-gen-ui",
@@ -5253,7 +5820,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/built-in-agent/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:a2ui-fixed-schema",
@@ -5280,7 +5850,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/a2ui/fixed-schema",
+      "current_public_route": "/built-in-agent/generative-ui/a2ui/fixed-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:a2ui-recovery",
@@ -5307,7 +5880,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/a2ui/dynamic-schema",
+      "current_public_route": "/built-in-agent/generative-ui/a2ui/dynamic-schema",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:mcp-apps",
@@ -5334,7 +5910,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/mcp-apps",
+      "current_public_route": "/built-in-agent/generative-ui/mcp-apps",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:open-gen-ui",
@@ -5361,7 +5940,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/open-generative-ui",
+      "current_public_route": "/built-in-agent/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:open-gen-ui-advanced",
@@ -5388,7 +5970,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/open-generative-ui",
+      "current_public_route": "/built-in-agent/generative-ui/open-generative-ui",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:tool-rendering-default-catchall",
@@ -5415,7 +6000,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/tool-rendering",
+      "current_public_route": "/built-in-agent/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:tool-rendering-custom-catchall",
@@ -5442,7 +6030,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/tool-rendering",
+      "current_public_route": "/built-in-agent/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:tool-rendering",
@@ -5469,7 +6060,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/tool-rendering",
+      "current_public_route": "/built-in-agent/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:tool-rendering-reasoning-chain",
@@ -5496,7 +6090,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/tool-rendering",
+      "current_public_route": "/built-in-agent/generative-ui/tool-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:reasoning-default",
@@ -5523,7 +6120,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/built-in-agent/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:reasoning-custom",
@@ -5550,7 +6150,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/custom-look-and-feel/reasoning-messages",
+      "current_public_route": "/built-in-agent/custom-look-and-feel/reasoning-messages",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:gen-ui-agent",
@@ -5577,7 +6180,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/generative-ui/state-rendering",
+      "current_public_route": "/built-in-agent/generative-ui/state-rendering",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:frontend-tools",
@@ -5604,7 +6210,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/frontend-tools",
+      "current_public_route": "/built-in-agent/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:frontend-tools-async",
@@ -5631,7 +6240,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/frontend-tools",
+      "current_public_route": "/built-in-agent/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:threadid-frontend-tool-roundtrip",
@@ -5658,7 +6270,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/frontend-tools",
+      "current_public_route": "/built-in-agent/frontend-tools",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:hitl-in-app",
@@ -5685,7 +6300,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/human-in-the-loop",
+      "current_public_route": "/built-in-agent/human-in-the-loop",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:shared-state-read-write",
@@ -5712,7 +6330,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/shared-state",
+      "current_public_route": "/built-in-agent/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:shared-state-read",
@@ -5739,7 +6360,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/shared-state",
+      "current_public_route": "/built-in-agent/shared-state",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:shared-state-streaming",
@@ -5766,7 +6390,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/shared-state/streaming",
+      "current_public_route": "/built-in-agent/shared-state/streaming",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:readonly-state-agent-context",
@@ -5793,7 +6420,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/shared-state/agent-readonly",
+      "current_public_route": "/built-in-agent/shared-state/agent-readonly",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:subagents",
@@ -5820,7 +6450,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/multi-agent/subagents",
+      "current_public_route": "/built-in-agent/multi-agent/subagents",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:background-agents",
@@ -5847,7 +6480,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/background-tasks",
+      "current_public_route": "/built-in-agent/background-tasks",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:observational-memory",
@@ -5874,7 +6510,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/observational-memory",
+      "current_public_route": "/built-in-agent/observational-memory",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:browser-use",
@@ -5901,7 +6540,10 @@
           "No selected source in baseline; this is not automatically a defect or qualification"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/browser-use",
+      "current_public_route": "/built-in-agent/browser-use",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:auth",
@@ -5928,7 +6570,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/auth",
+      "current_public_route": "/built-in-agent/auth",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:agent-config",
@@ -5944,20 +6589,23 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
+        "source_and_clarity": "BIA runtime bridge is repaired; shared guide clarity correction awaits independent prose review",
+        "showcase_example": "C007 request capture confirms selected controls reach factory forwarded props",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
-        "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
+        "html_markdown": "post-clarity-edit reader check pending",
+        "runtime": "C007 local browser capture plus targeted D6 regression; no hosted/provider qualification",
         "current_disposition": [
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
       "targeted_notes": [
         "C007 source bridge repaired and local request capture passed; fixture/runtime qualification remains separate"
-      ]
+      ],
+      "baseline_public_route": "/built-in-agent/agent-config",
+      "current_public_route": "/built-in-agent/agent-config",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:voice",
@@ -5984,7 +6632,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/voice",
+      "current_public_route": "/built-in-agent/voice",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:multimodal",
@@ -6011,7 +6662,10 @@
           "Post-repair reader/example/setup/API/copy-preview route checks pending"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": "/built-in-agent/multimodal-attachments",
+      "current_public_route": "/built-in-agent/multimodal-attachments",
+      "current_route_reason": "canonical route unchanged from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:declarative-hashbrown",
@@ -6027,18 +6681,21 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/built-in-agent/generative-ui/hashbrown",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     },
     {
       "binding_id": "react:built-in-agent:declarative-json-render",
@@ -6054,18 +6711,27 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; baseline absence/mapping status preserved",
-        "showcase_example": "not applicable without selected baseline source",
+        "source_and_clarity": "C037/C038 source-backed guide repair passed selected-five Markdown checks; final reader check pending",
+        "showcase_example": "selected Showcase excerpt test passed for all five integrations",
         "setup": "semantic setup-contract triage complete; post-repair page check pending",
         "api_links": "not applicable without selected baseline source",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "generation lane local current-route delivery probe: 20/20 HTML/Markdown responses, no snippet marker; final reader check pending",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
           "C004 catalog mapping repair is in verification; baseline no-mapping record is retained"
         ]
       },
-      "targeted_notes": []
+      "targeted_notes": [],
+      "baseline_public_route": null,
+      "current_public_route": "/built-in-agent/generative-ui/json-render",
+      "current_route_reason": "C004 current catalog mapping; absent from baseline projection"
     }
-  ]
+  ],
+  "current_url_rules": {
+    "google-adk::gen-ui-tool-based": "/google-adk/generative-ui/display; legacy /google-adk/generative-ui/your-components/display-only redirects here",
+    "google-adk::hitl-in-chat": "/google-adk/human-in-the-loop; legacy /google-adk/generative-ui/your-components/interactive redirects here",
+    "declarative-hashbrown": "C004 maps every selected integration to /<framework>/generative-ui/hashbrown",
+    "declarative-json-render": "C004 maps every selected integration to /<framework>/generative-ui/json-render"
+  }
 }
