@@ -1,16 +1,16 @@
-copilotkit==0.1.94
-ag-ui-protocol==0.1.18
+copilotkit==0.1.96
+ag-ui-protocol==0.1.22
 # Backend-owned A2UI tool factory (get_a2ui_tools) used by the a2ui-recovery
 # demo to run the validate->retry recovery loop in-graph. Same pin as
 # langgraph-fastapi.
-ag-ui-langgraph==0.0.41
-langchain==1.2.15
+ag-ui-langgraph==0.0.45
+langchain==1.4.0
 langchain-openai==1.1.9
-langchain-anthropic==1.4.1
-langgraph==1.1.6
-langgraph-cli[inmem]==0.4.21
-langgraph-api==0.7.101
-langsmith==0.7.33
+langchain-anthropic==1.7.2
+langgraph==1.2.11
+langgraph-cli[inmem]==0.4.31
+langgraph-api==0.14.0
+langsmith==0.12.4
 openai==1.109.1
-deepagents>=0.5.3,<0.6.0
+deepagents==0.7.13
 pypdf>=4.0.0,<7.0.0
