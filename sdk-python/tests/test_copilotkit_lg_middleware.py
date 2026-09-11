@@ -28,7 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from ag_ui.core import RunAgentInput, UserMessage
@@ -51,8 +51,10 @@ from langgraph.graph import StateGraph
 
 from copilotkit.copilotkit_lg_middleware import (
     CopilotKitMiddleware,
+    _FRONTEND_TOOL_RESULT_CONTENT,
     _extract_forwarded_headers_from_config,
 )
+from copilotkit.exc import CopilotKitMisuseError
 from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
 from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
@@ -2236,3 +2238,366 @@ class TestAutoA2UI:
         names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
         # Only the agent's own tool — no second generate_a2ui appended.
         assert names.count("generate_a2ui") == 1
+
+
+# ---------------------------------------------------------------------------
+# interrupt_frontend_tools — opt-in: await frontend tool results in-run via
+# LangGraph's interrupt() instead of the default strip-and-restore
+# ---------------------------------------------------------------------------
+#
+# Contract: with the flag on, every frontend call in a turn is batched into a
+# single interrupt(); the resumed results become real ToolMessages appended to
+# the turn; the AIMessage is left untouched; and the state update carries
+# messages and nothing else. With the flag off nothing changes at all.
+
+_FE_ACTION = {"function": {"name": "navigate"}}
+_FE_CALL = {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}}
+_FE_CALL_2 = {"id": "fe-2", "name": "navigate", "args": {"path": "/y"}}
+_BE_CALL = {"id": "be-1", "name": "backend_search", "args": {"q": "hi"}}
+_INTERRUPT_TARGET = "copilotkit.copilotkit_lg_middleware.interrupt"
+
+
+def _interrupt_state(tool_calls, *, extra_messages=(), actions=(_FE_ACTION,)):
+    """State whose last AIMessage carries ``tool_calls``."""
+    return {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(content="", tool_calls=list(tool_calls), id="ai-1"),
+            *extra_messages,
+        ],
+        "copilotkit": {"actions": list(actions)},
+    }
+
+
+def _run_after_model(state, resume, *, use_async=False):
+    """Call after_model in interrupt mode with a stubbed interrupt().
+
+    Preconditions are stubbed out too: these tests drive the hook directly
+    rather than through a compiled graph, so there is no run config to check a
+    checkpointer against. The guard has its own coverage in
+    ``test_frontend_tool_interrupt.py``, where real graphs are involved.
+    """
+    middleware = CopilotKitMiddleware(interrupt_frontend_tools=True)
+    with (
+        patch(_INTERRUPT_TARGET) as fake_interrupt,
+        patch.object(CopilotKitMiddleware, "_check_interrupt_preconditions"),
+    ):
+        fake_interrupt.return_value = resume
+        runtime = MagicMock(name="runtime")
+        runtime.context = None
+        if use_async:
+            result = asyncio.run(middleware.aafter_model(state, runtime))
+        else:
+            result = middleware.after_model(state, runtime)
+    return result, fake_interrupt
+
+
+# --- flag off: the default path is untouched -------------------------------
+
+
+def test_default_path_never_interrupts_and_still_strips():
+    state = _interrupt_state([_BE_CALL, _FE_CALL])
+
+    with patch(_INTERRUPT_TARGET) as fake_interrupt:
+        result = CopilotKitMiddleware().after_model(state, MagicMock(name="runtime"))
+
+    fake_interrupt.assert_not_called()
+    copilotkit = result["copilotkit"]
+    assert [c["id"] for c in copilotkit["intercepted_tool_calls"]] == ["fe-1"]
+    assert [c["id"] for c in copilotkit["original_tool_calls"]] == ["be-1", "fe-1"]
+    ai = result["messages"][-1]
+    assert [tc["id"] for tc in ai.tool_calls] == ["be-1"]
+    # No jump_to on the default path — the routing edge decides on its own.
+    assert "jump_to" not in result
+
+
+# --- flag on: nothing to await ---------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        pytest.param(
+            {"messages": [HumanMessage("hi")], "copilotkit": {"actions": []}},
+            id="no-frontend-actions",
+        ),
+        pytest.param(
+            {"messages": [], "copilotkit": {"actions": [_FE_ACTION]}},
+            id="no-messages",
+        ),
+        pytest.param(
+            {
+                "messages": [HumanMessage("hi")],
+                "copilotkit": {"actions": [_FE_ACTION]},
+            },
+            id="no-ai-message",
+        ),
+        pytest.param(_interrupt_state([]), id="ai-message-without-tool-calls"),
+        pytest.param(_interrupt_state([_BE_CALL]), id="backend-calls-only"),
+    ],
+)
+def test_interrupt_mode_no_ops_when_nothing_to_await(state):
+    result, fake_interrupt = _run_after_model(state, None)
+
+    assert result is None
+    fake_interrupt.assert_not_called()
+
+
+# --- flag on: core behaviour -----------------------------------------------
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_single_frontend_call_interrupts_and_returns_real_result(use_async):
+    state = _interrupt_state([_FE_CALL])
+    resume = {"tool_results": [{"toolCallId": "fe-1", "content": '{"ok": true}'}]}
+
+    result, fake_interrupt = _run_after_model(state, resume, use_async=use_async)
+
+    fake_interrupt.assert_called_once_with(
+        {
+            "__copilotkit_frontend_tool_calls__": [
+                {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}}
+            ]
+        }
+    )
+    (message,) = result["messages"]
+    assert isinstance(message, ToolMessage)
+    assert message.tool_call_id == "fe-1"
+    assert message.content == '{"ok": true}'
+    # Messages only: no jump_to, and crucially no "copilotkit" — that channel
+    # has no reducer, so writing it would wipe "actions" for the resumed run.
+    assert set(result) == {"messages"}
+
+
+def test_every_frontend_call_shares_one_interrupt():
+    """Batching is mandatory — a resume cannot address several pending
+    interrupts without their ids (ag-ui-protocol/ag-ui#2178)."""
+    state = _interrupt_state([_FE_CALL, _FE_CALL_2])
+    resume = {
+        "tool_results": [
+            {"toolCallId": "fe-1", "content": "one"},
+            {"toolCallId": "fe-2", "content": "two"},
+        ]
+    }
+
+    result, fake_interrupt = _run_after_model(state, resume)
+
+    assert fake_interrupt.call_count == 1
+    payload = fake_interrupt.call_args.args[0]
+    assert [c["id"] for c in payload["__copilotkit_frontend_tool_calls__"]] == [
+        "fe-1",
+        "fe-2",
+    ]
+    assert [m.content for m in result["messages"]] == ["one", "two"]
+
+
+def test_mixed_turn_answers_only_frontend_calls_and_keeps_ai_message_intact():
+    state = _interrupt_state([_BE_CALL, _FE_CALL])
+    resume = {"tool_results": [{"toolCallId": "fe-1", "content": "done"}]}
+
+    result, _ = _run_after_model(state, resume)
+
+    assert [m.tool_call_id for m in result["messages"]] == ["fe-1"]
+    assert set(result) == {"messages"}
+    # The AIMessage is never rewritten, so the backend call is still pending and
+    # the routing edge will send it — and only it — to the ToolNode.
+    ai = state["messages"][1]
+    assert [tc["id"] for tc in ai.tool_calls] == ["be-1", "fe-1"]
+
+
+def test_flat_action_descriptors_are_matched():
+    state = _interrupt_state([_FE_CALL], actions=({"name": "navigate"},))
+
+    result, fake_interrupt = _run_after_model(
+        state, {"tool_results": [{"toolCallId": "fe-1", "content": "ok"}]}
+    )
+
+    fake_interrupt.assert_called_once()
+    assert [m.content for m in result["messages"]] == ["ok"]
+
+
+# --- flag on: re-entry after the node re-runs -------------------------------
+
+
+def test_placeholder_tool_message_does_not_count_as_an_answer():
+    """A checkpointer that runs patch_orphan_tool_calls injects a placeholder
+    for the paused call. Treating it as an answer would skip the interrupt and
+    hand the model "was interrupted before completion" as the tool's output."""
+    placeholder = ToolMessage(
+        content="Tool call 'navigate' with id 'fe-1' was interrupted before completion.",
+        tool_call_id="fe-1",
+    )
+    state = _interrupt_state([_FE_CALL], extra_messages=(placeholder,))
+
+    result, fake_interrupt = _run_after_model(
+        state, {"tool_results": [{"toolCallId": "fe-1", "content": "real"}]}
+    )
+
+    fake_interrupt.assert_called_once()
+    assert [m.content for m in result["messages"]] == ["real"]
+
+
+def test_real_result_already_in_state_is_idempotent():
+    answered = ToolMessage(content='{"ok": true}', tool_call_id="fe-1")
+    state = _interrupt_state([_FE_CALL], extra_messages=(answered,))
+
+    result, fake_interrupt = _run_after_model(state, None)
+
+    assert result is None
+    fake_interrupt.assert_not_called()
+
+
+# --- flag on: resume payload handling --------------------------------------
+
+
+@pytest.mark.parametrize(
+    "resume,expected",
+    [
+        pytest.param(
+            {"tool_results": [{"toolCallId": "fe-1", "content": "a"}]},
+            "a",
+            id="wire-casing",
+        ),
+        pytest.param(
+            {"tool_results": [{"tool_call_id": "fe-1", "content": "a"}]},
+            "a",
+            id="snake-case-id",
+        ),
+        pytest.param(
+            {"tool_results": [{"id": "fe-1", "content": "a"}]}, "a", id="bare-id"
+        ),
+        pytest.param(
+            {"tool_results": [{"toolCallId": "fe-1", "result": "a"}]},
+            "a",
+            id="result-alias",
+        ),
+        pytest.param([{"toolCallId": "fe-1", "content": "a"}], "a", id="bare-list"),
+        pytest.param(
+            '{"tool_results": [{"toolCallId": "fe-1", "content": "a"}]}',
+            "a",
+            id="json-string",
+        ),
+        pytest.param(
+            {"tool_results": [{"toolCallId": "fe-1", "content": {"ok": True}}]},
+            '{"ok": true}',
+            id="dict-content-is-json-encoded",
+        ),
+        pytest.param(
+            {
+                "tool_results": [
+                    {"toolCallId": "fe-1", "content": "first"},
+                    {"toolCallId": "fe-1", "content": "second"},
+                ]
+            },
+            "second",
+            id="duplicate-ids-last-wins",
+        ),
+        pytest.param(
+            {
+                "tool_results": [
+                    {"toolCallId": "never-asked", "content": "junk"},
+                    {"toolCallId": "fe-1", "content": "a"},
+                ]
+            },
+            "a",
+            id="unknown-ids-dropped",
+        ),
+    ],
+)
+def test_resume_payload_shapes(resume, expected):
+    result, _ = _run_after_model(_interrupt_state([_FE_CALL]), resume)
+
+    (message,) = result["messages"]
+    assert message.tool_call_id == "fe-1"
+    assert message.content == expected
+
+
+def test_unanswered_call_still_gets_a_paired_tool_message():
+    """Every tool_call must end up paired — Bedrock rejects an unanswered one
+    outright, and other providers handle it inconsistently."""
+    state = _interrupt_state([_FE_CALL, _FE_CALL_2])
+    resume = {"tool_results": [{"toolCallId": "fe-1", "content": "only-one"}]}
+
+    result, _ = _run_after_model(state, resume)
+
+    assert [m.tool_call_id for m in result["messages"]] == ["fe-1", "fe-2"]
+    assert json.loads(result["messages"][1].content) == {
+        "ok": False,
+        "error": "missing_tool_result",
+    }
+
+
+@pytest.mark.parametrize(
+    "resume", [{"tool_results": []}, []], ids=["empty-container", "empty-list"]
+)
+def test_client_answering_nothing_is_not_an_error(resume):
+    result, _ = _run_after_model(_interrupt_state([_FE_CALL]), resume)
+
+    (message,) = result["messages"]
+    assert json.loads(message.content)["error"] == "missing_tool_result"
+
+
+@pytest.mark.parametrize(
+    "resume",
+    [None, "approved", {"approved": True}, {}, 42],
+    ids=["none", "bare-string", "human-answer", "empty-dict", "number"],
+)
+def test_unrecognised_resume_payload_fails_loudly(resume):
+    """A resume carries one value and the first pending interrupt consumes it,
+    so another interrupt's answer can land here. Fabricating tool results from
+    it would leave the developer debugging a model apology."""
+    with pytest.raises(CopilotKitMisuseError, match="interrupt_frontend_tools"):
+        _run_after_model(_interrupt_state([_FE_CALL]), resume)
+
+
+# --- flag on: interaction with the rest of the middleware -------------------
+
+
+def test_after_agent_is_a_no_op_in_interrupt_mode():
+    middleware = CopilotKitMiddleware(interrupt_frontend_tools=True)
+    state = _interrupt_state([_FE_CALL])
+
+    with (
+        patch(_INTERRUPT_TARGET) as fake_interrupt,
+        patch.object(CopilotKitMiddleware, "_check_interrupt_preconditions"),
+    ):
+        fake_interrupt.return_value = {
+            "tool_results": [{"toolCallId": "fe-1", "content": "ok"}]
+        }
+        runtime = MagicMock(name="runtime")
+        runtime.context = None
+        middleware.after_model(state, runtime)
+
+    # Nothing was intercepted, so there is nothing to restore.
+    assert middleware.after_agent(state, runtime) is None
+
+
+def test_next_model_call_sees_the_real_frontend_result():
+    """The point of the feature: the model resumes the same turn with the real
+    result, not the {"status": "forwarded_to_frontend"} placeholder the default
+    path substitutes."""
+    state = _interrupt_state([_BE_CALL, _FE_CALL])
+    resume = {"tool_results": [{"toolCallId": "fe-1", "content": '{"page": "/x"}'}]}
+
+    result, _ = _run_after_model(state, resume)
+
+    messages = [
+        *state["messages"],
+        ToolMessage(content='{"hits": 1}', tool_call_id="be-1"),
+        *result["messages"],
+    ]
+    request = _make_request(
+        state={"messages": messages, "copilotkit": state["copilotkit"]},
+        messages=messages,
+    )
+    seen, _ = _run_wrap(CopilotKitMiddleware(interrupt_frontend_tools=True), request)
+
+    ai = next(m for m in seen.messages if isinstance(m, AIMessage))
+    # _fix_messages_for_bedrock leaves both calls in place because both are
+    # answered — the frontend one by a real result.
+    assert [tc["id"] for tc in ai.tool_calls] == ["be-1", "fe-1"]
+    contents = {
+        m.tool_call_id: m.content for m in seen.messages if isinstance(m, ToolMessage)
+    }
+    assert contents == {"be-1": '{"hits": 1}', "fe-1": '{"page": "/x"}'}
+    assert _FRONTEND_TOOL_RESULT_CONTENT not in contents.values()
