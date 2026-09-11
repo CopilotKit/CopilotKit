@@ -24,6 +24,30 @@
       },
       "cache": false,
       "dependsOn": []
+    },
+    "test-minimum": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet run --project packages/intelligence-agent-framework-dotnet/tests/Skills.Tests.csproj -p:AgentFrameworkVersion='1.0.0'"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "test-latest": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet run --project packages/intelligence-agent-framework-dotnet/tests/Skills.Tests.csproj -p:AgentFrameworkVersion='1.*'"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "verify-distribution": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bash packages/intelligence-agent-framework-dotnet/tests/check-package.sh"
+      },
+      "cache": false,
+      "dependsOn": []
     }
   }
 }

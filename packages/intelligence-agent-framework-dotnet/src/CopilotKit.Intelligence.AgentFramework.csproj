@@ -1,9 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <AgentFrameworkVersion Condition="'$(AgentFrameworkVersion)' == ''">[1.0.0,2.0.0)</AgentFrameworkVersion>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Adapter versions are independent of the canonical client's preview release train.
+         Keep NuGet's preview-dependency warning visible; it is a documented publication prerequisite. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU5104</WarningsNotAsErrors>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageId>CopilotKit.Intelligence.AgentFramework</PackageId>
     <Version>0.1.0</Version>
     <Description>Learned skill delivery for Microsoft Agent Framework through CopilotKit Intelligence.</Description>
@@ -12,4 +17,6 @@
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../../runtime-dotnet/sdk/CopilotKit.Intelligence.csproj" /></ItemGroup>
   <ItemGroup><InternalsVisibleTo Include="Skills.Tests" /></ItemGroup>
+  <ItemGroup><PackageReference Include="Microsoft.Agents.AI" Version="$(AgentFrameworkVersion)" /></ItemGroup>
+  <ItemGroup><None Include="../README.md" Pack="true" PackagePath="/" /></ItemGroup>
 </Project>
