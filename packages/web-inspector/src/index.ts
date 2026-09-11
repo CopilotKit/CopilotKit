@@ -18880,20 +18880,22 @@ export class WebInspectorElement extends LitElement {
         ${
           ephemeral
             ? html`
-          <div class="cpk-ephemeral-threads-banner" data-inspector-ephemeral-banner role="status">
+          <button type="button" class="cpk-ephemeral-threads-banner"
+            data-inspector-ephemeral-banner data-inspector-ephemeral-upgrade
+            aria-label="Make threads permanent. Ephemeral history can disappear on restart."
+            @click=${() => {
+              this.ephemeralThreadsSetupOpen = true;
+              this.requestUpdate();
+            }}>
             <span class="cpk-ephemeral-threads-icon" aria-hidden="true">${this.renderIcon("Clock")}</span>
-            <div class="cpk-ephemeral-threads-copy"><strong>Keep your threads.</strong>
-              <p>Ephemeral history can disappear on restart.</p>
-            </div>
-            <button type="button" class="cpk-ephemeral-threads-upgrade"
-              data-inspector-ephemeral-upgrade
-              @click=${() => {
-                this.ephemeralThreadsSetupOpen = true;
-                this.requestUpdate();
-              }}>
-              Make them permanent <span aria-hidden="true">${this.renderIcon("ArrowRight")}</span>
-            </button>
-          </div>
+            <span class="cpk-ephemeral-threads-copy">
+              <span class="cpk-ephemeral-threads-headline">
+                <strong>Keep your threads.</strong>
+                <span class="cpk-ephemeral-threads-upgrade">Make them permanent <span aria-hidden="true">${this.renderIcon("ArrowRight")}</span></span>
+              </span>
+              <span class="cpk-ephemeral-threads-description">Ephemeral history can disappear on restart.</span>
+            </span>
+          </button>
         `
             : nothing
         }
