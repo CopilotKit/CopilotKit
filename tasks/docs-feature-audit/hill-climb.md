@@ -103,6 +103,10 @@ interrupt demos remain explicitly quarantined pending supported SDK behavior. Se
 | 11        | ADK feature setup sanity check          | Display guide extracts an HITL agent that calls a different tool      | REPAIR-002 recorded; framework setup selector repair pending                                                                                                    | Back to investigating feature-specific setup              |
 | 12        | C007 Built-in Agent configuration       | Controls placed in context, factory reads forwardedProps              | Neutral request captures correct controls after repair; three D6 cells pass (`6a58482e54`)                                                                      | Strengthening fixtures to catch regressions               |
 
+| 13 | REPAIR-002 shared ADK setup | HITL source on chart guide; first fix moved mismatch to frontend-tools | Neutral shared factory region passes all three consumers and six local representations (`7c7a5ff016`) | Scoped source mismatch qualified |
+
+| 14 | REPAIR-003 HITL scope and clarity | ADK page recommended native LangGraph interrupts | Tool-based path leads; explicit ADK difference and LangGraph control pass (`b50e674547`) | Final reader pass pending |
+
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
 

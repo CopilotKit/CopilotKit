@@ -306,11 +306,19 @@
       "id": "CONTENT-GEN-020",
       "area": "AG2 frontend-tools guide v2 API contract",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-020",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "3c7f4791ad"
+      ],
+      "after_evidence": [
+        "Source-owned AG2 tool snippets and current API references; focused2tests pass."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "AG2 runtime/typecheck unavailable until its dependency tree is installed; not qualified."
+      },
       "remaining": "Use the current v2 reference and boolean availability semantics, then typecheck and exercise the AG2 frontend-tools demo."
     },
     {
@@ -328,11 +336,19 @@
       "id": "CONTENT-GEN-022",
       "area": "AG2 tool-rendering guide current v2 hook signature",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-022",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
+      "fix_commits": [
+        "3c7f4791ad"
+      ],
+      "after_evidence": [
+        "Source-owned AG2 tool snippets and current API references; focused2tests pass."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "AG2 runtime/typecheck unavailable until its dependency tree is installed; not qualified."
+      },
       "remaining": "Update the guide to provide a parameter schema and use RenderToolProps.parameters, then typecheck the example."
     },
     {
@@ -535,23 +551,41 @@
       "id": "REPAIR-002",
       "area": "ADK feature-specific setup selects HITL agent for display guide",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "qualified_locally",
       "before_record": "Root local browser review of /google-adk/generative-ui/display on repaired docs3004",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Setup excerpt shows hitl_in_chat_agent.py instructing generate_task_steps confirmation while frontend registers render_bar_chart. Bind setup to correct Showcase feature and verify every affected ADK setup path."
+      "fix_commits": [
+        "7c7a5ff016"
+      ],
+      "after_evidence": [
+        "Feature-neutral shared ADK factory source replaces unrelated HITL instructions; initial chart-specific replacement rejected in cross-page review.",
+        "All3setup consumers tested in Markdown; focused4pass; local HTML/Markdown6of6 return200 with neutral setup."
+      ],
+      "sanity_review": {
+        "status": "approved",
+        "reviewer": "intelligence_showcase_support",
+        "finding": "Neutral AGUIToolset and terminal callback region works for all3consumers."
+      },
+      "remaining": "Specific setup-source mismatch qualified. Full ADK runtime and page inventory remain open."
     },
     {
       "id": "REPAIR-003",
       "area": "Selected HITL guide recommends unsupported graph interrupts after ADK-specific caveat",
       "severity": "medium",
-      "stage": "implementing",
+      "stage": "sanity_review",
       "before_record": "Root browser reader review /google-adk/human-in-the-loop on local docs3004",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Lead with supported tool-based ADK path; scope native LangGraph interrupts and headless instructions to supported frameworks. Preserve explicit differences and verify HTML/Markdown support parity."
+      "fix_commits": [
+        "b50e674547"
+      ],
+      "after_evidence": [
+        "Shared guide tool-first, ADK setup removes graph-paused-equivalence wording; ADK/LangGraph Markdown controls2pass.",
+        "Root browser review confirmed clearer ADK path before final setup wording correction."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "finding": "Supported tool-based path explicit; native LangGraph guidance retained and ADK limit clear."
+      },
+      "remaining": "Repeat final local rendered path and include all5selected frameworks in reader inventory."
     }
   ]
 }
