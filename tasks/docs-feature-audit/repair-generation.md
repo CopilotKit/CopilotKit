@@ -110,3 +110,29 @@ npm --prefix showcase/shell-docs test -- --run \
 Result: **5 files passed, 62 tests passed**. The source-binding and redirect
 unit covers C002/C004; the local response matrix is recorded in
 [`repair-render-comparison.md`](repair-render-comparison.md).
+
+## REPAIR-002 — Google ADK display setup binding
+
+The shared `frontend-tools-setup` concept is rendered by the root display,
+tool-based, and frontend-tools guides. The Google ADK version previously
+extracted the in-chat HITL agent, whose instruction always called
+`generate_task_steps`. A chart-agent replacement would have moved the same
+drift into the frontend-tools guide, whose demo changes the background.
+
+The setup now extracts a tagged, feature-neutral factory from
+`shared_chat.py`. It shows the real `AGUIToolset()` bridge and terminal
+callback without imposing a chart or HITL tool name. The focused regression
+was red on the old HITL source and is green for the source bundle plus raw
+Markdown expansion of all three consumers:
+
+```sh
+npm --prefix showcase/shell-docs test -- --run \
+  src/lib/__tests__/frontend-tools-setup-coverage.test.ts
+```
+
+Result: **1 file passed, 4 tests passed** after full setup/demo generation.
+Local `:3004` response checks then confirmed six 200 responses (HTML and
+`.mdx` for each guide), each with the neutral factory and without
+`generate_task_steps`, missing-snippet markers, or literal setup tags. The
+two generative-UI pages retain their own `render_bar_chart` renderer later in
+the page; the frontend-tools route does not inherit it from setup.

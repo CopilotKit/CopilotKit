@@ -161,6 +161,7 @@ def get_a2ui_model(model: str = DEFAULT_MODEL) -> Gemini:
     return Gemini(model=model)
 
 
+# region: frontend-tools-setup
 def build_simple_chat_agent(
     *,
     name: str,
@@ -174,6 +175,9 @@ def build_simple_chat_agent(
         tools=[AGUIToolset()],
         after_model_callback=stop_on_terminal_text,
     )
+
+
+# endregion
 
 
 def build_thinking_chat_agent(

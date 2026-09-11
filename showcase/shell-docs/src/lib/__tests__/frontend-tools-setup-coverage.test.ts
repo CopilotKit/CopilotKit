@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 
 import setupContentData from "@/data/setup-content.json";
+import { loadDoc } from "../docs-render";
+import { renderPageToLlmText } from "../llm-text";
 import { getIntegrations } from "../registry";
 import { resolveBundledSetupConcept } from "../setup-content";
 import type { SetupContentBundle } from "../setup-content";
@@ -53,6 +55,54 @@ test("the known-gap list holds no framework that has since been documented", () 
     documented,
     "these frameworks now bundle frontend-tools-setup, so remove them from REQUIREMENT_NOT_ESTABLISHED",
   ).toEqual([]);
+});
+
+test("Google ADK frontend-tool setup stays neutral across its three consumers", () => {
+  const source = resolveBundledSetupConcept(
+    "google-adk",
+    CONCEPT,
+    setupContent,
+  );
+
+  expect(source).not.toBeNull();
+  expect(source).toContain("shared_chat.py");
+  expect(source).toContain("build_simple_chat_agent");
+  expect(source).toContain("tools=[AGUIToolset()]");
+  expect(source).toContain("after_model_callback=stop_on_terminal_text");
+  expect(source).not.toContain("render_bar_chart");
+  expect(source).not.toContain("generate_task_steps");
+
+  // `frontend-tools-setup` is expanded by all three root guide shapes. It
+  // must explain the bridge without borrowing feature-specific instructions
+  // from the chart or HITL demo.
+  for (const loadSlug of [
+    "generative-ui/display",
+    "generative-ui/tool-based",
+    "frontend-tools",
+  ]) {
+    const doc = loadDoc(loadSlug);
+    expect(doc, loadSlug).not.toBeNull();
+    const output = renderPageToLlmText(
+      {
+        url: `google-adk/${loadSlug}`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug,
+        framework: "google-adk",
+      },
+      { framework: "google-adk" },
+    );
+    const setupStart = output.indexOf('~~~~python title="shared_chat.py"');
+    expect(setupStart, loadSlug).toBeGreaterThanOrEqual(0);
+    const setupEnd = output.indexOf("~~~~", setupStart + 4);
+    const setup = output.slice(setupStart, setupEnd);
+    expect(setup, loadSlug).toContain("build_simple_chat_agent");
+    expect(setup, loadSlug).toContain("tools=[AGUIToolset()]");
+    expect(setup, loadSlug).not.toContain("render_bar_chart");
+    expect(setup, loadSlug).not.toContain("generate_task_steps");
+    expect(output, loadSlug).not.toContain("<FrameworkSetup");
+  }
 });
 
 // The two shapes the bundled snippets have to keep apart. A framework whose adapter
