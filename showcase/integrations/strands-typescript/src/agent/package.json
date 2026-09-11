@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ag-ui/a2ui-toolkit": "0.0.4",
-    "@ag-ui/aws-strands": "0.2.4-canary.1789051242.0",
+    "@ag-ui/aws-strands": "0.3.0",
     "@ag-ui/client": "0.0.59",
     "@ag-ui/core": "0.0.59",
     "@ag-ui/encoder": "0.0.59",
