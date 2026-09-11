@@ -194,3 +194,95 @@ Markdown both returned 200 with the Built-in Agent inline schema and operation
 builder, no LangGraph `a2ui.load_schema` excerpt, and no missing/unexpanded
 snippet marker. The legacy Built-in Agent Markdown URL redirects to that same
 canonical response.
+
+## Shell-docs suite maintenance — current contracts
+
+The broad shell-docs suite first exposed two stale test assertions unrelated to
+the source-region or resolver repairs. The Threads overview test still expected
+retired copied onboarding prose, even though the committed guide now uses
+`RichThreadsSetupPrompt`; its dedicated contract test verifies the canonical
+expanded `add-rich-threads` intent. The BrandNav test expected a retired
+`97rem` layout literal. The repair baseline `b007962` already used the current
+`min(88rem, 100vw)` cap, and neither the navigation component nor its CSS had
+changed in this work.
+
+Both assertions now check the current contracts only: the shared Rich Threads
+prompt component and the established CSS cap. This is test maintenance; it
+does not alter page content, navigation behavior, or layout.
+
+## C032 — Fixed-schema backend source regions
+
+The fixed-schema guide requested a schema-loading and operations-return excerpt
+for AG2 and Agno, plus an operations-return excerpt for Strands TypeScript.
+The manifest-highlighted source files did not expose those region names. The
+source now marks the existing schema loader/initialization and `display_flight`
+operations callback in AG2 and Agno, plus the existing Strands TypeScript
+`display_flight` callback. No demo behavior changed.
+
+`a2ui-fixed-schema-region-coverage.test.ts` renders the guide in each of those
+three framework contexts, requires the native backend terms, and rejects only
+the exact schema/operations markers it repairs. Other existing guide markers
+remain visible to their owners rather than being hidden by a broad assertion.
+The first bounded full gate ran this test before the AG2/Agno operations tags
+were added. The completed region set was then regenerated and checked in the
+focused validation below.
+
+## C033 — Default reasoning zero-config source regions
+
+The Microsoft Agent Framework Python and .NET default-reasoning cells already
+use the normal `CopilotChat` path, but neither exposed the source region that
+the shared reasoning guide requests. Both existing frontend demo pages now mark
+the small chat component that intentionally has no reasoning-slot override.
+No runtime behavior or fixture changed.
+
+`reasoning-default-region-coverage.test.ts` renders the shared reasoning guide
+as raw Markdown for both Microsoft Agent Framework contexts. It requires the
+native chat component and rejects only a missing default-reasoning marker; a
+separate pre-existing custom-reasoning marker stays visible to its owner. The
+first bounded full gate exercised the source region successfully before that
+assertion was narrowed. The focused validation below checks the precise
+contract.
+
+## C034 — State-streaming backend source bindings
+
+The shared streaming guides request a `state-streaming-middleware` excerpt.
+Five supported implementations already have the relevant mapping or bridge, but
+their cells did not surface it to the generator: CrewAI's predictive
+`StateItem`, LangGraph FastAPI's existing middleware region, Mastra's
+working-memory streaming agent, Microsoft Agent Framework Python's predictive
+state config, and Microsoft Agent Framework .NET's event-to-snapshot bridge.
+
+The repair adds bounded regions where absent and highlights the existing source
+file once for each `shared-state-streaming` cell. It does not change a runtime
+mapping, fixture, or guide body.
+
+### Focused validation
+
+After the generator lifecycle completed, the three region contracts and public
+asset check passed with two fork workers and a 4 GiB heap:
+
+```sh
+showcase/shell-docs/node_modules/.bin/vitest run \
+  --pool=forks --maxWorkers=2 --no-file-parallelism \
+  src/lib/__tests__/a2ui-fixed-schema-region-coverage.test.ts \
+  src/lib/__tests__/reasoning-default-region-coverage.test.ts \
+  src/lib/__tests__/state-streaming-region-coverage.test.ts \
+  src/app/__tests__/public-assets.test.ts
+```
+
+Result: **4 files passed, 6 tests passed**. The preceding full suite showed all
+eleven required public PNG files were Git LFS pointers; those tracked objects
+were fetched without a working-tree diff and their PNG signatures now pass the
+asset check. Process cleanup found no remaining shell-docs Vitest or generator
+workers.
+
+## C035/C036 — Headless and weather-tool source regions
+
+The two Microsoft Agent Framework headless-simple demos use the shared
+`useAgent`/`useCopilotKit` setup but did not expose the guide's
+`use-agent-simple` region or highlight their chat file. Both now expose that
+small hook setup. The Microsoft Agent Harness tool-rendering agent and Strands
+TypeScript weather tool likewise now expose `weather-tool-backend`; the harness
+manifest highlights its existing agent implementation. These are source-binding
+changes only. `headless-and-tool-region-coverage.test.ts` records the raw
+Markdown contract; validation is pending the next approved docs slot.

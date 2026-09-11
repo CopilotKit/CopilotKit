@@ -173,6 +173,7 @@ public sealed class D5ParityAgentFactory
             _loggerFactory.CreateLogger<SnapshotAfterRunAgent<string>>());
     }
 
+    // @region[weather-tool-backend]
     public AIAgent CreateToolRenderingAgent(bool reasoning)
     {
         var tools = new AIFunction[]
@@ -214,6 +215,7 @@ public sealed class D5ParityAgentFactory
             ? new ReasoningAgent(inner, _loggerFactory.CreateLogger<ReasoningAgent>())
             : inner;
     }
+    // @endregion[weather-tool-backend]
 
     public AIAgent CreateHeadlessCompleteAgent()
     {

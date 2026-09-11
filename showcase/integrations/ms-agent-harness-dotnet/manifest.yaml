@@ -204,6 +204,7 @@ demos:
     animated_preview_url:
     highlight:
       - agent/Program.cs
+      - agent/D5ParityAgents.cs
       - src/app/demos/tool-rendering/page.tsx
   - id: gen-ui-agent
     name: Agentic Generative UI
@@ -290,6 +291,7 @@ demos:
     highlight:
       - agent/Program.cs
       - src/app/demos/headless-simple/page.tsx
+      - src/app/demos/headless-simple/chat.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-complete
     name: Headless Chat (Complete)

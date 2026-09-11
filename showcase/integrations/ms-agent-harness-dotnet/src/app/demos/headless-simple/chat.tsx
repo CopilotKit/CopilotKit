@@ -48,9 +48,11 @@ function generateMessageId(): string {
 }
 
 export function Chat() {
+  // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
+  // @endregion[use-agent-simple]
 
   const send = (text: string) => {
     const trimmed = text.trim();
