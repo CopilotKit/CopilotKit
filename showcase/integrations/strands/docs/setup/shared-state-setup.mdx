@@ -1,0 +1,19 @@
+<Steps>
+  <Step>
+    ### Add UI-owned state to the prompt for each run
+
+    In the Showcase, the recipe editor calls `agent.setState`. The Strands
+    adapter passes that state to the state-context builder, so the builder
+    turns the latest recipe, preferences, and any agent-owned todos into
+    prompt context before the model runs.
+
+    <DemoCode
+      file="src/agents/agent.py"
+      region="state-context-builder"
+      title="src/agents/agent.py"
+    />
+
+    Keep UI-authored values as inputs to the prompt. The model can use the
+    latest recipe on its next turn without directly mutating that editor.
+  </Step>
+</Steps>

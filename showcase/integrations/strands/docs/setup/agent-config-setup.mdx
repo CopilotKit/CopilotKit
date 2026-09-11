@@ -1,0 +1,28 @@
+<Steps>
+  <Step>
+    ### Turn the latest preferences into prompt instructions
+
+    The agent-config UI publishes its typed preferences as AG-UI context
+    with the current run. The Showcase turns each labeled value into prompt
+    context, so changes to tone, expertise, or response length apply on the
+    next turn.
+
+    <DemoCode
+      file="src/agents/agent.py"
+      region="agent-context-prompt"
+      title="src/agents/agent.py"
+    />
+  </Step>
+  <Step>
+    ### Include the block for every request
+
+    The same state-context builder reads the current run and adds the
+    context block before invoking the model.
+
+    <DemoCode
+      file="src/agents/agent.py"
+      region="state-context-builder"
+      title="src/agents/agent.py"
+    />
+  </Step>
+</Steps>

@@ -1,0 +1,18 @@
+<Steps>
+  <Step>
+    ### Format read-only context for the model
+
+    `useAgentContext` sends labeled values with the AG-UI run. Strands does
+    not automatically place those values in the model prompt, so the
+    Showcase formats each usable entry in its state-context builder.
+
+    <DemoCode
+      file="src/agents/agent.py"
+      region="agent-context-prompt"
+      title="src/agents/agent.py"
+    />
+
+    The context remains UI-owned: the agent receives it as input on each
+    turn and has no mutation tool for it.
+  </Step>
+</Steps>

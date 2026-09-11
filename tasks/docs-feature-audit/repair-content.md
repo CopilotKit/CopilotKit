@@ -178,7 +178,36 @@ want to build message-list, streaming, and tool-call handling—and links both
 edit changes the Showcase snippets, setup, or runtime contract.
 
 Shared-state review confirmed the source-backed guide structure and corrected
-the read-only-context transport wording. The Strands-specific setup fragments
-remain pending the runtime lane's final validated regions for recipe state,
-preferences, and context; they will use those regions rather than copy backend
-code.
+the read-only-context transport wording.
+
+## Iteration 11 — local Showcase replacements for legacy feature viewers
+
+`CONTENT-GEN-003` replaces the selected legacy remote Feature Viewer embeds
+with local Showcase-backed demos and extracted source. The shared LangGraph
+Interactive source now covers both LangGraph Python and LangGraph TypeScript;
+the Strands and Built-in Agent Interactive wrappers use the same local
+`hitl-in-chat` demo and `hitl-hook` region. The Built-in Agent Frontend Tools
+wrapper uses `frontend-tools` plus its `frontend-tool-registration` region.
+Its Tool Rendering wrapper reuses the current local `ToolRenderingGuide`,
+which contains the `tool-rendering` demo and `render-weather-tool` region.
+
+This removes remote Feature Viewer provenance from five guide sources covering
+eleven selected feature bindings. The replacement prose states an observable
+action and outcome. It adds no source regions, manifest entries, or runtime
+logic. Source inspection confirms the docs renderer supplies the route's
+integration to `InlineDemo` and the wrappers' `snippet_cell` provides the
+source-cell default to `Snippet`. Render validation is pending the next
+approved lightweight shell-docs slot.
+
+## Iteration 12 — Strands state and context setup fragments
+
+The Strands runtime lane supplied stable, tested source regions in
+`src/agents/agent.py`: `state-context-builder`, `agent-context-prompt`, and
+`shared-state-preferences-prompt`. The new setup fragments use the first two
+through `DemoCode`; the existing preferences formatter remains part of the
+same builder's shared-state support. Shared State explains how current state
+reaches each run; read-only context and agent config explain the AG-UI
+context-to-prompt bridge. The recipe gate and the shared-state read/read-write
+and read-only-context D6 cells were green before this documentation change.
+Documentation rendering is pending the next approved shell-docs slot; this
+does not claim a new runtime qualification.
