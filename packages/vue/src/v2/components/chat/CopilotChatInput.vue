@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   computed,
-  getCurrentInstance,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -67,6 +66,13 @@ const props = withDefaults(
      * push the input off-center.
      */
     bottomAnchored?: boolean;
+    onSubmitMessage?: (value: string) => void;
+    onStop?: () => void;
+    onAddFile?: () => void;
+    onStartTranscribe?: () => void;
+    onCancelTranscribe?: () => void;
+    onFinishTranscribe?: () => void;
+    onFinishTranscribeWithAudio?: (audioBlob: Blob) => void | Promise<void>;
   }>(),
   {
     disabled: false,
@@ -96,7 +102,6 @@ const emit = defineEmits<{
 
 const attrs = useAttrs();
 const config = useCopilotChatConfiguration();
-const instance = getCurrentInstance();
 const shellRef = ref<HTMLElement | null>(null);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 const gridRef = ref<HTMLElement | null>(null);
@@ -129,10 +134,6 @@ const didWarnMissingCanvasContextRef = ref(false);
 let resizeObserver: ResizeObserver | null = null;
 let documentPointerDownHandler: ((event: MouseEvent) => void) | null = null;
 
-const vnodeProps = computed(
-  () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
-);
-
 const isControlled = computed(() => props.modelValue !== undefined);
 const inputValue = computed(() =>
   isControlled.value ? (props.modelValue ?? "") : localValue.value,
@@ -150,17 +151,19 @@ const isProcessing = computed(
 const shouldShowDisclaimer = computed(
   () => props.showDisclaimer ?? props.positioning === "absolute",
 );
-const hasSubmitAction = computed(() => hasListener("onSubmitMessage"));
-const hasStopAction = computed(() => hasListener("onStop"));
-const hasAddFileAction = computed(() => hasListener("onAddFile"));
-const hasStartTranscribeAction = computed(() =>
-  hasListener("onStartTranscribe"),
+const hasSubmitAction = computed(
+  () => typeof props.onSubmitMessage === "function",
 );
-const hasCancelTranscribeAction = computed(() =>
-  hasListener("onCancelTranscribe"),
+const hasStopAction = computed(() => typeof props.onStop === "function");
+const hasAddFileAction = computed(() => typeof props.onAddFile === "function");
+const hasStartTranscribeAction = computed(
+  () => typeof props.onStartTranscribe === "function",
 );
-const hasFinishTranscribeAction = computed(() =>
-  hasListener("onFinishTranscribe"),
+const hasCancelTranscribeAction = computed(
+  () => typeof props.onCancelTranscribe === "function",
+);
+const hasFinishTranscribeAction = computed(
+  () => typeof props.onFinishTranscribe === "function",
 );
 const canSend = computed(
   () =>
@@ -189,14 +192,6 @@ function isMenuGroup(
   item: ToolsMenuItem,
 ): item is ToolsMenuItem & { items: MenuEntry[] } {
   return Array.isArray((item as ToolsMenuItem).items);
-}
-
-function hasListener(listenerName: string) {
-  const listener = vnodeProps.value[listenerName];
-  if (Array.isArray(listener)) {
-    return listener.length > 0;
-  }
-  return !!listener;
 }
 
 function createDefaultAddItem(): ToolsMenuItem | null {
@@ -1168,7 +1163,10 @@ onBeforeUnmount(() => {
             >
               <template v-if="mode === 'transcribe'">
                 <slot
-                  v-if="hasCancelTranscribeAction"
+                  v-if="
+                    hasCancelTranscribeAction ||
+                    $slots['cancel-transcribe-button']
+                  "
                   name="cancel-transcribe-button"
                   :disabled="disabled"
                   :on-click="() => emit('cancel-transcribe')"
@@ -1188,7 +1186,10 @@ onBeforeUnmount(() => {
                   </button>
                 </slot>
                 <slot
-                  v-if="hasFinishTranscribeAction"
+                  v-if="
+                    hasFinishTranscribeAction ||
+                    $slots['finish-transcribe-button']
+                  "
                   name="finish-transcribe-button"
                   :disabled="disabled"
                   :on-click="handleFinishTranscribe"
@@ -1210,7 +1211,10 @@ onBeforeUnmount(() => {
               </template>
               <template v-else>
                 <slot
-                  v-if="hasStartTranscribeAction"
+                  v-if="
+                    hasStartTranscribeAction ||
+                    $slots['start-transcribe-button']
+                  "
                   name="start-transcribe-button"
                   :disabled="disabled"
                   :on-click="() => emit('start-transcribe')"

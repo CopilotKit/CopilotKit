@@ -121,6 +121,41 @@ describe("CopilotChatView", () => {
     ]);
   });
 
+  it("forwards a static stop listener through the input slot", async () => {
+    const onStop = vi.fn();
+    const StaticStopHost = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatView,
+      },
+      setup() {
+        return { chatMessages, onStop };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider
+            thread-id="thread-1"
+            agent-id="default"
+          >
+            <CopilotChatView :messages="chatMessages" @stop="onStop">
+              <template #input="{ onStop: slotOnStop }">
+                <button data-testid="direct-stop" @click="slotOnStop">
+                  stop
+                </button>
+              </template>
+            </CopilotChatView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+    const wrapper = mount(StaticStopHost);
+
+    await wrapper.get("[data-testid='direct-stop']").trigger("click");
+
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
   it("renders suggestions and forwards selection callback and event", async () => {
     const onSelectSuggestion = vi.fn();
     const wrapper = mountChatView({

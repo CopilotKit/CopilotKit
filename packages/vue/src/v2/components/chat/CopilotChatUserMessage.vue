@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, getCurrentInstance, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import type { UserMessage } from "@ag-ui/core";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
@@ -26,6 +26,10 @@ const props = withDefaults(
     message: UserMessage;
     branchIndex?: number;
     numberOfBranches?: number;
+    onEditMessage?: (payload: CopilotChatUserMessageOnEditMessageProps) => void;
+    onSwitchToBranch?: (
+      payload: CopilotChatUserMessageOnSwitchToBranchProps,
+    ) => void;
   }>(),
   {
     branchIndex: 0,
@@ -54,12 +58,8 @@ const emit = defineEmits<{
 
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
-const instance = getCurrentInstance();
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
-const vnodeProps = computed(
-  () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
-);
 
 const toolbarButtonClass = [
   "cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
@@ -98,17 +98,10 @@ const flattenedContent = computed(() =>
   flattenUserMessageContent(props.message.content),
 );
 const isMultiline = computed(() => flattenedContent.value.includes("\n"));
-function hasListener(listenerName: string) {
-  const listener = vnodeProps.value[listenerName];
-  if (Array.isArray(listener)) {
-    return listener.length > 0;
-  }
-  return !!listener;
-}
-
-const hasEditAction = computed(() => hasListener("onEditMessage"));
+const hasEditAction = computed(() => typeof props.onEditMessage === "function");
 const showBranchNavigation = computed(
-  () => props.numberOfBranches > 1 && hasListener("onSwitchToBranch"),
+  () =>
+    props.numberOfBranches > 1 && typeof props.onSwitchToBranch === "function",
 );
 
 const canGoPrev = computed(() => props.branchIndex > 0);
@@ -258,7 +251,7 @@ onBeforeUnmount(() => {
             </slot>
 
             <slot
-              v-if="hasEditAction"
+              v-if="hasEditAction || $slots['edit-button']"
               name="edit-button"
               :on-edit="handleEditMessage"
               :label="labels.userMessageToolbarEditMessageLabel"
@@ -275,7 +268,10 @@ onBeforeUnmount(() => {
             </slot>
 
             <slot
-              v-if="showBranchNavigation"
+              v-if="
+                numberOfBranches > 1 &&
+                (showBranchNavigation || $slots['branch-navigation'])
+              "
               name="branch-navigation"
               :branch-index="branchIndex"
               :number-of-branches="numberOfBranches"
