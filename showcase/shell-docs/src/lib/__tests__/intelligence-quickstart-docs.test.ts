@@ -63,6 +63,32 @@ test("expands the setup prompt for coding agents", () => {
   expect(output).not.toContain("<RichThreadsSetupPrompt />");
 });
 
+test("keeps selected quickstart identities local-only and links the full authorization contract", () => {
+  const authorization = loadRequiredDoc("auth").source;
+  expect(authorization).toContain("verifyAppSession(request)");
+  expect(authorization).toContain("onBeforeHandler");
+  expect(authorization).toContain("threads/events");
+  expect(authorization).toContain("agent/stop");
+
+  for (const slug of [
+    "integrations/langgraph/quickstart",
+    "integrations/adk/quickstart",
+    "integrations/aws-strands/quickstart",
+    "intelligence/connect-your-runtime",
+  ]) {
+    const source = loadRequiredDoc(slug).source;
+    const output = renderDoc(slug);
+
+    expect(source, slug).toContain("identifyUser: () =>");
+    expect(source, slug).toContain('id: "local-demo-user"');
+    expect(source, slug).toContain("/auth#thread-authorization");
+    expect(source, slug).not.toContain('headers.get("x-user-id")');
+    expect(source, slug).not.toContain('headers.get("x-user-name")');
+    expect(output, slug).toContain("Thread authorization");
+    expect(output, slug).not.toContain("x-user-id");
+  }
+});
+
 test("links the Intelligence landing page to the quickstart", () => {
   const overview = renderDoc("intelligence/overview");
 

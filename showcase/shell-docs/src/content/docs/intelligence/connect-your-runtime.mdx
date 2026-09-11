@@ -55,15 +55,21 @@ const intelligence = new CopilotKitIntelligence({
 const runtime = new CopilotRuntime({
   agents,
   intelligence,
-  // Threads are per-user. Without this every visitor shares one history.
-  identifyUser: (request) => ({
-    id: request.headers.get("x-user-id") ?? "anonymous",
-    name: request.headers.get("x-user-name") ?? "Anonymous",
+  // Local single-user setup. Replace this before deploying to multiple users.
+  identifyUser: () => ({
+    id: "local-demo-user",
+    name: "Local demo user",
   }),
 });
 
 export const { GET, POST } = createCopilotRuntimeHandler({ runtime });
 ```
+
+<Callout type="warn" title="Use verified identity before production">
+  The fixed identity above is runnable only for a local, single-user demo. It does not isolate
+  multiple users. Before deployment, resolve a server-verified session or token and add the
+  required request and ownership guards in [Thread authorization](/auth#thread-authorization).
+</Callout>
 
 `apiKey` is the only required field on the Intelligence client. The key scopes the project,
 so there is no separate organization or project id to pass.

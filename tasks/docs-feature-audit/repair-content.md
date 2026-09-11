@@ -79,3 +79,18 @@ tree, the focused source-region and raw-Markdown suite passed: 3 files, 11
 checks passed, 46 skipped. It confirms the shared root/Mastra body resolves
 through its `@/snippets` import, each selected context renders its own
 Showcase-owned named renderer, and the C001/C016 controls remain intact.
+
+## Iteration 6 — local identity and production authorization boundary
+
+`CONTENT-GEN-014` is deliberately a local-only quickstart contract: the four
+selected guides return one fixed `local-demo-user` identity and state that it
+cannot isolate multiple users. They link to the existing Thread authorization
+guide rather than defining a placeholder application-auth helper. That guide
+contains the executable-shape server contract (`verifyAppSession(request)`,
+`onRequest`, and ownership guards for the unscoped thread routes).
+
+An independent generation review found no undefined production helper or
+multi-user safety claim. `npm --prefix showcase/shell-docs test --
+src/lib/__tests__/intelligence-quickstart-docs.test.ts -t 'keeps selected
+quickstart identities local-only'` passed after generator pretest: 1 check
+passed, 4 skipped.

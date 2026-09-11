@@ -373,10 +373,10 @@ Before you begin, you'll need the following:
                     intelligence: new CopilotKitIntelligence({
                       apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
                     }),
-                    // Threads are per-user. Without this, every visitor shares one history.
-                    identifyUser: (request) => ({
-                      id: request.headers.get("x-user-id") ?? "anonymous",
-                      name: request.headers.get("x-user-name") ?? "Anonymous",
+                    // Local single-user setup. Replace this before deploying to multiple users.
+                    identifyUser: () => ({
+                      id: "local-demo-user",
+                      name: "Local demo user",
                     }),
                   });
 
@@ -410,10 +410,10 @@ Before you begin, you'll need the following:
                   intelligence: new CopilotKitIntelligence({
                     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
                   }),
-                  // Threads are per-user. Without this, every visitor shares one history.
-                  identifyUser: (request) => ({
-                    id: request.headers.get("x-user-id") ?? "anonymous",
-                    name: request.headers.get("x-user-name") ?? "Anonymous",
+                  // Local single-user setup. Replace this before deploying to multiple users.
+                  identifyUser: () => ({
+                    id: "local-demo-user",
+                    name: "Local demo user",
                   }),
                 });
 
@@ -427,6 +427,13 @@ Before you begin, you'll need the following:
               ```
               </Tab>
             </Tabs>
+
+              <Callout type="warn" title="Use verified identity before production">
+                The fixed identity above is runnable only for a local, single-user demo. It does not isolate
+                multiple users. Before deployment, resolve a server-verified session or token and add the
+                required request and ownership guards from
+                [Thread authorization](/auth#thread-authorization).
+              </Callout>
 
               The runtime reads the project API key from step 1. Add it to the app that serves
               this route:

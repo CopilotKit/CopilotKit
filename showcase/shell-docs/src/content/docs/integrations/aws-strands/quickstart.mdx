@@ -283,8 +283,10 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
                 ```
+
+                The provider, chat component, and stylesheet below come from `@copilotkit/react-core/v2`, so this setup does not need `@copilotkit/react-ui`.
             </Step>
             <Step>
                 ### Setup Copilot Runtime
@@ -307,10 +309,10 @@ Before you begin, you'll need the following:
                   intelligence: new CopilotKitIntelligence({
                     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
                   }),
-                  // Threads are per-user. Without this, every visitor shares one history.
-                  identifyUser: (request) => ({
-                    id: request.headers.get("x-user-id") ?? "anonymous",
-                    name: request.headers.get("x-user-name") ?? "Anonymous",
+                  // Local single-user setup. Replace this before deploying to multiple users.
+                  identifyUser: () => ({
+                    id: "local-demo-user",
+                    name: "Local demo user",
                   }),
                 });
 
@@ -322,6 +324,13 @@ Before you begin, you'll need the following:
                 export const GET = handler;
                 export const POST = handler;
                ```
+
+                <Callout type="warn" title="Use verified identity before production">
+                  The fixed identity above is runnable only for a local, single-user demo. It does not isolate
+                  multiple users. Before deployment, resolve a server-verified session or token and add the
+                  required request and ownership guards from
+                  [Thread authorization](/auth#thread-authorization).
+                </Callout>
 
                 The runtime reads the project API key from step 1. Add it to the app that serves
                 this route:
@@ -459,7 +468,7 @@ Before you begin, you'll need the following:
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - If `localhost` does not resolve on your machine, use `127.0.0.1`. `0.0.0.0` is a server bind address, not a client destination.
                 - Make sure your agent is running on port 8000
                 - Check that your OpenAI API key is correctly set
                 - Verify that the `@ag-ui/client` package is installed in your frontend
