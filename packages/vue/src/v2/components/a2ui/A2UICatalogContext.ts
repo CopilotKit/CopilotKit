@@ -5,9 +5,55 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
+  schemaToJsonSchema,
 } from "@copilotkit/shared";
+import type { StandardSchemaV1 } from "@copilotkit/shared";
 import type { CopilotKitCoreVue } from "../../lib/vue-core";
 import { vueBasicCatalog } from "./catalog";
+
+/**
+ * Convert a catalog component's props schema to JSON Schema.
+ *
+ * Mirrors `catalogSchemaToJsonSchema` in @copilotkit/a2ui-renderer, duplicated
+ * here rather than imported for the same reason as the schema-context constant
+ * below: importing it would pull React into the Vue package.
+ * `zodToJsonSchema` understands Zod v3 internals only and returns a bare
+ * `{ $schema }` — no `properties`, no error — for the Zod v4 schemas an
+ * application may legitimately build its catalog from, which silently strips
+ * every prop from the catalog the model is shown.
+ */
+type ZodToJsonSchemaOptions = Extract<
+  Parameters<typeof zodToJsonSchema>[1],
+  Record<string, unknown>
+>;
+
+function toCatalogJsonSchema(
+  schema: unknown,
+  options?: ZodToJsonSchemaOptions,
+): Record<string, unknown> {
+  const isStandardSchema =
+    typeof schema === "object" &&
+    schema !== null &&
+    "~standard" in schema &&
+    typeof (schema as { "~standard": unknown })["~standard"] === "object";
+
+  // Zod v3 releases before 3.24 predate Standard Schema, so there is nothing
+  // for `schemaToJsonSchema` to dispatch on — convert those directly.
+  if (!isStandardSchema) {
+    return zodToJsonSchema(
+      schema as Parameters<typeof zodToJsonSchema>[0],
+      options,
+    ) as Record<string, unknown>;
+  }
+
+  return schemaToJsonSchema(schema as StandardSchemaV1, {
+    zodToJsonSchema: (zodSchema, injectedOptions) =>
+      zodToJsonSchema(zodSchema as Parameters<typeof zodToJsonSchema>[0], {
+        ...(injectedOptions as ZodToJsonSchemaOptions),
+        ...options,
+      }) as Record<string, unknown>,
+  });
+}
 
 /**
  * Context description used to identify the A2UI component schema in
@@ -68,7 +114,7 @@ function buildCatalogContextValue(catalog?: Catalog<ComponentApi>): string {
   for (const name of customNames) {
     const comp = resolved.components.get(name);
     if (!comp) continue;
-    const jsonSchema = zodToJsonSchema(comp.schema);
+    const jsonSchema = toCatalogJsonSchema(comp.schema);
     lines.push(`  - ${name}:`);
     lines.push(
       `    ${JSON.stringify(jsonSchema, null, 2).split("\n").join("\n    ")}`,
@@ -90,7 +136,7 @@ function extractCatalogComponentSchemas(catalog?: Catalog<ComponentApi>): {
   const components: Record<string, Record<string, unknown>> = {};
 
   for (const [name, comp] of resolved.components) {
-    const zodSchema = zodToJsonSchema(comp.schema, {
+    const zodSchema = toCatalogJsonSchema(comp.schema, {
       target: "jsonSchema2019-09",
     }) as { properties?: Record<string, unknown>; required?: string[] };
 

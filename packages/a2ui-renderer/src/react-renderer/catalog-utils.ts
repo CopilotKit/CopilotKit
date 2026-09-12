@@ -1,6 +1,6 @@
 import { basicCatalog } from "./a2ui-react";
 import type { ComponentApi, Catalog } from "@a2ui/web_core/v0_9";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { catalogSchemaToJsonSchema } from "../catalog-schema";
 
 const BASIC_CATALOG_ID =
   "https://a2ui.org/specification/v0_9/basic_catalog.json";
@@ -74,7 +74,7 @@ export function buildCatalogContextValue(
   for (const name of customNames) {
     const comp = resolved.components.get(name);
     if (!comp) continue;
-    const jsonSchema = zodToJsonSchema(comp.schema);
+    const jsonSchema = catalogSchemaToJsonSchema(comp.schema);
     lines.push(`  - ${name}:`);
     lines.push(
       `    ${JSON.stringify(jsonSchema, null, 2).split("\n").join("\n    ")}`,
@@ -116,7 +116,7 @@ export function extractCatalogComponentSchemas(
   const components: Record<string, Record<string, unknown>> = {};
 
   for (const [name, comp] of resolved.components) {
-    const zodSchema = zodToJsonSchema(comp.schema, {
+    const zodSchema = catalogSchemaToJsonSchema(comp.schema, {
       target: "jsonSchema2019-09",
     }) as { properties?: Record<string, unknown>; required?: string[] };
 
