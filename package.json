@@ -107,6 +107,7 @@
       }
     },
     "overrides": {
+      "mermaid": "11.12.3",
       "streamdown>react": "^19.0.0",
       "@types/react": "19.1.8",
       "@types/react-dom": "^19.0.2",
