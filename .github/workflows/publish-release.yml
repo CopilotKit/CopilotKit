@@ -45,6 +45,7 @@ on:
           - monorepo
           - angular
           - channels
+          - intelligence-langgraph
           # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts).
           # PRERELEASE ONLY — rejected for mode=stable by the "Determine scope and
           # mode" guard below, since a stable release derives its tag, release

@@ -1018,6 +1018,67 @@
       }
     },
     {
+      "name": "@copilotkit/intelligence-langgraph",
+      "version": "0.1.0",
+      "sourceDirectory": "packages/intelligence-langgraph",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/intelligence-langgraph",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/intelligence-langgraph/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=18"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "engines"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/intelligence-langgraph/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/intelligence-langgraph/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.intelligence-langgraph.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/react-core",
       "version": "1.71.1",
       "sourceDirectory": "packages/react-core",

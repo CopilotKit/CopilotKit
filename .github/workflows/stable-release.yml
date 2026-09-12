@@ -11,6 +11,7 @@ on:
           - monorepo
           - angular
           - channels
+          - intelligence-langgraph
       bump:
         description: "Version bump level"
         required: true

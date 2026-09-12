@@ -13,6 +13,34 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
 
+import {
+  LearnedSkillsError,
+  learnedSkillsResponseError,
+} from "./learned-skills";
+import type {
+  GetLearnedSkillsSnapshotRequest,
+  LearnedSkillsSnapshotResult,
+} from "./learned-skills";
+
+/** Let a confirmed HTTP denial survive an error body that never completes. */
+async function learnedSkillsErrorBody(
+  response: Response,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (!signal) return response.json();
+  let onAbort: (() => void) | undefined;
+  try {
+    return await new Promise((resolve, reject) => {
+      onAbort = () => reject(signal.reason);
+      signal.addEventListener("abort", onAbort, { once: true });
+      if (signal.aborted) onAbort();
+      else response.json().then(resolve, reject);
+    });
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
 const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 1_500;
 const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
 const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
@@ -800,6 +828,140 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
+  }
+
+  /**
+   * Fetch one authorized learned-skills ZIP with this client's project key.
+   * No retries, archive parsing, or cache. A caller signal bounds the request
+   * and body read. Native cancellation is preserved; deadline failures use
+   * {@link LearnedSkillsError} with code `TIMEOUT`.
+   */
+  async getLearnedSkillsSnapshot(
+    params: GetLearnedSkillsSnapshotRequest,
+  ): Promise<LearnedSkillsSnapshotResult> {
+    try {
+      params.signal?.throwIfAborted();
+      if (
+        typeof params.containerId !== "string" ||
+        !params.containerId.trim() ||
+        (params.revision !== undefined &&
+          (typeof params.revision !== "string" || !params.revision.length)) ||
+        (params.ifNoneMatch !== undefined &&
+          (typeof params.ifNoneMatch !== "string" ||
+            !params.ifNoneMatch.length ||
+            /[\r\n]/.test(params.ifNoneMatch)))
+      ) {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      let url: URL;
+      try {
+        url = new URL(
+          `${this.#apiUrl}/api/v1/learning/containers/${encodeURIComponent(params.containerId)}/skills`,
+        );
+        if (
+          !["http:", "https:"].includes(url.protocol) ||
+          url.username ||
+          url.password
+        ) {
+          throw new Error("Invalid API URL");
+        }
+        if (params.revision !== undefined)
+          url.searchParams.set("revision", params.revision);
+      } catch {
+        throw new LearnedSkillsError("INVALID_CONFIG", false);
+      }
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          Accept: "application/zip",
+          ...(params.ifNoneMatch !== undefined
+            ? { "If-None-Match": params.ifNoneMatch }
+            : {}),
+        },
+        signal: params.signal,
+        redirect: "error",
+      });
+      if (response.status === 401) {
+        void response.body?.cancel().catch(() => {});
+        throw new LearnedSkillsError("AUTHENTICATION_FAILED", false);
+      }
+      if (response.status !== 403) params.signal?.throwIfAborted();
+      if (response.status !== 200 && response.status !== 304) {
+        const denialCode =
+          response.status === 403 ? "AUTHORIZATION_FAILED" : undefined;
+        let body: unknown;
+        try {
+          body = await learnedSkillsErrorBody(response, params.signal);
+        } catch (error) {
+          if (denialCode) {
+            throw new LearnedSkillsError(
+              denialCode,
+              false,
+              error instanceof SyntaxError ? undefined : error,
+            );
+          }
+          params.signal?.throwIfAborted();
+          if (!(error instanceof SyntaxError)) throw error;
+        }
+        const responseError = learnedSkillsResponseError(body);
+        // An HTTP denial must never become a transient failure that permits
+        // consumers to keep serving a previously authorized snapshot.
+        if (
+          response.status === 403 &&
+          ![
+            "AUTHENTICATION_FAILED",
+            "AUTHORIZATION_FAILED",
+            "ENTITLEMENT_REQUIRED",
+            "DELIVERY_DISABLED",
+            "CONTAINER_NOT_FOUND",
+            "REVISION_NOT_FOUND",
+            "REVISION_REVOKED",
+          ].includes(responseError.code)
+        ) {
+          throw new LearnedSkillsError(denialCode!, false);
+        }
+        throw responseError;
+      }
+      const revision = response.headers.get("X-CopilotKit-Skills-Revision");
+      const etag = response.headers.get("ETag");
+      if (
+        !revision ||
+        !etag ||
+        !/^"[a-f0-9]{64}"$/.test(etag) ||
+        (params.revision !== undefined && revision !== params.revision)
+      ) {
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      }
+      if (response.status === 304) {
+        if (params.ifNoneMatch === undefined)
+          throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+        return { status: "unchanged", revision, etag };
+      }
+      const contentType = response.headers.get("Content-Type");
+      if (
+        !contentType ||
+        contentType.split(";", 1)[0].trim().toLowerCase() !== "application/zip"
+      ) {
+        throw new LearnedSkillsError("INVALID_SNAPSHOT", false);
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      params.signal?.throwIfAborted();
+      return { status: "snapshot", bytes, revision, etag, contentType };
+    } catch (error) {
+      if (error instanceof LearnedSkillsError) throw error;
+      const cause = params.signal?.aborted ? params.signal.reason : error;
+      if (cause instanceof Error && cause.name === "TimeoutError") {
+        throw new LearnedSkillsError("TIMEOUT", true, cause);
+      }
+      if (
+        params.signal?.aborted ||
+        (cause instanceof Error && cause.name === "AbortError")
+      ) {
+        throw cause;
+      }
+      throw new LearnedSkillsError("NETWORK_ERROR", true, error);
+    }
   }
 
   /**
