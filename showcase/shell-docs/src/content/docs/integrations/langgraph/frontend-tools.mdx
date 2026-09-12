@@ -279,62 +279,165 @@ value carries every call in the turn:
 
 ### Resume it on the client
 
-Mount a `useInterrupt` handler that dispatches each call to its registered frontend tool and resumes
-with the results. `renderInChat: false` keeps it headless — this interrupt asks nothing of the user:
+Mount one `useInterrupt` bridge that claims these interrupts and answers the whole batch. It resolves
+from `render` rather than `handler`, which is what lets a call ask the user something before the run
+continues — see the caution below for why `handler` cannot.
 
-```tsx title="app/page.tsx"
-import { useCopilotKit, useInterrupt } from "@copilotkit/react-core/v2";
+Each frontend tool falls into one of two shapes:
+
+- **Interactive** — needs user input before the agent may continue. Register a widget; the bridge waits
+  for it.
+- **Fire-and-forget or display-only** — no input needed. The bridge auto-acks it, and any visuals come
+  from that tool's own `useFrontendTool({ render })` registration, which outlives the pause.
+
+```tsx title="frontend-interrupt-bridge.tsx"
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { FC, ReactNode } from "react";
+import { useInterrupt } from "@copilotkit/react-core/v2";
+import type { InterruptEvent, InterruptRenderProps } from "@copilotkit/react-core/v2";
 
 const FRONTEND_TOOL_CALLS = "__copilotkit_frontend_tool_calls__";
 
-type FrontendToolCall = { id: string; name: string; args: Record<string, unknown> };
+type FrontendToolCall<Args = Record<string, unknown>> = { id: string; name: string; args: Args };
 
-function useFrontendToolInterrupt() {
-  const { copilotkit } = useCopilotKit();
+export type InterruptWidget<Args = Record<string, unknown>> = FC<{
+  call: FrontendToolCall<Args>;
+  /** Resolve this call. Pass the object to become the tool's ToolMessage content. */
+  respond: (result: unknown) => void;
+  /** True once `respond` has been called — disable inputs on it. */
+  responded: boolean;
+}>;
 
-  useInterrupt<{ [FRONTEND_TOOL_CALLS]?: FrontendToolCall[] }>({
-    renderInChat: false,
-    render: () => null,
-    // Leave every other interrupt — including your own human-facing ones — alone.
-    enabled: ({ value }) => Boolean(value && FRONTEND_TOOL_CALLS in value),
-    handler: async ({ event, resolve }) => {
-      const calls = event.value?.[FRONTEND_TOOL_CALLS] ?? [];
+// `ag_ui_langgraph` sends the interrupt value through `dump_json_safe`, which yields a
+// JSON *string* on the wire; other versions pass an object. Parse both, or `KEY in value`
+// throws on the string.
+function readCalls(value: unknown): FrontendToolCall[] | null {
+  let parsed: unknown = value;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const calls = (parsed as Record<string, unknown>)[FRONTEND_TOOL_CALLS];
+  return Array.isArray(calls) ? (calls as FrontendToolCall[]) : null;
+}
 
-      const tool_results = await Promise.all(
-        calls.map(async (call) => {
-          try {
-            const tool = copilotkit.getTool({ toolName: call.name });
-            const result = await tool?.handler?.(call.args, { toolCall: call } as never);
-            return {
-              toolCallId: call.id,
-              content: typeof result === "string" ? result : JSON.stringify(result ?? null),
-            };
-          } catch (error) {
-            // Resume anyway — a thrown handler must not strand the paused run.
-            return {
-              toolCallId: call.id,
-              content: JSON.stringify({ ok: false, error: String(error) }),
-            };
-          }
-        }),
-      );
+function InterruptDispatcher({
+  calls,
+  resolve,
+  widgets,
+}: {
+  calls: FrontendToolCall[];
+  resolve: (response: unknown) => void;
+  widgets: Record<string, InterruptWidget<any>>;
+}): ReactNode {
+  const interactive = calls.filter((c) => c.name in widgets);
+  const [responses, setResponses] = useState<Record<string, unknown>>({});
 
-      await resolve({ tool_results });
-    },
-  });
+  // A ref, not state: Strict Mode runs mount effects twice in development, and a state
+  // guard still reads its pre-commit value on the second pass — resolving twice, which
+  // posts two resumes and starts two runs on the thread.
+  const resolved = useRef(false);
+
+  const resolveBatch = useCallback(() => {
+    if (resolved.current) return;
+    resolved.current = true;
+    resolve({
+      tool_results: calls.map((c) => ({
+        toolCallId: c.id,
+        // Unanswered calls are acked, not omitted: every tool_call needs a result.
+        content: JSON.stringify(c.id in responses ? responses[c.id] : { ok: true }),
+      })),
+    });
+  }, [calls, responses, resolve]);
+
+  useEffect(() => {
+    if (Object.keys(responses).length === interactive.length) resolveBatch();
+  }, [responses, interactive.length, resolveBatch]);
+
+  if (interactive.length === 0) return null;
+
+  return (
+    <>
+      {interactive.map((c) => {
+        const Widget = widgets[c.name];
+        return (
+          <Widget
+            key={c.id}
+            call={c}
+            responded={c.id in responses}
+            respond={(result) =>
+              setResponses((prev) => (c.id in prev ? prev : { ...prev, [c.id]: result }))
+            }
+          />
+        );
+      })}
+    </>
+  );
+}
+
+export function useFrontendInterruptBridge(
+  widgets: Record<string, InterruptWidget<any>>,
+  agentId = "default",
+) {
+  // Read the registry through a ref so callers can pass an inline literal without
+  // changing `render`'s identity on every commit.
+  const widgetsRef = useRef(widgets);
+  widgetsRef.current = widgets;
+
+  const enabled = useCallback(
+    (event: InterruptEvent<unknown>) => readCalls(event?.value) !== null,
+    [],
+  );
+
+  const render = useCallback(({ event, resolve }: InterruptRenderProps<unknown, unknown>) => {
+    const calls = readCalls(event.value);
+    if (!calls) return <></>;
+    return <InterruptDispatcher calls={calls} resolve={resolve} widgets={widgetsRef.current} />;
+  }, []);
+
+  useInterrupt({ agentId, enabled, render });
+}
+```
+
+Register it once, passing widgets only for the tools that need input:
+
+```tsx title="app/page.tsx"
+const ConfirmNavigation: InterruptWidget<{ path: string }> = ({ call, respond, responded }) => (
+  <button disabled={responded} onClick={() => respond({ approved: true })}>
+    Go to {call.args.path}
+  </button>
+);
+
+function App() {
+  useFrontendInterruptBridge({ confirmNavigation: ConfirmNavigation });
+  // ...
 }
 ```
 
 `resolve()` sends `forwardedProps.command.resume`, which LangGraph hands back as the return value of
 `interrupt()`. The middleware then appends one `ToolMessage` per call and re-enters the model.
 
-Any call you do not answer still gets a `ToolMessage`, with content
+Any call you do not answer still gets a `ToolMessage`. If the bridge acks it, that ack is the content;
+if the client resumes without mentioning it at all, the middleware substitutes
 `{"ok": false, "error": "missing_tool_result"}` — every tool call has to stay paired with a result, or
 providers such as Bedrock reject the conversation outright.
 
-<Callout type="warn">
-Keep these handlers idempotent. The client's post-run tool executor is not interrupt-aware, so a call
-answered through the interrupt can also be run by the default frontend-tool path.
+<Callout type="warn" title="Four things to get right">
+1. **Keep handlers idempotent.** The client's post-run tool executor is not interrupt-aware, so a call
+   answered through the interrupt can also be run by the default frontend-tool path.
+2. **Resolve exactly once.** Two resumes for one pause means two runs on the same thread. Guard with a
+   ref, not state — React Strict Mode invokes mount effects twice in development.
+3. **Keep `enabled` and `render` stable** (`useCallback` with empty deps, reading anything mutable
+   through a ref). New identities rebuild the rendered element and discard in-progress widget state.
+4. **Don't answer these by dispatching to a tool's own handler.** Calling a handler directly never
+   marks the call as executing, so a [`useHumanInTheLoop`](/human-in-the-loop/useInterrupt) tool never
+   receives a live `respond` and the pause never ends. That is why the bridge above resolves from
+   `render`; a fire-and-forget tool's handler still runs through the default path, which is also why
+   point 1 matters.
 </Callout>
 
 <Callout type="info">
