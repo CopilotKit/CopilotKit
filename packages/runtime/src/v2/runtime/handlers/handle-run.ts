@@ -67,6 +67,10 @@ export async function handleRunAgent({
       agentId,
       agent,
       providerA2UIHasCatalog,
+      isMcpProxyRequest: Object.prototype.hasOwnProperty.call(
+        input.forwardedProps ?? {},
+        "__proxiedMCPRequest",
+      ),
     });
     const memoryResponse = await attachIntelligenceEnterpriseLearning({
       runtime,
