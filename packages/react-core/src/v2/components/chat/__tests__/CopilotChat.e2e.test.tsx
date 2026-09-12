@@ -1439,6 +1439,66 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
     });
 
+    it("queues a second send when isRunning is true but the completion promise is not assigned yet", async () => {
+      // #6937: `@ag-ui/client` sets isRunning before assigning
+      // activeRunCompletionPromise (the await onInitialize window). The
+      // previous guard required both, so a second Enter failed open.
+      const agent = new MockStepwiseAgent();
+      const stopSpy = vi.spyOn(agent, "abortRun");
+      const addMessageSpy = vi.spyOn(agent, "addMessage");
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "First turn" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("First turn")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+
+      addMessageSpy.mockClear();
+
+      fireEvent.change(input, { target: { value: "Second turn" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      expect(stopSpy).not.toHaveBeenCalled();
+      await waitFor(() => {
+        expect((input as HTMLTextAreaElement).value).toBe("");
+      });
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      });
+      expect(addMessageSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText("Second turn")).toBeNull();
+
+      let resolveInFlight: () => void = () => {};
+      const inFlight = new Promise<void>((resolve) => {
+        resolveInFlight = resolve;
+      });
+      agent.setActiveRunCompletionPromise(inFlight);
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      expect(addMessageSpy).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveInFlight();
+        await Promise.resolve();
+      });
+      agent.emit(runFinishedEvent());
+      agent.complete();
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalled();
+        expect(screen.getByText("Second turn")).toBeDefined();
+      });
+    });
+
     it("still routes Enter to stop when the composer is empty during a run", async () => {
       const agent = new MockStepwiseAgent();
       const stopSpy = vi.spyOn(agent, "abortRun");

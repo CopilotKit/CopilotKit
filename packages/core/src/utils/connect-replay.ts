@@ -32,9 +32,11 @@ import { catchError, finalize, takeUntil } from "rxjs/operators";
  *
  * `transformChunks` is still applied — message reassembly is needed either way.
  *
- * This mirrors the base `AbstractAgent.connectAgent` implementation exactly
- * apart from that omission, so callers keep the same subscriber notifications,
- * detach semantics, and `{ result, newMessages }` return shape.
+ * This mirrors the base `AbstractAgent.connectAgent` implementation apart from
+ * omitting `verifyEvents` and assigning `activeRunDetach$` /
+ * `activeRunCompletionPromise` *before* `await onInitialize`. The current
+ * `@ag-ui/client` still assigns those handles after the await, which leaves a
+ * fail-open window for serialization guards (#6937).
  *
  * TODO: Remove this in favour of the base implementation once AG-UI's
  * AbstractAgent supports opting out of `verifyEvents` for transports whose
@@ -77,13 +79,24 @@ export async function ɵconnectWithoutEventVerification(
       subscriber ?? {},
     ];
 
-    await self.onInitialize(input, subscribers);
-
+    // Assign detach/completion handles BEFORE onInitialize so a second
+    // connect/run during an async initializer can see them. Upstream
+    // AbstractAgent still assigns these after the await (#6937).
     self.activeRunDetach$ = new Subject<void>();
     let resolveCompletion: (() => void) | undefined;
     self.activeRunCompletionPromise = new Promise<void>((resolve) => {
       resolveCompletion = resolve;
     });
+
+    try {
+      await self.onInitialize(input, subscribers);
+    } catch (error) {
+      resolveCompletion?.();
+      resolveCompletion = undefined;
+      self.activeRunCompletionPromise = undefined;
+      self.activeRunDetach$ = undefined;
+      throw error;
+    }
 
     const source$ = defer(
       () => self.connect(input) as Observable<BaseEvent>,
