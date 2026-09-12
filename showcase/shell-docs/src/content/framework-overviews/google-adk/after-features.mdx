@@ -1,0 +1,13 @@
+<div className="reference-content">
+
+## Already have Google ADK sessions?
+
+When you add a user-facing app to an existing ADK agent, your users may need to open and continue sessions they started elsewhere. [CopilotKit Intelligence](/intelligence/overview) can import persisted ADK sessions as Rich Threads, bringing that history into your CopilotKit app.
+
+The importer supports ADK database session stores and Vertex/Agent Engine session history. In-memory sessions cannot be exported; legacy pickle stores need migration first.
+
+Import history once; future CopilotKit-mediated runs synchronize with Intelligence and continue through ADK's native persistence path when your agent uses a durable session service with appropriate retention. This is not a continuous mirror of runs made outside CopilotKit.
+
+[Import and synchronize Google ADK sessions](/google-adk/threads-import) for source setup, agent mapping, and thread continuity.
+
+</div>

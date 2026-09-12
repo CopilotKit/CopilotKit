@@ -42,7 +42,8 @@ export interface FrameworkOverviewProps {
   /**
    * Optional slot rendered between the supported-features section and the
    * architecture section. When supplied, this takes precedence over `data.cta`
-   * (which is the structured fallback). Routes that pre-render
+   * (which is the structured fallback), unless the data opts to preserve
+   * that CTA after the authored section. Routes that pre-render
    * `after-features.mdx` should pass the compiled MDX here.
    */
   afterFeatures?: ReactNode;
@@ -238,22 +239,29 @@ export function FrameworkOverview({
     }
   };
 
-  // If no explicit afterFeatures slot is supplied, render the structured cta
-  // (if any) so data-driven intros still get a CTA without needing MDX.
+  const defaultCta = cta ? (
+    <OpsPlatformCTA
+      variant={ctaVariantFor(cta)}
+      title={cta.title}
+      body={cta.body}
+      ctaLabel={cta.ctaLabel}
+      surface={cta.surface}
+      frontend={selectedFrontend}
+      backend={currentFramework}
+      fromPath={overviewPath}
+    />
+  ) : null;
+  // Existing authored slots replace the CTA by default. Discovery-only
+  // additions can retain it, including its framework/frontend attribution.
   const resolvedAfterFeatures: ReactNode =
-    afterFeatures ??
-    (cta ? (
-      <OpsPlatformCTA
-        variant={ctaVariantFor(cta)}
-        title={cta.title}
-        body={cta.body}
-        ctaLabel={cta.ctaLabel}
-        surface={cta.surface}
-        frontend={selectedFrontend}
-        backend={currentFramework}
-        fromPath={overviewPath}
-      />
-    ) : null);
+    afterFeatures && data.preserveCtaWithAfterFeatures ? (
+      <>
+        {afterFeatures}
+        {defaultCta}
+      </>
+    ) : (
+      (afterFeatures ?? defaultCta)
+    );
 
   const activeDemoData = liveDemos.find((demo) => demo.type === activeDemo);
 

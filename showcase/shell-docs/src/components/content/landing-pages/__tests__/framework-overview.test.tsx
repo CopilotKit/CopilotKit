@@ -21,6 +21,41 @@ const overviewData: FrameworkOverviewData = {
 };
 
 describe("FrameworkOverview", () => {
+  it.each(["react", "angular"] as const)(
+    "can prepend authored content without losing the %s Intelligence CTA attribution",
+    (frontend) => {
+      const markup = renderToStaticMarkup(
+        <FrameworkOverview
+          data={{
+            ...overviewData,
+            preserveCtaWithAfterFeatures: true,
+            cta: {
+              variant: "card",
+              title: "Keep the existing Intelligence action",
+              body: "Connect your app to Intelligence.",
+              ctaLabel: "Create a free account",
+              surface: "docs_history_cta",
+            },
+          }}
+          currentFramework="langgraph-python"
+          frontendOverride={frontend}
+          afterFeatures={<p>Existing conversation history</p>}
+        />,
+      );
+      const ctaHref = [...markup.matchAll(/href="([^"]+)"/g)]
+        .map((match) => match[1].replaceAll("&amp;", "&"))
+        .find((href) => href.includes("utm_content=docs_history_cta"));
+
+      expect(ctaHref).toBeDefined();
+      const params = new URL(ctaHref!).searchParams;
+      expect(params.get("utm_frontend")).toBe(frontend);
+      expect(params.get("utm_backend")).toBe("langgraph-python");
+      expect(markup.indexOf("Existing conversation history")).toBeLessThan(
+        markup.indexOf("Keep the existing Intelligence action"),
+      );
+    },
+  );
+
   it.each([
     ["strands", "aws-strands-py"],
     ["strands-typescript", "aws-strands-ts"],

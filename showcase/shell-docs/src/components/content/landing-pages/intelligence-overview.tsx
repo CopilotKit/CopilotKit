@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BarChart3,
   Brain,
+  Hash,
   MessagesSquare,
   Server,
   Sparkles,
@@ -29,6 +30,13 @@ const FEATURES = [
     href: "/threads",
     cta: "Open the Rich Threads guide",
     icon: MessagesSquare,
+  },
+  {
+    title: "Channels",
+    body: "Run your agent in Slack through managed Intelligence connections. See the guide for Teams availability and other channel adapters.",
+    href: "/slack",
+    cta: "Open the Channels guide",
+    icon: Hash,
   },
   {
     title: "Memory",
