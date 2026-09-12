@@ -73,6 +73,7 @@ state updates, you can reflect these updates natively in your application.
 
     // 3. Create the agent
     export const languageAgent = new Agent({
+      id: "language-agent",
       name: "Language Agent",
       model: openai("gpt-5.4"),
       instructions: "Always communicate in the preferred language of the user as defined in your working memory. Do not communicate in any other language.",
