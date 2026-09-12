@@ -175,6 +175,7 @@ export interface CopilotChatLabels {
 interface ChatContext {
   labels: Required<CopilotChatLabels>;
   icons: Required<CopilotChatIcons>;
+  showTimestamps: boolean;
   open: boolean;
   setOpen: (open: boolean) => void;
 }
@@ -199,6 +200,7 @@ interface ChatContextProps {
   // maxFeedback?: number;
   labels?: CopilotChatLabels;
   icons?: CopilotChatIcons;
+  showTimestamps?: boolean;
   children?: React.ReactNode;
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -210,6 +212,7 @@ export const ChatContextProvider = ({
   // maxFeedback,
   labels,
   icons,
+  showTimestamps = false,
   children,
   open,
   setOpen,
@@ -255,10 +258,11 @@ export const ChatContextProvider = ({
     () => ({
       labels: memoizedLabels,
       icons: memoizedIcons,
+      showTimestamps,
       open,
       setOpen,
     }),
-    [memoizedLabels, memoizedIcons, open, setOpen],
+    [memoizedLabels, memoizedIcons, showTimestamps, open, setOpen],
   );
 
   return (
