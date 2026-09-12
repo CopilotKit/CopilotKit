@@ -5,14 +5,14 @@
 // and `/<slug>` URLs resolve BIA-authored pages first (see
 // UnscopedDocsPage). Other frameworks remain at `/<framework>/<slug>`.
 
-import React from "react";
 import type { Metadata } from "next";
-import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
 import { DocsLandingNext } from "@/components/docs-landing-next";
+import { DocsSetupWizard } from "@/components/docs-setup-wizard";
+import { DocsVideoCarousel } from "@/components/docs-video-carousel";
+import { MapIntro } from "@/components/docs-map-parts";
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
 import { HeroStartActions } from "@/components/hero-start-commands";
-import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -22,12 +22,12 @@ import {
   loadDoc,
 } from "@/lib/docs-render";
 import { compareByDisplayOrder } from "@/lib/framework-order";
+import { visibleIntegrations } from "@/lib/homepage-map";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
   getDocsFolder,
   getDocsMode,
   getIntegration,
-  getIntegrations,
   ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
@@ -66,9 +66,13 @@ export async function generateMetadata({
   // /quickstart, /concepts/architecture) read frontmatter via loadDoc.
   if (!slugPath) {
     return buildDocMetadata({
-      title: "CopilotKit: the frontend stack for agents",
+      // Kept in step with the hero copy below. The previous title and
+      // description were written against the old "frontend stack for agentic
+      // user experience" positioning and named neither Intelligence nor a
+      // benefit, so the tab, the search result and the page disagreed.
+      title: "CopilotKit: give your app an agent your users can use",
       description:
-        "Connect any agent framework or model to your React app for chat, generative UI, canvas, and human-in-the-loop workflows.",
+        "Build chat, generative UI, and approval steps into your React app on any agent framework, then add CopilotKit Intelligence for threads that persist, memory, and agents that learn from real use.",
       canonicalPath: "/",
     });
   }
@@ -107,8 +111,7 @@ function DocsOverview() {
   // framework picker dropdown (same accent treatment as the framework pages'
   // direct quickstart link). The default framework sorts first; its
   // quickstart lives at the root.
-  const quickstartOptions = getIntegrations()
-    .filter((i) => getDocsMode(i.slug) !== "hidden")
+  const quickstartOptions = visibleIntegrations()
     .slice()
     .sort((a, b) => {
       if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
@@ -124,24 +127,26 @@ function DocsOverview() {
           ? "/quickstart"
           : `/${i.slug}/quickstart`,
     }));
+
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
-      <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
+      <div className="docs-inner-content max-w-[760px] mx-auto px-4 md:px-6 pt-0 pb-6">
+        {/* Three things only: name, one line of positioning, two buttons.
+            The reader can add CopilotKit to an existing project too — the
+            wizard's first step asks that, so the hero doesn't have to. */}
         <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
-          <div className="flex max-w-[765px] flex-col">
-            <div>
-              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
-                CopilotKit
-              </h1>
-              <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
-                The frontend stack for agentic user experience.
-              </p>
-              <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Build production chat, generative UI, shared state, and
-                human-in-the-loop workflows on any AG-UI compatible backend.
-              </p>
-            </div>
-            <div className="mt-7">
+          <div className="mx-auto flex max-w-[58ch] flex-col items-center text-center">
+            <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
+              CopilotKit
+            </h1>
+            {/* Names a benefit rather than a category. The previous line,
+                "The frontend stack for agentic user experience", is jargon
+                to a first-time reader: it says what shelf the product sits
+                on, not what it does for them. */}
+            <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
+              Give your app an agent your users can actually use.
+            </p>
+            <div className="mt-7 flex justify-center">
               <HeroStartActions
                 prompt={
                   <HeroOnboardingPromptButton surface="docs_landing_hero" />
@@ -154,14 +159,25 @@ function DocsOverview() {
           </div>
         </section>
 
-        <div className="space-y-10 pt-4">
-          <div className="[&>section]:!my-0">
-            <IntelligenceOnboardingPrompt
-              feature="learning"
-              surface="docs_landing_learning"
-            />
-          </div>
-          <LandingSampleTabs />
+        {/* A hairline between each section, matching the one under the hero.
+         *  The page is one centred column of four blocks that answer four
+         *  different questions, and without a rule between them the eye has
+         *  nothing to tell it where one answer ends. The last section takes
+         *  none: a rule under the final block would fence off the page
+         *  footer rather than separate anything. */}
+        <div className="border-b border-[var(--border)] pb-8">
+          <DocsVideoCarousel />
+        </div>
+
+        <div className="border-b border-[var(--border)] pt-8 pb-8">
+          <MapIntro
+            heading="Set up CopilotKit for your project"
+            body="Answer a few questions, whether you are adding CopilotKit to a project you already have or starting a new one. We turn your answers into a prompt you paste into your coding agent, and it does the setup."
+          />
+          <DocsSetupWizard />
+        </div>
+
+        <div className="pt-8">
           <DocsLandingNext />
         </div>
       </div>
