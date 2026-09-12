@@ -31,11 +31,11 @@ export function loadConfig(): ReleaseConfig {
  * Canary-only (the stable lane derives its tag and release branch from a single
  * scope name). It exists because scopes are only independent on the version
  * axis, not the dependency axis: `@copilotkit/runtime` carries
- * `"@copilotkit/channels-intelligence": "workspace:*"`, and `pnpm pack`
+ * `"@copilotkit/channels-intelligence": "workspace:^"`, and `pnpm pack`
  * rewrites that against whatever is in the working tree. A canary of one scope
- * therefore ships pinned to the OTHER scope's last stable release, which is a
- * broken combination whenever the change spans both. Publishing every scope
- * from one commit rewrites those pins to same-run canary versions instead.
+ * therefore ships a range built from the OTHER scope's last stable release,
+ * which cannot resolve to the same-run canary. Publishing every scope from one
+ * commit rewrites those ranges against the same-run canary versions instead.
  */
 export const ALL_SCOPES = "all";
 
