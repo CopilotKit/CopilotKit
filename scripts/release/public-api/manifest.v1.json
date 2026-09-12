@@ -463,9 +463,13 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "@microsoft/agents-activity": "^1.5.3",
+          "@microsoft/agents-hosting": "^1.5.3",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "@microsoft/agents-activity",
+          "@microsoft/agents-hosting",
           "vitest"
         ],
         "provenance": [
@@ -785,7 +789,26 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "peerDependencies": {
+          "@microsoft/agents-activity": "^1.5.3",
+          "@microsoft/agents-hosting": "^1.5.3"
+        },
+        "optionalPeerDependencies": [
+          "@microsoft/agents-activity",
+          "@microsoft/agents-hosting"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
       },
       "provenance": {
         "name": {

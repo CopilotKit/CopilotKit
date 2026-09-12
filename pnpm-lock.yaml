@@ -2278,6 +2278,12 @@ importers:
       '@copilotkit/typescript-config':
         specifier: workspace:^
         version: link:../typescript-config
+      '@microsoft/agents-activity':
+        specifier: ^1.5.3
+        version: 1.6.1
+      '@microsoft/agents-hosting':
+        specifier: ^1.5.3
+        version: 1.6.1(@opentelemetry/api@1.9.0)
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.11
@@ -2471,12 +2477,6 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:^
         version: link:../shared
-      '@microsoft/agents-activity':
-        specifier: ^1.5.3
-        version: 1.6.1
-      '@microsoft/agents-hosting':
-        specifier: ^1.5.3
-        version: 1.6.1(@opentelemetry/api@1.9.0)
       express:
         specifier: '>=4.20.0'
         version: 5.2.1
@@ -2493,6 +2493,12 @@ importers:
       '@copilotkit/typescript-config':
         specifier: workspace:^
         version: link:../typescript-config
+      '@microsoft/agents-activity':
+        specifier: ^1.5.3
+        version: 1.6.1
+      '@microsoft/agents-hosting':
+        specifier: ^1.5.3
+        version: 1.6.1(@opentelemetry/api@1.9.0)
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.25

@@ -36,6 +36,24 @@ This self-hosted adapter remains fully supported. Choose it when you want the pr
 
 ```sh
 pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
+pnpm add @microsoft/agents-hosting @microsoft/agents-activity
+```
+
+The Microsoft 365 Agents SDK packages are **optional peer dependencies**, so
+they are not installed for you. Add them as shown above — this adapter is the
+self-hosted path, and it needs them to run the Teams ingress.
+
+They are optional because the managed path does not need them. Managed Channels
+reach this package only through the `./render` subpath, which never touches the
+Microsoft SDK, so an app that installs `@copilotkit/runtime` for a plain chat UI
+no longer pulls the whole Microsoft Agents stack, or the exact `zod` pin that
+comes with it.
+
+If you import the adapter without them, Node fails at import time and names the
+package to install:
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@microsoft/agents-hosting'
 ```
 
 ## Quickstart

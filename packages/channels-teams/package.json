@@ -54,15 +54,27 @@
     "@copilotkit/channels-ui": "workspace:^",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^",
-    "@microsoft/agents-activity": "^1.5.3",
-    "@microsoft/agents-hosting": "^1.5.3",
     "express": "^4.21.2",
     "rxjs": "^7.8.1",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.25.1"
   },
+  "peerDependencies": {
+    "@microsoft/agents-activity": "^1.5.3",
+    "@microsoft/agents-hosting": "^1.5.3"
+  },
+  "peerDependenciesMeta": {
+    "@microsoft/agents-activity": {
+      "optional": true
+    },
+    "@microsoft/agents-hosting": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",
+    "@microsoft/agents-activity": "^1.5.3",
+    "@microsoft/agents-hosting": "^1.5.3",
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.0",
     "typescript": "^5.6.3",
