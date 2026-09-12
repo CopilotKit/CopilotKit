@@ -16,6 +16,7 @@ vi.mock("../../../hooks/use-agent", () => ({
 
 vi.mock("../../../context", () => ({
   useCopilotKit: vi.fn(),
+  useDefaultAgentId: vi.fn(() => undefined),
   useLicenseContext: vi.fn(() => ({
     checkFeature: () => true,
   })),

@@ -219,7 +219,7 @@ function UnlockCard({
                 </div>
                 <button
                   type="submit"
-                  className="h-12 shrink-0 cursor-pointer rounded-xl bg-[var(--accent)] px-6 text-[15px] font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+                  className="h-12 shrink-0 cursor-pointer rounded-xl bg-[var(--accent-fill)] px-6 text-[15px] font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
                 >
                   Unlock
                 </button>

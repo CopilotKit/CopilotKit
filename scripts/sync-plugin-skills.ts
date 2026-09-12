@@ -7,18 +7,19 @@ import { dirname, join, relative } from "node:path";
 const toPosix = (p: string) => p.split("\\").join("/");
 
 export const RESERVED_LIFECYCLE_SLUGS: ReadonlySet<string> = new Set([
-  // Standalone skills — not generated from packages/*/skills, exempt from orphan detection
-  "copilotkit-setup",
+  // Standalone skills — not generated from packages/*/skills, exempt from
+  // orphan detection. The two entry points replaced the nine knowledge skills
+  // that used to sit here; the rest are procedure or internal-maintenance
+  // skills, which describe a sequence across systems rather than an API and so
+  // have nothing in the docs to defer to.
+  "copilotkit",
+  "copilotkit-cli",
   "copilotkit-channels",
-  "copilotkit-develop",
-  "copilotkit-agui",
-  "copilotkit-integrations",
-  "copilotkit-debug",
-  "copilotkit-upgrade",
-  "copilotkit-contribute",
-  "copilotkit-self-update",
   "setup-slack-channel",
   "channels-setup",
+  "inspector-docs",
+  "inspector-workbench",
+  "intelligence-docs",
 ]);
 
 // Version sync — plugin version tracks this package's version.

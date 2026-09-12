@@ -6,6 +6,7 @@ hideTOC: true
 ---
 
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
 import {
     TailoredContent,
     TailoredContentOption,
@@ -25,6 +26,8 @@ This context can then be shared with your AG2 backend.
 <Callout type="info">
   CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
 </Callout>
+
+<AgentContextJsonString />
 
 <TailoredContent
     className="step"
@@ -75,13 +78,18 @@ This context can then be shared with your AG2 backend.
                 <Tabs groupId="language_ag2_readables_state" items={['Python']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
+                        import json # [!code highlight]
+
                         from ag2.ag_ui import RunAgentInput
 
-                        def get_readable(message: RunAgentInput, description: str) -> str | None:
-                            return next(
+                        def get_readable(message: RunAgentInput, description: str):
+                            raw = next(
                                 (item.value for item in message.context if item.description == description),
                                 None,
                             )
+                            # [!code highlight:2]
+                            # The value is a JSON string, so parse it before use
+                            return json.loads(raw) if raw is not None else None
                         ```
                     </Tab>
                 </Tabs>
@@ -95,7 +103,7 @@ This context can then be shared with your AG2 backend.
                 <Tabs groupId="language_ag2_readables_backend" items={['Python']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
-                        import json
+                        import json # [!code highlight]
                         from typing import Annotated
 
                         from fastapi import FastAPI, Header
@@ -105,11 +113,14 @@ This context can then be shared with your AG2 backend.
                         from ag2.ag_ui import AGUIStream, RunAgentInput
                         from ag2.config import OpenAIConfig
 
-                        def get_readable(message: RunAgentInput, description: str) -> str | None:
-                            return next(
+                        def get_readable(message: RunAgentInput, description: str):
+                            raw = next(
                                 (item.value for item in message.context if item.description == description),
                                 None,
                             )
+                            # [!code highlight:2]
+                            # The value is a JSON string, so parse it before use
+                            return json.loads(raw) if raw is not None else None
 
                         @tool
                         def get_colleagues(

@@ -26,7 +26,7 @@ function useDefaultRenderTool(
       parameters: any;
       status: string;
       result: string | undefined;
-    }) => React.ReactElement;
+    }) => React.ReactElement | null;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
@@ -37,6 +37,7 @@ function useDefaultRenderTool(
 - Internally calls `useRenderTool({ name: "*", ... })`.
 - If `config.render` is omitted, uses an expandable default card UI that shows status, parameters, and result.
 - If `config.render` is provided, your renderer is used instead.
+- Your renderer can return `null` to draw nothing. Use this to render only the tool calls you care about and suppress the rest.
 - Inherits `useRenderTool` registration behavior and dependency semantics.
 
 ## Usage

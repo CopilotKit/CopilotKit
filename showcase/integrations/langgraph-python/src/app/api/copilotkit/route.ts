@@ -2,9 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const LANGGRAPH_URL =
@@ -127,9 +126,7 @@ export const POST = async (req: NextRequest) => {
   }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
@@ -145,9 +142,11 @@ export const POST = async (req: NextRequest) => {
         // OpenGenerativeUI lives in /api/copilotkit-ogui for the same reason.
         // MCP Apps is in /api/copilotkit-mcp-apps.
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
+    const response = await copilotHandler(req);
     if (!response.ok) {
       console.log(`[copilotkit/route] Response status: ${response.status}`);
     } else if (ROUTE_DEBUG) {

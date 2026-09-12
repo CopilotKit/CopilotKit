@@ -9,3 +9,6 @@ __pycache__
 **/*.test.tsx
 **/*.spec.ts
 **/*.spec.tsx
+!vitest.config.ts
+!src/cvdiag-backend.test.ts
+!src/claude-agent-sdk-adapter.test.ts

@@ -1,0 +1,76 @@
+<Steps>
+  <Step>
+    ### Nothing to wire in config mode
+
+    A `BuiltInAgent` built from configuration merges the request's tool
+    definitions into the tool list it hands the model, so the agent declares
+    none of its own. A component registered with `useComponent` reaches the
+    model by name with no extra wiring.
+
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+    import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+    const builtInAgent = new BuiltInAgent({
+      model: "openai:gpt-5.4-mini",
+      prompt: SYSTEM_PROMPT,
+    });
+    ```
+
+    Keep the `useComponent` name distinct from every tool in `config.tools`.
+    The runtime layers the configured tools over the forwarded ones, so a
+    shared name resolves to the backend tool and the component never renders.
+
+  </Step>
+  <Step>
+    ### In factory mode you pass the tools yourself
+
+    A factory owns the model call, so `BuiltInAgent` ignores `config.tools` and
+    forwards nothing on your behalf. Read the tools off `input` and pass them
+    to the model, or the component never renders.
+
+    ```ts title="app/api/copilotkit/factory.ts"
+    import {
+      BuiltInAgent,
+      convertMessagesToVercelAISDKMessages,
+      convertToolsToVercelAITools,
+    } from "@copilotkit/runtime/v2";
+    import { openai } from "@ai-sdk/openai";
+    import { streamText } from "ai";
+
+    const agent = new BuiltInAgent({
+      type: "aisdk",
+      factory: ({ input, abortSignal }) =>
+        streamText({
+          model: openai("gpt-4o"),
+          messages: convertMessagesToVercelAISDKMessages(input.messages),
+          tools: convertToolsToVercelAITools(input.tools),
+          abortSignal,
+        }),
+    });
+    ```
+
+    The factory owns precedence here. Nothing merges the two lists for you, so
+    a backend tool and a `useComponent` registration that share a name is your
+    conflict to resolve. Keep the names distinct.
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    This is the part that is easy to miss. The tool arrives on every run, but a
+    model with no instruction about it will answer in prose and never call it.
+    Name the tool in the prompt and say what it is for.
+
+    ```ts title="app/api/copilotkit/prompts.ts"
+    export const SYSTEM_PROMPT = `You are a data visualization assistant.
+
+    When the user asks for a chart, call \`render_bar_chart\` with a concise
+    title and a \`data\` array of \`{label, value}\` items.
+
+    If the user names a subject but supplies no numbers, invent plausible
+    sample values and render the chart on the first turn. Never reply with a
+    clarifying question asking for the data.`;
+    ```
+
+  </Step>
+</Steps>

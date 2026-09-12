@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The Spring AI agent backend runs as a separate Java process.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -132,18 +133,18 @@ export const POST = async (req: NextRequest) => {
   }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
-        // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+        // @ts-ignore -- see main route.ts; published CopilotRuntime's `agents`
         // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
         // plain Records. Fixed in source, pending release.
         agents,
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
+    const response = await copilotHandler(req);
     if (!response.ok) {
       console.log(`[copilotkit/route] Response status: ${response.status}`);
     } else if (ROUTE_DEBUG) {

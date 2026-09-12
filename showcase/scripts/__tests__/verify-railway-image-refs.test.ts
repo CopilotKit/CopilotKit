@@ -20,27 +20,9 @@ import { SERVICES, repoNameFor } from "../railway-envs";
 import type { ServiceEntry } from "../railway-envs";
 
 describe("ServiceEntry gateIgnore field", () => {
-  it("is optional on the type and defaults to falsy when unset", () => {
-    // Every real SSOT entry has gateIgnore unset (undefined / falsy). There is
-    // no longer ANY gateIgnore:true entry: the `harness-workers` pool-fleet
-    // worker, formerly the sole gate-ignored (staging-only) service, has been
-    // backfilled as a dual-env (prod + staging) gateValidated:true service —
-    // both env entries carry an explicit `repoName: "showcase-harness"`, so it
-    // now fits the gate's image-ref shape and the opt-out is dropped.
-    // See its SSOT entry in railway-envs.ts for the rationale.
-    // `showcase-strands-typescript` is now provisioned dual-env
-    // (gateValidated:true, no gateIgnore), so it falls into the default-falsy
-    // branch below. S2: the 12 starter-<slug> services are likewise NO LONGER
-    // gate-ignored — they are fully gate-managed (gateValidated, no
-    // gateIgnore), exactly like every showcase-* agent.
-    const GATE_IGNORED = new Set<string>([]);
-    const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
+  it("is unset for every SSOT-managed service", () => {
     for (const [name, entry] of Object.entries(SERVICES)) {
-      const gi = (entry as ServiceEntry).gateIgnore;
-      if (isGateIgnored(name)) {
-        expect(gi, `${name} gateIgnore`).toBe(true);
-        continue;
-      }
+      const gi = entry.gateIgnore;
       expect(gi === undefined || gi === false, `${name} gateIgnore`).toBe(true);
     }
   });
@@ -115,6 +97,7 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     const sentinel = "transient-third-party-relay";
     (SERVICES as Record<string, ServiceEntry>)[sentinel] = {
       serviceId: "00000000-0000-0000-0000-000000000000",
+      autoUpdates: { staging: "disabled", prod: "disabled" },
       ciBuilt: false,
       gateValidated: false,
       gateIgnore: true,
@@ -260,21 +243,13 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 41 services in the SSOT (29 showcase/infra + 12 starter-*)", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(41);
+  it("has 42 services in the SSOT (30 showcase/infra + 12 starter-*)", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(42);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
-    // There is no longer ANY gateIgnore:true / gateValidated:false holdout: the
-    // `harness-workers` worker, formerly the sole exception, has been
-    // backfilled as a dual-env gateValidated:true service. S2 brought the 12
-    // starter-<slug> services UNDER the gate (gateValidated:true);
-    // `showcase-strands-typescript` is provisioned in prod and gateValidated
-    // too — so EVERY service must now be gateValidated:true.
-    const GATE_IGNORED = new Set<string>([]);
-    const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
     const unvalidated = Object.entries(SERVICES)
-      .filter(([name, entry]) => !entry.gateValidated && !isGateIgnored(name))
+      .filter(([, entry]) => !entry.gateValidated)
       .map(([name]) => name);
     expect(unvalidated).toEqual([]);
   });
@@ -292,22 +267,52 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     });
   }
 
-  it("findMissingServices treats all 41 gateValidated services as targets (29 showcase/infra + 12 starters)", () => {
+  it("findMissingServices treats every gateValidated service as a target, per the envs it declares", () => {
     // With nothing "present", every gateValidated service should appear in
-    // the missing set. After S2 brought the 12 starter-<slug> services under
-    // the gate (gateValidated:true, dual-env), showcase-strands-typescript
-    // was provisioned in prod (gateValidated:true), and the prod harness-workers
-    // backfill flipped that worker to gateValidated:true (dual-env), that means
-    // all 41 — the 29 showcase/infra gateValidated services plus the 12
-    // starters. (harness-workers is now gateValidated and dual-env, so it IS
-    // required in both envs here.)
+    // the missing set for each env it DECLARES. All dual-env gateValidated
+    // services (the 30 showcase/infra + 12 starters) now carry both prod and
+    // staging and are demanded in BOTH envs.
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
-    expect(missingProd).toHaveLength(41);
-    expect(missingStaging).toHaveLength(41);
-    // The 12 starters are now demanded in BOTH envs.
+    expect(missingProd).toHaveLength(42);
+    expect(missingStaging).toHaveLength(42);
+    // CrewAI Conversational Flows is now required in both envs.
+    expect(missingStaging).toContain("showcase-crewai-conversational-flows");
+    expect(missingProd).toContain("showcase-crewai-conversational-flows");
+    // The 12 starters are still demanded in BOTH envs.
     expect(missingProd).toContain("starter-adk");
     expect(missingStaging).toContain("starter-mastra");
+  });
+
+  it("validates dual-env CrewAI image refs against its canonical GHCR repo", () => {
+    const service = "showcase-crewai-conversational-flows";
+    const stagingRepo = repoNameFor(service, "staging");
+    const prodRepo = repoNameFor(service, "prod");
+
+    expect(
+      validateImage(`ghcr.io/copilotkit/${stagingRepo}:latest`, {
+        env: "staging",
+        repoName: stagingRepo,
+      }),
+    ).toBeNull();
+    expect(
+      validateImage("ghcr.io/copilotkit/showcase-wrong:latest", {
+        env: "staging",
+        repoName: stagingRepo,
+      })?.reason,
+    ).toMatch(/repo name mismatches expected/);
+    expect(
+      validateImage(`ghcr.io/copilotkit/${prodRepo}@sha256:${"a".repeat(64)}`, {
+        env: "prod",
+        repoName: prodRepo,
+      }),
+    ).toBeNull();
+    expect(
+      validateImage(`ghcr.io/copilotkit/${prodRepo}:latest`, {
+        env: "prod",
+        repoName: prodRepo,
+      })?.reason,
+    ).toMatch(/prod must be pinned/);
   });
 });
 

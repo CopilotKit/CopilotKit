@@ -17,7 +17,8 @@
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import"
+        "threads-import",
+        "threads-self-managed"
       ]
     },
     "custom-look-and-feel",
@@ -30,11 +31,12 @@
     "shared-state",
     "agent-app-context",
     "---Microsoft Agent Framework---",
+    "...human-in-the-loop",
     "auth",
     "---Backend---",
     "copilot-runtime",
     "ag-ui",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     "---Troubleshooting---",
     "...troubleshooting",
     "---Other---",

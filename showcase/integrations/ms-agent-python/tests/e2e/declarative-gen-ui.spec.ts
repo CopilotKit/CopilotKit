@@ -109,12 +109,12 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       .poll(async () => await bars.count(), { timeout: 15_000 })
       .toBeGreaterThanOrEqual(2);
 
-    // Regression guard (#4734): the deployed KPI / dashboard pills used to
-    // loop with "A2UI render error: Cannot create component root without a
-    // type" because the secondary LLM's `render_a2ui` tool call was
-    // intercepted by the A2UI middleware before our defensive validation
-    // could drop malformed components. Renaming to `_design_a2ui_surface`
-    // killed the bypass; assert no A2UI render-error banners are visible.
+    // Regression guard (#4734): the KPI / dashboard pills used to loop with
+    // "A2UI render error: Cannot create component root without a type" when a
+    // malformed surface reached the renderer. The native auto-inject path
+    // (injectA2UITool: true; the adapter's render_a2ui sub-agent + toolkit
+    // validation) filters malformed components before they paint; assert no
+    // A2UI render-error banners are visible.
     await expect(
       page.getByText(/Cannot create component .* without a type/i),
     ).toHaveCount(0);

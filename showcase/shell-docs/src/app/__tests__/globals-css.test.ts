@@ -17,6 +17,12 @@ describe("globals.css mobile docs layout", () => {
     );
   });
 
+  it("spans the compact table of contents across the mobile grid", () => {
+    expect(globalsCss).toContain(
+      "#nd-docs-layout > [data-toc-popover] {\n    grid-column: 1 / -1 !important;\n    width: 100% !important;\n    min-width: 0 !important;",
+    );
+  });
+
   it("does not double-count the announcement banner in sub-xl docs layout offsets", () => {
     const subXlDocsLayoutRules = globalsCss.matchAll(
       /@media \((?:max-width: 767px|min-width: 768px\) and \(max-width: 1279px)\) \{\n  #nd-docs-layout \{(?<body>[\s\S]*?)\n  \}/g,
@@ -46,6 +52,23 @@ describe("globals.css mobile docs layout", () => {
       "@media (min-width: 768px) and (max-width: 1279px) {\n  .docs-inner-content {\n    padding-left: 24px !important;",
     );
   });
+
+  it("places the primary docs tabs beside the mobile drawer close control", () => {
+    const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
+
+    expect(normalizedGlobalsCss).toMatch(
+      /\.shell-docs-mobile-sidebar-tabs \{ display: flex; position: absolute; top: 1rem; right: 3\.5rem; left: 1rem;/,
+    );
+    expect(normalizedGlobalsCss).toContain(
+      "#nd-sidebar-mobile > div:first-child { position: relative; }",
+    );
+    expect(normalizedGlobalsCss).toMatch(
+      /\.shell-docs-mobile-sidebar-tabs \.shell-docs-primary-tab \{ height: 1\.75rem;[\s\S]*?gap: 0\.1875rem;[\s\S]*?padding: 0 0\.25rem;[\s\S]*?font-size: 0\.6875rem;/,
+    );
+    expect(normalizedGlobalsCss).toContain(
+      ".shell-docs-mobile-sidebar-tabs .shell-docs-primary-tab svg { width: 0.8125rem; height: 0.8125rem; }",
+    );
+  });
 });
 
 describe("globals.css docs headings", () => {
@@ -55,6 +78,84 @@ describe("globals.css docs headings", () => {
     );
     expect(globalsCss).not.toContain(
       ".reference-content .docs-heading {\n  display: inline-flex;",
+    );
+  });
+});
+
+describe("globals.css dark accent contrast", () => {
+  it("uses a lighter accent for text while preserving the darker fill", () => {
+    const darkTheme = globalsCss.match(/\.dark \{(?<body>[\s\S]*?)\n\}/)?.groups
+      ?.body;
+
+    expect(darkTheme).toContain("--primary: oklch(0.64 0.21 277);");
+    expect(darkTheme).toContain("--sidebar-primary: oklch(0.64 0.21 277);");
+    expect(darkTheme).toContain("--accent-fill: oklch(0.585 0.233 277.117);");
+    expect(globalsCss).toContain(
+      "--accent-strong: color-mix(in oklch, var(--accent-fill) 88%, black);",
+    );
+  });
+});
+
+describe("globals.css docs media breakouts", () => {
+  it("keeps standard tables and code blocks aligned to the prose measure", () => {
+    expect(globalsCss).toContain(
+      ".docs-article-content .reference-content > img",
+    );
+    expect(globalsCss).not.toMatch(
+      /\.reference-content\s*>\s*:is\([^)]*(?:table|figure\.shiki)/,
+    );
+  });
+});
+
+describe("globals.css docs page actions", () => {
+  it("styles the split control as one purple primary action", () => {
+    const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
+
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        .docs-page-actions-primary,
+        .docs-page-actions-trigger {
+          cursor: pointer;
+          border-color: var(--accent-fill) !important;
+          background-color: var(--accent-fill) !important;
+          color: var(--primary-foreground) !important;
+        }
+      `),
+    );
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        .docs-page-actions-primary:hover,
+        .docs-page-actions-trigger:hover,
+        .docs-page-actions-trigger[data-state="open"] {
+          border-color: var(--accent-fill) !important;
+          background-color: var(--docs-page-actions-hover) !important;
+        }
+      `),
+    );
+    expect(globalsCss).toContain(
+      "--docs-page-actions-hover: color-mix(in oklch, var(--accent-fill) 68%, black);",
+    );
+    expect(globalsCss).toContain("--docs-page-actions-orbit: 0deg;");
+  });
+
+  it("gives the primary action a reduced-motion-safe orbiting halo", () => {
+    expect(globalsCss).toContain("@property --docs-page-actions-orbit");
+    expect(globalsCss).toContain("@keyframes docs-page-actions-halo");
+    expect(globalsCss).toContain(
+      "animation: docs-page-actions-halo 3.4s linear infinite;",
+    );
+    expect(globalsCss).toContain("mask-composite: exclude;");
+    expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(globalsCss).toContain("animation: none;");
+    expect(globalsCss).not.toContain("docs-page-actions-shimmer");
+  });
+
+  it("keeps the mobile halo fitted without showing a hover-only tooltip", () => {
+    expect(globalsCss).toContain(
+      ".docs-page-tools {\n    max-width: 100%;\n    overflow-x: auto;",
+    );
+    expect(globalsCss).toContain(
+      ".docs-page-actions-primary[data-tooltip]::before,\n  .docs-page-actions-primary[data-tooltip]::after {\n    display: none;",
     );
   });
 });
@@ -78,5 +179,29 @@ describe("globals.css cookbook sidebar", () => {
         }
       `),
     );
+  });
+});
+
+describe("globals.css sidebar section labels", () => {
+  it("styles static section labels with the docs accent", () => {
+    expect(globalsCss).toMatch(
+      /\.shell-docs-sidebar p\.inline-flex\.gap-2\s*\{[\s\S]*?color:\s*var\(--accent\)\s*!important;[\s\S]*?font-family:\s*inherit\s*!important;[\s\S]*?font-size:\s*0\.8125rem\s*!important;/,
+    );
+    expect(globalsCss).not.toContain("shell-docs-sidebar-section-label");
+  });
+
+  it("keeps static section labels purple in the mobile drawer", () => {
+    expect(globalsCss).toContain(
+      "#nd-sidebar-mobile p.inline-flex.gap-2 {\n  color: var(--accent) !important;",
+    );
+  });
+
+  it("fades sidebar content only at overflowing edges", () => {
+    expect(globalsCss).toContain("[data-shell-docs-scroll-shadow-top]:not(");
+    expect(globalsCss).toContain("[data-shell-docs-scroll-shadow-bottom]:not(");
+    expect(globalsCss).toContain(
+      "[data-shell-docs-scroll-shadow-top][data-shell-docs-scroll-shadow-bottom]",
+    );
+    expect(globalsCss).not.toContain("data-shell-docs-scroll-frame]::before");
   });
 });

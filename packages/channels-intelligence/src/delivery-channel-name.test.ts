@@ -85,6 +85,10 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
 
     expect(runCanonical).toHaveBeenCalledOnce();
     expect(runCanonical.mock.calls[0]![0].agentId).toBe("support");
+    expect(runCanonical.mock.calls[0]![0].user).toEqual({
+      id: "slack:tenant_channel_name:user_channel_name",
+      name: "Ada",
+    });
     expect(runCanonical.mock.calls[0]![0].memory).toEqual({
       grant: { user: "read", project: "read-write" },
       user: {

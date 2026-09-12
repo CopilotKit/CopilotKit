@@ -47,7 +47,16 @@ export interface SlackNativeProps<TValue = unknown> {
   max_selected_items?: number;
   min_value?: string;
   max_value?: string;
-  decimal_allowed?: boolean;
+  /**
+   * `number_input`'s decimals switch. Slack's name is `is_decimal_allowed`; the
+   * `is_` prefix is not optional. This shipped as `decimal_allowed` through
+   * 0.9.0, and Slack refused every message that carried it —
+   * `invalid_blocks: invalid field at /blocks/N/element` — because an unknown
+   * key invalidates the whole payload. Verified live against Slack on
+   * 2026-08-17: the same input block delivers under this name and is refused
+   * under the old one.
+   */
+  is_decimal_allowed?: boolean;
   emoji?: boolean;
   verbatim?: boolean;
   indent?: number;

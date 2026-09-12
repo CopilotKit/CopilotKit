@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -25,6 +25,16 @@ import type {
   ProbeResult,
   ProbeResultWriter,
 } from "../../types/index.js";
+
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(null, { status: 204 }),
+  );
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // In-memory logger spy used by the registry-error and writer-missing
 // dedupe tests. Captures level + msg + meta so assertions can pin the
@@ -183,6 +193,63 @@ describe("e2e-demos driver", () => {
 
   it("exposes kind === 'e2e_demos'", () => {
     expect(e2eReadinessDriver.kind).toBe("e2e_demos");
+  });
+
+  it("clears backend thread state once without changing a green result when cleanup times out", async () => {
+    const { browser, state } = makeBrowser([{}]);
+    const driver = createE2eDemosDriver({
+      launcher: async () => browser,
+      demosResolver: async () => [],
+    });
+    const { writer } = mkWriter();
+    const { logger: spyLogger, entries } = mkSpyLogger();
+    const fetchSpy = vi.mocked(globalThis.fetch);
+    fetchSpy.mockImplementationOnce(async () => {
+      expect(state.closed).toBe(true);
+      throw new DOMException("thread clear timed out", "TimeoutError");
+    });
+
+    const result = await driver.run(mkCtxWithLogger(writer, {}, spyLogger), {
+      key: "e2e-demos:langgraph-python",
+      backendUrl: "https://backend.example.com",
+      publicUrl: "https://public.example.com",
+      demos: ["agentic-chat"],
+      shape: "package",
+    });
+
+    expect(result).toEqual({
+      key: "e2e-demos:langgraph-python",
+      state: "green",
+      signal: {
+        shape: "package",
+        slug: "langgraph-python",
+        backendUrl: "https://backend.example.com",
+        total: 1,
+        passed: 1,
+        failed: [],
+      },
+      observedAt: "2026-04-23T00:00:00.000Z",
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://backend.example.com/api/copilotkit-voice/threads/clear",
+      {
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      },
+    );
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: "warn",
+          msg: "probe.e2e.threads-clear-failed",
+          meta: expect.objectContaining({
+            slug: "langgraph-python",
+            err: "thread clear timed out",
+          }),
+        }),
+      ]),
+    );
   });
 
   it("emits one e2e:<slug>/<feature> row per declared demo", async () => {

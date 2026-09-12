@@ -77,9 +77,6 @@ importers:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
-      "@eslint/eslintrc":
-        specifier: ^3
-        version: 3.3.1
       "@langchain/langgraph-cli":
         specifier: 0.0.40
         version: 0.0.40(@langchain/core@0.3.78(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(@langchain/langgraph-checkpoint@0.0.18(@langchain/core@0.3.78(openai@4.104.0(ws@8.18.3)(zod@3.25.76))))(@langchain/langgraph-sdk@0.0.112(@langchain/core@0.3.78(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@langchain/langgraph@0.3.12(@langchain/core@0.3.78(openai@4.104.0(ws@8.18.3)(zod@3.25.76)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(zod-to-json-schema@3.24.6(zod@3.25.76)))(openai@4.104.0(ws@8.18.3)(zod@3.25.76))(typescript@5.9.3)
@@ -98,12 +95,6 @@ importers:
       concurrently:
         specifier: ^9.1.2
         version: 9.2.1
-      eslint:
-        specifier: ^9
-        version: 9.37.0(jiti@2.6.1)
-      eslint-config-next:
-        specifier: 15.3.2
-        version: 15.3.2(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
       shadcn:
         specifier: ^3.4.0
         version: 3.4.2(@types/node@20.19.21)(typescript@5.9.3)
@@ -141,12 +132,6 @@ importers:
       "@types/react-dom":
         specifier: ^19
         version: 19.2.2(@types/react@19.2.2)
-      eslint:
-        specifier: ^9
-        version: 9.37.0(jiti@2.6.1)
-      eslint-config-next:
-        specifier: 15.3.2
-        version: 15.3.2(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
       tailwindcss:
         specifier: ^4
         version: 4.1.14
@@ -193,9 +178,6 @@ importers:
         specifier: ^3.1.0
         version: 3.1.0
     devDependencies:
-      "@eslint/eslintrc":
-        specifier: ^3
-        version: 3.3.1
       "@tailwindcss/postcss":
         specifier: ^4
         version: 4.1.14
@@ -217,12 +199,6 @@ importers:
       "@types/topojson-client":
         specifier: ^3.1.5
         version: 3.1.5
-      eslint:
-        specifier: ^9
-        version: 9.37.0(jiti@2.6.1)
-      eslint-config-next:
-        specifier: 15.5.4
-        version: 15.5.4(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
       tailwindcss:
         specifier: ^4
         version: 4.1.14

@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { getD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
@@ -7,6 +10,27 @@ import {
   SAMPLE_IMAGE_BUTTON_SELECTOR,
   SAMPLE_PDF_BUTTON_SELECTOR,
 } from "./d5-multimodal.js";
+
+interface MultimodalFixtureFile {
+  fixtures: Array<{
+    match: { userMessage?: string };
+    response: { content: string };
+  }>;
+}
+
+function loadCanonicalFixture(): MultimodalFixtureFile {
+  const here = fileURLToPath(import.meta.url);
+  const fixturePath = path.resolve(
+    path.dirname(here),
+    "..",
+    "..",
+    "..",
+    "fixtures",
+    "d5",
+    "multimodal.json",
+  );
+  return JSON.parse(readFileSync(fixturePath, "utf8")) as MultimodalFixtureFile;
+}
 
 function makePage(transcript: string): Page {
   return {
@@ -61,6 +85,30 @@ describe("d5-multimodal script", () => {
     expect(script).toBeDefined();
     expect(script?.featureTypes).toEqual(["multimodal"]);
     expect(script?.fixtureFile).toBe("multimodal.json");
+  });
+
+  it("keeps the canonical D5 fixture aligned with the actual sample assets", () => {
+    const fixture = loadCanonicalFixture();
+    expect(fixture.fixtures).toHaveLength(2);
+
+    expect(fixture.fixtures[0]!.match.userMessage).toBe(
+      "can you tell me what is in this demo image I just attached",
+    );
+    expect(fixture.fixtures[0]!.response.content.toLowerCase()).toContain(
+      "copilotkit logo",
+    );
+
+    expect(fixture.fixtures[1]!.match.userMessage).toBe(
+      "can you tell me what is in this demo pdf I just attached",
+    );
+    expect(fixture.fixtures[1]!.response.content.toLowerCase()).toContain(
+      "copilotkit quickstart",
+    );
+
+    const serialized = JSON.stringify(fixture).toLowerCase();
+    expect(serialized).not.toContain("small abstract test pattern");
+    expect(serialized).not.toContain("single test page");
+    expect(serialized).not.toContain("confirms the binary attachment");
   });
 
   it("buildTurns produces two turns covering image + PDF", () => {
@@ -126,7 +174,7 @@ describe("d5-multimodal script", () => {
     );
   });
 
-  it("turn-1 assertion succeeds for the D6 abstract-test-pattern response", async () => {
+  it("turn-1 assertion succeeds for the actual CopilotKit logo response", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -135,13 +183,13 @@ describe("d5-multimodal script", () => {
     const turns = buildTurns(ctx);
     await expect(
       turns[0]!.assertions!(
-        makePage("the image attachment shows a small abstract test pattern"),
+        makePage("the attached image is the copilotkit logo."),
         { bubbleIndex: 0, text: "" },
       ),
     ).resolves.toBeUndefined();
   });
 
-  it("turn-1 assertion rejects the legacy generic image response", async () => {
+  it("turn-1 assertion rejects the fabricated abstract-pattern response", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -151,14 +199,14 @@ describe("d5-multimodal script", () => {
     await expect(
       turns[0]!.assertions!(
         makePage(
-          "The attached image is the CopilotKit logo — a clean geometric mark.",
+          "The image attachment shows a small abstract test pattern used by the demo.",
         ),
         { bubbleIndex: 0, text: "" },
       ),
     ).rejects.toThrow(/missing expected phrase/);
   }, 8_000);
 
-  it("turn-2 assertion requires the D6 single-test-page response", async () => {
+  it("turn-2 assertion requires the actual CopilotKit Quickstart response", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -167,7 +215,7 @@ describe("d5-multimodal script", () => {
     const turns = buildTurns(ctx);
     await expect(
       turns[1]!.assertions!(
-        makePage("The PDF document contains a single test page."),
+        makePage("the attached pdf is the copilotkit quickstart guide."),
         { bubbleIndex: 1, text: "" },
       ),
     ).resolves.toBeUndefined();
@@ -188,6 +236,6 @@ describe("d5-multimodal script", () => {
         bubbleIndex: 0,
         text: "",
       }),
-    ).rejects.toThrow(/missing expected phrase "small abstract test pattern"/);
+    ).rejects.toThrow(/missing expected phrase "copilotkit logo"/);
   }, 8_000);
 });

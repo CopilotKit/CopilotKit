@@ -6,12 +6,12 @@ description: "React hook that returns a renderer function for tool calls in the 
 ## Overview
 
 <Callout type="warn" title="Same name, different API than v1">
-  The v2 `useRenderToolCall` (this page, from `@copilotkit/react-core/v2`) is a **no-argument hook** that *returns* a renderer function for consuming tool calls. It is **not** the v1 [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall), which takes a `{ name, parameters, render }` config object to *register* a renderer. To register renderers in v2, use [`useFrontendTool`](/reference/hooks/useFrontendTool) or [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop).
+  The v2 `useRenderToolCall` (this page, from `@copilotkit/react-core/v2`) is a **no-argument hook** that *returns* a renderer function for consuming tool calls. It is **not** the v1 [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall), which takes a `{ name, parameters, render }` config object to *register* a renderer. To register renderers for existing backend tools in v2, use [`useRenderTool`](/reference/hooks/useRenderTool).
 </Callout>
 
 `useRenderToolCall` returns a renderer function that maps tool calls to React elements. The returned function looks up the matching render configuration by tool name (preferring a renderer scoped to the active `agentId`, then an unscoped one, then a wildcard `"*"` renderer if no exact match is found), partially parses the JSON arguments, determines the current `ToolCallStatus`, and returns the appropriate React element. When neither a per-tool nor a wildcard renderer is registered, it falls back to the framework's built-in `DefaultToolCallRenderer`, so the returned element is effectively always non-null (the signature keeps `ReactElement | null` for type compatibility).
 
-This hook is primarily used by chat UI components to display visual feedback for tool calls. In most applications you will not call it directly; instead, you register render components via `useFrontendTool` or `useHumanInTheLoop`, and the chat components use `useRenderToolCall` internally to resolve them.
+This hook is primarily used by chat UI components to display visual feedback for tool calls. In most applications you will not call it directly; instead, you register render components for existing backend tools via `useRenderTool`, and the chat components use `useRenderToolCall` internally to resolve them.
 
 ## Signature
 
@@ -46,11 +46,11 @@ function useRenderToolCall(): (
 
 The renderer determines the `ToolCallStatus` based on the inputs:
 
-| Condition                                                          | Status                      | `result`                                |
-| ------------------------------------------------------------------ | --------------------------- | --------------------------------------- |
-| No `toolMessage`, tool call id **not** in the executing set        | `ToolCallStatus.InProgress` | `undefined`                             |
+| Condition                                                           | Status                      | `result`                                |
+| ------------------------------------------------------------------- | --------------------------- | --------------------------------------- |
+| No `toolMessage`, tool call id **not** in the executing set         | `ToolCallStatus.InProgress` | `undefined`                             |
 | No `toolMessage`, tool call id **is** in the provider executing set | `ToolCallStatus.Executing`  | `undefined`                             |
-| A `toolMessage` is present                                         | `ToolCallStatus.Complete`   | The result string from the tool message |
+| A `toolMessage` is present                                          | `ToolCallStatus.Complete`   | The result string from the tool message |
 
 ## ToolCallStatus
 
@@ -85,42 +85,30 @@ function CustomChatMessage({ message }) {
 }
 ```
 
-### Registering Renderers with useFrontendTool
+### Registering Renderers with useRenderTool
 
-Tool call renderers are typically registered through `useFrontendTool` or directly via the `renderToolCalls` prop on the provider. The `useRenderToolCall` hook resolves these registrations at render time.
+Tool call renderers for existing backend tools are registered through `useRenderTool` or directly via the `renderToolCalls` prop on the provider. The `useRenderToolCall` hook resolves these registrations at render time.
 
 ```tsx
+import { useRenderTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
 function App() {
-  // Register a tool with a render component
-  useFrontendTool(
+  useRenderTool(
     {
       name: "searchDatabase",
-      description: "Search the product database",
       parameters: z.object({
         query: z.string().describe("Search query"),
       }),
-      handler: async ({ query }) => {
-        const results = await fetch(`/api/search?q=${query}`);
-        return JSON.stringify(await results.json());
-      },
-      render: ({ args, status, result }) => {
-        if (status === ToolCallStatus.InProgress) {
-          return <div>Searching for "{args.query}"...</div>;
+      render: ({ parameters, status, result }) => {
+        if (status === "inProgress") {
+          return <div>Preparing search...</div>;
         }
-        if (status === ToolCallStatus.Complete && result) {
-          const data = JSON.parse(result);
-          return (
-            <div>
-              <p>
-                Found {data.length} results for "{args.query}"
-              </p>
-              <ul>
-                {data.map((item: any) => (
-                  <li key={item.id}>{item.name}</li>
-                ))}
-              </ul>
-            </div>
-          );
+        if (status === "executing") {
+          return <div>Searching for "{parameters.query}"...</div>;
+        }
+        if (status === "complete" && result) {
+          return <div>Search complete: {result}</div>;
         }
         return null;
       },

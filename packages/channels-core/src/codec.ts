@@ -12,10 +12,12 @@ import type { ChannelNode } from "@copilotkit/channels-ui";
  * excludes both — `renderEgress` is pure (IR → native payload); the actual
  * send happens in the Gateway with Intelligence-owned credentials.
  *
- * TODO(OSS-363): add `normalizeIngress(raw): NeutralEvent` once the pure Slack
- * ingress mapping (mention stripping, stable event-id derivation, real-user
- * filtering, field extraction) is extracted from the Bolt listener so both the
- * local adapter and Intelligence's webhook ingress consume the same logic.
+ * TODO (untracked): add `normalizeIngress(raw): NeutralEvent` so both the local
+ * adapter and Intelligence's webhook ingress consume the same logic. The stated
+ * precondition is already met — the pure Slack ingress mapping (mention stripping,
+ * stable event-id derivation, real-user filtering, field extraction) now lives in
+ * `channels-slack/src/ingress-normalize.ts`. The original tracking ticket (OSS-363)
+ * was canceled 2026-07-01, superseded by OSS-401 — re-file before acting.
  */
 export interface PlatformCodec {
   readonly platform: string;

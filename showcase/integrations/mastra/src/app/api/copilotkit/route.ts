@@ -1,8 +1,7 @@
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -17,18 +16,10 @@ import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 // CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
 import { withCvdiagBackend } from "@/cvdiag-backend";
 
-// We use ExperimentalEmptyAdapter because Mastra agents drive the LLM
-// themselves — the CopilotKit runtime only brokers AG-UI events between
-// the frontend and the agent. A real adapter (OpenAI/Anthropic/etc.) would
-// try to issue its own LLM calls and conflict with the agent's own loop.
-const serviceAdapter = new ExperimentalEmptyAdapter();
-
-// Startup log: make the adapter choice visible in boot logs so operators
-// debugging "why is the runtime not calling the LLM?" can find the answer
-// without reading source.
-console.log(
-  "[copilotkit route] init: serviceAdapter=ExperimentalEmptyAdapter (Mastra agents drive the LLM)",
-);
+// The V2 runtime has no service adapters: Mastra agents drive the LLM
+// themselves and the runtime only brokers AG-UI events between the frontend
+// and the agent. Under V1 this route passed `ExperimentalEmptyAdapter` to say
+// exactly that; there is now no adapter to choose, so nothing to configure.
 
 // The Mastra config registers a single local agent (`weatherAgent`), but the
 // demo pages request a variety of agent names (`agentic_chat`,
@@ -439,7 +430,7 @@ export function __resetAgentsCacheForTests(): void {
 // regardless of where the failure occurred. Phases:
 //   - "setup": everything that happens BEFORE headers flush. Covers agent
 //     cache construction, runtime instantiation, and synchronous failures
-//     inside `wrapStreamingResponse` (malformed Response from handleRequest,
+//     inside `wrapStreamingResponse` (malformed Response from copilotHandler,
 //     etc.) — all of which still allow us to return a 500 JSON envelope.
 //   - "stream": mid-stream failures observed by the body wrapper AFTER
 //     headers have been committed — we can no longer change the status, only
@@ -464,7 +455,7 @@ function logRouteError(err: unknown, phase: "setup" | "stream"): string {
 
 // Wrap a streaming Response body with a TransformStream that forwards chunks
 // verbatim but catches any error thrown by the upstream source AFTER headers
-// have been flushed. Without this, a rejection inside handleRequest's SSE
+// have been flushed. Without this, a rejection inside copilotHandler's SSE
 // loop escapes every try/catch and leaves the frontend with a mute aborted
 // stream — no log, no errorId, no way to correlate.
 //
@@ -524,10 +515,10 @@ function wrapStreamingResponse(response: Response): Response {
 //   1. Synchronous construction errors (bad mastra config, missing
 //      weatherAgent, etc.) — caught by the outer try/catch, 500 returned.
 //   2. Synchronous wrap-time errors (e.g. malformed Response from
-//      handleRequest that makes `wrapStreamingResponse` itself throw) —
+//      copilotHandler that makes `wrapStreamingResponse` itself throw) —
 //      caught separately so we can cancel the upstream body before the 500
 //      goes out. Without this cancel, the ReadableStream returned by
-//      handleRequest leaks (no consumer ever reads it).
+//      copilotHandler leaks (no consumer ever reads it).
 //   3. Mid-stream errors (thrown after response headers have been flushed)
 //      — caught inside the TransformStream in `wrapStreamingResponse`.
 const copilotkitPost = async (req: NextRequest): Promise<Response> =>
@@ -541,13 +532,13 @@ const copilotkitPost = async (req: NextRequest): Promise<Response> =>
         agents: getAgents(),
       });
 
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+      const copilotHandler = createCopilotRuntimeHandler({
         runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
+        basePath: "/api/copilotkit",
+        mode: "single-route",
       });
 
-      response = await handleRequest(req);
+      response = await copilotHandler(req);
     } catch (err) {
       const errorId = logRouteError(err, "setup");
       return NextResponse.json(

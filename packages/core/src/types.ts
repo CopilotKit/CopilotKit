@@ -31,10 +31,41 @@ export type {
  */
 export type FrontendToolHandlerContext = {
   toolCall: ToolCall;
-  agent: AbstractAgent;
+  /**
+   * The agent that invoked the tool. Absent when the tool is invoked through
+   * the WebMCP browser API (`document.modelContext`), which has no agent.
+   */
+  agent?: AbstractAgent;
   /** Aborted when `stopAgent()` is called. Handlers can check `signal.aborted`
    *  or pass the signal to fetch/setTimeout to cooperatively cancel. */
   signal?: AbortSignal;
+};
+
+/**
+ * Annotations for a WebMCP tool, passed through to
+ * `document.modelContext.registerTool`. Mirrors the WebMCP spec's tool
+ * annotations. These are hints for browser agents only — they do not enforce
+ * any policy on their own.
+ */
+export type WebMCPToolAnnotations = {
+  /**
+   * Hint that the tool does not modify state. Defaults to false.
+   * Set it for read-only tools (search, status lookup, ...).
+   */
+  readOnlyHint?: boolean;
+  /**
+   * Hint that the tool's output may contain untrusted content
+   * (e.g. user-generated or external content). Defaults to false.
+   */
+  untrustedContentHint?: boolean;
+};
+
+/**
+ * WebMCP registration options for a frontend tool.
+ */
+export type WebMCPToolConfig = {
+  /** Hints that tell browser agents how the tool behaves. */
+  annotations?: WebMCPToolAnnotations;
 };
 
 export type FrontendTool<
@@ -56,6 +87,19 @@ export type FrontendTool<
    * Defaults to true when not specified.
    */
   available?: boolean;
+  /**
+   * Also expose this tool to browser agents through the WebMCP API
+   * (`document.modelContext`) while keeping the normal agent registration.
+   *
+   * - `true` — register with default annotations.
+   * - `{ annotations }` — register with the given WebMCP annotations.
+   * - `false` / `undefined` — do not register.
+   *
+   * The tool's `handler` runs when a browser agent calls the tool; the handler
+   * context then has no `agent`. No-op in environments without WebMCP support
+   * (e.g. React Native, or browsers without the API enabled).
+   */
+  webmcp?: boolean | WebMCPToolConfig;
 };
 
 export type Suggestion = {

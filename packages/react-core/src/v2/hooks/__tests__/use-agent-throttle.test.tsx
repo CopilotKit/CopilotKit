@@ -13,6 +13,7 @@ import type { RunAgentInput } from "@ag-ui/client";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
+  useDefaultAgentId: vi.fn(() => undefined),
 }));
 
 vi.mock("../../providers/CopilotChatConfigurationProvider", () => ({

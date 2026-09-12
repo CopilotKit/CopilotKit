@@ -12,7 +12,7 @@
     "shared-state",
     "---Human in the Loop---",
     "...human-in-the-loop",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     {
       "title": "Rich Threads",
       "defaultOpen": true,
@@ -20,7 +20,8 @@
         "threads",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import"
+        "threads-import",
+        "threads-self-managed"
       ]
     }
   ]

@@ -1,7 +1,7 @@
 ---
-title: 'Runtime HTTP endpoints'
-icon: 'lucide/Network'
-description: 'The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging.'
+title: "Runtime HTTP endpoints"
+icon: "lucide/Network"
+description: "The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging."
 ---
 
 When you mount the CopilotKit runtime with `createCopilotExpressHandler`,
@@ -12,6 +12,99 @@ these routes directly. The frontend proxy (`ProxiedCopilotRuntimeAgent`) calls
 them for you. When you self-host behind a reverse proxy, lock down auth, or debug
 a connection failure with `curl`, use this page to confirm what the runtime
 exposes.
+
+## Provider and handler pairs
+
+The browser provider and the Runtime handler have to agree on the **transport**.
+CopilotKit ships more than one name for each half, and they are not
+interchangeable: each provider setting requires a matching handler mode.
+Different pages and older apps show different pairs, so this table is the
+mapping:
+
+<FrontendOnly frontend="react">
+
+| Provider                                 | `useSingleEndpoint` | Transport                          | Needs handler | Route file                      |
+| ---------------------------------------- | ------------------- | ---------------------------------- | ------------- | ------------------------------- |
+| `<CopilotKit>` or `<CopilotKitProvider>` | omitted             | `auto` — detected from the Runtime | either        | matches the handler             |
+| `<CopilotKit>` or `<CopilotKitProvider>` | `{true}`            | `single`                           | single-route  | `route.ts`, `POST`              |
+| `<CopilotKit>` or `<CopilotKitProvider>` | `{false}`           | `rest`                             | multi-route   | `[[...slug]]/route.ts`, 4 verbs |
+
+`<CopilotKit>` is a backward-compatible wrapper that renders
+`<CopilotKitProvider>` internally. Both are exported from
+`@copilotkit/react-core/v2`, and since 1.70.2 both treat an omitted
+`useSingleEndpoint` the same way: the transport is `auto`, so the client probes
+the Runtime and matches whichever mode it serves.
+
+<Callout type="warn" title="Pinning the wrong mode 404s silently">
+  Passing `useSingleEndpoint={true}` to a multi-route Runtime sends an envelope
+  that matches no route, so the Runtime 404s while `GET /info` still returns 200
+  and the app looks connected. The Runtime's error body names the fix.
+
+Before 1.70.2, `<CopilotKit>` pinned the flag to `true` internally, so omitting
+it selected the single-route transport and 404'd against a multi-route handler.
+On those versions, pass `useSingleEndpoint={false}` explicitly.
+
+</Callout>
+
+Both ship from the same package entry point, so moving between them is an import
+change, not a migration. One prop does get renamed: `<CopilotKit>` names the
+agent with `agent`, and `<CopilotKitProvider>` names it with `agentId`.
+
+```tsx
+// v1 wrapper
+<CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+
+// v2 provider
+<CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
+```
+
+You can also name the agent per chat with `<CopilotChat agentId="my_agent">`, or
+for a subtree with `<CopilotChatConfigurationProvider agentId="my_agent">`. A
+provider-level `agentId` is the default that those two override.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+
+Angular has no provider pairing to configure: `provideCopilotKit` discovers the
+transport from `/info` and exposes no `useSingleEndpoint` option. Only the
+handler half below applies to you.
+
+</FrontendOnly>
+
+### Which handlers serve which mode
+
+| Mode                         | Handlers                                                                                                                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Multi-route (default)        | `createCopilotRuntimeHandler`, `createCopilotHonoHandler`, `createCopilotExpressHandler`, `createCopilotNodeHandler`, `createCopilotNodeListener`                                       |
+| Single-route                 | Any of the above with `mode: "single-route"`                                                                                                                                            |
+| Single-route only, no option | `copilotRuntimeNextJSAppRouterEndpoint`, `copilotRuntimeNextJSPagesRouterEndpoint`, `copilotRuntimeNodeHttpEndpoint`, `copilotRuntimeNodeExpressEndpoint`, `copilotRuntimeNestEndpoint` |
+
+<Callout type="info" title="The framework wrappers support Intelligence resources">
+  Every `copilotRuntime*Endpoint` wrapper builds its handler with
+  `mode: "single-route"`. A current client and Runtime carry Rich Threads,
+  Memory, and annotation requests through that endpoint. Setting
+  `useSingleEndpoint={false}` still points the browser at REST routes that these
+  wrappers do not serve.
+
+</Callout>
+
+Older code may use these deprecated aliases:
+
+| Deprecated                                | Use instead                                               |
+| ----------------------------------------- | --------------------------------------------------------- |
+| `createCopilotEndpoint`                   | `createCopilotHonoHandler`                                |
+| `createCopilotEndpointSingleRoute`        | `createCopilotHonoHandler` with `mode: "single-route"`    |
+| `createCopilotEndpointExpress`            | `createCopilotExpressHandler`                             |
+| `createCopilotEndpointSingleRouteExpress` | `createCopilotExpressHandler` with `mode: "single-route"` |
+
+<Callout type="info" title="A mismatched pair fails at discovery">
+  A mismatch fails at discovery, not at your application code. A multi-route
+  provider against a single-route Runtime 404s on `GET {basePath}/info`; a
+  single-route provider against a multi-route Runtime posts an envelope the
+  Runtime does not accept. See [Connect route 404 on a fresh
+  thread](#connect-route-404-on-a-fresh-thread).
+</Callout>
 
 ## Multi-route mode (default)
 
@@ -37,6 +130,16 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
   `runtime_info_fetch_failed` error. See [Error
   Debugging](/troubleshooting/error-debugging).
 </Callout>
+
+An Intelligence runtime also returns `runtimeEntitlements`. `ready` includes
+the normalized feature and limit values. `degraded`, `misconfigured`, and
+`unavailable` include a structured error with a code, message, and retry flag.
+The `/info` request still succeeds when entitlement lookup fails so core Runtime
+behavior can continue; features that need a proven entitlement stay off. If
+Intelligence rejects the project key with a `401`, the Runtime still returns
+`200` from `/info`. The body reports `runtimeEntitlements.status` as
+`misconfigured` with the non-retryable `runtime_entitlements_misconfigured`
+error code.
 
 ### Inspector metadata
 
@@ -117,49 +220,91 @@ host/port.
 
 ## Enable Rich Threads routes
 
-If the Inspector says **Finish setting up Rich Threads**, your Intelligence
-license is active but the Runtime is not exposing the routes used to list and
-inspect saved Threads. Complete these steps so `/info` advertises the Threads
-capabilities and the Inspector can load saved history.
+If the Inspector shows the Rich Threads setup view, the client did not find the
+features used to list and inspect saved Threads. This view is based on Runtime
+Threads capability, not license metadata. Complete these steps so Runtime info
+advertises those features and the Inspector can load saved history.
 
 <RichThreadsSetupPrompt />
 
 <Steps>
 <Step>
-### Use the multi-route Runtime handler
+### Choose a Runtime route mode
 
-Remove `mode: "single-route"` from your Runtime handler. Multi-route mode is the
-default, so no replacement option is required:
+Single-route and multi-route handlers both expose Rich Threads. Use single-route
+when your server should expose only one `POST` endpoint:
 
 ```ts
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 ```
 
+For multi-route, omit `mode`. Your server must mount the full Runtime subtree
+and allow `GET`, `POST`, `PATCH`, and `DELETE`.
+
 <FrontendOnly frontend="react">
-With the v2 React provider, remove `useSingleEndpoint` so it can detect the
-multi-route Runtime:
+With the v2 React provider, omit `useSingleEndpoint` to detect the mode. You can
+also pin single-route with `useSingleEndpoint` or multi-route with
+`useSingleEndpoint={false}`.
 
 ```tsx
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
 <CopilotKitProvider runtimeUrl="/api/copilotkit">
   <YourApp />
-</CopilotKitProvider>
+</CopilotKitProvider>;
 ```
 
-If you still use the v1 `<CopilotKit>` wrapper from `@copilotkit/react-core`,
-set `useSingleEndpoint={false}`. Omitting that prop keeps the v1 wrapper's
-single-route default.
+The provider and handler modes must match.
+
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
 Keep `provideCopilotKit` pointed at the Runtime base URL. The Angular SDK
-discovers the multi-route transport from `/info`; it has no
+discovers the transport from Runtime info; it has no
 `useSingleEndpoint` option to remove.
 </FrontendOnly>
+</Step>
+
+<Step>
+### Construct the Intelligence client
+
+`intelligence` is a `CopilotKitIntelligence` instance. Build it from your
+project's Intelligence API key:
+
+```ts
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+});
+```
+
+`apiKey` is the only required option. `copilotkit project select` writes this
+key into your project's `.env` as `CPK_INTELLIGENCE_API_KEY`, and this is what
+consumes it.
+
+Keep the key server-side. It is a project API key, so it is a different
+credential from the browser-visible `NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` used by
+the [Inspector](/inspector) — do not substitute one for the other.
+
+`apiUrl` and `wsUrl` default to CopilotKit's managed platform. The API and
+realtime planes are deployed to **different hosts**, so one cannot be derived
+from the other by swapping the scheme. Override them only for a self-hosted or
+non-production deployment, and override **both together** — setting one alone
+points the two planes at different deployments, which logs a warning:
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  apiUrl: process.env.INTELLIGENCE_API_URL,
+  wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
+});
+```
+
 </Step>
 
 <Step>
@@ -183,34 +328,35 @@ const runtime = new CopilotRuntime({
 
 See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
 for the full identity and authorization pattern.
+
 </Step>
 
 <Step>
-### Mount every Runtime sub-route
+### Mount the Runtime handler
 
-Your framework route or reverse proxy must pass the full `basePath` subtree to
-the Runtime. In file-based routers, use a catch-all or splat route. Export or
-allow GET, POST, PATCH, and DELETE so list, subscription, rename, archive, and
-delete requests can reach the handler. For example, a Next.js App Router route
-exports the same handler for each method:
+For single-route, mount one exact path and allow `POST`:
+
+```ts title="app/api/copilotkit/route.ts"
+export { handler as POST };
+```
+
+For multi-route, pass the full `basePath` subtree to the Runtime. In file-based
+routers, use a catch-all or splat route. Allow `GET`, `POST`, `PATCH`, and
+`DELETE`:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-export {
-  handler as GET,
-  handler as POST,
-  handler as PATCH,
-  handler as DELETE,
-};
+export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```
 
 See [Deploy to any runtime](/runtime-server-adapter#multi-route-vs-single-route)
 for complete adapter examples.
+
 </Step>
 
 <Step>
 ### Verify the advertised capabilities
 
-Restart the Runtime, then request its info endpoint:
+Restart the Runtime. For multi-route, request its info endpoint:
 
 ```bash
 curl -s http://localhost:4000/api/copilotkit/info
@@ -229,9 +375,34 @@ An Intelligence-backed web Runtime that is ready for Rich Threads includes:
 }
 ```
 
+For single-route, post an info envelope:
+
+```bash
+curl -s http://localhost:4000/api/copilotkit \
+  -H 'content-type: application/json' \
+  -d '{"method":"info"}'
+```
+
+The response advertises the resource bridge and its thread features:
+
+```json
+{
+  "singleRoute": {
+    "resourceOperations": true,
+    "threadEndpoints": {
+      "list": true,
+      "inspect": true,
+      "mutations": true,
+      "realtimeMetadata": true
+    }
+  }
+}
+```
+
 Reload your app after this response is available. The Inspector will replace
 the setup state with the saved Threads list. Managed and self-hosted
 Intelligence use the same Runtime route setup.
+
 </Step>
 </Steps>
 
@@ -243,21 +414,35 @@ the runtime exposes one `POST {basePath}` endpoint that accepts a JSON envelope
 `{ method, params, body }` and dispatches internally to the same handlers:
 
 ```ts title="app/api/copilotkit/route.ts (Express)"
-import { CopilotRuntime, BuiltInAgent } from '@copilotkit/runtime/v2';
-import { createCopilotExpressHandler } from '@copilotkit/runtime/v2/express';
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: 'openai/gpt-4o-mini' }) },
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
 });
 
 app.use(
   createCopilotExpressHandler({
     runtime,
-    basePath: '/api/copilotkit',
-    mode: 'single-route',
+    basePath: "/api/copilotkit",
+    mode: "single-route",
   }),
 );
 ```
+
+<Callout type="warn" title="`basePath` is required, in both modes">
+The Express and single-route handlers each throw at mount time when `basePath` is missing —
+`basePath must be provided for Express endpoint` and `... for single-route endpoint`
+respectively — so the server fails to start rather than serving on the wrong paths. Give it
+the same path the route is mounted at.
+</Callout>
+
+<Callout type="warn" title="Keep every runtime import on `/v2`">
+Import the runtime from `@copilotkit/runtime/v2` (and the Express adapter from
+`@copilotkit/runtime/v2/express`). Reaching into the package root, `@copilotkit/runtime`,
+gets you the v1 surface: a `CopilotRuntime` built there does not serve these routes, and the
+mismatch shows up as routes that 404 rather than as an import error.
+</Callout>
 
 The optional Inspector metadata operation uses the same endpoint with this
 envelope:
@@ -268,12 +453,16 @@ envelope:
 
 Its response and failure rules match `GET {basePath}/inspector-metadata`.
 
+The client sends thread, memory, and annotation operations through the same
+endpoint with a `resource/request` envelope. The Runtime accepts only known
+resource paths and routes them through the same handlers as multi-route mode.
+
 <FrontendOnly frontend="react">
-On the frontend, opt into the matching transport with the `useSingleEndpoint`
-prop:
+The frontend detects this mode on its own, so no prop is required. To pin it
+explicitly, pass `useSingleEndpoint`:
 
 ```tsx
-import { CopilotKit } from '@copilotkit/react-core/v2';
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint>
   <YourApp />
@@ -283,25 +472,26 @@ import { CopilotKit } from '@copilotkit/react-core/v2';
 <Callout type="warn">
 The frontend transport must match the runtime mode. If the runtime is in
 single-route mode but the frontend is making multi-route requests (or vice
-versa), every call 404s. Set `useSingleEndpoint` on `<CopilotKit>` whenever the
-runtime uses `mode: "single-route"`.
+versa), every call 404s. Omitting the prop avoids that by construction, since
+the client then probes for the mode the runtime actually serves — so pin
+`useSingleEndpoint` only when you want to skip that probe.
 </Callout>
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
-The Angular SDK negotiates the transport from the runtime's `/info` response.
+The Angular SDK negotiates the transport from the Runtime info response.
 Point `provideCopilotKit` at the base endpoint; no second route configuration is
 needed:
 
 ```ts title="src/app/app.config.ts"
 provideCopilotKit({
-  runtimeUrl: '/api/copilotkit',
+  runtimeUrl: "/api/copilotkit",
 });
 ```
 
 <Callout type="warn">
-The `/info` route must remain reachable so the Angular client can discover the
-runtime transport and registered agents.
+Runtime info must remain reachable through the selected transport so the
+Angular client can discover the transport and registered agents.
 </Callout>
 </FrontendOnly>
 
@@ -315,10 +505,10 @@ yourself, or pass a configuration object to scope it for production:
 ```ts
 createCopilotExpressHandler({
   runtime,
-  basePath: '/api/copilotkit',
+  basePath: "/api/copilotkit",
   cors: {
-    origin: 'https://app.example.com',
-    methods: ['GET', 'POST', 'OPTIONS'],
+    origin: "https://app.example.com",
+    methods: ["GET", "POST", "OPTIONS"],
   },
 });
 ```
@@ -332,11 +522,11 @@ every request and can reject the request by throwing a `Response`:
 ```ts
 createCopilotExpressHandler({
   runtime,
-  basePath: '/api/copilotkit',
+  basePath: "/api/copilotkit",
   hooks: {
     onRequest: ({ request }) => {
-      if (!request.headers.get('authorization')) {
-        throw new Response('Unauthorized', { status: 401 });
+      if (!request.headers.get("authorization")) {
+        throw new Response("Unauthorized", { status: 401 });
       }
     },
   },

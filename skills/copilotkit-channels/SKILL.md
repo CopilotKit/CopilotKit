@@ -177,7 +177,7 @@ Everything from here down is the hand-wiring path — the less-trodden one. If `
 
 A scaffolded project satisfies all four of these already. Before starting, confirm all four. Stop and fix any that fail — each one produces a silent failure rather than an error.
 
-1. **The Intelligence runtime is wired.** `channels` is not available in SSE mode; the type is `channels?: undefined` there. If the project still constructs `CopilotRuntime` with a `runner` and no `intelligence`, do the managed Intelligence step in the **copilotkit-setup** skill first.
+1. **The Intelligence runtime is wired.** `channels` is not available in SSE mode; the type is `channels?: undefined` there. If the project still constructs `CopilotRuntime` with a `runner` and no `intelligence`, connect the project to Intelligence first — `copilotkit login` then `copilotkit project select`, per the **copilotkit-cli** skill.
 2. **A long-running host.** Activation opens a persistent connection, so the process has to outlive a request. A Next.js route handler on serverless, a Lambda, or an edge function cannot host a Channel. See "Deployment shape" below.
 3. **The hosted environment values are set** — the project API key, and the realtime URL if you are overriding defaults.
 4. **The provider half exists, or is in progress.** The two halves can be done in either order; a Channel simply does not answer until both are done.
@@ -225,7 +225,7 @@ The agent is **framework-agnostic**: `agent` accepts any AG-UI `AbstractAgent`, 
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.COPILOTKIT_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
 const runtime = new CopilotRuntime({
@@ -285,7 +285,7 @@ Two details either way:
 
 ### Deployment shape
 
-Deciding whether the project already has a long-running host is the judgement this skill exists to make. Detect the framework first (see the **copilotkit-setup** skill's `references/framework-detection.md`), then:
+Deciding whether the project already has a long-running host is the judgement this skill exists to make. Read the project's own dependencies and start scripts to establish what it runs today, then:
 
 | What the project runs today                    | What to do                                                       |
 | ---------------------------------------------- | ---------------------------------------------------------------- |

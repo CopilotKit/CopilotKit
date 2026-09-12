@@ -92,10 +92,11 @@ state updates, you can reflect these updates natively in your application.
   </Step>
   <Step>
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's ID, and
-    read the state.
+    With your agent connected and running all that is left is to call the [useAgent](/reference/v1/hooks/useAgent) hook, pass the agent's ID, and
+    initialize missing UI-owned state after the connected agent is ready.
 
     ```tsx title="ui/app/page.tsx"
+    import { useEffect } from "react";
     import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
@@ -104,10 +105,16 @@ state updates, you can reflect these updates natively in your application.
     }
 
     function YourMainContent() {
-      // [!code highlight:3]
-      const { agent } = useAgent({
+      // [!code highlight:4]
+      const { agent, isReady } = useAgent({
         agentId: "my_agent", // MUST match the agent name in CopilotRuntime
       });
+      const state = (agent.state ?? {}) as Partial<AgentState>;
+
+      useEffect(() => {
+        if (!isReady || state.language !== undefined) return;
+        agent.setState({ ...(agent.state ?? {}), language: "english" });
+      }, [agent, isReady, state.language]);
 
       const language = (agent.state.language as AgentState["language"]) ?? "english";
 
@@ -136,35 +143,29 @@ state updates, you can reflect these updates natively in your application.
   <Step>
     ### Give it a try
     As the agent state updates, your `state` variable will automatically update with it. In this case, you'll see the
-    language set to "english" as that's the initial state we set.
+    language set to "english" after the connected agent is ready.
   </Step>
 </Steps>
 
-## Rendering agent state in the chat
+## Rendering agent state in your app
 
-You can also render the agent's state in the chat UI using `useRenderTool` or by accessing `agent.state` from `useAgent`. The state is reactive and updates automatically.
+You can render the agent state in any React component under `<CopilotKit>`. Read `agent.state` and return ordinary JSX.
 
 ```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useAgent } from "@copilotkit/react-core/v2";
 
-// Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
 };
 
 function YourMainContent() {
-  // [!code highlight:3]
   const { agent } = useAgent({
     agentId: "my_agent",
   });
+  const state = (agent.state ?? {}) as Partial<AgentState>;
 
-  const language = (agent.state.language as AgentState["language"]) ?? "english";
-
-  return (
-    <div>
-      <p>Language: {language}</p>
-    </div>
-  );
+  if (!state.language) return null;
+  return <div>Language: {state.language}</div>;
 }
 ```
 

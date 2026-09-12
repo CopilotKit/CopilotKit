@@ -28,14 +28,16 @@ examples/integrations/ms-agent-framework-dotnet/next.config.ts
 examples/integrations/ms-agent-framework-python/next.config.ts
 examples/integrations/pydantic-ai/next.config.ts
 examples/integrations/strands-python/next.config.ts
+examples/integrations/strands-typescript/next.config.ts
 examples/showcases/a2a-travel/next.config.ts
 examples/showcases/a2ui-pdf-analyst/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
 examples/showcases/arcade-tools/next.config.ts
-examples/showcases/banking/next.config.mjs
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
 examples/showcases/chatkit-studio/apps/studio/next.config.ts
 examples/showcases/chatkit-studio/apps/world/next.config.ts
+examples/showcases/claude-managed-agents/web/src/vite-env.d.ts
+examples/showcases/claude-managed-agents/web/vite.config.ts
 examples/showcases/daytona-runcode/next.config.ts
 examples/showcases/deep-agents-finance-erp/next.config.ts
 examples/showcases/deep-agents-job-search/next.config.ts
@@ -79,6 +81,8 @@ examples/v2/interrupts-langgraph/apps/web/next.config.ts
 examples/v2/next-pages-router/next.config.mjs
 examples/v2/react-router/vite.config.ts
 examples/v2/react/demo/next.config.ts
+examples/v2/vue/vite-inspector/src/vite-env.d.ts
+examples/v2/vue/vite-inspector/vite.config.ts
 packages/a2ui-renderer/tsdown.config.ts
 packages/agentcore-runner/tsdown.config.ts
 packages/core/tsdown.config.ts

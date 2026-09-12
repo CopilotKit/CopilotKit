@@ -3,8 +3,8 @@
 Mirrors `langgraph-python/src/agents/gen_ui_agent.py` and
 `ms-agent-python/src/agents/gen_ui_agent.py`, implemented as a
 `crewai.flow.Flow` so we own the LLM call, tool schema, and state
-mutations directly. The shared `LatestAiDevelopment` crew on "/" cannot
-host this demo: `ChatWithCrewFlow` does not surface per-tool state
+mutations directly. A crew endpoint cannot host this
+demo: `ChatWithCrewFlow` does not surface per-tool state
 mutations to the AG-UI bridge — its only state mutation is appending
 `result.raw` to `state["outputs"]` when the model invokes the special
 `<crew_name>` tool.

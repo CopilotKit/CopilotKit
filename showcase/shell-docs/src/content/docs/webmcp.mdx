@@ -1,0 +1,244 @@
+---
+title: WebMCP
+icon: "lucide/Globe2"
+description: Expose browser-side actions as structured tools that compatible agents can discover and call.
+frontend: universal
+---
+
+import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
+
+## Overview
+
+WebMCP lets your website tell compatible browser agents what they can do. Instead of guessing which buttons to click, an agent discovers a named tool with a description, a typed input schema, and a JavaScript handler.
+
+CopilotKit can publish an existing frontend tool to [`document.modelContext`](https://webmachinelearning.github.io/webmcp/). The same handler then works for your CopilotKit agent and for WebMCP-aware browser agents.
+
+<Callout type="warn" title="WebMCP is experimental">
+  WebMCP is a draft Community Group report, not a W3C Standard. Chrome offers
+  it through an origin trial beginning in Chrome 149, or through the
+  `chrome://flags/#enable-webmcp-testing` flag for local development. CopilotKit
+  safely does nothing when `document.modelContext` is unavailable. Check the
+  [current Chrome setup instructions](https://developer.chrome.com/docs/ai/webmcp)
+  before testing.
+</Callout>
+
+## Setup with a coding agent
+
+Use this pre-built prompt to add WebMCP to your project. Your coding agent will adapt the implementation to your app and verify that a compatible browser can discover and call the tool.
+
+<WebMCPSetupPrompt />
+
+## Do I need an agent?
+
+You do not need a CopilotKit backend agent to handle a WebMCP call. A compatible browser agent calls the frontend tool handler directly on the page; in that path, the handler context has no `agent`.
+
+Choose the smallest path that fits your app:
+
+| What your app has today | What to do |
+| --- | --- |
+| A CopilotKit frontend tool for the action | Add `webmcp: true`, or add annotations with `webmcp: { annotations: ... }`. |
+| CopilotKit, but no frontend tool for the action | Wrap the smallest suitable browser-side action in a frontend tool, then opt it into WebMCP. |
+| A backend agent | Keep it. The tool can remain available to that agent, but WebMCP calls do not pass through it. |
+| No backend agent | Use `CopilotKitCore` directly in browser code, or add the appropriate frontend integration. Do not create an agent only for WebMCP. |
+
+React Native does not expose `document.modelContext`, so WebMCP registration is a no-op there. CopilotKit currently supports this WebMCP option in its browser integrations for React, Vue, Angular, and direct core usage.
+
+## How CopilotKit connects WebMCP
+
+1. Your app registers a CopilotKit frontend tool with `webmcp` enabled.
+2. CopilotKit mirrors the tool's name, description, JSON Schema, annotations, and handler onto `document.modelContext`.
+3. A compatible browser agent discovers the tool and calls the same JavaScript handler while the page is open.
+4. CopilotKit unregisters the WebMCP tool when the frontend tool is removed or becomes unavailable.
+
+The WebMCP call stays in the browser unless your handler deliberately calls an API. CopilotKit does not route that call through a Runtime or backend agent.
+
+## Add WebMCP manually
+
+<FrontendOnly frontend="react">
+
+### React frontend tool
+
+Add `webmcp` to the tool you already register. This code must run inside your existing `CopilotKitProvider`.
+
+```tsx title="OrderSearch.tsx"
+"use client";
+
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+export function OrderSearch() {
+  useFrontendTool({
+    name: "searchOrders",
+    description: "Search the signed-in user's orders by status",
+    parameters: z.object({
+      status: z.enum(["open", "shipped", "delivered"]),
+    }),
+    handler: async ({ status }) => {
+      const orders = await searchOrders(status);
+      return JSON.stringify(orders);
+    },
+    webmcp: {
+      annotations: {
+        readOnlyHint: true,
+      },
+    },
+  });
+
+  return null;
+}
+```
+
+Use the equivalent option with [`useFrontendTool` for Vue](/reference/vue/hooks/useFrontendTool) or [`registerFrontendTool` for Angular](/reference/angular/functions/registerFrontendTool). The React API is documented in [`useFrontendTool`](/reference/hooks/useFrontendTool).
+
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+
+### Vue frontend tool
+
+Add `webmcp` to the tool you already register. This code must run inside your existing `CopilotKitProvider`.
+
+```vue title="OrderSearch.vue"
+<script setup lang="ts">
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/vue/v2";
+
+useFrontendTool({
+  name: "searchOrders",
+  description: "Search the signed-in user's orders by status",
+  parameters: z.object({
+    status: z.enum(["open", "shipped", "delivered"]),
+  }),
+  handler: async ({ status }) => {
+    const orders = await searchOrders(status);
+    return JSON.stringify(orders);
+  },
+  webmcp: {
+    annotations: {
+      readOnlyHint: true,
+    },
+  },
+});
+</script>
+```
+
+See the Vue [`useFrontendTool` reference](/reference/vue/hooks/useFrontendTool) for the complete API.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+
+### Angular frontend tool
+
+Add `webmcp` to the tool you register in an Angular injection context.
+
+```ts title="src/app/order-search.component.ts"
+import { Component } from "@angular/core";
+import { registerFrontendTool } from "@copilotkit/angular";
+import { z } from "zod";
+
+@Component({
+  selector: "app-order-search",
+  standalone: true,
+  template: "",
+})
+export class OrderSearchComponent {
+  constructor() {
+    registerFrontendTool({
+      name: "searchOrders",
+      description: "Search the signed-in user's orders by status",
+      parameters: z.object({
+        status: z.enum(["open", "shipped", "delivered"]),
+      }),
+      handler: async ({ status }) => {
+        const orders = await searchOrders(status);
+        return JSON.stringify(orders);
+      },
+      webmcp: {
+        annotations: {
+          readOnlyHint: true,
+        },
+      },
+    });
+  }
+}
+```
+
+See the Angular [`registerFrontendTool` reference](/reference/angular/functions/registerFrontendTool) for the complete API.
+
+</FrontendOnly>
+
+### WebMCP only, with no agent
+
+For browser code that does not use a framework provider, register the frontend tool directly with the core. Keep the core instance alive for as long as the tool should remain available.
+
+```ts title="webmcp.ts"
+import { CopilotKitCore } from "@copilotkit/core";
+import { z } from "zod";
+
+export const copilotkit = new CopilotKitCore({
+  tools: [
+    {
+      name: "searchOrders",
+      description: "Search the signed-in user's orders by status",
+      parameters: z.object({
+        status: z.enum(["open", "shipped", "delivered"]),
+      }),
+      handler: async ({ status }) => {
+        const orders = await searchOrders(status);
+        return JSON.stringify(orders);
+      },
+      webmcp: {
+        annotations: {
+          readOnlyHint: true,
+        },
+      },
+    },
+  ],
+});
+```
+
+This path does not configure a Runtime or an agent. It only registers browser-side tools through CopilotKit's core lifecycle.
+
+## Design tools agents can use reliably
+
+- Give every WebMCP tool a non-empty, specific `description`. CopilotKit skips WebMCP registration when it is missing.
+- Keep each tool focused on one action and give every parameter a useful description.
+- Use `readOnlyHint: true` only when the handler cannot change state.
+- Use `untrustedContentHint: true` when results may contain user-generated or external content.
+- Return concise, structured results that tell the caller what happened.
+- Set the frontend tool to unavailable when the action cannot currently run; CopilotKit removes it from WebMCP until it is available again.
+
+Annotations are hints for browser agents, not security controls. Enforce authentication, authorization, validation, rate limits, and required user confirmation inside the handler or the API it calls. See Chrome's [WebMCP tool security guidance](https://developer.chrome.com/docs/ai/webmcp/secure-tools).
+
+<Callout type="warn" title="Agent scope does not scope WebMCP">
+  `agentId` limits which CopilotKit agent receives a frontend tool. WebMCP tools
+  are page-level, so `agentId` does not restrict browser-agent access. If
+  multiple opted-in tools share a name across agent IDs, CopilotKit exposes the
+  first one and logs a warning.
+</Callout>
+
+## Test the complete path
+
+1. Open Chrome 149 or newer and enable the WebMCP origin trial or local testing flag.
+2. Load the app in an [origin-isolated document](https://developer.chrome.com/docs/ai/webmcp#origin-isolation). The `tools` permissions policy defaults to `self`; cross-origin iframes also need `allow="tools"`.
+3. Confirm that `document.modelContext` exists.
+4. Use Chrome's [Model Context Tool Inspector](https://developer.chrome.com/docs/ai/webmcp#imitate-agent-chat-with-the-inspector-extension) to confirm the tool name and schema, call it with representative inputs, and inspect its result.
+5. Ask the inspector's agent to complete the user task in natural language. Verify that it chooses the right tool and that authentication and confirmation boundaries still hold.
+
+If the tool does not appear, check the browser setup first, then verify that the tool has a description, `webmcp` is enabled, and the frontend tool is currently available.
+
+## Related
+
+- [Frontend tools](/frontend-tools)
+<FrontendOnly frontend="react">
+- [React `useFrontendTool` reference](/reference/hooks/useFrontendTool)
+</FrontendOnly>
+<FrontendOnly frontend="vue">
+- [Vue `useFrontendTool` reference](/reference/vue/hooks/useFrontendTool)
+</FrontendOnly>
+<FrontendOnly frontend="angular">
+- [Angular `registerFrontendTool` reference](/reference/angular/functions/registerFrontendTool)
+</FrontendOnly>
+- [WebMCP specification](https://webmachinelearning.github.io/webmcp/)
+- [Chrome WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices)

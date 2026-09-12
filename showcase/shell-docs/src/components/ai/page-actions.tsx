@@ -8,6 +8,7 @@ import {
   ExternalLinkIcon,
   TextIcon,
 } from "lucide-react";
+import { PromptPill } from "@/components/prompt-pill";
 import { cn } from "@/lib/cn";
 import { useCopyButton } from "fumadocs-ui/utils/use-copy-button";
 import {
@@ -18,6 +19,18 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { usePathname } from "fumadocs-core/framework";
 import { usePostHog } from "posthog-js/react";
+import {
+  frameworkPromptSuffix,
+  onboardingFrameworkSlug,
+} from "@/lib/intelligence-onboarding-framework";
+import {
+  frontendPromptSuffix,
+  onboardingFrontendSlug,
+} from "@/lib/intelligence-onboarding-frontend";
+import {
+  createIntelligenceOnboardingPrompt,
+  createOnboardingRunId,
+} from "@/lib/intelligence-onboarding-prompt";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -71,12 +84,15 @@ async function fetchMarkdown(url: string): Promise<string> {
  */
 export function MarkdownCopyButton({
   markdownUrl,
+  appearance = "button",
   ...props
 }: ComponentProps<"button"> & {
   /**
    * A URL to fetch the raw Markdown/MDX content of page
    */
   markdownUrl: string;
+  /** Render as a full-width popover action instead of standalone chrome. */
+  appearance?: "button" | "menu-item";
 }) {
   const [isLoading, setLoading] = useState(false);
   const pathname = usePathname();
@@ -135,11 +151,14 @@ export function MarkdownCopyButton({
       disabled={isLoading}
       onClick={onClick}
       className={cn(
-        buttonVariants({
-          color: "secondary",
-          size: "sm",
-          className: "gap-2 [&_svg]:size-3.5 [&_svg]:text-[var(--text-muted)]",
-        }),
+        appearance === "menu-item"
+          ? "shell-docs-radius-control inline-flex w-full items-center gap-2 p-2 text-left text-sm font-normal text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:text-[var(--text-muted)]"
+          : buttonVariants({
+              color: "secondary",
+              size: "sm",
+              className:
+                "gap-2 [&_svg]:size-3.5 [&_svg]:text-[var(--text-muted)]",
+            }),
         props.className,
       )}
     >
@@ -150,11 +169,134 @@ export function MarkdownCopyButton({
 }
 
 /**
+ * One name for one surface. Used BOTH as the `surface` property of the
+ * analytics event and as the `data-docs-copy-surface` attribute the global
+ * copy tracker reads, so a breakdown on either resolves to the same row.
+ * `docs_`-prefixed snake_case matches every other surface value in the app
+ * (`docs_landing_learning` in `app/[[...slug]]/page.tsx`,
+ * `CHANNELS_ACTIVATION_SURFACES` in `lib/channels-activation-contracts.ts`).
+ */
+const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
+
+/**
+ * Copies the canonical CopilotKit onboarding prompt so a reader can paste it
+ * straight into their coding agent.
+ *
+ * The copied string is `createIntelligenceOnboardingPrompt(runId)` followed by
+ * three sentences of page context: which agent framework the reader is reading
+ * about, which frontend they have selected, and which page they copied from.
+ * All three are statements of fact for the receiving agent, never instructions
+ * — the prompt itself is the only thing that tells the agent what to do, and
+ * the sibling copies in the Intelligence repo and the Inspector have to keep
+ * matching that part byte for byte.
+ *
+ * Framework before frontend because that is the order the CLI's graph works
+ * in: it settles the agent framework first, then the frontend. Each sentence
+ * leads with its own subject and can be "" independently, so all four
+ * combinations read correctly.
+ *
+ * The run id is minted per click (not per page load), matching
+ * `components/intelligence-onboarding-prompt.tsx`: one clipboard write is one
+ * onboarding attempt, and the CLI reports the same id back, so hoisting it
+ * would collapse many attempts into one funnel row.
+ */
+export function OnboardingPromptCopyButton({
+  framework,
+  frontend,
+  markdownUrl,
+  ...props
+}: ComponentProps<"button"> & {
+  /**
+   * The agent framework this docs page is about: `slug` is the docs registry
+   * slug, `name` the display name. On the root surface and in the cookbook
+   * that is the Built-in Agent.
+   *
+   * Optional, because a docs surface can exist without a registry record to
+   * name — `a2a` and `agent-spec` are documented like frameworks but are not
+   * registered as integrations. Such a page still gets the button: the prompt
+   * simply names no framework, and the CLI's graph inspects the repository
+   * and asks, which is what it does anyway. Frameworks the graph has no node
+   * for are handled downstream by `frameworkPromptSuffix`.
+   */
+  framework?: { slug: string; name: string };
+  /**
+   * The frontend the docs URL selects: `id` is the docs frontend id, `name`
+   * its display name. Resolved server-side from the pathname by
+   * `onboardingFrontendFor` and passed in — never derived here from
+   * `usePathname()` — so the prompt names what the URL asserts rather than
+   * what this component happens to observe after a navigation.
+   *
+   * Optional for the same reason `framework` is: a surface that has no
+   * frontend to name still gets the button, and the prompt simply names none.
+   * Frontends the graph has no node for (`slack`, `teams`) are handled
+   * downstream by `frontendPromptSuffix`.
+   */
+  frontend?: { id: string; name: string };
+  /**
+   * The page's `.mdx` URL as a site-root-relative path — the same value the
+   * page-tools row hands `MarkdownCopyButton`. Passed in rather than derived
+   * from `usePathname()` so the URL named in the prompt and the URL the
+   * neighbouring button fetches can never drift apart.
+   */
+  markdownUrl: string;
+}) {
+  const pathname = usePathname();
+  const posthog = usePostHog();
+  return (
+    <PromptPill
+      {...props}
+      surface={ONBOARDING_COPY_SURFACE}
+      createPrompt={() => {
+        const runId = createOnboardingRunId();
+        const graphFramework = framework
+          ? onboardingFrameworkSlug(framework.slug)
+          : undefined;
+        const graphFrontend = frontend
+          ? onboardingFrontendSlug(frontend.id)
+          : undefined;
+        return {
+          text:
+            createIntelligenceOnboardingPrompt(runId) +
+            (framework
+              ? frameworkPromptSuffix(framework.slug, framework.name)
+              : "") +
+            (frontend ? frontendPromptSuffix(frontend.id, frontend.name) : "") +
+            ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`,
+          onAction: (action) =>
+            posthog?.capture(
+              "docs.intelligence_onboarding_prompt_action_clicked",
+              {
+                action,
+                from_path: pathname,
+                onboarding_run_id: runId,
+                surface: ONBOARDING_COPY_SURFACE,
+                agent_framework: graphFramework,
+                frontend: graphFrontend,
+              },
+            ),
+          onCopied: (action) =>
+            posthog?.capture("docs.intelligence_onboarding_prompt_copied", {
+              action,
+              from_path: pathname,
+              onboarding_run_id: runId,
+              surface: ONBOARDING_COPY_SURFACE,
+              agent_framework: graphFramework,
+              frontend: graphFrontend,
+            }),
+        };
+      }}
+    />
+  );
+}
+
+/**
  * see https://fumadocs.dev/docs/integrations/llms#page-actions to customize.
  */
 export function ViewOptionsPopover({
   markdownUrl,
   githubUrl,
+  condensed = false,
+  includeCopyPage = false,
   ...props
 }: ComponentProps<typeof PopoverTrigger> & {
   /**
@@ -166,6 +308,12 @@ export function ViewOptionsPopover({
    * Source file URL on GitHub
    */
   githubUrl?: string;
+
+  /** Use an icon-only trigger designed to join a split primary action. */
+  condensed?: boolean;
+
+  /** Put the Markdown copy action at the top of the condensed menu. */
+  includeCopyPage?: boolean;
 }) {
   const pathname = usePathname();
   const posthog = usePostHog();
@@ -193,12 +341,13 @@ export function ViewOptionsPopover({
           </svg>
         ),
       },
-      markdownUrl && {
-        title: "View as Markdown",
-        target: "view-as-markdown",
-        href: markdownUrl,
-        icon: <TextIcon />,
-      },
+      !condensed &&
+        markdownUrl && {
+          title: "View as Markdown",
+          target: "view-as-markdown",
+          href: markdownUrl,
+          icon: <TextIcon />,
+        },
       {
         title: "Open in Windsurf",
         target: "windsurf",
@@ -269,25 +418,50 @@ export function ViewOptionsPopover({
         })}`,
       },
     ].filter((v) => !!v);
-  }, [githubUrl, markdownUrl, pathname]);
+  }, [condensed, githubUrl, markdownUrl, pathname]);
 
   return (
     <Popover>
       <PopoverTrigger
         {...props}
+        aria-label={
+          condensed
+            ? (props["aria-label"] ?? "More page actions")
+            : props["aria-label"]
+        }
         className={cn(
           buttonVariants({
             color: "secondary",
             size: "sm",
           }),
           "gap-2 data-[state=open]:border-[var(--accent)] data-[state=open]:bg-[var(--accent-dim)] data-[state=open]:text-[var(--accent)]",
+          condensed && "docs-page-actions-trigger",
           props.className,
         )}
       >
-        {props.children ?? "Open"}
+        {!condensed && (props.children ?? "Open")}
         <ChevronDown className="size-3.5 text-[var(--text-muted)]" />
       </PopoverTrigger>
-      <PopoverContent className="flex flex-col">
+      <PopoverContent
+        align={condensed ? "end" : "center"}
+        className={cn("flex flex-col", condensed && "w-72 p-1.5")}
+      >
+        {includeCopyPage && markdownUrl && (
+          <>
+            <MarkdownCopyButton
+              markdownUrl={markdownUrl}
+              appearance="menu-item"
+              title="Copy page as Markdown"
+            >
+              Copy page
+            </MarkdownCopyButton>
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              className="mx-2 my-1 border-t border-[var(--border)]"
+            />
+          </>
+        )}
         {items.map((item) => (
           <a
             key={item.href}

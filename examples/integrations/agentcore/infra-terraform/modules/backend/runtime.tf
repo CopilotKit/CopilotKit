@@ -56,18 +56,34 @@ resource "aws_ecr_lifecycle_policy" "agent" {
 # Automatically builds and pushes the agent container image during apply
 # -----------------------------------------------------------------------------
 
+locals {
+  # `uv sync` (and the local agent tester) creates a virtualenv inside the agent
+  # package — `.venv` by default, `venv` under some UV_PROJECT_ENVIRONMENT values.
+  # Those trees hold thousands of dependency .py files that never reach the image
+  # (.dockerignore excludes `**/.venv/` and `**/venv/`), so they must not reach
+  # the image hash either: otherwise merely running the agent locally forces a
+  # spurious rebuild and a runtime replacement, and two developers plan
+  # differently from identical committed sources. fileset() has no exclude
+  # argument, so the comprehensions below filter on this pattern instead.
+  venv_path_regex = "(^|/)\\.?venv/"
+}
+
 # Content hash for Docker image change detection — triggers rebuild and runtime replacement.
 # Always created (no count) so the runtime's replace_triggered_by can reference it in both modes.
 # In zip mode the value is static ("zip"), so it never triggers a replacement.
 resource "terraform_data" "docker_image_hash" {
   input = local.is_docker && var.container_uri == null ? sha256(join("", concat(
     [filesha256("${local.pattern_dir}/Dockerfile")],
-    [filesha256("${local.pattern_dir}/requirements.txt")],
-    [for f in fileset(local.pattern_dir, "**/*.py") : filesha256("${local.pattern_dir}/${f}")],
-    [for f in fileset("${local.project_root}/patterns/utils", "**/*.py") : filesha256("${local.project_root}/patterns/utils/${f}")],
-    [for f in fileset("${local.project_root}/gateway", "**/*.py") : filesha256("${local.project_root}/gateway/${f}")],
-    [for f in fileset("${local.project_root}/tools", "**/*.py") : filesha256("${local.project_root}/tools/${f}")],
-    [filesha256("${local.project_root}/pyproject.toml")],
+    [filesha256("${local.pattern_dir}/pyproject.toml")],
+    [filesha256("${local.pattern_dir}/uv.lock")],
+    [
+      for f in fileset(local.pattern_dir, "**/*.py") : filesha256("${local.pattern_dir}/${f}")
+      if length(regexall(local.venv_path_regex, f)) == 0
+    ],
+    [
+      for f in fileset(local.shared_utils_dir, "**/*.py") : filesha256("${local.shared_utils_dir}/${f}")
+      if length(regexall(local.venv_path_regex, f)) == 0
+    ],
   ))) : "zip"
 }
 
@@ -88,7 +104,7 @@ resource "null_resource" "docker_build_push" {
       REGION="${local.region}"
       ACCOUNT_ID="${local.account_id}"
       PROJECT_ROOT="${local.project_root}"
-      DOCKERFILE="patterns/${var.backend_pattern}/Dockerfile"
+      DOCKERFILE="agents/${var.backend_pattern}/Dockerfile"
 
       # Verify Docker is running
       if ! docker info >/dev/null 2>&1; then

@@ -5,6 +5,8 @@ description: Render your agent's tool calls with custom UI components.
 snippet_cell: tool-rendering
 ---
 
+import ToolRenderingPerToolExample from "@/snippets/shared/generative-ui/tool-rendering-per-tool-example.mdx";
+
 <InlineDemo demo="tool-rendering" />
 
 ## What is this?
@@ -17,7 +19,11 @@ result). This is the **Generative UI** variant CopilotKit calls **tool
 rendering**.
 
 <Callout type="info">
-  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+  **Free course:** See this pattern built end-to-end in [Build Interactive
+  Agents with Generative
+  UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/)
+  — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the
+  full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
 </Callout>
 
 ## When should I use this?
@@ -75,11 +81,26 @@ The most expressive path is one renderer per tool name. The primary
 receives the tool's parsed arguments, a live `status`, and (once the agent
 returns) the `result`:
 
-<Snippet region="render-weather-tool" title="frontend/src/app/page.tsx — weather renderer" />
+### Tool inputs and results are separate
 
-The flight renderer follows the same pattern with a different component and schema:
+In `useRenderTool`, `parameters` contains the **inputs** the agent sent to the
+tool. It does not change into the tool's return value when `status` becomes
+`"complete"`. The completed output arrives separately as `result`, a string.
+For a tool that returns JSON, parse that string before reading its fields.
 
-<Snippet region="render-flight-tool" title="frontend/src/app/page.tsx — flight renderer" />
+For example, `get_weather` might receive `{ "location": "Paris" }` and return
+`{ "temperature": 22 }`. Read `parameters.location` for the requested city and
+the parsed `result.temperature` for the temperature. Adding `temperature` to
+the renderer's `parameters` schema does not copy it from the result.
+
+If a card says **complete** but still shows placeholder details, check whether
+those details come from `parameters` instead of the parsed `result`. Completion
+reports that the tool returned; it does not fill the card's props for you.
+
+The frontend pattern is the same for every backend. This shared, docs-only
+example includes every component, type, and helper that its renderers use:
+
+<ToolRenderingPerToolExample />
 
 <Callout type="info">
   The `name` you pass to `useRenderTool` must match the tool name the agent
@@ -91,7 +112,10 @@ Per-tool renderers compose with a catch-all: named renderers claim the
 cell, the same `CustomCatchallRenderer` from above catches `get_stock_price`
 and `roll_dice`:
 
-<Snippet region="catchall-renderer" title="frontend/src/app/page.tsx — per-tool + catch-all" />
+<Snippet
+  region="catchall-renderer"
+  title="frontend/src/app/page.tsx — per-tool + catch-all"
+/>
 
 ## The backend tool definition
 
@@ -100,6 +124,11 @@ matching backend definition for `get_weather`: expose a tool named
 `get_weather`, return structured data, and let the frontend renderer with
 the same name paint the card.
 
-<Snippet region="weather-tool-backend" title="backend/agent.py — weather tool" />
+<Snippet
+  region="weather-tool-backend"
+  title="backend/agent.py — weather tool"
+/>
+
+<FrameworkSetup concept="tool-rendering-setup" />
 
 <IntegrationGrid path="generative-ui/tool-rendering" />

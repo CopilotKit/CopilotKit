@@ -103,8 +103,14 @@ export interface Skin {
    * surface (it typically wraps its data provider + <A2UIProvider catalog>).
    * The shell handles the OGUI surface kind generically, so a skin does NOT
    * supply an OGUI renderer here — this is only its own a2ui report surface.
-   * Omit if the skin has no a2ui report canvas; every shipped skin has one, so
-   * the canvas's "no surface for this kind" branch is currently unexercised.
+   * Omit if the skin has no a2ui report canvas; bookstore and exec omit it.
+   * That omission does NOT mean the canvas's "no surface for this kind" branch
+   * runs: it is DEFENSIVE, not exercised. Bookstore ships no report tool and
+   * so emits no `a2ui-surface` activity at all, and exec's are all
+   * `block:`-prefixed, which `useLatestCanvasSurface` skips before it can
+   * claim the region (`./canvas/canvas-context.tsx`). Keep the branch — a
+   * future skin that emits a non-block report without a `CanvasSurface` lands
+   * on it — but do not cite it as covered.
    */
   CanvasSurface?: ComponentType;
   catalog: A2uiCatalog;

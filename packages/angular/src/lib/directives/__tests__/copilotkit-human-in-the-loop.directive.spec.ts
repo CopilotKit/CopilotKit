@@ -10,11 +10,7 @@ describe("HumanInTheLoop service", () => {
     const promise = service.onResult("call-1", "approval");
     service.addResult("call-1", "approval", { status: "ok" });
 
-    await expect(promise).resolves.toEqual({
-      toolCallId: "call-1",
-      toolName: "approval",
-      result: { status: "ok" },
-    });
+    await expect(promise).resolves.toEqual({ status: "ok" });
   });
 
   it("ignores non-matching results until criteria matches", async () => {
@@ -33,10 +29,23 @@ describe("HumanInTheLoop service", () => {
     await expect(race).resolves.toBe("pending");
 
     service.addResult("call-2", "verify", "ok");
-    await expect(promise).resolves.toEqual({
-      toolCallId: "call-2",
-      toolName: "verify",
-      result: "ok",
-    });
+    await expect(promise).resolves.toBe("ok");
+  });
+
+  it("does not leak the bus routing keys into the resolved result", async () => {
+    TestBed.configureTestingModule({ providers: [HumanInTheLoop] });
+    const service = TestBed.inject(HumanInTheLoop);
+
+    const promise = service.onResult("call-3", "request_page_oncall");
+    service.addResult("call-3", "request_page_oncall", { approved: true });
+
+    const resolved = await promise;
+
+    // A leaked envelope makes an agent read the answer as
+    // {toolName, result} instead of {approved: true}, so a gate keyed on
+    // `approved` silently never fires.
+    expect(resolved).not.toHaveProperty("toolName");
+    expect(resolved).not.toHaveProperty("toolCallId");
+    expect(resolved).toEqual({ approved: true });
   });
 });

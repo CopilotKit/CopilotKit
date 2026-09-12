@@ -1,7 +1,7 @@
 // LLM-friendly rendering of docs pages.
 //
 // Three consumers:
-//   1. `/llms.txt`            — index of every docs page (title + URL).
+//   1. `/llms.txt`            — curated decision index (title + URL).
 //   2. `/llms-full.txt`       — concatenated full body of every page.
 //   3. `/<path>.md` and .mdx  — single-page raw markdown, snippets inlined.
 //
@@ -14,7 +14,8 @@
 //     docs-render (same map used at page render time)
 //   - resolves `<Snippet />` tags to fenced code blocks by reading the
 //     same `demo-content.json` that the runtime <Snippet> component does
-//   - strips `<InlineDemo />` (no body content — it's a live iframe demo)
+//   - strips `<InlineDemo />` (no body content — it's a live iframe demo),
+//     optionally preserving an explicitly selected `llmRegion` source excerpt
 //   - keeps every other JSX tag verbatim (Tabs / Callout / Card render
 //     visually but their inner Markdown is still readable as prose)
 //
@@ -34,6 +35,11 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { INTELLIGENCE_ONBOARDING_PROMPT } from "./intelligence-onboarding-prompt";
+import {
+  isV1ReferenceUrl,
+  renderV1DeprecationNoticeUseV2InsteadMarkdown,
+} from "@/lib/v1-deprecation-use-v2-instead";
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
@@ -53,16 +59,13 @@ import {
   loadReferenceVersionItems,
   resolveReferencePage,
 } from "./reference-items";
-import {
-  AG_UI_CONTENT_DIR,
-  DOCS_CONTENT_DIR,
-  walkMdx,
-} from "./sitemap-helpers";
+import { DOCS_CONTENT_DIR, walkMdx } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
 import angularSourceContent from "@/data/angular-source-content.json";
 import setupContentData from "@/data/setup-content.json";
 import {
   filterAngularBackendScopedBlocks,
+  filterFrameworkScopedBlocks,
   filterFrontendScopedBlocks,
 } from "./toc";
 import type { FrontendId } from "./frontend-options";
@@ -70,6 +73,7 @@ import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
 import { RICH_THREADS_SETUP_PROMPT } from "./rich-threads-setup-prompt";
+import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 
 interface Region {
   file: string;
@@ -159,14 +163,13 @@ export interface LlmPage {
 // -----------------------------------------------------------------------
 
 /**
- * Enumerate every docs page that should appear in `llms.txt` and the
- * concatenated `llms-full.txt` aggregate. Covers five URL families:
+ * Enumerate every docs page available to the exhaustive `llms-full.txt`
+ * aggregate and route-contract tests. Covers five URL families:
  *
  *   - Bare unscoped docs   (/<slug>)
  *   - Per-framework        (/<framework>/<slug>)
  *   - Channel-scoped       (/<slack|teams>/<framework?>/<guide?>)
  *   - Reference            (/reference/<slug>)
- *   - AG-UI                (/ag-ui/<slug>)
  *
  * We intentionally do NOT cross-product unscoped pages × every framework
  * — that would emit dozens of near-duplicate entries for the LLM. The
@@ -177,7 +180,7 @@ export interface LlmPage {
  */
 export interface GetAllLlmPagesOptions {
   /**
-   * `all` is the discovery index and emits every channel/framework guide URL.
+   * `all` emits every channel/framework guide URL for exhaustive discovery.
    * `content-unique` keeps every framework quickstart but emits each shared
    * guide body only once per provider at the Built-in Agent URL.
    */
@@ -397,18 +400,6 @@ export function getAllLlmPages(
         loadSlug: `__reference__/${resolved.contentSlug}`,
       });
     }
-  }
-
-  // 5. AG-UI.
-  for (const { slug, filePath } of walkMdx(AG_UI_CONTENT_DIR)) {
-    const meta = readMetaFromFile(filePath);
-    push({
-      url: slug ? `ag-ui/${slug}` : "ag-ui",
-      title: meta.title ?? slug,
-      description: meta.description,
-      filePath,
-      loadSlug: `__ag-ui__/${slug || "index"}`,
-    });
   }
 
   return pages.sort((a, b) => a.url.localeCompare(b.url));
@@ -761,19 +752,46 @@ function expandRichThreadsSetupPrompts(body: string): string {
   );
 }
 
+/** Expand the Automatic Learning prompt for raw Markdown consumers. */
+function expandLearningSetupPrompts(body: string): string {
+  return body.replace(
+    /<LearningSetupPrompt\s*\/>/g,
+    `#### Copy this prompt into your coding agent\n\n${fenceFor(
+      "text",
+      LEARNING_SETUP_PROMPT,
+    )}`,
+  );
+}
+
 /**
- * Drop `<InlineDemo ... />` tags — these mount live iframes in the
- * browser; in plain markdown they're noise. Leave a short note so the
- * LLM still knows a demo exists at that point in the page.
+ * Drop `<InlineDemo ... />` tags — these mount live iframes in the browser;
+ * in plain markdown they're noise. Leave a short note so the LLM still knows
+ * a demo exists at that point in the page. Authors may select one bundled
+ * `llmRegion` when the interactive Code tab contains essential implementation
+ * detail that would otherwise disappear from the raw Markdown route.
  */
-function stripInlineDemos(body: string): string {
+function expandInlineDemos(
+  body: string,
+  framework: string | undefined,
+): string {
   return body.replace(
     /<InlineDemo\b([\s\S]*?)\/>/g,
     (_match, inner: string) => {
       const demoAttr = /demo\s*=\s*["']([^"']+)["']/.exec(inner);
-      return demoAttr
+      const note = demoAttr
         ? `\n<!-- interactive demo: ${demoAttr[1]} -->\n`
         : "\n<!-- interactive demo -->\n";
+      const llmRegion = /llmRegion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      if (!demoAttr || !llmRegion) return note;
+
+      const snippet = resolveSnippet(
+        { cell: demoAttr[1], region: llmRegion },
+        framework,
+        demoAttr[1],
+      );
+      return snippet.startsWith("<!-- snippet skipped:")
+        ? note
+        : `${note}\n${snippet}\n`;
     },
   );
 }
@@ -894,6 +912,7 @@ export function renderPageToLlmText(
 
   // Interactive prompt buttons cannot run in raw Markdown or LLM feeds.
   body = expandRichThreadsSetupPrompts(body);
+  body = expandLearningSetupPrompts(body);
 
   // 1) Inline `<Component />` shared snippets (`<AGUI />`, etc.). Uses
   //    the SNIPPET_MAP / SUBPATH_TO_COMPONENT logic — same as the page
@@ -908,6 +927,25 @@ export function renderPageToLlmText(
     body = filterAngularBackendScopedBlocks(body, framework);
   }
 
+  // Framework-gated branches (`<WhenFrameworkHas flag=… equals=…>`) have to be
+  // resolved here too, and against the SAME framework the `<Snippet />` tags
+  // below resolve to. The live HTML page drops the non-matching branches (the
+  // component returns null); raw Markdown used to keep every branch verbatim,
+  // so a gated page emitted all of its mutually-exclusive variants at once,
+  // each one carrying the single selected framework's code. On
+  // `generative-ui/a2ui/fixed-schema` that meant three "how the schema is
+  // delivered" sections whose prose contradicted the identical snippet under
+  // each of them — including a branch stating the language ships no
+  // `load_schema` helper directly above a snippet calling `load_schema`.
+  //
+  // `pickFramework` is what `expandSnippets` uses, so routing the gating
+  // decision through it keeps prose and code agreeing even on unscoped
+  // (`/<slug>.md`) requests where no framework was passed in.
+  const gatedFramework = frontmatterCell
+    ? (pickFramework(frontmatterCell, undefined, framework) ?? framework)
+    : framework;
+  body = filterFrameworkScopedBlocks(body, gatedFramework);
+
   // 2) Inline the selected package-owned framework setup. Bare docs URLs use
   // Built-in Agent on the live site, so use that same default for setup
   // components without forcing snippet selection away from its existing
@@ -920,8 +958,8 @@ export function renderPageToLlmText(
   // 4) Resolve regions from the canonical Angular Showcase app.
   body = expandAngularSnippets(body);
 
-  // 5) Drop `<InlineDemo />`.
-  body = stripInlineDemos(body);
+  // 5) Drop `<InlineDemo />`, preserving any explicitly selected LLM source.
+  body = expandInlineDemos(body, framework);
 
   // 6) Keep raw Markdown links in the same frontend/framework surface as the
   // live page. Store the effective axes so explicit render overrides retain
@@ -938,19 +976,19 @@ export function renderPageToLlmText(
   const header: string[] = [`# ${title}`];
   if (description) header.push("", `> ${description}`);
   header.push("");
-  return `${header.join("\n")}${body.trimEnd()}\n`;
+  const v1DeprecationNoticeUseV2Instead = isV1ReferenceUrl(page.url)
+    ? renderV1DeprecationNoticeUseV2InsteadMarkdown()
+    : "";
+  return `${header.join("\n")}${v1DeprecationNoticeUseV2Instead}${body.trimEnd()}\n`;
 }
 
 /**
  * Read the source MDX for a page. Bare docs slugs go through
  * `loadDoc()` (which also handles index files and frontmatter parsing).
- * Reference / AG-UI files use the absolute path stashed on `LlmPage`.
+ * Reference files use the absolute path stashed on `LlmPage`.
  */
 function readSource(page: LlmPage): string | null {
-  if (
-    page.loadSlug.startsWith("__reference__/") ||
-    page.loadSlug.startsWith("__ag-ui__/")
-  ) {
+  if (page.loadSlug.startsWith("__reference__/")) {
     try {
       return fs.readFileSync(page.filePath, "utf-8");
     } catch (err) {
@@ -975,14 +1013,56 @@ function readSource(page: LlmPage): string | null {
  * is a list item with a Markdown link; optional description follows
  * after a colon.
  */
-export function renderLlmsIndex(pages: LlmPage[], baseUrl: string): string {
+export function renderLlmsIndex(
+  pages: readonly Pick<LlmPage, "url" | "title" | "description">[],
+  baseUrl: string,
+  frameworkPages: readonly Pick<
+    LlmPage,
+    "url" | "title" | "description"
+  >[] = [],
+): string {
   const out: string[] = ["# CopilotKit Docs", ""];
   out.push(
-    "> Docs, live demos, and integrations for CopilotKit — the frontend framework for AI agents.",
+    "> CopilotKit is the frontend stack where agents meet users, connected to supported agent frameworks through AG-UI.",
     "",
-    "## Pages",
+    "> This curated index covers chat, generative UI, human-in-the-loop workflows, persistent threads, Automatic Learning, and Channels for Slack and Microsoft Teams. Channels connects agents to workplace conversations through the Channels SDK and CopilotKit Intelligence.",
+    "",
+    `> For exhaustive retrieval—including reference, migration, contributor, and additional framework and channel guides—use [llms-full.txt](${baseUrl}/llms-full.txt).`,
+    "",
+    "## Add CopilotKit with your coding agent",
+    "",
+    "Use the same canonical onboarding prompt for any of these starting points:",
+    "",
+    "- **Greenfield:** Start a new project with CopilotKit, including when there is no frontend or agent yet.",
+    "- **Brownfield:** Add CopilotKit to an existing application, agent backend, or both, working with the existing stack.",
+    "- **Existing CopilotKit OSS:** Connect a working open-source CopilotKit project to Intelligence.",
+    "",
+    "The onboarding workflow inspects the project, identifies its starting point, and guides the coding agent through the appropriate setup. For a new project, run the prompt from its intended project directory. For an existing project, run it from the project root. For product research or comparisons, continue to the documentation links without running onboarding.",
+    "",
+    `This is the same prompt offered by the **Copy onboarding prompt** button on the [docs home](${baseUrl}/). A coding agent can use the text directly; a chat assistant without project or terminal access can give it to the user to paste into their coding agent.`,
+    "",
+    "Generate a fresh 12-character hexadecimal run ID for each new onboarding session and replace `<run-id>` before running the command. Replace `<coding-agent-slug>` with the coding-agent product's slug. Do not execute the placeholders literally or reuse an ID from a cached index.",
+    "",
+    "```text",
+    INTELLIGENCE_ONBOARDING_PROMPT,
+    "```",
     "",
   );
+  if (frameworkPages.length > 0) {
+    out.push(
+      "## Use your existing agent framework",
+      "",
+      "If the user already has an agent backend, start with its integration and quickstart below, then follow that framework's guides for tools, generative UI, human-in-the-loop, state, and threads. CopilotKit works with these backends through AG-UI; adopting the built-in agent is not required. Bare root implementation guides can describe CopilotKit's built-in agent and should not replace framework-specific guidance.",
+      "",
+    );
+    for (const page of frameworkPages) {
+      out.push(
+        `- [${page.title}](${baseUrl}/${page.url}): ${page.description}`,
+      );
+    }
+    out.push("");
+  }
+  out.push("## Capabilities, frontends, and shared guides", "");
   for (const page of pages) {
     const url = `${baseUrl}/${page.url}`;
     const title = page.title || page.url;

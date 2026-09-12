@@ -13,20 +13,23 @@ export async function handleConnectAgent({
   request,
   agentId,
 }: ConnectAgentParameters) {
-  telemetry.capture("oss.runtime.copilot_request_created", {
-    "cloud.guardrails.enabled": false,
-    requestType: "connect",
-    "cloud.api_key_provided": !!request.headers.get(
-      "x-copilotcloud-public-api-key",
-    ),
-    ...(request.headers.get("x-copilotcloud-public-api-key")
-      ? {
-          "cloud.public_api_key": request.headers.get(
-            "x-copilotcloud-public-api-key",
-          )!,
-        }
-      : {}),
-  });
+  (runtime.telemetry ?? telemetry).capture(
+    "oss.runtime.copilot_request_created",
+    {
+      "cloud.guardrails.enabled": false,
+      requestType: "connect",
+      "cloud.api_key_provided": !!request.headers.get(
+        "x-copilotcloud-public-api-key",
+      ),
+      ...(request.headers.get("x-copilotcloud-public-api-key")
+        ? {
+            "cloud.public_api_key": request.headers.get(
+              "x-copilotcloud-public-api-key",
+            )!,
+          }
+        : {}),
+    },
+  );
 
   try {
     // Runs on BOTH branches deliberately: this is the only place the connect

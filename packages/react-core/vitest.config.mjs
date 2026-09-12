@@ -9,7 +9,10 @@ export default defineConfig({
       "src/**/*.{test,spec}.{ts,tsx}",
     ],
     globalSetup: ["./src/v2/__tests__/globalSetup.ts"],
-    setupFiles: ["./src/setupTests.ts", "./src/v2/__tests__/setup.ts"],
+    setupFiles: [
+      "./src/v1-deprecated/setupTests.ts",
+      "./src/v2/__tests__/setup.ts",
+    ],
     reporters: [["default", { summary: false }]],
     silent: true,
     server: {

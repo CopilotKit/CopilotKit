@@ -5,9 +5,10 @@
  * and `responseLength` from the frontend (CopilotKit
  * `useAgentContext`) to the agent's per-turn system-prompt builder.
  *
- * Genuine assertion strategy: send three pairs of prompts (one pair
- * per knob — tone, expertise, response-length). Each pair sends a
- * value-A prompt followed by a value-B prompt for the same knob.
+ * Genuine assertion strategy: change each real config control, then
+ * send three pairs of prompts (one pair per knob — tone, expertise,
+ * response-length). Each pair sends a value-A prompt followed by a
+ * value-B prompt for the same knob.
  * Capture the response transcript after each settle, then assert the
  * two responses differ in the knob-appropriate way:
  *
@@ -19,29 +20,16 @@
  *     (calibrated against fixture sample copy; under real LLM the
  *     spread is much larger).
  *
- * Why three turns sequentially in one probe (not a separate
- * fixture-key form mutation): aimock's JSON-only fixture format keys
- * on `userMessage` content. To produce different responses we encode
- * the knob-value into the user prompt sentence — a regression that
- * stops differentiating responses by config keeps the same value-A
- * fixture firing for the value-B prompt and the difference assertion
- * fails. Under a real LLM on Railway the differentiation is natural
- * because `useAgentContext` lands the value in the system prompt.
- *
- * The probe does NOT click form selects on the page. The form lives
- * in `[data-testid="agent-config-card"]` with knob testids
- * `agent-config-tone-select`, `agent-config-expertise-select`,
- * `agent-config-length-select` — these are part of the demo so a
- * future enhancement could mutate them via Playwright. For Phase 2B
- * the prompt-encoded approach captures the same regression class
- * (knob value → response variation) without needing to change the
- * runner's structural Page type.
+ * The prompts retain stable fixture-routing tokens. Integrations may
+ * additionally gate fixtures on the context-enriched model request.
+ * In particular, the Strands TypeScript fixtures require both the
+ * selected UI value and the prompt token, so a broken
+ * `useAgentContext` → `stateContextBuilder` bridge cannot pass merely
+ * because the user message names the expected value.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /** Minimum character delta between the "concise" and "detailed"
@@ -62,6 +50,9 @@ export const RESPONSE_LENGTH_DELTA_MIN = 80;
 export const AGENT_CONFIG_PROBES = [
   {
     knob: "tone",
+    selector: '[data-testid="agent-config-tone-select"]',
+    valueA: "professional",
+    valueB: "casual",
     promptA: "tone:professional — introduce yourself per your config",
     promptB: "tone:casual — introduce yourself per your config",
     /** Tone responses must differ but length is unconstrained. */
@@ -69,6 +60,9 @@ export const AGENT_CONFIG_PROBES = [
   },
   {
     knob: "expertise",
+    selector: '[data-testid="agent-config-expertise-select"]',
+    valueA: "beginner",
+    valueB: "expert",
     promptA:
       "expertise:beginner — explain how copilotkit works per your config",
     promptB: "expertise:expert — explain how copilotkit works per your config",
@@ -76,12 +70,44 @@ export const AGENT_CONFIG_PROBES = [
   },
   {
     knob: "responseLength",
+    selector: '[data-testid="agent-config-length-select"]',
+    valueA: "concise",
+    valueB: "detailed",
     promptA: "responseLength:concise — describe agent context per your config",
     promptB: "responseLength:detailed — describe agent context per your config",
     /** Detailed must be ≥ concise + RESPONSE_LENGTH_DELTA_MIN chars. */
     diff: "length" as const,
   },
 ] as const;
+
+async function selectConfigOption(
+  page: Page,
+  selector: string,
+  value: string,
+  knob: string,
+): Promise<void> {
+  await page.waitForSelector(selector, { state: "visible", timeout: 5_000 });
+  // The D6 adapter forwards zero-argument evaluate callbacks only. Bake the
+  // two fixed strings into a self-contained browser function, matching the
+  // established clickByJs helper used by other genuine probes.
+  const code = `
+    (() => {
+      const control = document.querySelector(${JSON.stringify(selector)});
+      if (!control) return false;
+      control.value = ${JSON.stringify(value)};
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+      return control.value === ${JSON.stringify(value)};
+    })()
+  `;
+  const fn = new Function(`return ${code.trim()};`) as () => boolean;
+  const selected = await page.evaluate(fn);
+  if (!selected) {
+    throw new Error(
+      `agent-config-${knob}: failed to select "${value}" in ${selector}`,
+    );
+  }
+}
 
 /** Read all assistant-message text concatenated, lowercase, trimmed.
  *  Same DOM cascade as the existing keyword-match probes. */
@@ -270,6 +296,8 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     const snap = currentSnapshot;
     turns.push({
       input: probe.promptA,
+      preFill: (page) =>
+        selectConfigOption(page, probe.selector, probe.valueA, probe.knob),
       assertions: buildSnapshotAssertion(probe.knob, snap),
       responseTimeoutMs: 45_000,
     });
@@ -284,6 +312,8 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     const baseB = buildKnobDiffAssertion(probe.knob, probe.diff, snap);
     turns.push({
       input: probe.promptB,
+      preFill: (page) =>
+        selectConfigOption(page, probe.selector, probe.valueB, probe.knob),
       assertions: isLast ? baseB : chainPriorCapture(baseB, nextSnap),
       responseTimeoutMs: 45_000,
     });

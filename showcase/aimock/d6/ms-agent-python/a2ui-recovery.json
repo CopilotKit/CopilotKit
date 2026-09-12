@@ -1,0 +1,114 @@
+{
+ "_meta": {
+  "description": "D6 fixtures for ms-agent-python / a2ui-recovery (A2UI error recovery)",
+  "_note": "Native auto-injected A2UI (injectA2UITool=true; recovery policy in endpoint a2ui_config) with the shared toolkit validate->retry recovery loop made visible. NO `context` match field anywhere: a real browser does NOT send the x-aimock-context header (only the test harness does), so context-scoped fixtures would 404 in-browser. The recovery pills' prompts are UNIQUE per framework (distinct from langgraph-python's), so userMessage alone disambiguates without needing context. Flow per pill: the render sub-agent runs with messages [system(base_prompt), *conversation] (agent_framework_ag_ui _agent.py _subagent_messages), so the inner render_a2ui request carries the ORIGINAL user prompt as its last user message; the retry augments the SYSTEM prompt only, so userMessage stays constant across attempts and sequenceIndex 0/1 disambiguates them. The inner-render fixtures are listed FIRST and carry toolName=render_a2ui so they win for the inner calls; the tool-less outer generate_a2ui emit falls through to the userMessage-only fixture; the outer narration is matched by the unique toolCallId of the emit (its balancing tool result). HEAL: attempt 1 (seq 0) invalid (dangling child) -> retry -> attempt 2 (seq 1) valid -> paints (declarative-metric x2). EXHAUST: invalid on every attempt -> recovery exhausts -> a2ui_recovery_exhausted. Requires agent-framework-ag-ui[a2ui]>=1.2.0.",
+  "created": "2026-08-27"
+ },
+ "fixtures": [
+  {
+   "_comment": "HEAL pill - inner render_a2ui attempt 1 (sequenceIndex 0): structurally INVALID (root references a missing child) -> the validate->retry loop rejects it and retries.",
+   "match": {
+    "userMessage": "Draft the Q3 pipeline snapshot and auto-correct a malformed first render.",
+    "toolName": "render_a2ui",
+    "sequenceIndex": 0
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_maf_recover_heal_bad",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"missing-metric\"]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - inner render_a2ui attempt 2 (sequenceIndex 1): VALID surface (Column + two Metric tiles) -> recovery succeeds and paints (declarative-metric x2).",
+   "match": {
+    "userMessage": "Draft the Q3 pipeline snapshot and auto-correct a malformed first render.",
+    "toolName": "render_a2ui",
+    "sequenceIndex": 1
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_maf_recover_heal_good",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Q3 Pipeline\", \"value\": \"$4.2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - outer narration after generate_a2ui returns the healed surface (matched by the emit's unique toolCallId).",
+   "match": {
+    "toolCallId": "call_d6_maf_recover_heal_outer_001"
+   },
+   "response": {
+    "content": "The first render came back malformed - I recovered and painted your Q3 pipeline snapshot."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - outer agent emits generate_a2ui (matched by the unique prompt).",
+   "match": {
+    "userMessage": "Draft the Q3 pipeline snapshot and auto-correct a malformed first render."
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_maf_recover_heal_outer_001",
+      "name": "generate_a2ui",
+      "arguments": "{\"intent\": \"create\"}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - inner render_a2ui: structurally INVALID on every attempt (unresolved child) -> recovery exhausts.",
+   "match": {
+    "userMessage": "Generate a summary that fails every validation attempt so I can preview the fallback.",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_maf_recover_exhaust_design",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"never-defined\"]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - outer narration after generate_a2ui returns the recovery-exhausted envelope (matched by the emit's unique toolCallId).",
+   "match": {
+    "toolCallId": "call_d6_maf_recover_exhaust_outer_001"
+   },
+   "response": {
+    "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - outer agent emits generate_a2ui (matched by the unique prompt).",
+   "match": {
+    "userMessage": "Generate a summary that fails every validation attempt so I can preview the fallback."
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_maf_recover_exhaust_outer_001",
+      "name": "generate_a2ui",
+      "arguments": "{\"intent\": \"create\"}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  }
+ ]
+}

@@ -11,6 +11,8 @@ You call `registerFrontendTool` inside an Angular injection context (a component
 
 The handler runs inside the same injector that registered the tool, so it can call `inject()` to reach your other Angular services.
 
+If there is nothing to run in the browser and you only want the agent to display a component with the arguments it supplies, use [`registerComponent`](/reference/angular/functions/registerComponent) instead of a stub handler.
+
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
   subpath. `registerFrontendTool` must run in an injection context that has
@@ -67,8 +69,9 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
       The raw AG-UI tool call metadata, including the tool call `id`.
     </PropertyReference>
 
-    <PropertyReference name="context.agent" type="AbstractAgent">
-      The agent instance that invoked the tool.
+    <PropertyReference name="context.agent" type="AbstractAgent | undefined">
+      The agent instance that invoked the tool. Absent when the tool is invoked
+      through WebMCP.
     </PropertyReference>
 
     <PropertyReference name="context.signal" type="AbortSignal | undefined">
@@ -95,6 +98,15 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
     Optional agent scope. When set, the tool is only offered to the agent with
     this id. Cleanup on destroy is scoped to the same `agentId`.
   </PropertyReference>
+
+  <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
+    Also expose the tool to browser agents through the WebMCP API
+    (`document.modelContext`). Pass `true` to register with default
+    annotations, or an object to register with WebMCP annotations. The same
+    `handler` runs when a browser agent calls the tool; the context then has
+    no `agent`. This is a no-op where WebMCP is not available (browsers
+    without the API enabled).
+  </PropertyReference>
 </PropertyReference>
 
 ## Return Value
@@ -110,6 +122,7 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
   renderers with the same `name` and optional `agentId`. Registrations sharing
   that key are removed together.
 - **Optional renderer.** When you pass a `component`, it is registered alongside the tool so the chat can render the tool call's progress and result.
+- **WebMCP registration.** With `webmcp` set, the tool is also registered on `document.modelContext` for as long as the owning injector is alive. The tool needs a `description` for this (WebMCP rejects tools without one).
 
 ## Usage
 
@@ -257,6 +270,11 @@ export class WeatherComponent {
 ## Related
 
 <Cards>
+  <Card
+    title="registerComponent"
+    description="Let the agent display one of your components, with no handler and nothing to add on the agent side."
+    href="/reference/angular/functions/registerComponent"
+  />
   <Card
     title="registerRenderToolCall"
     description="Register a renderer for a tool call (including server-side and agentic tools) with full access to status and results."

@@ -8,9 +8,10 @@ symbol requires the package's normal breaking-change process.
 For task-oriented examples, start with the [package README](./README.md) and the
 [Angular documentation](https://docs.copilotkit.ai/frontends/angular). The high-level
 APIs most applications need are `provideCopilotKit`, `CopilotChat`,
-`CopilotPopup`, `CopilotSidebar`, `injectAgentStore`, the `register*` helpers,
-and the `inject*` controllers. The remaining components and context types are
-supported customization primitives for replacing individual chat slots.
+`CopilotPopup`, `CopilotSidebar`, `injectAgentStore`, `injectCapabilities`, the
+`register*` helpers, and the `inject*` controllers. The remaining components
+and context types are supported customization primitives for replacing
+individual chat slots.
 
 ## Root entry point
 
@@ -53,6 +54,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotA2UIProgress`
 - `CopilotA2UIRecovery`
 - `CopilotA2UIToolRenderer`
+- `CopilotActivity`
 - `CopilotChat`
 - `CopilotChatAddFileButton`
 - `CopilotChatAssistantMessage`
@@ -178,6 +180,7 @@ Import these symbols from `@copilotkit/angular`.
 - `RENDER_A2UI_TOOL_NAME`
 - `ReadAloudButtonContext`
 - `RegenerateButtonContext`
+- `RegisterComponentConfig`
 - `RenderA2UIArgs`
 - `RenderA2UIArgsSchema`
 - `RenderActivityMessageConfig`
@@ -194,6 +197,7 @@ Import these symbols from `@copilotkit/angular`.
 - `SendButtonContext`
 - `SlotConfig`
 - `SlotContext`
+- `SlotOutputs`
 - `SlotRegistryEntry`
 - `SlotValue`
 - `StaticSuggestionsConfig`
@@ -222,6 +226,7 @@ Import these symbols from `@copilotkit/angular`.
 - `createSlotRenderer`
 - `getSlotConfig`
 - `injectAgentStore`
+- `injectCapabilities`
 - `injectChatConfiguration`
 - `injectChatLabels`
 - `injectChatState`
@@ -239,6 +244,7 @@ Import these symbols from `@copilotkit/angular`.
 - `provideCopilotKit`
 - `provideSlots`
 - `readA2UILifecycleContent`
+- `registerComponent`
 - `registerFrontendTool`
 - `registerHumanInTheLoop`
 - `registerRenderActivityMessage`
@@ -249,11 +255,12 @@ Import these symbols from `@copilotkit/angular`.
 
 ### Internal extension points
 
-The following exported Angular DI token exists only so CopilotKit-maintained
-secondary entry points can contribute built-in renderers. Applications must
-not depend on it; its `ɵ` prefix and TSDoc mark it internal.
+The following exported Angular DI tokens exist only so CopilotKit-maintained
+code can hook Inspector development mode and built-in renderers. Applications
+must not depend on them; the `ɵ` prefix and TSDoc mark them internal.
 
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
+- `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
 <!-- public-api:root:end -->
 
 ## MCP Apps entry point

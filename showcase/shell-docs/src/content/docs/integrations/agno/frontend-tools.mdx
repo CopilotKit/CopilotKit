@@ -4,6 +4,8 @@ icon: "lucide/Wrench"
 description: Create frontend tools and use them within your Agno agent.
 ---
 
+import AgnoFrontendToolPersistence from "@/snippets/integrations/agno/frontend-tool-persistence.mdx";
+
 <IframeSwitcher
   id="frontend-tools-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/agno/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
@@ -30,6 +32,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
 - Performing actions that require the user's immediate browser context
 
 ## Implementation
+
+<AgnoFrontendToolPersistence />
 
 <Steps>
     <Step>
@@ -91,14 +95,18 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         ```python title="agent.py"
         from agno.agent import Agent
+        from agno.db.sqlite import SqliteDb
         from agno.models.openai import OpenAIChat
         from agno.os import AgentOS
         from agno.os.interfaces.agui import AGUI
         from tools.frontend import sayHello
 
+        db = SqliteDb(db_file="tmp/agno.db")
+
         agent = Agent(
             model=OpenAIChat(id="gpt-5.4"),
             tools=[sayHello],
+            db=db,
             description="A helpful assistant that can answer questions and provide information.",
             instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
         )

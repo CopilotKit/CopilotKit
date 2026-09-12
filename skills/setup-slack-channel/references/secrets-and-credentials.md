@@ -10,7 +10,7 @@ owner never intended.
 | -------------------------------- | ----------- | -------------------------------------------------- | -------------------------------------------------------------- | ------------------------------- |
 | Slack **bot** token              | `xoxb-…`    | The Slack app, on install                          | The Slack adapter form in Intelligence, typed by the developer | In `.env`, in the repo, in chat |
 | Slack **signing secret**         | 32-char hex | The Slack app, Basic Information → App Credentials | The Slack adapter form in Intelligence, typed by the developer | In `.env`, in the repo, in chat |
-| Intelligence **runtime API key** | `cpk-…`     | The Intelligence project (API Keys)                | The app's `.env` as `INTELLIGENCE_API_KEY`                     | In the repo, in chat            |
+| Intelligence **runtime API key** | `cpk-…`     | The Intelligence project (API Keys)                | The app's `.env` as `CPK_INTELLIGENCE_API_KEY`                 | In the repo, in chat            |
 | **OpenAI** key                   | `sk-…`      | platform.openai.com                                | The agent's env as `OPENAI_API_KEY`                            | In the repo, in chat            |
 | Slack **user** token             | `xoxp-…`    | The Slack app, user scopes                         | `.env`, **only** for the optional E2E harness                  | Anywhere else                   |
 | `BOT_USER_ID`, `E2E_CHANNEL`     | `U…`, `C…`  | Slack workspace                                    | `.env` for the E2E harness                                     | — Not secrets                   |
@@ -57,7 +57,7 @@ content. This prints names and nothing else:
 
 ```bash
 # Which required vars are set — values never leave the shell.
-for v in INTELLIGENCE_API_KEY AGENT_URL OPENAI_API_KEY; do
+for v in CPK_INTELLIGENCE_API_KEY AGENT_URL OPENAI_API_KEY; do
   [ -n "${!v:-}" ] && echo "$v: set" || echo "$v: MISSING"
 done
 ```

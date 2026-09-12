@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/shared",
-  "version": "1.68.1",
+  "version": "1.71.1",
   "private": false,
   "keywords": [
     "ai",
@@ -32,7 +32,18 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./telemetry": {
+      "import": "./dist/telemetry/index.mjs",
+      "require": "./dist/telemetry/index.cjs"
+    },
     "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "telemetry": [
+        "./dist/telemetry/index.d.cts"
+      ]
+    }
   },
   "publishConfig": {
     "access": "public"
@@ -50,7 +61,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
+    "@ag-ui/client": "0.0.59",
     "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",

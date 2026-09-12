@@ -32,6 +32,9 @@ export function useFrontendTool<T extends Record<string, unknown>>(
     [
       () => tool.name,
       () => tool.available,
+      // webmcp is commonly an object literal, so compare it by value to avoid
+      // re-registering on identity churn while still reacting to real changes.
+      () => JSON.stringify(tool.webmcp ?? null),
       () => extraDeps.length,
       ...extraDeps,
     ],

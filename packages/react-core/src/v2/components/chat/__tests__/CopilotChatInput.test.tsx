@@ -786,6 +786,37 @@ describe("CopilotChatInput", () => {
     expect(handleCustom).toHaveBeenCalledTimes(1);
   });
 
+  it("uses the configured add button label for the add menu tooltip", async () => {
+    const { container } = render(
+      <CopilotChatConfigurationProvider
+        threadId={TEST_THREAD_ID}
+        labels={{ chatInputToolbarAddButtonLabel: "Upload attachment" }}
+      >
+        <CopilotChatInput
+          onAddFile={vi.fn()}
+          onSubmitMessage={mockOnSubmitMessage}
+        />
+      </CopilotChatConfigurationProvider>,
+    );
+
+    const addButton = getAddMenuButton(container);
+    expect(addButton).not.toBeNull();
+
+    // Radix tooltips are mocked to a passthrough in this suite (see
+    // src/v2/__tests__/setup.ts), so the content renders without hovering.
+    const tooltipContent = addButton
+      ?.closest('[data-slot="tooltip"]')
+      ?.querySelector('[data-slot="tooltip-content"]');
+    expect(tooltipContent).not.toBeNull();
+
+    expect(tooltipContent?.textContent).toContain("Upload attachment");
+    expect(tooltipContent?.textContent).not.toContain("Add attachments");
+    // The "/" shortcut hint is a key glyph, not prose, so it stays as-is.
+    expect(tooltipContent?.querySelector("code")?.textContent?.trim()).toBe(
+      "/",
+    );
+  });
+
   // Controlled component tests
   describe("Controlled component behavior", () => {
     it("displays the provided value prop", () => {

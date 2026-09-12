@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Editor, Location, Transforms } from "slate";
+import type { Editor, Location } from "slate";
+import { Transforms } from "slate";
 import { ReactEditor, useSlate, useSlateSelection } from "slate-react";
 import {
   getFullEditorTextWithNewlines,
   getTextAroundSelection,
 } from "../../lib/get-text-around-cursor";
-import {
+import type {
   EditingEditorState,
   InsertionEditorApiConfig,
 } from "../../types/base/autosuggestions-bare-function";
@@ -172,8 +173,16 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
           editorState={editorState(editor, selection)}
           apiConfig={props.apiConfig}
           performInsertion={(insertedText) => {
-            // replace the selection with the inserted text
-            Transforms.delete(editor, { at: selection });
+            // Replace the selection with the inserted text.
+            //
+            // `insertText` already deletes an expanded range (via point refs)
+            // before inserting at its start, and inserts in place when the
+            // range is collapsed. Deleting first and then reusing `selection`
+            // destroys text: the range is stale after the delete, so the
+            // delete inside `insertText` runs again at the same offsets and
+            // eats the characters that followed the insertion point. With a
+            // collapsed caret, `Transforms.delete` also deletes one character
+            // forward, because it resolves a collapsed range to a point.
             Transforms.insertText(editor, insertedText, {
               at: selection,
             });

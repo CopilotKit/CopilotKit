@@ -1,13 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
   buildKnobDiffAssertion,
   AGENT_CONFIG_PROBES,
   RESPONSE_LENGTH_DELTA_MIN,
-  type KnobSnapshot,
 } from "./d5-agent-config.js";
+import type { KnobSnapshot } from "./d5-agent-config.js";
 
 function makePage(transcript: string): Page {
   return {
@@ -54,6 +55,36 @@ describe("d5-agent-config script", () => {
     expect(inputs[3]).toContain("expertise:expert");
     expect(inputs[4]).toContain("responseLength:concise");
     expect(inputs[5]).toContain("responseLength:detailed");
+  });
+
+  it("changes the real config controls before every turn", async () => {
+    const selected: Array<[string, string]> = [];
+    const page = makePage("");
+    const expected: Array<[string, string]> = [
+      ['[data-testid="agent-config-tone-select"]', "professional"],
+      ['[data-testid="agent-config-tone-select"]', "casual"],
+      ['[data-testid="agent-config-expertise-select"]', "beginner"],
+      ['[data-testid="agent-config-expertise-select"]', "expert"],
+      ['[data-testid="agent-config-length-select"]', "concise"],
+      ['[data-testid="agent-config-length-select"]', "detailed"],
+    ];
+    page.evaluate = async <R>(fn: () => R) => {
+      const next = expected[selected.length]!;
+      const source = fn.toString();
+      expect(source).toContain(JSON.stringify(next[0]));
+      expect(source).toContain(JSON.stringify(next[1]));
+      selected.push(next);
+      return true as R;
+    };
+    const turns = buildTurns({
+      integrationSlug: "strands-typescript",
+      featureType: "agent-config",
+      baseUrl: "https://x.test",
+    });
+
+    for (const turn of turns) await turn.preFill?.(page);
+
+    expect(selected).toEqual(expected);
   });
 
   it("AGENT_CONFIG_PROBES covers tone / expertise / responseLength", () => {

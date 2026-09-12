@@ -11,7 +11,7 @@ description: Public Slack, Teams, Discord, Telegram, and WhatsApp adapter entry 
 | Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, Telegram, and WhatsApp |
 
 Managed Intelligence support for Discord and WhatsApp is coming soon. Their
-direct adapters already ship in `@copilotkit/channels@0.6.1`.
+direct adapters already ship in `@copilotkit/channels@0.9.2`.
 
 <Callout type="info" title="Direct does not mean standalone">
   A direct adapter moves the provider connection into your process. The
@@ -27,7 +27,7 @@ direct adapters already ship in `@copilotkit/channels@0.6.1`.
 Install the umbrella package and its tested runtime version:
 
 ```sh
-npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
+npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2
 ```
 
 The package and all provider subpaths are ESM-only public exports. Use

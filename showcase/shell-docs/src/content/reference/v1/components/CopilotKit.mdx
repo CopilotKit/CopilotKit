@@ -7,7 +7,7 @@ description: "The CopilotKit provider component, wrapping your application."
  /*
   * ATTENTION! DO NOT MODIFY THIS FILE!
   * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * packages/react-core/src/components/copilot-provider/copilotkit.tsx
+  * packages/react-core/src/v1-deprecated/components/copilot-provider/copilotkit.tsx
   */
 }
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
@@ -27,22 +27,15 @@ import { CopilotKit } from "@copilotkit/react-core";
 ## Properties
 
 <PropertyReference name="publicApiKey" type="string"  > 
-Your Copilot Cloud API key.
- 
-  Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
+Your CopilotKit public license key.
 </PropertyReference>
 
 <PropertyReference name="publicLicenseKey" type="string"  > 
-Your public license key for accessing Enterprise Intelligence Platform features.
- 
-  Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
+Your public license key for accessing CopilotKit Intelligence features.
 </PropertyReference>
 
 <PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  > 
-Restrict input to specific topics using guardrails.
-  @remarks
- 
-  This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+@internal Defunct — retained for backward compatibility.
 </PropertyReference>
 
 <PropertyReference name="runtimeUrl" type="string"  > 
@@ -91,7 +84,7 @@ Custom properties to be sent with the request.
   }
   ```
  
-  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/coagents/shared/guides/langgraph-platform-authentication) for details.
+  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/auth) for details.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials"  > 
@@ -128,10 +121,7 @@ The forwarded parameters to use for the task.
 </PropertyReference>
 
 <PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  > 
-The auth config to use for the CopilotKit.
-  @remarks
- 
-  This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+@internal Defunct — retained for backward compatibility.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string"  > 
@@ -141,15 +131,11 @@ The thread id to use for the CopilotKit.
 <PropertyReference name="onError" type="CopilotErrorHandler"  > 
 Optional error handler for comprehensive debugging and observability.
  
-  Requires publicApiKey: Error handling only works when publicApiKey is provided.
-  This is an Enterprise Intelligence Platform feature.
- 
   @param errorEvent - Structured error event with rich debugging context
  
   @example
   ```typescript
   <CopilotKit
-    publicApiKey="ck_pub_your_key"
     onError={(errorEvent) => {
       debugDashboard.capture(errorEvent);
     }}
@@ -159,8 +145,9 @@ Optional error handler for comprehensive debugging and observability.
 
 <PropertyReference name="enableInspector" type="boolean"  > 
 Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
-  view agent messages, check agent state, and visualize agent context. Defaults
-  to enabled.
+  view agent messages, check agent state, and visualize agent context. The
+  Inspector is enabled by default in development browser builds and is always
+  disabled in production and during server rendering.
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig"  > 
@@ -177,3 +164,4 @@ Enable debug logging. On the server (`CopilotRuntime`), this enables
   </CopilotKit>
   ```
 </PropertyReference>
+

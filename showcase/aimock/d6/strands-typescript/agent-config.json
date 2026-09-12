@@ -6,9 +6,9 @@
   },
   "fixtures": [
     {
-      "_comment": "agent-config tone:professional pill — value-A. Response must differ from tone:casual below.",
+      "_comment": "agent-config tone value-A. Requires the real UI config in the context-enriched Strands prompt.",
       "match": {
-        "userMessage": "tone:professional",
+        "userMessage": "{\"tone\":\"professional\",\"expertise\":\"intermediate\",\"responseLength\":\"concise\"}\n\nUser request: tone:professional",
         "context": "strands-typescript"
       },
       "response": {
@@ -16,9 +16,9 @@
       }
     },
     {
-      "_comment": "agent-config tone:casual pill — value-B. Must differ from tone:professional above.",
+      "_comment": "agent-config tone value-B. Requires the real UI config in the context-enriched Strands prompt.",
       "match": {
-        "userMessage": "tone:casual",
+        "userMessage": "{\"tone\":\"casual\",\"expertise\":\"intermediate\",\"responseLength\":\"concise\"}\n\nUser request: tone:casual",
         "context": "strands-typescript"
       },
       "response": {
@@ -26,9 +26,9 @@
       }
     },
     {
-      "_comment": "agent-config expertise:beginner pill — value-A. Response must differ from expertise:expert below.",
+      "_comment": "agent-config expertise value-A. Requires the real UI config in the context-enriched Strands prompt.",
       "match": {
-        "userMessage": "expertise:beginner",
+        "userMessage": "{\"tone\":\"casual\",\"expertise\":\"beginner\",\"responseLength\":\"concise\"}\n\nUser request: expertise:beginner",
         "context": "strands-typescript"
       },
       "response": {
@@ -36,9 +36,9 @@
       }
     },
     {
-      "_comment": "agent-config expertise:expert pill — value-B. Must differ from expertise:beginner above.",
+      "_comment": "agent-config expertise value-B. Requires the real UI config in the context-enriched Strands prompt.",
       "match": {
-        "userMessage": "expertise:expert",
+        "userMessage": "{\"tone\":\"casual\",\"expertise\":\"expert\",\"responseLength\":\"concise\"}\n\nUser request: expertise:expert",
         "context": "strands-typescript"
       },
       "response": {
@@ -46,9 +46,9 @@
       }
     },
     {
-      "_comment": "agent-config responseLength:concise pill — value-A. Response must be shorter than responseLength:detailed below by >= 80 chars.",
+      "_comment": "agent-config response-length value-A. Requires the real UI config in the context-enriched Strands prompt.",
       "match": {
-        "userMessage": "responseLength:concise",
+        "userMessage": "{\"tone\":\"casual\",\"expertise\":\"expert\",\"responseLength\":\"concise\"}\n\nUser request: responseLength:concise",
         "context": "strands-typescript"
       },
       "response": {
@@ -56,9 +56,9 @@
       }
     },
     {
-      "_comment": "agent-config responseLength:detailed pill — value-B. Must exceed concise response length by >= 80 chars.",
+      "_comment": "agent-config response-length value-B. Requires the real UI config in the context-enriched Strands prompt.",
       "match": {
-        "userMessage": "responseLength:detailed",
+        "userMessage": "{\"tone\":\"casual\",\"expertise\":\"expert\",\"responseLength\":\"detailed\"}\n\nUser request: responseLength:detailed",
         "context": "strands-typescript"
       },
       "response": {

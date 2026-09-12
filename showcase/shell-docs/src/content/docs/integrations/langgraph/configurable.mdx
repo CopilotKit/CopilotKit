@@ -1,163 +1,117 @@
 ---
 title: "Configurable"
 icon: "lucide/Bolt"
-description: "Using agent execution parameters when communicating with an agent."
+description: "Choose the supported channel for LangGraph runtime values and execution settings."
 ---
-## What is this?
-LangGraph agents are able to take execution parameters, such as auth tokens and similar properties.
-You can add these using this feature.
 
-If you wish to read further, you can refer to [the configuration guide by LangGraph](https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration)
+## Choose the right channel
 
-## When should I use this?
+Some LangGraph adapters merge browser-supplied `forwardedProps.config` into
+LangGraph's `RunnableConfig`. Those values remain browser-controlled and
+untrusted, even when a LangGraph config schema accepts them. Never use them for
+credentials, tenant identity, authorization, or server execution controls.
+Keep the trust boundary explicit and use the channel that matches the value:
 
-This is useful when you want to send execution-time configuration information (such as different tokens or metadata for a given session) that should not be part of the agent state.
+| Value | Supported channel |
+| --- | --- |
+| UI preferences the model should see | Publish them with your frontend's agent-context API; see [Agent Config](/agent-config). |
+| Authentication and authorization | Send an `Authorization` header and validate it for every request; see [Authentication](/auth). |
+| Graph execution settings | Set them in the trusted backend that invokes or serves the graph. |
 
-<Callout type="info" title="Looking for authentication?">
-  If you need to pass authentication tokens specifically, see the dedicated [Authentication guide](/langgraph/auth) which covers LangGraph Platform and self-hosted authentication patterns in detail.
+<Callout type="warning" title="Do not send credentials as run properties">
+  Run properties are application payload, not an authentication or LangGraph
+  configuration channel. Validate credentials at the server boundary and pass
+  only the resolved identity to the graph.
 </Callout>
 
-## Implementation
+## Model-visible UI preferences
 
-By default, LangGraph agents are invoked with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.
-
-<Steps>
-<Step>
-### Pass configuration from the frontend
-First, pass the configuration properties as you would like to receive them in the agent.
+For tone, expertise level, response length, selected records, or other
+non-secret values that should influence the model, publish them as agent
+context. The [Agent Config guide](/agent-config) shows the complete pattern and
+how CopilotKit middleware exposes the latest values on every turn.
 
 <FrontendOnly frontend="react">
-Do not call `runAgent` directly in the component body: it would run on every render and can trigger errors such as **thread is already processing**. Use a `useEffect` with an empty dependency array (or call `runAgent` from an event handler) when you want to start the run once with a given config.
-
-```tsx title="app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
-import { useEffect } from "react";
-function YourMainContent() {
-  // ...
-
-  // [!code highlight:3]
-  const { agent } = useAgent({
-    agentId: "sample_agent",
-  });
-
-  // Pass configuration when running the agent
-  // [!code highlight:8]
-  useEffect(() => {
-    agent.runAgent({
-      forwardedProps: {
-        config: {
-          configurable: {
-            authToken: 'example-token'
-          },
-          recursion_limit: 50,
-        }
-      }
-    });
-  }, []);
-
-  // ...
-
-  return (... your component UI markdown)
-}
-```
+  In React, publish the values with
+  [`useAgentContext`](/reference/v2/hooks/useAgentContext).
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
-Call `runAgent` from an event handler or another intentional lifecycle point. Calling it during component initialization without a guard can start duplicate runs.
-
-```typescript title="app.component.ts"
-import { Component, inject } from "@angular/core";
-import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
-
-@Component({
-  selector: "app-root",
-  template: `<button (click)="runWithConfig()">Start agent</button>`,
-})
-export class AppComponent {
-  private readonly copilotKit = inject(CopilotKit);
-  private readonly store = injectAgentStore("sample_agent");
-
-  async runWithConfig(): Promise<void> {
-    await this.copilotKit.core.runAgent({
-      agent: this.store().agent,
-      forwardedProps: {
-        config: {
-          configurable: {
-            authToken: "example-token",
-          },
-          recursion_limit: 50,
-        },
-      },
-    });
-  }
-}
-```
+  In Angular, publish the values with
+  [`connectAgentContext`](/reference/angular/functions/connectAgentContext).
 </FrontendOnly>
-</Step>
-<Step>
-### Use configurables in agent
-Now you can simply pull the values from the provided config argument in any agent node
+
+## Authentication
+
+Authentication belongs in request headers, not graph state or runtime
+properties. The [Authentication guide](/auth) covers both
+LangGraph Platform and self-hosted AG-UI endpoints. In both cases, validate the
+current request before the graph runs and inject only a resolved user or tenant
+identifier.
+
+## Trusted graph execution settings
+
+Set graph configuration in backend code after validating any input that
+influences it. Do not accept a browser-supplied configuration object wholesale.
 
 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
-    <Tab value="Python">
-        ```python
-        from langchain_core.runnables import RunnableConfig
+  <Tab value="Python">
+    For a self-hosted AG-UI endpoint, construct a request-local
+    `LangGraphAGUIAgent` with backend-owned configuration:
 
-        async def agent_node(state: AgentState, config: RunnableConfig):
+    ```python title="main.py"
+    from copilotkit import LangGraphAGUIAgent
 
-            auth_token = config['configurable'].get('authToken', None)
+    def build_agent(tenant_id: str) -> LangGraphAGUIAgent:
+        return LangGraphAGUIAgent(
+            name="sample_agent",
+            description="Tenant-scoped agent",
+            graph=graph,
+            config={
+                "configurable": {"tenant_id": tenant_id},
+                "recursion_limit": 50,
+            },
+        )
+    ```
 
-            return state
-        ```
-    </Tab>
-    <Tab value="TypeScript">
-        ```typescript
-        async function agentNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            const authToken = config.configurable?.authToken ?? null;
+    A node can then read the validated value from the configuration supplied by
+    the server:
 
-            return state;
-        }
-        ```
-    </Tab>
+    ```python
+    from langchain_core.runnables import RunnableConfig
+
+    async def agent_node(state: AgentState, config: RunnableConfig):
+        tenant_id = config["configurable"]["tenant_id"]
+        return state
+    ```
+
+    Create the agent after authentication for each request, as shown in the
+    [self-hosted authentication guide](/auth).
+  </Tab>
+
+  <Tab value="TypeScript">
+    Set runtime context and execution controls where your trusted backend
+    invokes the graph. `recursionLimit` is a top-level execution setting; your
+    application values belong in `context`:
+
+    ```typescript title="agent.ts"
+    const result = await graph.invoke(input, {
+      context: { tenantId: verifiedTenantId },
+      recursionLimit: 50,
+    });
+    ```
+
+    Read the validated context through the node's LangGraph runtime. See
+    [LangGraph's runtime configuration guide](https://docs.langchain.com/oss/javascript/langgraph/use-graph-api#add-runtime-configuration)
+    for the matching context schema and node signature.
+  </Tab>
 </Tabs>
-</Step>
-<Step>
-    ### Optional: Define configurables schema
-    If you'd like, you can define a schema to indicate which configurables you wish to receive.
-    Any item passed to "configurables" which is not included in the schema, will be filtered out.
 
-    You can read more about this [here](https://docs.langchain.com/oss/python/langgraph/use-graph-api#add-runtime-configuration).
-    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
-        <Tab value="Python">
-            ```python
-            from typing import TypedDict
+## What not to do
 
-            # define which properties will be allowed in the configuration
-            class ConfigSchema(TypedDict):
-              authToken: str
-
-            # ...add all necessary graph nodes
-
-            # when defining the state graph, apply the config schema
-            workflow = StateGraph(AgentState, config_schema=ConfigSchema)
-            ```
-        </Tab>
-        <Tab value="TypeScript">
-            ```typescript
-            import { StateSchema } from "@langchain/langgraph";
-            import { z } from "zod";
-
-            // define which properties will be allowed in the configuration
-            export const ConfigSchema = new StateSchema({
-              authToken: z.string()
-            })
-
-            // ...add all necessary graph nodes
-
-            // when defining the state graph, apply the config schema
-            const workflow = new StateGraph(AgentStateSchema, ConfigSchema)
-            ```
-        </Tab>
-    </Tabs>
-</Step>
-</Steps>
+- Do not put raw credentials in model-visible context or graph state.
+- Do not persist credentials merely to make them available on later turns.
+- Do not trust a value merely because an adapter placed it in `RunnableConfig`.
+- Do not let a browser choose recursion limits, callbacks, metadata, or other
+  server execution controls.
+- Do not reuse request-scoped identity between runs. Validate every request.

@@ -29,6 +29,6 @@ backend, runtime routing, and fixtures under
 
 ## Deployment
 
-The manifest remains `deployed: false` until a dedicated Railway service is
-provisioned. Local D6 verification runs through the
-`crewai-conversational-flows` compose service on port 3120.
+The dedicated production Railway service is provisioned and tracked in the
+Railway SSOT, and the manifest is marked `deployed: true`. Local D6 verification
+runs through the `crewai-conversational-flows` compose service on port 3120.

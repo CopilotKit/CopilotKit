@@ -504,9 +504,7 @@ const nextConfig: NextConfig = {
       // to /<page>. Specific entries first (they must win over the
       // catch-all), then the catch-all that strips the prefix.
       // ----------------------------------------------------------------
-      // BIA's AG-UI backend page lives at /backend/ag-ui at the root —
-      // the bare /ag-ui segment is owned by the AG-UI protocol docs
-      // (src/app/ag-ui/), so the page can't keep its old slug.
+      // BIA's AG-UI backend page lives at /backend/ag-ui at the root.
       {
         source: "/built-in-agent/ag-ui",
         destination: "/backend/ag-ui",
@@ -518,6 +516,21 @@ const nextConfig: NextConfig = {
       {
         source: "/built-in-agent/tutorials/:path*",
         destination: "/quickstart",
+        permanent: true,
+      },
+      // The Intelligence folder was renamed `premium/` → `intelligence/`
+      // (OSS-1078). Without these two entries the catch-all below strips
+      // the prefix to `/premium/...`, which the middleware then renames in
+      // a second hop. Naming the rename here keeps BIA at one hop, like
+      // every other framework slug.
+      {
+        source: "/built-in-agent/premium",
+        destination: "/intelligence/overview",
+        permanent: true,
+      },
+      {
+        source: "/built-in-agent/premium/:path*",
+        destination: "/intelligence/:path*",
         permanent: true,
       },
       {
@@ -675,12 +688,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/learn/threads",
-        destination: "/premium/threads-explained",
+        destination: "/intelligence/threads-explained",
         permanent: true,
       },
       {
         source: "/learn/intelligence-platform",
-        destination: "/premium/intelligence-platform",
+        destination: "/intelligence/intelligence-platform",
         permanent: true,
       },
       {
@@ -746,8 +759,8 @@ const nextConfig: NextConfig = {
 
       // Concepts subgroup tightened: protocol pages moved into a new
       // /agentic-protocols/ section under Get Started, the
-      // Intelligence Platform + Threads explanation pages moved to
-      // Enterprise (/premium/), and three-types-of-gen-ui merged into
+      // Intelligence + Threads explanation pages moved to
+      // Enterprise (/intelligence/), and three-types-of-gen-ui merged into
       // /concepts/generative-ui-overview. Per-path redirects below
       // catch URLs that were live in the brief window between the
       // first /learn/ consolidation pass and this restructure.
@@ -773,12 +786,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/concepts/intelligence-platform",
-        destination: "/premium/intelligence-platform",
+        destination: "/intelligence/intelligence-platform",
         permanent: true,
       },
       {
         source: "/concepts/threads",
-        destination: "/premium/threads-explained",
+        destination: "/intelligence/threads-explained",
         permanent: true,
       },
       {
@@ -810,6 +823,15 @@ const nextConfig: NextConfig = {
         destination: "/reference/v2/hooks/useSuggestions",
         permanent: true,
       },
+      // The v1 Python SDK class was renamed upstream (langgraph_agent.py ->
+      // langgraph_agui_agent.py, LangGraphAgent -> LangGraphAGUIAgent), so the
+      // generated reference page moved with it. Carry the .md/.mdx suffixes
+      // too: a raw Markdown request reaches redirects before the .md/.mdx
+      // rewrite, so a bare-path-only rule would 404 the LLM routes.
+      ...permanentRedirectsWithSuffixes(
+        "/reference/v1/sdk/python/LangGraphAgent",
+        "/reference/v1/sdk/python/LangGraphAGUIAgent",
+      ),
       // AI-slop placeholder pulled from nav until properly authored;
       // file stays on disk for rewrite.
       {

@@ -222,6 +222,7 @@ async function sendUiMessage(
     role?: string;
     content?: Array<{ type: string; text?: string }>;
     followUp?: boolean;
+    _meta?: Record<string, unknown>;
   },
 ) {
   const msg = new MessageEvent("message", {
@@ -297,6 +298,34 @@ describe("MCP Apps ui/message followUp behavior", () => {
     expect(assistCalls.length).toBeGreaterThanOrEqual(1);
 
     // run() should NOT have been called
+    expect(runSpy.mock.calls.length).toBe(0);
+  });
+
+  it("reads role/followUp from params._meta.copilotkit (extension channel)", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "ui-msg-agent-meta";
+
+    const iframe = await setupMCPActivity(
+      agent,
+      "ui-msg-agent-meta",
+      "Meta test",
+    );
+
+    const runSpy = vi.spyOn(agent, "run");
+
+    // No top-level role/followUp; the extensions come through _meta.copilotkit.
+    await sendUiMessage(iframe, {
+      content: [{ type: "text", text: "Via meta channel" }],
+      _meta: { copilotkit: { role: "assistant", followUp: false } },
+    });
+
+    // role from _meta is honored: message added as assistant.
+    const assistCalls = agent.addMessageCalls.filter(
+      (c) => c.content === "Via meta channel" && c.role === "assistant",
+    );
+    expect(assistCalls.length).toBeGreaterThanOrEqual(1);
+
+    // followUp:false from _meta is honored: the agent does NOT run.
     expect(runSpy.mock.calls.length).toBe(0);
   });
 

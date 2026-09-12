@@ -499,7 +499,7 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
     async openThreads() {
       await flushInspector(inspector);
       const openButton = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!openButton) throw new Error("Web Inspector open button not found");
       openButton.click();
@@ -935,6 +935,7 @@ test("enabled zero keeps all three local examples and their providers off real r
     initialEndpoints: LIST_AND_INSPECT,
     listHasRow: false,
   });
+  vi.spyOn(harness.core, "intelligence", "get").mockReturnValue({ wsUrl: "" });
   try {
     await vi.waitFor(() => expect(harness.requests().list).toBe(1));
     await harness.openThreads();

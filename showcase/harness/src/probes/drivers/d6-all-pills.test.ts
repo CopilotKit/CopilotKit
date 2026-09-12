@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   BrowserDisconnectedError,
   createE2eFullDriver,
@@ -33,6 +33,16 @@ import type {
   ProbeResult,
   ProbeResultWriter,
 } from "../../types/index.js";
+
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(null, { status: 204 }),
+  );
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // Driver tests for the e2e-full (D6) ProbeDriver.
 //
@@ -307,6 +317,61 @@ describe("e2e-full driver", () => {
   });
 
   describe("happy path", () => {
+    it("clears backend thread state once without changing a green result when cleanup rejects", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const browser = makeBrowser();
+      let browserClosed = false;
+      browser.close = async () => {
+        browserClosed = true;
+      };
+      const driver = createE2eFullDriver({
+        launcher: async () => browser,
+        scriptLoader: noopScriptLoader(),
+      });
+      const fetchSpy = vi.mocked(globalThis.fetch);
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      fetchSpy.mockImplementationOnce(async () => {
+        expect(browserClosed).toBe(true);
+        throw new Error("thread clear rejected");
+      });
+
+      const result = await driver.run(makeCtx(), {
+        key: "e2e_d6:showcase-test-slug",
+        backendUrl: "https://backend.example.com",
+        publicUrl: "https://public.example.com",
+        features: ["agentic-chat"],
+      });
+
+      expect(result).toMatchObject({
+        key: "e2e_d6:showcase-test-slug",
+        state: "green",
+        signal: {
+          shape: "package",
+          slug: "test-slug",
+          backendUrl: "https://backend.example.com",
+          total: 1,
+          passed: 1,
+          failed: [],
+        },
+      });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://backend.example.com/api/copilotkit-voice/threads/clear",
+        {
+          method: "POST",
+          signal: expect.any(AbortSignal),
+        },
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        "probe.e2e.threads-clear-failed",
+        expect.objectContaining({
+          slug: "test-slug",
+          err: "thread clear rejected",
+        }),
+      );
+    });
+
     it("runs registered features and emits aggregate green", async () => {
       registerD5Script(makeScript(["agentic-chat"]));
 

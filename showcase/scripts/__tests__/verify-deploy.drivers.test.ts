@@ -32,6 +32,7 @@ import { probeShell } from "../verify-deploy.drivers.shell";
 import {
   checkProductionDocsCanonicalHost,
   probeDocs,
+  validateDocsAuthRuntimeConfig,
 } from "../verify-deploy.drivers.docs";
 import { probeDashboard } from "../verify-deploy.drivers.dashboard";
 import { probeDojo } from "../verify-deploy.drivers.dojo";
@@ -724,7 +725,15 @@ describe.each(DRIVER_CASES)(
       const fetchImpl = makeFetch((url) => {
         if (url.includes("/graphql/v2"))
           return gqlDeploymentResponse("SUCCESS");
-        return Promise.resolve(mkResponse({ status: 200 }));
+        return Promise.resolve(
+          mkResponse({
+            status: 200,
+            text:
+              label === "docs"
+                ? '<script>window.__SHOWCASE_CONFIG__={"intelligenceSignupUrl":"https://dashboard.staging.operations.copilotkit.ai","clerkPublishableKey":"pk_test_shared"};</script>'
+                : undefined,
+          }),
+        );
       });
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         const out = await driver({
@@ -908,6 +917,7 @@ describe("probeDocs production canonical-host guard", () => {
       return Promise.resolve(
         mkResponse({
           text:
+            '<script>window.__SHOWCASE_CONFIG__={"intelligenceSignupUrl":"https://dashboard.operations.copilotkit.ai","clerkPublishableKey":"pk_live_shared"};</script>' +
             `<link rel="canonical" href="${canonical}${urlPath}">` +
             `<meta property="og:url" content="${openGraph}${urlPath}">`,
         }),
@@ -935,6 +945,57 @@ describe("probeDocs production canonical-host guard", () => {
     );
     expect(error).toContain("docs.showcase.copilotkit.ai");
     expect(error).toContain("docs.copilotkit.ai");
+  });
+});
+
+describe("docs deployed auth runtime-config guard", () => {
+  const html = (opsUrl: string, publishableKey: string) =>
+    `<script>window.__SHOWCASE_CONFIG__=${JSON.stringify({
+      intelligenceSignupUrl: opsUrl,
+      clerkPublishableKey: publishableKey,
+    })};</script>`;
+
+  it("accepts the matching stable non-production Ops origin and Clerk key", () => {
+    expect(
+      validateDocsAuthRuntimeConfig(
+        html(
+          "https://dashboard.staging.operations.copilotkit.ai",
+          "pk_test_shared",
+        ),
+        "https://dashboard.staging.operations.copilotkit.ai",
+        "pk_test_",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("rejects a missing Clerk publishable key", () => {
+    expect(
+      validateDocsAuthRuntimeConfig(
+        html("https://dashboard.operations.copilotkit.ai", ""),
+        "https://dashboard.operations.copilotkit.ai",
+        "pk_live_",
+      ),
+    ).toContain("clerkPublishableKey");
+  });
+
+  it("rejects the non-production Clerk key in production", () => {
+    expect(
+      validateDocsAuthRuntimeConfig(
+        html("https://dashboard.operations.copilotkit.ai", "pk_test_shared"),
+        "https://dashboard.operations.copilotkit.ai",
+        "pk_live_",
+      ),
+    ).toContain("pk_live_");
+  });
+
+  it("rejects a production Ops URL in stable non-production", () => {
+    expect(
+      validateDocsAuthRuntimeConfig(
+        html("https://dashboard.operations.copilotkit.ai", "pk_test_shared"),
+        "https://dashboard.staging.operations.copilotkit.ai",
+        "pk_test_",
+      ),
+    ).toContain("dashboard.staging.operations.copilotkit.ai");
   });
 });
 

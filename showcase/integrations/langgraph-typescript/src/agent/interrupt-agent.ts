@@ -10,6 +10,8 @@
  * Ported from `src/agents/interrupt_agent.py` in the langgraph-python package.
  */
 
+import { makeChatOpenAI } from "./openai-headers";
+
 // @region[backend-interrupt-tool]
 import { z } from "zod";
 import type { RunnableConfig } from "@langchain/core/runnables";
@@ -24,9 +26,6 @@ import {
   Annotation,
   interrupt,
 } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
-import { makeChatOpenAI } from "./openai-headers";
-
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,

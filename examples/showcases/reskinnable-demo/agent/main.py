@@ -1,0 +1,202 @@
+"""FastAPI server exposing banking's deep agent over AG-UI.
+
+The reskinnable demo's Next app registers this endpoint as an ordinary AG-UI
+agent (`HttpAgent`) in its server agent registry, so every event this service
+emits — reasoning, tool calls, subagent activity, the final report tool — rides
+the same AG-UI stream as any other agent in the app.
+"""
+
+import os
+import pathlib
+
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from copilotkit import LangGraphAGUIAgent
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from agent import build_agent
+
+# Read the DEMO's `.env` as well as this service's own.
+#
+# The app and this agent need the same keys (`OPENAI_API_KEY` for both,
+# `TAVILY_API_KEY` for merchant research), and asking an operator to keep two
+# env files in sync is a trap: the failure is silent and looks like the agent
+# ignoring a key that is plainly sitting in `.env`.
+#
+# `agent/.env` is loaded FIRST and wins on conflict (python-dotenv does not
+# override already-set values), so this service can still be pointed somewhere
+# else — a different model, a separate quota — without touching the app's file.
+_HERE = pathlib.Path(__file__).parent
+load_dotenv(_HERE / ".env")
+load_dotenv(_HERE.parent / ".env")
+
+app = FastAPI(
+    title="Northwind offsite-expenses agent",
+    description="LangChain deep agent behind the reskinnable demo's banking skin",
+    version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+def health():
+    """Health check — `run-demo.sh` and docker-compose both wait on this."""
+    return {"status": "ok", "service": "banking-agent"}
+
+
+class BankingAGUIAgent(LangGraphAGUIAgent):
+    """`LangGraphAGUIAgent` with a working `clone()`.
+
+    WORKAROUND for an incompatibility between two published packages, not a
+    preference. `ag_ui_langgraph`'s endpoint clones the agent on EVERY request
+    (`endpoint.py`, for per-request state isolation), and since upstream commit
+    3dec0125 "feat(langgraph): add structured interrupt/resume support"
+    (2026-06-12, released in ag-ui-langgraph 0.0.42) the base `clone()` passes
+    three newer keyword arguments — `enable_legacy_on_interrupt_event`,
+    `emit_interrupt_outcome`, `emit_raw_events`.
+
+    `copilotkit`'s `LangGraphAGUIAgent.__init__` accepts only
+    `(name, graph, description, config)` and does not override `clone()`, so on
+    ag-ui-langgraph >= 0.0.42 every single request dies with:
+
+        TypeError: LangGraphAGUIAgent must override clone() or ensure its
+        __init__ accepts (name, graph, description, config) as keyword
+        arguments: ... unexpected keyword argument
+        'enable_legacy_on_interrupt_event'
+
+    Verified against copilotkit 0.1.95 (the current release AND this repo's own
+    `sdk-python` source) with ag-ui-langgraph 0.0.43.
+
+    Dropping the three flags is safe HERE: this agent uses no structured
+    interrupts and does not consume raw events, so the base defaults are what we
+    want anyway. The real fix belongs in the SDK — either a `clone()` override
+    or a `**kwargs` passthrough in
+    `sdk-python/copilotkit/langgraph_agui_agent.py`. Delete this class once that
+    ships.
+    """
+
+    def clone(self):
+        clone = type(self)(
+            name=self.name,
+            graph=self.graph,
+            description=self.description,
+            config=dict(self.config) if self.config else None,
+        )
+        # Carry the flag across the per-request clone by hand.
+        #
+        # `emit_raw_events` defaults to True, which piggybacks LangChain's
+        # internal event objects onto the AG-UI stream. On a multi-minute run
+        # that is most of the payload — a measured run streamed ~27MB, of which
+        # RAW was the single largest event category. The thread PERSISTS those
+        # events (a completed run replayed 8221 of them), and this demo's whole
+        # premise is that you can leave a running thread and come back to it, so
+        # the replay path pays that weight every time.
+        #
+        # Nothing downstream reads RAW: the report card renders off
+        # TOOL_CALL_RESULT and the transcript off TEXT_MESSAGE_*.
+        #
+        # It is set as an ATTRIBUTE rather than a constructor argument because
+        # `copilotkit`'s `LangGraphAGUIAgent.__init__` accepts only
+        # (name, graph, description, config) — the same narrow signature behind
+        # the clone() bug this class already works around.
+        clone.emit_raw_events = self.emit_raw_events
+        # Same reason, higher stakes. `emit_subagent_events` is what makes the
+        # nested analyst and its researchers representable at all — lifecycle
+        # events, `subagentRunId` attribution, and (the part this demo needs)
+        # subagent messages persisting across turns via the snapshot.
+        #
+        # The BASE `clone()` forwards it; this override does not, because it
+        # exists precisely to stop passing kwargs the copilotkit subclass cannot
+        # take. So every flag the base would have carried has to be re-applied by
+        # hand here, and forgetting one is silent: the endpoint clones per
+        # request, so the flag would be set on an object no request ever uses and
+        # the stream would quietly revert to pre-subagent behaviour.
+        clone.emit_subagent_events = self.emit_subagent_events
+        return clone
+
+    async def run(self, input):
+        """Log what the host sent, once per run.
+
+        NOT once per process. A run against the Intelligence runtime arrives as
+        TWO calls into this service: thread-name generation first (two messages,
+        zero tools — correctly, it is only naming the conversation), then the
+        user's actual run carrying the browser's frontend tools plus the
+        Intelligence MCP tools (`recall_memory`, `save_memory`, `forget_memory`,
+        `copilotkit_knowledge_base_shell`).
+
+        Instrumenting only the first call is how you conclude the platform
+        forwards nothing when it forwards everything. It cost a full round of
+        wrong analysis here; the fix is one line, and it is this one.
+        """
+        names = [
+            getattr(t, "name", None) for t in (getattr(input, "tools", None) or [])
+        ]
+        print(
+            f"[banking-agent] run: {len(input.messages or [])} message(s), "
+            f"host sent {len(names)} tool(s) {sorted(n for n in names if n)}",
+            flush=True,
+        )
+        async for event in super().run(input):
+            yield event
+
+
+banking_agent = BankingAGUIAgent(
+    name="banking",
+    description=(
+        "Northwind Finance's banking copilot. Drives the dashboard, renders "
+        "reports on the canvas, and runs the multi-minute offsite-expense "
+        "analysis in a sandboxed shell with parallel research subagents."
+    ),
+    graph=build_agent(),
+    # A multi-minute run over fourteen rows with per-merchant subagents and a
+    # shell burns supersteps fast — a measured run used well over a hundred.
+    # LangGraph's default is 25, and this is the ONLY place the adapter honours
+    # the setting (see the note in `agent.py`).
+    config={"recursion_limit": 300},
+)
+
+# See `clone()` above for why these are attributes rather than constructor
+# arguments: copilotkit's `LangGraphAGUIAgent.__init__` accepts only
+# (name, graph, description, config) and silently drops the rest.
+banking_agent.emit_raw_events = False
+
+# Turn the subagent surface ON. It is opt-in upstream for a good reason: a
+# released `@ag-ui/client` <= 0.0.57 validates every event against a
+# discriminated union IN THE HTTP TRANSPORT, before any middleware runs, so a
+# single `SUBAGENT_STARTED` kills the whole stream and no client-side filter can
+# save it. This app pins `@ag-ui/client` 0.0.59-canary in its own lockfile
+# precisely so it can take these events — which is also why the demo is not a
+# member of the root pnpm workspace (see `pnpm-workspace.yaml`).
+#
+# What it buys, all of which this beat needs:
+#   * subagent messages persist across turns via the snapshot — without it the
+#     whole nested journey collapses to one ToolMessage ("Completed
+#     successfully.") and a rejoin shows a thread that did nothing for minutes;
+#   * per-lane state, so ten concurrent researchers stop shredding their prose
+#     into one interleaved message;
+#   * `subagentRunId` / `parentSubagentRunId`, which give the console real
+#     identity to group by instead of guessing from the first tool call.
+banking_agent.emit_subagent_events = True
+
+add_langgraph_fastapi_endpoint(app=app, agent=banking_agent, path="/")
+
+
+def main():
+    import uvicorn
+
+    host = os.getenv("SERVER_HOST", "0.0.0.0")
+    port = int(os.getenv("SERVER_PORT", "8124"))
+    print(f"[banking-agent] listening on {host}:{port}")
+    uvicorn.run("main:app", host=host, port=port, log_level="info")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,9 +1,11 @@
 ---
 title: Quickstart
-description: Get started with CopilotKit's Built-in Agent in minutes.
+description: Build a working AI chat with CopilotKit in minutes.
 icon: "lucide/Play"
-hideTOC: true
 ---
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+import { QuickstartIntelligenceCta } from "@/components/quickstart-intelligence-cta";
 
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import {
@@ -13,14 +15,6 @@ import {
   MonitorIcon,
 } from "lucide-react";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
-
-<OpsPlatformCTA
-  variant="card"
-  title="Ship the Built-in Agent to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_built_in_agent_quickstart"
-/>
 
 ## Prerequisites
 
@@ -34,15 +28,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Create a free account
-
-        <SignupLink surface="docs_built_in_agent_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
-    </Step>
-
-    <Step>
         ### Create your frontend
 
-        CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+        CopilotKit's React components work with Next.js, React Router, Remix, TanStack Start, Vite, and other React apps. This walkthrough uses Next.js because it can host the frontend and runtime in one project.
 
         ```bash
         npx create-next-app@latest my-copilot-app
@@ -50,15 +38,19 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="Already have an app?">
-          Skip this step and install CopilotKit into your existing React or Next.js project. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) scaffolds a brand-new project in its own directory — it does not add CopilotKit to an app you already have.
+          Keep your current setup and install CopilotKit there. Use the [React SPA guide](/react-spa) for a client-only Vite app, or [deploy the runtime to your server framework](/runtime-server-adapter) with the React Router or TanStack Start examples. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
         </Callout>
     </Step>
     <Step>
         ### Install CopilotKit packages
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime
+        npm install @copilotkit/react-core @copilotkit/runtime
         ```
+
+        The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
+        stylesheet all come from `@copilotkit/react-core/v2`, so
+        `@copilotkit/react-ui` is not needed for this setup.
     </Step>
     <Step>
         ### Configure your environment
@@ -70,7 +62,7 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="What about other models?">
-          This example uses OpenAI's GPT-4o. See [Model Selection](/model-selection) for Anthropic, Google, or custom model setup.
+          This example uses an OpenAI model. See [Model Selection](/model-selection) for Anthropic, Google, or custom model setup.
         </Callout>
     </Step>
     <Step>
@@ -78,30 +70,42 @@ Before you begin, you'll need the following:
 
         Create an API route with the `BuiltInAgent` and `CopilotRuntime`:
 
-        ```ts title="app/api/copilotkit/route.ts"
+        <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
+          `BuiltInAgent` is CopilotKit's *own* agent — it calls the model
+          directly. Registering it as `default` means chat talks to it, not to
+          any agent you already wrote. It replaces your agent rather than
+          connecting to it.
+
+          If you already have a LangGraph, CrewAI, Mastra, ADK, Pydantic AI or
+          other agent, take the frontend steps from this page but get the runtime
+          wiring from **your framework's** quickstart, which registers *your*
+          agent instead — for example
+          [LangGraph (Python)](/langgraph-python/quickstart). Pick yours from
+          [the docs landing](/).
+        </Callout>
+
+        ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
         import {
           CopilotRuntime,
-          copilotRuntimeNextJSAppRouterEndpoint,
-        } from "@copilotkit/runtime";
+          createCopilotRuntimeHandler,
+        } from "@copilotkit/runtime/v2";
         import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
-        import { NextRequest } from "next/server";
 
         const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
           model: "openai:gpt-5.4-mini",
         });
 
         const runtime = new CopilotRuntime({
-          agents: { default: builtInAgent }, // [!code highlight]
+          agents: { default: builtInAgent }, // [!code highlight],
         });
 
-        export const POST = async (req: NextRequest) => {
-          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-            runtime,
-            endpoint: "/api/copilotkit",
-          });
+        const handler = createCopilotRuntimeHandler({
+          runtime,
+          basePath: "/api/copilotkit",
+        });
 
-          return handleRequest(req);
-        };
+        export const GET = handler;
+        export const POST = handler;
         ```
     </Step>
     <Step>
@@ -110,7 +114,7 @@ Before you begin, you'll need the following:
         Wrap your application with the CopilotKit provider:
 
         ```tsx title="app/layout.tsx"
-        import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { CopilotKitProvider } from "@copilotkit/react-core/v2"; // [!code highlight]
         import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
         import './globals.css';
 
@@ -121,14 +125,22 @@ Before you begin, you'll need the following:
             <html lang="en">
               <body>
                 {/* [!code highlight:3] */}
-                <CopilotKit runtimeUrl="/api/copilotkit">
+                <CopilotKitProvider runtimeUrl="/api/copilotkit">
                   {children}
-                </CopilotKit>
+                </CopilotKitProvider>
               </body>
             </html>
           );
         }
         ```
+
+        <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+          `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+          same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+          server of its own and an absolute `runtimeUrl` such as
+          `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+          `/angular` and `/react-native` each show that setup.
+        </Callout>
     </Step>
     <Step>
         ### Add the chat interface
@@ -176,7 +188,7 @@ Before you begin, you'll need the following:
         </Tabs>
     </Step>
     <Step>
-        ### 🎉 Start chatting!
+        ### Start chatting
 
         Your AI agent is now ready to use! Try asking it some questions:
 
@@ -211,11 +223,24 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
 </Steps>
+
+## Keep conversations between visits
+
+Your sample chat is running. When you need production conversation history,
+CopilotKit Intelligence can keep each user's messages, generated interfaces,
+and tool activity available across sessions and devices.
+
+<QuickstartIntelligenceCta />
 
 ## What's next?
 
-Now that you have your basic agent setup, explore these advanced features:
+Now that your basic chat is running, explore these advanced features:
 
 <Cards>
   <Card

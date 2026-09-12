@@ -272,6 +272,84 @@ describe("thread store", () => {
     expect(ɵselectThreads(store.getState())).toHaveLength(1);
   });
 
+  it("ignores realtime upserts whose agentId does not match the store", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+
+    getChannel().serverPush("thread_metadata", {
+      operation: "created",
+      threadId: "thread-other",
+      userId: "user-1",
+      organizationId: "org-1",
+      occurredAt: "2026-01-04T00:00:00Z",
+      thread: {
+        id: "thread-other",
+        organizationId: "org-1",
+        agentId: "agent-2",
+        createdById: "user-1",
+        name: "Other agent",
+        archived: false,
+        createdAt: "2026-01-04T00:00:00Z",
+        updatedAt: "2026-01-04T00:00:00Z",
+      },
+    });
+
+    await flushEffects();
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2", "thread-1"],
+    );
+
+    getChannel().serverPush("thread_metadata", {
+      operation: "created",
+      threadId: "thread-same",
+      userId: "user-1",
+      organizationId: "org-1",
+      occurredAt: "2026-01-04T00:00:01Z",
+      thread: {
+        id: "thread-same",
+        organizationId: "org-1",
+        agentId: "agent-1",
+        createdById: "user-1",
+        name: "Same agent",
+        archived: false,
+        createdAt: "2026-01-04T00:00:01Z",
+        updatedAt: "2026-01-04T00:00:01Z",
+      },
+    });
+
+    await flushEffects();
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-same", "thread-2", "thread-1"],
+    );
+  });
+
   it("notifies run-activity subscribers without mutating the thread list", async () => {
     const fetchMock = vi
       .fn()

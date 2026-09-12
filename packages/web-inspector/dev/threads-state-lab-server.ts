@@ -188,6 +188,10 @@ function findThread(scenario: ThreadsStateScenario, encodedThreadId: string) {
   return scenario.threads.find((thread) => thread.id === threadId);
 }
 
+function learningJoinCode(scenario: ThreadsStateScenario): string {
+  return `memories-${scenario.joinCode}`;
+}
+
 async function readBoundedBody(request: IncomingMessage): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -299,6 +303,33 @@ export function createThreadsStateLabRuntime(): ThreadsStateLabRuntime {
       return jsonResponse(resetScenario(scenario.key));
     }
 
+    if (first === "memories") {
+      if (scenario.learning !== "enabled") {
+        return errorResponse(
+          404,
+          "Automatic Learning is unavailable in this scenario.",
+        );
+      }
+      if (request.method === "GET" && !second) {
+        return jsonResponse({ memories: cloneFixture(scenario.memories) });
+      }
+      if (request.method === "POST" && second === "subscribe" && !third) {
+        return jsonResponse({
+          joinToken: scenario.joinToken,
+          joinCode: learningJoinCode(scenario),
+        });
+      }
+      if (request.method === "POST" && second === "recall" && !third) {
+        return jsonResponse({
+          memories: scenario.memories.map((memory, index) => ({
+            ...cloneFixture(memory),
+            score: Math.max(0.55, 0.95 - index * 0.16),
+          })),
+        });
+      }
+      return errorResponse(404, "Unknown Automatic Learning lab route.");
+    }
+
     if (scenario.capability !== "enabled") {
       return errorResponse(404, "Threads are unavailable in this scenario.");
     }
@@ -397,7 +428,7 @@ export function createThreadsStateLabRuntime(): ThreadsStateLabRuntime {
       return;
     }
     const scenario = getThreadsStateScenario(decodedScenario);
-    if (scenario.capability !== "enabled") {
+    if (scenario.capability !== "enabled" && scenario.learning !== "enabled") {
       rejectUpgrade(request, 403);
       return;
     }
@@ -460,12 +491,19 @@ export function createThreadsStateLabRuntime(): ThreadsStateLabRuntime {
           return;
         }
         const scenario = getThreadsStateScenario(attached.scenarioKey);
-        const expectedTopic = `user_meta:${scenario.joinCode}`;
-        if (event === "phx_join" && topic === expectedTopic) {
+        const threadTopic = `user_meta:${scenario.joinCode}`;
+        const learningTopic = `user_meta:memories:${learningJoinCode(scenario)}`;
+        const expectedTopic =
+          topic === threadTopic && scenario.capability === "enabled"
+            ? threadTopic
+            : topic === learningTopic && scenario.learning === "enabled"
+              ? learningTopic
+              : null;
+        if (event === "phx_join" && expectedTopic) {
           if (!attached.joinedTopics.has(expectedTopic)) {
             attached.joinedTopics.add(expectedTopic);
             const ledger = ledgers.get(attached.scenarioKey);
-            if (ledger) {
+            if (ledger && expectedTopic === threadTopic) {
               const syntheticRequest = new Request(
                 `http://127.0.0.1${BASE_PATH}/${scenario.key}/realtime`,
                 { method: "GET" },
@@ -484,12 +522,15 @@ export function createThreadsStateLabRuntime(): ThreadsStateLabRuntime {
           );
           return;
         }
-        if (event === "phx_leave" && topic === expectedTopic) {
+        if (
+          event === "phx_leave" &&
+          (topic === threadTopic || topic === learningTopic)
+        ) {
           socket.send(
             JSON.stringify([
               joinRef,
               ref,
-              expectedTopic,
+              topic,
               "phx_reply",
               { status: "ok", response: {} },
             ]),

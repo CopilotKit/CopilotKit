@@ -17,8 +17,10 @@
  * the resulting system prompt is actually grounded, mirroring the live shape.
  */
 import { describe, it, expect } from "vitest";
-import { generateA2uiImpl } from "@copilotkit/showcase-shared-tools";
-import { readForwardedA2uiContext } from "@/mastra/tools/a2ui-context";
+import {
+  readForwardedA2uiContext,
+  systemPromptFrom,
+} from "@/mastra/tools/a2ui-context";
 
 /** The context array the bridge forwards, captured live from staging. */
 const forwardedContext = [
@@ -70,18 +72,16 @@ describe("readForwardedA2uiContext", () => {
 describe("generate_a2ui grounding source", () => {
   it("the empty ARG the outer model sends yields an UNGROUNDED prompt (the bug)", () => {
     // Reproduces the live payload: contextEntries === [].
-    const prep = generateA2uiImpl({ messages: [], contextEntries: [] });
-    expect(prep.systemPrompt).toBe("");
+    expect(systemPromptFrom([])).toBe("");
   });
 
   it("the forwarded request context yields a GROUNDED prompt (the fix)", () => {
-    const prep = generateA2uiImpl({
-      messages: [],
-      contextEntries: readForwardedA2uiContext(execCtx(forwardedContext)),
-    });
-    expect(prep.systemPrompt.length).toBeGreaterThan(0);
-    expect(prep.systemPrompt).toContain("copilotkit://app-dashboard-catalog");
-    expect(prep.systemPrompt).toContain("FlightCard");
-    expect(prep.systemPrompt).toContain("A2UI Protocol Instructions");
+    const systemPrompt = systemPromptFrom(
+      readForwardedA2uiContext(execCtx(forwardedContext)),
+    );
+    expect(systemPrompt.length).toBeGreaterThan(0);
+    expect(systemPrompt).toContain("copilotkit://app-dashboard-catalog");
+    expect(systemPrompt).toContain("FlightCard");
+    expect(systemPrompt).toContain("A2UI Protocol Instructions");
   });
 });

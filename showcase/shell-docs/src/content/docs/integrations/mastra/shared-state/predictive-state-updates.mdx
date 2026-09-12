@@ -42,7 +42,7 @@ Mastra injects a built-in `updateWorkingMemory` tool whenever working memory is 
 
   ```ts
   const runtime = new CopilotRuntime({
-    agents: MastraAgent.getLocalAgents({ mastra }),
+    agents: MastraAgent.getLocalAgents({ mastra, resourceId: "user-1" }),
   });
   ```
 </Callout>

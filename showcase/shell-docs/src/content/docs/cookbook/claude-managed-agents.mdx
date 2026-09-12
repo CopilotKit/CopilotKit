@@ -1,0 +1,253 @@
+---
+title: "Claude Managed Agents"
+description: "Connect CopilotKit to a hosted Claude Managed Agent over AG-UI, then render a backend tool call as interactive generative UI."
+icon: "custom/claude-managed-agents"
+showIcon: true
+doc_type: how-to
+---
+
+[Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) run Claude agents in
+Anthropic-hosted environments. Anthropic manages the model runtime and workspace; your app starts sessions,
+streams their events, and supplies any application-specific tools. This recipe connects one of those hosted
+agents to a compact [CopilotKit](https://www.copilotkit.ai/) chat over [AG-UI](https://docs.ag-ui.com/).
+
+The example is a focused finance assistant. Ask what a recurring investment could grow to and the managed
+agent calculates in its hosted workspace, calls one backend tool, and CopilotKit renders an interactive growth
+projection inline. It is adapted from Anthropic's
+[Claude Managed Agents × CopilotKit quickstart](https://github.com/anthropics/claude-quickstarts/tree/main/managed-agents/copilot-kit-ag-ui),
+reduced to one interaction that fits a Cookbook pane.
+
+## How it works
+
+- A one-time setup script creates a restricted hosted environment and a versioned managed agent.
+- `ManagedAgentsAgent` maps each CopilotKit thread to one Claude Managed Agents session.
+- The CopilotKit runtime exposes that agent through an AG-UI-compatible SSE endpoint.
+- The managed agent calls `show_growth_projection` with structured numbers.
+- `useRenderTool` matches that streamed tool call by name and mounts the React chart in the transcript.
+
+<img alt="Architecture of the Claude Managed Agents recipe: a request flows from CopilotKit chat through CopilotSseRuntime and ManagedAgentsAgent to a Claude Managed Agent in an Anthropic-hosted workspace; the agent calls show_growth_projection, which streams back as an AG-UI tool event and is rendered by useRenderTool as an interactive React chart." src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzYwIiBoZWlnaHQ9IjMzMCIgdmlld0JveD0iMCAwIDc2MCAzMzAiIHJvbGU9ImltZyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8dGl0bGU+SG93IENvcGlsb3RLaXQgY29ubmVjdHMgdG8gYSBDbGF1ZGUgTWFuYWdlZCBBZ2VudCBhbmQgcmVuZGVycyBpdHMgdG9vbCBjYWxsPC90aXRsZT4KICA8ZGVzYz5BIHJlcXVlc3QgZmxvd3MgZnJvbSBDb3BpbG90S2l0IGNoYXQgdGhyb3VnaCBDb3BpbG90U3NlUnVudGltZSBhbmQgTWFuYWdlZEFnZW50c0FnZW50IHRvIGEgQ2xhdWRlIE1hbmFnZWQgQWdlbnQuIFRoZSBhZ2VudCdzIHNob3dfZ3Jvd3RoX3Byb2plY3Rpb24gY2FsbCByZXR1cm5zIHRocm91Z2ggb25lIGNvbXBhY3QgQUctVUkgZXZlbnQgZmxvdyBhbmQgdXNlUmVuZGVyVG9vbCByZW5kZXJzIHRoZSBpbnRlcmFjdGl2ZSBjaGFydC48L2Rlc2M+CgogIDxkZWZzPgogICAgPG1hcmtlciBpZD0iYXJyb3ciIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPgogICAgICA8cGF0aCBkPSJNMCAwIDEwIDUgMCAxMFoiIGZpbGw9IiM4MzgzODkiLz4KICAgIDwvbWFya2VyPgogIDwvZGVmcz4KCiAgPHN0eWxlPgogICAgdGV4dCB7IGZvbnQtZmFtaWx5OiAiUGx1cyBKYWthcnRhIFNhbnMiLCAtYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICJTZWdvZSBVSSIsIHNhbnMtc2VyaWY7IH0KICAgIC5sYW5lIHsgZm9udC1mYW1pbHk6ICJTcGxpbmUgU2FucyBNb25vIiwgdWktbW9ub3NwYWNlLCBTRk1vbm8tUmVndWxhciwgbW9ub3NwYWNlOyBmb250LXNpemU6IDEwcHg7IGZvbnQtd2VpZ2h0OiA2MDA7IGxldHRlci1zcGFjaW5nOiAwLjdweDsgZmlsbDogIzU3NTc1QjsgfQogICAgLnRhZyB7IGZvbnQtZmFtaWx5OiAiU3BsaW5lIFNhbnMgTW9ubyIsIHVpLW1vbm9zcGFjZSwgU0ZNb25vLVJlZ3VsYXIsIG1vbm9zcGFjZTsgZm9udC1zaXplOiAxMHB4OyBmb250LXdlaWdodDogNjAwOyBsZXR0ZXItc3BhY2luZzogMC4zNXB4OyBmaWxsOiAjMkIyQjJCOyB9CiAgICAuaGVhZGluZyB7IGZvbnQtc2l6ZTogMTZweDsgZm9udC13ZWlnaHQ6IDY1MDsgZmlsbDogIzAxMDUwNzsgfQogICAgLmJvZHkgeyBmb250LXNpemU6IDEycHg7IGZvbnQtd2VpZ2h0OiA0NTA7IGZpbGw6ICM1NzU3NUI7IH0KICAgIC5jb2RlIHsgZm9udC1mYW1pbHk6ICJTcGxpbmUgU2FucyBNb25vIiwgdWktbW9ub3NwYWNlLCBTRk1vbm8tUmVndWxhciwgbW9ub3NwYWNlOyBmb250LXNpemU6IDExcHg7IGZvbnQtd2VpZ2h0OiA1MDA7IGZpbGw6ICMyQjJCMkI7IH0KICAgIC5hcnJvdy1sYWJlbCB7IGZvbnQtc2l6ZTogMTBweDsgZm9udC13ZWlnaHQ6IDUwMDsgZmlsbDogIzU3NTc1QjsgfQogIDwvc3R5bGU+CgogIDxyZWN0IHg9IjAuNSIgeT0iMC41IiB3aWR0aD0iNzU5IiBoZWlnaHQ9IjMyOSIgcng9IjE0IiBmaWxsPSIjRkFGQUZDIiBzdHJva2U9IiNEQkRCRTUiLz4KCiAgPHRleHQgY2xhc3M9ImxhbmUiIHg9IjI0IiB5PSIyNyI+UkVRVUVTVCBGTE9XPC90ZXh0PgoKICA8cmVjdCB4PSIyNCIgeT0iNDMiIHdpZHRoPSIyMTAiIGhlaWdodD0iMTA4IiByeD0iMTIiIGZpbGw9IiNGRkZGRkYiIHN0cm9rZT0iI0RCREJFNSIvPgogIDxyZWN0IHg9IjI3NSIgeT0iNDMiIHdpZHRoPSIyMTAiIGhlaWdodD0iMTA4IiByeD0iMTIiIGZpbGw9IiNGRkZGRkYiIHN0cm9rZT0iI0RCREJFNSIvPgogIDxyZWN0IHg9IjUyNiIgeT0iNDMiIHdpZHRoPSIyMTAiIGhlaWdodD0iMTA4IiByeD0iMTIiIGZpbGw9IiNGRkZGRkYiIHN0cm9rZT0iI0RCREJFNSIvPgoKICA8cmVjdCB4PSI0MCIgeT0iNTkiIHdpZHRoPSI5MSIgaGVpZ2h0PSIyMyIgcng9IjExLjUiIGZpbGw9IiNGRkZGRkYiIHN0cm9rZT0iI0RCREJFNSIvPgogIDxjaXJjbGUgY3g9IjUzIiBjeT0iNzAuNSIgcj0iNCIgZmlsbD0iI0JFQzJGRiIvPgogIDx0ZXh0IGNsYXNzPSJ0YWciIHg9IjY0IiB5PSI3NCI+RlJPTlRFTkQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9ImhlYWRpbmciIHg9IjQwIiB5PSIxMDgiPkNvcGlsb3RLaXQgY2hhdDwvdGV4dD4KICA8dGV4dCBjbGFzcz0iYm9keSIgeD0iNDAiIHk9IjEzMCI+UHJvbXB0LCB0aHJlYWQsIGFuZCBpbmxpbmUgVUk8L3RleHQ+CgogIDxyZWN0IHg9IjI5MSIgeT0iNTkiIHdpZHRoPSI3NSIgaGVpZ2h0PSIyMyIgcng9IjExLjUiIGZpbGw9IiNGRkZGRkYiIHN0cm9rZT0iI0RCREJFNSIvPgogIDxjaXJjbGUgY3g9IjMwNCIgY3k9IjcwLjUiIHI9IjQiIGZpbGw9IiM4NUVDQ0UiLz4KICA8dGV4dCBjbGFzcz0idGFnIiB4PSIzMTUiIHk9Ijc0Ij5TRVJWRVI8L3RleHQ+CiAgPHRleHQgY2xhc3M9ImhlYWRpbmciIHg9IjI5MSIgeT0iMTA4Ij5Db3BpbG90U3NlUnVudGltZTwvdGV4dD4KICA8dGV4dCBjbGFzcz0iYm9keSIgeD0iMjkxIiB5PSIxMzAiPk1hbmFnZWRBZ2VudHNBZ2VudCBhZGFwdGVyPC90ZXh0PgoKICA8cmVjdCB4PSI1NDIiIHk9IjU5IiB3aWR0aD0iOTQiIGhlaWdodD0iMjMiIHJ4PSIxMS41IiBmaWxsPSIjRkZGRkZGIiBzdHJva2U9IiNEQkRCRTUiLz4KICA8Y2lyY2xlIGN4PSI1NTUiIGN5PSI3MC41IiByPSI0IiBmaWxsPSIjRkZBQzREIi8+CiAgPHRleHQgY2xhc3M9InRhZyIgeD0iNTY2IiB5PSI3NCI+QU5USFJPUElDPC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJoZWFkaW5nIiB4PSI1NDIiIHk9IjEwOCI+Q2xhdWRlIE1hbmFnZWQgQWdlbnQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9ImJvZHkiIHg9IjU0MiIgeT0iMTMwIj5Ib3N0ZWQgbW9kZWwgYW5kIHdvcmtzcGFjZTwvdGV4dD4KCiAgPGxpbmUgeDE9IjIzNCIgeTE9Ijk5IiB4Mj0iMjczIiB5Mj0iOTkiIHN0cm9rZT0iIzgzODM4OSIgc3Ryb2tlLXdpZHRoPSIxLjUiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CiAgPHRleHQgY2xhc3M9ImFycm93LWxhYmVsIiB4PSIyNTMuNSIgeT0iODkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkFHLVVJPC90ZXh0PgoKICA8bGluZSB4MT0iNDg1IiB5MT0iOTkiIHgyPSI1MjQiIHkyPSI5OSIgc3Ryb2tlPSIjODM4Mzg5IiBzdHJva2Utd2lkdGg9IjEuNSIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8dGV4dCBjbGFzcz0iYXJyb3ctbGFiZWwiIHg9IjUwNC41IiB5PSI4OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+c2Vzc2lvbjwvdGV4dD4KCiAgPGxpbmUgeDE9IjI0IiB5MT0iMTc0LjUiIHgyPSI3MzYiIHkyPSIxNzQuNSIgc3Ryb2tlPSIjRTJFMkVBIi8+CiAgPHRleHQgY2xhc3M9ImxhbmUiIHg9IjI0IiB5PSIxOTciPlRPT0wgUkVUVVJOPC90ZXh0PgoKICA8cmVjdCB4PSIyNCIgeT0iMjEzIiB3aWR0aD0iNzEyIiBoZWlnaHQ9IjkxIiByeD0iMTIiIGZpbGw9IiNGRkZGRkYiIHN0cm9rZT0iI0RCREJFNSIvPgoKICA8Y2lyY2xlIGN4PSI0OCIgY3k9IjI0MSIgcj0iNCIgZmlsbD0iIzg1RUNDRSIvPgogIDx0ZXh0IGNsYXNzPSJjb2RlIiB4PSI2MCIgeT0iMjQ1Ij51c2VSZW5kZXJUb29sPC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJoZWFkaW5nIiB4PSI0OCIgeT0iMjczIj5JbnRlcmFjdGl2ZSBjaGFydDwvdGV4dD4KICA8dGV4dCBjbGFzcz0iYm9keSIgeD0iNDgiIHk9IjI5MSI+UmVuZGVyZWQgaW4gdGhlIGNoYXQ8L3RleHQ+CgogIDxjaXJjbGUgY3g9IjMwMCIgY3k9IjI0MSIgcj0iNCIgZmlsbD0iI0JFQzJGRiIvPgogIDx0ZXh0IGNsYXNzPSJjb2RlIiB4PSIzMTIiIHk9IjI0NSI+QUctVUkgZXZlbnQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9ImhlYWRpbmciIHg9IjMwMCIgeT0iMjczIj5TdHJ1Y3R1cmVkIGFyZ3VtZW50czwvdGV4dD4KICA8dGV4dCBjbGFzcz0iYm9keSIgeD0iMzAwIiB5PSIyOTEiPlN0cmVhbWVkIHRocm91Z2ggdGhlIHJ1bnRpbWU8L3RleHQ+CgogIDxjaXJjbGUgY3g9IjU1MiIgY3k9IjI0MSIgcj0iNCIgZmlsbD0iI0ZGQUM0RCIvPgogIDx0ZXh0IGNsYXNzPSJjb2RlIiB4PSI1NjQiIHk9IjI0NSI+c2hvd19ncm93dGhfcHJvamVjdGlvbjwvdGV4dD4KICA8dGV4dCBjbGFzcz0iaGVhZGluZyIgeD0iNTUyIiB5PSIyNzMiPkNsYXVkZSB0b29sIGNhbGw8L3RleHQ+CiAgPHRleHQgY2xhc3M9ImJvZHkiIHg9IjU1MiIgeT0iMjkxIj5DcmVhdGVkIGluIHRoZSBob3N0ZWQgc2Vzc2lvbjwvdGV4dD4KCiAgPGxpbmUgeDE9IjUzNiIgeTE9IjI2MSIgeDI9IjQ4OCIgeTI9IjI2MSIgc3Ryb2tlPSIjODM4Mzg5IiBzdHJva2Utd2lkdGg9IjEuNSIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8bGluZSB4MT0iMjg0IiB5MT0iMjYxIiB4Mj0iMjM2IiB5Mj0iMjYxIiBzdHJva2U9IiM4MzgzODkiIHN0cm9rZS13aWR0aD0iMS41IiBtYXJrZXItZW5kPSJ1cmwoI2Fycm93KSIvPgoKICA8cGF0aCBkPSJNNjMxIDE1MVYyMTEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzgzODM4OSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1kYXNoYXJyYXk9IjQgNCIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPC9zdmc+Cg==" />
+
+## Try it live
+
+Use the suggested prompt, then adjust the contribution and return sliders in the resulting chart.
+
+<iframe
+  src="https://showcase-claude-managed-agents-production.up.railway.app"
+  title="Claude Managed Agents × CopilotKit live demo"
+  className="w-full h-[480px] sm:h-[600px] block rounded-xl border border-[var(--border)]"
+/>
+
+## Prerequisites
+
+- Node.js 22 or newer.
+- An Anthropic Console account and API key with **Claude Managed Agents** access.
+- An Anthropic organization with 30-day data retention. The default `claude-fable-5` model is unavailable
+  under zero data retention.
+
+## Run the example
+
+Clone CopilotKit and enter the standalone showcase:
+
+```bash
+git clone https://github.com/CopilotKit/CopilotKit.git
+cd CopilotKit/examples/showcases/claude-managed-agents
+npm install
+cp .env.example .env
+```
+
+Add your key to `.env`:
+
+```plaintext title=".env"
+ANTHROPIC_API_KEY=sk-ant-your_key
+# Optional; defaults to claude-fable-5
+ANTHROPIC_MODEL=claude-haiku-4-5
+```
+
+Provision the persistent environment and managed agent once, then start the server and frontend:
+
+```bash
+npm run setup
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). `npm run setup` writes the generated resource IDs to the
+gitignored `agent-ids.json`; rerunning it reuses those IDs instead of creating more billable resources. Use
+`npm run setup -- --force` only when you intentionally want a replacement environment and agent.
+
+## Try it
+
+Select the suggested prompt or ask:
+
+```text
+If I invest $500/month at a 7% annual return, what will I have in 20 years?
+```
+
+Claude passes the assumptions to `show_growth_projection` and keeps its prose short while the chart
+carries the result. Move either slider to explore the assumptions without starting another agent run. A
+follow-up in the same CopilotKit thread resumes the same managed session and workspace.
+
+## The key pieces, in code
+
+The setup script creates long-lived managed resources. The environment blocks outbound hosts, package managers,
+and MCP servers, while the agent disables its complete built-in toolset. The runtime adds only the focused
+financial visualization tool when it creates a session:
+
+```ts title="server/src/setup.ts"
+const environment = await client.beta.environments.create({
+  name: `financial-assistant-demo-${Date.now().toString(36)}`,
+  config: {
+    type: "cloud",
+    networking: {
+      type: "limited",
+      allowed_hosts: [],
+      allow_package_managers: false,
+      allow_mcp_servers: false,
+    },
+  },
+});
+
+const model = process.env.ANTHROPIC_MODEL ?? "claude-fable-5";
+
+const agent = await client.beta.agents.create({
+  name: "financial-assistant",
+  model,
+  system: ASSISTANT_SYSTEM,
+  tools: [{
+    type: "agent_toolset_20260401",
+    default_config: { enabled: false },
+  }],
+});
+```
+
+The model is fixed when the managed agent is provisioned. Changing `ANTHROPIC_MODEL` later does not update that
+agent. Run `npm run setup -- --force` with the new model, then replace the generated environment and agent IDs
+wherever the demo is deployed.
+
+At runtime, the AG-UI adapter owns managed-session creation and maps it to the CopilotKit thread. The visual tool
+is supplied as a session override, so changing its schema does not require a new managed-agent version.
+`CopilotSseRuntime` is imported under that exact name; it is CopilotKit's V2 runtime for direct SSE connections.
+The adapter requires only the managed agent and environment IDs, while this recipe adds `backendTools` for the
+interactive projection:
+
+```ts title="server/src/index.ts"
+import { CopilotSseRuntime } from "@copilotkit/runtime/v2";
+import { ManagedAgentsAgent } from "@ag-ui/claude-managed-agents";
+import {
+  createCopilotRequestBodyParser,
+  createFinancialAssistantAgentConfig,
+} from "./runtimeLimits";
+import { configureDemoRunLimits } from "./requestLimits";
+
+const runtime = new CopilotSseRuntime({
+  agents: {
+    "financial-assistant": new ManagedAgentsAgent(
+      createFinancialAssistantAgentConfig(ids),
+    ),
+  },
+});
+
+configureDemoRunLimits(app, createCopilotRequestBodyParser());
+```
+
+The runtime helper keeps the public demo bounded: it leaves `turnTimeoutMs` at 90 seconds and rejects request bodies
+over 256 KB. The adapter already serializes runs per thread.
+
+Only the canonical `POST /api/copilotkit/agent/financial-assistant/run` path, with one optional trailing slash, can
+start the provider-backed agent. Run aliases, unknown agents, and suggestion routes are rejected before the runtime.
+Provider-like attempts are limited to 20 per client IP per minute before body parsing, and the process accepts
+2,000 successful run requests per 24-hour window. Other CopilotKit routes do not use these allowances.
+
+The single [backend tool](/generative-ui/tool-rendering#the-backend-tool-definition) declares the exact data the
+UI needs. Its handler only acknowledges the render because the streamed tool call itself is the user-visible
+result:
+
+```ts title="server/src/financialAssistantTools.ts"
+export const financialAssistantTools: BackendCustomTool[] = [{
+  name: "show_growth_projection",
+  description: "Render an interactive compound-growth chart in the chat.",
+  parameters: {
+    type: "object",
+    properties: {
+      title: { type: "string" },
+      initialAmount: { type: "number", minimum: 0 },
+      monthlyContribution: { type: "number", minimum: 0 },
+      annualReturnPercent: { type: "number", minimum: 0, maximum: 30 },
+      years: { type: "integer", minimum: 1, maximum: 50 },
+    },
+    required: ["title", "initialAmount", "monthlyContribution", "annualReturnPercent", "years"],
+  },
+  handler: () => "Rendered the projection to the user.",
+}];
+```
+
+CopilotKit matches the AG-UI tool-call events by name with
+[`useRenderTool`](/reference/hooks/useRenderTool). The runnable example validates and coerces the streamed
+arguments with Zod before mounting the chart:
+
+```tsx title="web/src/viz/renderers.tsx"
+useRenderTool(
+  {
+    name: "show_growth_projection",
+    parameters: growthSchema,
+    render: vizRender(
+      growthSchema,
+      "Building growth projection…",
+      GrowthProjection,
+    ),
+  },
+  [],
+);
+```
+
+## Deploy it
+
+The example supports a single-process deployment: build the Vite frontend, then let the Express server serve
+both `web/dist` and `/api/copilotkit`.
+
+```bash
+npm install && npm run build && npm start
+```
+
+Set `ANTHROPIC_API_KEY` and the two IDs printed by `npm run setup`:
+
+```plaintext
+ANTHROPIC_ENVIRONMENT_ID=env_...
+ANTHROPIC_AGENT_ID=agent_...
+ALLOWED_ORIGINS=https://your-app.example.com
+```
+
+`ANTHROPIC_MODEL` is used by setup, not by the running server. To change models on Railway, reprovision first and
+then update `ANTHROPIC_ENVIRONMENT_ID` and `ANTHROPIC_AGENT_ID` with the replacement IDs.
+
+On Railway, the per-IP limiter uses Railway's `X-Real-IP` header and normalizes IPv6 client addresses with
+`express-rate-limit`. It does not enable Express proxy trust or use `X-Forwarded-For`. Missing or malformed
+`X-Real-IP` values share one conservative bucket; local and direct deployments use the socket-derived
+`request.ip` instead.
+
+<Callout type="warning" title="Protect the runtime before going public">
+  The example endpoint has no user authentication, and every message spends your Anthropic API credits.
+  When `ALLOWED_ORIGINS` is set, the server rejects requests without the exact matching Origin header, including
+  when the frontend and runtime are hosted separately. That browser check is not authentication because custom
+  clients can forge the header. The public demo therefore adds route-specific per-IP and process-wide in-memory
+  limits. The counters reset on restart and are not shared across replicas, and the 2,000-start allowance is not a
+  fixed dollar ceiling. Scope the API key to a dedicated, non-default
+  [Anthropic workspace](https://platform.claude.com/docs/en/manage-claude/workspaces) with the desired monthly spend
+  limit as the durable cost backstop. Put the runtime behind your application session check before using this
+  pattern in production.
+</Callout>
+
+The adapter's default session store is in memory. A server restart starts fresh managed sessions, while the
+provisioned environment and agent remain reusable. Replace it with a durable `SessionStore` if thread continuity
+must survive deploys or multiple server replicas.
+
+## Going further
+
+- Add another focused backend tool and matching `useRenderTool` component; the AG-UI transport does not change.
+- Persist the thread-to-session mapping in your database for multi-instance deployments.
+- Add user authentication, quotas, and audit logging before exposing a credit-spending runtime.
+- Add [Rich Threads](/threads) through CopilotKit Intelligence so each savings scenario becomes a named,
+  persistent conversation whose messages and generated chart reopen across devices.
+
+## Get the code
+
+Full source: [`examples/showcases/claude-managed-agents`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/claude-managed-agents). The example includes the runtime and frontend.

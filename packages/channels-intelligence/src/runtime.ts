@@ -87,7 +87,9 @@ export function resolveChannelActivationEnv(
  * (the managed launcher does). A nameless Channel is a programming error and throws
  * rather than being silently filtered out of the activation set.
  *
- * TODO(OSS-377): add richer per-Channel capabilities once the framework Channel exposes them.
+ * TODO (untracked): add richer per-Channel capabilities once the framework Channel
+ * exposes them. The original tracking ticket (OSS-377) was canceled 2026-07-01,
+ * superseded by OSS-401's consolidated realtime foundation — re-file before acting.
  */
 export function buildChannelActivationMetadata(
   channels: readonly Channel[],

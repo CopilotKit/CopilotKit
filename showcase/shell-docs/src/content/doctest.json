@@ -1,0 +1,17 @@
+{
+  "typescript": {
+    "deps": [
+      "@copilotkit/runtime@1.68.3",
+      "@ag-ui/client@0.0.57",
+      "@ag-ui/core@0.0.57",
+      "@ag-ui/mcp-apps-middleware@0.0.3",
+      "@ag-ui/a2a-middleware",
+      "@ag-ui/agno",
+      "@ag-ui/llamaindex",
+      "@daytonaio/sdk",
+      "next",
+      "openai",
+      "zod"
+    ]
+  }
+}

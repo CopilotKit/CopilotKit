@@ -1,160 +1,206 @@
 import {
   Component,
-  Input,
-  TemplateRef,
-  ViewChild,
-  ViewContainerRef,
   createEnvironmentInjector,
   EnvironmentInjector,
+  input,
   runInInjectionContext,
+  TemplateRef,
+  viewChild,
+  ViewContainerRef,
 } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { assertDefined } from "../../utils";
+import { SLOT_CONFIG } from "../slot.types";
 import {
-  renderSlot,
+  createSlotConfig,
+  createSlotRenderer,
+  getSlotConfig,
   isComponentType,
   isSlotValue,
   normalizeSlotValue,
-  createSlotConfig,
   provideSlots,
-  getSlotConfig,
-  createSlotRenderer,
+  renderSlot,
 } from "../slot.utils";
-import { SLOT_CONFIG } from "../slot.types";
 
 @Component({
-  standalone: true,
   selector: "default-component",
   template: `
-    <div class="default">{{ text }}</div>
+    <div data-testid="default">{{ text() }}</div>
   `,
 })
 class DefaultComponent {
-  @Input() text = "Default";
+  readonly text = input("Default");
 }
 
 @Component({
-  standalone: true,
   selector: "custom-component",
   template: `
-    <div class="custom">{{ text }}</div>
+    <div data-testid="custom">{{ text() }}</div>
   `,
 })
 class CustomComponent {
-  @Input() text = "Custom";
+  readonly text = input("Custom");
+}
+
+@Component({
+  selector: "props-component",
+  template: `
+    <div data-testid="props">{{ props().text }}</div>
+  `,
+})
+class PropsComponent {
+  protected readonly props = input({ text: "Default" });
 }
 
 describe("slot utils", () => {
-  beforeEach(() => {
-    TestBed.resetTestingModule();
-  });
-
   describe("renderSlot", () => {
-    it("renders default component when no slot provided", () => {
+    it("renders default component when no slot provided", async () => {
       @Component({
-        standalone: true,
         template: `
           <div #container></div>
         `,
         imports: [DefaultComponent],
       })
       class HostComponent {
-        @ViewChild("container", { read: ViewContainerRef })
-        container!: ViewContainerRef;
+        container = viewChild.required("container", { read: ViewContainerRef });
       }
 
       const fixture = TestBed.createComponent(HostComponent);
-      fixture.detectChanges();
+      await fixture.whenStable();
 
-      const ref = renderSlot(fixture.componentInstance.container, {
+      const container = fixture.componentInstance.container();
+      assertDefined(container);
+
+      renderSlot(container, {
         defaultComponent: DefaultComponent,
       });
 
-      expect(ref).toBeTruthy();
-      expect(
-        (ref as any).location.nativeElement.querySelector(".default"),
-      ).toBeTruthy();
+      await expect
+        .poll(() => document.querySelector('[data-testid="default"]'))
+        .toBeTruthy();
     });
 
-    it("renders template slot with provided context", () => {
+    it("renders template slot with provided context", async () => {
       @Component({
-        standalone: true,
         template: `
           <div #container></div>
           <ng-template #tpl let-props="props">
-            <span class="template">{{ props?.value }}</span>
+            <span data-testid="template">{{ props?.value }}</span>
           </ng-template>
         `,
       })
       class HostComponent {
-        @ViewChild("container", { read: ViewContainerRef })
-        container!: ViewContainerRef;
-        @ViewChild("tpl") tpl!: TemplateRef<any>;
+        container = viewChild.required("container", { read: ViewContainerRef });
+        tpl = viewChild.required<TemplateRef<unknown>>("tpl");
       }
 
       const fixture = TestBed.createComponent(HostComponent);
-      fixture.detectChanges();
+      await fixture.whenStable();
+      const container = fixture.componentInstance.container();
+      const tpl = fixture.componentInstance.tpl();
 
-      renderSlot(fixture.componentInstance.container, {
+      assertDefined(container);
+      assertDefined(tpl);
+
+      renderSlot(container, {
         defaultComponent: DefaultComponent,
-        slot: fixture.componentInstance.tpl,
+        slot: tpl,
         props: { value: "from template" },
       });
-      fixture.detectChanges();
 
-      const span = fixture.nativeElement.querySelector(".template");
-      expect(span?.textContent?.trim()).toBe("from template");
+      await expect
+        .poll(
+          () => document.querySelector('[data-testid="template"]')?.textContent,
+        )
+        .toContain("from template");
     });
 
-    it("applies inputs using setInput", () => {
+    it("binds declared inputs on the next change detection", async () => {
       @Component({
-        standalone: true,
         template: `
           <div #container></div>
         `,
         imports: [DefaultComponent],
       })
       class HostComponent {
-        @ViewChild("container", { read: ViewContainerRef })
-        container!: ViewContainerRef;
+        container = viewChild.required("container", { read: ViewContainerRef });
       }
 
       const fixture = TestBed.createComponent(HostComponent);
-      fixture.detectChanges();
+      await fixture.whenStable();
 
-      const ref = renderSlot(fixture.componentInstance.container, {
+      const container = fixture.componentInstance.container();
+      assertDefined(container);
+
+      renderSlot(container, {
         defaultComponent: DefaultComponent,
         props: { text: "Updated" },
       });
 
-      expect(ref).toBeTruthy();
-      expect((ref as any).instance.text).toBe("Updated");
+      await expect
+        .poll(
+          () => document.querySelector('[data-testid="default"]')?.textContent,
+        )
+        .toContain("Updated");
+    });
+
+    it("binds the full context to a legacy props input", async () => {
+      @Component({
+        template: `
+          <div #container></div>
+        `,
+        imports: [PropsComponent],
+      })
+      class HostComponent {
+        container = viewChild.required("container", { read: ViewContainerRef });
+      }
+
+      const fixture = TestBed.createComponent(HostComponent);
+      await fixture.whenStable();
+
+      const container = fixture.componentInstance.container();
+      assertDefined(container);
+
+      renderSlot(container, {
+        defaultComponent: PropsComponent,
+        props: { text: "Updated" },
+      });
+
+      await expect
+        .poll(
+          () => document.querySelector('[data-testid="props"]')?.textContent,
+        )
+        .toContain("Updated");
     });
   });
 
   describe("type guards", () => {
     it("detects component types", () => {
       expect(isComponentType(DefaultComponent)).toBe(true);
+      expect(isComponentType(class NotAnAngularComponent {})).toBe(false);
       expect(isComponentType(() => {})).toBe(false);
       expect(isComponentType(null)).toBe(false);
     });
 
-    it("detects slot values", () => {
+    it("detects slot values", async () => {
       @Component({
-        standalone: true,
         template: `
           <ng-template #tpl></ng-template>
         `,
       })
       class HostComponent {
-        @ViewChild("tpl") tpl!: TemplateRef<any>;
+        tpl = viewChild.required<TemplateRef<unknown>>("tpl");
       }
 
       const fixture = TestBed.createComponent(HostComponent);
-      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const tpl = fixture.componentInstance.tpl();
+      assertDefined(tpl);
 
       expect(isSlotValue(DefaultComponent)).toBe(true);
-      expect(isSlotValue(fixture.componentInstance.tpl)).toBe(true);
+      expect(isSlotValue(tpl)).toBe(true);
       expect(isSlotValue("string")).toBe(false);
     });
   });
@@ -185,7 +231,7 @@ describe("slot utils", () => {
         providers: [{ provide: SLOT_CONFIG, useValue: slots }],
       });
 
-      @Component({ standalone: true, template: "" })
+      @Component({ template: "" })
       class HostComponent {
         config = getSlotConfig();
       }
@@ -194,7 +240,7 @@ describe("slot utils", () => {
       expect(fixture.componentInstance.config).toBe(slots);
     });
 
-    it("createSlotRenderer uses DI overrides when slot name provided", () => {
+    it("createSlotRenderer uses DI overrides when slot name provided", async () => {
       const parent = TestBed.inject(EnvironmentInjector);
       const env = createEnvironmentInjector(
         [provideSlots({ button: CustomComponent })],
@@ -206,24 +252,26 @@ describe("slot utils", () => {
       );
 
       @Component({
-        standalone: true,
         template: `
           <div #container></div>
         `,
         imports: [DefaultComponent, CustomComponent],
       })
       class HostComponent {
-        @ViewChild("container", { read: ViewContainerRef })
-        container!: ViewContainerRef;
+        container = viewChild.required("container", { read: ViewContainerRef });
       }
 
       const fixture = TestBed.createComponent(HostComponent);
-      fixture.detectChanges();
+      await fixture.whenStable();
 
-      const ref = renderer(fixture.componentInstance.container);
-      expect(
-        (ref as any).location.nativeElement.querySelector(".custom"),
-      ).toBeTruthy();
+      const container = fixture.componentInstance.container();
+      assertDefined(container);
+
+      renderer(container);
+
+      await expect
+        .poll(() => document.querySelector('[data-testid="custom"]'))
+        .toBeTruthy();
     });
   });
 });

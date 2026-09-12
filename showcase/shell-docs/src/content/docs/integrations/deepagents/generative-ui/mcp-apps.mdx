@@ -29,15 +29,14 @@ Key benefits:
     npm install @ag-ui/mcp-apps-middleware
     ```
 
-    ```typescript title="app/api/copilotkit/route.ts"
+    ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
       CopilotRuntime,
-      ExperimentalEmptyAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
+      createCopilotRuntimeHandler,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
     import { LangGraphAgent } from "@copilotkit/runtime/langgraph"; // [!code highlight]
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
-    import { NextRequest } from "next/server";
 
     const agent = new LangGraphAgent({
       deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
@@ -58,19 +57,13 @@ Key benefits:
       }),
     );
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        endpoint: "/api/copilotkit",
-        serviceAdapter: new ExperimentalEmptyAdapter(),
-        runtime: new CopilotRuntime({
-          agents: {
-            default: agent,
-          },
-        }),
-      });
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
 
-      return handleRequest(req);
-    };
+    export const GET = handler;
+    export const POST = handler;
     ```
 
     <Callout type="info" title="Server ID">

@@ -8,8 +8,18 @@
 # REST API at /api/banking/v1). The airline skin does not use durable memory.
 #
 # Brings up the memory-enabled Intelligence stack + a working embedder, mints a
-# dev license if needed, then starts the Next.js dev server. Idempotent: safe to
-# re-run — it reuses anything already up.
+# dev license if needed, starts banking's Python agent, then starts the Next.js
+# dev server. Idempotent: safe to re-run — it reuses anything already up.
+#
+# What Ctrl-C leaves behind: everything except the dev server. The docker stack,
+# the native TEI and the Python agent all keep running — `./stop-demo.sh` is what
+# takes them down.
+#
+# Measured, because the shell rule behind it is not obvious: SIGINT goes to the
+# foreground process GROUP, which the backgrounded children are still in — but a
+# NON-INTERACTIVE shell sets a background job to ignore SIGINT (POSIX), so only
+# the exec'd dev server dies (`exit=-2`). `nohup` is not what saves them; it
+# covers SIGHUP, a different signal.
 #
 # Embedder platform split (this is the whole point of the script):
 #   - Apple Silicon (arm64): the bundled docker `tei` image is amd64-only and
@@ -97,7 +107,35 @@ else
 fi
 ok "stack healthy: app-api :7250, gateway :7253"
 
+# --- Banking's agent --------------------------------------------------------
+# REQUIRED, not optional, and it is NOT a compose service: banking's agent is a
+# Python LangChain deep agent in `agent/`, registered by the app as a plain
+# `HttpAgent` pointed at :8124 (see `src/skins/banking/agent.ts`).
+#
+# Every other skin runs in-process, so a missing agent takes banking — the
+# DEFAULT skin — down and leaves the other six working. The symptom is not a
+# startup error either: the app boots, the dashboard renders, the pills are all
+# there, and only sending a message fails. That is exactly why this belongs in
+# the script rather than in a sentence someone has to remember; the script used
+# to bring up the whole stack and then hand over an app whose default skin could
+# not answer.
+#
+# 8124 is a literal on both sides (`main.py`'s SERVER_PORT default and
+# `agent.ts`'s BANKING_AGENT_URL default). Moving it means moving both.
+if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' http://localhost:8124/health 2>/dev/null)" != "200" ]; then
+  [ -x agent/.venv/bin/python ] \
+    || die "banking's agent has no venv. Create it:  (cd agent && uv sync)"
+  say "Starting banking's Python agent on :8124"
+  # `main.py` loads `agent/.env` first and this demo's `.env` second, so the
+  # OPENAI_API_KEY the preflight above already verified is enough — the agent
+  # does not need its own copy.
+  ( cd agent && nohup .venv/bin/python main.py > "$LOG_DIR/banking-agent.log" 2>&1 & )
+else
+  ok "banking agent already up on :8124"
+fi
+wait_http "http://localhost:8124/health" "banking agent" 90
+
 # --- App --------------------------------------------------------------------
 say "Starting the Next.js dev server (http://localhost:3000)"
-say "    (stack is up; Ctrl-C stops only the dev server, not the docker stack)"
+say "    (Ctrl-C stops only the dev server; ./stop-demo.sh stops the rest)"
 exec pnpm dev

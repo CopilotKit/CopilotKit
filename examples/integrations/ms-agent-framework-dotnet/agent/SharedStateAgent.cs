@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using AGUI.Abstractions;
+using AGUI.Server;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
@@ -15,37 +17,36 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         _jsonSerializerOptions = jsonSerializerOptions;
     }
 
-    public override Task<AgentRunResponse> RunAsync(IEnumerable<ChatMessage> messages, AgentThread? thread = null, AgentRunOptions? options = null, CancellationToken cancellationToken = default)
+    protected override Task<AgentResponse> RunCoreAsync(IEnumerable<ChatMessage> messages, AgentSession? session = null, AgentRunOptions? options = null, CancellationToken cancellationToken = default)
     {
-        return RunStreamingAsync(messages, thread, options, cancellationToken).ToAgentRunResponseAsync(cancellationToken);
+        return RunCoreStreamingAsync(messages, session, options, cancellationToken).ToAgentResponseAsync(cancellationToken);
     }
 
-    public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
+    protected override async IAsyncEnumerable<AgentResponseUpdate> RunCoreStreamingAsync(
         IEnumerable<ChatMessage> messages,
-        AgentThread? thread = null,
+        AgentSession? session = null,
         AgentRunOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (options is not ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } chatRunOptions ||
-            !properties.TryGetValue("ag_ui_state", out JsonElement state))
+        if (options is not ChatClientAgentRunOptions { ChatOptions: { } chatOptions } chatRunOptions ||
+            !chatOptions.TryGetRunAgentInput(out RunAgentInput? input) ||
+            input.State is not { ValueKind: JsonValueKind.Object } state)
         {
-            await foreach (var update in InnerAgent.RunStreamingAsync(messages, thread, options, cancellationToken).ConfigureAwait(false))
+            await foreach (var update in InnerAgent.RunStreamingAsync(messages, session, options, cancellationToken).ConfigureAwait(false))
             {
                 yield return update;
             }
             yield break;
         }
 
-        var firstRunOptions = new ChatClientAgentRunOptions
+        var firstRunChatOptions = chatRunOptions.ChatOptions.Clone();
+        var firstRunOptions = new ChatClientAgentRunOptions(firstRunChatOptions)
         {
-            ChatOptions = chatRunOptions.ChatOptions.Clone(),
-            AllowBackgroundResponses = chatRunOptions.AllowBackgroundResponses,
-            ContinuationToken = chatRunOptions.ContinuationToken,
             ChatClientFactory = chatRunOptions.ChatClientFactory,
         };
 
         // Configure JSON schema response format for structured state output
-        firstRunOptions.ChatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema<ProverbsStateSnapshot>(
+        firstRunChatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema<ProverbsStateSnapshot>(
             schemaName: "ProverbsStateSnapshot",
             schemaDescription: "A response containing the current list of proverbs");
 
@@ -59,8 +60,8 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
 
         var firstRunMessages = messages.Append(stateUpdateMessage);
 
-        var allUpdates = new List<AgentRunResponseUpdate>();
-        await foreach (var update in InnerAgent.RunStreamingAsync(firstRunMessages, thread, firstRunOptions, cancellationToken).ConfigureAwait(false))
+        var allUpdates = new List<AgentResponseUpdate>();
+        await foreach (var update in InnerAgent.RunStreamingAsync(firstRunMessages, session, firstRunOptions, cancellationToken).ConfigureAwait(false))
         {
             allUpdates.Add(update);
 
@@ -72,29 +73,37 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
             }
         }
 
-        var response = allUpdates.ToAgentRunResponse();
+        var response = allUpdates.ToAgentResponse();
 
-        if (response.TryDeserialize(_jsonSerializerOptions, out JsonElement stateSnapshot))
+        JsonElement? stateSnapshot = null;
+        try
         {
-            byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
-                stateSnapshot,
-                _jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
-            yield return new AgentRunResponseUpdate
-            {
-                Contents = [new DataContent(stateBytes, "application/json")]
-            };
+            stateSnapshot = JsonSerializer.Deserialize<JsonElement>(response.Text, _jsonSerializerOptions);
         }
-        else
+        catch (JsonException)
+        {
+            // The model did not return the requested state snapshot.
+        }
+
+        if (stateSnapshot is not { } parsedStateSnapshot)
         {
             yield break;
         }
+
+        byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
+            parsedStateSnapshot,
+            _jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
+        yield return new AgentResponseUpdate
+        {
+            Contents = [new DataContent(stateBytes, "application/json")]
+        };
 
         var secondRunMessages = messages.Concat(response.Messages).Append(
             new ChatMessage(
                 ChatRole.System,
                 [new TextContent("Please provide a concise summary of the state changes in at most two sentences.")]));
 
-        await foreach (var update in InnerAgent.RunStreamingAsync(secondRunMessages, thread, options, cancellationToken).ConfigureAwait(false))
+        await foreach (var update in InnerAgent.RunStreamingAsync(secondRunMessages, session, options, cancellationToken).ConfigureAwait(false))
         {
             yield return update;
         }

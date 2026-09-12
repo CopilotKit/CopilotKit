@@ -47,6 +47,8 @@ describe("client component SSR safety (shell-docs)", () => {
       </SignupLink>,
     );
     const url = new URL(hrefFromStaticMarkup(html));
+    expect(url.pathname).toBe("/sign-in");
+    expect(url.searchParams.get("post_auth_redirect")).toBe("ready");
     expect(url.searchParams.get("utm_frontend")).toBe("angular");
     expect(url.searchParams.get("utm_backend")).toBe("langgraph-python");
   });
@@ -73,6 +75,8 @@ describe("client component SSR safety (shell-docs)", () => {
       }),
     );
     const url = new URL(hrefFromStaticMarkup(html));
+    expect(url.pathname).toBe("/sign-in");
+    expect(url.searchParams.get("post_auth_redirect")).toBe("ready");
     expect(url.searchParams.get("utm_frontend")).toBe("angular");
     expect(url.searchParams.get("utm_backend")).toBe("google-adk");
   });
@@ -90,6 +94,7 @@ describe("client component SSR safety (shell-docs)", () => {
     expect(`${url.origin}${url.pathname}`).toBe(
       "https://copilotkit.ai/talk-to-an-engineer",
     );
+    expect(url.searchParams.has("post_auth_redirect")).toBe(false);
     expect(url.searchParams.get("utm_content")).toBe("test-surface");
   });
 

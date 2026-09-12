@@ -1,4 +1,4 @@
-Expose your CrewAI Crew through an AG-UI server. The
+Expose your CrewAI Flow through an AG-UI server. The
 [CopilotKit CrewAI Crews showcase](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/crewai-crews)
 includes a reference server; from that integration directory, run:
 
@@ -6,10 +6,10 @@ includes a reference server; from that integration directory, run:
 PYTHONPATH=src python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The shared crew is mounted at the server root:
+The shared chat Flow is mounted at `/chat`:
 
 ```dotenv title=".env"
-AGENT_URL=http://localhost:8000/
+AGENT_URL=http://localhost:8000/chat
 ```
 
 Install the HTTP adapter in the Channels process:

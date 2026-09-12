@@ -1,17 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import CopilotChatView, {
+import type {
   CopilotChatViewProps,
   WelcomeScreenProps,
 } from "./CopilotChatView";
+import CopilotChatView from "./CopilotChatView";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { CopilotModalHeader } from "./CopilotModalHeader";
 import { cn } from "../../lib/utils";
-import { renderSlot, SlotValue } from "../../lib/slots";
+import type { SlotValue } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import {
+  ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
   CopilotChatDefaultLabels,
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
+import { useModalOpenControl } from "./modal-open-control";
 
 const DEFAULT_POPUP_WIDTH = 420;
 const DEFAULT_POPUP_HEIGHT = 560;
@@ -50,17 +54,37 @@ export function CopilotPopupView({
   className,
   ...restProps
 }: CopilotPopupViewProps) {
+  // Controlled open state supplied by `<CopilotPopup open onOpenChange>`.
+  const { open, onOpenChange } = useModalOpenControl();
+  // The scope is needed for either half: `open` pins the state, and
+  // `onOpenChange` reports requests even while the popup manages itself.
+  const hasOpenControl = open !== undefined || onOpenChange !== undefined;
+
+  const internal = (
+    <CopilotPopupViewInternal
+      header={header}
+      toggleButton={toggleButton}
+      width={width}
+      height={height}
+      clickOutsideToClose={clickOutsideToClose}
+      className={className}
+      {...restProps}
+    />
+  );
+
   return (
-    <CopilotChatConfigurationProvider isModalDefaultOpen={defaultOpen}>
-      <CopilotPopupViewInternal
-        header={header}
-        toggleButton={toggleButton}
-        width={width}
-        height={height}
-        clickOutsideToClose={clickOutsideToClose}
-        className={className}
-        {...restProps}
-      />
+    // Seed the underlying uncontrolled state from `open` so it starts aligned
+    // with the host. The scope below is what the surface actually renders, so
+    // this only matters if the host later drops `open` and hands control back:
+    // the popup then stays where it was instead of jumping to `defaultOpen`.
+    <CopilotChatConfigurationProvider isModalDefaultOpen={open ?? defaultOpen}>
+      {hasOpenControl ? (
+        <ControlledModalOpenScope open={open} onOpenChange={onOpenChange}>
+          {internal}
+        </ControlledModalOpenScope>
+      ) : (
+        internal
+      )}
     </CopilotChatConfigurationProvider>
   );
 }

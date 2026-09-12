@@ -75,10 +75,15 @@ export async function FrameworkSetup({
       },
     });
   } catch (err) {
-    console.error(
-      `[framework-setup] failed to compile bundled concept "${concept}" for ${currentFramework}`,
-      err,
+    // A concept nobody bundled for this framework returns `null` above, which is a
+    // deliberate state. A concept that IS bundled and does not compile is a defect, and
+    // returning `null` here made the two indistinguishable: the page rendered as though
+    // the framework had no requirement, and the only trace was a `console.error` nobody
+    // reads in production (OSS-1036). Same shape `llm-text` already refuses for
+    // `channels-agent-setup`.
+    throw new Error(
+      `[framework-setup] bundled concept "${concept}" for ${currentFramework} failed to compile`,
+      { cause: err },
     );
-    return null;
   }
 }

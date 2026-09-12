@@ -8,9 +8,9 @@ const DEFAULT_CONTAINERS: string[] = ["project"];
 /**
  * Arguments for {@link useLearningContainers}.
  *
- * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `ɵlearning.containerId` on
- * `CopilotRuntime`.
+ * @deprecated This interface supports only the legacy plural-container
+ * annotation. Configure `getLearningContainerId` on `CopilotKitIntelligence`
+ * for new Intelligence runtimes.
  */
 export interface UseLearningContainersArgs {
   /** Thread to apply the learning-container selection to. */
@@ -55,9 +55,9 @@ export interface UseLearningContainersArgs {
  * }
  * ```
  *
- * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `ɵlearning.containerId` on
- * `CopilotRuntime`.
+ * @deprecated This hook supports only the legacy plural-container annotation.
+ * Configure `getLearningContainerId` on `CopilotKitIntelligence` for new
+ * Intelligence runtimes.
  */
 export function useLearningContainers({
   threadId,
@@ -82,8 +82,10 @@ export function useLearningContainers({
     copilotkit.runtimeUrl,
   );
   const headersRef = useRef<Record<string, string>>(copilotkit.headers ?? {});
+  const runtimeFetchRef = useRef(copilotkit.ɵruntimeFetch);
   runtimeUrlRef.current = copilotkit.runtimeUrl;
   headersRef.current = copilotkit.headers ?? {};
+  runtimeFetchRef.current = copilotkit.ɵruntimeFetch;
 
   // Content-stable dependency: same items in same order → same key string.
   const key = JSON.stringify(learningContainers);
@@ -114,6 +116,7 @@ export function useLearningContainers({
         return;
       }
       recordAnnotation({
+        fetch: copilotkit.ɵruntimeFetch,
         runtimeUrl,
         headers,
         type: "set_learning_containers",
@@ -161,6 +164,7 @@ export function useLearningContainers({
 
       if (capturedRuntimeUrl) {
         recordAnnotation({
+          fetch: runtimeFetchRef.current,
           runtimeUrl: capturedRuntimeUrl,
           headers: capturedHeaders,
           type: "set_learning_containers",

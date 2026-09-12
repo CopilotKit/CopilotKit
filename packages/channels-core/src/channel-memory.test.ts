@@ -82,6 +82,7 @@ test("project-only Memory works when Channel identity is null", async () => {
 
   expect(lifecycle).toHaveBeenCalledWith(
     expect.objectContaining({
+      user: null,
       memory: {
         grant: { user: "none", project: "read-write" },
         user: null,
@@ -120,6 +121,7 @@ test("a custom identity callback may map a non-human actor to personal Memory", 
 
   expect(lifecycle).toHaveBeenCalledWith(
     expect.objectContaining({
+      user: { id: "service:sync-bot", name: "Sync Bot" },
       memory: {
         grant: { user: "read", project: "none" },
         user: { id: "service:sync-bot", name: "Sync Bot" },

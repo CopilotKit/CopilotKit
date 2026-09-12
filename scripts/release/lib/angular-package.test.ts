@@ -4,6 +4,7 @@ import {
   createAngularConsumerManifest,
   createAngularConsumerSources,
   findPackageResolutions,
+  readAgUiClientDependency,
   readAngularSupportContract,
   validateAngularSsrHtml,
   validateAngularPackageManifest,
@@ -14,41 +15,33 @@ const validManifest = {
   sideEffects: false,
   copilotkit: {
     angularSupport: {
-      compilerMajor: 20,
+      compilerMajor: 22,
       rxjs: "^7.8.0",
       testedRxjs: "7.8.1",
       supportedMajors: [
         {
-          angular: "20.3.27",
-          cdk: "20.2.14",
-          major: 20,
-          typescript: "5.9.3",
-        },
-        {
-          angular: "21.2.18",
-          cdk: "21.2.14",
-          major: 21,
-          typescript: "5.9.3",
-        },
-        {
-          angular: "22.0.7",
-          cdk: "22.0.5",
+          angular: "22.0.0",
+          cdk: "22.0.0",
+          cli: "22.0.0",
           major: 22,
           typescript: "6.0.3",
         },
       ],
     },
   },
+  dependencies: {
+    "@ag-ui/client": "0.0.59",
+  },
   devDependencies: {
-    "@angular/common": "20.3.27",
-    "@angular/compiler-cli": "20.3.27",
-    "@angular/core": "20.3.27",
-    typescript: "5.9.3",
+    "@angular/common": "22.0.0",
+    "@angular/compiler-cli": "22.0.0",
+    "@angular/core": "22.0.0",
+    typescript: "6.0.3",
   },
   peerDependencies: {
-    "@angular/cdk": "^20.0.0 || ^21.0.0 || ^22.0.0",
-    "@angular/common": "^20.0.0 || ^21.0.0 || ^22.0.0",
-    "@angular/core": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/cdk": "^22.0.0",
+    "@angular/common": "^22.0.0",
+    "@angular/core": "^22.0.0",
     rxjs: "^7.8.0",
   },
 };
@@ -89,7 +82,7 @@ test("reads an ordered Angular support contract", () => {
 
 test("rejects support metadata that drifts from peers or the floor compiler", () => {
   const manifest = structuredClone(validManifest);
-  manifest.copilotkit.angularSupport.compilerMajor = 21;
+  manifest.copilotkit.angularSupport.compilerMajor = 20;
   manifest.peerDependencies["@angular/core"] = "^21.0.0 || ^22.0.0";
 
   expect(validateAngularPackageManifest(manifest)).toEqual(
@@ -117,12 +110,14 @@ test("rejects duplicate, unordered, and version-mismatched support entries", () 
     {
       angular: "21.2.18",
       cdk: "21.2.14",
+      cli: "21.2.13",
       major: 21,
       typescript: "5.9.3",
     },
     {
       angular: "20.3.26",
       cdk: "21.2.14",
+      cli: "21.2.13",
       major: 21,
       typescript: "5.9.3",
     },
@@ -143,12 +138,13 @@ test("creates an exact packed Angular consumer without framework overrides", () 
 
   expect(
     createAngularConsumerManifest({
+      agUiClient: readAgUiClientDependency(validManifest),
       angularTarball: "/tmp/copilotkit-angular.tgz",
       packageManager: "pnpm@10.33.4",
       siblingTarballs: new Map([
         ["@copilotkit/core", "/tmp/copilotkit-core.tgz"],
       ]),
-      support: support.supportedMajors[2],
+      support: support.supportedMajors[0],
       testedRxjs: support.testedRxjs,
     }),
   ).toEqual({
@@ -160,14 +156,14 @@ test("creates an exact packed Angular consumer without framework overrides", () 
       "serve:ssr": "node dist/smoke/server/server.mjs",
     },
     dependencies: {
-      "@ag-ui/client": "0.0.57",
-      "@angular/cdk": "22.0.5",
-      "@angular/common": "22.0.7",
-      "@angular/core": "22.0.7",
-      "@angular/platform-browser": "22.0.7",
-      "@angular/platform-server": "22.0.7",
-      "@angular/router": "22.0.7",
-      "@angular/ssr": "22.0.7",
+      "@ag-ui/client": "0.0.59",
+      "@angular/cdk": "22.0.0",
+      "@angular/common": "22.0.0",
+      "@angular/core": "22.0.0",
+      "@angular/platform-browser": "22.0.0",
+      "@angular/platform-server": "22.0.0",
+      "@angular/router": "22.0.0",
+      "@angular/ssr": "22.0.0",
       "@copilotkit/angular": "file:/tmp/copilotkit-angular.tgz",
       express: "^5.1.0",
       rxjs: "7.8.1",
@@ -175,10 +171,10 @@ test("creates an exact packed Angular consumer without framework overrides", () 
       zod: "^3.25.75",
     },
     devDependencies: {
-      "@angular/build": "22.0.7",
-      "@angular/cli": "22.0.7",
-      "@angular/compiler": "22.0.7",
-      "@angular/compiler-cli": "22.0.7",
+      "@angular/build": "22.0.0",
+      "@angular/cli": "22.0.0",
+      "@angular/compiler": "22.0.0",
+      "@angular/compiler-cli": "22.0.0",
       "@types/express": "^5.0.1",
       "@types/node": "^22.5.1",
       typescript: "6.0.3",
@@ -187,9 +183,26 @@ test("creates an exact packed Angular consumer without framework overrides", () 
     pnpm: {
       overrides: {
         "@copilotkit/core": "file:/tmp/copilotkit-core.tgz",
+        listr2: "10.2.1",
       },
     },
   });
+});
+
+test("reads the AG-UI client pin the Angular package actually ships against", () => {
+  const packageManifest = JSON.parse(
+    readFileSync(
+      new URL("../../../packages/angular/package.json", import.meta.url),
+      "utf8",
+    ),
+  ) as { dependencies: Record<string, string> };
+
+  expect(readAgUiClientDependency(packageManifest)).toBe(
+    packageManifest.dependencies["@ag-ui/client"],
+  );
+  expect(() => readAgUiClientDependency({ dependencies: {} })).toThrow(
+    'dependencies["@ag-ui/client"]',
+  );
 });
 
 test("creates a zoneless SSR and hydration browser smoke fixture", () => {

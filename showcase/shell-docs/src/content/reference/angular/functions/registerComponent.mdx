@@ -1,0 +1,198 @@
+---
+title: "registerComponent"
+description: "Angular function for registering a standalone component the agent can call as a tool to display it in the chat, with no handler and nothing to add on the agent side"
+---
+
+## Overview
+
+`registerComponent` registers a standalone Angular component as a tool the agent can call to display it. When the agent calls the tool, CopilotKit renders your component in the chat with the tool call's arguments. There is no handler, no user interaction, and no server-side execution: the agent decides when to show the component and populates its data.
+
+This is the simplest form of generative UI, and the only one that needs nothing on the agent side. The tool is declared by the frontend and forwarded to the agent over AG-UI, so it behaves the same behind a Python agent as a TypeScript one. Contrast [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall), which draws a tool the agent already has and therefore requires that tool to exist in the agent.
+
+You call `registerComponent` inside an Angular injection context (a component or service constructor, or a field initializer). The registration happens immediately and is removed when the owning injector is destroyed.
+
+`registerComponent` is the Angular counterpart of `useComponent` in `@copilotkit/react-core/v2` and `@copilotkit/vue/v2`. It builds the same model-facing tool description, so the tool reads identically to the model whichever frontend registered the component.
+
+<Callout type="info">
+  Import from the package root, `@copilotkit/angular`. There is no `/v2`
+  subpath. `registerComponent` must run in an injection context that has
+  [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) in
+  scope.
+</Callout>
+
+## Signature
+
+```ts
+import { registerComponent } from "@copilotkit/angular";
+
+function registerComponent<Args extends Record<string, unknown>>(
+  config: RegisterComponentConfig<Args>,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="RegisterComponentConfig<Args>" required>
+  The component registration object.
+
+  <PropertyReference name="name" type="string" required>
+    The tool name the agent sees. Make it a verb the model will reach for when
+    the user asks for that visualization, such as `show_incident` or
+    `render_bar_chart`.
+  </PropertyReference>
+
+  <PropertyReference name="parameters" type="StandardSchemaV1<unknown, Args>" required>
+    A [Standard Schema](https://standardschema.dev) (for example a Zod object)
+    describing the arguments. It is advertised to the model as the tool's
+    parameters and types the `args` your component reads. Describe each field —
+    the model reads those descriptions when it fills the payload.
+  </PropertyReference>
+
+  <PropertyReference name="component" type="Type<ToolRenderer<Args>>" required>
+    The standalone Angular component class to render. CopilotKit instantiates it
+    and binds a `toolCall` signal input, exactly as it does for
+    [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall).
+  </PropertyReference>
+
+  <PropertyReference name="description" type="string">
+    What the component shows, for the model. CopilotKit prepends its own
+    sentence explaining that the tool renders a visual component, then appends
+    yours.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Optional agent scope. When set, only the agent with this id is offered the
+    tool. When omitted, it applies across agents.
+  </PropertyReference>
+
+  <PropertyReference name="followUp" type="boolean">
+    Whether the agent takes another turn after the component renders. Leave it
+    unset for a component that ends the turn.
+  </PropertyReference>
+</PropertyReference>
+
+There is no `handler` field. A display-only component runs no application code, and CopilotKit completes the agent's turn with an empty tool result rather than an invented one. If you want to run browser code as well as render, use [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with both `handler` and `component`.
+
+## Return Value
+
+`registerComponent` returns `void`. It registers the tool and its renderer as a side effect, and removes both when the owning injector is destroyed.
+
+## The component
+
+Your `component` implements the `ToolRenderer<Args>` interface — the same contract every other Angular renderer uses. Declare the `toolCall` input with Angular's `input.required()` and read `toolCall().args`:
+
+```ts
+import { Signal } from "@angular/core";
+
+interface ToolRenderer<Args extends Record<string, unknown>> {
+  toolCall: Signal<AngularToolCall<Args>>;
+}
+```
+
+`toolCall()` is a discriminated union keyed on `status`. While the model is still streaming the payload the status is `in-progress` and `args` is `Partial<Args>`, so narrow on `status` before reading a field you require. See [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall#angulartoolcall) for the full union.
+
+## Usage
+
+### Display a card the agent fills in
+
+```ts title="src/app/incident-card.component.ts"
+import { Component, input } from "@angular/core";
+import { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
+
+type IncidentArgs = { id: string; severity: string; summary: string };
+
+@Component({
+  selector: "app-incident-card",
+  standalone: true,
+  template: `
+    @let call = toolCall();
+    @if (call.status === "in-progress") {
+      <div class="text-sm opacity-70">Loading incident…</div>
+    } @else {
+      <article class="rounded-lg border p-4">
+        <header class="flex items-baseline justify-between">
+          <strong>{{ call.args.id }}</strong>
+          <span class="text-xs uppercase">{{ call.args.severity }}</span>
+        </header>
+        <p class="text-sm">{{ call.args.summary }}</p>
+      </article>
+    }
+  `,
+})
+export class IncidentCardComponent implements ToolRenderer<IncidentArgs> {
+  readonly toolCall = input.required<AngularToolCall<IncidentArgs>>();
+}
+```
+
+Register it once, anywhere under `provideCopilotKit`:
+
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerComponent } from "@copilotkit/angular";
+import { IncidentCardComponent } from "./incident-card.component";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  template: ``,
+})
+export class ChatComponent {
+  constructor() {
+    registerComponent({
+      name: "show_incident",
+      description: "Show one incident from the incident table.",
+      parameters: z.object({
+        id: z.string().describe("The incident id, such as INC-4711"),
+        severity: z.string().describe("One of sev1, sev2, sev3"),
+        summary: z.string().describe("One sentence on what happened"),
+      }),
+      component: IncidentCardComponent,
+    });
+  }
+}
+```
+
+Nothing is added to the agent. The tool reaches it in the run's tool list, and the agent calls it by name.
+
+### Scoping to one agent
+
+```ts
+registerComponent({
+  name: "show_incident",
+  parameters: incidentSchema,
+  component: IncidentCardComponent,
+  agentId: "support-agent",
+});
+```
+
+## Grounding the component in your own data
+
+A component that renders correctly over records your application does not hold looks identical to a correct one, in the browser and in a screenshot alike. The model fills these props from what it knows, so a component whose data never reached the agent is drawn from what the agent invented.
+
+Registering the component is the rendering half. Give the agent the data it should describe with [`CopilotKitAgentContext`](/reference/angular/directives/CopilotKitAgentContext) or [`connectAgentContext`](/reference/angular/functions/connectAgentContext), then check the rendered fields against the records your application holds.
+
+## Related
+
+<Cards>
+  <Card
+    title="registerFrontendTool"
+    description="Register a client-side tool with an async handler and an optional renderer component."
+    href="/reference/angular/functions/registerFrontendTool"
+  />
+  <Card
+    title="registerRenderToolCall"
+    description="Draw a tool the agent already has, with access to streaming arguments, status, and result."
+    href="/reference/angular/functions/registerRenderToolCall"
+  />
+  <Card
+    title="registerHumanInTheLoop"
+    description="Register a tool that pauses the agent and waits for the user to respond from a rendered component."
+    href="/reference/angular/functions/registerHumanInTheLoop"
+  />
+  <Card
+    title="CopilotKitAgentContext"
+    description="Share the data on the page with the agent, so a rendered component describes records you hold."
+    href="/reference/angular/directives/CopilotKitAgentContext"
+  />
+</Cards>

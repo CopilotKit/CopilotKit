@@ -11,6 +11,15 @@ trap cleanup EXIT
 # sitting in Python's userspace buffer until the process exits.
 export PYTHONUNBUFFERED=1
 
+# Cap glibc malloc arena fragmentation. `langgraph dev` runs as a long-lived
+# in-memory dev server; on the many-core Railway host glibc otherwise spawns a
+# per-CPU malloc-arena pool (up to 8*ncpu arenas) and never trims freed pages
+# back to the OS, so steady-state RSS balloons far above live heap. Cap arenas
+# to 2 and lower the trim threshold so freed chunks are released back promptly.
+# `${VAR:-default}` so an explicit Railway override still wins.
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+export MALLOC_TRIM_THRESHOLD_="${MALLOC_TRIM_THRESHOLD_:-131072}"
+
 echo "========================================="
 echo "[entrypoint] Starting showcase package: langgraph-fastapi"
 echo "[entrypoint] Time: $(date -u)"

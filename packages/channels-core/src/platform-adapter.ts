@@ -1,6 +1,7 @@
 import type { AgentSubscriber, AbstractAgent } from "@ag-ui/client";
 import type {
   AgentContentPart,
+  ApplicationUser,
   ChannelNode,
   EmojiValue,
   EphemeralResult,
@@ -112,6 +113,8 @@ export interface ChannelAgentLifecycleArgs {
    * agent command and never crosses the managed run-open boundary.
    */
   isResume?: boolean;
+  /** Canonical application user resolved for the current Channel event. */
+  user?: ApplicationUser | null;
   /** Explicit Memory access resolved before agent execution. */
   memory?: ResolvedChannelMemory;
   execute(

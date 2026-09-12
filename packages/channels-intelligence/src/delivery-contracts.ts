@@ -53,6 +53,17 @@ export type ChannelProviderPayload =
       blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
   | {
+      /**
+       * A message only one person sees. `user` asserts who that is; the
+       * boundary posts to the turn's own fenced recipient and rejects the
+       * effect when the two disagree.
+       */
+      kind: "slack.message.ephemeral";
+      user: string;
+      text: string;
+      blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    }
+  | {
       kind: "slack.message.replace";
       providerReference: string;
       text: string;
@@ -297,6 +308,13 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
     case "slack.message.create":
       return (
         hasExactFields(value, ["kind", "text", "blocks"], ["blocks"]) &&
+        boundedString(value.text, 0, 40_000) &&
+        optionalRecordArray(value.blocks, 100)
+      );
+    case "slack.message.ephemeral":
+      return (
+        hasExactFields(value, ["kind", "user", "text", "blocks"], ["blocks"]) &&
+        boundedString(value.user, 2, 64) &&
         boundedString(value.text, 0, 40_000) &&
         optionalRecordArray(value.blocks, 100)
       );

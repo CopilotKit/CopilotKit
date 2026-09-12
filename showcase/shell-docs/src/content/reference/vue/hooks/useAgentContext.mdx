@@ -39,8 +39,10 @@ function useAgentContext(context: AgentContextInput): void;
     The context value to provide. Must resolve to a JSON-serializable value:
     `string`, `number`, `boolean`, `null`, arrays, or plain objects with string
     keys and serializable values. Non-string values are serialized with
-    `JSON.stringify` automatically. Accepts a plain value, a ref, a computed, or
-    a getter function.
+    `JSON.stringify` before they are sent, so the agent receives a JSON string
+    rather than the value you passed.
+    See [What the agent receives](#what-the-agent-receives).
+    Accepts a plain value, a ref, a computed, or a getter function.
   </PropertyReference>
 </PropertyReference>
 
@@ -154,11 +156,70 @@ useAgentContext({
 </template>
 ```
 
+## What the agent receives
+
+Every registered entry reaches the agent as `{ description, value }`, and `value` is a **JSON string** - not the object or array you passed. The AG-UI protocol types it as a string, so this is not an implementation detail you can ignore when writing the agent.
+
+Registering this:
+
+```vue
+<script setup lang="ts">
+import { useAgentContext } from "@copilotkit/vue/v2";
+
+useAgentContext({
+  description: "Incident dashboard records",
+  value: [{ id: "INC-1041", severity: "sev1" }],
+});
+</script>
+```
+
+delivers this to the agent:
+
+```json
+{
+  "description": "Incident dashboard records",
+  "value": "[{\"id\":\"INC-1041\",\"severity\":\"sev1\"}]"
+}
+```
+
+Parse it before reading any field. In a Python agent:
+
+```python
+import json
+
+def dashboard_records(context):
+    entry = next(
+        (item for item in context if item["description"] == "Incident dashboard records"),
+        None,
+    )
+    return None if entry is None else json.loads(entry["value"])
+```
+
+In a TypeScript agent:
+
+```ts
+const entry = context.find(
+  (item) => item.description === "Incident dashboard records",
+);
+const records = entry ? JSON.parse(entry.value) : undefined;
+```
+
+Where that context list surfaces in your agent depends on your framework's AG-UI adapter - see your integration's guide for the field it populates.
+
+<Callout type="warn">
+  Do not type-check `value` against the shape you registered.
+  `isinstance(entry["value"], list)` in Python, or `Array.isArray(entry.value)`
+  in TypeScript, can never be true, because `value` is always a string on the
+  wire. An agent that reads such a failed check as "no context was sent" will
+  refuse every request while the app is registering context correctly, and the
+  two cases are indistinguishable from the UI.
+</Callout>
+
 ## Behavior
 
 - **Scope lifecycle**: The context is registered while the composable's reactive scope is active and is removed automatically on scope cleanup (component unmount). No manual cleanup is required.
 - **Reactive updates**: `description` and `value` are resolved with `toValue`, so refs, computeds, and getters are tracked. When a resolved value changes, the previous context entry is removed and the new value is re-registered, keeping the agent in sync.
-- **Serialization**: String values are passed through as-is. Any other value is serialized with `JSON.stringify`, so it must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will not serialize correctly.
+- **Serialization**: String values are passed through as-is. Any other value is serialized with `JSON.stringify`, so it must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will not serialize correctly. The agent therefore always reads a string - see [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified internally by an ID returned from `addContext` and removed on cleanup.
 - **No return value**: The composable returns `void`.
 

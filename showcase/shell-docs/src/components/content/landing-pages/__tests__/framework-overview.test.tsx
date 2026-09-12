@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { FrameworkOverview } from "../framework-overview";
+import {
+  cliFrameworkForDocsSlug,
+  FrameworkOverview,
+} from "../framework-overview";
 import type { FrameworkOverviewData } from "@/data/frameworks/types";
 
 const overviewData: FrameworkOverviewData = {
@@ -18,7 +21,17 @@ const overviewData: FrameworkOverviewData = {
 };
 
 describe("FrameworkOverview", () => {
-  it("renders the primary quickstart CTA and optional agent CLI setup action", () => {
+  it.each([
+    ["strands", "aws-strands-py"],
+    ["strands-typescript", "aws-strands-ts"],
+  ])(
+    "uses the verified CLI framework id for the %s overview",
+    (currentFramework, cliFramework) => {
+      expect(cliFrameworkForDocsSlug(currentFramework)).toBe(cliFramework);
+    },
+  );
+
+  it("makes the coding-agent prompt the primary hero action and Quickstart secondary", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
@@ -26,13 +39,50 @@ describe("FrameworkOverview", () => {
       />,
     );
 
+    // The prompt button carries the accent treatment...
+    expect(markup).toContain("Copy Prompt");
+    expect(markup).toContain('data-surface="docs_framework_hero"');
+    expect(markup).toContain("prompt-pill-dock");
+    expect(markup).toContain("Open in Claude Code");
+    expect(markup).toContain("Open in Codex");
+
+    // ...and Quickstart keeps its place beside it in the bordered treatment.
     expect(markup).toContain("Quickstart");
-    expect(markup).toContain("Start using agents");
-    expect(markup).toContain('aria-controls="hero-cli-commands"');
-    expect(markup).toContain("border-[var(--accent)]");
-    expect(markup).toContain("bg-[var(--accent)]");
-    expect(markup).toContain("shell-docs-primary-cta");
-    expect(markup).toContain("text-[var(--primary-foreground)]");
+    expect(markup).toContain("shell-docs-cta-link");
+    expect(markup).toContain("bg-[var(--bg-surface)]");
+
+    // The removed CLI command menu must not come back through this surface.
+    expect(markup).not.toContain("Start using agents");
+    expect(markup).not.toContain("hero-cli-commands");
+    expect(markup).not.toContain("npx copilotkit@latest create");
+  });
+
+  it("leads with the prompt on a framework whose init command is bespoke", () => {
+    // The Claude Agent SDK overviews pass a framework-scoped init command, so
+    // they render the chip branch rather than the shared hero action row. They
+    // still have to lead with the prompt, and they still have to keep the
+    // command chip: nothing else on the page carries that command.
+    const initCommand =
+      "npx copilotkit@latest init --framework claude-sdk-python";
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={{ ...overviewData, initCommand }}
+        currentFramework="claude-sdk-python"
+      />,
+    );
+
+    expect(markup).toContain("Copy Prompt");
+    expect(markup).toContain('data-surface="docs_framework_hero"');
+    expect(markup).toContain(initCommand);
+
+    // Prompt first, then Quickstart in the bordered treatment, then the chip.
+    expect(markup.indexOf("Copy Prompt")).toBeLessThan(
+      markup.indexOf("Quickstart"),
+    );
+    expect(markup.indexOf("Quickstart")).toBeLessThan(
+      markup.indexOf(initCommand),
+    );
+    expect(markup).toContain("shell-docs-cta-link");
   });
 
   it("renders the framework identity icon in accent purple", () => {

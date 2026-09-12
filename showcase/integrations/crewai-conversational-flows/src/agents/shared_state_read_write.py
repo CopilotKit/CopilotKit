@@ -2,8 +2,8 @@
 
 Mirrors `langgraph-python/src/agents/shared_state_read_write.py` but
 implemented as a `crewai.flow.Flow` so we own the LLM call, the tool
-schema, and state mutations directly. The shared `LatestAiDevelopment`
-crew on "/" cannot host this demo: `ChatWithCrewFlow` does not surface
+schema, and state mutations directly. A crew endpoint cannot host
+this demo: `ChatWithCrewFlow` does not surface
 per-tool state mutations to the AG-UI bridge — its only state mutation
 is appending `result.raw` to `state["outputs"]` when the model invokes
 the special `<crew_name>` tool.

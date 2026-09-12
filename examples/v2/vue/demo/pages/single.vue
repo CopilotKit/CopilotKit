@@ -76,7 +76,6 @@ const SingleEndpointRouteContent = defineComponent({
   <CopilotKitProvider
     runtime-url="/api/copilotkit-single"
     :use-single-endpoint="true"
-    show-dev-console="auto"
   >
     <div style="height: 100vh; margin: 0; padding: 0; overflow: hidden">
       <SingleEndpointRouteContent />

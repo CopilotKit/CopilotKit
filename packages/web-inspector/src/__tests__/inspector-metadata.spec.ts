@@ -82,6 +82,12 @@ function findControl(root: ShadowRoot, label: string): HTMLElement | undefined {
 async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  // A returning developer on Threads: the first-run landing tab is now What's
+  // new, and the Threads footer is what this suite renders.
+  window.localStorage.setItem(
+    "cpk:inspector:state",
+    JSON.stringify({ selectedMenu: "threads" }),
+  );
   const requests: string[] = [];
   const metadataResponses = [
     ...(options.metadataResponses ??
@@ -103,6 +109,7 @@ async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
           agents: {},
           audioFileTranscriptionEnabled: false,
           mode: "sse",
+          intelligence: { wsUrl: "" },
           threadEndpoints: {
             list: options.threadsAvailable ?? false,
             inspect: options.threadsAvailable ?? false,
@@ -166,7 +173,7 @@ async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
     requests,
     open: async () => {
       const button = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!button) {
         throw new Error("Web Inspector opener was not rendered");
@@ -208,13 +215,13 @@ test("renders the trusted manage link in the Threads usage footer", async () => 
     const root = context.inspector.shadowRoot!;
     const identity = root.querySelector('[data-inspector-metadata="identity"]');
     const plan = root.querySelector('[data-inspector-metadata="plan"]');
+    expect(identity?.textContent).toContain("Support");
+    expect(identity?.textContent).toContain("Acme Inc.");
+    expect(plan?.textContent).toContain("Enterprise");
+    await context.selectTab("Threads");
     const action = root.querySelector<HTMLAnchorElement>(
       '[data-inspector-action-placement="threads-footer"]',
     );
-    expect(identity?.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "Acme Inc. / Support",
-    );
-    expect(plan?.textContent).toContain("Enterprise");
     expect(action?.textContent?.trim()).toBe("Manage Your Plan");
     expect(action?.getAttribute("aria-label")).toBe(
       "Manage Your Plan (opens in a new tab)",
@@ -237,6 +244,7 @@ test("keeps the Threads footer action clickable outside the drag handle", async 
   });
   try {
     await context.open();
+    await context.selectTab("Threads");
 
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -287,19 +295,17 @@ test.each([
   },
 );
 
+const LOCKED_THREADS_HEADING =
+  "Production-grade chat threads without the complexity. Self hostable.";
+
 test.each([
-  ["valid", "manage_plan", "Finish setting up Rich Threads", undefined],
-  [
-    "none",
-    "enable_intelligence",
-    "Enable Intelligence to inspect Threads.",
-    "Enable Intelligence",
-  ],
-  ["expired", "renew", "Renew Intelligence to inspect Threads.", "Renew"],
-  ["unknown", "manage_plan", "Threads are unavailable.", undefined],
+  ["valid", "manage_plan"],
+  ["none", "enable_intelligence"],
+  ["expired", "renew"],
+  ["unknown", "manage_plan"],
 ] as const)(
-  "locked Threads use %s license copy and action placement",
-  async (licenseState, actionKind, heading, actionLabel) => {
+  "locked Threads ignore %s license metadata and use the unified actions",
+  async (licenseState, actionKind) => {
     const context = await setup({
       metadata: fullMetadata(licenseState, actionKind),
       runtimeLicense: licenseState,
@@ -313,13 +319,15 @@ test.each([
       const action = root.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="locked"]',
       );
-      expect(root.textContent).toContain(heading);
-      expect(action?.textContent?.trim()).toBe(actionLabel);
-      if (actionLabel !== undefined) {
-        expect(action?.href).toBe(
-          `https://cloud.copilotkit.ai/actions/${actionKind}`,
-        );
-      }
+      const talk = root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-locked-feature-talk="threads"]',
+      );
+      expect(root.textContent).toContain(LOCKED_THREADS_HEADING);
+      expect(action).toBeNull();
+      expect(talk?.textContent?.trim()).toBe("Talk to an Engineer");
+      expect(
+        root.querySelector('[data-inspector-feature-setup-prompt="threads"]'),
+      ).not.toBeNull();
     } finally {
       context.teardown();
     }
@@ -354,7 +362,7 @@ test("renders valid partial modules without identity placeholders", async () => 
   }
 });
 
-test("an old runtime omits metadata UI and keeps the generic locked fallback", async () => {
+test("an old runtime omits metadata UI and keeps the guided setup fallback", async () => {
   const context = await setup({
     metadataSupported: false,
     threadsAvailable: false,
@@ -366,7 +374,10 @@ test("an old runtime omits metadata UI and keeps the generic locked fallback", a
     const root = context.inspector.shadowRoot!;
     expect(root.querySelector("[data-inspector-metadata]")).toBeNull();
     expect(root.querySelector("[data-inspector-action-placement]")).toBeNull();
-    expect(root.textContent).toContain("Threads are unavailable.");
+    expect(root.textContent).toContain(
+      "Production-grade chat threads without the complexity. Self hostable.",
+    );
+    expect(root.textContent).not.toContain("Threads are unavailable.");
   } finally {
     context.teardown();
   }
@@ -399,7 +410,7 @@ test("an old Core without metadata members attaches and renders without error", 
   try {
     await inspector.updateComplete;
     inspector.shadowRoot
-      ?.querySelector<HTMLButtonElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLButtonElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -427,7 +438,7 @@ test("known license disagreement uses Runtime copy and hides the metadata action
 
     const root = context.inspector.shadowRoot!;
     expect(root.textContent).toContain(
-      "Renew Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
     expect(
       root.querySelector('[data-inspector-action-placement="locked"]'),
@@ -465,6 +476,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
     ).length;
 
     context.core.setHeaders({ Authorization: "Bearer refreshed" });
+    await context.selectTab("Home");
     await waitFor(
       () =>
         context.inspector.shadowRoot
@@ -472,6 +484,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
           ?.textContent?.includes("Scale") === true,
       "the refreshed plan label",
     );
+    await context.selectTab("Threads");
 
     const selectedAfter = Reflect.get(
       context.inspector.shadowRoot?.querySelector("cpk-thread-details") ?? {},
@@ -513,21 +526,18 @@ test("metadata usage stays independent from Threads capability and debug navigat
       Object.prototype.hasOwnProperty.call(usage ?? {}, "expiringSoonCount"),
     ).toBe(true);
     expect(root.textContent).toContain(
-      "Enable Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
-    expect(lockedAction?.textContent?.trim()).toBe("Enable Intelligence");
-    expect(lockedAction?.href).toBe(
-      "https://cloud.copilotkit.ai/actions/enable_intelligence",
-    );
+    expect(lockedAction).toBeNull();
     expect(
       context.requests.filter((url) => url.includes("/threads?")),
     ).toHaveLength(0);
     expect(talk).toBeInstanceOf(HTMLAnchorElement);
     expect(talk).not.toBe(lockedAction);
-    for (const label of ["Threads", "Agents", "Learning"]) {
+    for (const label of ["Home", "Threads", "Learning", "Agent"]) {
       expect(findControl(root, label), label).toBeDefined();
     }
-    await context.selectTab("Agents");
+    await context.selectTab("Agent");
     for (const label of ["AG-UI Events", "Agent", "Context"]) {
       expect(findControl(root, label), label).toBeDefined();
     }

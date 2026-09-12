@@ -1,0 +1,36 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    CopilotKit's runtime forwards frontend tool definitions to the agent at
+    request time, so the agent can call a component registered with
+    `useComponent` by name. There are no backend tools to declare.
+
+    ```python title="src/agents/chart_agent.py"
+    from agent_framework import Agent
+
+    agent = Agent(
+        chat_client=chat_client,
+        instructions=SYSTEM_PROMPT,
+    )
+    ```
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    The agent's job here is to recognize the intent in the user's message and
+    emit a tool call with structured data. Say so in the instructions, or the
+    model will answer in prose and the component will never render.
+
+    ```python title="src/agents/chart_agent.py"
+    SYSTEM_PROMPT = """
+    You are a data visualization assistant.
+
+    When the user asks for a chart, call `render_bar_chart` with a concise
+    title and a `data` array of `{label, value}` items.
+    """
+    ```
+
+  </Step>
+</Steps>

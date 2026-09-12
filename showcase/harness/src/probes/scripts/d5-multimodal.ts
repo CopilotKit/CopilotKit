@@ -11,9 +11,11 @@
  * the attachment, then the regular fill+press flow sends both message +
  * attachment together.
  *
- * Aimock returns canned responses keyed off unique substrings. Assertions
- * require phrases unique to the D6 fixture so broad legacy fixture replies
- * cannot make the probe pass.
+ * AIMock returns canned responses keyed off the two exact sample prompts.
+ * Assertions require descriptions of the actual checked-in assets so a broad
+ * fallback or a fabricated fixture response cannot make the probe pass. This
+ * verifies deterministic fixture routing and the UI round trip; attachment
+ * bytes at the model boundary require the separate attachment-aware matcher.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
@@ -27,8 +29,8 @@ export const SAMPLE_PDF_BUTTON_SELECTOR =
 
 const SAMPLE_BUTTON_TIMEOUT_MS = 5_000;
 const ASSISTANT_TRANSCRIPT_TIMEOUT_MS = 5_000;
-const IMAGE_EXPECTED_PHRASE = "small abstract test pattern";
-const PDF_EXPECTED_PHRASE = "single test page";
+const IMAGE_EXPECTED_PHRASE = "copilotkit logo";
+const PDF_EXPECTED_PHRASE = "copilotkit quickstart";
 
 /** Read concatenated assistant transcript text (lowercased). */
 async function readAssistantTranscript(page: Page): Promise<string> {

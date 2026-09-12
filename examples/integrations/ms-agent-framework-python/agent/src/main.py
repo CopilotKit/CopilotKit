@@ -3,11 +3,10 @@ from __future__ import annotations
 import os
 
 import uvicorn
-from agent_framework._clients import ChatClientProtocol
-from azure.identity import DefaultAzureCredential
-from agent_framework.azure import AzureOpenAIChatClient
+from agent_framework import SupportsChatGetResponse
 from agent_framework.openai import OpenAIChatClient
 from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
+from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,29 +16,27 @@ from agent import create_agent
 load_dotenv()
 
 
-def _build_chat_client() -> ChatClientProtocol:
-    try:
-        if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
-            # Azure OpenAI setup - uses environment variables by default
-            # Optionally can pass deployment_name explicitly
-            deployment_name = os.getenv(
-                "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"
-            )
-            return AzureOpenAIChatClient(
-                credential=DefaultAzureCredential(),
-                deployment_name=deployment_name,
-                endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            )
-
-        if bool(os.getenv("OPENAI_API_KEY")):
-            # OpenAI setup - requires explicit model_id and api_key
-            return OpenAIChatClient(
-                model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
-                api_key=os.getenv("OPENAI_API_KEY"),
-            )
-
+def _build_chat_client() -> SupportsChatGetResponse:
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not azure_endpoint and not openai_api_key:
         raise ValueError(
-            "Either AZURE_OPENAI_ENDPOINT or OPENAI_API_KEY environment variable is required"
+            "Set AZURE_OPENAI_ENDPOINT (uses az login unless AZURE_OPENAI_API_KEY is set) or OPENAI_API_KEY."
+        )
+
+    try:
+        if azure_endpoint:
+            azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+            return OpenAIChatClient(
+                model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
+                api_key=azure_api_key,
+                credential=None if azure_api_key else DefaultAzureCredential(),
+                azure_endpoint=azure_endpoint,
+            )
+
+        return OpenAIChatClient(
+            model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+            api_key=openai_api_key,
         )
 
     except Exception as exc:  # pragma: no cover

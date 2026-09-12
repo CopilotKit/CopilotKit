@@ -54,6 +54,25 @@ function pageSlugs(nodes: NavNode[]): string[] {
   });
 }
 
+function sectionTitles(nodes: NavNode[]): string[] {
+  return nodes.flatMap((node) => (node.type === "section" ? [node.title] : []));
+}
+
+function sectionNodes(nodes: NavNode[], section: string): NavNode[] {
+  const sectionIndex = nodes.findIndex(
+    (node) => node.type === "section" && node.title === section,
+  );
+  if (sectionIndex === -1) return [];
+
+  const nextSectionIndex = nodes.findIndex(
+    (node, index) => index > sectionIndex && node.type === "section",
+  );
+  return nodes.slice(
+    sectionIndex + 1,
+    nextSectionIndex === -1 ? undefined : nextSectionIndex,
+  );
+}
+
 function getReactNavTree(backendFramework: string | null): NavNode[] {
   if (!backendFramework) {
     return buildRootSurfaceNav(getDocsFolder(ROOT_FRAMEWORK));
@@ -196,6 +215,45 @@ test("maps every React navigation destination to a published Angular destination
       ).toBe(true);
     }
   }
+});
+
+test("uses the normalized sidebar flow for Angular docs", () => {
+  const navTree = getAngularDocsNavTree(null);
+  const titles = sectionTitles(navTree);
+  const interactivity = sectionNodes(navTree, "Interactivity");
+  const agentCapabilities = sectionNodes(navTree, "Agent capabilities");
+
+  expect(titles).toEqual([
+    "Basics",
+    "Generative UI",
+    "Interactivity",
+    "Agent capabilities",
+    "Intelligence",
+    "Backend",
+    "Learn",
+    "Other",
+  ]);
+  expect(navTree[0]).toMatchObject({
+    type: "page",
+    title: "Introduction",
+    slug: "",
+  });
+  expect(
+    interactivity.some(
+      (node) => node.type === "page" && node.title === "WebMCP",
+    ),
+  ).toBe(true);
+  expect(
+    agentCapabilities.some(
+      (node) => node.type === "group" && node.title === "Built-in Agent",
+    ),
+  ).toBe(true);
+  expect(agentCapabilities.map((node) => node.title)).toEqual([
+    "Built-in Agent",
+    "Automatic Learning",
+    "User Memories",
+    "Sub-agents",
+  ]);
 });
 
 test("resolves canonical contribution aliases through shared Angular content", () => {

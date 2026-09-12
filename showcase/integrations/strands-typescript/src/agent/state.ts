@@ -16,9 +16,6 @@ import type {
 import type { RunAgentInput } from "@ag-ui/core";
 import { manageSalesTodosImpl } from "./lib/tool-impls";
 
-/** Marker returned by a sub-agent tool body when its LLM call failed. */
-export const SUBAGENT_FAILURE_MARKER = "__SUBAGENT_FAILED__:";
-
 /** Parse a tool's input (string JSON or already-parsed object). */
 function parseToolInput(raw: unknown): unknown {
   if (typeof raw === "string") {
@@ -64,6 +61,7 @@ function formatPreferencesBlock(prefs: unknown): string | null {
  * langgraph's lift-context-into-prompt pattern; the Python sibling does the
  * same in `build_state_prompt`.
  */
+// @region[agent-config-context-builder]
 function formatContextBlock(context: unknown): string | null {
   if (!Array.isArray(context) || context.length === 0) return null;
   const lines: string[] = [];
@@ -79,6 +77,16 @@ function formatContextBlock(context: unknown): string | null {
     lines.join("\n")
   );
 }
+
+export function buildAgentContextPrompt(
+  inputData: { context?: unknown },
+  prompt: string,
+): string {
+  const contextBlock = formatContextBlock(inputData.context);
+  if (!contextBlock) return prompt;
+  return `${contextBlock}\n\nUser request: ${prompt}`;
+}
+// @endregion[agent-config-context-builder]
 
 /**
  * Inject UI-owned shared-state slots and AG-UI context into the outgoing
@@ -100,11 +108,13 @@ export function buildStatePrompt(
       );
     }
   }
-  const contextBlock = formatContextBlock(inputData.context);
-  if (contextBlock) blocks.push(contextBlock);
+  const contextPrompt = buildAgentContextPrompt(inputData, prompt);
 
-  if (blocks.length === 0) return prompt;
-  return `${blocks.join("\n\n")}\n\nUser request: ${prompt}`;
+  if (blocks.length === 0) return contextPrompt;
+  if (contextPrompt === prompt) {
+    return `${blocks.join("\n\n")}\n\nUser request: ${prompt}`;
+  }
+  return `${blocks.join("\n\n")}\n\n${contextPrompt}`;
 }
 
 // ---- state-from-args hooks -----------------------------------------------
@@ -186,6 +196,10 @@ export async function documentStateFromArgs(
 
 // ---- sub-agents (delegation log) -----------------------------------------
 
+// @region[subagent-state-from-result]
+/** Marker returned by a sub-agent tool body when its LLM call failed. */
+export const SUBAGENT_FAILURE_MARKER = "__SUBAGENT_FAILED__:";
+
 interface Delegation {
   id: string;
   sub_agent: string;
@@ -210,6 +224,19 @@ function seedDelegations(threadId: string, state: unknown): Delegation[] {
   }
   delegationsByThread.set(threadId, seeded);
   return seeded;
+}
+
+function readSubagentTask(raw: unknown): string {
+  let input = raw;
+  if (typeof raw === "string") {
+    try {
+      input = JSON.parse(raw);
+    } catch {
+      return "";
+    }
+  }
+  if (!input || typeof input !== "object" || Array.isArray(input)) return "";
+  return String((input as Record<string, unknown>).task ?? "");
 }
 
 function flattenResult(resultData: unknown): string {
@@ -244,11 +271,7 @@ export function makeSubagentStateFromResult(subAgentName: string) {
     const threadId = ctx.inputData.threadId || "default";
     const existing = seedDelegations(threadId, ctx.inputData.state);
 
-    const input = parseToolInput(ctx.toolInput);
-    let task = "";
-    if (input && typeof input === "object" && !Array.isArray(input)) {
-      task = String((input as Record<string, unknown>).task ?? "");
-    }
+    const task = readSubagentTask(ctx.toolInput);
 
     const resultText = flattenResult(ctx.resultData);
     let status: Delegation["status"];
@@ -275,3 +298,4 @@ export function makeSubagentStateFromResult(subAgentName: string) {
     return { delegations: updated.map((d) => ({ ...d })) };
   };
 }
+// @endregion[subagent-state-from-result]

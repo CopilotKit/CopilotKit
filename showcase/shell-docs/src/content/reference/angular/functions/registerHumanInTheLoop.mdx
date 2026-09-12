@@ -5,7 +5,7 @@ description: "Angular function for registering a human-in-the-loop tool with Cop
 
 ## Overview
 
-`registerHumanInTheLoop` registers a tool that pauses the agent and waits for human input. When the agent calls the tool, CopilotKit renders the `component` you provide and suspends the agent run. The component collects a decision from the user (for example a confirm or reject choice) and calls `respond(result)`. That call resolves the tool with the serialized result envelope described below and lets the run continue.
+`registerHumanInTheLoop` registers a tool that pauses the agent and waits for human input. When the agent calls the tool, CopilotKit renders the `component` you provide and suspends the agent run. The component collects a decision from the user (for example a confirm or reject choice) and calls `respond(result)`. That call resolves the tool with the value you passed to `respond`, serialized as described below, and lets the run continue.
 
 You call `registerHumanInTheLoop` inside an Angular injection context (a component or service constructor, or a field initializer). The tool registers immediately. When the owning injector is destroyed, CopilotKit removes tool and renderer registrations with the same name and optional agent id.
 
@@ -109,7 +109,7 @@ type HumanInTheLoopToolCall<Args extends Record<string, unknown>> =
     };
 ```
 
-The `respond(result)` callback is how your component resumes the agent. The current implementation resolves the internal handler with `{ toolCallId, toolName, result }`; core serializes that object to JSON for the tool result. While the agent waits, `status` is `executing` (or `in-progress` while the arguments are still streaming). Once the tool message arrives, `status` becomes `complete` and `result` contains the stored tool-message string.
+The `respond(result)` callback is how your component resumes the agent. The value you pass to `respond` becomes the tool result directly: a string is stored as-is, and any other value is serialized to JSON by core. It is not wrapped in an envelope, so the agent sees the same shape it would from the React and Vue adapters. While the agent waits, `status` is `executing` (or `in-progress` while the arguments are still streaming). Once the tool message arrives, `status` becomes `complete` and `result` contains the stored tool-message string.
 
 ## Usage
 
@@ -175,7 +175,7 @@ export class ChatComponent {
 }
 ```
 
-When the agent calls `confirmAction`, the dialog appears in the chat and the run pauses. A button click sends `"confirmed"` or `"rejected"` in the serialized result envelope described above. The completed tool call exposes that stored string.
+When the agent calls `confirmAction`, the dialog appears in the chat and the run pauses. A button click sends `"confirmed"` or `"rejected"` as the tool result. The completed tool call exposes that stored string.
 
 Cleanup uses the same shared name-and-agent-id removal path as the other tool
 registration helpers. Frontend tools, human-in-the-loop tools, and tool-call

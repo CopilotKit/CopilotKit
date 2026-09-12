@@ -8,6 +8,7 @@ import type { CopilotChatViewProps } from "./CopilotChatView";
 import CopilotChatView from "./CopilotChatView";
 import type { CopilotPopupViewProps } from "./CopilotPopupView";
 import CopilotPopupView from "./CopilotPopupView";
+import { ModalOpenControlProvider } from "./modal-open-control";
 
 /**
  * Carries the popup shell props (header, toggle, width, height, …) to the
@@ -74,6 +75,19 @@ export type CopilotPopupProps = Omit<CopilotChatProps, "chatView"> & {
   header?: CopilotPopupViewProps["header"];
   toggleButton?: CopilotPopupViewProps["toggleButton"];
   defaultOpen?: boolean;
+  /**
+   * Controlled open state. When supplied, the host owns whether the popup is
+   * open: the popup renders this value and never changes it on its own. Pair it
+   * with `onOpenChange` to react to the toggle button and to click-outside.
+   * Omit it (and use `defaultOpen`) to let the popup manage its own state.
+   */
+  open?: boolean;
+  /**
+   * Called with the requested state whenever the popup asks to open or close
+   * (the toggle button, click-outside, or the thread drawer on mobile). In
+   * controlled mode nothing moves until the host updates `open`.
+   */
+  onOpenChange?: (open: boolean) => void;
   width?: CopilotPopupViewProps["width"];
   height?: CopilotPopupViewProps["height"];
   clickOutsideToClose?: CopilotPopupViewProps["clickOutsideToClose"];
@@ -83,6 +97,8 @@ export function CopilotPopup({
   header,
   toggleButton,
   defaultOpen,
+  open,
+  onOpenChange,
   width,
   height,
   clickOutsideToClose,
@@ -115,12 +131,14 @@ export function CopilotPopup({
     <>
       {!isPopupLicensed && <InlineFeatureWarning featureName="Popup" />}
       <PopupShellPropsContext.Provider value={shellProps}>
-        <CopilotChat
-          welcomeScreen={CopilotPopupView.WelcomeScreen}
-          {...chatProps}
-          isModalDefaultOpen={defaultOpen}
-          chatView={PopupViewOverrideWithStatics}
-        />
+        <ModalOpenControlProvider open={open} onOpenChange={onOpenChange}>
+          <CopilotChat
+            welcomeScreen={CopilotPopupView.WelcomeScreen}
+            {...chatProps}
+            isModalDefaultOpen={defaultOpen}
+            chatView={PopupViewOverrideWithStatics}
+          />
+        </ModalOpenControlProvider>
       </PopupShellPropsContext.Provider>
     </>
   );

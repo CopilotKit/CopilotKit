@@ -2,6 +2,7 @@
   "title": "v1",
   "pages": [
     "index",
+    "export-map",
     "---UI Components---",
     "...components",
     "---Hooks---",

@@ -4,6 +4,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
+# Keep the production SDK/MCP request path covered by the same image build
+# that gates this integration in pull requests.
+RUN npm run test:unit
 # Build Next.js frontend
 RUN npm run build
 # Compile TypeScript agent server to JS so boot is a straight `node` call
@@ -12,6 +15,11 @@ RUN npm run build
 RUN npx tsc --outDir /app/dist --module commonjs --moduleResolution node \
     --target es2020 --esModuleInterop true --resolveJsonModule true \
     --skipLibCheck true src/agent_server.ts
+# The runner copies node_modules from this stage, so remove test/build-only
+# packages after every command that needs them. Keep the assertion beside the
+# prune so a later Dockerfile edit cannot silently ship Vitest again.
+RUN npm prune --omit=dev --legacy-peer-deps \
+ && test ! -d node_modules/vitest
 
 # Stage 2: Production image — runtime only (no build tools)
 FROM node:22-slim AS runner

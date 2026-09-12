@@ -414,6 +414,35 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
     source: "/direct-to-llm/guides/mcp",
     destination: "/built-in-agent/coding-agents",
   },
+  // `/direct-to-llm/guides/premium/*` pages were deleted in cc8c945893
+  // ("refactor(docs): optimize structure, content and navigability",
+  // 2026-02-23) without redirects. The R16 `/direct-to-llm/:path*` wildcard
+  // strips the prefix and the remainder falls through to the docs home, so
+  // the page is lost rather than 404'd — quieter and harder to notice.
+  // Exact entries land each one on its current equivalent in one hop.
+  {
+    id: "INTEL-d2l-guides-overview",
+    source: "/direct-to-llm/guides/premium/overview",
+    destination: "/intelligence/overview",
+  },
+  {
+    id: "INTEL-d2l-guides-headless-ui",
+    source: "/direct-to-llm/guides/premium/headless-ui",
+    destination: "/intelligence/headless-ui",
+  },
+  {
+    // The observability page is retired; the overview is its standing
+    // destination everywhere else (INTEL-observability-*).
+    id: "INTEL-d2l-guides-observability",
+    source: "/direct-to-llm/guides/premium/observability",
+    destination: "/intelligence/overview",
+  },
+  {
+    // Inspector moved out of the Intelligence folder rather than retiring.
+    id: "INTEL-d2l-guides-inspector",
+    source: "/direct-to-llm/guides/premium/inspector",
+    destination: "/inspector",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -690,6 +719,37 @@ const MIGRATION_GUIDES: RedirectEntry[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Retired Intelligence pages. Mirrors INTEL-observability-root in
+// showcase/shell-docs/src/lib/seo-redirects.ts (same id, so the
+// decommission report cross-references one entry across both hosts).
+//
+// It MUST live on this host too: P7 below now renames the folder
+// (`/premium/*` → docs-host `/intelligence/*`) on the way across, so the
+// docs host never sees the `premium` segment and its own exact entry for
+// the retired page can no longer fire. Without this entry the legacy
+// shell URL would 301 to a docs-host `/intelligence/observability` that
+// does not exist. Exact sources beat every wildcard (see the combined
+// export note), so this wins over P7.
+// ---------------------------------------------------------------------------
+
+const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "INTEL-observability-root",
+    source: "/premium/observability",
+    destination: "/intelligence/overview",
+  },
+  // Same reason, different cause: the inspector page moved out of the folder
+  // in cc8c945893 instead of retiring, and never got a redirect. Without this
+  // entry P7 renames the legacy shell URL into a docs-host
+  // `/intelligence/inspector` that does not exist.
+  {
+    id: "INTEL-inspector-root",
+    source: "/premium/inspector",
+    destination: "/inspector",
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Folder-index redirects for shell-docs folders that lack an index.mdx.
 // These hit when a user navigates to the bare folder URL — without an
 // index page Next.js would 404. Each folder URL 301s to a sensible
@@ -710,10 +770,14 @@ const FOLDER_INDEX: RedirectEntry[] = [
     source: "/migrate",
     destination: "/migrate/v2",
   },
+  // The docs-host Intelligence folder was renamed `premium/` →
+  // `intelligence/` (OSS-1078). The id and the legacy source stay put;
+  // only the DESTINATION moves, so this forwards to a page that still
+  // exists instead of 301'ing into a docs-host 404.
   {
     id: "FI-premium",
     source: "/premium",
-    destination: "/premium/overview",
+    destination: "/intelligence/overview",
   },
   {
     id: "FI-concepts",
@@ -833,7 +897,18 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: "/generative-ui/:path*",
     destination: "/generative-ui/:path*",
   },
-  { id: "P7", source: "/premium/:path*", destination: "/premium/:path*" },
+  // P7 is no longer an identity pass-through: the docs-host folder was
+  // renamed `premium/` → `intelligence/` (OSS-1078), so the legacy shell
+  // URL has to cross hosts AND rename in the same hop. P7-intelligence
+  // is its post-rename twin, keeping the shell host forwarding the
+  // renamed tree the way it forwards /generative-ui, /backend and the
+  // other docs-owned trees.
+  { id: "P7", source: "/premium/:path*", destination: "/intelligence/:path*" },
+  {
+    id: "P7-intelligence",
+    source: "/intelligence/:path*",
+    destination: "/intelligence/:path*",
+  },
   {
     id: "P8",
     source: "/contributing/:path*",
@@ -881,6 +956,7 @@ export const seoRedirects: RedirectEntry[] = [
   ...DOCS_INTEGRATIONS_RENAMES.filter((e) => !e.source.includes(":path*")),
   ...DOCS_PREFIX,
   ...MIGRATION_GUIDES,
+  ...RETIRED_INTELLIGENCE_REDIRECTS,
   ...FOLDER_INDEX,
   // 2. Generated per-framework subpath renames (mostly exact paths,
   // plus the S13w×<fw> concepts/:path* wildcards)

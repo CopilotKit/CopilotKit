@@ -72,14 +72,14 @@ afterEach(() => {
 function configureIntelligence() {
   vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
   vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7250");
-  vi.stubEnv("INTELLIGENCE_API_KEY", "cpk_test");
+  vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "cpk_test");
   vi.stubEnv("INTELLIGENCE_USER_ID", "");
 }
 
 /** Intelligence absent — the OSS path every unit run takes by default. */
 function unconfigureIntelligence() {
   vi.stubEnv("INTELLIGENCE_API_URL", "");
-  vi.stubEnv("INTELLIGENCE_API_KEY", "");
+  vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "");
 }
 
 describe("POST /dev/reset — the store", () => {

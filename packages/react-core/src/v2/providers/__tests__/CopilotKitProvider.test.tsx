@@ -1,12 +1,21 @@
-import { render, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import type React from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { ToolCallStatus } from "@copilotkit/core";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { HttpAgent } from "@ag-ui/client";
+import { defineWebInspector } from "@copilotkit/web-inspector";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
-import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
+import {
+  CopilotChatConfigurationProvider,
+  useCopilotChatConfiguration,
+} from "../CopilotChatConfigurationProvider";
+import { stubWindowLocation } from "../../../v1-deprecated/test-helpers/stub-window-location";
 
 // Mock console methods
 const originalConsoleError = console.error;
@@ -24,6 +33,8 @@ describe("CopilotKitProvider", () => {
   afterEach(() => {
     consoleErrorSpy.mockRestore();
     consoleWarnSpy.mockRestore();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   describe("Basic functionality", () => {
@@ -52,8 +63,136 @@ describe("CopilotKitProvider", () => {
     });
   });
 
+  describe("inspector visibility", () => {
+    async function settleInspectorLoad(): Promise<void> {
+      await act(async () => {
+        await vi.dynamicImportSettled();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+    }
+
+    beforeEach(() => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.mocked(defineWebInspector).mockClear();
+    });
+
+    it("renders by default on a local development host and passes the provider core before connection", async () => {
+      const restoreLocation = stubWindowLocation("http://localhost:3000");
+      let providerCore: ReturnType<typeof useCopilotKit>["copilotkit"] | null =
+        null;
+      const Probe = () => {
+        providerCore = useCopilotKit().copilotkit;
+        return null;
+      };
+
+      try {
+        render(
+          <CopilotKitProvider>
+            <Probe />
+          </CopilotKitProvider>,
+        );
+
+        await waitFor(() => {
+          const inspector = document.querySelector<
+            HTMLElement & {
+              autoAttachCore?: boolean;
+              autoAttachCoreAtConnection?: boolean;
+              core?: unknown;
+              coreAtConnection?: unknown;
+            }
+          >("cpk-web-inspector");
+          expect(inspector?.core).toBe(providerCore);
+          expect(inspector?.autoAttachCore).toBe(false);
+          expect(inspector?.coreAtConnection).toBe(providerCore);
+          expect(inspector?.autoAttachCoreAtConnection).toBe(false);
+        });
+      } finally {
+        restoreLocation();
+      }
+    });
+
+    it("does not render or load when explicitly disabled in development", async () => {
+      render(
+        <CopilotKitProvider enableInspector={false}>child</CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(document.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("never renders or loads in production, even when explicitly enabled", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      render(
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={true}>
+          child
+        </CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(document.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("does not let legacy showDevConsole disable the development Inspector", async () => {
+      render(
+        <CopilotKitProvider showDevConsole={false}>child</CopilotKitProvider>,
+      );
+      await waitFor(() => {
+        expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+      });
+    });
+
+    it("does not let legacy showDevConsole enable the production Inspector", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      render(
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
+          child
+        </CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(document.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("does not render or load the inspector during SSR", async () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubGlobal("window", undefined);
+      const html = renderToString(
+        <CopilotKitProvider enableInspector={true}>child</CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(html).not.toContain("cpk-web-inspector");
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("hydrates development markup before mounting the Inspector", async () => {
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const element = (
+        <CopilotKitProvider enableInspector={true}>
+          <div>child</div>
+        </CopilotKitProvider>
+      );
+
+      vi.stubGlobal("window", undefined);
+      container.innerHTML = renderToString(element);
+      vi.unstubAllGlobals();
+
+      const onRecoverableError = vi.fn();
+      const root = hydrateRoot(container, element, { onRecoverableError });
+
+      try {
+        await waitFor(() => {
+          expect(container.querySelector("cpk-web-inspector")).not.toBeNull();
+        });
+        expect(onRecoverableError).not.toHaveBeenCalled();
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+      }
+    });
+  });
   describe("selfManagedAgents license signal", () => {
-    const ENTERPRISE_WARNING = "Enterprise Intelligence";
+    const ENTERPRISE_WARNING = "Enterprise Intelligence tier";
 
     it("warns when selfManagedAgents is provided without a license key", () => {
       const agent = new HttpAgent({ url: "http://localhost:8000" });
@@ -226,10 +365,23 @@ describe("CopilotKitProvider", () => {
         (rc) => rc.name === "approvalTool",
       );
       expect(approvalTool).toBeDefined();
-      expect(approvalTool?.render).toBe(TestComponent);
+      // The registered render is a wrapper that supplies the human-in-the-loop
+      // prop contract, so assert that it renders the caller's component rather
+      // than comparing identity.
+      const Registered = approvalTool!.render;
+      const { getByText } = render(
+        <Registered
+          name="approvalTool"
+          toolCallId="tc-1"
+          args={{}}
+          status={ToolCallStatus.InProgress}
+          result={undefined}
+        />,
+      );
+      expect(getByText("Test")).toBeDefined();
     });
 
-    it("creates placeholder handlers for humanInTheLoop tools", async () => {
+    it("keeps a humanInTheLoop tool call waiting instead of resolving it", async () => {
       const TestComponent: React.FC<any> = () => <div>Test</div>;
       const humanInTheLoopTools: ReactHumanInTheLoop[] = [
         {
@@ -255,19 +407,18 @@ describe("CopilotKitProvider", () => {
       })?.handler;
       expect(handler).toBeDefined();
 
-      // Call the handler and check for warning
-      const handlerPromise = handler!({ data: "test" }, {} as any);
+      const settled = vi.fn();
+      void handler!({ data: "test" }, {
+        toolCall: { id: "tc-1", function: { name: "interactiveTool" } },
+      } as any).then(settled, settled);
 
-      await waitFor(() => {
-        expect(consoleWarnSpy).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "Human-in-the-loop tool 'interactiveTool' called",
-          ),
-        );
-      });
-
-      const result2 = await handlerPromise;
-      expect(result2).toBeUndefined();
+      // The handler parks until the render calls `respond`. It must not settle
+      // on its own, and it must not warn: waiting is the contract, not a gap.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(settled).not.toHaveBeenCalled();
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("no interactive handler is set up"),
+      );
     });
 
     it("warns when humanInTheLoop prop changes", async () => {
@@ -442,8 +593,20 @@ describe("CopilotKitProvider", () => {
       expect(directRenderTool).toBeDefined();
 
       expect(frontendRenderTool?.render).toBe(TestComponent1);
-      expect(humanRenderTool?.render).toBe(TestComponent2);
       expect(directRenderTool?.render).toBe(TestComponent3);
+      // A humanInTheLoop render is wrapped to receive `respond`, so check that
+      // the wrapper renders the caller's component instead of its identity.
+      const HumanRender = humanRenderTool!.render;
+      const { getByText } = render(
+        <HumanRender
+          name="humanRenderTool"
+          toolCallId="tc-1"
+          args={{}}
+          status={ToolCallStatus.InProgress}
+          result={undefined}
+        />,
+      );
+      expect(getByText("Test2")).toBeDefined();
     });
   });
 
@@ -769,6 +932,147 @@ describe("CopilotKitProvider", () => {
       );
 
       expect(capturedCopilotkit!.runtimeTransport).toBe("auto");
+    });
+  });
+
+  // OSS-1133: naming the agent used to require the v1 `<CopilotKit agent>`
+  // wrapper, because the v2 provider carried no agent prop at all.
+  describe("agentId", () => {
+    it("becomes the default agent for a chat that does not name one", () => {
+      const { result } = renderHook(() => useCopilotChatConfiguration(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider agentId="my_agent">
+            <CopilotChatConfigurationProvider>
+              {children}
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current?.agentId).toBe("my_agent");
+    });
+
+    it("lets a nested chat configuration override it", () => {
+      const { result } = renderHook(() => useCopilotChatConfiguration(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider agentId="provider_agent">
+            <CopilotChatConfigurationProvider agentId="chat_agent">
+              {children}
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current?.agentId).toBe("chat_agent");
+    });
+
+    it("leaves the global default in place when the prop is omitted", () => {
+      const { result } = renderHook(() => useCopilotChatConfiguration(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider>
+            <CopilotChatConfigurationProvider>
+              {children}
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current?.agentId).toBe(DEFAULT_AGENT_ID);
+    });
+
+    it("publishes no chat configuration of its own", () => {
+      const { result } = renderHook(() => useCopilotChatConfiguration(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider agentId="my_agent">{children}</CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current).toBeNull();
+    });
+
+    it("follows a changed agentId", () => {
+      let captured: string | undefined;
+
+      function Collector() {
+        captured = useCopilotChatConfiguration()?.agentId;
+        return null;
+      }
+
+      const { rerender } = render(
+        <CopilotKitProvider agentId="first_agent">
+          <CopilotChatConfigurationProvider>
+            <Collector />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+      expect(captured).toBe("first_agent");
+
+      rerender(
+        <CopilotKitProvider agentId="second_agent">
+          <CopilotChatConfigurationProvider>
+            <Collector />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+      expect(captured).toBe("second_agent");
+    });
+
+    // The agent default must NOT arrive through a root
+    // `CopilotChatConfigurationProvider`: that provider also resolves a
+    // threadId, so every chat under it would inherit one thread and two
+    // sibling chats would share a transcript.
+    describe("thread isolation", () => {
+      beforeEach(async () => {
+        const { randomUUID } = await import("@copilotkit/shared");
+        let n = 0;
+        vi.mocked(randomUUID).mockImplementation(() => `thread-uuid-${++n}`);
+      });
+
+      afterEach(async () => {
+        const { randomUUID } = await import("@copilotkit/shared");
+        vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+      });
+
+      function renderSiblingChats(agentId?: string) {
+        const threadIds: (string | undefined)[] = [];
+
+        function Collector() {
+          threadIds.push(useCopilotChatConfiguration()?.threadId);
+          return null;
+        }
+
+        // Stands in for what `<CopilotChat>` renders: its own configuration
+        // provider with no threadId prop.
+        function Chat() {
+          return (
+            <CopilotChatConfigurationProvider>
+              <Collector />
+            </CopilotChatConfigurationProvider>
+          );
+        }
+
+        render(
+          <CopilotKitProvider agentId={agentId}>
+            <Chat />
+            <Chat />
+          </CopilotKitProvider>,
+        );
+
+        return threadIds;
+      }
+
+      it("gives sibling chats their own thread when agentId is set", () => {
+        const threadIds = renderSiblingChats("my_agent");
+
+        expect(threadIds).toHaveLength(2);
+        expect(new Set(threadIds).size).toBe(2);
+      });
+
+      it("matches the no-agentId tree", () => {
+        const threadIds = renderSiblingChats();
+
+        expect(new Set(threadIds).size).toBe(2);
+      });
     });
   });
 

@@ -17,6 +17,45 @@ import type {
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
+import { aggregateRunUsage, getTokenCount, tokenCountKeys } from "./usage";
+import type { AgentRunFinishedDetails, AgentRunUsage } from "./usage";
+
+/**
+ * Reads aggregate usage from an AI SDK finish part without inventing values
+ * when a provider omits a token count.
+ */
+export function getAISDKRunFinishedDetails(
+  part: Record<string, unknown>,
+  identity: { provider?: string; model?: string } = {},
+): AgentRunFinishedDetails {
+  const details: AgentRunFinishedDetails = {};
+
+  if (typeof part.finishReason === "string") {
+    details.finishReason = part.finishReason;
+  }
+
+  if (
+    part.totalUsage === null ||
+    typeof part.totalUsage !== "object" ||
+    Array.isArray(part.totalUsage)
+  ) {
+    return details;
+  }
+
+  const totalUsage = part.totalUsage as Record<string, unknown>;
+  const counts: AgentRunUsage = {};
+
+  for (const key of tokenCountKeys) {
+    const value = getTokenCount(totalUsage[key]);
+    if (value !== undefined) {
+      counts[key] = value;
+    }
+  }
+
+  aggregateRunUsage(details, [{ ...identity, ...counts }]);
+
+  return details;
+}
 
 /**
  * Converts an AI SDK `fullStream` into AG-UI `BaseEvent` objects.
@@ -37,6 +76,7 @@ export async function* convertAISDKStream(
   abortSignal: AbortSignal,
   pendingInterrupts?: Interrupt[],
   initialState?: unknown,
+  runFinishedDetails?: AgentRunFinishedDetails,
 ): AsyncGenerator<BaseEvent> {
   let messageId = randomUUID();
   let reasoningMessageId = randomUUID();
@@ -382,6 +422,9 @@ export async function* convertAISDKStream(
         }
 
         case "finish": {
+          if (runFinishedDetails) {
+            Object.assign(runFinishedDetails, getAISDKRunFinishedDetails(p));
+          }
           // Terminal — let the caller handle lifecycle
           return;
         }

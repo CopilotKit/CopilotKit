@@ -1,7 +1,48 @@
-cdk.out*/
-infra-cdk/node_modules/
-infra-cdk/cdk.out*/
-frontend/node_modules/
-**/node_modules/
+# Build context for `agents/*/Dockerfile`, which is this directory. Three
+# consumers share it: the Terraform `local-exec` build in
+# infra-terraform/modules/backend/runtime.tf, infra-terraform/scripts/build-and-push-image.sh,
+# and the CDK `DockerImageAsset` in infra-cdk/lib/backend-stack.ts.
+#
+# Both agent Dockerfiles COPY explicit paths and never `COPY . .`, so nothing
+# listed here would have reached a published image layer — this is not about
+# keeping credentials out of the image. What it does buy: local-only trees stop
+# being uploaded to the daemon on every build (a populated
+# infra-terraform/.terraform/ alone is ~850 MB), and they stop feeding the CDK
+# asset fingerprint, which hashes the whole context and so re-tags and re-pushes
+# the image whenever an unrelated local file changes.
+#
+# Keep in sync with .gitignore in this directory.
+
+# Python
 **/__pycache__/
-**/*.pyc
+**/*.py[cod]
+**/*.egg-info/
+**/.venv/
+**/venv/
+**/.uv/
+
+# Node
+**/node_modules/
+**/dist/
+**/build/
+**/.vite/
+
+# CDK
+**/cdk.out*/
+
+# Terraform — .terraform/ is the downloaded provider cache
+**/.terraform/
+**/.terraform.lock.hcl
+**/*.tfstate
+**/*.tfstate.backup
+**/terraform.tfvars
+
+# Local config and generated deploy artifacts (config.yaml and docker/.env hold
+# personal stack values and AWS credentials; the rest are build outputs)
+config.yaml
+docker/.env
+**/aws-exports.json
+**/*.zip
+
+# macOS
+**/.DS_Store

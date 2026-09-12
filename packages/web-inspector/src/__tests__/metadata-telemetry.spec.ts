@@ -118,6 +118,12 @@ async function setup(
 ): Promise<InspectorTelemetryContext> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  // A returning developer on Threads: the first-run landing tab is now What's
+  // new, and this suite measures the Threads-scoped metadata surfaces.
+  window.localStorage.setItem(
+    "cpk:inspector:state",
+    JSON.stringify({ selectedMenu: "threads" }),
+  );
   const metadataResponses = [...options.metadataResponses];
   const telemetryBodies: TelemetryBody[] = [];
   const fetchMock = vi.fn(
@@ -142,6 +148,7 @@ async function setup(
           agents: {},
           audioFileTranscriptionEnabled: false,
           mode: "sse",
+          intelligence: { wsUrl: "" },
           threadEndpoints: {
             list: options.threadsAvailable ?? true,
             inspect: options.threadsAvailable ?? true,
@@ -202,7 +209,7 @@ async function setup(
     telemetryBodies,
     open: async () => {
       const button = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!button) throw new Error("Web Inspector opener was not rendered");
       button.click();
@@ -246,23 +253,24 @@ test("metadata impressions wait for an open connected Inspector and use last-fin
     expect(metadataBodies(context)).toEqual([]);
 
     await context.open();
+    await context.selectTab("Threads");
 
     expect(
       metadataBodies(context).map(({ properties }) => properties.module),
-    ).toEqual(["identity", "plan", "action"]);
+    ).toEqual(["identity", "plan", "identity", "plan", "action"]);
 
     await context.core.refreshInspectorMetadata();
     await waitFor(
-      () => metadataBodies(context).length === 4,
+      () => metadataBodies(context).length === 6,
       "the changed plan impression",
     );
     expect(
       metadataBodies(context).map(({ properties }) => properties.module),
-    ).toEqual(["identity", "plan", "action", "plan"]);
+    ).toEqual(["identity", "plan", "identity", "plan", "action", "plan"]);
 
     await context.core.refreshInspectorMetadata();
     await waitFor(
-      () => metadataBodies(context).length === 5,
+      () => metadataBodies(context).length === 7,
       "the A-to-B-to-A plan impression",
     );
     expect(metadataBodies(context).at(-1)?.properties.module).toBe("plan");
@@ -270,7 +278,7 @@ test("metadata impressions wait for an open connected Inspector and use last-fin
     await context.close();
     await context.open();
 
-    expect(metadataBodies(context)).toHaveLength(5);
+    expect(metadataBodies(context)).toHaveLength(7);
   } finally {
     context.teardown();
   }
@@ -284,15 +292,16 @@ test("a metadata module re-emits after an open-panel absent transition", async (
   });
   try {
     await context.open();
-    expect(metadataBodies(context)).toHaveLength(3);
+    await context.selectTab("Threads");
+    expect(metadataBodies(context)).toHaveLength(5);
 
     await context.core.refreshInspectorMetadata();
     await context.inspector.updateComplete;
-    expect(metadataBodies(context)).toHaveLength(3);
+    expect(metadataBodies(context)).toHaveLength(5);
 
     await context.core.refreshInspectorMetadata();
     await waitFor(
-      () => metadataBodies(context).length === 4,
+      () => metadataBodies(context).length === 6,
       "the plan impression after its absent state",
     );
 
@@ -309,6 +318,7 @@ test("Threads footer action emits one impression per visible transition and one 
   });
   try {
     await context.open();
+    await context.selectTab("Threads");
 
     const root = requireShadowRoot(context.inspector);
     const actions = root.querySelectorAll<HTMLAnchorElement>(
@@ -326,7 +336,7 @@ test("Threads footer action emits one impression per visible transition and one 
     expect(actionViews[0]?.properties).toMatchObject({
       usage_bucket: "within_limit",
       expiry_bucket: "unavailable",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
       action_placement: "threads_footer",
     });
@@ -353,7 +363,7 @@ test("Threads footer action emits one impression per visible transition and one 
       license_bucket: "valid",
       usage_bucket: "within_limit",
       expiry_bucket: "unavailable",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
       action_placement: "threads_footer",
     });
@@ -362,7 +372,7 @@ test("Threads footer action emits one impression per visible transition and one 
       /cloud\.copilotkit\.ai/,
     );
 
-    await context.selectTab("Agents");
+    await context.selectTab("Agent");
     expect(
       root.querySelector('[data-inspector-action-placement="threads-footer"]'),
     ).toBeNull();
@@ -393,24 +403,24 @@ test("Threads footer action emits one impression per visible transition and one 
   }
 });
 
-test("a valid manage action emits one footer impression when Threads endpoints are locked", async () => {
+test("locked Threads suppress the footer action and its impression", async () => {
   const context = await setup({
     metadataResponses: [fullMetadata()],
     threadsAvailable: false,
   });
   try {
     await context.open();
+    await context.selectTab("Threads");
 
     const root = requireShadowRoot(context.inspector);
     const footer = root.querySelectorAll("[data-inspector-threads-footer]");
     const action = root.querySelectorAll("[data-inspector-threads-footer] a");
-    expect(footer).toHaveLength(1);
-    expect(action).toHaveLength(1);
+    expect(footer).toHaveLength(0);
+    expect(action).toHaveLength(0);
     const actionViews = metadataBodies(context).filter(
       ({ properties }) => properties.module === "action",
     );
-    expect(actionViews).toHaveLength(1);
-    expect(actionViews[0]?.properties.action_placement).toBe("threads_footer");
+    expect(actionViews).toHaveLength(0);
     expect(
       context.telemetryBodies.filter(
         ({ event }) => event === TELEMETRY_EVENTS.metadataActionClicked,
@@ -429,16 +439,6 @@ const metadataActionCases = [
     label: "Manage plan",
     expectedKind: "manage_plan",
   },
-  {
-    name: "renew",
-    metadata: fullMetadata({
-      licenseState: "expired",
-      actionKind: "renew",
-    }),
-    threadsAvailable: false,
-    label: "Renew",
-    expectedKind: "renew",
-  },
 ] satisfies ReadonlyArray<{
   name: string;
   metadata: InspectorMetadataV1;
@@ -456,7 +456,7 @@ test.each(metadataActionCases)(
     });
     try {
       await context.open();
-      if (!case_.threadsAvailable) await context.selectTab("Threads");
+      await context.selectTab("Threads");
       const action =
         context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
           `[data-inspector-action-placement="${
@@ -480,7 +480,7 @@ test.each(metadataActionCases)(
           license_bucket: case_.threadsAvailable ? "valid" : "expired",
           usage_bucket: "within_limit",
           expiry_bucket: "unavailable",
-          group_key: "threads",
+          group_key: "workbench",
           leaf_key: "threads",
           action_placement: case_.threadsAvailable
             ? "threads_footer"
@@ -493,7 +493,7 @@ test.each(metadataActionCases)(
   },
 );
 
-test("enable Intelligence stays on its existing event without a generic double count", async () => {
+test("locked metadata actions yield to the unified engineer CTA", async () => {
   const context = await setup({
     metadataResponses: [
       fullMetadata({ licenseState: "none", actionKind: "enable_intelligence" }),
@@ -502,15 +502,10 @@ test("enable Intelligence stays on its existing event without a generic double c
   });
   try {
     await context.open();
+    await context.selectTab("Threads");
     expect(
       metadataBodies(context).map(({ properties }) => properties.module),
-    ).toEqual(["identity", "plan", "action"]);
-
-    expect(metadataBodies(context).at(-1)?.properties).toMatchObject({
-      module: "action",
-      action_kind: "enable_intelligence",
-      license_bucket: "none",
-    });
+    ).toEqual(["identity", "plan", "identity", "plan"]);
 
     const toggleSettings = async (): Promise<void> => {
       const settings = context.inspector.shadowRoot?.querySelector<HTMLElement>(
@@ -526,33 +521,32 @@ test("enable Intelligence stays on its existing event without a generic double c
       metadataBodies(context).filter(
         ({ properties }) => properties.module === "action",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(0);
 
-    await context.selectTab("Agents");
+    await context.selectTab("Agent");
     await context.selectTab("AG-UI Events");
     await context.selectTab("Threads");
     expect(
       metadataBodies(context).filter(
         ({ properties }) => properties.module === "action",
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(0);
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="locked"]',
+        '[data-inspector-locked-feature-talk="threads"]',
       );
-    if (!action) throw new Error("Enable Intelligence action was not rendered");
+    if (!action) throw new Error("Talk to an Engineer action was not rendered");
     action.dispatchEvent(new Event("click"));
     action.dispatchEvent(new Event("click"));
     await Promise.resolve();
 
-    const enableEvents = context.telemetryBodies.filter(
-      ({ event }) =>
-        event === "oss.inspector.threads_intelligence_signup_clicked",
+    const talkEvents = context.telemetryBodies.filter(
+      ({ event }) => event === TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
     );
-    expect(enableEvents).toHaveLength(2);
-    expect(enableEvents.map(({ event }) => event)).toEqual([
-      "oss.inspector.threads_intelligence_signup_clicked",
-      "oss.inspector.threads_intelligence_signup_clicked",
+    expect(talkEvents).toHaveLength(2);
+    expect(talkEvents.map(({ event }) => event)).toEqual([
+      TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
+      TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
     ]);
     expect(
       context.telemetryBodies.filter(
@@ -571,6 +565,7 @@ test("runtime telemetry opt-out suppresses metadata impressions and action click
   });
   try {
     await context.open();
+    await context.selectTab("Threads");
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="threads-footer"]',
@@ -593,6 +588,7 @@ test("a stale rendered action does not emit after the Inspector disconnects", as
   const context = await setup({ metadataResponses: [fullMetadata()] });
   try {
     await context.open();
+    await context.selectTab("Threads");
 
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -625,20 +621,20 @@ test("detaching clears metadata impression fingerprints", async () => {
   const context = await setup({ metadataResponses: [fullMetadata()] });
   try {
     await context.open();
-    expect(metadataBodies(context)).toHaveLength(3);
+    expect(metadataBodies(context)).toHaveLength(2);
 
     context.inspector.core = null;
     await context.inspector.updateComplete;
     context.inspector.core = context.core;
     await context.inspector.updateComplete;
     await waitFor(
-      () => metadataBodies(context).length === 6,
+      () => metadataBodies(context).length === 4,
       "metadata impressions after reattach",
     );
 
     expect(
       metadataBodies(context).map(({ properties }) => properties.module),
-    ).toEqual(["identity", "plan", "action", "identity", "plan", "action"]);
+    ).toEqual(["identity", "plan", "identity", "plan"]);
   } finally {
     context.teardown();
   }
@@ -651,6 +647,7 @@ test("telemetry delivery failures do not break metadata rendering or action clic
   });
   try {
     await context.open();
+    await context.selectTab("Threads");
     const root = context.inspector.shadowRoot;
     const action = root?.querySelector<HTMLAnchorElement>(
       '[data-inspector-action-placement="threads-footer"]',
@@ -658,9 +655,7 @@ test("telemetry delivery failures do not break metadata rendering or action clic
     action?.dispatchEvent(new Event("click"));
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 
-    expect(
-      root?.querySelector('[data-inspector-metadata="identity"]'),
-    ).not.toBeNull();
+    expect(root?.querySelector("[data-inspector-home]")).toBeNull();
     expect(action?.textContent).toContain("Manage Your Plan");
   } finally {
     context.teardown();
@@ -682,6 +677,7 @@ test("metadata events never include local identity, URLs, usage, limits, counts,
   });
   try {
     await context.open();
+    await context.selectTab("Threads");
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="threads-footer"]',

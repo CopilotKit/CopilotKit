@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { filter, lastValueFrom, Subject, take } from "rxjs";
+import { filter, lastValueFrom, map, Subject, take } from "rxjs";
 
 @Injectable({ providedIn: "root" })
 export class HumanInTheLoop {
@@ -17,10 +17,14 @@ export class HumanInTheLoop {
     return lastValueFrom(
       this.results.pipe(
         filter(
-          (result) =>
-            result.toolCallId === toolCallId && result.toolName === toolName,
+          (entry) =>
+            entry.toolCallId === toolCallId && entry.toolName === toolName,
         ),
         take(1),
+        // Resolve with the bare result. toolCallId/toolName are routing keys for
+        // this bus only — leaking them would make the tool result an envelope
+        // that no consumer expects.
+        map((entry) => entry.result),
       ),
     );
   }

@@ -112,7 +112,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         return `Updated proverbs`;
       },
     },
-    [agent, state],
+    [state.proverbs],
   );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui

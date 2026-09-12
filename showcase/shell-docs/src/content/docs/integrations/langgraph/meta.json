@@ -28,6 +28,7 @@
     "configurable",
     "subgraphs",
     "auth",
+    "guardrails",
     "---Deploy---",
     "deploy-agentcore",
     "deploy-langsmith",

@@ -184,7 +184,7 @@ async def run_a2ui_fixed_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
         try:
             async with client.messages.stream(
                 model=normalize_claude_model(
-                    os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")
+                    os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
                 ),
                 max_tokens=2048,
                 system=SYSTEM_PROMPT,

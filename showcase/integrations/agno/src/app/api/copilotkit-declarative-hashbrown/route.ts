@@ -5,13 +5,14 @@
 // agent still mounts at `/byoc-hashbrown/agui` (see src/agent_server.py).
 // The demo page mounts <CopilotKit agent="declarative-hashbrown-demo">.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -45,15 +46,15 @@ export const POST = async (req: NextRequest) => {
   }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-declarative-hashbrown",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
-        // @ts-expect-error -- see main route.ts
+        // @ts-ignore -- see main route.ts
         agents,
       }),
+      basePath: "/api/copilotkit-declarative-hashbrown",
+      mode: "single-route",
     });
-    const response = await handleRequest(req);
+    const response = await copilotHandler(req);
     if (!response.ok) {
       console.log(
         `[copilotkit-declarative-hashbrown/route] Response status: ${response.status}`,

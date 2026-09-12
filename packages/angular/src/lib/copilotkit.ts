@@ -29,6 +29,7 @@ import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   schemaToJsonSchema,
+  type RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
 import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
@@ -61,6 +62,7 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
+import { CopilotInspector } from "./inspector";
 
 /**
  * Advertise a client-provided A2UI catalog to the runtime without mutating the
@@ -85,6 +87,7 @@ export class CopilotKit {
   );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  readonly #inspector = inject(CopilotInspector);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
   readonly defaultToolRenderingEnabled =
     this.#config.defaultToolRendering === true;
@@ -103,6 +106,8 @@ export class CopilotKit {
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
+  readonly credentials = this.#credentials.asReadonly();
   readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
     undefined,
   );
@@ -132,6 +137,21 @@ export class CopilotKit {
    * the threads drawer's license gate — re-run once the status resolves.
    */
   readonly licenseStatus = this.#licenseStatus.asReadonly();
+  readonly #runtimeEntitlements = signal<
+    RuntimeEntitlementResponse | undefined
+  >(undefined);
+  /**
+   * Structured entitlement authority from the connected runtime's `/info`
+   * response. Ready managed entitlements override legacy license status.
+   */
+  readonly runtimeEntitlements = this.#runtimeEntitlements.asReadonly();
+  readonly #runtimeEntitlementRetryPending = signal(false);
+  /**
+   * Whether Core still owes the one bounded retry for a retryable entitlement
+   * lookup. Gated UI stays pending until that retry settles.
+   */
+  readonly runtimeEntitlementRetryPending =
+    this.#runtimeEntitlementRetryPending.asReadonly();
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
@@ -140,6 +160,7 @@ export class CopilotKit {
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
+    credentials: this.#config.credentials,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
@@ -198,15 +219,21 @@ export class CopilotKit {
   #a2UIContextIds: string[] = [];
 
   constructor() {
+    void this.#inspector.isInspectorEnabled;
     ensureLicenseWatermark(this.#config.headers);
 
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#credentials.set(this.core.credentials);
     this.#threadEndpoints.set(this.core.threadEndpoints);
     this.#intelligence.set(this.core.intelligence);
     this.#licenseStatus.set(this.core.licenseStatus);
+    this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
+    this.#runtimeEntitlementRetryPending.set(
+      this.core.runtimeEntitlementRetryPending,
+    );
     this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
@@ -247,6 +274,10 @@ export class CopilotKit {
         this.#threadEndpoints.set(this.core.threadEndpoints);
         this.#intelligence.set(this.core.intelligence);
         this.#licenseStatus.set(this.core.licenseStatus);
+        this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
+        this.#runtimeEntitlementRetryPending.set(
+          this.core.runtimeEntitlementRetryPending,
+        );
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },
@@ -292,6 +323,14 @@ export class CopilotKit {
     },
   ): FrontendTool {
     const { injector, handler, ...frontendCandidate } = clientToolWithInjector;
+
+    // A display-only registration declares no handler, and core has its own path
+    // for that: it inserts an empty tool result and completes the turn. Binding a
+    // wrapper here regardless would call `undefined` on the first tool call, and
+    // substituting a stub would put an invented result into the thread instead.
+    if (!handler) {
+      return frontendCandidate;
+    }
 
     return {
       ...frontendCandidate,
@@ -598,6 +637,7 @@ export class CopilotKit {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
+    credentials?: RequestCredentials;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
@@ -613,6 +653,10 @@ export class CopilotKit {
     if (options.headers !== undefined) {
       this.core.setHeaders(options.headers);
       this.#headers.set(options.headers);
+    }
+    if ("credentials" in options) {
+      this.core.setCredentials(options.credentials);
+      this.#credentials.set(options.credentials);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(

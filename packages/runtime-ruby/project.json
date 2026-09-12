@@ -1,0 +1,50 @@
+{
+  "name": "runtime-ruby",
+  "targets": {
+    "test-rack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/runtime-conformance/run.mjs --cwd packages/runtime-ruby -- bundle exec ruby examples/conformance.rb",
+        "cwd": "."
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "test-rails": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/runtime-conformance/run.mjs --cwd packages/runtime-ruby/examples/rails -- bundle exec ruby ../rails_conformance.rb",
+        "cwd": "."
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ruby -Ilib -e 'Dir[\"test/*_test.rb\"].sort.each { |file| require File.expand_path(file) }'",
+        "cwd": "packages/runtime-ruby"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ruby -e 'require \"rbconfig\"; abort unless Dir[\"{lib,examples,test}/**/*.rb\"].all? { |file| system(RbConfig.ruby, \"-c\", file) }'",
+        "cwd": "packages/runtime-ruby"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "gem build copilotkit-runtime.gemspec --output /tmp/copilotkit-runtime.gem",
+        "cwd": "packages/runtime-ruby"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  }
+}

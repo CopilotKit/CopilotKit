@@ -186,7 +186,8 @@
           "BROWSER_POOL_MAX_CONTEXTS": 40,
           "HARNESS_POOL_COUNT": 3,
           "overlapSeconds": 45,
-          "drainingSeconds": 180
+          "drainingSeconds": 180,
+          "restartPolicyType": "ALWAYS"
         },
         "staging": {
           "effectiveReplicas": 6,
@@ -194,7 +195,8 @@
           "BROWSER_POOL_MAX_CONTEXTS": 40,
           "HARNESS_POOL_COUNT": 2,
           "overlapSeconds": 45,
-          "drainingSeconds": 180
+          "drainingSeconds": 180,
+          "restartPolicyType": "ALWAYS"
         }
       },
       "autoUpdates": {
@@ -411,6 +413,40 @@
       "domains": {
         "staging": "showcase-claude-sdk-typescript-staging.up.railway.app",
         "prod": "showcase-claude-sdk-typescript-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-crewai-conversational-flows",
+      "serviceId": "11859593-da4e-486c-a810-6cdffeff9750",
+      "prodInstanceId": "209031fe-2e02-4fbb-8f12-1276457d1916",
+      "stagingInstanceId": "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "crewai-conversational-flows",
+      "domains": {
+        "staging": "showcase-crewai-conversational-flows-staging.up.railway.app",
+        "prod": "showcase-crewai-conversational-flows-production.up.railway.app"
       },
       "probe": {
         "staging": true,
@@ -1437,6 +1473,10 @@
       },
       {
         "name": "showcase-claude-sdk-typescript",
+        "tier": 2
+      },
+      {
+        "name": "showcase-crewai-conversational-flows",
         "tier": 2
       },
       {

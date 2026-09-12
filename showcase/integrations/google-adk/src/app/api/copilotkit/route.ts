@@ -2,9 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
@@ -81,7 +80,7 @@ const agentNames = [
 // Build agents per-request so we can inject inbound x-* headers (e.g.
 // x-aimock-context) into the outbound HTTP call to the Python agent_server.
 // HttpAgent's `requestInit` spreads `this.headers` into the outbound fetch,
-// so populating `headers` from `req.headers` before `handleRequest` runs
+// so populating `headers` from `req.headers` before `copilotHandler` runs
 // is sufficient to convey the header to the Python backend, where
 // HeaderForwardingHTTPMiddleware then propagates it to Gemini via the
 // httpx/aiohttp event hooks installed at import time. See
@@ -109,13 +108,13 @@ export const POST = async (req: NextRequest) => {
       agents,
     });
 
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     // Log full details server-side (operators grep `errorId` to correlate),
     // but never echo `err.message` / `err.stack` back to the HTTP client —
