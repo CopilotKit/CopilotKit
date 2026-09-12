@@ -818,3 +818,82 @@ describe("AgentStore.interruptController", () => {
     expect(second.activeSubscriberCount).toBe(0);
   });
 });
+
+describe("AgentStore.sendMessage", () => {
+  let copilotKitStub: CopilotKitStub;
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    copilotKitStub = new CopilotKitStub();
+    TestBed.configureTestingModule({
+      providers: [{ provide: CopilotKit, useValue: copilotKitStub }],
+    });
+  });
+
+  function hostStore(agent: AbstractAgent) {
+    copilotKitStub.setAgents({ "agent-1": agent });
+
+    @Component({ standalone: true, template: "" })
+    class Host {
+      store = injectAgentStore("agent-1");
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+    return { fixture, store: fixture.componentInstance.store() };
+  }
+
+  it("appends a user message and runs the agent", async () => {
+    const agent = new MockAgent("agent-1");
+    const { store } = hostStore(agent);
+
+    await store.sendMessage("hello");
+
+    expect(agent.messages).toHaveLength(1);
+    expect(agent.messages[0]).toMatchObject({ role: "user", content: "hello" });
+    expect(agent.messages[0]!.id).toEqual(expect.any(String));
+    expect(copilotKitStub.runAgent).toHaveBeenCalledTimes(1);
+    expect(copilotKitStub.runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ agent }),
+    );
+  });
+
+  it("forwards forwardedProps to the run", async () => {
+    const agent = new MockAgent("agent-1");
+    const { store } = hostStore(agent);
+
+    await store.sendMessage("hi", { forwardedProps: { tone: "formal" } });
+
+    expect(copilotKitStub.runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent,
+        forwardedProps: { tone: "formal" },
+      }),
+    );
+  });
+
+  it("accepts multimodal content parts", async () => {
+    const agent = new MockAgent("agent-1");
+    const { store } = hostStore(agent);
+
+    const content = [{ type: "text" as const, text: "describe this" }];
+    await store.sendMessage(content);
+
+    expect(agent.messages[0]).toMatchObject({ role: "user", content });
+  });
+
+  // AbstractAgent.addMessage notifies subscribers from a non-awaited async
+  // IIFE, so the projection lands a microtask after sendMessage resolves.
+  it("projects the sent message into the store signal", async () => {
+    const agent = new MockAgent("agent-1");
+    const { fixture, store } = hostStore(agent);
+
+    await store.sendMessage("hello");
+
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(store.messages()).toHaveLength(1);
+    });
+    expect(store.messages()[0]).toMatchObject({ content: "hello" });
+  });
+});
