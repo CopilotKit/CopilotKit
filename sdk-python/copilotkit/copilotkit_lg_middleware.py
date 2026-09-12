@@ -320,27 +320,16 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             model (the host cannot supply the live, header-hooked model), and
             folds the registered catalog id + component schema into the params
             unless the host already set them — so host values win.
-        interrupt_frontend_tools: Await frontend tool results *in the same
-            turn* via LangGraph's ``interrupt()``, instead of the default
-            strip-and-restore.
+        interrupt_frontend_tools: Await frontend tool results in the same turn
+            via LangGraph's ``interrupt()``, instead of the default
+            strip-and-restore that only delivers them on the next run.
 
-            ``False`` (default) strips the calls off the ``AIMessage`` in
-            ``after_model`` and restores them in ``after_agent``, so the result
-            only lands on the next run, never in-run. ``True`` batches a turn's
-            calls into one ``interrupt()``: the graph pauses, the client runs
-            the tools and resumes, and one real ``ToolMessage`` per call is
-            appended, so the model finishes the turn with the results in hand,
-            in natural ``AIMessage`` → ``ToolMessage`` order. ``True`` requires:
-
-            1. **An explicit client resume** — the default frontend-tool loop
-               fires a follow-up run with no resume command, which an
-               interrupted thread ignores. Mount a handler that reads
-               ``__copilotkit_frontend_tool_calls__`` off the interrupt and
-               resumes with ``{"tool_results": [{"toolCallId": ...,
-               "content": ...}, ...]}``.
-            2. **One interrupt per turn** — a resume cannot address multiple
-               pending interrupts without interrupt ids
-               (ag-ui-protocol/ag-ui#2178), so batching is mandatory.
+            Batches a turn's calls into one ``interrupt()`` keyed
+            ``__copilotkit_frontend_tool_calls__``; the client resumes with
+            ``{"tool_results": [{"toolCallId": ..., "content": ...}, ...]}`` and
+            one ``ToolMessage`` per call is appended. Needs an explicit resume —
+            the default frontend-tool loop fires a follow-up run that an
+            interrupted thread ignores.
     """
 
     state_schema = StateSchema
@@ -1160,9 +1149,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
         }
 
-    # Intercept frontend tool calls after the model returns, before ToolNode runs.
-    # Must stay side-effect free: in interrupt mode ``interrupt()`` raises out of
-    # here, so the node re-runs from the top on resume.
     def after_model(
         self,
         state: StateSchema,
