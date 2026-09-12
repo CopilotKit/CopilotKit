@@ -49,6 +49,8 @@ import type {
   CopilotServiceAdapter,
 } from "../service-adapter";
 import { randomId, randomUUID } from "@copilotkit/shared";
+import { createOpenAI } from "@ai-sdk/openai";
+import type { LanguageModel } from "ai";
 import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,
@@ -187,5 +189,19 @@ export class UnifyAdapter implements CopilotServiceAdapter {
     return {
       threadId: request.threadId || randomUUID(),
     };
+  }
+
+  /**
+   * Unify's API is OpenAI-compatible, so the model is built from the OpenAI
+   * provider pointed at Unify's base URL with this adapter's own key. Without
+   * it the runtime rebuilds a bare "unify/<model>" string, which is not a
+   * provider it can resolve.
+   */
+  getLanguageModel(): LanguageModel {
+    const provider = createOpenAI({
+      baseURL: "https://api.unify.ai/v0/",
+      apiKey: this.apiKey,
+    });
+    return provider(this.model);
   }
 }

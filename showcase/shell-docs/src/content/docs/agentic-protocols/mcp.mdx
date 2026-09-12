@@ -375,44 +375,47 @@ export default function MCPToolCall({
   Guide](/backend/copilot-runtime).
 </Callout>
 
-To configure your self-hosted runtime with MCP servers, you'll need to implement the `createMCPClient` function that matches this interface:
+Attach the MCP servers to the agent. The agent opens a client for each server
+at the start of a run and closes it when the run ends, so nothing is cached
+between requests:
 
-```typescript
-type CreateMCPClientFunction = (
-  config: MCPEndpointConfig,
-) => Promise<MCPClient>;
-```
-
-For detailed implementation guidance, refer to the [official MCP SDK documentation](https://github.com/modelcontextprotocol/typescript-sdk?tab=readme-ov-file#writing-mcp-clients).
-
-Here's a basic example of configuring the runtime:
-
-```tsx
+```tsx title="app/api/copilotkit/route.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import {
   CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
-
-const serviceAdapter = new OpenAIAdapter();
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
-  createMCPClient: async (config) => {
-    // Implement your MCP client creation logic here
-    // See the MCP SDK docs for implementation details
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai/gpt-4o",
+      mcpServers: [
+        {
+          type: "sse",
+          url: "https://my-mcp-server.example.com/sse",
+          headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
+        },
+      ],
+    }),
   },
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter,
-    endpoint: "/api/copilotkit",
-  });
-
-  return handleRequest(req);
-};
+export const POST = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 ```
+
+See [MCP servers](/docs/integrations/built-in-agent/mcp-servers) for the HTTP
+transport, multiple servers, and `mcpClients` — which lets you own the client
+lifecycle when you need persistent connections or per-request credentials.
+
+<Callout type="warn" title="`createMCPClient` on the v1 runtime">
+  `new CopilotRuntime({ mcpServers, createMCPClient })` from
+  `@copilotkit/runtime` is the v1 API. It no longer executes: the tools are
+  offered to the model and never called. Use the agent-level configuration
+  above instead.
+</Callout>
 
 </details>
