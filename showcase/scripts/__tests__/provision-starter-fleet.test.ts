@@ -31,9 +31,9 @@ const PROJECT = "proj-test-id";
 // ── Target derivation ───────────────────────────────────────────────────
 
 describe("deriveStarterTargets", () => {
-  it("derives exactly the 12 starters from the STARTER_TO_COLUMN SSOT", () => {
+  it("derives exactly the 13 starters from the STARTER_TO_COLUMN SSOT", () => {
     const targets = deriveStarterTargets();
-    expect(targets).toHaveLength(12);
+    expect(targets).toHaveLength(13);
     expect(targets.length).toBe(Object.keys(STARTER_TO_COLUMN).length);
   });
 
@@ -55,13 +55,14 @@ describe("deriveStarterTargets", () => {
     expect(byName.has("starter-langgraph-typescript")).toBe(false);
   });
 
-  it("derives the full expected name + image set for all 12", () => {
+  it("derives the full expected name + image set for all 13", () => {
     const targets = deriveStarterTargets();
     const names = targets.map((t) => t.serviceName).sort();
     expect(names).toEqual(
       [
         "adk",
         "agno",
+        "antigravity",
         "crewai-crews",
         "langgraph-fastapi",
         "langgraph-js",

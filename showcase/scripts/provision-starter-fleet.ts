@@ -25,7 +25,7 @@
  *                  (same mechanism deploy-to-railway.ts uses)
  *   domain       : a generated Railway domain per service (serviceDomainCreate)
  *
- * The 12 starter slugs are the keys of STARTER_TO_COLUMN in
+ * The starter slugs are the keys of STARTER_TO_COLUMN in
  * showcase/harness/src/probes/helpers/starter-mapping.ts. That list is NOT
  * literally shared with the smoke matrix (showcase/tests/e2e/starter-smoke.spec.ts)
  * or the CI build matrix (.github/workflows/showcase_build.yml) — those are
@@ -101,7 +101,7 @@ export interface StarterTarget {
 }
 
 /**
- * Derive the 12 provisioning targets from STARTER_TO_COLUMN (the SSOT). The
+ * Derive the provisioning targets from STARTER_TO_COLUMN (the SSOT). The
  * service name and image both use the RAW starter slug (the map KEY), never
  * the remapped dashboard column slug (the map VALUE). Sorted for stable,
  * reproducible output.

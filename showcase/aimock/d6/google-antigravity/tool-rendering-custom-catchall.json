@@ -1,0 +1,68 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / tool-rendering-custom-catchall. Holds ONLY the two d5-tool-rendering-custom-catchall probe turns: \"Forecast Tokyo through the wildcard renderer\" (get_weather) at turnIndex 0/2 and \"Quote AAPL through the wildcard renderer\" (get_stock_price) at turnIndex 3/5, both in ONE thread. The page's four suggestion pills (\"What's the weather in San Francisco?\", \"Find flights from SFO to JFK.\", \"Roll a 20-sided die.\", \"Chain a few tools in this single turn: ...\") are worded identically to the tool-rendering page's pills and are served from d6/google-antigravity/tool-rendering.json — this file must NOT duplicate them: it loads FIRST alphabetically, so a copy here shadows the owning file for every one of the three tool-rendering pages. Backend tools execute on the Antigravity harness and return real JSON results, which the wildcard renderer surfaces in the result block.",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22",
+    "updated": "2026-09-10",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). turnIndex is a POSITION disambiguator, not a reject gate (aimock selectByTurnIndex): the candidate with the highest turnIndex <= assistantCount wins, so a leg must carry EVERY absolute position a test can reach it from -- a fresh thread (0/2) AND its slot in a multi-pill single-thread sequence."
+  },
+  "fixtures": [
+    {
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 2 narration after get_weather tool result. Staged at turnIndex 2 (one tool round-trip past the leg-1 emit at 0). Canonical phrase 'rendered through the custom wildcard catchall' is asserted by the probe (LGP-gold disjoint-prompts content guard).",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy — the custom wildcard renderer should show the tool card above — rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 1 emit for get_weather (Tokyo). Disjoint userMessage from the default-catchall probe ('forecast for Tokyo' lowercase) so aimock's substring matcher cannot cross-route between catchall probes. The narration above is staged at turnIndex 2, one tool round-trip later.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_get_weather_d5_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 2 narration after get_stock_price tool result. Staged at turnIndex 5 — the probe's second turn, reached after the get_weather round-trip (0->2) and its narration (->3). Canonical phrase 'rendered through the custom wildcard catchall' is asserted by the probe; AAPL $338.37/-2.96% matches the canonical payload used across the tool-rendering family.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "google-antigravity",
+        "turnIndex": 5
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% — rendered through the custom wildcard catchall renderer."
+      }
+    },
+    {
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 1 emit for get_stock_price (AAPL). Cross-tool pair with get_weather above; the probe asserts both tools render through the SAME custom-wildcard-card testid with distinct data-tool-name values. Staged at turnIndex 3: turn 1's round-trip plus its narration leave the thread at assistantCount 3.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "google-antigravity",
+        "turnIndex": 3
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_get_stock_price_d5_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

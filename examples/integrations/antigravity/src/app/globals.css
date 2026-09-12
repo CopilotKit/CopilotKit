@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/*
+  One light palette, no dark variant on purpose: CopilotKit's V2 chat
+  (CopilotSidebar) renders light regardless of the OS color scheme, so a dark
+  page would clash with the sidebar sitting next to it. These are the tokens
+  the small UI primitives in src/components/ui/ read.
+*/
+:root {
+  --background: #ffffff;
+  --foreground: #010507;
+
+  --card: #ffffff;
+  --card-foreground: #010507;
+  --primary: #010507;
+  --primary-foreground: #ffffff;
+  --secondary: #ededf5;
+  --secondary-foreground: #010507;
+  --muted: #ededf5;
+  --muted-foreground: #57575b;
+  --accent: #eee6fe;
+  --accent-foreground: #010507;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --ring: #bec2ff;
+
+  --radius: 0.75rem;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+body,
+html {
+  height: 100%;
+}

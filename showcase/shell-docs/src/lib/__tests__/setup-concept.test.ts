@@ -60,6 +60,26 @@ test("the visual FrameworkSetup path links the Google ADK termination callback",
   expect(mocks.mdxRemote).toHaveBeenCalledOnce();
 });
 
+test("the visual FrameworkSetup path renders Antigravity's nested sub-agent region", async () => {
+  const result = await FrameworkSetup({
+    concept: "subagents-setup",
+    currentFramework: "google-antigravity",
+  });
+  expect(result).not.toBeNull();
+  if (!result) {
+    throw new Error("Expected Google Antigravity subagents setup content");
+  }
+  const source = (result.props as { children?: unknown }).children;
+
+  expect(source).toContain("async def research_agent");
+  expect(source).toContain(
+    "tools=[research_agent, writing_agent, critique_agent]",
+  );
+  expect(source).not.toContain("<DemoCode");
+  expect(source).not.toContain("@region[");
+  expect(mocks.mdxRemote).toHaveBeenCalledOnce();
+});
+
 test.each([
   ["claude-sdk-python", "create_sdk_mcp_server("],
   ["claude-sdk-typescript", "createSdkMcpServer({"],

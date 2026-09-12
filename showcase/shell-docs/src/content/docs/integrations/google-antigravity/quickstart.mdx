@@ -1,0 +1,350 @@
+---
+title: Quickstart
+description: Run a Google Antigravity agent behind CopilotKit.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+<IntelligenceOnboardingPrompt
+  feature="learning"
+  surface="docs_google_antigravity_quickstart"
+/>
+
+This quickstart gives you two working paths:
+
+- **Start from scratch** to scaffold the full Google Antigravity showcase.
+- **Use an existing agent** to expose your own Google Antigravity agent over AG-UI and connect it to a React app.
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- Node.js 20+
+- Python 3.10+
+- `uv` for Python dependency management
+- An OpenAI API key **or** a Gemini API key
+
+<Callout type="info" title="Why two kinds of key?">
+  `google-antigravity`'s Go harness talks to models two ways. Its **native**
+  path is Gemini, authenticated with `GEMINI_API_KEY`. Its **OpenAI-compatible**
+  path has no API-key field at all — it's built for unauthenticated local
+  servers like Ollama. Because the showcase starter points at an
+  OpenAI-compatible model, it runs a small in-process shim
+  (`src/openai_proxy.py`) that sits between the harness and the model
+  endpoint, attaches the `Authorization` header the harness can't send itself,
+  and normalizes Gemini-shaped tool schemas into ones OpenAI accepts. If you'd
+  rather talk to Gemini directly, skip the shim and pass `api_key=os.environ["GEMINI_API_KEY"]`
+  to `AntigravityAgent`, as shown in "Use an existing agent" below.
+</Callout>
+
+## Getting started
+
+<Steps>
+  <Step>
+    ### Choose your starting point
+
+    <TailoredContent className="step" id="agent">
+      <TailoredContentOption
+        id="starter"
+        title="Start from scratch"
+        description="Scaffold the canonical Google Antigravity starter."
+      >
+        <Step>
+          ### Run the CLI
+
+          ```bash
+          npx copilotkit@latest init --framework antigravity
+          ```
+
+          <Callout type="info" title="If the CLI does not list Google Antigravity yet">
+            Until the CLI catalog gains this entry, clone the CopilotKit
+            repository and copy `examples/integrations/antigravity` — it is a
+            complete Next.js app plus Python agent server with the same
+            layout the CLI scaffolds.
+          </Callout>
+
+          The starter contains four pieces:
+
+          - `agent/main.py` - the FastAPI app built with the adapter's `create_antigravity_app`, mounting one `AntigravityAgent` with a weather tool
+          - `agent/src/openai_proxy.py` - the shim that lets the Go harness reach an OpenAI-compatible endpoint (used by the smoke-test harness)
+          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the CopilotKit runtime route that proxies to the agent with `HttpAgent`
+          - `src/app/page.tsx` - a page demonstrating a frontend tool, a rendered backend tool, and a human-in-the-loop picker
+        </Step>
+
+        <Step>
+          ### Configure your environment
+
+          Create a `.env` file in the generated project root:
+
+          ```plaintext title=".env"
+          OPENAI_API_KEY=your_openai_api_key
+          ```
+
+          The runtime route defaults to `AGENT_URL=http://localhost:8000`, which is where the starter's FastAPI agent server listens.
+        </Step>
+
+        <Step>
+          ### Install dependencies
+
+          <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+            <Tab value="npm">
+              ```bash
+              npm install
+              ```
+            </Tab>
+            <Tab value="pnpm">
+              ```bash
+              pnpm install
+              ```
+            </Tab>
+            <Tab value="yarn">
+              ```bash
+              yarn install
+              ```
+            </Tab>
+            <Tab value="bun">
+              ```bash
+              bun install
+              ```
+            </Tab>
+          </Tabs>
+
+          `npm install` also runs the agent's `uv sync` (postinstall), so the
+          Python side — including the Antigravity SDK, whose wheel bundles
+          the Go harness binary — is installed too. Make sure `uv` is on your
+          `PATH` before running it.
+        </Step>
+
+        <Step>
+          ### Start the development server
+
+          <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+            <Tab value="npm">
+              ```bash
+              npm run dev
+              ```
+            </Tab>
+            <Tab value="pnpm">
+              ```bash
+              pnpm dev
+              ```
+            </Tab>
+            <Tab value="yarn">
+              ```bash
+              yarn dev
+              ```
+            </Tab>
+            <Tab value="bun">
+              ```bash
+              bun dev
+              ```
+            </Tab>
+          </Tabs>
+
+          This starts both the Next.js app and the Python agent server.
+        </Step>
+      </TailoredContentOption>
+
+      <TailoredContentOption
+        id="bring-your-own"
+        title="Use an existing agent"
+        description="I already have a Google Antigravity agent and want to add CopilotKit."
+      >
+        <Step>
+          ### Install the required Python packages
+
+          From your agent project, install the Google Antigravity SDK and FastAPI:
+
+          ```bash
+          uv add google-antigravity fastapi uvicorn
+          ```
+
+          The AG-UI adapter, `ag-ui-antigravity`, is not on PyPI yet — it ships from
+          an unmerged branch of `ag-ui-protocol/ag-ui` (PR #2277). Install it
+          from that branch as an interim measure, and swap to a normal
+          `uv add ag-ui-antigravity` once the PR merges:
+
+          ```bash
+          uv add "git+https://github.com/ag-ui-protocol/ag-ui@19f654744c663533eea5dfe1bbb1c70db85524a3#subdirectory=integrations/antigravity/python"
+          ```
+        </Step>
+
+        <Step>
+          ### Configure your agent environment
+
+          Create a `.env` file for the process that runs your Antigravity agent. This example uses Antigravity's native Gemini path, so it needs `GEMINI_API_KEY`:
+
+          ```plaintext title=".env"
+          GEMINI_API_KEY=your_gemini_api_key
+          ```
+        </Step>
+
+        <Step>
+          ### Expose Google Antigravity over AG-UI
+
+          CopilotKit talks to agents over AG-UI. The adapter's `create_antigravity_app` builds a FastAPI app that streams AG-UI events straight from the harness — you don't hand-roll the event loop yourself.
+
+          ```python title="main.py"
+          import os
+
+          from ag_ui_antigravity import AntigravityAgent, create_antigravity_app
+
+          agent = AntigravityAgent(
+              model="gemini-3.6-flash",
+              api_key=os.environ["GEMINI_API_KEY"],
+              system_instructions="You are a helpful assistant embedded in a CopilotKit app.",
+              # The harness does real file and shell work scoped to these
+              # directories, so always set this. Keep the path short — a long,
+              # high-entropy path makes the model reproduce it wrongly in tool
+              # calls (see Troubleshooting below).
+              workspaces=["/srv/agents/w1"],
+          )
+
+          app = create_antigravity_app(agent, path="/")
+
+
+          @app.get("/health")
+          async def health() -> dict[str, str]:
+              return {"status": "ok"}
+          ```
+
+          Start it and confirm the health check:
+
+          ```bash
+          uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+          curl http://localhost:8000/health
+          ```
+        </Step>
+
+        <Step>
+          ### Create your frontend
+
+          CopilotKit works with any React app. This example uses Next.js App Router:
+
+          ```bash
+          npx create-next-app@latest frontend
+          cd frontend
+          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
+          ```
+        </Step>
+
+        <Step>
+          ### Add the CopilotKit runtime route
+
+          Create `app/api/copilotkit/route.ts` in your Next.js app. It registers your Antigravity agent as an AG-UI `HttpAgent`.
+
+          ```ts title="app/api/copilotkit/route.ts"
+          import { HttpAgent } from "@ag-ui/client";
+          import {
+            CopilotRuntime,
+            createCopilotRuntimeHandler,
+          } from "@copilotkit/runtime/v2";
+          import type { NextRequest } from "next/server";
+
+          const runtime = new CopilotRuntime({
+            agents: {
+              antigravity_agent: new HttpAgent({
+                url: process.env.AGENT_URL ?? "http://localhost:8000",
+              }),
+            },
+          });
+
+          const handler = createCopilotRuntimeHandler({
+            runtime,
+            basePath: "/api/copilotkit",
+            mode: "single-route",
+          });
+
+          export const POST = (req: NextRequest) => handler(req);
+          ```
+        </Step>
+
+        <Step>
+          ### Mount CopilotKit in React
+
+          Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
+
+          ```tsx title="app/layout.tsx"
+          import { CopilotKit } from "@copilotkit/react-core/v2";
+          import "@copilotkit/react-core/v2/styles.css";
+          import "./globals.css";
+
+          export default function RootLayout({ children }: { children: React.ReactNode }) {
+            return (
+              <html lang="en">
+                <body>
+                  <CopilotKit runtimeUrl="/api/copilotkit" agent="antigravity_agent">
+                    {children}
+                  </CopilotKit>
+                </body>
+              </html>
+            );
+          }
+          ```
+
+          <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+            `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+            same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+            server of its own and an absolute `runtimeUrl` such as
+            `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+            `/angular` and `/react-native` each show that setup.
+          </Callout>
+
+          Add a chat surface:
+
+          ```tsx title="app/page.tsx"
+          "use client";
+
+          import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+          export default function Page() {
+            return (
+              <main>
+                <CopilotSidebar />
+              </main>
+            );
+          }
+          ```
+        </Step>
+
+        <Step>
+          ### Start the UI
+
+          Keep the FastAPI agent server running, then start the frontend in a second terminal:
+
+          ```bash
+          npm run dev
+          ```
+        </Step>
+      </TailoredContentOption>
+    </TailoredContent>
+  </Step>
+
+  <Step>
+    ### Verify the integration
+
+    Open `http://localhost:3000` and ask:
+
+    ```plaintext
+    Tell me in one sentence what this app can do.
+    ```
+
+    If the chat streams a response, CopilotKit is connected to your Google Antigravity agent.
+
+    <Accordions className="mb-4">
+      <Accordion title="Troubleshooting">
+        - If the runtime cannot reach the agent, check that the FastAPI server is running on `http://localhost:8000` or set `AGENT_URL` in the frontend.
+        - If the agent process fails at startup, make sure the key it needs is set — `OPENAI_API_KEY` for the shim path, `GEMINI_API_KEY` for the native path.
+        - If a tool call looks like it's hanging, check whether it's a frontend tool: those park as an awaited coroutine across HTTP runs until the browser resolves them, so nothing happens server-side until your UI responds.
+        - If a run fails mid-tool-call with a vague "invalid tool call" error, check your `workspaces` path length. A long, high-entropy path (like a generated temp directory) makes the model reproduce it wrongly and causes intermittent failures — use something short and stable instead.
+      </Accordion>
+    </Accordions>
+  </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
+</Steps>
