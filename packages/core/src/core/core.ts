@@ -35,6 +35,7 @@ import type {
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import { ToolCallArgsManager } from "./tool-call-args-registry";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
@@ -381,6 +382,19 @@ export interface CopilotKitCoreFriendsAccess {
       expectedRunId?: string,
     ): CopilotKitCoreContinuationHandoff;
   };
+
+  /**
+   * Authoritative tool call arguments recorded from TOOL_CALL_ARGS events.
+   * The run handler consults it before parsing a tool call's arguments, which
+   * may have been regressed by a MESSAGES_SNAPSHOT carrying the LLM's raw
+   * values (#4935).
+   */
+  readonly toolCallArgsManager: {
+    getAuthoritativeArgs(
+      agent: AbstractAgent,
+      toolCallId: string,
+    ): string | undefined;
+  };
 }
 
 /**
@@ -414,6 +428,7 @@ export class CopilotKitCore {
   private suggestionEngine: SuggestionEngine;
   private runHandler: RunHandler;
   private stateManager: StateManager;
+  private toolCallArgsManager: ToolCallArgsManager;
   private threadStoreRegistry: ThreadStoreRegistry;
   /**
    * The single core-owned memory store, created lazily on first
@@ -453,6 +468,7 @@ export class CopilotKitCore {
     this.suggestionEngine = new SuggestionEngine(this);
     this.runHandler = new RunHandler(this);
     this.stateManager = new StateManager(this);
+    this.toolCallArgsManager = new ToolCallArgsManager();
     this.threadStoreRegistry = new ThreadStoreRegistry(this);
 
     // Initialize each subsystem
@@ -489,6 +505,7 @@ export class CopilotKitCore {
         Object.values(agents).forEach((agent) => {
           if (agent.agentId) {
             this.stateManager.subscribeToAgent(agent);
+            this.toolCallArgsManager.subscribeToAgent(agent);
           }
         });
 
