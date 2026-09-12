@@ -1,0 +1,22 @@
+{
+  "name": "learned-skill-conformance",
+  "projectType": "library",
+  "root": "tools/learned-skill-conformance",
+  "targets": {
+    "acceptance": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/learned-skill-conformance/run.mjs"
+      },
+      "cache": false
+    },
+    "verify-python-distributions": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run --project tools/learned-skill-conformance python tools/learned-skill-conformance/check_python_packages.py"
+      },
+      "cache": false
+    }
+  },
+  "tags": ["scope:intelligence", "type:test"]
+}

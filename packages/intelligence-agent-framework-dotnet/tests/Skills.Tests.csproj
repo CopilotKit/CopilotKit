@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net9.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../src/CopilotKit.Intelligence.AgentFramework.csproj" /></ItemGroup>
+  <ItemGroup><None Include="../../intelligence-delivery-python-core/conformance/snapshots.v1.json" Link="snapshots.v1.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><None Include="../../intelligence-delivery-python-core/conformance/lifecycle.v1.json" Link="lifecycle.v1.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.4" /></ItemGroup>
+</Project>

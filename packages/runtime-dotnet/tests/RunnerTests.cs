@@ -131,7 +131,7 @@ internal static class RunnerTests
         fixture.HoldJoin = true;
         var request = fixture.StartRequestAsync();
         await fixture.JoinEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        await Task.Delay(100);
+        await WaitAsync(() => fixture.Platform.Renewals > 0);
         var supervised = fixture.Platform.Renewals > 0;
         await fixture.StopRuntimeAsync(); await request;
         Check(supervised && agent.Invocations == 0, "startup renews its lease before the gateway join completes");
