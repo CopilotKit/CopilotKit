@@ -109,6 +109,7 @@ async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
           agents: {},
           audioFileTranscriptionEnabled: false,
           mode: "sse",
+          intelligence: { wsUrl: "" },
           threadEndpoints: {
             list: options.threadsAvailable ?? false,
             inspect: options.threadsAvailable ?? false,

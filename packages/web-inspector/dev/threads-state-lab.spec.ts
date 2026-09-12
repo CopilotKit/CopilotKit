@@ -74,6 +74,7 @@ const EXPECTED_EDGE_KEYS = [
   "pro-warning-4500-of-5000",
   "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
+  "oss-ephemeral-existing",
   "capability-absent",
   "unknown-limit",
   "missing-expiry",
@@ -395,7 +396,10 @@ function expectedOverviewCopy(
   scenario: ThreadsStateScenario,
 ): Readonly<{ heading: string; description: string }> | null {
   if (scenario.data === "error") return null;
-  if (scenario.capability !== "enabled") {
+  if (
+    scenario.capability !== "enabled" ||
+    (!scenario.runtimeInfo.intelligence && scenario.threads.length === 0)
+  ) {
     return {
       heading:
         "Production-grade chat threads without the complexity. Self hostable.",
@@ -488,7 +492,7 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 49-scenario route catalog", () => {
+test("exports the exact ordered 50-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
@@ -497,7 +501,7 @@ test("exports the exact ordered 49-scenario route catalog", () => {
     ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(49);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(50);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -1331,7 +1335,7 @@ test("runs teardown before real select and reset control navigation", async () =
 // A 5% margin on the slowest shard is not a budget, so this is sized at ~3x the
 // slowest passing run rather than just above it. The number is a ceiling for a
 // hang, not a performance assertion — nothing here asserts elapsed time.
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 Thread routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all Thread routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1550,7 +1554,10 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             root,
             '[data-inspector-feature-setup-prompt="threads"]',
           );
-          const expectsSetup = scenario.capability !== "enabled";
+          const expectsSetup =
+            scenario.capability !== "enabled" ||
+            (!scenario.runtimeInfo.intelligence &&
+              scenario.threads.length === 0);
           expect(setupPrompts, `${key}: setup prompt presence`).toHaveLength(
             expectsSetup ? 1 : 0,
           );
@@ -1654,7 +1661,9 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             'a[href^="https://docs.copilotkit.ai/intelligence/self-hosting"]',
           );
           const showsEnabledZeroOverview =
-            scenario.capability === "enabled" && scenario.data === "zero";
+            scenario.capability === "enabled" &&
+            scenario.data === "zero" &&
+            Boolean(scenario.runtimeInfo.intelligence);
           const showsSelfHostedOnboarding =
             showsEnabledZeroOverview && scenario.deployment === "self_hosted";
           expect(
@@ -1718,7 +1727,8 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             expect(examples, `${key}: list-error examples`).toHaveLength(0);
           } else if (
             scenario.capability === "enabled" &&
-            scenario.data === "zero"
+            scenario.data === "zero" &&
+            Boolean(scenario.runtimeInfo.intelligence)
           ) {
             expect(examples, `${key}: local examples`).toHaveLength(3);
             for (let index = 0; index < 3; index += 1) {
@@ -1749,7 +1759,10 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
             expect(await requestCounters(lab.origin, scenario), key).toEqual(
               scenario.expectedRequests,
             );
-          } else if (scenario.capability === "enabled") {
+          } else if (
+            scenario.capability === "enabled" &&
+            scenario.data !== "zero"
+          ) {
             expect(examples, `${key}: no local examples`).toHaveLength(0);
             for (const thread of scenario.threads) {
               expect(
@@ -1822,7 +1835,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 T
                   key,
                 ).toEqual({
                   list: 1,
-                  subscribe: 1,
+                  subscribe: scenario.runtimeInfo.intelligence ? 1 : 0,
                   inspect: 0,
                   messages: 1,
                   events: 1,

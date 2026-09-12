@@ -42,6 +42,7 @@ type SetupOptions = {
     announcement: string;
   };
   runtimeMode?: "sse" | "intelligence";
+  intelligenceEnabled?: boolean;
   telemetryDisabled?: boolean;
   threads?: ɵThread[];
   failThreadMessages?: boolean;
@@ -145,6 +146,7 @@ async function setup(
             : {},
           audioFileTranscriptionEnabled: false,
           mode: options.runtimeMode ?? "sse",
+          intelligence: options.intelligenceEnabled ? { wsUrl: "" } : undefined,
           threadEndpoints: {
             list: Boolean(options.threads),
             inspect: Boolean(options.threads),
@@ -753,7 +755,11 @@ test("Try from here stays on Threads when messages fail", async () => {
 });
 
 test("Try from here is hidden on example tour threads", async () => {
-  const context = await setup({ agent: true, threads: [] });
+  const context = await setup({
+    agent: true,
+    threads: [],
+    intelligenceEnabled: true,
+  });
   try {
     await context.open();
     await context.selectLeaf("threads");
@@ -871,7 +877,10 @@ test("Playground surface styles live in the Web Inspector shadow root", () => {
 });
 
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
-  const context = await setup({ metadata: trustedMetadata() });
+  const context = await setup({
+    metadata: trustedMetadata(),
+    intelligenceEnabled: true,
+  });
   try {
     await context.open();
 
