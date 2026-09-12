@@ -1,0 +1,166 @@
+---
+title: "useFrontendTools"
+description: "React hook for registering a list of client-side tools whose length can change between renders"
+---
+
+## Overview
+
+`useFrontendTools` registers many client-side tools in one call. Use it when the set of tools is not known when you write the component: tools built from state, from props, or from a list the backend returned.
+
+[`useFrontendTool`](/reference/hooks/useFrontendTool) registers exactly one tool per call, so it cannot be called in a loop over a list whose length changes. That breaks the rules of hooks. `useFrontendTools` runs a single effect over the whole array instead, so the array may be empty on one render and hold twenty entries on the next.
+
+Each entry is the same `ReactFrontendTool` object that `useFrontendTool` takes. See that page for the full tool shape, including `parameters`, `handler`, `render`, and `webmcp`.
+
+## Signature
+
+```tsx
+import { useFrontendTools } from "@copilotkit/react-core/v2";
+
+function useFrontendTools(
+  tools: ReadonlyArray<ReactFrontendTool<any>> | undefined,
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="tools" type="ReadonlyArray<ReactFrontendTool<any>> | undefined" required>
+  The tools to register. The array may be empty, may change length between
+  renders, and may be `undefined` while data is still loading. Each entry takes
+  the same fields as the `tool` argument of
+  [`useFrontendTool`](/reference/hooks/useFrontendTool).
+
+  Tools are identified by `name` plus `agentId`, so the same `name` can serve
+  two different agents. If one array lists the same `name` and `agentId` twice,
+  the last entry wins and a warning is logged.
+</PropertyReference>
+
+<PropertyReference name="deps" type="ReadonlyArray<unknown>">
+  An optional dependency array, similar to `useEffect`. Registration is
+  refreshed whenever any value in the array changes. Use this when a handler
+  captures external state that is not part of the tool definition, such as a
+  router or a mutation function.
+</PropertyReference>
+
+## Usage
+
+### Tools built from application state
+
+```tsx
+function ReportTools({ reports }: { reports: Report[] }) {
+  const navigate = useNavigate();
+
+  useFrontendTools(
+    reports.map((report) => ({
+      name: `open_${report.id}`,
+      description: `Open the ${report.title} report`,
+      handler: async () => {
+        navigate(`/reports/${report.id}`);
+        return `Opened ${report.title}`;
+      },
+    })),
+    [navigate],
+  );
+
+  return null;
+}
+```
+
+When `reports` grows, the new tools are registered. When a report disappears from the list, its tool is unregistered and the rest stay registered.
+
+### Tools described by the backend
+
+```tsx
+function BackendTools() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["tool-descriptors"],
+    queryFn: fetchToolDescriptors,
+  });
+
+  useFrontendTools(
+    data?.map((descriptor) => ({
+      name: descriptor.name,
+      description: descriptor.description,
+      parameters: z.object({
+        query: z.string().describe("What to look up"),
+      }),
+      handler: async ({ query }) => {
+        const result = await runDescriptor(descriptor.id, query);
+        return JSON.stringify(result);
+      },
+    })),
+    [],
+  );
+
+  return isLoading ? <Spinner /> : null;
+}
+```
+
+Passing `undefined` while the query is in flight registers nothing. The tools appear once the data arrives, without a second code path for the loading state.
+
+### Turning a subset of tools off
+
+```tsx
+function PermissionedTools({ isAdmin }: { isAdmin: boolean }) {
+  useFrontendTools([
+    {
+      name: "searchOrders",
+      description: "Search orders by status",
+      parameters: z.object({ status: z.string() }),
+      handler: async ({ status }) => JSON.stringify(await search(status)),
+    },
+    {
+      name: "refundOrder",
+      description: "Refund an order by ID (admin only)",
+      parameters: z.object({ orderId: z.string() }),
+      handler: async ({ orderId }) => refund(orderId),
+      available: isAdmin,
+    },
+  ]);
+
+  return null;
+}
+```
+
+`available: false` keeps the tool registered but hides it from the agent. Toggling it re-registers that tool, the same as with `useFrontendTool`.
+
+### Tools with render components
+
+```tsx
+function ChartTools({ metrics }: { metrics: Metric[] }) {
+  useFrontendTools(
+    metrics.map((metric) => ({
+      name: `chart_${metric.key}`,
+      description: `Chart the ${metric.label} metric`,
+      parameters: z.object({ days: z.number() }),
+      handler: async ({ days }) => JSON.stringify(await load(metric, days)),
+      render: ({ status, result }) => {
+        if (status !== ToolCallStatus.Complete || !result) {
+          return <div className="animate-pulse">Loading {metric.label}…</div>;
+        }
+        return <Chart data={JSON.parse(result)} />;
+      },
+    })),
+    [],
+  );
+
+  return null;
+}
+```
+
+## Behavior
+
+- **Value-based re-registration**: The array is normally built inline, so its identity changes on every render. The hook keys on the `name`, `agentId`, `available`, and `webmcp` of every entry instead. A re-render that produces an equal list does not re-register anything.
+- **Adding and removing**: When the list changes, tools that are new get registered and tools that left get unregistered. Tools present in both the old and new list are re-registered with their latest definition.
+- **Unmount**: Every tool the hook registered is unregistered on unmount.
+- **Duplicate names**: A `name` and `agentId` pair listed twice in one array is a mistake in the calling code. The last entry wins and the hook logs a warning naming the tool.
+- **Overriding another registration**: If a tool with the same `name` and `agentId` was already registered elsewhere, the hook overrides it and logs a warning, matching `useFrontendTool`.
+- **Render component lifecycle**: Entries with a `render` function register a renderer. Renderers are deliberately left in place after unmount so that past tool calls still render in the chat history.
+- **Handlers are not part of the key**: Changing only a `handler` does not re-register on its own. Pass `deps` when a handler closes over a value that must stay current.
+- **No return value**: The hook returns `void`.
+
+## Related
+
+- [`useFrontendTool`](/reference/hooks/useFrontendTool) -- register a single tool; the reference for the tool shape
+- [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) -- for tools that pause execution and wait for user input
+- [`useRenderTool`](/reference/hooks/useRenderTool) -- register renderer-only tool call UI (named or wildcard)
