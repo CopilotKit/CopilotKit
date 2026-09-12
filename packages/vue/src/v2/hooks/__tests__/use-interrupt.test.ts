@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { computed, defineComponent, h, nextTick } from "vue";
+import { computed, defineComponent, h, nextTick, shallowRef } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Interrupt } from "@ag-ui/client";
 import { useCopilotKit } from "../../providers/useCopilotKit";
@@ -17,9 +17,18 @@ vi.mock("../use-agent", () => ({
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 const mockUseAgent = useAgent as ReturnType<typeof vi.fn>;
 
-type RunFinishedParams =
+type TestRunInput = { runId: string };
+
+/**
+ * The event names the run that finished. On the connect path that differs from
+ * `input.runId`, which names the long-lived request that opened the stream.
+ */
+type TestRunFinishedEvent = { runId: string };
+
+type RunFinishedParams = (
   | { outcome: "success"; result?: unknown }
-  | { outcome: "interrupt"; interrupts: Interrupt[] };
+  | { outcome: "interrupt"; interrupts: Interrupt[] }
+) & { input: TestRunInput; event: TestRunFinishedEvent };
 
 type SubscriptionHandlers = {
   onCustomEvent?: (payload: {
@@ -27,7 +36,7 @@ type SubscriptionHandlers = {
   }) => void;
   onRunStartedEvent?: () => void;
   onRunFinishedEvent?: (params: RunFinishedParams) => void;
-  onRunFinalized?: () => void;
+  onRunFinalized?: (params: { input: TestRunInput }) => void;
   onRunFailed?: () => void;
 };
 
@@ -57,6 +66,7 @@ describe("useInterrupt", () => {
     mockAgent = {
       subscribe: subscribeMock,
       id: "test-agent",
+      threadId: "thread-1",
       pendingInterrupts: [] as Interrupt[],
     };
 
@@ -123,11 +133,11 @@ describe("useInterrupt", () => {
     return mount(Harness);
   }
 
-  function emitInterrupt(value: unknown) {
+  function emitInterrupt(value: unknown, runId = "legacy-run") {
     handlers.onCustomEvent?.({
       event: { name: "on_interrupt", value },
     });
-    handlers.onRunFinalized?.();
+    handlers.onRunFinalized?.({ input: { runId } });
   }
 
   it("subscribes on mount and unsubscribes on unmount", () => {
@@ -149,7 +159,7 @@ describe("useInterrupt", () => {
     handlers.onCustomEvent?.({
       event: { name: "not_interrupt", value: "x" },
     });
-    handlers.onRunFinalized?.();
+    handlers.onRunFinalized?.({ input: { runId: "legacy-run" } });
 
     expect(wrapper.get("[data-testid=interrupt-state]").text()).toBe("idle");
   });
@@ -163,7 +173,7 @@ describe("useInterrupt", () => {
     await nextTick();
     expect(wrapper.get("[data-testid=interrupt-state]").text()).toBe("idle");
 
-    handlers.onRunFinalized?.();
+    handlers.onRunFinalized?.({ input: { runId: "legacy-run" } });
     await nextTick();
     expect(wrapper.get("[data-testid=interrupt-state]").text()).toContain(
       "pending",
@@ -204,6 +214,7 @@ describe("useInterrupt", () => {
     );
     expect(runAgentMock).toHaveBeenCalledWith({
       agent: mockAgent,
+      runId: "legacy-run",
       forwardedProps: {
         command: {
           resume: { approved: true, value: "approve-me" },
@@ -341,7 +352,7 @@ describe("useInterrupt", () => {
       event: { name: "on_interrupt", value: "lost" },
     });
     handlers.onRunFailed?.();
-    handlers.onRunFinalized?.();
+    handlers.onRunFinalized?.({ input: { runId: "legacy-run" } });
     await nextTick();
 
     expect(wrapper.get("[data-testid=interrupt-state]").text()).toBe("idle");
@@ -356,7 +367,7 @@ describe("useInterrupt", () => {
     handlers.onCustomEvent?.({
       event: { name: "on_interrupt", value: "second" },
     });
-    handlers.onRunFinalized?.();
+    handlers.onRunFinalized?.({ input: { runId: "legacy-run" } });
     await nextTick();
 
     expect(wrapper.get("[data-testid=interrupt-state]").text()).toContain(
@@ -408,8 +419,13 @@ describe("useInterrupt", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (mockAgent as any).pendingInterrupts = interrupts;
       handlers.onRunStartedEvent?.();
-      handlers.onRunFinishedEvent?.({ outcome: "interrupt", interrupts });
-      handlers.onRunFinalized?.();
+      handlers.onRunFinishedEvent?.({
+        outcome: "interrupt",
+        interrupts,
+        input: { runId: "run-1" },
+        event: { runId: "run-1" },
+      });
+      handlers.onRunFinalized?.({ input: { runId: "legacy-run" } });
     }
 
     it("resolveInterrupt resumes with a resolved ResumeEntry", async () => {
@@ -427,6 +443,7 @@ describe("useInterrupt", () => {
 
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
+        runId: "run-1",
         resume: [
           { interruptId: "int-1", status: "resolved", payload: { ok: true } },
         ],
@@ -448,6 +465,7 @@ describe("useInterrupt", () => {
 
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
+        runId: "run-1",
         resume: [{ interruptId: "int-1", status: "cancelled" }],
       });
     });
@@ -511,7 +529,7 @@ describe("useInterrupt", () => {
       handlers.onCustomEvent?.({
         event: { name: "on_interrupt", value: "q?" },
       });
-      handlers.onRunFinalized?.();
+      handlers.onRunFinalized?.({ input: { runId: "legacy-run" } });
       await nextTick();
 
       // Call resolve with legacy payload
@@ -521,10 +539,229 @@ describe("useInterrupt", () => {
 
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
+        runId: "legacy-run",
         forwardedProps: {
           command: { resume: { approved: true }, interruptEvent: "q?" },
         },
       });
+    });
+  });
+  // OSS-1131: a gate must survive a stream that never finalizes, a remount and
+  // a reconnect. Committing only at `onRunFinalized` meant the connect path —
+  // where finalize fires at socket teardown, not once per run — surfaced
+  // nothing.
+  describe("recovery after a lost event or a reconnect", () => {
+    const INTERRUPT: Interrupt = { id: "int-1", reason: "approval" };
+
+    it("shows a standard gate from RUN_FINISHED on a stream that never finalizes", async () => {
+      const wrapper = mountHarness({ renderInChat: false });
+
+      handlers.onRunFinishedEvent?.({
+        outcome: "interrupt",
+        interrupts: [INTERRUPT],
+        input: { runId: "replayed-run" },
+        event: { runId: "replayed-run" },
+      });
+      await nextTick();
+
+      expect(wrapper.get("[data-testid=interrupt-state]").text()).not.toBe(
+        "idle",
+      );
+    });
+
+    it("shows a legacy gate from RUN_FINISHED on a stream that never finalizes", async () => {
+      const wrapper = mountHarness({ renderInChat: false });
+
+      handlers.onCustomEvent?.({
+        event: { name: "on_interrupt", value: "approve?" },
+      });
+      handlers.onRunFinishedEvent?.({
+        outcome: "success",
+        input: { runId: "replayed-run" },
+        event: { runId: "replayed-run" },
+      });
+      await nextTick();
+
+      expect(wrapper.get("[data-testid=interrupt-state]").text()).toContain(
+        "approve?",
+      );
+    });
+
+    it("seeds a standard gate from agent.pendingInterrupts on mount", async () => {
+      (mockAgent as { pendingInterrupts: Interrupt[] }).pendingInterrupts = [
+        INTERRUPT,
+      ];
+
+      const wrapper = mountHarness({ renderInChat: false });
+      await nextTick();
+
+      expect(wrapper.get("[data-testid=interrupt-state]").text()).not.toBe(
+        "idle",
+      );
+    });
+
+    it("recovers a legacy gate on remount", async () => {
+      const first = mountHarness({ renderInChat: false });
+      emitInterrupt("approve?");
+      await nextTick();
+      first.unmount();
+
+      const second = mountHarness({ renderInChat: false });
+      await nextTick();
+
+      expect(second.get("[data-testid=interrupt-state]").text()).toContain(
+        "approve?",
+      );
+    });
+
+    it("forgets a legacy gate once a new run starts", async () => {
+      const first = mountHarness({ renderInChat: false });
+      emitInterrupt("approve?");
+      await nextTick();
+      handlers.onRunStartedEvent?.();
+      first.unmount();
+
+      const second = mountHarness({ renderInChat: false });
+      await nextTick();
+
+      expect(second.get("[data-testid=interrupt-state]").text()).toBe("idle");
+    });
+  });
+  // Parity with the React hook: a gate answers only the run, the thread and
+  // the agent that raised it.
+  describe("a gate answers only the run, thread and agent that raised it", () => {
+    const INTERRUPT: Interrupt = { id: "int-1", reason: "approval" };
+
+    function mountGateHarness() {
+      const Harness = defineComponent({
+        setup() {
+          const { slotProps } = useInterrupt({ renderInChat: false });
+          return () => {
+            const props = slotProps.value;
+            if (!props) return h("div", { "data-testid": "gate" }, "idle");
+            return h(
+              "button",
+              {
+                "data-testid": "gate",
+                onClick: () => void props.resolve({ approved: true }),
+              },
+              String(props.event.value ?? "gate"),
+            );
+          };
+        },
+      });
+      return mount(Harness);
+    }
+
+    it("resumes the replayed legacy run, not the connection that replayed it", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const wrapper = mountGateHarness();
+
+      handlers.onCustomEvent?.({
+        event: { name: "on_interrupt", value: "approve?" },
+      });
+      handlers.onRunFinishedEvent?.({
+        outcome: "success",
+        input: { runId: "connection-123" },
+        event: { runId: "original-run" },
+      });
+      await nextTick();
+      await wrapper.get("[data-testid=gate]").trigger("click");
+      await nextTick();
+
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(runAgentMock.mock.calls[0][0].runId).toBe("original-run");
+    });
+
+    it("resumes the replayed standard run, not the connection that replayed it", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const wrapper = mountGateHarness();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockAgent as any).pendingInterrupts = [INTERRUPT];
+      handlers.onRunFinishedEvent?.({
+        outcome: "interrupt",
+        interrupts: [INTERRUPT],
+        input: { runId: "connection-123" },
+        event: { runId: "original-run" },
+      });
+      await nextTick();
+      await wrapper.get("[data-testid=gate]").trigger("click");
+      await nextTick();
+
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(runAgentMock.mock.calls[0][0].runId).toBe("original-run");
+    });
+
+    it("does not surface thread A's gate after the app switches to thread B", async () => {
+      const first = mountGateHarness();
+      emitInterrupt("approve A?", "run-a");
+      await nextTick();
+      expect(first.get("[data-testid=gate]").text()).toBe("approve A?");
+      first.unmount();
+
+      (mockAgent as { threadId: string }).threadId = "thread-2";
+      const second = mountGateHarness();
+      await nextTick();
+
+      expect(second.get("[data-testid=gate]").text()).toBe("idle");
+    });
+
+    it("recovers thread A's gate when the app returns to thread A", async () => {
+      const first = mountGateHarness();
+      emitInterrupt("approve A?", "run-a");
+      await nextTick();
+      first.unmount();
+
+      (mockAgent as { threadId: string }).threadId = "thread-2";
+      const second = mountGateHarness();
+      await nextTick();
+      expect(second.get("[data-testid=gate]").text()).toBe("idle");
+      second.unmount();
+
+      (mockAgent as { threadId: string }).threadId = "thread-1";
+      const third = mountGateHarness();
+      await nextTick();
+
+      expect(third.get("[data-testid=gate]").text()).toBe("approve A?");
+    });
+
+    it("does not submit thread A's answer after a thread switch without a remount", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const wrapper = mountGateHarness();
+      emitInterrupt("approve A?", "run-a");
+      await nextTick();
+
+      (mockAgent as { threadId: string }).threadId = "thread-2";
+      await wrapper.get("[data-testid=gate]").trigger("click");
+      await nextTick();
+
+      expect(runAgentMock).not.toHaveBeenCalled();
+      expect(wrapper.get("[data-testid=gate]").text()).toBe("idle");
+    });
+
+    it("drops the old agent's gate when the watcher switches to an agent with no gate", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const agentRef = shallowRef(mockAgent);
+      mockUseAgent.mockReturnValue({ agent: agentRef });
+
+      const wrapper = mountGateHarness();
+      emitInterrupt("approve on agent one?", "run-a");
+      await nextTick();
+      expect(wrapper.get("[data-testid=gate]").text()).toBe(
+        "approve on agent one?",
+      );
+
+      agentRef.value = {
+        subscribe: subscribeMock,
+        id: "other-agent",
+        threadId: "thread-1",
+        pendingInterrupts: [] as Interrupt[],
+      };
+      await nextTick();
+
+      expect(wrapper.get("[data-testid=gate]").text()).toBe("idle");
+      expect(runAgentMock).not.toHaveBeenCalled();
     });
   });
 });
