@@ -308,9 +308,7 @@ export type InterruptWidget<Args = Record<string, unknown>> = FC<{
   responded: boolean;
 }>;
 
-// `ag_ui_langgraph` sends the interrupt value through `dump_json_safe`, which yields a
-// JSON *string* on the wire; other versions pass an object. Parse both, or `KEY in value`
-// throws on the string.
+// Some adapter versions send the value JSON-encoded; parse before indexing.
 function readCalls(value: unknown): FrontendToolCall[] | null {
   let parsed: unknown = value;
   if (typeof parsed === "string") {
@@ -337,9 +335,8 @@ function InterruptDispatcher({
   const interactive = calls.filter((c) => c.name in widgets);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
 
-  // A ref, not state: Strict Mode runs mount effects twice in development, and a state
-  // guard still reads its pre-commit value on the second pass — resolving twice, which
-  // posts two resumes and starts two runs on the thread.
+  // A ref, not state: a state guard still reads its pre-commit value on Strict
+  // Mode's second pass and resolves twice.
   const resolved = useRef(false);
 
   const resolveBatch = useCallback(() => {
@@ -383,8 +380,7 @@ export function useFrontendInterruptBridge(
   widgets: Record<string, InterruptWidget<any>>,
   agentId = "default",
 ) {
-  // Read the registry through a ref so callers can pass an inline literal without
-  // changing `render`'s identity on every commit.
+  // Via a ref, so an inline registry literal cannot change `render`'s identity.
   const widgetsRef = useRef(widgets);
   widgetsRef.current = widgets;
 
