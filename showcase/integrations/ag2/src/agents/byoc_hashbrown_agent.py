@@ -23,8 +23,9 @@ Every node is a single-key object `{tagName: {props: {...}}}`. `pieChart` and
 streaming).
 """
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream
+from ag2.config import OpenAIConfig
 from fastapi import FastAPI
 
 
@@ -81,19 +82,17 @@ Example response (sales dashboard):
 """
 
 
-byoc_hashbrown_agent = ConversableAgent(
+byoc_hashbrown_agent = Agent(
     name="byoc_hashbrown_assistant",
-    system_message=BYOC_HASHBROWN_SYSTEM_PROMPT,
-    llm_config=LLMConfig(
-        {
-            "model": "gpt-4o-mini",
-            "stream": True,
-            "response_format": {"type": "json_object"},
-        }
+    prompt=BYOC_HASHBROWN_SYSTEM_PROMPT,
+    config=OpenAIConfig(
+        model="gpt-4o-mini",
+        streaming=True,
+        # OpenAIConfig has no first-class response_format field; extra_body is
+        # merged into the Chat Completions request, preserving JSON mode.
+        extra_body={"response_format": {"type": "json_object"}},
     ),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=3,
-    functions=[],
+    tools=[],
 )
 
 byoc_hashbrown_stream = AGUIStream(byoc_hashbrown_agent)

@@ -6,12 +6,8 @@
  */
 import type { WatchSource } from "vue";
 import type { WebMCPToolConfig } from "@copilotkit/core";
-import {
-  type Parameter,
-  type MappedParameterTypes,
-  getZodParameters,
-  parseJson,
-} from "@copilotkit/shared";
+import { getZodParameters, parseJson } from "@copilotkit/shared";
+import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
 import { useFrontendTool as useFrontendToolV2 } from "../v2/hooks/use-frontend-tool";
 import type { VueFrontendTool } from "../v2/types";
 

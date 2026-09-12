@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import contextvars
 import logging
+import os
 import warnings
 from typing import Any, Dict, Optional
 
@@ -53,10 +54,15 @@ from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
-# CVDIAG correlation-header instrumentation tag for this integration. Each
-# showcase backend that copies this shim sets a distinct framework tag so the
-# CVDIAG breadcrumb trail identifies which backend captured/forwarded headers.
-_CVDIAG_FRAMEWORK = "ag2"
+# CVDIAG correlation-header instrumentation tag: which backend captured and
+# forwarded the headers. This module is now single-source (see
+# ``_shared/harness/__init__.py`` — never copy it per integration), so the tag
+# CANNOT stay a hardcoded literal: the next backend to import it would emit
+# every breadcrumb as ``backend-ag2``. It is resolved from the environment, and
+# ag2 — the only consumer today — keeps working via the default.
+#
+# A second consumer sets ``CVDIAG_FRAMEWORK=<slug>`` in its compose service.
+_CVDIAG_FRAMEWORK = os.environ.get("CVDIAG_FRAMEWORK", "ag2")
 
 # Correlation headers carried end-to-end through the showcase request chain.
 _DIAG_RUN_ID_HEADER = "x-diag-run-id"
@@ -413,9 +419,10 @@ def install_executor_contextvar_propagation() -> None:
 
     Why this exists
     ---------------
-    autogen's ``ConversableAgent.a_generate_oai_reply`` dispatches the
-    underlying (sync) OpenAI/LiteLLM call onto the default thread pool
-    via ``loop.run_in_executor(None, functools.partial(...))``. The stock
+    Pre-1.0 autogen dispatched its (sync) LLM call onto the default
+    thread pool via ``loop.run_in_executor(None, functools.partial(...))``;
+    ag2 1.0 is natively async, so this patch is defense-in-depth for any
+    remaining sync-in-executor code path. The stock
     ``run_in_executor`` does NOT copy the caller's :pep:`567` context to
     the worker thread — so the :class:`HeaderForwardingHTTPMiddleware`
     ContextVar (set on the inbound request task) is empty inside the

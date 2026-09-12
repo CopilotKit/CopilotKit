@@ -4,12 +4,10 @@ A travel & lifestyle concierge that chains 2+ tool calls in succession
 when relevant. The frontend wires renderers for `get_weather` and
 `search_flights` plus a custom catch-all for the rest.
 
-Note: AG2's ConversableAgent does not natively emit AG-UI
-REASONING_MESSAGE_* events the way LangGraph's `deepagents` does, so the
-reasoning slot may not show streaming "thinking…" text. The cell still
-exercises the full tool-rendering chain and the custom reasoning slot
-plumbing — the slot simply renders empty/skeletal until/if a reasoning
-event arrives.
+Note: ag2 1.0's AGUIStream maps model reasoning deltas to AG-UI
+REASONING_MESSAGE_* events natively, so the reasoning slot can render
+streaming "thinking…" text when the underlying model emits reasoning.
+The cell still exercises the full tool-rendering chain either way.
 """
 
 from __future__ import annotations
@@ -18,13 +16,15 @@ import json
 from random import choice, randint
 from typing import Annotated
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream
+from ag2.config import OpenAIConfig
 from fastapi import FastAPI
+from pydantic import Field
 
 
 async def get_weather(
-    location: Annotated[str, "City or place to look up the weather for"],
+    location: Annotated[str, Field(description="City or place to look up the weather for")],
 ) -> dict:
     """Get the current weather for a given location."""
     return {
@@ -37,8 +37,8 @@ async def get_weather(
 
 
 async def search_flights(
-    origin: Annotated[str, "Origin airport code, e.g. 'SFO'"],
-    destination: Annotated[str, "Destination airport code, e.g. 'JFK'"],
+    origin: Annotated[str, Field(description="Origin airport code, e.g. 'SFO'")],
+    destination: Annotated[str, Field(description="Destination airport code, e.g. 'JFK'")],
 ) -> str:
     """Search mock flights from an origin airport to a destination."""
     payload = {
@@ -72,7 +72,7 @@ async def search_flights(
 
 
 async def get_stock_price(
-    ticker: Annotated[str, "Stock ticker symbol (e.g. AAPL, TSLA, MSFT)"],
+    ticker: Annotated[str, Field(description="Stock ticker symbol (e.g. AAPL, TSLA, MSFT)")],
 ) -> dict:
     """Get a mock current price for a stock ticker."""
     return {
@@ -83,7 +83,7 @@ async def get_stock_price(
 
 
 async def roll_dice(
-    sides: Annotated[int, "Number of sides on the die (default 6)"] = 6,
+    sides: Annotated[int, Field(description="Number of sides on the die (default 6)")] = 6,
 ) -> dict:
     """Roll a single die with the given number of sides."""
     return {"sides": sides, "result": randint(1, max(2, sides))}
@@ -97,13 +97,11 @@ SYSTEM_PROMPT = (
 )
 
 
-agent = ConversableAgent(
+agent = Agent(
     name="tool_rendering_reasoning_chain_assistant",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=10,
-    functions=[get_weather, search_flights, get_stock_price, roll_dice],
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIConfig(model="gpt-4o-mini", streaming=True),
+    tools=[get_weather, search_flights, get_stock_price, roll_dice],
 )
 
 stream = AGUIStream(agent)
