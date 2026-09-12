@@ -39,7 +39,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.59",
+    "@ag-ui/client": ">=0.0.59 <0.1.0",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "lit": "^3.2.0",
