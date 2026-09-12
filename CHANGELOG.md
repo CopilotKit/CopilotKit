@@ -16,6 +16,28 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.71.2 - 2026-09-12
+
+This release adds native Intelligence runtime support to `@copilotkit/runtime` and improves how the Inspector handles ephemeral threads.
+
+## Features
+
+- **Native Intelligence runtimes and shared conformance** (#6967): The TypeScript runtime now consumes the released `@ag-ui/mcp-apps-middleware@^0.1.0` and runs against the same cross-language conformance suite as CopilotKit's native runtimes. This release also includes several runtime hardening fixes:
+  - Enforces MCP tool visibility filtering and unambiguous account/proxy selection, rejecting proxy requests outside the selected agent scope.
+  - Preserves identity and request-boundary contracts — SDK update precedence and mounted routing are retained, browser identity aliases can no longer override the authenticated user, and stop requests are cloned before application authentication consumes the body.
+  - Validates AG-UI tool arguments against their JSON schemas, keeping relaxed structured output limited to the A2UI tool.
+  - Preserves safe failure reporting and completion analytics — failures are reported without private diagnostic payloads, and completion counts are retained for streams containing `RUN_ERROR`.
+  - Advertises and consumes the January MCP Apps MIME type correction (`text/html;profile=mcp-app`).
+
+## Fixes
+
+- **Preserve the ephemeral Threads upgrade path in the Inspector** (#7098): The Inspector no longer treats any Threads list endpoint as durable Threads support. OSS apps using an in-memory agent runner can now inspect ephemeral conversations while still seeing a clear path to durable Threads:
+  - The full Rich Threads setup CTA is shown when Threads are unavailable, or when Intelligence is off and no local threads exist.
+  - When the first ephemeral thread appears, the Inspector switches to the thread list with a "Keep your threads" banner explaining that history can disappear on restart.
+  - "Make them permanent" opens the full setup view inline, with a sticky "Back to your threads" link to return to local history.
+  - The banner and setup override are removed once Intelligence becomes available.
+- **Remove optional feedback prompt copy from Inspector onboarding** (#7099): Dropped an unnecessary optional diagnostic-feedback instruction from the shared feature setup prompt used by Threads and Learning, while retaining the instruction not to reveal credentials.
+
 ## 1.71.1 - 2026-09-11
 
 This release focuses on runtime MCP fixes, React hook performance, and improvements to the Inspector's onboarding experience.
