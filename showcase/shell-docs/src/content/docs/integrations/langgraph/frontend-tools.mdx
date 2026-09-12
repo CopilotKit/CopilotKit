@@ -287,8 +287,9 @@ Each frontend tool falls into one of two shapes:
 
 - **Interactive** — needs user input before the agent may continue. Register a widget; the bridge waits
   for it.
-- **Fire-and-forget or display-only** — no input needed. The bridge auto-acks it, and any visuals come
-  from that tool's own `useFrontendTool({ render })` registration, which outlives the pause.
+- **Fire-and-forget or display-only** — no input needed. The bridge answers it with a placeholder
+  result, and any visuals come from that tool's own `useFrontendTool({ render })` registration, which
+  outlives the pause.
 
 ```tsx title="frontend-interrupt-bridge.tsx"
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -345,7 +346,7 @@ function InterruptDispatcher({
     resolve({
       tool_results: calls.map((c) => ({
         toolCallId: c.id,
-        // Unanswered calls are acked, not omitted: every tool_call needs a result.
+        // Every tool_call needs a result, so unanswered calls get a placeholder.
         content: JSON.stringify(c.id in responses ? responses[c.id] : { ok: true }),
       })),
     });
@@ -417,8 +418,8 @@ function App() {
 `resolve()` sends `forwardedProps.command.resume`, which LangGraph hands back as the return value of
 `interrupt()`. The middleware then appends one `ToolMessage` per call and re-enters the model.
 
-Any call you do not answer still gets a `ToolMessage`. If the bridge acks it, that ack is the content;
-if the client resumes without mentioning it at all, the middleware substitutes
+Any call you do not answer still gets a `ToolMessage`. If the bridge supplied a placeholder, that is
+the content; if the client resumes without mentioning the call at all, the middleware substitutes
 `{"ok": false, "error": "missing_tool_result"}` — every tool call has to stay paired with a result, or
 providers such as Bedrock reject the conversation outright.
 
