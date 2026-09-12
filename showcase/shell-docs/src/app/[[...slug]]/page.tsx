@@ -5,14 +5,11 @@
 // and `/<slug>` URLs resolve BIA-authored pages first (see
 // UnscopedDocsPage). Other frameworks remain at `/<framework>/<slug>`.
 
-import React from "react";
 import type { Metadata } from "next";
-import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
-import { DocsLandingNext } from "@/components/docs-landing-next";
+import { DocsProductMap } from "@/components/docs-product-map";
 import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
 import { HeroStartActions } from "@/components/hero-start-commands";
-import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -22,12 +19,12 @@ import {
   loadDoc,
 } from "@/lib/docs-render";
 import { compareByDisplayOrder } from "@/lib/framework-order";
+import { visibleIntegrations } from "@/lib/homepage-map";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
   getDocsFolder,
   getDocsMode,
   getIntegration,
-  getIntegrations,
   ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
@@ -66,9 +63,13 @@ export async function generateMetadata({
   // /quickstart, /concepts/architecture) read frontmatter via loadDoc.
   if (!slugPath) {
     return buildDocMetadata({
-      title: "CopilotKit: the frontend stack for agents",
+      // Kept in step with the hero copy below. The previous title and
+      // description were written against the old "frontend stack for agentic
+      // user experience" positioning and named neither Intelligence nor a
+      // benefit, so the tab, the search result and the page disagreed.
+      title: "CopilotKit: give your app an agent your users can use",
       description:
-        "Connect any agent framework or model to your React app for chat, generative UI, canvas, and human-in-the-loop workflows.",
+        "Add chat, generative UI, and approval steps to a React app you already have, or start a new one, on any agent framework. CopilotKit Intelligence adds persistent threads, memory, and agents that learn from real use.",
       canonicalPath: "/",
     });
   }
@@ -107,8 +108,7 @@ function DocsOverview() {
   // framework picker dropdown (same accent treatment as the framework pages'
   // direct quickstart link). The default framework sorts first; its
   // quickstart lives at the root.
-  const quickstartOptions = getIntegrations()
-    .filter((i) => getDocsMode(i.slug) !== "hidden")
+  const quickstartOptions = visibleIntegrations()
     .slice()
     .sort((a, b) => {
       if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
@@ -133,12 +133,24 @@ function DocsOverview() {
               <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
                 CopilotKit
               </h1>
+              {/* Names a benefit rather than a category. The previous line,
+                  "The frontend stack for agentic user experience", is jargon
+                  to a first-time reader: it says what shelf the product sits
+                  on, not what it does for them. */}
               <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
-                The frontend stack for agentic user experience.
+                Give your app an agent your users can actually use.
               </p>
+              {/* One sentence, and it leads with the existing app. The most
+                  common wrong assumption about CopilotKit is that it wants a
+                  greenfield project, so the answer to that belongs in the
+                  first thing a reader meets, not in a line below the buttons.
+                  Intelligence is not named here: its own block sits a screen
+                  below with the same link, and repeating it up here made the
+                  hero a third paragraph long. */}
               <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Build production chat, generative UI, shared state, and
-                human-in-the-loop workflows on any AG-UI compatible backend.
+                Drop chat, generative UI, and approval steps into a React app
+                you already have, or start a new one, on whatever agent
+                framework you run.
               </p>
             </div>
             <div className="mt-7">
@@ -154,15 +166,8 @@ function DocsOverview() {
           </div>
         </section>
 
-        <div className="space-y-10 pt-4">
-          <div className="[&>section]:!my-0">
-            <IntelligenceOnboardingPrompt
-              feature="learning"
-              surface="docs_landing_learning"
-            />
-          </div>
-          <LandingSampleTabs />
-          <DocsLandingNext />
+        <div className="pt-8">
+          <DocsProductMap />
         </div>
       </div>
     </ShellDocsLayout>
