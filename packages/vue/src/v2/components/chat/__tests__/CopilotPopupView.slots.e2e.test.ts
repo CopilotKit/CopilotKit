@@ -540,6 +540,26 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
   });
 
   describe("8. Integration Tests", () => {
+    it("keeps the transparent-background utility on the positioning wrapper", () => {
+      const Host = defineComponent({
+        components: { CopilotPopupView },
+        setup() {
+          return { sampleMessages };
+        },
+        template: `<CopilotPopupView :messages="sampleMessages" :default-open="true" />`,
+      });
+
+      const { container } = renderInWrapper(Host);
+      const popup = container.querySelector("[data-copilot-popup]");
+      const positioningWrapper = popup?.parentElement;
+
+      expect(positioningWrapper?.hasAttribute("data-copilotkit")).toBe(true);
+      // jsdom does not load the generated stylesheet; this guards the utility-class contract only.
+      expect(positioningWrapper?.classList.contains("cpk:bg-transparent")).toBe(
+        true,
+      );
+    });
+
     it("should render popup with all default components when open", () => {
       const Host = defineComponent({
         components: { CopilotPopupView },
