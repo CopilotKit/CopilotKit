@@ -4,7 +4,9 @@ import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { CopilotKitCore } from "../core";
 
 /** A Runtime `/info` answer advertising one agent. */
-function runtimeInfoResponse(): Response {
+function runtimeInfoResponse(
+  singleRoute?: RuntimeInfo["singleRoute"],
+): Response {
   const info: RuntimeInfo = {
     version: "1.0.0",
     agents: {
@@ -16,6 +18,7 @@ function runtimeInfoResponse(): Response {
     },
     audioFileTranscriptionEnabled: false,
     mode: "sse",
+    ...(singleRoute ? { singleRoute } : {}),
   };
   return new Response(JSON.stringify(info), {
     status: 200,
@@ -23,9 +26,24 @@ function runtimeInfoResponse(): Response {
   });
 }
 
-function setupCore(runtimeUrl: string, runtimeTransport: "rest" | "single") {
+/** A runtime that accepts Intelligence resource calls through the one route. */
+const RESOURCE_SINGLE_ROUTE: RuntimeInfo["singleRoute"] = {
+  resourceOperations: true,
+  threadEndpoints: {
+    list: true,
+    inspect: true,
+    mutations: true,
+    realtimeMetadata: false,
+  },
+};
+
+function setupCore(
+  runtimeUrl: string,
+  runtimeTransport: "rest" | "single",
+  singleRoute?: RuntimeInfo["singleRoute"],
+) {
   const fetchMock = vi.fn<typeof globalThis.fetch>();
-  fetchMock.mockResolvedValueOnce(runtimeInfoResponse());
+  fetchMock.mockResolvedValueOnce(runtimeInfoResponse(singleRoute));
   vi.stubGlobal("window", {});
   vi.stubGlobal("fetch", fetchMock);
   const core = new CopilotKitCore({ runtimeUrl, runtimeTransport });
@@ -76,6 +94,35 @@ describe("runtimeUrl with a trailing slash", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       "https://runtime.example/service/copilotkit",
     );
+  });
+
+  // The resource envelope POSTs to the endpoint itself, so it is the second
+  // request family that must not lose the slash - `createSingleRouteResourceRequest`
+  // uses its `runtimeUrl` argument verbatim as the target.
+  it("keeps the slash for Intelligence resource requests", async () => {
+    const { core, fetchMock } = setupCore(
+      runtimeUrl,
+      "single",
+      RESOURCE_SINGLE_ROUTE,
+    );
+
+    await vi.waitFor(() => {
+      expect(core.getAgent("default")).toBeDefined();
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ threads: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    await core.ɵruntimeFetch(`${runtimeUrl}threads`, { method: "GET" });
+
+    const [target, init] = fetchMock.mock.calls[1] ?? [];
+    // Asserted first: without it the case still passes when the envelope path
+    // was never taken and the GET went out untouched.
+    expect(init?.method).toBe("POST");
+    expect(target).toBe(runtimeUrl);
   });
 
   it("joins REST paths without a double slash", async () => {

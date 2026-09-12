@@ -631,7 +631,11 @@ export class AgentRegistry {
               ? await createSingleRouteResourceRequest(
                   input,
                   init,
-                  this._runtimeUrl,
+                  // The endpoint itself is the POST target here, so it has to be
+                  // the caller's URL verbatim - a trailing slash can select a
+                  // different proxy location. `_runtimeUrl` is the slash-stripped
+                  // form kept for path joins (issue #7028).
+                  this._runtimeEndpointUrl ?? this._runtimeUrl,
                 )
               : null;
           const response = singleRouteRequest
