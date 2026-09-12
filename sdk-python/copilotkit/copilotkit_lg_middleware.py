@@ -75,7 +75,8 @@ _INTERRUPTED_PAT = re.compile(
 # not ``__copilotkit_interrupt_value__``, which means "render this to the user".
 _FE_INTERRUPT_KEY = "__copilotkit_frontend_tool_calls__"
 
-# Used when the client resumed without answering a call; every call needs a pair.
+# Used when the client resumed without answering a call: an unpaired tool_call is
+# rejected by Bedrock and confuses other providers.
 _MISSING_TOOL_RESULT_CONTENT = json.dumps({"ok": False, "error": "missing_tool_result"})
 
 # Distinguishes "resumed with no results" from "this payload was not for us".
@@ -1254,9 +1255,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 f"bare list of those, got {type(resumed).__name__}."
             )
 
-        # Unanswered calls still get a ToolMessage: an unpaired tool_call is
-        # rejected by Bedrock and confuses other providers.
-        #
         # No "jump_to" — create_agent's model->tools edge already routes
         # correctly. No "copilotkit" key — that channel has no reducer, so
         # writing it would wipe "actions", which this hook re-reads on resume.
