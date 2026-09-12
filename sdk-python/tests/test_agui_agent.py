@@ -380,6 +380,21 @@ class TestLanggraphDefaultMergeState:
 
         assert result["copilotkit"]["context"] == context
 
+    def test_copilotkit_actions_from_ag_ui_underscore_fallback(self, agent):
+        """Underscore ag_ui key (LangGraph normalization, see #5463) is accepted."""
+        tools = [{"name": "tool1"}]
+        with patch.object(
+            AGUIBase,
+            "langgraph_default_merge_state",
+            return_value={
+                "ag_ui": {"tools": tools, "context": []},
+                "messages": [],
+            },
+        ):
+            result = agent.langgraph_default_merge_state({}, [], MagicMock())
+
+        assert result["copilotkit"]["actions"] == tools
+
     def test_no_agui_key_no_crash(self, agent):
         """If no ag-ui key in state, should use merged_state as fallback without crashing."""
         with patch.object(
