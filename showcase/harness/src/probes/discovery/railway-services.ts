@@ -665,6 +665,48 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         if (excludeSet.has(svc.name)) {
           return false;
         }
+        // ENVIRONMENT SCOPING. The project query above is PROJECT-scoped, not
+        // environment-scoped — Railway's current schema rejects an
+        // `environmentId` argument on `serviceInstances` (see the query
+        // comment), so `project(id:).services` returns every service in the
+        // project and `RAILWAY_ENVIRONMENT_ID` only selects which instance to
+        // enrich FROM. A service with no instance in the probed environment is
+        // not deployed here and cannot be probed here, so drop it.
+        //
+        // Without this it enriched into a husk — `imageRef`/`publicUrl`/
+        // `deployedDigest`/`deployedAt` all "" — and every consumer then
+        // mishandled it. `smoke` and `image_drift` reject it at the invoker
+        // (`z.string().min(1)`/`.url()`) and log `probe.input-rejected` at
+        // `error` every tick, forever. Worse, on the fleet path the empty
+        // `publicUrl` became `backendUrl: ""`, which the d6 driver turned into
+        // a RELATIVE `page.goto` URL — painting that service's ENTIRE column
+        // red with `goto-error` "Cannot navigate to invalid URL" cells that say
+        // nothing about the demo. `crewai-conversational-flows` (a deliberately
+        // staging-only service, `onlyEnvironment: "staging"` in the Railway
+        // SSOT) did exactly that to prod: 40/40 cells red.
+        //
+        // Note this does NOT silence the cross-env pin-drift absence check
+        // (`drivers/cross-env-pin-drift.ts` "has no instance in prod env"):
+        // that check is ALREADY unreachable for these services, because the
+        // husk's empty `imageRef` yields `imageRepo: ""` which its own
+        // `z.string().min(1)` rejects before `driver.run` is ever called.
+        //
+        // LOUD, not silent. A service that SHOULD be in this environment and
+        // lost its instance is a real incident, and dropping it quietly is
+        // precisely how that would hide. One warn per dropped service per tick,
+        // greppable by log id. (The authoritative expected-roster check lives
+        // in CI — `scripts/verify-railway-image-refs.ts:findMissingServices` —
+        // and is not yet a harness probe; see the PR for that follow-up.)
+        const hasInstanceInEnv = svc.serviceInstances.edges.some(
+          (e) => e.node.environmentId === environmentId,
+        );
+        if (!hasInstanceInEnv) {
+          ctx.logger.warn("discovery.railway-services.env-instance-missing", {
+            service: svc.name,
+            environmentId,
+          });
+          return false;
+        }
         return true;
       });
 
