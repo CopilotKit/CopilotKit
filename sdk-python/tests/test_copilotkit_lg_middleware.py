@@ -2245,10 +2245,10 @@ class TestAutoA2UI:
 # LangGraph's interrupt() instead of the default strip-and-restore
 # ---------------------------------------------------------------------------
 #
-# Contract: with the flag on, every frontend call in a turn is batched into a
-# single interrupt(); the resumed results become real ToolMessages appended to
-# the turn; the AIMessage is left untouched; and the state update carries
-# messages and nothing else. With the flag off nothing changes at all.
+# Contract: every frontend call in a turn is batched into one interrupt(); the
+# resumed results become real ToolMessages on the turn; the AIMessage is left
+# untouched; the state update carries messages and nothing else. Flag off
+# changes nothing.
 
 _FE_ACTION = {"function": {"name": "navigate"}}
 _FE_CALL = {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}}
@@ -2411,9 +2411,8 @@ def test_flat_action_descriptors_are_matched():
 
 
 def test_placeholder_tool_message_does_not_count_as_an_answer():
-    """A checkpointer that runs patch_orphan_tool_calls injects a placeholder
-    for the paused call. Treating it as an answer would skip the interrupt and
-    hand the model "was interrupted before completion" as the tool's output."""
+    """A placeholder from patch_orphan_tool_calls must not count as an answer, or
+    the model gets "was interrupted before completion" as the tool's output."""
     placeholder = ToolMessage(
         content="Tool call 'navigate' with id 'fe-1' was interrupted before completion.",
         tool_call_id="fe-1",
@@ -2504,8 +2503,7 @@ def test_resume_payload_shapes(resume, expected):
 
 
 def test_unanswered_call_still_gets_a_paired_tool_message():
-    """Every tool_call must end up paired — Bedrock rejects an unanswered one
-    outright, and other providers handle it inconsistently."""
+    """Every tool_call must end up paired — Bedrock rejects an unanswered one."""
     state = _interrupt_state([_FE_CALL, _FE_CALL_2])
     resume = {"tool_results": [{"toolCallId": "fe-1", "content": "only-one"}]}
 
@@ -2534,9 +2532,7 @@ def test_client_answering_nothing_is_not_an_error(resume):
     ids=["none", "bare-string", "human-answer", "empty-dict", "number"],
 )
 def test_unrecognised_resume_payload_fails_loudly(resume):
-    """A resume carries one value and the first pending interrupt consumes it,
-    so another interrupt's answer can land here. Fabricating tool results from
-    it would leave the developer debugging a model apology."""
+    """An unrecognised payload must fail loudly rather than fabricate results."""
     with pytest.raises(CopilotKitMisuseError, match="interrupt_frontend_tools"):
         _run_after_model(_interrupt_state([_FE_CALL]), resume)
 
@@ -2561,9 +2557,8 @@ def test_after_agent_is_a_no_op_in_interrupt_mode():
 
 
 def test_next_model_call_sees_the_real_frontend_result():
-    """The point of the feature: the model resumes the same turn with the real
-    result, not the {"status": "forwarded_to_frontend"} placeholder the default
-    path substitutes."""
+    """The model gets the real result, not the default path's
+    {"status": "forwarded_to_frontend"} placeholder."""
     state = _interrupt_state([_BE_CALL, _FE_CALL])
     resume = {"tool_results": [{"toolCallId": "fe-1", "content": '{"page": "/x"}'}]}
 

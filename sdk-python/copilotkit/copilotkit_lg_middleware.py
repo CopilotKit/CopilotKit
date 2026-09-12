@@ -64,36 +64,29 @@ _a2ui_tools_by_thread: dict[str, Any] = {}
 _DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__"
 _FRONTEND_TOOL_RESULT_CONTENT = json.dumps({"status": "forwarded_to_frontend"})
 
-# Placeholder LangGraph's ``patch_orphan_tool_calls`` writes for a tool call that
-# was still pending when a checkpoint was saved. Hoisted to module scope so both
-# ``_fix_messages_for_bedrock`` and the interrupt path can match it without
-# recompiling the pattern on every call.
+# Placeholder LangGraph's ``patch_orphan_tool_calls`` writes for a tool call
+# still pending when a checkpoint was saved.
 _INTERRUPTED_PAT = re.compile(
     r"^Tool call '.+' with id '.+' was interrupted before completion\.$"
 )
 
-# Key carrying the batched frontend tool calls in the interrupt payload emitted
-# when ``interrupt_frontend_tools`` is on. Namespaced so a client can tell this
-# apart from a human-facing interrupt on the same thread (e.g. via
-# ``useInterrupt({ enabled })``). Deliberately NOT ``__copilotkit_interrupt_value__``
-# — that envelope means "render this to the user", which this is not.
+# Frontend tool calls batched into the interrupt payload. Namespaced so a client
+# can tell this from a human-facing interrupt (``useInterrupt({ enabled })``);
+# not ``__copilotkit_interrupt_value__``, which means "render this to the user".
 _FE_INTERRUPT_KEY = "__copilotkit_frontend_tool_calls__"
 
-# Content used when the client resumed without answering a frontend tool call.
-# Every call still gets a ToolMessage so no tool_call is left unpaired.
+# Used when the client resumed without answering a call; every call needs a pair.
 _MISSING_TOOL_RESULT_CONTENT = json.dumps({"ok": False, "error": "missing_tool_result"})
 
-# Sentinel distinguishing "resumed with no results" from "this resume payload
-# was never meant for us" (e.g. a human interrupt's answer was consumed first).
+# Distinguishes "resumed with no results" from "this payload was not for us".
 _UNRECOGNIZED_RESUME = object()
 
 
 def _coerce_result(raw: dict) -> "tuple[str, str]":
     """Normalise one client tool result into ``(tool_call_id, content)``.
 
-    Accepts the id under ``toolCallId`` (the wire casing), ``tool_call_id`` or
-    ``id``, and the payload under ``content`` or ``result``. Non-string content
-    is JSON-encoded, since ``ToolMessage.content`` has to be a string.
+    Accepts the id as ``toolCallId``/``tool_call_id``/``id`` and the payload as
+    ``content``/``result``. Non-string content is JSON-encoded.
     """
     tool_call_id = raw.get("toolCallId") or raw.get("tool_call_id") or raw.get("id")
     content = raw.get("content")
@@ -107,18 +100,11 @@ def _coerce_result(raw: dict) -> "tuple[str, str]":
 def _parse_frontend_tool_results(payload: Any) -> Any:
     """Normalise a resume payload into ``{tool_call_id: content}``.
 
-    The wire shape is ``forwardedProps.command.resume = {"tool_results": [...]}``,
-    which ``ag_ui_langgraph`` passes to ``Command(resume=...)`` verbatim. It
-    JSON-decodes string payloads first, so the ``str`` branch here only matters
-    for callers driving the graph directly. A bare list is accepted too.
-
-    Returns ``_UNRECOGNIZED_RESUME`` when the payload is not a tool-result
-    container at all. That case is worth failing loudly on: a single
-    ``Command(resume=...)`` carries one value and the first pending interrupt
-    consumes it, so another interrupt's answer (say ``{"approved": True}``) can
-    land here. A well-formed but
-    empty container (``{"tool_results": []}``) is *not* unrecognised — that is a
-    client legitimately answering nothing, and every call gets a placeholder.
+    The wire shape is ``forwardedProps.command.resume = {"tool_results": [...]}``;
+    a bare list is accepted too. Returns ``_UNRECOGNIZED_RESUME`` when the
+    payload is not a tool-result container at all, which is worth failing loudly
+    on. An empty container is *not* unrecognised — that is a client legitimately
+    answering nothing.
     """
     if isinstance(payload, str):
         try:
@@ -1173,12 +1159,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             t.get("function", {}).get("name") or t.get("name") for t in frontend_tools
         }
 
-    # Intercept frontend tool calls after model returns, before ToolNode executes.
-    #
-    # NOTE: this hook must stay free of side effects. In interrupt mode
-    # ``interrupt()`` raises out of it, LangGraph discards every write from the
-    # interrupting task, and the whole node re-runs from the top on resume —
-    # so anything that mutates module state here would fire twice.
+    # Intercept frontend tool calls after the model returns, before ToolNode runs.
+    # Must stay side-effect free: in interrupt mode ``interrupt()`` raises out of
+    # here, so the node re-runs from the top on resume.
     def after_model(
         self,
         state: StateSchema,
@@ -1195,12 +1178,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     ) -> dict[str, Any] | None:
         """Pause the turn on one batched interrupt until the client answers.
 
-        Unlike the default path this leaves the AIMessage untouched and appends
-        a real ToolMessage per frontend call, so the model resumes the same turn
-        with the results in hand and the persisted history reads naturally.
-        Keeping the tool_calls in place is also what keeps each new ToolMessage
-        paired with a matching id, so ``_fix_messages_for_bedrock`` does not
-        strip them as orphans.
+        Leaves the AIMessage untouched and appends a real ToolMessage per call,
+        so the model resumes the same turn with the results in hand. Keeping the
+        tool_calls in place is what keeps each ToolMessage paired with an id, so
+        ``_fix_messages_for_bedrock`` does not strip them as orphans.
         """
         frontend_tool_names = self._frontend_tool_names(state, runtime)
         if not frontend_tool_names:
@@ -1208,12 +1189,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         messages = state.get("messages", [])
 
-        # Scan backwards rather than checking messages[-1]: on resume this node
-        # re-runs from the top, and a checkpointer that applies
-        # patch_orphan_tool_calls (see _fix_messages_for_bedrock) will have
-        # inserted placeholder ToolMessages after the AIMessage. Looking only at
-        # the last message would miss it, skip the interrupt, and leave the
-        # resume value unconsumed.
+        # Scan backwards, not messages[-1]: on resume a checkpointer that ran
+        # patch_orphan_tool_calls has inserted placeholder ToolMessages after the
+        # AIMessage, which would hide it and skip the interrupt.
         ai_index = next(
             (
                 i
@@ -1229,9 +1207,8 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         if not tool_calls:
             return None
 
-        # A call counts as answered only by a *real* result. The placeholders
-        # above say "was interrupted before completion"; accepting one as an
-        # answer would hand the model that sentence as the tool's output.
+        # Only a *real* result counts as answered: the placeholders say "was
+        # interrupted before completion", which is not a tool output.
         answered_ids = {
             getattr(msg, "tool_call_id", None)
             for msg in messages[ai_index + 1 :]
@@ -1248,18 +1225,13 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             and call.get("id")
             and call.get("id") not in answered_ids
         ]
-        # Also makes the hook idempotent: once results are in state, re-entering
-        # this node finds nothing outstanding instead of interrupting again.
+        # Idempotent: once results are in state there is nothing outstanding.
         if not frontend_calls:
             return None
 
-        # One interrupt for the whole batch. A resume carries a single value and
-        # cannot address several pending interrupts without their ids
-        # (ag-ui-protocol/ag-ui#2178), so one interrupt per call would deadlock
-        # any turn where the model called more than one frontend tool.
-        #
-        # Not wrapped in try/except: interrupt() signals the pause by raising,
-        # and swallowing that would turn it into a silent no-op.
+        # One interrupt for the whole batch: a resume cannot address several
+        # pending interrupts without ids (ag-ui-protocol/ag-ui#2178). Not wrapped
+        # in try/except — interrupt() signals the pause by raising.
         resumed = interrupt(
             {
                 _FE_INTERRUPT_KEY: [
@@ -1279,22 +1251,15 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 "CopilotKitMiddleware(interrupt_frontend_tools=True) was resumed "
                 "with a payload it does not recognise. Expected "
                 '{"tool_results": [{"toolCallId": ..., "content": ...}, ...]} or a '
-                f"bare list of those, got {type(resumed).__name__}. A resume "
-                "carries one value and the first pending interrupt consumes it, "
-                "so this usually means another interrupt's answer arrived here."
+                f"bare list of those, got {type(resumed).__name__}."
             )
 
-        # One ToolMessage per call, in the order the model emitted them. Calls
-        # the client did not answer still get one, so no tool_call is left
-        # unpaired — an unanswered tool call is rejected outright by Bedrock and
-        # confuses every other provider.
+        # Unanswered calls still get a ToolMessage: an unpaired tool_call is
+        # rejected by Bedrock and confuses other providers.
         #
-        # Messages ONLY. No "jump_to": create_agent's model->tools edge already
-        # routes correctly — it sends just the unanswered (backend) calls to
-        # ToolNode, and re-enters the model when an AIMessage has tool calls but
-        # none pending. And no "copilotkit" key: that channel has no reducer, so
-        # writing it would replace the whole dict and wipe "actions", which this
-        # hook re-reads on resume.
+        # No "jump_to" — create_agent's model->tools edge already routes
+        # correctly. No "copilotkit" key — that channel has no reducer, so
+        # writing it would wipe "actions", which this hook re-reads on resume.
         return {
             "messages": [
                 ToolMessage(

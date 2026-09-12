@@ -332,6 +332,11 @@ Any call you do not answer still gets a `ToolMessage`, with content
 `{"ok": false, "error": "missing_tool_result"}` — every tool call has to stay paired with a result, or
 providers such as Bedrock reject the conversation outright.
 
+<Callout type="warn">
+Keep these handlers idempotent. The client's post-run tool executor is not interrupt-aware, so a call
+answered through the interrupt can also be run by the default frontend-tool path.
+</Callout>
+
 <Callout type="info">
 First-class client support for this flow is planned; until then the handler above is the supported
 way to wire it. For interrupts that *do* ask the user something, see
