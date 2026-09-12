@@ -27,6 +27,10 @@ vi.mock("@/mastra", () => ({
   mastra: { __stub: "mastra" },
 }));
 
+vi.mock("@/mastra/_header_forwarding", () => ({
+  withForwardedHeaders: (_request: unknown, fn: () => unknown) => fn(),
+}));
+
 // Stub @ag-ui/mastra with controllable implementations. Tests reassign these
 // per-case via vi.mocked(...).
 vi.mock("@ag-ui/mastra", () => {
@@ -152,6 +156,50 @@ describe("buildAgents", () => {
     ];
     expect(new Set(seen).size).toBe(seen.length);
     expect(seen.sort()).toEqual([...expected].sort());
+  });
+
+  it("keeps the subagents supervisor available as its own runtime agent", async () => {
+    mockedGetLocalAgents.mockReturnValue({
+      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
+      headlessCompleteAgent: makeAgent(
+        "headless-complete",
+        "mastra-headlessCompleteAgent",
+      ),
+      sharedStateReadWriteAgent: makeAgent(
+        "shared-state-rw",
+        "mastra-sharedStateReadWriteAgent",
+      ),
+      sharedStateStreamingAgent: makeAgent(
+        "shared-state-streaming",
+        "mastra-sharedStateStreamingAgent",
+      ),
+      genUiAgent: makeAgent("gen-ui", "mastra-genUiAgent"),
+      subagentsSupervisorAgent: makeAgent(
+        "subagents-supervisor",
+        "mastra-subagentsSupervisorAgent",
+      ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
+      byocHashbrownAgent: makeAgent(
+        "byoc-hashbrown",
+        "mastra-byocHashbrownAgent",
+      ),
+    });
+    mockedGetLocalAgent.mockImplementation(({ agentId, resourceId }) =>
+      makeAgent(agentId as string, resourceId),
+    );
+
+    const { buildAgents } = await importRoute();
+    const agents = buildAgents();
+
+    expect(agents.subagentsSupervisorAgent).toBeDefined();
+    expect(mockedGetLocalAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "subagentsSupervisorAgent",
+        resourceId: "mastra-subagentsSupervisorAgent",
+      }),
+    );
   });
 
   it("throws when getLocalAgent returns null for any demo alias", async () => {
