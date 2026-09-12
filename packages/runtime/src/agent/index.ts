@@ -37,6 +37,7 @@ import type {
   ToolChoice,
   ToolSet,
   Schema,
+  ProviderMetadata,
 } from "ai";
 import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
 import { createMCPClient } from "@ai-sdk/mcp";
@@ -62,6 +63,11 @@ import {
   isRecord,
 } from "./converters/usage";
 import type { AgentRunFinishedDetails } from "./converters/usage";
+import {
+  mergeAISDKProviderMetadata,
+  reasoningEventMetadata,
+  reasoningMessageProviderOptions,
+} from "./converters/reasoning-metadata";
 import { createStateEventNormalizer } from "./state-delta";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -492,27 +498,35 @@ export function convertMessagesToVercelAISDKMessages(
   options: MessageConversionOptions = {},
 ): ModelMessage[] {
   const result: ModelMessage[] = [];
+  type AssistantContent = Exclude<AssistantModelMessage["content"], string>;
+  let pendingReasoning: AssistantContent = [];
+
+  const flushPendingReasoning = () => {
+    if (pendingReasoning.length === 0) return;
+    result.push({ role: "assistant", content: pendingReasoning });
+    pendingReasoning = [];
+  };
 
   for (const message of messages) {
-    if (message.role === "system" && options.forwardSystemMessages) {
-      const systemMsg: SystemModelMessage = {
-        role: "system",
-        content: message.content ?? "",
-      };
-      result.push(systemMsg);
-    } else if (
-      message.role === "developer" &&
-      options.forwardDeveloperMessages
-    ) {
-      const systemMsg: SystemModelMessage = {
-        role: "system",
-        content: message.content ?? "",
-      };
-      result.push(systemMsg);
-    } else if (message.role === "assistant") {
-      const parts: Array<TextPart | ToolCallPart> = message.content
-        ? [{ type: "text", text: message.content }]
-        : [];
+    if (message.role === "reasoning") {
+      const providerOptions = reasoningMessageProviderOptions(message);
+      if (providerOptions) {
+        pendingReasoning.push({
+          type: "reasoning",
+          text: message.content,
+          providerOptions,
+        });
+      }
+      continue;
+    }
+
+    if (message.role === "assistant") {
+      const parts: AssistantContent = [...pendingReasoning];
+      pendingReasoning = [];
+
+      if (message.content) {
+        parts.push({ type: "text", text: message.content });
+      }
 
       for (const toolCall of message.toolCalls ?? []) {
         const toolCallPart: ToolCallPart = {
@@ -529,6 +543,26 @@ export function convertMessagesToVercelAISDKMessages(
         content: parts,
       };
       result.push(assistantMsg);
+      continue;
+    }
+
+    flushPendingReasoning();
+
+    if (message.role === "system" && options.forwardSystemMessages) {
+      const systemMsg: SystemModelMessage = {
+        role: "system",
+        content: message.content ?? "",
+      };
+      result.push(systemMsg);
+    } else if (
+      message.role === "developer" &&
+      options.forwardDeveloperMessages
+    ) {
+      const systemMsg: SystemModelMessage = {
+        role: "system",
+        content: message.content ?? "",
+      };
+      result.push(systemMsg);
     } else if (message.role === "user") {
       const userMsg: UserModelMessage = {
         role: "user",
@@ -566,6 +600,8 @@ export function convertMessagesToVercelAISDKMessages(
       result.push(toolMsg);
     }
   }
+
+  flushPendingReasoning();
 
   return result;
 }
@@ -1306,6 +1342,7 @@ export class BuiltInAgent extends AbstractAgent {
         let messageId = randomUUID();
         let reasoningMessageId = randomUUID();
         let isInReasoning = false;
+        let reasoningProviderMetadata: ProviderMetadata | undefined;
 
         // Auto-close an open reasoning lifecycle.
         // Some AI SDK providers (notably @ai-sdk/anthropic) never emit "reasoning-end",
@@ -1316,10 +1353,13 @@ export class BuiltInAgent extends AbstractAgent {
         const closeReasoningIfOpen = () => {
           if (!isInReasoning) return;
           isInReasoning = false;
+          const metadata = reasoningEventMetadata(reasoningProviderMetadata);
           const reasoningMsgEnd: ReasoningMessageEndEvent = {
             type: EventType.REASONING_MESSAGE_END,
             messageId: reasoningMessageId,
+            ...(metadata ? { metadata } : {}),
           };
+          reasoningProviderMetadata = undefined;
           subscriber.next(reasoningMsgEnd);
           const reasoningEnd: ReasoningEndEvent = {
             type: EventType.REASONING_END,
@@ -1508,9 +1548,21 @@ export class BuiltInAgent extends AbstractAgent {
 
           // Process fullStream events
           for await (const part of response.fullStream) {
-            // Close any open reasoning lifecycle on every event except
-            // reasoning-delta, which arrives mid-block and must not interrupt it.
-            if (part.type !== "reasoning-delta") {
+            if (
+              part.type === "reasoning-delta" ||
+              part.type === "reasoning-end"
+            ) {
+              reasoningProviderMetadata = mergeAISDKProviderMetadata(
+                reasoningProviderMetadata,
+                part.providerMetadata,
+              );
+            }
+
+            // Close an open reasoning lifecycle before any unrelated part.
+            if (
+              part.type !== "reasoning-delta" &&
+              part.type !== "reasoning-end"
+            ) {
               closeReasoningIfOpen();
             }
 
@@ -1540,6 +1592,10 @@ export class BuiltInAgent extends AbstractAgent {
                 reasoningMessageId = isNonUniqueId
                   ? randomUUID()
                   : (providedId as typeof reasoningMessageId);
+                reasoningProviderMetadata = mergeAISDKProviderMetadata(
+                  undefined,
+                  part.providerMetadata,
+                );
                 const reasoningStartEvent: ReasoningStartEvent = {
                   type: EventType.REASONING_START,
                   messageId: reasoningMessageId,
@@ -1566,8 +1622,7 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-end": {
-                // closeReasoningIfOpen() already called before the switch — no-op here
-                // if the SDK never emits this event (e.g. @ai-sdk/anthropic).
+                closeReasoningIfOpen();
                 break;
               }
               case "tool-input-start": {

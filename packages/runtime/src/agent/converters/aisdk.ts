@@ -19,6 +19,11 @@ import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
 import { aggregateRunUsage, getTokenCount, tokenCountKeys } from "./usage";
 import type { AgentRunFinishedDetails, AgentRunUsage } from "./usage";
+import {
+  mergeAISDKProviderMetadata,
+  reasoningEventMetadata,
+} from "./reasoning-metadata";
+import type { ProviderMetadata } from "ai";
 
 /**
  * Reads aggregate usage from an AI SDK finish part without inventing values
@@ -81,6 +86,7 @@ export async function* convertAISDKStream(
   let messageId = randomUUID();
   let reasoningMessageId = randomUUID();
   let isInReasoning = false;
+  let reasoningProviderMetadata: ProviderMetadata | undefined;
   const normalizeStateEvent = createStateEventNormalizer(initialState);
 
   const toolCallStates = new Map<
@@ -112,10 +118,13 @@ export async function* convertAISDKStream(
   function* closeReasoningIfOpen(): Generator<BaseEvent> {
     if (!isInReasoning) return;
     isInReasoning = false;
+    const metadata = reasoningEventMetadata(reasoningProviderMetadata);
     const reasoningMsgEnd: ReasoningMessageEndEvent = {
       type: EventType.REASONING_MESSAGE_END,
       messageId: reasoningMessageId,
+      ...(metadata ? { metadata } : {}),
     };
+    reasoningProviderMetadata = undefined;
     yield reasoningMsgEnd;
     const reasoningEnd: ReasoningEndEvent = {
       type: EventType.REASONING_END,
@@ -128,9 +137,15 @@ export async function* convertAISDKStream(
     for await (const part of fullStream) {
       const p = part as Record<string, unknown>;
 
-      // Close any open reasoning lifecycle on every event except
-      // reasoning-delta, which arrives mid-block and must not interrupt it.
-      if (p.type !== "reasoning-delta") {
+      if (p.type === "reasoning-delta" || p.type === "reasoning-end") {
+        reasoningProviderMetadata = mergeAISDKProviderMetadata(
+          reasoningProviderMetadata,
+          p.providerMetadata,
+        );
+      }
+
+      // Close an open reasoning lifecycle before starting any unrelated part.
+      if (p.type !== "reasoning-delta" && p.type !== "reasoning-end") {
         yield* closeReasoningIfOpen();
       }
 
@@ -148,6 +163,10 @@ export async function* convertAISDKStream(
             providedId && providedId !== "0"
               ? (providedId as string)
               : randomUUID();
+          reasoningProviderMetadata = mergeAISDKProviderMetadata(
+            undefined,
+            p.providerMetadata,
+          );
           const reasoningStartEvent: ReasoningStartEvent = {
             type: EventType.REASONING_START,
             messageId: reasoningMessageId,
@@ -176,8 +195,7 @@ export async function* convertAISDKStream(
         }
 
         case "reasoning-end": {
-          // closeReasoningIfOpen() already called before the switch — no-op here
-          // if the SDK never emits this event (e.g. @ai-sdk/anthropic).
+          yield* closeReasoningIfOpen();
           break;
         }
 

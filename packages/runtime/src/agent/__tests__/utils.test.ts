@@ -152,6 +152,109 @@ describe("convertMessagesToVercelAISDKMessages", () => {
     });
   });
 
+  it("should ignore reasoning without provider metadata", () => {
+    const messages: Message[] = [
+      {
+        id: "reasoning-1",
+        role: "reasoning",
+        content: "Reasoning without provider metadata.",
+      },
+      { id: "assistant-1", role: "assistant", content: "answer" },
+    ];
+
+    expect(convertMessagesToVercelAISDKMessages(messages)).toEqual([
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "answer" }],
+      },
+    ]);
+  });
+
+  it("should preserve Anthropic reasoning before the assistant response", () => {
+    const messages: Message[] = [
+      {
+        id: "reasoning-1",
+        role: "reasoning",
+        content: "Let me inspect the available tools.",
+        metadata: {
+          aiSdkProviderMetadata: {
+            anthropic: { signature: "thinking-signature" },
+          },
+        },
+      },
+      {
+        id: "assistant-1",
+        role: "assistant",
+        toolCalls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: { name: "search", arguments: '{"query":"test"}' },
+          },
+        ],
+      },
+    ];
+
+    expect(convertMessagesToVercelAISDKMessages(messages)).toEqual([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "reasoning",
+            text: "Let me inspect the available tools.",
+            providerOptions: {
+              anthropic: { signature: "thinking-signature" },
+            },
+          },
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "search",
+            input: { query: "test" },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("should preserve Responses reasoning item metadata", () => {
+    const messages: Message[] = [
+      {
+        id: "reasoning-1",
+        role: "reasoning",
+        content: "summary",
+        metadata: {
+          aiSdkProviderMetadata: {
+            openai: {
+              itemId: "rs_123",
+              reasoningEncryptedContent: "encrypted-reasoning",
+            },
+          },
+        },
+      },
+      { id: "assistant-1", role: "assistant", content: "answer" },
+    ];
+
+    expect(convertMessagesToVercelAISDKMessages(messages)).toEqual([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "reasoning",
+            text: "summary",
+            providerOptions: {
+              openai: {
+                itemId: "rs_123",
+                reasoningEncryptedContent: "encrypted-reasoning",
+              },
+            },
+          },
+          { type: "text", text: "answer" },
+        ],
+      },
+    ]);
+  });
+
   it("should convert tool messages", () => {
     const messages: Message[] = [
       {

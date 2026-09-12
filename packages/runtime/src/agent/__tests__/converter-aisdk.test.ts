@@ -349,6 +349,68 @@ describe("AI SDK Converter", () => {
       );
     });
 
+    it("preserves provider metadata from empty reasoning deltas", async () => {
+      const agent = createAgent("aisdk", [
+        reasoningStart("r-anthropic"),
+        reasoningDelta("thinking"),
+        {
+          type: "reasoning-delta",
+          text: "",
+          providerMetadata: {
+            anthropic: { signature: "thinking-signature" },
+          },
+        },
+        reasoningEnd(),
+        finish(),
+      ]);
+      const events = await collectEvents(agent.run(createDefaultInput()));
+
+      const endEvent = events.find(
+        (event) => event.type === EventType.REASONING_MESSAGE_END,
+      );
+      expect(endEvent).toMatchObject({
+        metadata: {
+          aiSdkProviderMetadata: {
+            anthropic: { signature: "thinking-signature" },
+          },
+        },
+      });
+    });
+
+    it("merges Responses reasoning metadata across stream parts", async () => {
+      const agent = createAgent("aisdk", [
+        {
+          type: "reasoning-start",
+          id: "r-openai",
+          providerMetadata: { openai: { itemId: "rs_123" } },
+        },
+        reasoningDelta("summary"),
+        {
+          type: "reasoning-end",
+          id: "r-openai",
+          providerMetadata: {
+            openai: { reasoningEncryptedContent: "encrypted-reasoning" },
+          },
+        },
+        finish(),
+      ]);
+      const events = await collectEvents(agent.run(createDefaultInput()));
+
+      const endEvent = events.find(
+        (event) => event.type === EventType.REASONING_MESSAGE_END,
+      );
+      expect(endEvent).toMatchObject({
+        metadata: {
+          aiSdkProviderMetadata: {
+            openai: {
+              itemId: "rs_123",
+              reasoningEncryptedContent: "encrypted-reasoning",
+            },
+          },
+        },
+      });
+    });
+
     it("auto-close reasoning before text-delta", async () => {
       // No explicit reasoning-end — the converter should auto-close
       const agent = createAgent("aisdk", [

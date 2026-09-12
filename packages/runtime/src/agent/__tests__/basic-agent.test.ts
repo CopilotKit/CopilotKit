@@ -1073,6 +1073,46 @@ describe("BasicAgent", () => {
       expect(eventTypes).toContain(EventType.RUN_FINISHED);
     });
 
+    it("should preserve reasoning provider metadata in classic mode", async () => {
+      const agent = new BasicAgent({ model: "anthropic/claude-sonnet-4-5" });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          reasoningStart("reasoning-anthropic"),
+          reasoningDelta("thinking"),
+          {
+            type: "reasoning-delta",
+            text: "",
+            providerMetadata: {
+              anthropic: { signature: "thinking-signature" },
+            },
+          },
+          reasoningEnd(),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+      const events = await collectEvents(agent["run"](input));
+
+      expect(
+        events.find((event) => event.type === EventType.REASONING_MESSAGE_END),
+      ).toMatchObject({
+        metadata: {
+          aiSdkProviderMetadata: {
+            anthropic: { signature: "thinking-signature" },
+          },
+        },
+      });
+    });
+
     it("should handle reasoning-only stream (no text output)", async () => {
       const agent = new BasicAgent({
         model: "openai/gpt-4o",
