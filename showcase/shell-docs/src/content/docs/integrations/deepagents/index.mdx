@@ -3,55 +3,70 @@ title: Introduction
 icon: "lucide/BrainCircuit"
 description: Bring your Deep Agents to your users with CopilotKit via AG-UI.
 hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page, which the data-record
+# partner pages do not have.
+hidePageActions: true
 ---
-{/* TODO: swap feature-viewer URLs back to /deepagents/ once the dojo supports that route */}
+
 <FrameworkOverview
   frameworkName="Deep Agents"
-  frameworkIcon={<DeepAgentsIcon className="h-14 w-14" />}
+  frameworkIcon={<DeepAgentsIcon className="h-12 w-12" />}
   header="Bring your Deep Agents to your users"
-  subheader="Give your Deep Agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications with LangChain's Deep Agents framework."
-  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  subheader="Deep Agents runs your agent. CopilotKit gives it a surface your users can see, interrupt and steer."
   guideLink="/deepagents/quickstart"
   initCommand="npx copilotkit@latest init"
-  featuresLink="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat"
+  lede="Deep Agents gives you a planning agent on LangGraph: subagents, a task list and the state they share. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the plan while it is worked through, and a moment for a person to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
       title: "Generative UI",
-      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/deepagents/generative-ui",
-      demoLink: "https://feature-viewer.copilotkit.ai/langgraph/feature/tool_based_generative_ui",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+      iconKey: "paintbrush",
+      description:
+        "Your agent updates its plan and calls tools as it works. CopilotKit streams both to the browser and renders them as React components, so the user watches the task list fill in.",
+      documentationLink: "/deepagents/generative-ui"
     },
     {
-      title: "Human in the Loop",
-      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
-      documentationLink: "/deepagents/human-in-the-loop",
-      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "A node can interrupt and wait for a person. CopilotKit renders your own UI for that decision and resumes the run with the answer.",
+      documentationLink: "/deepagents/human-in-the-loop"
     },
     {
-      title: "Shared State",
-      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
-      documentationLink: "/deepagents/shared-state",
-      demoLink: "https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "The graph carries one state object between subagents. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/deepagents/shared-state"
     }
   ]}
-  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
-  liveDemos={[
-    {
-      type: "saas",
-      title: "SaaS Copilot",
-      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
-      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
-    },
-    {
-      type: "canvas",
-      title: "Canvas Copilot",
-      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
-      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
-    }
-  ]}
-  tutorialLink="/langgraph/tutorials/ai-travel-app"
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and subagent flows work with Deep Agents too.",
+    linkLabel: "And more",
+    href: "/deepagents/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your agent stays where it runs today, on LangGraph Platform or your own service. CopilotKit reaches it over AG-UI, so nothing inside the agent changes.",
+    filename: "app/api/copilotkit/route.ts",
+    language: "ts",
+    guideLink: "/deepagents/quickstart"
+  }}
+>
 
-/>
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    sample_agent: new LangGraphAgent({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!,
+      graphId: "sample_agent",
+      langsmithApiKey: process.env.LANGSMITH_API_KEY!,
+    }),
+  },
+});
+```
+
+</FrameworkOverview>

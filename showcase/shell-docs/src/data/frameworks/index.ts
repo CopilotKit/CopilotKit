@@ -1,33 +1,30 @@
 import type { FrameworkOverviewData } from "./types";
 import a2a from "./a2a";
-import ag2 from "./ag2";
 import agentSpec from "./agent-spec";
-import agno from "./agno";
 import claudeSdkPython from "./claude-sdk-python";
 import claudeSdkTypescript from "./claude-sdk-typescript";
-import crewaiCrews from "./crewai-crews";
-import deepagents from "./deepagents";
 import googleAdk from "./google-adk";
 import langgraphPython from "./langgraph-python";
-import llamaindex from "./llamaindex";
-import mastra from "./mastra";
-import msAgentDotnet from "./ms-agent-dotnet";
-import pydanticAi from "./pydantic-ai";
 import strands from "./strands";
 
 /**
  * Map of canonical framework slug to `FrameworkOverviewData`. Consumers (the
  * `[framework]/[[...slug]]` route, sidebar nav, sitemap) read from this map.
+ *
+ * Only `docs_mode: generated` slugs belong here. The framework root route
+ * gates Tier 1 on `overview && docsMode === "generated"`, so a record for an
+ * `authored` slug is never read — that slug renders its
+ * `integrations/<folder>/index.mdx` instead. Records for `ag2`, `agno`,
+ * `crewai-crews`, `deepagents`, `llamaindex`, `mastra`, `ms-agent-dotnet` and
+ * `pydantic-ai` used to sit here unreachable, duplicating the authored MDX and
+ * drifting from it. Adding one back only makes sense together with flipping
+ * that slug to `generated`.
  */
 export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   a2a,
-  ag2,
   "agent-spec": agentSpec,
-  agno,
   "claude-sdk-python": claudeSdkPython,
   "claude-sdk-typescript": claudeSdkTypescript,
-  "crewai-crews": crewaiCrews,
-  deepagents,
   "google-adk": googleAdk,
   "langgraph-python": langgraphPython,
   // LangGraph variants share the same intro content (legacy /langgraph in
@@ -37,13 +34,6 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   // via SLUG_RENAMES; framework-aware link rewriting is a follow-up.
   "langgraph-typescript": langgraphPython,
   "langgraph-fastapi": langgraphPython,
-  llamaindex,
-  mastra,
-  "ms-agent-dotnet": msAgentDotnet,
-  // ms-agent-python shares the microsoft-agent-framework/ content folder
-  // with ms-agent-dotnet; intro content is framework-agnostic.
-  "ms-agent-python": msAgentDotnet,
-  "pydantic-ai": pydanticAi,
   strands,
   // strands-typescript shares the aws-strands/ content folder with the
   // Python strands integration; intro content is framework-agnostic

@@ -1839,6 +1839,71 @@ samp {
   margin-bottom: 0;
 }
 
+/* Framework landing sections (<FrameworkOverview> and its Intelligence block).
+ *
+ * The same component reaches the page through two routes: the data-record
+ * route mounts it directly, the authored-MDX route mounts it inside
+ * `.reference-content`. Because the prose rules above are unlayered, they beat
+ * the component's Tailwind utilities, so one route rendered each heading with
+ * 48px of section margin plus 48px of prose margin and a different type size
+ * than the other. `not-prose` does not help: it neutralizes the Tailwind
+ * typography plugin, not these rules.
+ *
+ * So the contested element-level typography lives here, once, unlayered, and
+ * applies on both routes — same reasoning as `.prose-no-margin` directly above
+ * and `.fd-steps` earlier in this file. Everything not contested (colour,
+ * layout, card chrome) stays in the component as utilities. The section owns
+ * its vertical rhythm through its own `mt-*`; the elements inside contribute
+ * none of their own.
+ */
+/* Headings: the prose rules set both margins, and the section owns its own
+ * rhythm, so both go. Paragraphs: prose sets only `margin-bottom`, so only
+ * that is removed — leaving the components' `mt-*` utilities free to space
+ * paragraphs, which they can do because nothing unlayered competes for
+ * `margin-top` on a `p`. */
+.shell-docs-landing-section :is(h2, h3) {
+  margin: 0;
+}
+
+.shell-docs-landing-section p {
+  margin-bottom: 0;
+}
+
+/* The heading reset above also zeroes the gap a capability title needs below
+ * its seam line, and no `mt-*` utility can restore it. Restated here for the
+ * one case that has a preceding line. */
+.shell-docs-landing-section .shell-docs-landing-caption + h3 {
+  margin-top: 0.5rem;
+}
+
+.shell-docs-landing-section h2 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.shell-docs-landing-section h3 {
+  font-size: 1.125rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.shell-docs-landing-section p {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+/* The two deliberately smaller lines: the seam above a capability title, and
+ * the caption beside an action button. They need an explicit class because the
+ * rule above is unlayered and would otherwise flatten their utility sizes back
+ * to body size. */
+.shell-docs-landing-section p.shell-docs-landing-caption {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
 .reference-content ul,
 .reference-content ol {
   font-size: 1rem;
