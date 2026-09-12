@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  liveFetchDeployedDigest,
   pickNewestSuccessDigest,
   reconcileExitCode,
   reconcileStaging,
@@ -18,6 +19,56 @@ const DIGEST_A =
   "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const DIGEST_B =
   "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+const successDeploymentsJson = (digest: string) => ({
+  data: {
+    deployments: {
+      edges: [
+        {
+          node: {
+            id: "deployment-old",
+            status: "SUCCESS",
+            meta: { imageDigest: DIGEST_A },
+            createdAt: "2026-07-01T00:00:00.000Z",
+          },
+        },
+        {
+          node: {
+            id: "deployment-new",
+            status: "SUCCESS",
+            meta: { imageDigest: digest },
+            createdAt: "2026-07-02T00:00:00.000Z",
+          },
+        },
+      ],
+    },
+  },
+});
+
+function mockRailwayResponse(
+  status: number,
+  body: unknown,
+  opts: { textRejects?: unknown; jsonRejects?: unknown } = {},
+): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: vi.fn(async () => {
+      if (opts.textRejects !== undefined) throw opts.textRejects;
+      return typeof body === "string" ? body : JSON.stringify(body);
+    }),
+    json: vi.fn(async () => {
+      if (opts.jsonRejects !== undefined) throw opts.jsonRejects;
+      if (typeof body === "string") return JSON.parse(body);
+      return body;
+    }),
+  } as unknown as Response;
+}
+
+async function flushRetryTimers<T>(promise: Promise<T>): Promise<T> {
+  await vi.advanceTimersByTimeAsync(2_000);
+  return promise;
+}
 
 describe("selectLaggingServices (pure decision logic)", () => {
   it("returns [] when every service's deployed digest matches :latest", () => {
@@ -619,6 +670,231 @@ describe("reconcileStaging invariant (green ⇔ every service confirmed current)
 
     expect(reconcileExitCode(summary)).toBe(0);
     expect(slackSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("liveFetchDeployedDigest Railway read retry", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("retries transient Railway 503 responses and returns the newest SUCCESS digest", async () => {
+    vi.useFakeTimers();
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(mockRailwayResponse(503, "try one"))
+      .mockResolvedValueOnce(mockRailwayResponse(503, "try two"))
+      .mockResolvedValueOnce(
+        mockRailwayResponse(200, successDeploymentsJson(DIGEST_B)),
+      );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const resultPromise = liveFetchDeployedDigest(
+      "token",
+      "service-id",
+      "environment-id",
+    );
+    const result = await flushRetryTimers(resultPromise);
+
+    expect(result).toBe(DIGEST_B);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    const signals = fetchSpy.mock.calls.map(([, init]) => init?.signal);
+    expect(new Set(signals).size).toBe(3);
+  });
+
+  it.each([
+    [
+      "fetch rejection",
+      new TypeError("fetch failed"),
+      mockRailwayResponse(200, successDeploymentsJson(DIGEST_B)),
+    ],
+    [
+      "body timeout",
+      mockRailwayResponse(200, successDeploymentsJson(DIGEST_A), {
+        jsonRejects: new DOMException("read timed out", "TimeoutError"),
+      }),
+      mockRailwayResponse(200, successDeploymentsJson(DIGEST_B)),
+    ],
+  ])(
+    "recovers from %s without real-time sleeping",
+    async (_name, first, second) => {
+      vi.useFakeTimers();
+      const fetchSpy = vi
+        .fn()
+        .mockImplementationOnce(async () => {
+          if (first instanceof Error) throw first;
+          return first;
+        })
+        .mockResolvedValueOnce(second);
+      vi.stubGlobal("fetch", fetchSpy);
+
+      const resultPromise = liveFetchDeployedDigest(
+        "token",
+        "service-id",
+        "environment-id",
+      );
+      const result = await flushRetryTimers(resultPromise);
+
+      expect(result).toBe(DIGEST_B);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("does not retry fetch-phase request-construction TypeErrors", async () => {
+    const invalidHeaderMessages = [
+      'Headers.append: "Bearer bad\\nheader" is an invalid header value.',
+      'Headers.append: "Bearer bad\\nnetwork" is an invalid header value.',
+    ];
+
+    for (const message of invalidHeaderMessages) {
+      const fetchSpy = vi.fn().mockRejectedValue(new TypeError(message));
+      vi.stubGlobal("fetch", fetchSpy);
+      const slackSpy = vi.fn(async () => true);
+
+      const summary = await reconcileStaging({
+        services: ["showcase-ag2"],
+        fetchDeployedDigest: (serviceId, environmentId) =>
+          liveFetchDeployedDigest("bad\nheader", serviceId, environmentId),
+        fetchLatestDigest: async () => DIGEST_B,
+        redeployStaging: vi.fn(),
+        postSlackAlert: slackSpy,
+        log: () => {},
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(summary.unconfirmed.map((u) => u.service)).toEqual([
+        "showcase-ag2",
+      ]);
+      expect(summary.errors[0]?.error).toContain("invalid header value");
+      expect(slackSpy).toHaveBeenCalledTimes(1);
+      expect(reconcileExitCode(summary)).not.toBe(0);
+
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("exhausts retryable 503s through reconcileStaging as unconfirmed with Slack and non-zero exit", async () => {
+    vi.useFakeTimers();
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(mockRailwayResponse(503, "try one"))
+      .mockResolvedValueOnce(mockRailwayResponse(503, "try two"))
+      .mockResolvedValueOnce(mockRailwayResponse(503, "try three"));
+    vi.stubGlobal("fetch", fetchSpy);
+    const slackSpy = vi.fn(async () => true);
+
+    const summaryPromise = reconcileStaging({
+      services: ["showcase-ag2"],
+      fetchDeployedDigest: (serviceId, environmentId) =>
+        liveFetchDeployedDigest("token", serviceId, environmentId),
+      fetchLatestDigest: async () => DIGEST_B,
+      redeployStaging: vi.fn(),
+      postSlackAlert: slackSpy,
+      log: () => {},
+    });
+    const summary = await flushRetryTimers(summaryPromise);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(summary.unconfirmed.map((u) => u.service)).toEqual(["showcase-ag2"]);
+    expect(slackSpy).toHaveBeenCalledTimes(1);
+    expect(reconcileExitCode(summary)).not.toBe(0);
+  });
+
+  it("uses the live reader in reconcileStaging to recover from one Railway 503 without alerting", async () => {
+    vi.useFakeTimers();
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(mockRailwayResponse(503, "temporary"))
+      .mockResolvedValueOnce(
+        mockRailwayResponse(200, successDeploymentsJson(DIGEST_A)),
+      );
+    vi.stubGlobal("fetch", fetchSpy);
+    const slackSpy = vi.fn(async () => true);
+
+    const summaryPromise = reconcileStaging({
+      services: ["showcase-ag2"],
+      fetchDeployedDigest: (serviceId, environmentId) =>
+        liveFetchDeployedDigest("token", serviceId, environmentId),
+      fetchLatestDigest: async () => DIGEST_A,
+      redeployStaging: vi.fn(),
+      postSlackAlert: slackSpy,
+      log: () => {},
+    });
+    const summary = await flushRetryTimers(summaryPromise);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(summary.errors).toEqual([]);
+    expect(summary.unconfirmed).toEqual([]);
+    expect(slackSpy).not.toHaveBeenCalled();
+    expect(reconcileExitCode(summary)).toBe(0);
+  });
+
+  it.each([
+    ["401", mockRailwayResponse(401, "unauthorized")],
+    [
+      "401 with unreadable body",
+      mockRailwayResponse(401, "ignored", {
+        textRejects: new DOMException("read timed out", "TimeoutError"),
+      }),
+    ],
+  ])("%s fails fast through reconcileStaging", async (_name, response) => {
+    const fetchSpy = vi.fn().mockResolvedValue(response);
+    vi.stubGlobal("fetch", fetchSpy);
+    const slackSpy = vi.fn(async () => true);
+
+    const summary = await reconcileStaging({
+      services: ["showcase-ag2"],
+      fetchDeployedDigest: (serviceId, environmentId) =>
+        liveFetchDeployedDigest("token", serviceId, environmentId),
+      fetchLatestDigest: async () => DIGEST_B,
+      redeployStaging: vi.fn(),
+      postSlackAlert: slackSpy,
+      log: () => {},
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(summary.unconfirmed.map((u) => u.service)).toEqual(["showcase-ag2"]);
+    expect(summary.errors[0]?.error).toContain(
+      "Railway deployments query HTTP 401",
+    );
+    expect(slackSpy).toHaveBeenCalledTimes(1);
+    expect(reconcileExitCode(summary)).not.toBe(0);
+  });
+
+  it.each([
+    [
+      "nontransport body TypeError",
+      mockRailwayResponse(200, successDeploymentsJson(DIGEST_A), {
+        jsonRejects: new TypeError("programming error"),
+      }),
+    ],
+    ["malformed JSON", mockRailwayResponse(200, "{not json")],
+    [
+      "GraphQL errors",
+      mockRailwayResponse(200, {
+        errors: [{ message: "GraphQL rejected the query" }],
+      }),
+    ],
+  ])("%s fails fast through reconcileStaging", async (_name, response) => {
+    const fetchSpy = vi.fn().mockResolvedValue(response);
+    vi.stubGlobal("fetch", fetchSpy);
+    const slackSpy = vi.fn(async () => true);
+
+    const summary = await reconcileStaging({
+      services: ["showcase-ag2"],
+      fetchDeployedDigest: (serviceId, environmentId) =>
+        liveFetchDeployedDigest("token", serviceId, environmentId),
+      fetchLatestDigest: async () => DIGEST_B,
+      redeployStaging: vi.fn(),
+      postSlackAlert: slackSpy,
+      log: () => {},
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(summary.unconfirmed.map((u) => u.service)).toEqual(["showcase-ag2"]);
+    expect(slackSpy).toHaveBeenCalledTimes(1);
+    expect(reconcileExitCode(summary)).not.toBe(0);
   });
 });
 
