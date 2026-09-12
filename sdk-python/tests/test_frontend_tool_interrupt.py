@@ -1,13 +1,9 @@
 """End-to-end coverage for ``CopilotKitMiddleware(interrupt_frontend_tools=True)``.
 
-These run real ``create_agent`` graphs through ``LangGraphAGUIAgent`` so the
-whole path is exercised: the batched ``interrupt()`` raised from ``after_model``,
-the AG-UI event the client sees, the ``forwardedProps.command.resume`` round
-trip, and the message history the model ends up with.
-
-The default (strip-and-restore) behaviour is covered by
-``test_intercepted_tool_call_events.py``; the tests here that touch it only
-assert that turning the flag off changes nothing.
+These run real ``create_agent`` graphs through ``LangGraphAGUIAgent``: the
+batched ``interrupt()`` from ``after_model``, the AG-UI event the client sees,
+the ``forwardedProps.command.resume`` round trip, and the resulting history. The
+default path is covered by ``test_intercepted_tool_call_events.py``.
 """
 
 import asyncio
@@ -40,9 +36,8 @@ requires_async_interrupt = pytest.mark.skipif(
 class _ScriptedModel(BaseChatModel):
     """Replays a scripted list of AIMessages and records what it was sent.
 
-    ``script`` is a plain dict shared *by reference* across the copies
-    ``bind_tools`` makes, so both the response queue and the record of what each
-    call saw survive re-binding — which ``create_agent`` does on every turn.
+    ``script`` is shared *by reference* across the copies ``bind_tools`` makes,
+    which ``create_agent`` does on every turn.
     """
 
     script: dict
@@ -58,8 +53,7 @@ class _ScriptedModel(BaseChatModel):
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         self.script["seen"].append(list(messages))
         responses = self.script["responses"]
-        # Hold on the final response so an unexpected extra turn surfaces as a
-        # failed assertion rather than an IndexError.
+        # Hold the final response so an extra turn fails an assert, not IndexError.
         response = responses.pop(0) if len(responses) > 1 else responses[0]
         return ChatResult(generations=[ChatGeneration(message=response)])
 
@@ -124,9 +118,8 @@ def _run(graph, *, thread_id="t1", run_id="r1", forwarded_props=None, message_id
 def _interrupt_payloads(events):
     """Frontend-tool interrupt payloads carried by ``on_interrupt`` events.
 
-    ``ag-ui-langgraph`` 0.0.42 — the floor the CI matrix pins — has no
-    ``RunFinished(outcome=...)`` support, so the legacy CustomEvent is the only
-    channel an interrupt reaches the client through.
+    ``ag-ui-langgraph`` 0.0.42 (the CI floor) has no ``RunFinished(outcome=...)``,
+    so the legacy CustomEvent is the only channel for an interrupt.
     """
     payloads = []
     for event in events:
@@ -278,17 +271,10 @@ def test_flag_off_never_interrupts():
 def test_agent_without_backend_tools_still_loops_back_to_the_model():
     """Pins what makes ``jump_to`` unnecessary in ``_await_frontend_tool_calls``.
 
-    ``create_agent`` builds a ``tools`` node when there are tools *or* when a
-    middleware wraps tool calls. ``CopilotKitMiddleware`` defines
-    ``wrap_tool_call``/``awrap_tool_call``, so the node exists even at
-    ``tools=[]`` — and with it the conditional edge whose "tool calls, none
-    pending" branch re-enters the model once the frontend results are in.
-
-    Drop those wrappers and ``after_model`` collapses to a single plain edge to
-    the exit node, so every resume would end the run instead of letting the
-    model react. Nothing raises when that happens: the turn just stops. Assert
-    the wiring here so the cause is named, rather than leaving it to surface as
-    a missing second model call elsewhere.
+    ``create_agent`` builds the tools node when there are tools *or* a middleware
+    wraps tool calls, so ``CopilotKitMiddleware``'s wrappers keep the node — and
+    the conditional edge back to the model — alive even at ``tools=[]``. Without
+    them every resume silently ends the run.
     """
     graph, _ = _build(responses=[_ai([_fe_call()])], tools=[])
     drawable = graph.get_graph()
