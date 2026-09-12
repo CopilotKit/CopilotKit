@@ -107,6 +107,19 @@ The middleware parses the tool-call arguments incrementally and emits
 activity events as each parameter completes, so the preview updates
 progressively.
 
+## Restoring history
+
+The activity that drives the preview is produced while the run streams. When a
+client reconnects to a stored thread and the backend answers with a
+`MESSAGES_SNAPSHOT`, the middleware rebuilds the activity for every
+`generateSandboxedUi` call in the snapshot from the call's final arguments, so
+the preview comes back with the thread. Nothing is executed on the host during
+that rebuild, and no tool result is invented: a call without a result is
+restored as `interrupted`.
+
+The projector is also exported on its own as `projectOpenGenerativeUIHistory`
+for runtimes that build snapshots without the middleware.
+
 ## Using CDN libraries
 
 The sandboxed iframe can load external libraries from CDNs; just include

@@ -54,3 +54,5 @@ export type { ChannelsControl, ChannelStatus } from "./core/channel-manager";
 export type CopilotKitRequestHandler = (params: {
   request: Request;
 }) => Promise<Response>;
+
+export { projectOpenGenerativeUIHistory } from "./open-generative-ui-middleware";

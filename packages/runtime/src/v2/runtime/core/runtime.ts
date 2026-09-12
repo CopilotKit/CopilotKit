@@ -82,9 +82,9 @@ export interface McpAppsConfig {
   servers: McpAppsServerConfig[];
 }
 
-export interface OpenGenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {}
-
-export type OpenGenerativeUIConfig = boolean | OpenGenerativeUIOptions;
+export type OpenGenerativeUIConfig =
+  | boolean
+  | BaseCopilotRuntimeMiddlewareOptions;
 
 interface CopilotRuntimeMiddlewares {
   /**
