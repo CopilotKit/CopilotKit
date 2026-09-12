@@ -23,6 +23,7 @@ import { CodeBlock, Pre } from "fumadocs-ui/components/codeblock";
 interface MdxCodeBlockProps extends React.HTMLAttributes<HTMLPreElement> {
   "data-title"?: string;
   "data-language"?: string;
+  "data-raw-code"?: string;
   children?: React.ReactNode;
 }
 
@@ -76,23 +77,26 @@ export function MdxCodeBlock(props: MdxCodeBlockProps) {
   const {
     "data-title": title,
     "data-language": language,
+    "data-raw-code": rawCode,
     children,
     className,
     ...rest
   } = props;
 
-  const rawCodeText = (() => {
-    const kids = Children.toArray(children);
-    const codeEl = kids.find(
-      (k) => isValidElement(k) && (k.type === "code" || k.type === "CODE"),
-    );
-    if (codeEl && isValidElement(codeEl)) {
-      return extractText(
-        (codeEl.props as { children?: React.ReactNode }).children,
+  const rawCodeText =
+    rawCode ??
+    (() => {
+      const kids = Children.toArray(children);
+      const codeEl = kids.find(
+        (k) => isValidElement(k) && (k.type === "code" || k.type === "CODE"),
       );
-    }
-    return extractText(children);
-  })();
+      if (codeEl && isValidElement(codeEl)) {
+        return extractText(
+          (codeEl.props as { children?: React.ReactNode }).children,
+        );
+      }
+      return extractText(children);
+    })();
 
   const codeText = dedent(rawCodeText);
   const indentLeaked = codeText !== rawCodeText;

@@ -14,7 +14,11 @@ on:
       - "showcase/integrations/*/manifest.yaml"
       - "showcase/shell-docs/src/lib/setup-content.ts"
       - "showcase/shell-docs/src/lib/setup-concept.tsx"
+      - "showcase/shell-docs/src/components/mdx-code-block.tsx"
+      - "showcase/shell-docs/src/lib/mdx-registry-loader.tsx"
+      - "showcase/shell-docs/src/lib/rehype-code-meta.ts"
       - "showcase/shell-docs/src/lib/__tests__/frontend-tools-setup-coverage.test.ts"
+      - "showcase/shell-docs/src/lib/__tests__/setup-concept-rendering.test.tsx"
       - "showcase/shell-docs/src/lib/__tests__/setup-concept.test.ts"
       # The docs feature prompts only name a CLI intent now, so the route owns
       # the instructions. Nothing else in CI reads these files, and OSS-1150
@@ -48,7 +52,11 @@ on:
       - "showcase/integrations/*/manifest.yaml"
       - "showcase/shell-docs/src/lib/setup-content.ts"
       - "showcase/shell-docs/src/lib/setup-concept.tsx"
+      - "showcase/shell-docs/src/components/mdx-code-block.tsx"
+      - "showcase/shell-docs/src/lib/mdx-registry-loader.tsx"
+      - "showcase/shell-docs/src/lib/rehype-code-meta.ts"
       - "showcase/shell-docs/src/lib/__tests__/frontend-tools-setup-coverage.test.ts"
+      - "showcase/shell-docs/src/lib/__tests__/setup-concept-rendering.test.tsx"
       - "showcase/shell-docs/src/lib/__tests__/setup-concept.test.ts"
       # The docs feature prompts only name a CLI intent now, so the route owns
       # the instructions. Nothing else in CI reads these files, and OSS-1150
@@ -155,6 +163,7 @@ jobs:
         run: |
           npm exec -- vitest run \
             src/lib/__tests__/frontend-tools-setup-coverage.test.ts \
+            src/lib/__tests__/setup-concept-rendering.test.tsx \
             src/lib/__tests__/setup-concept.test.ts
 
   feature-prompt-intents:
