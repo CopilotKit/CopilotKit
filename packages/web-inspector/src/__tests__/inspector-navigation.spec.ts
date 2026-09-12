@@ -1340,6 +1340,7 @@ test("Home feature actions copy correlated onboarding prompts", async () => {
       // cannot grant it to itself.
       expect(prompt).toContain("Help me set this up in my CopilotKit app.");
       expect(prompt).not.toContain("Identify your coding-agent slug");
+      expect(prompt).toContain("Never reveal credentials");
       expect(prompt).not.toContain("optional diagnostic feedback");
       // The A2UI route owns the guide link, the plan and the proof step. The
       // button's whole job is to name the outcome.

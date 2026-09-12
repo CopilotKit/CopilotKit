@@ -144,7 +144,7 @@ export const FEATURE_ONBOARDING_PROMPT_TEMPLATE =
   "instructions:\n\nnpx --yes copilotkit@latest onboard start --run " +
   `${RUN_ID_PLACEHOLDER} --intent ${INTENT_PLACEHOLDER}` +
   "\n\nIf it requires a CopilotKit CLI session check, you have permission to " +
-  "run it.";
+  "run it. Never reveal credentials.";
 
 /** Bind one run id and one tile's feature outcome into the copied prompt. */
 export function createFeatureOnboardingPrompt(
