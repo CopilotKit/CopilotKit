@@ -9,7 +9,9 @@ import type {
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
 
-function delivery(adapter: "slack" | "teams"): PreparedChannelDelivery {
+function delivery(
+  adapter: "slack" | "teams" | "discord",
+): PreparedChannelDelivery {
   return {
     protocol: "channel_delivery_v1",
     deliveryId: `dlv_provider_element_${adapter}`,
@@ -48,7 +50,10 @@ function makeAdapter(): DeliveryAdapter {
   });
 }
 
-function target(provider: "slack" | "teams", effect: ReturnType<typeof vi.fn>) {
+function target(
+  provider: "slack" | "teams" | "discord",
+  effect: ReturnType<typeof vi.fn>,
+) {
   return {
     claimedDelivery: { effect } as unknown as ClaimedChannelDelivery,
     delivery: delivery(provider),
@@ -58,6 +63,10 @@ function target(provider: "slack" | "teams", effect: ReturnType<typeof vi.fn>) {
 test.each([
   ["slack", "teams"],
   ["teams", "slack"],
+  ["slack", "discord"],
+  ["discord", "slack"],
+  ["teams", "discord"],
+  ["discord", "teams"],
 ] as const)(
   "%s delivery rejects a %s-native element before an effect is sent",
   async (activeProvider, elementProvider) => {
@@ -70,7 +79,14 @@ test.each([
           value:
             elementProvider === "teams"
               ? { type: "AdaptiveCard", version: "1.5", body: [] }
-              : [{ type: "section", text: { type: "plain_text", text: "hi" } }],
+              : elementProvider === "discord"
+                ? { type: 17, components: [] }
+                : [
+                    {
+                      type: "section",
+                      text: { type: "plain_text", text: "hi" },
+                    },
+                  ],
         },
       },
     ];

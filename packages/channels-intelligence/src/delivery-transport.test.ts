@@ -58,7 +58,7 @@ function claimResult(deliveryId: string, ownerGeneration = 7) {
 function invitation(
   deliveryId: string,
   canonicalThreadId: string,
-  adapter: "slack" | "teams" = "slack",
+  adapter: "slack" | "teams" | "discord" = "slack",
 ) {
   return {
     protocol: "channel_delivery_v1" as const,
@@ -107,7 +107,7 @@ function channel(
 async function runTranscriptFailure(input: {
   surfaceKind: NonNullable<PreparedChannelDelivery["surfaceKind"]>;
   mentioned: boolean;
-  adapter?: "slack" | "teams";
+  adapter?: "slack" | "teams" | "discord";
 }) {
   const base = preparedDelivery();
   const delivery = {
@@ -290,6 +290,7 @@ test("transcript failure is silent and unmetered for an ambient message", async 
 test.each([
   ["slack", "slack.message.create"],
   ["teams", "teams.message.create"],
+  ["discord", "discord.message.create"],
 ] as const)(
   "%s welcome failure posts the fixed provider error before failing the delivery",
   async (adapter, effectKind) => {
@@ -1506,12 +1507,59 @@ async function expectPreparedDeliveryRejected(badPrepared: unknown) {
 }
 
 test("rejects prepared deliveries with incomplete turn fields", async () => {
-  // Managed slash commands were removed from the delivery protocol.
   await expectPreparedInputRejected({
     kind: "command",
     command: "triage",
-    text: "summarize",
   });
+});
+
+test("accepts a Discord command turn", async () => {
+  const base = preparedDelivery();
+  const delivery = {
+    ...base,
+    adapter: "discord" as const,
+    appUserId: "discord:guild:user",
+    turn: {
+      ...base.turn,
+      input: {
+        kind: "command" as const,
+        command: "triage",
+        text: "summarize",
+      },
+    },
+  };
+  const deliveryChannel = channel(delivery);
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockResolvedValue(claimResult(delivery.deliveryId)),
+    on: vi.fn(),
+    join: vi.fn().mockResolvedValue(deliveryChannel),
+  };
+  const handler = vi.fn(async () => undefined);
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+  });
+  transport.start(handler);
+
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+  invitationHandler(
+    invitation(delivery.deliveryId, delivery.canonicalThreadId, "discord"),
+  );
+  await vi.waitFor(() => expect(handler).toHaveBeenCalledOnce());
+  expect(handler).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      adapter: "discord",
+      turn: expect.objectContaining({
+        input: {
+          kind: "command",
+          command: "triage",
+          text: "summarize",
+        },
+      }),
+    }),
+  );
+  await transport.stop();
 });
 
 test("rejects a prepared reaction carrying a raw provider message id", async () => {

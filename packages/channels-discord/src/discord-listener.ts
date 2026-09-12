@@ -1,6 +1,12 @@
 import type { IncomingReaction } from "@copilotkit/channels-core";
 import type { ProviderActor } from "@copilotkit/channels-ui";
-import type { IncomingTurn, ReplyTarget } from "./types.js";
+import type {
+  IncomingTurn,
+  ReplyTarget,
+  DiscordRespondToOptions,
+  DiscordMentionReplyMode,
+} from "./types.js";
+import { resolveDiscordRespondToOptions } from "./types.js";
 import { decodeReaction } from "./interaction.js";
 import type { PendingInteractions } from "./pending-interactions.js";
 
@@ -16,7 +22,15 @@ interface MessageLike {
   channelId: string;
   guildId?: string | null;
   mentions: { has(id: string): boolean; users?: { has(id: string): boolean } };
-  channel: { isDMBased(): boolean };
+  channel: { isDMBased(): boolean; isThread?(): boolean };
+  /**
+   * discord.js `Message#startThread`. Optional so existing fakes keep working;
+   * when it is missing the mention simply replies in the channel.
+   */
+  startThread?(options: {
+    name: string;
+    autoArchiveDuration?: number;
+  }): Promise<{ id: string }>;
 }
 
 interface ChatInputLike {
@@ -77,23 +91,31 @@ export interface ListenerConfig {
    * the command path skips registration (no modal support / no ack).
    */
   commandPending?: PendingInteractions;
+  /** Where an @mention replies. Defaults to a thread, matching Slack. */
+  respondTo?: DiscordRespondToOptions;
 }
 
 /** Wire Gateway events to normalized turns/commands. Mirrors attachSlackListener. */
 export function attachDiscordListener(cfg: ListenerConfig): void {
   const { client, botUserId, onTurn, onCommand, onReaction, commandPending } =
     cfg;
+  const respondTo = resolveDiscordRespondToOptions(cfg.respondTo);
 
   client.on("messageCreate", (msg: MessageLike) => {
     const botId = typeof botUserId === "function" ? botUserId() : botUserId;
     if (!shouldAnswer(msg, botId)) return;
-    const replyTarget = {
-      channelId: msg.channelId,
-      ...(msg.guildId ? { guildId: msg.guildId } : {}),
-    };
-    void Promise.resolve(
-      onTurn({
-        conversationKey: msg.channelId,
+    // Opening a thread is an API call, so the reply target is resolved
+    // asynchronously before the turn is dispatched. The conversation key
+    // follows the target: a threaded answer is its own conversation, keyed on
+    // the thread's channel id.
+    void (async () => {
+      const replyTarget = await mentionReplyTarget(
+        msg,
+        botId,
+        respondTo.appMentions.reply,
+      );
+      await onTurn({
+        conversationKey: replyTarget.channelId,
         messageId: msg.id,
         mentioned: msg.mentions.has(botId),
         replyTarget,
@@ -105,8 +127,8 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
           handle: msg.author.username,
         },
         raw: msg,
-      }),
-    ).catch((e) => console.error("[bot-discord] onTurn handler failed:", e));
+      });
+    })().catch((e) => console.error("[bot-discord] onTurn handler failed:", e));
   });
 
   client.on("interactionCreate", async (i: ChatInputLike) => {
@@ -194,6 +216,64 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
 }
 
 /** Answer @-mentions and DMs; skip our own messages and other bots. */
+/** 24 hours. The one auto-archive value every guild can use. */
+const THREAD_AUTO_ARCHIVE_MINUTES = 1440;
+/** Discord's hard limit on a thread name. */
+const THREAD_NAME_MAX = 100;
+
+/**
+ * Resolve where an @mention is answered.
+ *
+ * Slack expresses this as a pure branch, because posting with `thread_ts` is
+ * the whole operation. Discord has to create the thread first, so this can
+ * fail — and a failure must never cost the user their turn. Every path that
+ * cannot open a thread falls back to replying in the channel.
+ */
+async function mentionReplyTarget(
+  msg: MessageLike,
+  botUserId: string,
+  mode: DiscordMentionReplyMode,
+): Promise<ReplyTarget> {
+  const base: ReplyTarget = {
+    channelId: msg.channelId,
+    ...(msg.guildId ? { guildId: msg.guildId } : {}),
+  };
+  if (mode !== "thread") return base;
+  // A DM cannot hold a thread. A message already inside one is answered there,
+  // mirroring Slack, where `thread_ts` falls back to the message's own `ts`.
+  if (msg.channel.isDMBased()) return base;
+  if (msg.channel.isThread?.()) return base;
+  // Threading is for mentions only, like Slack's `appMentions`. A DM reaching
+  // this point is already excluded above.
+  if (!(msg.mentions.users?.has?.(botUserId) ?? false)) return base;
+  if (typeof msg.startThread !== "function") return base;
+
+  try {
+    const thread = await msg.startThread({
+      name: threadName(stripMention(msg.content, botUserId)),
+      autoArchiveDuration: THREAD_AUTO_ARCHIVE_MINUTES,
+    });
+    return { ...base, channelId: thread.id };
+  } catch (e) {
+    // Usually a missing CREATE_PUBLIC_THREADS permission. Replying in the
+    // channel is not what was configured, but it is far better than silence.
+    console.error(
+      "[bot-discord] could not open a thread; replying in the channel instead:",
+      e,
+    );
+    return base;
+  }
+}
+
+/** A thread needs a name; Discord rejects an empty one and caps it at 100. */
+function threadName(text: string): string {
+  const trimmed = text.trim().replace(/\s+/g, " ");
+  if (!trimmed) return "New conversation";
+  return trimmed.length > THREAD_NAME_MAX
+    ? `${trimmed.slice(0, THREAD_NAME_MAX - 1)}…`
+    : trimmed;
+}
+
 function shouldAnswer(msg: MessageLike, botUserId: string): boolean {
   if (msg.author.id === botUserId) return false;
   if (msg.author.bot) return false;
