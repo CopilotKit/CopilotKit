@@ -56,6 +56,9 @@ type FixtureOptions = Readonly<{
 }>;
 
 class VideoTestCore extends CopilotKitCore {
+  override get intelligence() {
+    return { wsUrl: "" };
+  }
   constructor(
     private readonly endpointsValue: ThreadEndpointRuntimeInfo | undefined,
   ) {

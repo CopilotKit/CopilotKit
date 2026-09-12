@@ -1,3 +1,4 @@
+import { RENDER_A2UI_TOOL } from "@ag-ui/a2ui-middleware";
 import type {
   BaseEvent,
   RunAgentInput,
@@ -19,6 +20,7 @@ import type {
   ResumeEntry,
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
+import { Validator } from "@cfworker/json-schema";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type {
   LanguageModel,
@@ -704,6 +706,7 @@ function toLanguageModelSchema(schema: z.ZodSchema): Schema<any> {
   return schema as unknown as Schema<any>;
 }
 
+/** Preserve AG-UI tool schemas when passing them to the model provider. */
 export function convertToolsToVercelAITools(
   tools: RunAgentInput["tools"],
 ): ToolSet {
@@ -714,10 +717,25 @@ export function convertToolsToVercelAITools(
     if (!isJsonSchema(tool.parameters)) {
       throw new Error(`Invalid JSON schema for tool ${tool.name}`);
     }
-    const zodSchema = convertJsonSchemaToZodSchema(tool.parameters, true);
+    const validator = new Validator(tool.parameters, "7");
     result[tool.name] = createVercelAISDKTool({
       description: tool.description,
-      inputSchema: toLanguageModelSchema(zodSchema),
+      // AG-UI already supplies JSON Schema. A Zod round trip loses open object
+      // fields (including A2UI components), references, and other constraints.
+      inputSchema: aiJsonSchema(tool.parameters, {
+        validate: (value) => {
+          const result = validator.validate(value);
+          return result.valid
+            ? { success: true, value }
+            : {
+                success: false,
+                error: new Error(`Invalid arguments for tool ${tool.name}`),
+              };
+        },
+      }),
+      // A2UI components require open objects. Other tools keep the provider's
+      // existing strictness default instead of opting every tool out.
+      ...(tool.name === RENDER_A2UI_TOOL.name ? { strict: false } : {}),
     });
   }
 
@@ -1399,9 +1417,14 @@ export class BuiltInAgent extends AbstractAgent {
                 // actually ask for SSE ever load it.
                 const { SSEClientTransport } =
                   await import("@modelcontextprotocol/sdk/client/sse.js");
+                // SSEClientTransport's second arg is SSEClientTransportOptions
+                // (`requestInit.headers`), not a raw header map. Passing
+                // `{ Authorization: ... }` as options is silently ignored.
                 transport = new SSEClientTransport(
                   new URL(serverConfig.url),
-                  serverConfig.headers,
+                  serverConfig.headers
+                    ? { requestInit: { headers: serverConfig.headers } }
+                    : undefined,
                 );
               }
 

@@ -1,0 +1,45 @@
+{
+  "name": "runtime-python",
+  "projectType": "library",
+  "root": "packages/runtime-python",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["default"],
+      "options": {
+        "command": "uv run pytest",
+        "cwd": "packages/runtime-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run ruff check . && uv run ruff format --check .",
+        "cwd": "packages/runtime-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run mypy src tests/test_memory_result_types.py tests/test_thread_result_types.py",
+        "cwd": "packages/runtime-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv build",
+        "cwd": "packages/runtime-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  },
+  "tags": ["scope:runtime", "lang:python"]
+}
