@@ -1,5 +1,16 @@
 import type { RunAgentInput } from "@ag-ui/client";
 import type { MaybePromise } from "@copilotkit/shared";
+import type { CopilotRuntimeLike } from "./runtime";
+
+/** Checks configuration without invoking a selector that requires a real run. */
+export function hasLearningContainerConfiguration(
+  runtime: CopilotRuntimeLike,
+): boolean {
+  return (
+    runtime.intelligence?.ɵgetLearningContainerId?.() !== undefined ||
+    runtime.learning?.containerId !== undefined
+  );
+}
 
 /** Application user resolved by an Intelligence runtime. */
 export interface CopilotRuntimeUser {

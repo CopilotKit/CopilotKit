@@ -99,6 +99,7 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
       };
 
       return recordAnnotation({
+        fetch: copilotkit.ɵruntimeFetch,
         runtimeUrl,
         headers: copilotkit.headers ?? {},
         type: "user_action",

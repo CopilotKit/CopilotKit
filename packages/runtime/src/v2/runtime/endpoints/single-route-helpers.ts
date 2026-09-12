@@ -5,7 +5,9 @@ const METHOD_NAMES = [
   "agent/stop",
   "info",
   "inspector/metadata",
+  "inspector/learning",
   "transcribe",
+  "resource/request",
 ] as const;
 
 export type EndpointMethod = (typeof METHOD_NAMES)[number];
@@ -115,6 +117,45 @@ export function createJsonRequest(base: Request, body: unknown): Request {
     method: "POST",
     headers,
     body: serializedBody,
+    signal: base.signal,
+  });
+}
+
+/**
+ * Rebuild a resource request carried inside the single-route JSON envelope.
+ *
+ * The resource path must stay relative to the mounted Runtime. This prevents
+ * the envelope from becoming an open HTTP proxy while preserving the method,
+ * query string, headers, and cancellation signal used by the REST handler.
+ */
+export function createResourceRequest(
+  base: Request,
+  path: string,
+  httpMethod: string,
+  body: unknown,
+): Request {
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    throw createResponseError("Resource path must be Runtime-relative", 400);
+  }
+
+  const resourceUrl = new URL(path, "http://copilotkit.resource");
+  if (resourceUrl.origin !== "http://copilotkit.resource") {
+    throw createResponseError("Resource path must be Runtime-relative", 400);
+  }
+
+  const targetUrl = new URL(base.url);
+  targetUrl.pathname = `${targetUrl.pathname.replace(/\/$/, "")}${resourceUrl.pathname}`;
+  targetUrl.search = resourceUrl.search;
+
+  const method = httpMethod.toUpperCase();
+  const headers = new Headers(base.headers);
+  headers.delete("content-length");
+  const hasBody = method !== "GET" && method !== "HEAD" && body != null;
+
+  return new Request(targetUrl, {
+    method,
+    headers,
+    ...(hasBody ? { body: serializeJsonBody(body) } : {}),
     signal: base.signal,
   });
 }

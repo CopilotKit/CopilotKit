@@ -1,0 +1,122 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Vantage — Cascade Industries' executive reporting desk. Skin-scoped VALUES for the shell's shared
+   token vocabulary (names declared in src/app/globals.css; never invent new
+   ones).
+
+   PALETTE RATIONALE. The seven shipped skins already own: violet (banking
+   252), jet teal (airline 190), deep pine with an amber "awaiting approval"
+   accent (keel — primary 170, `--brand-violet` 36), signal amber deepening to
+   copper (logistics 32), burgundy (bookstore 0), deep ink blue (commerce 206)
+   and plum with a gold milestone accent (people — primary 315, `--brand-violet`
+   38). Every remaining hue near amber/gold is therefore already claimed by
+   either keel's warning accent or logistics' primary, and every warm-neutral
+   surface is already claimed by keel/logistics/people.
+
+   Exec is a CEO/CFO dashboard (see nav.ts: "CEO dashboard", "CFO dashboard",
+   "Board packs") and reaches for the one combination nothing else uses: a
+   COOL, DESATURATED graphite chrome (canvas/surface/surface-muted sit on a
+   near-neutral 220 hue, not the warm 30-40 neutrals keel/logistics/people all
+   use) paired with a MUTED brass-gold brand (hue 43) rather than a bright
+   alert-amber. Pushing the hue to 43 and pulling saturation down from
+   logistics' 94% / keel's 88% is deliberate: this reads as boardroom metal
+   (a plaque, a pen nib) rather than a warning chip, so it stays legible next
+   to keel's and logistics' amber without visually competing with either.
+
+   `--brand-violet` carries a cooler pewter-blue (222) rather than a second
+   warm tone, reinforcing the graphite identity; `--brand-indigo` deepens the
+   gold toward bronze for gradients and hover states.
+
+   WHY THE LIGHT BRASS IS DEEP (30%) AND ITS LABEL IS WHITE. `--brand` shipped
+   as a mid-tone 43 55% 45% under a deep-ink `--brand-foreground`, which put the
+   two pairs it anchors in direct opposition: a brand dark enough to carry TEXT
+   on the near-white `--brand-soft` (the active nav item, the `Breach` chip, the
+   amber initiative pill, the metrics filter, the shell selector card) needs a
+   ground lighter than white to carry a dark label of its own. 4.5:1 on both was
+   therefore arithmetically impossible, and the brand-on-soft pair shipped at
+   2.71:1. The light block now takes the same shape every sibling skin uses — a
+   DEEP fill under a white label — and the dark block re-values BOTH sides so the
+   lifted brass keeps a deep label. `skins/exec/theme.test.ts` asserts every one
+   of these pairs, in both modes, against the values below. */
+.theme-exec {
+  /* Board-room precision: tighter than banking's pillowy 1.375rem, a touch
+     softer than logistics/keel's utilitarian 0.5rem — crisp without looking
+     like an operations console. */
+  --radius: 0.625rem;
+
+  /* Dark-mode OPT-IN. src/hooks/use-theme.ts forces any skin WITHOUT this flag
+     to light and ignores the stored preference. An exec dashboard reads
+     naturally in a dark boardroom display, so this skin ships both. */
+  --nw-dark-capable: 1;
+
+  --brand: 43 62% 30%;
+  --brand-indigo: 32 66% 22%;
+  --brand-violet: 222 18% 46%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 43 40% 95%;
+
+  --background: 220 18% 98%;
+  --foreground: 220 20% 12%;
+  --canvas: 220 16% 95%;
+  --surface: 0 0% 100%;
+  --surface-muted: 220 14% 93%;
+  --ink: 220 20% 14%;
+  /* 44% read 4.42:1 on `--surface-muted`, the ground of both dashboards'
+     empty-state panels — a hint the reader has to lean in for. */
+  --ink-muted: 220 10% 42%;
+  --hairline: 220 13% 87%;
+
+  /* Deepened from 50% 38%: the green carries TEXT twice over — the status pill
+     on `--positive-soft` (3.55:1) and the up-delta glyph plus "Pinned ✓" on the
+     white card (3.90:1) — and the soft is lifted a point to widen the pill. */
+  --positive: 152 56% 30%;
+  --positive-soft: 152 55% 95%;
+  --negative: 0 68% 48%;
+  --negative-soft: 0 78% 96%;
+}
+
+/* DARK. `.dark` lands on <html>, an ancestor of the `.theme-exec` root, so this
+   re-values only what differs — surfaces deepen to true dark graphite, ink and
+   hairline invert, and the semantic pairs lift — while `--radius`, the neutral
+   `--background`/`--foreground` relationship and everything not named below
+   inherit from the light block above.
+
+   The WHOLE brand ramp is re-valued here, not just the fill: `--brand` and
+   `--brand-soft` swap polarity (a lifted brass on a deep brass-graphite chip),
+   `--brand-foreground` swaps with them so the primary button's label stays
+   readable on the lifted fill, and `--brand-indigo` / `--brand-violet` both move
+   too — the bronze lifts to stay visible as a hover ink, and the pewter lifts to
+   carry the shared chrome's `dark:text-brand-violet` label on `--brand-soft`.
+   An earlier version of this comment claimed only `--brand`/`--brand-soft` were
+   re-valued while the block already moved the bronze and the pewter; the claim
+   is now asserted rather than written, by `skins/exec/theme.test.ts`. */
+.dark .theme-exec {
+  color-scheme: dark;
+
+  --background: 220 18% 9%;
+  --foreground: 220 14% 94%;
+  --canvas: 220 18% 9%;
+  --surface: 220 15% 13%;
+  --surface-muted: 220 13% 16%;
+  --ink: 220 14% 94%;
+  --ink-muted: 220 8% 60%;
+  --hairline: 220 11% 23%;
+
+  --brand: 43 62% 58%;
+  --brand-indigo: 32 55% 42%;
+  /* Lifted from 62%: it is TEXT on `--brand-soft` wherever the shared chrome
+     opts out of `--brand-indigo` in dark (dropdown/select focus rows, avatar
+     initials, secondary + ghost button labels), and read 3.91:1 there. */
+  --brand-violet: 222 18% 70%;
+  --brand-soft: 43 30% 20%;
+  /* The light block's white label would sit on a lifted brass fill; this is the
+     deep ink that pairs with it, and the pairing is asserted in the test. */
+  --brand-foreground: 30 40% 10%;
+
+  --positive: 152 42% 48%;
+  --positive-soft: 152 30% 16%;
+  /* Lifted from 60% and the soft deepened a shade: the red was 4.31:1 on the
+     card (every error line, including the shell's inline block card) and
+     3.82:1 on its own banner. */
+  --negative: 0 66% 66%;
+  --negative-soft: 0 45% 16%;
+}

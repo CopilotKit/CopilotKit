@@ -16,9 +16,6 @@ import type {
 import type { RunAgentInput } from "@ag-ui/core";
 import { manageSalesTodosImpl } from "./lib/tool-impls";
 
-/** Marker returned by a sub-agent tool body when its LLM call failed. */
-export const SUBAGENT_FAILURE_MARKER = "__SUBAGENT_FAILED__:";
-
 /** Parse a tool's input (string JSON or already-parsed object). */
 function parseToolInput(raw: unknown): unknown {
   if (typeof raw === "string") {
@@ -199,6 +196,10 @@ export async function documentStateFromArgs(
 
 // ---- sub-agents (delegation log) -----------------------------------------
 
+// @region[subagent-state-from-result]
+/** Marker returned by a sub-agent tool body when its LLM call failed. */
+export const SUBAGENT_FAILURE_MARKER = "__SUBAGENT_FAILED__:";
+
 interface Delegation {
   id: string;
   sub_agent: string;
@@ -223,6 +224,19 @@ function seedDelegations(threadId: string, state: unknown): Delegation[] {
   }
   delegationsByThread.set(threadId, seeded);
   return seeded;
+}
+
+function readSubagentTask(raw: unknown): string {
+  let input = raw;
+  if (typeof raw === "string") {
+    try {
+      input = JSON.parse(raw);
+    } catch {
+      return "";
+    }
+  }
+  if (!input || typeof input !== "object" || Array.isArray(input)) return "";
+  return String((input as Record<string, unknown>).task ?? "");
 }
 
 function flattenResult(resultData: unknown): string {
@@ -257,11 +271,7 @@ export function makeSubagentStateFromResult(subAgentName: string) {
     const threadId = ctx.inputData.threadId || "default";
     const existing = seedDelegations(threadId, ctx.inputData.state);
 
-    const input = parseToolInput(ctx.toolInput);
-    let task = "";
-    if (input && typeof input === "object" && !Array.isArray(input)) {
-      task = String((input as Record<string, unknown>).task ?? "");
-    }
+    const task = readSubagentTask(ctx.toolInput);
 
     const resultText = flattenResult(ctx.resultData);
     let status: Delegation["status"];
@@ -288,3 +298,4 @@ export function makeSubagentStateFromResult(subAgentName: string) {
     return { delegations: updated.map((d) => ({ ...d })) };
   };
 }
+// @endregion[subagent-state-from-result]

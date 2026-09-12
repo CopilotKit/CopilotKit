@@ -1,4 +1,5 @@
-import { Type, TemplateRef, InjectionToken } from "@angular/core";
+import type { Type, TemplateRef, Injector } from "@angular/core";
+import { InjectionToken } from "@angular/core";
 
 /**
  * Represents a value that can be used as a slot override.
@@ -6,6 +7,12 @@ import { Type, TemplateRef, InjectionToken } from "@angular/core";
  * @internal - This type is for internal use only
  */
 export type SlotValue<T = any> = Type<T> | TemplateRef<T>;
+
+/**
+ * Handlers for a slot component's outputs, keyed by the output's public
+ * (template) name. Keys that do not match a declared output are ignored.
+ */
+export type SlotOutputs = Record<string, (event: any) => void>;
 
 /**
  * Configuration for a slot
@@ -41,8 +48,8 @@ export interface RenderSlotOptions<T = any> {
   slot?: SlotValue<T>;
   defaultComponent: Type<T>;
   props?: Partial<T>;
-  injector?: any;
-  outputs?: Record<string, (event: any) => void>;
+  injector?: Injector;
+  outputs?: SlotOutputs;
 }
 
 /**

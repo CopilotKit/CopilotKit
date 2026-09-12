@@ -76,42 +76,41 @@ Before you start, make sure that you have a CopilotKit app with a working agent,
   </Step>
 
   <Step>
-    ### Expose the thread routes
+    ### Expose one Runtime route
 
-    Use the multi-route handler. Mount the complete runtime subtree. Export `GET`, `POST`, `PATCH`, and `DELETE`.
+    Use the single-route handler. It carries chat, thread, memory, and annotation requests through one `POST` endpoint.
 
-    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+    ```ts title="app/api/copilotkit/route.ts"
     import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 
     const handler = createCopilotRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    export const GET = handler;
     export const POST = handler;
-    export const PATCH = handler;
-    export const DELETE = handler;
     ```
 
-    This example uses a Next.js catch-all route, but the fetch-based handler works with any server that uses standard Web `Request` and `Response` objects.
+    The client and server negotiate resource support before the client sends Intelligence requests through this route. Multi-route remains supported.
+    The fetch-based handler works with any server that uses standard Web `Request` and `Response` objects.
     For another server, use the [runtime adapter guide](/runtime-server-adapter#multi-route-vs-single-route).
   </Step>
 
   <Step>
-    ### Use the multi-route frontend transport
+    ### Use the single-route frontend transport
 
     Point your frontend provider at the runtime base path.
 
     <FrontendOnly frontend="react">
-      Add the runtimeUrl prop to your `CopilotKitProvider`. The provider uses the multi-route transport to send messages, events, and state to the runtime.
+      Add `runtimeUrl` and `useSingleEndpoint` to your `CopilotKitProvider`.
 
       ```tsx title="Your CopilotKit provider"
       import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
       export function App() {
         return (
-          <CopilotKitProvider runtimeUrl="/api/copilotkit">
+          <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
             <YourApp />
           </CopilotKitProvider>
         );

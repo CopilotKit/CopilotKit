@@ -4,6 +4,8 @@ icon: "lucide/BookA"
 description: "Share app-specific context with your Built-in Agent."
 ---
 
+import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
+
 Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The Built-in Agent receives this context automatically, with no backend configuration.
 
 <Callout>
@@ -25,6 +27,8 @@ The `useAgentContext` hook lets you register app-specific data that gets include
 - You want to provide domain-specific data without hardcoding it into the system prompt
 
 ## Implementation
+
+<AgentContextJsonString />
 
 <Steps>
 <Step>

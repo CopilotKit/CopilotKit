@@ -17,6 +17,12 @@ describe("globals.css mobile docs layout", () => {
     );
   });
 
+  it("spans the compact table of contents across the mobile grid", () => {
+    expect(globalsCss).toContain(
+      "#nd-docs-layout > [data-toc-popover] {\n    grid-column: 1 / -1 !important;\n    width: 100% !important;\n    min-width: 0 !important;",
+    );
+  });
+
   it("does not double-count the announcement banner in sub-xl docs layout offsets", () => {
     const subXlDocsLayoutRules = globalsCss.matchAll(
       /@media \((?:max-width: 767px|min-width: 768px\) and \(max-width: 1279px)\) \{\n  #nd-docs-layout \{(?<body>[\s\S]*?)\n  \}/g,
@@ -83,9 +89,7 @@ describe("globals.css dark accent contrast", () => {
 
     expect(darkTheme).toContain("--primary: oklch(0.64 0.21 277);");
     expect(darkTheme).toContain("--sidebar-primary: oklch(0.64 0.21 277);");
-    expect(darkTheme).toContain(
-      "--accent-fill: oklch(0.585 0.233 277.117);",
-    );
+    expect(darkTheme).toContain("--accent-fill: oklch(0.585 0.233 277.117);");
     expect(globalsCss).toContain(
       "--accent-strong: color-mix(in oklch, var(--accent-fill) 88%, black);",
     );
@@ -128,32 +132,30 @@ describe("globals.css docs page actions", () => {
         }
       `),
     );
-    expect(normalizedGlobalsCss).toContain(
-      normalizeWhitespace(`
-        --docs-page-actions-hover: color-mix(
-          in oklch,
-          var(--accent-fill) 68%,
-          black
-        );
-      `),
+    expect(globalsCss).toContain(
+      "--docs-page-actions-hover: color-mix(in oklch, var(--accent-fill) 68%, black);",
     );
+    expect(globalsCss).toContain("--docs-page-actions-orbit: 0deg;");
   });
 
-  it("gives the primary action a reduced-motion-safe shimmer", () => {
-    expect(globalsCss).toContain("@keyframes docs-page-actions-shimmer");
+  it("gives the primary action a reduced-motion-safe orbiting halo", () => {
+    expect(globalsCss).toContain("@property --docs-page-actions-orbit");
+    expect(globalsCss).toContain("@keyframes docs-page-actions-halo");
     expect(globalsCss).toContain(
-      "animation: docs-page-actions-shimmer 4.5s ease-in-out infinite;",
+      "animation: docs-page-actions-halo 3.4s linear infinite;",
     );
+    expect(globalsCss).toContain("mask-composite: exclude;");
     expect(globalsCss).toContain("@media (prefers-reduced-motion: reduce)");
     expect(globalsCss).toContain("animation: none;");
+    expect(globalsCss).not.toContain("docs-page-actions-shimmer");
   });
 
-  it("keeps the mobile shimmer fitted to the split control", () => {
+  it("keeps the mobile halo fitted without showing a hover-only tooltip", () => {
     expect(globalsCss).toContain(
       ".docs-page-tools {\n    max-width: 100%;\n    overflow-x: auto;",
     );
-    expect(globalsCss).not.toContain(
-      ".docs-page-tools {\n    width: 100%;\n    overflow-x: auto;",
+    expect(globalsCss).toContain(
+      ".docs-page-actions-primary[data-tooltip]::before,\n  .docs-page-actions-primary[data-tooltip]::after {\n    display: none;",
     );
   });
 });
@@ -196,9 +198,7 @@ describe("globals.css sidebar section labels", () => {
 
   it("fades sidebar content only at overflowing edges", () => {
     expect(globalsCss).toContain("[data-shell-docs-scroll-shadow-top]:not(");
-    expect(globalsCss).toContain(
-      "[data-shell-docs-scroll-shadow-bottom]:not(",
-    );
+    expect(globalsCss).toContain("[data-shell-docs-scroll-shadow-bottom]:not(");
     expect(globalsCss).toContain(
       "[data-shell-docs-scroll-shadow-top][data-shell-docs-scroll-shadow-bottom]",
     );

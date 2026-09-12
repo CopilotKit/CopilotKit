@@ -16,11 +16,12 @@ test("the Intelligence overview uses landing-page chrome", () => {
     read("content/docs/integrations/built-in-agent/intelligence/overview.mdx"),
   );
   const parser = read("lib/docs-render.tsx");
+  const globals = read("app/globals.css");
 
   expect(page.data.title).toBe("CopilotKit Intelligence");
   expect(page.data.nav_title).toBe("Overview");
   expect(page.data.description).toBe(
-    "CopilotKit Intelligence adds persistent threads, analytics, automatic learning, and production operations on top of the runtime you already run.",
+    "CopilotKit Intelligence adds persistent threads, memory, analytics, automatic learning, and production operations on top of the runtime you already run.",
   );
   expect(page.data.hideHeader).toBeUndefined();
   expect(page.data.full).toBe(true);
@@ -42,6 +43,9 @@ test("the Intelligence overview uses landing-page chrome", () => {
   expect(parser).toContain(
     "const hidePageActions = data.hidePageActions === true",
   );
+  expect(globals).toMatch(
+    /article#nd-page\[data-full="true"\][^{]*\{\s*grid-column:\s*main;/,
+  );
 });
 
 test("the shared Intelligence overview mounts the landing then keeps platform copy", () => {
@@ -54,6 +58,9 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(snippet).toContain("## What the platform adds");
   expect(snippet).toContain("| Analytics |");
   expect(snippet).toContain("| Automatic learning |");
+  expect(snippet).toContain("| Memory |");
+  expect(snippet).toContain("[Memories & Recall](/intelligence/memories)");
+  expect(snippet).toContain("[Learning](/learning)");
   expect(snippet).toContain("<IntelligenceFeatureCards");
   expect(snippet).toContain(
     "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
@@ -61,6 +68,12 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(snippet).toContain("](/intelligence/quickstart)");
   expect(
     existsSync(resolve(here, "../../content/docs/intelligence/quickstart.mdx")),
+  ).toBe(true);
+  expect(existsSync(resolve(here, "../../content/docs/learning.mdx"))).toBe(
+    true,
+  );
+  expect(
+    existsSync(resolve(here, "../../content/docs/intelligence/memories.mdx")),
   ).toBe(true);
   expect(snippet.indexOf("## What the platform adds")).toBeLessThan(
     snippet.indexOf("<IntelligenceFeatureCards"),
@@ -76,6 +89,28 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
     ),
   ).toBeLessThan(snippet.indexOf("## Hosting options"));
   expect(snippet).toContain("## Hosting options");
+});
+
+test("the Learning guide stays focused on the reviewed Learning workflow", () => {
+  const guide = read("content/docs/learning.mdx");
+
+  expect(guide).toContain("## Overview");
+  expect(guide).toContain("## How Learning works");
+  expect(guide).toContain("## Set up Learning");
+  expect(guide).toContain("### Optional: Set it up with your coding agent");
+  expect(guide).toContain("<LearningSetupPrompt />");
+  expect(guide).toContain("### Connect CopilotKit Intelligence");
+  expect(guide).toContain("](/intelligence/quickstart)");
+  expect(guide).toContain("https://dashboard.operations.copilotkit.ai/");
+  expect(guide).toContain(
+    "your Runtime will send selected Threads to a Learning container",
+  );
+  expect(guide).not.toContain("<Cards>");
+  expect(guide).not.toContain("You stay in control");
+  expect(guide).not.toContain("Before configuring a container:");
+  expect(guide).not.toContain("## Choose a useful learning boundary");
+  expect(guide).not.toContain("## Enable long-term Memory");
+  expect(guide).not.toContain("memory: {");
 });
 
 test("the MDX registry and page view wire IntelligenceOverview and its chrome", () => {

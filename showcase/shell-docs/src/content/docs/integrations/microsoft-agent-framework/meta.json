@@ -31,6 +31,7 @@
     "shared-state",
     "agent-app-context",
     "---Microsoft Agent Framework---",
+    "...human-in-the-loop",
     "auth",
     "---Backend---",
     "copilot-runtime",

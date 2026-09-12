@@ -21,6 +21,8 @@ export interface RecordAnnotationResult {
  * auth server-side and the browser must never send it.
  */
 export interface RecordAnnotationArgs {
+  /** Runtime-aware fetch implementation. Defaults to the global fetch. */
+  fetch?: typeof globalThis.fetch;
   /**
    * Base URL of the customer's CopilotKit runtime
    * (e.g. `https://bff.example.com/api/copilotkit`).
@@ -84,7 +86,15 @@ export interface RecordAnnotationArgs {
 export async function recordAnnotation(
   args: RecordAnnotationArgs,
 ): Promise<RecordAnnotationResult> {
-  const { runtimeUrl, headers, type, payload, threadId, occurredAt } = args;
+  const {
+    runtimeUrl,
+    headers,
+    type,
+    payload,
+    threadId,
+    occurredAt,
+    fetch: fetchImplementation = globalThis.fetch,
+  } = args;
 
   const clientEventId = args.clientEventId ?? randomUUID();
 
@@ -96,7 +106,7 @@ export async function recordAnnotation(
     ...(occurredAt !== undefined ? { occurredAt } : {}),
   };
 
-  const response = await fetch(`${runtimeUrl}/annotate`, {
+  const response = await fetchImplementation(`${runtimeUrl}/annotate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

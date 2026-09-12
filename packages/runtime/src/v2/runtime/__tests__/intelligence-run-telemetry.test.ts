@@ -2,9 +2,9 @@
  * Telemetry lifecycle tests for `packages/runtime/src/v2/runtime/handlers/intelligence/run.ts`.
  *
  * intelligence/run.ts fires three events across the agent run lifecycle:
- *   - oss.runtime.agent_execution_stream_started  (line 126, after thread lock)
- *   - oss.runtime.agent_execution_stream_errored  (inside runner subscribe's error handler)
- *   - oss.runtime.agent_execution_stream_ended    (inside runner subscribe's complete handler)
+ *   - oss.runtime.agent_execution_stream_started after thread initialization
+ *   - oss.runtime.agent_execution_stream_errored once on any runner failure
+ *   - oss.runtime.agent_execution_stream_ended when the observable completes, including RUN_ERROR events
  *
  * This test verifies each fires under the expected condition. It's paired
  * with sse-response-telemetry.test.ts which covers the SSE path of the
@@ -200,8 +200,12 @@ describe("intelligence/run.ts — telemetry lifecycle", () => {
     );
     expect(captureSpy).toHaveBeenCalledWith(
       "oss.runtime.agent_execution_stream_errored",
-      expect.objectContaining({ error: "agent exploded" }),
+      { error: "AGENT_EXECUTION_FAILED" },
     );
+    expect(JSON.stringify(captureSpy.mock.calls)).not.toContain(
+      "agent exploded",
+    );
+    expect(onError.mock.calls[0][0].error).toEqual(new Error("agent exploded"));
     expect(onError).toHaveBeenCalledOnce();
     expect(onError.mock.calls[0][0].context.request.headers).toEqual({
       "content-type": "application/json",
@@ -275,6 +279,14 @@ describe("intelligence/run.ts — telemetry lifecycle", () => {
       threadId: "thread-1",
       runId: "run-1",
     });
+    expect(captureSpy).toHaveBeenCalledWith(
+      "oss.runtime.agent_execution_stream_errored",
+      { error: "AGENT_EXECUTION_FAILED" },
+    );
+    expect(captureSpy).toHaveBeenCalledWith(
+      "oss.runtime.agent_execution_stream_ended",
+      {},
+    );
   });
 
   it("reports a post-start RUN_ERROR event as an intelligence subscription failure", async () => {
@@ -288,6 +300,7 @@ describe("intelligence/run.ts — telemetry lifecycle", () => {
       subscriber.next({
         type: "RUN_ERROR",
         message: "subscription event failed",
+        code: "CUSTOMER_SECRET_CODE",
       } as BaseEvent);
       subscriber.complete();
     });
@@ -304,7 +317,103 @@ describe("intelligence/run.ts — telemetry lifecycle", () => {
       error: new Error("subscription event failed"),
       context: { metadata: { phase: "intelligence.subscription" } },
     });
+    expect(captureSpy).toHaveBeenCalledWith(
+      "oss.runtime.agent_execution_stream_errored",
+      { error: "AGENT_EXECUTION_FAILED" },
+    );
+    expect(captureSpy).toHaveBeenCalledWith(
+      "oss.runtime.agent_execution_stream_ended",
+      {},
+    );
+    expect(JSON.stringify(captureSpy.mock.calls)).not.toContain(
+      "subscription event failed",
+    );
+    expect(JSON.stringify(captureSpy.mock.calls)).not.toContain(
+      "CUSTOMER_SECRET_CODE",
+    );
   });
+
+  it("captures one safe analytics error when RUN_ERROR is followed by a subscription error", async () => {
+    const onError = vi.fn();
+    const failing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: "RUN_STARTED",
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent);
+      subscriber.next({
+        type: "RUN_ERROR",
+        message: "private event error",
+      } as BaseEvent);
+      subscriber.error(new Error("private transport error"));
+    });
+    const runtime = makeIntelligenceRuntime(failing, {}, onError);
+
+    await handleRunAgent({
+      runtime,
+      request: makeRunRequest(),
+      agentId: "my-agent",
+    });
+
+    const analyticsErrors = captureSpy.mock.calls.filter(
+      ([name]) => name === "oss.runtime.agent_execution_stream_errored",
+    );
+    expect(analyticsErrors).toEqual([
+      [
+        "oss.runtime.agent_execution_stream_errored",
+        { error: "AGENT_EXECUTION_FAILED" },
+      ],
+    ]);
+    expect(JSON.stringify(captureSpy.mock.calls)).not.toContain("private");
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError.mock.calls[0][0].error).toEqual(
+      new Error("private event error"),
+    );
+  });
+
+  it.each(["throw", "startup rejection"] as const)(
+    "captures safe analytics for a runner %s while preserving application diagnostics",
+    async (failureMode) => {
+      const diagnostic = new Error("private startup diagnostic");
+      const onError = vi.fn();
+      const runtime = makeIntelligenceRuntime(
+        new Observable<BaseEvent>(() => {}),
+        {},
+        onError,
+      );
+      if (failureMode === "throw") {
+        vi.mocked(runtime.runner.run).mockImplementation(() => {
+          throw diagnostic;
+        });
+      } else {
+        Object.defineProperty(runtime.runner, "runWithStartupBoundary", {
+          value: () => ({
+            events: new Observable<BaseEvent>(() => {}),
+            startup: Promise.reject(diagnostic),
+          }),
+        });
+      }
+
+      const response = await handleRunAgent({
+        runtime,
+        request: makeRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(502);
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_errored",
+        { error: "AGENT_EXECUTION_FAILED" },
+      );
+      expect(captureSpy).not.toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_ended",
+        expect.anything(),
+      );
+      expect(JSON.stringify(captureSpy.mock.calls)).not.toContain("private");
+      expect(onError).toHaveBeenCalledOnce();
+      expect(onError.mock.calls[0][0].error).toBe(diagnostic);
+    },
+  );
 
   it.each([
     [

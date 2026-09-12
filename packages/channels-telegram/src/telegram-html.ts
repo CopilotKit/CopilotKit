@@ -14,7 +14,9 @@
  *   [text](url)      →  <a href="url">text</a>
  *   - bullet         →  •  bullet
  *   `code`           →  <code>code</code>
- *   ```…```          →  <pre>…</pre>
+ *   ```\n…```         →  <pre>…</pre>
+ *   ```lang\n…```     →  <pre><code class="language-lang">…</code></pre>
+ *   ```…``` (1 line)  →  <code>…</code>
  */
 
 /** Escape & < > " for use inside Telegram HTML text nodes and attributes. */
@@ -44,10 +46,29 @@ export function telegramHtml(input: string): string {
   // ── 1. Pull code regions out so we don't touch them. ──
   const codeRegions: string[] = [];
 
-  // Fenced code blocks first (```…```)
-  let body = input.replace(/```([\s\S]*?)```/g, (_match, inner: string) => {
-    const escaped = escapeHtml(inner.replace(/^\n/, "").replace(/\n$/, ""));
-    codeRegions.push(`<pre>${escaped}</pre>`);
+  // Fenced code blocks with an info string (```lang\n…```)
+  let body = input.replace(
+    /```([^\n`]*)\n([\s\S]*?)```/g,
+    (_match, info: string, inner: string) => {
+      const rawLang = info.trim().split(/\s+/)[0] ?? "";
+      // Only a plausible language token becomes a class name. An arbitrary
+      // info string would otherwise land in the attribute (escaped, so not
+      // injectable, but meaningless to Telegram).
+      const lang = /^[\w+#.-]+$/.test(rawLang) ? rawLang : "";
+      const escaped = escapeHtml(inner.replace(/\n$/, ""));
+      codeRegions.push(
+        lang
+          ? `<pre><code class="language-${escapeHtml(lang)}">${escaped}</code></pre>`
+          : `<pre>${escaped}</pre>`,
+      );
+      return codePlaceholder(codeRegions.length - 1);
+    },
+  );
+
+  // Single-line ``` ```code``` ``` fences (no info string by definition)
+  body = body.replace(/```([^`\n]*)```/g, (_match, inner: string) => {
+    const escaped = escapeHtml(inner);
+    codeRegions.push(`<code>${escaped}</code>`);
     return codePlaceholder(codeRegions.length - 1);
   });
 

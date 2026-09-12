@@ -1,6 +1,7 @@
-import { inject, InjectionToken, Provider } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { Provider } from "@angular/core";
+import { inject, InjectionToken } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -123,7 +124,7 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
   return inject(COPILOT_KIT_CONFIG);
 }
 
-export function provideCopilotKit(config: CopilotKitConfig): Provider {
+export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
   const resolvedLicense = resolveLicense(config);
   const headers = config.headers ?? {};
   if (

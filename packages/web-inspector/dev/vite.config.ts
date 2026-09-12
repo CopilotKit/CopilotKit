@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { Plugin, UserConfig } from "vite";
 
 import { createThreadsStateLabPlugin } from "./threads-state-lab-server.js";
+import { createLearningStateLabPlugin } from "./learning-state-lab-server.js";
 
 /**
  * Mirrors the package bundler's CSS-as-string behavior for the standalone
@@ -29,7 +30,11 @@ const cssRawImportPlugin = {
 } as const satisfies Plugin;
 
 const config = {
-  plugins: [cssRawImportPlugin, createThreadsStateLabPlugin()],
+  plugins: [
+    cssRawImportPlugin,
+    createThreadsStateLabPlugin(),
+    createLearningStateLabPlugin(),
+  ],
   resolve: {
     alias: {
       "@copilotkit/web-inspector": fileURLToPath(

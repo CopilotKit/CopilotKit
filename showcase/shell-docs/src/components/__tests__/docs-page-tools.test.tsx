@@ -79,7 +79,12 @@ it("renders one split CTA with copy prompt as its root action", async () => {
 it("renders the onboarding button when a framework is passed", () => {
   renderRow({ slug: "mastra", name: "Mastra" });
 
-  expect(screen.getByRole("button", { name: /copy prompt/i })).toBeTruthy();
+  const button = screen.getByRole("button", { name: /copy prompt/i });
+  expect(button.textContent).toContain("Copy Prompt");
+  expect(
+    screen.getByRole("button", { name: "Open in Claude Code" }),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Open in Codex" })).toBeTruthy();
 });
 
 it("gives the onboarding button the same .mdx URL as the markdown button", async () => {

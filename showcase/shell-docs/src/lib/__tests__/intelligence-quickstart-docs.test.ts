@@ -32,7 +32,9 @@ test("guides people and agents to a persistent Intelligence thread", () => {
   expect(source).toContain("npx copilotkit@latest project select");
   expect(source).toContain("new CopilotKitIntelligence");
   expect(source).toContain("identifyUser");
-  expect(source).toContain("export const DELETE = handler");
+  expect(source).toContain('mode: "single-route"');
+  expect(source).toContain("export const POST = handler");
+  expect(source).toContain("useSingleEndpoint");
   expect(source).toContain("Intelligence connected");
   expect(source).toContain("Open **Threads** in Inspector");
   expect(source).toContain("**Messages** contains the message");
@@ -57,7 +59,7 @@ test("expands the setup prompt for coding agents", () => {
   const output = renderDoc("intelligence/quickstart");
 
   expect(output).toContain("Copy this prompt into your coding agent");
-  expect(output).toContain("finish setting up Rich Threads in this repository");
+  expect(output).toContain("--intent add-rich-threads");
   expect(output).not.toContain("<RichThreadsSetupPrompt />");
 });
 

@@ -33,6 +33,7 @@
     "---Add Agent Powers---",
     "frontend-tools",
     "webmcp",
+    "learning",
     {
       "title": "Shared State",
       "pages": [
@@ -55,6 +56,7 @@
     "vs-code-extension",
     "---Intelligence---",
     "intelligence/overview",
+    "intelligence/memories",
     "intelligence/quickstart",
     "intelligence/managed-intelligence-platform",
     "intelligence/connect-your-runtime",

@@ -269,6 +269,41 @@ describe("IntelligenceAgent", () => {
       });
     });
 
+    it("carries the AG-UI resume array in the run body", async () => {
+      const resume = [
+        {
+          interruptId: "int-1",
+          status: "resolved" as const,
+          payload: { ok: true },
+        },
+      ];
+      const agent = createAgent();
+      agent
+        .run({ ...defaultInput, resume })
+        .subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(JSON.parse(options.body).resume).toEqual(resume);
+    });
+
+    it("posts every RunAgentInput field, so no protocol field is dropped", async () => {
+      const input: RunAgentInput = {
+        ...defaultInput,
+        forwardedProps: { command: { resume: "yes" } },
+        resume: [{ interruptId: "int-1", status: "cancelled" }],
+        state: { step: 2 },
+      };
+      const agent = createAgent();
+      agent.run(input).subscribe({ next: () => {}, error: () => {} });
+      await flushAsyncWork();
+
+      const body = JSON.parse(mockFetch.mock.calls[0]![1].body);
+      for (const key of Object.keys(input) as (keyof RunAgentInput)[]) {
+        expect(body[key]).toEqual(input[key]);
+      }
+    });
+
     it("does not push any events to the channel during join", async () => {
       const agent = createAgent();
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });

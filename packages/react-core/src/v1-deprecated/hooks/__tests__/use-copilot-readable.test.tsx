@@ -1,5 +1,6 @@
 import { vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import React, { useEffect, useRef } from "react";
+import { render, renderHook, waitFor } from "@testing-library/react";
 import { useCopilotReadable } from "../use-copilot-readable";
 
 type Availability = "enabled" | "disabled";
@@ -255,5 +256,52 @@ describe("useCopilotReadable", () => {
     second.unmount();
 
     expect(fake.entries()).toEqual([]);
+  });
+  /**
+   * `useCopilotReadable` must publish its context before any sibling's
+   * `useEffect` runs, not merely before some siblings'.
+   *
+   * React flushes passive effects (`useEffect`) child-first in tree order, so a
+   * consumer mounted BEFORE the readable sees an empty context store. That is
+   * the cross-page-navigation failure: a page mounts the chat and its
+   * readable-publishing components in one commit, the chat's connect effect
+   * fires first, and the connect request carries no context.
+   *
+   * Layout effects run during commit, ahead of every passive effect regardless
+   * of order, so registering in `useLayoutEffect` closes the window. The v2
+   * siblings `useAgentContext` and `useFrontendTool` already register this way.
+   *
+   * The consumer is deliberately mounted FIRST here. Mounting it second passes
+   * with either hook and proves nothing.
+   */
+  it("registers the context before an earlier-mounted sibling's useEffect runs", async () => {
+    const observed: string[][] = [];
+
+    /** Mounted FIRST — stands in for the chat's connect effect. */
+    function EarlyConsumer() {
+      const done = useRef(false);
+      useEffect(() => {
+        if (done.current) return;
+        done.current = true;
+        observed.push(fake.entries().map((entry) => entry.description));
+      }, []);
+      return null;
+    }
+
+    /** Mounted SECOND — stands in for a page's readable-publishing component. */
+    function LateReadable() {
+      useCopilotReadable({ description: "employees", value: EMPLOYEES });
+      return null;
+    }
+
+    render(
+      <>
+        <EarlyConsumer />
+        <LateReadable />
+      </>,
+    );
+
+    await waitFor(() => expect(observed.length).toBeGreaterThanOrEqual(1));
+    expect(observed[0]).toContain("employees");
   });
 });

@@ -12,7 +12,7 @@ It registers a tool and renders a React Native component in chat using the tool 
   Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useComponent`](/reference/v2/hooks/useComponent); only the import path differs.
 </Callout>
 
-Use this when you want a visual component renderer without writing a full frontend tool config manually. The component you pass to `render` returns React Native elements that CopilotKit surfaces in the chat. See [`useRenderTool`](/reference/react-native/hooks/useRenderTool) for the underlying React Native render mechanism.
+Use this when you want a visual component renderer without writing a full frontend tool config manually. The component you pass to `render` returns React Native elements that CopilotKit surfaces in the chat — it registers into the same shared renderer registry that [`useRenderTool`](/reference/react-native/hooks/useRenderTool) and `useFrontendTool` write to, and that the chat reads through `useRenderToolCall`.
 
 ## Signature
 

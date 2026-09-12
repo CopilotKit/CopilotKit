@@ -1,5 +1,5 @@
 "use client";
-import { use, useEffect } from "react";
+import { use, useEffect, useMemo } from "react";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import {
@@ -17,22 +17,49 @@ import { LayoutPreferencesProvider } from "@/shell/layout/layout-preferences";
 import { ChatPanel } from "@/shell/chat/chat-panel";
 import { ChatInboxProvider } from "@/shell/chat/chat-inbox-context";
 import { TOOL_CALL_RENDERERS } from "@/shell/chat/tool-activity";
-import { CanvasProvider } from "@/shell/canvas/canvas-context";
+import {
+  CanvasProvider,
+  classifyA2uiSurface,
+} from "@/shell/canvas/canvas-context";
 import { SubagentActivityProvider } from "@/shell/subagents/subagent-activity";
 import { CanvasRegion } from "@/shell/canvas/canvas";
 import { useThreadSelection } from "@/shell/threads/use-thread-selection";
+import {
+  blockSurfaceIdFrom,
+  InlineBlockSurface,
+} from "@/shell/chat/inline-block-surface";
 
 /**
  * The agent's render_report result becomes an `a2ui-surface` activity that the
  * shared canvas renders full-region; generateSandboxedUi becomes an
  * `open-generative-ui` activity that ALSO renders full-region on the canvas
  * (this build ships the workspace OGUI renderer). In the chat we leave only a
- * small handoff pill in place of each built-in inline surface renderer.
+ * small handoff pill in place of each built-in inline surface renderer —
+ * EXCEPT for a `block:`-prefixed surface id, the exec skin's convention for a
+ * block dashboard tile that should render right in the transcript instead of
+ * handing off to the canvas. `blockSurfaceIdFrom` (shared with the exec skin's
+ * op-builder by hand, see that module's comment) recognizes the convention;
+ * any other `a2ui-surface` id falls back to a handoff pill.
  *
- * Module-level so the array reference stays stable across renders
- * (CopilotKitProvider requires a stable renderActivityMessages array). Both
- * activity types are handled here — the OGUI pill is not dropped.
+ * WHICH pill depends on what the canvas will actually do with the activity,
+ * which is `classifyA2uiSurface`'s call and not this renderer's: content the
+ * canvas cannot claim (junk, envelope drift, a shape no `CanvasSurface` can
+ * read) gets a neutral pill, because promising "rendered on the canvas" for it
+ * would be a lie — nothing opens, and for a skin with no `CanvasSurface` the
+ * canvas would have blanked the page anyway. The `block:` dispatch above is
+ * unchanged and still keyed on `blockSurfaceIdFrom` alone: it is the same
+ * predicate `InlineBlockSurface` re-checks, so the two can never disagree.
  */
+function A2UISurfaceActivity(props: { content: unknown }) {
+  if (blockSurfaceIdFrom(props.content))
+    return <InlineBlockSurface content={props.content} />;
+  return classifyA2uiSurface(props.content) === "canvas" ? (
+    <ReportHandoffPill />
+  ) : (
+    <UnrenderedSurfacePill />
+  );
+}
+
 function ReportHandoffPill() {
   return (
     <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
@@ -42,6 +69,23 @@ function ReportHandoffPill() {
         →
       </span>
       <span>rendered on the canvas</span>
+    </div>
+  );
+}
+
+/**
+ * The honest pill for a surface activity nothing will render: it states that a
+ * surface was generated and claims nothing about where it went.
+ */
+function UnrenderedSurfacePill() {
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
+      <span className="h-2 w-2 rounded-full bg-ink-muted" />
+      <span className="uppercase tracking-wide text-ink-muted">surface</span>
+      <span aria-hidden className="text-ink-muted">
+        →
+      </span>
+      <span>generated, but not displayable here</span>
     </div>
   );
 }
@@ -61,14 +105,33 @@ function OguiHandoffPill() {
   );
 }
 
+/**
+ * Module-level so the array reference stays stable across renders
+ * (CopilotKitProvider requires a stable renderActivityMessages array). Both
+ * activity types are handled here — the OGUI pill is not dropped.
+ */
 const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
-  { activityType: "a2ui-surface", content: z.any(), render: ReportHandoffPill },
+  {
+    activityType: "a2ui-surface",
+    content: z.any(),
+    render: A2UISurfaceActivity,
+  },
   {
     activityType: "open-generative-ui",
     content: z.any(),
     render: OguiHandoffPill,
   },
 ];
+
+/**
+ * Module-level so a skin that contributes NO sandbox functions still hands
+ * `CopilotKitProvider` the same array on every render. The provider compares
+ * its array props by reference against the first render's value and
+ * `console.error`s on any change — ungated by NODE_ENV — so an inline
+ * `?? []` fallback (a fresh literal each time) makes every skin without
+ * sandbox functions log that error on every render after the first.
+ */
+const NO_SANDBOX_FUNCTIONS: NonNullable<Skin["sandboxFunctions"]> = [];
 
 function SkinSuggestions({ skin }: { skin: Skin }) {
   useConfigureSuggestions({
@@ -171,6 +234,21 @@ function SkinCopilotRuntime({
   const Layout = skin.Layout;
   const Tools = skin.Tools;
 
+  // The provider's config objects are memoized rather than written inline: it
+  // keys internal memos off `a2ui` by identity (rebuilding its activity-renderer
+  // list whenever that reference changes), and reads
+  // `openGenerativeUI.sandboxFunctions` through a by-reference stability check.
+  // `skin` is fixed for this subtree's lifetime (keyed remount on skin change),
+  // so both are effectively constants.
+  const a2ui = useMemo(() => ({ catalog: skin.catalog }), [skin.catalog]);
+  const openGenerativeUI = useMemo(
+    () => ({
+      sandboxFunctions: skin.sandboxFunctions ?? NO_SANDBOX_FUNCTIONS,
+      designSkill: skin.designSkill,
+    }),
+    [skin.sandboxFunctions, skin.designSkill],
+  );
+
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
@@ -182,7 +260,7 @@ function SkinCopilotRuntime({
       // depends on a child effect firing in the right order. The provider adds
       // `a2uiCatalogAvailable` itself, so a skin need not set it.
       properties={properties}
-      a2ui={{ catalog: skin.catalog }}
+      a2ui={a2ui}
       // Replace the built-in inline surface renderers with small handoff pills
       // (report + OGUI both render full-region on the shared canvas).
       renderActivityMessages={A2UI_RENDERERS}
@@ -190,10 +268,7 @@ function SkinCopilotRuntime({
       // with no richer renderer of its own — this is what makes the agent's
       // tool use visible in the transcript.
       renderToolCalls={TOOL_CALL_RENDERERS}
-      openGenerativeUI={{
-        sandboxFunctions: skin.sandboxFunctions ?? [],
-        designSkill: skin.designSkill,
-      }}
+      openGenerativeUI={openGenerativeUI}
     >
       <CopilotChatConfigurationProvider agentId={skin.id} threadId={threadId}>
         <SkinProvider skin={skin}>

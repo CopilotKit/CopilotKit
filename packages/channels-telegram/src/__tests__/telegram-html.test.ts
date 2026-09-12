@@ -60,11 +60,91 @@ describe("telegramHtml", () => {
       '<a href="http://e.com/a&quot;b">x</a>',
     );
   });
+
+  it("empty input returns empty", () => {
+    expect(telegramHtml("")).toBe("");
+  });
+
+  it("__bold__ → <b>", () => {
+    expect(telegramHtml("__bold__")).toBe("<b>bold</b>");
+  });
+
+  it("_italic_ → <i>", () => {
+    expect(telegramHtml("_italic_")).toBe("<i>italic</i>");
+  });
+
+  it("## heading → bold", () => {
+    expect(telegramHtml("## Sub")).toBe("<b>Sub</b>");
+  });
+
+  it("### heading → bold", () => {
+    expect(telegramHtml("### Deep Title")).toBe("<b>Deep Title</b>");
+  });
+
+  it("inline code escapes &", () => {
+    expect(telegramHtml("`a & b`")).toBe("<code>a &amp; b</code>");
+  });
+
+  it("* bullet → • prefix", () => {
+    expect(telegramHtml("* item")).toBe("•  item");
+  });
+
+  it("+ bullet → • prefix", () => {
+    expect(telegramHtml("+ item")).toBe("•  item");
+  });
+
+  it("multiple fenced blocks each become <pre>", () => {
+    expect(telegramHtml("```\ncode1\n``` and ```\ncode2\n```")).toBe(
+      "<pre>code1</pre> and <pre>code2</pre>",
+    );
+  });
+
+  it("bold and italic can coexist on one line", () => {
+    expect(telegramHtml("**bold** and *italic*")).toBe(
+      "<b>bold</b> and <i>italic</i>",
+    );
+  });
 });
 
 describe("stripHtml", () => {
   // Regression: &amp;lt; must unescape to &lt;, not < (Bug 2 — unescape &amp; last)
   it("&amp;lt; unescapes to the literal text &lt;, not <", () => {
     expect(stripHtml("&amp;lt;")).toBe("&lt;");
+  });
+});
+
+describe("telegramHtml: fenced code language tags (#6602)", () => {
+  it("emits Telegram language- form for tagged fences", () => {
+    expect(telegramHtml("```js\nconst a = 1;\n```")).toBe(
+      '<pre><code class="language-js">const a = 1;</code></pre>',
+    );
+  });
+  it("handles python and escapes code contents", () => {
+    expect(telegramHtml("```python\nif a < b:\n    pass\n```")).toBe(
+      '<pre><code class="language-python">if a &lt; b:\n    pass</code></pre>',
+    );
+  });
+  it("untagged fences stay plain <pre>", () => {
+    expect(telegramHtml("```\nplain\n```")).toBe("<pre>plain</pre>");
+  });
+  it("single-line ```code``` fences become inline <code>", () => {
+    expect(telegramHtml("```code```")).toBe("<code>code</code>");
+  });
+  it("keeps language tokens that contain +, -, . or #", () => {
+    expect(telegramHtml("```c++\nx\n```")).toBe(
+      '<pre><code class="language-c++">x</code></pre>',
+    );
+    expect(telegramHtml("```objective-c\nx\n```")).toBe(
+      '<pre><code class="language-objective-c">x</code></pre>',
+    );
+    expect(telegramHtml("```asp.net\nx\n```")).toBe(
+      '<pre><code class="language-asp.net">x</code></pre>',
+    );
+  });
+  it("falls back to plain <pre> when the info string is not a language token", () => {
+    // An arbitrary info string must not become a class name. It is escaped
+    // either way, so this is about not emitting a meaningless attribute.
+    expect(telegramHtml("```<script>\nx\n```")).toBe("<pre>x</pre>");
+    expect(telegramHtml('```a"b\nx\n```')).toBe("<pre>x</pre>");
   });
 });

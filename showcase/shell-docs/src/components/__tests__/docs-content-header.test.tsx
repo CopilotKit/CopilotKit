@@ -7,7 +7,7 @@ import { DocsContentHeader } from "../docs-content-header";
 
 afterEach(cleanup);
 
-it("composes ancestor breadcrumbs and actions around the page title", () => {
+it("orders breadcrumbs, title, description, and actions", () => {
   render(
     <DocsContentHeader
       ancestorBreadcrumbs={[
@@ -27,11 +27,20 @@ it("composes ancestor breadcrumbs and actions around the page title", () => {
   expect(
     screen.getByRole("link", { name: "Reference" }).getAttribute("href"),
   ).toBe("/reference");
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-    "CopilotChatInput",
-  );
-  expect(screen.getByRole("button", { name: "Copy page" })).toBeTruthy();
-  expect(screen.getByText(/Primary text input/)).toBeTruthy();
+  const heading = screen.getByRole("heading", { level: 1 });
+  const description = screen.getByText(/Primary text input/);
+  const action = screen.getByRole("button", { name: "Copy page" });
+
+  expect(heading.textContent).toBe("CopilotChatInput");
+  expect(
+    heading.compareDocumentPosition(description) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    description.compareDocumentPosition(action) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(action.parentElement?.className).toBe("docs-page-actions-row");
 });
 
 it("does not render empty breadcrumb chrome", () => {

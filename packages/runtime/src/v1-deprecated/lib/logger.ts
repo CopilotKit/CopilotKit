@@ -45,10 +45,15 @@ export function createLogger(options?: {
   const logger = createPinoLogger(
     {
       level: process.env.LOG_LEVEL || level || "error",
-      redact: {
-        paths: ["pid", "hostname"],
-        remove: true,
-      },
+      // Drop `pid` and `hostname` with pino's own `base` switch rather than
+      // with `redact`. pino 9 validates every redact path by calling
+      // `Function(...)`, and edge runtimes such as Cloudflare Workers forbid
+      // code generation from strings. That throws while the logger is being
+      // built, and the validator reports the first path in the array, so the
+      // failure surfaces as the misleading "redact paths array contains an
+      // invalid path (pid)". `base: null` produces identical output and needs
+      // no code generation. See issue #2355.
+      base: null,
     },
     stream,
   );

@@ -1,13 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/angular";
-import { moduleMetadata } from "@storybook/angular";
+import { applicationConfig, moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
 import {
   Component,
   EventEmitter,
-  Injectable,
   Input,
   Output,
-  signal,
   ChangeDetectionStrategy,
 } from "@angular/core";
 import { fn } from "storybook/test";
@@ -17,23 +15,9 @@ import {
   provideCopilotChatLabels,
   provideCopilotKit,
 } from "@copilotkit/angular";
+import { StoryChatState } from "./story-chat-state";
 import type { ToolsMenuItem } from "@copilotkit/angular";
 import { CustomSendButtonComponent } from "../components/custom-send-button.component";
-
-@Injectable()
-class StoryChatState extends ChatState {
-  readonly inputValue = signal<string>("");
-
-  submitInput(value: string): void {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    this.inputValue.set("");
-  }
-
-  changeInput(value: string): void {
-    this.inputValue.set(value);
-  }
-}
 
 // Additional custom button components for slot demonstrations
 @Component({
@@ -93,6 +77,9 @@ const meta: Meta<CopilotChatInput> = {
   component: CopilotChatInput,
   tags: ["autodocs"],
   decorators: [
+    applicationConfig({
+      providers: [provideCopilotKit()],
+    }),
     moduleMetadata({
       imports: [
         CommonModule,
@@ -102,7 +89,6 @@ const meta: Meta<CopilotChatInput> = {
         RocketSendButtonComponent,
       ],
       providers: [
-        provideCopilotKit({}),
         { provide: ChatState, useClass: StoryChatState },
         provideCopilotChatLabels({
           chatInputPlaceholder: "Type a message...",

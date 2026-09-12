@@ -31,7 +31,7 @@
  * **Open Source Friendly** - Works without requiring a free public license key.
  *
  * <Callout title="Looking for fully headless UI?">
- * Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/v2/hooks/useCopilotChatHeadless_c).
+ * Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatHeadless_c).
  * </Callout>
  *
  * ## Use Cases
@@ -67,7 +67,10 @@
  * </PropertyReference>
  *
  * <PropertyReference name="appendMessage" type="(message: DeprecatedGqlMessage, options?) => Promise<void>" deprecated>
- * Append message using old format, use `sendMessage` instead
+ * Append a message and run the agent, using the old non-AG-UI format. This is
+ * the public v1 programmatic-send path. `sendMessage` is not part of the public
+ * v1 return type. For the AG-UI format, migrate to v2: `useAgent` plus
+ * `copilotkit.runAgent`. See https://docs.copilotkit.ai/migrate/v2
  * </PropertyReference>
  *
  * <PropertyReference name="reloadMessages" type="(messageId: string) => Promise<void>">

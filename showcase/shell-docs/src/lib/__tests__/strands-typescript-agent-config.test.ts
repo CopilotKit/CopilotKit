@@ -37,3 +37,41 @@ test("renders the Strands TypeScript agent-config bridge", () => {
   expect(output).not.toContain('title="backend/agent.py');
   expect(output).not.toContain("def read_config_value");
 });
+
+test("renders the Strands TypeScript sub-agent state callback for LLM readers", () => {
+  const doc = loadDoc("multi-agent/subagents");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "strands-typescript/multi-agent/subagents",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "multi-agent/subagents",
+      framework: "strands-typescript",
+    },
+    { framework: "strands-typescript" },
+  );
+
+  expect(output).toContain("export function makeSubagentStateFromResult");
+  expect(output).toContain("function readSubagentTask");
+  expect(output).toContain("StateSnapshotEvent");
+  expect(output).toContain("Promise<StatePayload | null>");
+  expect(output).not.toContain("@region[");
+
+  const otherFramework = renderPageToLlmText(
+    {
+      url: "langgraph-python/multi-agent/subagents",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "multi-agent/subagents",
+      framework: "langgraph-python",
+    },
+    { framework: "langgraph-python" },
+  );
+  expect(otherFramework).not.toContain(
+    "export function makeSubagentStateFromResult",
+  );
+});

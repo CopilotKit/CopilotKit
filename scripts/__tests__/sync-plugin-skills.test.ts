@@ -22,7 +22,7 @@ async function makeRepo(root: string) {
   );
   await writeFile(
     join(pkgRoot, "runtime/skills/runtime/references/setup-endpoint.md"),
-    "# Setup\n",
+    "# CLI\n",
   );
   await mkdir(join(pkgRoot, "a2ui-renderer/skills/a2ui-renderer"), {
     recursive: true,
@@ -32,10 +32,10 @@ async function makeRepo(root: string) {
     "---\nname: a2ui-renderer\n---\n# A2UI\n",
   );
   // Pre-existing standalone skill at the mirror root — must be left alone.
-  await mkdir(join(root, "skills/copilotkit-setup"), { recursive: true });
+  await mkdir(join(root, "skills/copilotkit-cli"), { recursive: true });
   await writeFile(
-    join(root, "skills/copilotkit-setup/SKILL.md"),
-    "---\nname: copilotkit-setup\n---\n# Setup\n",
+    join(root, "skills/copilotkit-cli/SKILL.md"),
+    "---\nname: copilotkit-cli\n---\n# CLI\n",
   );
 }
 
@@ -65,7 +65,7 @@ describe("syncPluginSkills", () => {
       join(repo, "skills/runtime/references/setup-endpoint.md"),
       "utf8",
     );
-    expect(runtimeRef).toBe("# Setup\n");
+    expect(runtimeRef).toBe("# CLI\n");
 
     const a2uiSkill = await readFile(
       join(repo, "skills/a2ui-renderer/SKILL.md"),
@@ -78,19 +78,19 @@ describe("syncPluginSkills", () => {
     await makeRepo(repo);
     await syncPluginSkills({ cwd: repo, mode: "write" });
     const standalone = await readFile(
-      join(repo, "skills/copilotkit-setup/SKILL.md"),
+      join(repo, "skills/copilotkit-cli/SKILL.md"),
       "utf8",
     );
-    expect(standalone).toBe("---\nname: copilotkit-setup\n---\n# Setup\n");
+    expect(standalone).toBe("---\nname: copilotkit-cli\n---\n# CLI\n");
   });
 
   it("errors with exit code 2 if a package skill collides with a reserved lifecycle slug", async () => {
     const pkgRoot = join(repo, "packages");
-    await mkdir(join(pkgRoot, "rogue/skills/copilotkit-setup"), {
+    await mkdir(join(pkgRoot, "rogue/skills/copilotkit-cli"), {
       recursive: true,
     });
     await writeFile(
-      join(pkgRoot, "rogue/skills/copilotkit-setup/SKILL.md"),
+      join(pkgRoot, "rogue/skills/copilotkit-cli/SKILL.md"),
       "collision\n",
     );
     const result = await syncPluginSkills({ cwd: repo, mode: "write" });
@@ -179,8 +179,8 @@ describe("syncPluginSkills", () => {
   });
 
   it("exports the reserved lifecycle slug set", () => {
-    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-setup");
-    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-self-update");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-cli");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit");
     // A standalone skill MUST be listed here. It is not generated from
     // packages/*/skills, so without an entry the sync treats it as an orphan and
     // deletes it.
@@ -190,7 +190,10 @@ describe("syncPluginSkills", () => {
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("inspector-docs");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("inspector-workbench");
     expect(RESERVED_LIFECYCLE_SLUGS).toContain("intelligence-docs");
-    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(14);
+    // Pinned deliberately: the nine knowledge skills that used to sit here were
+    // replaced by the two entry points, and a slug reappearing without a
+    // decision is what this number catches.
+    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(8);
   });
 
   // Version sync — the plugin version tracks packages/runtime/package.json.
