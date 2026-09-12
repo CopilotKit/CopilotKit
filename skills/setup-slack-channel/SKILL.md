@@ -77,11 +77,11 @@ its listening line, returns HTTP 200 on `/api/copilotkit/info`, and answers
 nothing. `/api/copilotkit/info` reports license and runtime info, **not** channel
 state, so a 200 there is not evidence of anything Slack-related.
 
-The SDK behaviors asserted here were verified against the currently published
-`@copilotkit/channels@0.6.0` and `@copilotkit/runtime@1.65.0`. A starter may pin
-something older or newer, and this API is moving fast. If a claim here
-contradicts what you observe, **trust the installed package** and re-read it —
-do not argue with the runtime.
+This skill targets `@copilotkit/channels@0.9.2` and `@copilotkit/runtime@1.70.3`,
+which ship as a tested pair and must be bumped together. The API is moving fast
+and a starter may pin something else. If a claim here contradicts what you
+observe, **trust the installed package** and re-read it — do not argue with the
+runtime.
 
 ## Scope — read before planning
 

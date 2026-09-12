@@ -214,8 +214,15 @@ describe("Channels documentation journey", () => {
         source,
         `${slug} retains the broken Channels 0.6.0 release`,
       ).not.toContain("@copilotkit/channels@0.6.0");
+      expect(
+        source,
+        `${slug} retains Channels 0.6.1, which cannot render components`,
+      ).not.toContain("@copilotkit/channels@0.6.1");
       expect(source, `${slug} retains Runtime 1.64.2`).not.toContain(
         "@copilotkit/runtime@1.64.2",
+      );
+      expect(source, `${slug} retains Runtime 1.65.0`).not.toContain(
+        "@copilotkit/runtime@1.65.0",
       );
     }
   });
