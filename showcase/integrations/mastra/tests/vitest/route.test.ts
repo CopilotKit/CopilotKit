@@ -194,7 +194,12 @@ describe("buildAgents", () => {
     const agents = buildAgents();
 
     expect(agents.subagentsSupervisorAgent).toBeDefined();
-    expect(agents.subagentsSupervisorAgent).not.toBe(agents.weatherAgent);
+    expect(mockedGetLocalAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "subagentsSupervisorAgent",
+        resourceId: "mastra-subagentsSupervisorAgent",
+      }),
+    );
   });
 
   it("throws when getLocalAgent returns null for any demo alias", async () => {
