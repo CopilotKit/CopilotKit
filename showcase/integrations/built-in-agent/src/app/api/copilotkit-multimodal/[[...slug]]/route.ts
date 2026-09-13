@@ -1,29 +1,30 @@
-// Dedicated runtime for the BYOC hashbrown demo.
+// Dedicated runtime for the Multimodal Attachments demo.
 //
-// Built-in-agent factory with a sales-dashboard system prompt and OpenAI
-// `response_format: { type: "json_object" }` so the model can only emit a
-// single JSON object — exactly what the hashbrown `useJsonParser` consumes.
+// Uses the multimodal built-in-agent variant: images flow through
+// `convertInputToTanStackAI` and are consumed natively by the vision adapter,
+// while PDF `document` parts (which the OpenAI text adapter cannot consume) are
+// flattened to text server-side with `unpdf` before the model call — parity
+// with LGP's `pypdf` flatten.
 
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { createByocHashbrownAgent } from "@/lib/factory/byoc-hashbrown-factory";
+import { createMultimodalAgent } from "@/lib/factory/multimodal-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
-  agents: { "declarative-hashbrown-demo": createByocHashbrownAgent() },
+  agents: { "multimodal-demo": createMultimodalAgent() },
   runner: new InMemoryAgentRunner(),
 });
 
 const handler = createCopilotRuntimeHandler({
   runtime,
-  basePath: "/api/copilotkit-declarative-hashbrown",
-  mode: "single-route",
+  basePath: "/api/copilotkit-multimodal",
 });
 
 async function withProbeCompat(req: Request): Promise<Response> {

@@ -3,32 +3,33 @@ import {
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { createA2UIFixedSchemaAgent } from "@/lib/factory/a2ui-fixed-schema-factory";
+import {
+  createAgenticChatReasoningAgent,
+  createReasoningDefaultRenderAgent,
+  createToolRenderingReasoningChainAgent,
+} from "@/lib/factory/reasoning-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
-// Dedicated runtime for the A2UI — Fixed Schema demo.
-//
-// `a2ui.injectA2UITool: false` — the backend factory owns the
-// `display_flight` tool which emits its own `a2ui_operations` container
-// (see src/lib/factory/a2ui-fixed-schema-factory.ts). The A2UI middleware
-// still runs so it detects the container in tool results and forwards the
-// rendered surface to the frontend renderer; we just don't want it to also
-// inject a runtime `render_a2ui` tool on top of our own.
+// Shared runtime for the three reasoning demos. The default tanstack
+// factory uses a non-reasoning model (gpt-4o) — these demos need a
+// reasoning-capable variant so REASONING_* events flow. They live on
+// their own basePath so a single page only spins up the reasoning model
+// when actually viewing a reasoning demo.
 const runtime = new CopilotRuntime({
-  agents: { "a2ui-fixed-schema": createA2UIFixedSchemaAgent() },
-  runner: new InMemoryAgentRunner(),
-  a2ui: {
-    injectA2UITool: false,
+  agents: {
+    "agentic-chat-reasoning": createAgenticChatReasoningAgent(),
+    "reasoning-default-render": createReasoningDefaultRenderAgent(),
+    "tool-rendering-reasoning-chain": createToolRenderingReasoningChainAgent(),
   },
+  runner: new InMemoryAgentRunner(),
 });
 
 const handler = createCopilotRuntimeHandler({
   runtime,
-  basePath: "/api/copilotkit-a2ui-fixed-schema",
-  mode: "single-route",
+  basePath: "/api/copilotkit-reasoning",
 });
 
 async function withProbeCompat(req: Request): Promise<Response> {
