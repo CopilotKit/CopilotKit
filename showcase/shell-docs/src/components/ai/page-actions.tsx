@@ -31,6 +31,7 @@ import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
 } from "@/lib/intelligence-onboarding-prompt";
+import { onboardingFeaturePromptSuffix } from "@/lib/docs-onboarding-feature";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -183,12 +184,11 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
  * straight into their coding agent.
  *
  * The copied string is `createIntelligenceOnboardingPrompt(runId)` followed by
- * three sentences of page context: which agent framework the reader is reading
- * about, which frontend they have selected, and which page they copied from.
- * All three are statements of fact for the receiving agent, never instructions
- * — the prompt itself is the only thing that tells the agent what to do, and
- * the sibling copies in the Intelligence repo and the Inspector have to keep
- * matching that part byte for byte.
+ * four sentences of page context: which agent framework the reader is reading
+ * about, which frontend they have selected, the selected Showcase feature
+ * outcome, and which page they copied from. The first three guide the local
+ * coding agent after the canonical onboarding command; the canonical prompt
+ * itself stays byte-identical to Intelligence and Inspector.
  *
  * Framework before frontend because that is the order the CLI's graph works
  * in: it settles the agent framework first, then the frontend. Each sentence
@@ -203,6 +203,7 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
 export function OnboardingPromptCopyButton({
   framework,
   frontend,
+  feature,
   markdownUrl,
   ...props
 }: ComponentProps<"button"> & {
@@ -232,6 +233,8 @@ export function OnboardingPromptCopyButton({
    * downstream by `frontendPromptSuffix`.
    */
   frontend?: { id: string; name: string };
+  /** Showcase feature represented by this page, when it has a bound cell. */
+  feature?: { cell: string; title: string; description?: string };
   /**
    * The page's `.mdx` URL as a site-root-relative path — the same value the
    * page-tools row hands `MarkdownCopyButton`. Passed in rather than derived
@@ -261,6 +264,7 @@ export function OnboardingPromptCopyButton({
               ? frameworkPromptSuffix(framework.slug, framework.name)
               : "") +
             (frontend ? frontendPromptSuffix(frontend.id, frontend.name) : "") +
+            (feature ? onboardingFeaturePromptSuffix(feature) : "") +
             ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`,
           onAction: (action) =>
             posthog?.capture(

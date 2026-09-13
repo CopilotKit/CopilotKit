@@ -243,6 +243,56 @@ describe("llms-mdx route", () => {
     );
   });
 
+  it("keeps each selected backend in a stateless feature Markdown fetch", async () => {
+    const frameworks = [
+      "langgraph-python",
+      "langgraph-typescript",
+      "google-adk",
+      "strands",
+      "built-in-agent",
+    ];
+    getIntegrationsMock.mockReturnValue(
+      frameworks.map((slug) => ({ slug })) as never,
+    );
+    getDocsModeMock.mockImplementation((slug: string) =>
+      slug === "built-in-agent" ? "authored" : "generated",
+    );
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "integrations/built-in-agent/agent-config"
+        ? {
+            source: "",
+            filePath: "integrations/built-in-agent/agent-config.mdx",
+            fm: {
+              title: "Agent Config",
+              description: "Built-in Agent config.",
+            },
+          }
+        : slug === "agent-config"
+          ? {
+              source: "",
+              filePath: "agent-config.mdx",
+              fm: {
+                title: "Agent Config",
+                description: "Shared feature guide.",
+              },
+            }
+          : null,
+    );
+
+    for (const framework of frameworks) {
+      const response = await callLlmsMdxRoute([framework, "agent-config"]);
+      expect(response.status).toBe(200);
+      const call = renderPageToLlmTextMock.mock.calls.at(-1);
+      expect(call?.[0]).toEqual(
+        expect.objectContaining({
+          url: `${framework}/agent-config`,
+          framework,
+        }),
+      );
+      expect(call?.[1]).toEqual({ framework });
+    }
+  });
+
   it("keeps an authored framework index ahead of the root quickstart fallback", async () => {
     loadDocMock.mockImplementation((slug: string) =>
       slug === "integrations/langgraph/index"

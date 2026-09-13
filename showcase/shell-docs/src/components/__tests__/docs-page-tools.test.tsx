@@ -119,4 +119,22 @@ describe("docsMarkdownUrl", () => {
   it("keeps a root-surface page at the origin", () => {
     expect(docsMarkdownUrl("", "quickstart")).toBe("/quickstart.mdx");
   });
+
+  it.each([
+    "langgraph-python",
+    "langgraph-typescript",
+    "google-adk",
+    "strands",
+    "built-in-agent",
+  ])(
+    "keeps %s in an explicit backend and frontend/backend Markdown URL",
+    (framework) => {
+      expect(docsMarkdownUrl(`/${framework}`, "agent-config")).toBe(
+        `/${framework}/agent-config.mdx`,
+      );
+      expect(docsMarkdownUrl(`/angular/${framework}`, "agent-config")).toBe(
+        `/angular/${framework}/agent-config.mdx`,
+      );
+    },
+  );
 });

@@ -24,6 +24,7 @@ import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
+import { onboardingFeaturePromptSuffix } from "@/lib/docs-onboarding-feature";
 
 const analytics = vi.hoisted(() => ({
   capture: vi.fn(),
@@ -97,6 +98,12 @@ const REACT = { id: "react", name: "React" };
 const SLACK = { id: "slack", name: "Slack" };
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
 const PAGE_SENTENCE = ` The developer copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
+const FEATURE = {
+  cell: "agent-config",
+  title: "Agent Config",
+  description:
+    "Let users change the agent's tone, expertise, and response length.",
+};
 
 /**
  * Render with the props every framework-scoped page supplies, so each test
@@ -153,7 +160,7 @@ function reportedRunId(callIndex = 0): string {
   return properties.onboarding_run_id as string;
 }
 
-it("copies the canonical prompt plus the framework and page sentences", async () => {
+it("copies the canonical prompt plus framework, feature, and page context", async () => {
   // A LOCAL guard only: the expected prompt comes from the same helper the
   // component calls, so this catches the component altering the canonical text
   // or appending anything beyond the two sentences below. It does NOT compare
@@ -161,7 +168,7 @@ it("copies the canonical prompt plus the framework and page sentences", async ()
   // byte-identical is not verified here.
   const writeText = stubClipboard();
 
-  renderButton();
+  renderButton({ feature: FEATURE });
   clickCopy();
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
@@ -175,7 +182,34 @@ it("copies the canonical prompt plus the framework and page sentences", async ()
   expect(writeText.mock.calls[0][0]).toBe(
     createIntelligenceOnboardingPrompt(reportedRunId()) +
       frameworkSentence +
+      onboardingFeaturePromptSuffix(FEATURE) +
       PAGE_SENTENCE,
+  );
+});
+
+it("asks for the Showcase-bound outcome after generic onboarding", async () => {
+  const writeText = stubClipboard();
+
+  renderButton({ feature: FEATURE });
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+  expect(writeText.mock.calls[0][0]).toContain(
+    "After onboarding, implement the Showcase feature “Agent Config” in this app. Its goal: Let users change the agent's tone, expertise, and response length. Follow the linked guide.",
+  );
+});
+
+it("leaves quickstarts and references generic without a feature binding", async () => {
+  const writeText = stubClipboard();
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+  expect(writeText.mock.calls[0][0]).not.toContain(
+    "After onboarding, implement",
   );
 });
 

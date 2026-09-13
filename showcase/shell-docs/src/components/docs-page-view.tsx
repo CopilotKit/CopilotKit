@@ -288,6 +288,15 @@ export async function DocsPageView({
                   githubUrl={buildGitHubUrl(doc.filePath)}
                   onboardingFramework={onboardingFramework}
                   onboardingFrontend={onboardingFrontend}
+                  onboardingFeature={
+                    doc.fm.defaultCell
+                      ? {
+                          cell: doc.fm.defaultCell,
+                          title: doc.fm.title,
+                          description: doc.fm.description,
+                        }
+                      : undefined
+                  }
                   hideOnboardingPrompt={slugPath === "webmcp"}
                 />
               )}
