@@ -6,6 +6,21 @@
   },
   "fixtures": [
     {
+      "_comment": "Guide reader flow: a natural request, strictly gated on every selected control in the emitted system prompt.",
+      "match": {
+        "userMessage": "Introduce yourself in the style I selected.",
+        "systemMessage": [
+          "tone=casual",
+          "expertise=expert",
+          "responseLength=detailed"
+        ],
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Active config: casual tone, expert expertise, detailed response length. Hey! I am your technical CopilotKit companion, ready to discuss runtime architecture, AG-UI events, and integration tradeoffs in depth without unnecessary formality."
+      }
+    },
+    {
       "_comment": "agent-config tone:professional pill — value-A. Fixture must return a professional-sounding introduction.",
       "match": {
         "userMessage": "tone:professional",
