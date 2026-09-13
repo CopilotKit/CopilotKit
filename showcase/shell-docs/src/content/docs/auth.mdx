@@ -7,7 +7,22 @@ snippet_cell: auth
 
 <InlineDemo demo="auth" />
 
-You have a chat surface or a hook driving an agent and you want every agent run to know *who* the request came from. By the end of this guide, your frontend will forward a token, the runtime will pass it through, and your agent code will read the resulting user info on every turn.
+You have a chat surface or a hook driving an agent and need a request identity boundary. By the end of this guide, the browser forwards an authorization header and the runtime rejects a missing or invalid credential before it dispatches an agent run.
+
+## Start with the Showcase auth path
+
+The selected Showcase cell keeps its demo token in the browser, derives an
+`Authorization` header from it, and passes that header through the provider to
+its dedicated runtime route. The route rejects a request before dispatch when
+the header does not match. These excerpts show the working demo contract, not
+a production identity provider. Keep verification on the server; the notes
+below explain where that application-owned check belongs.
+
+<Snippet region="auth-request-headers" title="frontend/src/app/demos/auth/page.tsx — derive request headers" />
+
+<Snippet region="auth-runtime-transport" title="frontend/src/app/demos/auth/page.tsx — provider transport" />
+
+<Snippet region="auth-on-request-gate" title="app/api/copilotkit-auth/[[...slug]]/route.ts — reject before dispatch" />
 
 ## When to use this
 
@@ -20,209 +35,38 @@ If you don't need any of those, skip auth entirely. The agent runs anonymously a
 
 <WhenFrameworkHas flag="auth_pattern" equals="runtime-onrequest">
 
-## Frontend
+## Use the same boundary in your app
 
-Pass your token via the `headers` prop on `<CopilotKit>`. CopilotKit forwards every request with that header attached.
+The Showcase compares a demo header. In production, replace that comparison
+inside the same V2 `onRequest` hook with your server-side session or token
+verifier. It must reject the request before the runtime dispatches an agent;
+do not pass credentials through `properties`, which are run payload data rather
+than request headers.
 
-```tsx title="frontend/src/app/page.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
-
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  headers={{
-    Authorization: `Bearer ${userToken}`,
-  }}
-  useSingleEndpoint={false}
->
-  <YourApp />
-</CopilotKit>
-```
-
-<Callout type="info" title="About the explicit useSingleEndpoint">
-  The `createCopilotRuntimeHandler` route below serves multi-route, the default.
-  `<CopilotKitProvider>` negotiates the transport when the prop is omitted, but
-  every released `<CopilotKit>` still pins it to `true` internally — which
-  selects the single-route transport and 404s against this route. Keep the
-  `{false}`. See
-  [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
-</Callout>
-
-## Backend
-
-Wire authentication into the V2 runtime via the `onRequest` hook. The hook runs before any agent code and operates on the raw `Request`, so it's the right place to read the `Authorization` header, run your verifier, and either let the request through or short-circuit with a 401:
-
-```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import type { NextRequest } from "next/server";
-import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-
-const runtime = new CopilotRuntime({ agents: { default: myAgent } });
-
-const handler = createCopilotRuntimeHandler({
-  runtime,
-  basePath: "/api/copilotkit",
-  hooks: {
-    onRequest: ({ request }) => {
-      const authHeader = request.headers.get("authorization");
-      if (!authHeader?.startsWith("Bearer ")) {
-        throw new Response(
-          JSON.stringify({ error: "unauthorized" }),
-          { status: 401, headers: { "content-type": "application/json" } },
-        );
-      }
-      const token = authHeader.slice("Bearer ".length);
-      const user = verifyJwt(token); // your validation
-      // attach user to request-scoped context here
-    },
-  },
-});
-
-export const POST = (req: NextRequest) => handler(req);
-export const GET = (req: NextRequest) => handler(req);
-```
-
-> The V1 Next.js adapter (`copilotRuntimeNextJSAppRouterEndpoint`) does not forward the `hooks` option. Use `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` directly when you need the `onRequest` gate.
+The selected source excerpt includes `useSingleEndpoint={false}` because its
+runtime exposes the multi-route V2 handler. Keep the provider and handler
+transport paired; see [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs)
+and the [`CopilotKit` configuration reference](/reference/components/CopilotKit).
 
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="auth_pattern" equals="langgraph">
 
-## Frontend
+## LangGraph Showcase route
 
-Pass your token via the `headers` prop. CopilotKit attaches it to every runtime request, and the runtime forwards the `Authorization` header on to your agent — whether that's a LangGraph deployment or a self-hosted AG-UI endpoint.
+The selected LangGraph Python and TypeScript Showcase cells use the same V2
+`onRequest` boundary shown above. Their `LangGraphAgent` is dispatched only
+after that handler accepts the request. Keep the bearer credential in
+`headers`; `properties` becomes AG-UI `forwardedProps`, so it is not an
+authentication channel.
 
-```tsx title="frontend/src/app/page.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
+<Snippet region="auth-runtime-agent" title="app/api/copilotkit-auth/[[...slug]]/route.ts — selected LangGraph agent" />
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  headers={{
-    Authorization: `Bearer ${userToken}`,
-  }}
->
-  <YourApp />
-</CopilotKit>
-```
-
-<Callout type="warning" title="`properties` is not an auth channel">
-Older versions of this guide passed the token as `properties={{ authorization: userToken }}`. The runtime delivers `properties` to the agent as AG-UI `forwardedProps` — run payload data, not a request header — so nothing turns them into a Bearer credential. Use `headers` for auth. Headers the server configured on the agent itself still win on collision, so a service-to-service token can't be overridden from the browser.
-</Callout>
-
-## Backend
-
-LangGraph supports two deployment modes. The frontend code above is the same in both, but the backend wiring differs in where the resolved user identity lands. Pick the tab that matches where your agent runs.
-
-<Tabs items={['LangGraph Platform', 'Self-hosted (FastAPI)']}>
-<Tab value="LangGraph Platform">
-
-On LangGraph Platform (and on `langgraph dev`), authentication is a managed service. You declare an `@auth.authenticate` handler, and the server runs it on every request before the graph starts. The forwarded `Authorization` header arrives as the handler's `authorization` argument, and the handler's return value becomes available to every node in the run.
-
-```python title="backend/auth.py"
-from langgraph_sdk import Auth
-
-auth = Auth()
-
-@auth.authenticate
-async def authenticate(authorization: str | None):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise Auth.exceptions.HTTPException(status_code=401, detail="Unauthorized")
-
-    token = authorization.replace("Bearer ", "")
-    user_info = validate_your_token(token)  # your validation logic
-
-    return {
-        "identity": user_info["user_id"],
-        "role": user_info.get("role"),
-        "permissions": user_info.get("permissions", []),
-    }
-```
-
-The return value of the handler shows up in every node's `config["configurable"]["langgraph_auth_user"]`. From there, scoping tool access or filtering data is straightforward:
-
-```python title="backend/agent.py"
-from langchain_core.runnables import RunnableConfig
-
-async def my_agent_node(state: AgentState, config: RunnableConfig):
-    user_info = config["configurable"]["langgraph_auth_user"]
-    user_id = user_info["identity"]
-    user_role = user_info.get("role")
-    # agent logic with user context
-    return state
-```
-
-For full handler details, see the [LangGraph Platform Authentication documentation](https://docs.langchain.com/langsmith/auth#authentication).
-
-</Tab>
-<Tab value="Self-hosted (FastAPI)">
-
-When you self-host the agent behind FastAPI, there's no managed auth handler to plug into — validation is your job, and the natural place for it is the endpoint that serves the AG-UI stream. `add_langgraph_fastapi_endpoint` mounts that endpoint for you, but it takes one pre-built agent and gives you no per-request hook, so replace it with the equivalent route of your own: a FastAPI dependency verifies the `Authorization` header the runtime forwarded, and the resolved user is baked into a per-request agent's `config`.
-
-```python title="backend/main.py"
-from typing import Optional
-
-from ag_ui.core.types import RunAgentInput
-from ag_ui.encoder import EventEncoder
-from copilotkit import LangGraphAGUIAgent
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import StreamingResponse
-
-from src.agent import graph
-
-app = FastAPI()
-
-def current_user(authorization: Optional[str] = Header(default=None)) -> dict:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-    return validate_your_token(authorization.removeprefix("Bearer ").strip())  # your validation
-
-@app.post("/")
-async def run_agent(
-    input_data: RunAgentInput,
-    request: Request,
-    user: dict = Depends(current_user),
-):
-    encoder = EventEncoder(accept=request.headers.get("accept"))
-
-    # One agent per request: the verified identity rides on this run only, and
-    # each request gets its own isolated streaming state.
-    agent = LangGraphAGUIAgent(
-        name="sample_agent",
-        graph=graph,
-        config={"configurable": {"auth_user": user}},
-    )
-
-    async def event_generator():
-        async for event in agent.run(input_data):
-            yield encoder.encode(event)
-
-    return StreamingResponse(event_generator(), media_type=encoder.get_content_type())
-```
-
-Unauthenticated requests never reach the graph — they get a 401 from the dependency. Authenticated ones arrive with an already-verified user on the config, so nodes read identity instead of re-validating a raw token:
-
-```python title="backend/src/agent.py"
-from langchain_core.runnables import RunnableConfig
-
-async def my_agent_node(state: AgentState, config: RunnableConfig):
-    user = config["configurable"]["auth_user"]
-    user_id = user["user_id"]
-    user_role = user.get("role")
-    # agent logic with user context
-    return state
-```
-
-<Callout type="info" title="If you only need the 401 gate">
-When nodes don't need the identity — you just want unauthenticated traffic rejected — keep `add_langgraph_fastapi_endpoint` and hang the dependency off the app: `FastAPI(dependencies=[Depends(current_user)])`. The gate applies, but nothing lands on the run config, so `config["configurable"]` stays empty of user context.
-</Callout>
-
-<Callout type="warning" title="`CopilotKitRemoteEndpoint` no longer works here">
-Guides written for CopilotKit v1 wrapped the graph in `CopilotKitRemoteEndpoint(agents=lambda context: [...])`. That path is retired: `copilotkit` no longer exports `LangGraphAgent` (`ImportError`), and the current `LangGraphAGUIAgent` exposes `run()` rather than the `execute()` that `CopilotKitRemoteEndpoint` calls — giving `AgentExecutionException: 'LangGraphAGUIAgent' object has no attribute 'execute'`. Use the endpoint above instead.
-</Callout>
-
-</Tab>
-</Tabs>
+For a managed LangGraph Platform deployment, follow
+[LangGraph Platform authentication](https://docs.langchain.com/langsmith/auth#authentication)
+for that platform's server-side identity integration. The selected TypeScript
+Showcase does not implement the Python `auth.py` or FastAPI pattern, so this
+guide intentionally does not present either as its runnable setup.
 
 </WhenFrameworkHas>
 

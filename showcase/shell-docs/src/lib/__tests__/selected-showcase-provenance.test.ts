@@ -108,3 +108,130 @@ test("Built-in Agent agent config shows its provider and in-process factory", ()
   expect(output).toContain("choose **casual**, **expert**, and **detailed**");
   expect(output).toContain("Introduce yourself in the style I selected.");
 });
+
+test("Built-in Agent MCP Apps guide uses its current runtime configuration", () => {
+  const output = render(
+    "integrations/built-in-agent/generative-ui/mcp-apps",
+    "built-in-agent/generative-ui/mcp-apps",
+    "built-in-agent",
+  );
+
+  expect(output).toContain("mcpApps: {");
+  expect(output).toContain('serverId: "excalidraw"');
+  expect(output).toContain("MCPAppsActivityRenderer");
+  expect(output).toContain("Ask the Showcase agent to draw a simple diagram");
+  expect(output).not.toContain("MCPAppsMiddleware");
+  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<Snippet");
+});
+
+test("selected Display-only guides render their Showcase component and setup", () => {
+  const cases = [
+    {
+      loadSlug:
+        "integrations/langgraph/generative-ui/your-components/display-only",
+      url: "langgraph-python/generative-ui/your-components/display-only",
+      framework: "langgraph-python",
+      setup: "CopilotKitMiddleware",
+      retired: ["CopilotKitState", "@copilotkit/sdk-js/langgraph"],
+    },
+    {
+      loadSlug:
+        "integrations/langgraph/generative-ui/your-components/display-only",
+      url: "langgraph-typescript/generative-ui/your-components/display-only",
+      framework: "langgraph-typescript",
+      setup: "CopilotKitStateAnnotation",
+      // Both the annotation and this SDK package are the current TS setup.
+      // The positive setup assertion above is the source-provenance contract.
+      retired: [],
+    },
+    {
+      loadSlug:
+        "integrations/aws-strands/generative-ui/your-components/display-only",
+      url: "aws-strands/generative-ui/your-components/display-only",
+      framework: "strands",
+      setup: "StrandsAgent",
+      retired: ["CopilotKitState", "@copilotkit/sdk-js/langgraph"],
+    },
+    {
+      loadSlug:
+        "integrations/built-in-agent/generative-ui/your-components/display-only",
+      url: "built-in-agent/generative-ui/your-components/display-only",
+      framework: "built-in-agent",
+      setup: "convertToolsToVercelAITools",
+      retired: ["CopilotKitState", "@copilotkit/sdk-js/langgraph"],
+    },
+  ];
+
+  for (const route of cases) {
+    const output = render(route.loadSlug, route.url, route.framework);
+    expect(output, route.url).toContain("useComponent({");
+    expect(output, route.url).toContain('name: "render_bar_chart"');
+    expect(output, route.url).toContain(route.setup);
+    expect(output, route.url).toContain(
+      "Ask the Showcase agent to show a bar chart",
+    );
+    for (const retired of route.retired) {
+      expect(output, route.url).not.toContain(retired);
+    }
+    expect(output, route.url).not.toContain("Missing snippet");
+    expect(output, route.url).not.toContain("<Snippet");
+  }
+});
+
+test("Built-in Agent Shared State documents the current provider and notes bridge", () => {
+  const output = render(
+    "integrations/built-in-agent/shared-state",
+    "built-in-agent/shared-state",
+    "built-in-agent",
+  );
+
+  expect(output).toContain('runtimeUrl="/api/copilotkit"');
+  expect(output).toContain('agent="shared-state-read-write"');
+  expect(output).toContain('"shared-state-read-write": createBuiltInAgent');
+  expect(output).toContain("UseAgentUpdate.OnStateChanged");
+  expect(output).toContain("EventType.STATE_DELTA");
+  expect(output).toContain('path: "/notes"');
+  expect(output).toContain("formatSharedStatePreferences");
+  expect(output).toContain("const state = input.state;");
+  expect(output).toContain("Other Built-in Agent demos do not receive");
+  expect(output).toContain("Remember something");
+  expect(output).not.toContain("<FrameworkSetup");
+  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<Snippet");
+});
+
+test("selected LangGraph Auth routes render complete current runtime excerpts", () => {
+  const cases = [
+    {
+      framework: "langgraph-python",
+      runtimeAgent: 'graphId: "sample_agent"',
+    },
+    {
+      framework: "langgraph-typescript",
+      runtimeAgent: 'graphId: "starterAgent"',
+    },
+  ];
+
+  for (const route of cases) {
+    const output = render("auth", `${route.framework}/auth`, route.framework);
+    expect(output, route.framework).toContain(
+      "Authorization: authorizationHeader",
+    );
+    expect(output, route.framework).toContain("useSingleEndpoint={false}");
+    expect(output, route.framework).toContain("new LangGraphAgent");
+    expect(output, route.framework).toContain(route.runtimeAgent);
+    expect(output, route.framework).toContain("throw new Response(");
+    expect(output, route.framework).toContain("status: 401");
+    expect(output, route.framework).toContain(
+      'headers: { "content-type": "application/json" }',
+    );
+    expect(output, route.framework).not.toContain("backend/auth.py");
+    expect(output, route.framework).not.toContain("Self-hosted (FastAPI)");
+    expect(output, route.framework).not.toContain(
+      "properties={{ authorization",
+    );
+    expect(output, route.framework).not.toContain("Missing snippet");
+    expect(output, route.framework).not.toContain("<Snippet");
+  }
+});

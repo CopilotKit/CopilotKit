@@ -86,6 +86,11 @@ demos:
     tags:
       - chat-ui
     command: "npx copilotkit@latest init --framework langgraph-typescript"
+    highlight:
+      - package.json
+      - src/agent/package.json
+      - src/agent/langgraph.json
+      - src/agent/graph.ts
   - id: agentic-chat
     name: "Pre-Built: CopilotChat"
     description: Vanilla CopilotChat with three starter-prompt suggestions — the minimum-viable surface for free-form chat
@@ -495,6 +500,8 @@ demos:
     highlight:
       - src/agent/multimodal.ts
       - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/multimodal-chat.tsx
+      - src/app/demos/multimodal/file-to-data-attachment.ts
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
   - id: auth

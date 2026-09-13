@@ -32,6 +32,7 @@ const LANGGRAPH_URL =
 // Reuse the neutral `starterAgent` graph for the authenticated path. The
 // point of this demo is the gate mechanism, not per-user agent branching —
 // authenticated users get the same behavior as any other neutral demo.
+// @region[auth-runtime-agent]
 const authDemoAgent = new LangGraphAgent({
   deploymentUrl: `${LANGGRAPH_URL}/`,
   graphId: "starterAgent",
@@ -46,6 +47,7 @@ const runtime = new CopilotRuntime({
     default: authDemoAgent,
   },
 });
+// @endregion[auth-runtime-agent]
 
 const BASE_PATH = "/api/copilotkit-auth";
 
@@ -54,6 +56,7 @@ const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: BASE_PATH,
   hooks: {
+    // @region[auth-on-request-gate]
     onRequest: ({ request }) => {
       const authHeader = request.headers.get("authorization");
       if (authHeader !== DEMO_AUTH_HEADER) {
@@ -72,6 +75,7 @@ const handler = createCopilotRuntimeHandler({
         );
       }
     },
+    // @endregion[auth-on-request-gate]
   },
 });
 

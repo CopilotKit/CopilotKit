@@ -7,10 +7,11 @@
  */
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
   START,
@@ -226,6 +227,7 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
 // 5. Compile the graph
 // ---------------------------------------------------------------------------
 
+// @region[cli-start-graph-export]
 const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("chat_node", chatNode)
   .addNode("tool_node", new ToolNode(tools))
@@ -238,3 +240,4 @@ const memory = new MemorySaver();
 export const graph = workflow.compile({
   checkpointer: memory,
 });
+// @endregion[cli-start-graph-export]

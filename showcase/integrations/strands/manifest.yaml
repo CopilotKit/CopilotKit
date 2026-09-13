@@ -417,6 +417,8 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/multimodal-chat.tsx
+      - src/app/demos/multimodal/file-to-data-attachment.ts
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
   - id: voice

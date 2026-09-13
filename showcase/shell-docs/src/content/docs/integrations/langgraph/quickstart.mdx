@@ -113,6 +113,8 @@ Before you begin, you'll need the following:
             title="Use an existing agent"
             description="I already have a LangGraph agent and want to add CopilotKit."
         >
+          <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+          <Tab value="Python">
           <Step>
               ### Initialize your agent project
 
@@ -578,6 +580,69 @@ Before you begin, you'll need the following:
                   </Tab>
               </Tabs>
           </Step>
+          </Tab>
+          <Tab value="TypeScript">
+            ### Run an existing TypeScript LangGraph agent
+
+            The selected TypeScript Showcase runs its graph with Node.js 20 and
+            `@langchain/langgraph-cli`. Start in your agent directory; keep your
+            existing graph implementation, then use the Showcase package as the
+            dependency and start-script reference.
+
+            ```bash
+            mkdir my-langgraph-agent
+            cd my-langgraph-agent
+            npm init -y
+            ```
+
+            Merge the dependencies and `dev` script below into your agent's
+            `package.json`, then install them. The script starts the graph on
+            port `8123`, which matches the selected Showcase runtime's local
+            deployment URL.
+
+            <Snippet
+              framework="langgraph-typescript"
+              cell="cli-start"
+              file="src/agent/package.json"
+              title="src/agent/package.json — selected TypeScript agent dependencies and dev command"
+            />
+
+            ```bash
+            npm install
+            npm run dev
+            ```
+
+            Register the graph export that should receive chat runs in
+            `langgraph.json`. The selected Showcase maps `starterAgent` to the
+            `graph` export in `graph.ts`; replace that path and export only when
+            your existing agent uses different names.
+
+            <Snippet
+              framework="langgraph-typescript"
+              cell="cli-start"
+              file="src/agent/langgraph.json"
+              title="src/agent/langgraph.json — selected TypeScript graph registrations"
+            />
+
+            The selected graph compiles a `StateGraph` and exports it as
+            `graph`, matching the `starterAgent` registration above:
+
+            <Snippet
+              framework="langgraph-typescript"
+              cell="cli-start"
+              region="cli-start-graph-export"
+              title="src/agent/graph.ts — compile and export the selected graph"
+            />
+
+            With the agent available at `http://localhost:8123`, connect your
+            React app through a V2 runtime route. The selected demo's route
+            maps its public agent names to the graph ids above; use the same
+            public name in your provider and runtime. See [Provider and handler
+            pairs](/backend/runtime-endpoints#provider-and-handler-pairs) for
+            the route shape and [the React quickstart](/react) for the frontend
+            setup.
+          </Tab>
+          </Tabs>
         </TailoredContentOption>
     </TailoredContent>
     </Step>

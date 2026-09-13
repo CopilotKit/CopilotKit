@@ -255,6 +255,7 @@ demos:
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/lib/factory/state-tools.ts
+      - src/lib/factory/tanstack-factory.ts
       - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: shared-state-read
     name: "Shared State: Read-only"
@@ -481,6 +482,8 @@ demos:
     route: /demos/multimodal
     highlight:
       - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/multimodal-chat.tsx
+      - src/app/demos/multimodal/file-to-data-attachment.ts
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/lib/factory/tanstack-factory.ts
       - src/app/api/copilotkit-multimodal/[[...slug]]/route.ts
