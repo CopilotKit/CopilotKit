@@ -89,6 +89,20 @@ const sharedFrontendEntries = [
       "multimodal/sample-attachment-buttons.tsx",
     ),
   },
+  {
+    source: path.join(showcaseRoot, "shared/react/demos/voice/voice-chat.tsx"),
+    targets: demoTargets(selectedReactIntegrations, "voice/voice-chat.tsx"),
+  },
+  {
+    source: path.join(
+      showcaseRoot,
+      "shared/react/demos/voice/sample-audio-button.tsx",
+    ),
+    targets: demoTargets(
+      selectedReactIntegrations,
+      "voice/sample-audio-button.tsx",
+    ),
+  },
 ];
 
 export function syncSharedFrontends(write = false): string[] {

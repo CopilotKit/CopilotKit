@@ -61,6 +61,7 @@ export function VoiceChat() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-lg font-semibold">Voice input</h1>
         <SampleAudioButton
+          agentId={AGENT_ID}
           onTranscribed={handleTranscribed}
           sampleText={SAMPLE_TEXT}
         />
