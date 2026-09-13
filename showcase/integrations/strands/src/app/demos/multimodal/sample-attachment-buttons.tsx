@@ -1,5 +1,8 @@
 "use client";
 
+// Canonical source; materialized into each selected integration by
+// showcase/scripts/sync-shared-frontends.ts.
+
 /**
  * Two buttons that auto-attach a bundled sample file (image or PDF) and
  * immediately submit a canned prompt about it.
@@ -189,21 +192,24 @@ function generateMessageId(): string {
 export function SampleAttachmentButtons({
   agentId,
 }: SampleAttachmentButtonsProps) {
-  const { agent } = useAgent({ agentId });
+  const { agent, isReady } = useAgent({ agentId });
   const { copilotkit } = useCopilotKit();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const sendSample = useCallback(
     async (spec: SampleSpec): Promise<void> => {
+      // A `useAgent` call first exposes a provisional instance, then swaps in
+      // the runtime-backed agent after its info request completes. Never put a
+      // sample message on that provisional instance: it would be discarded by
+      // the swap before `runAgent` reaches the runtime.
+      if (!isReady || !agent) {
+        setError(`Agent "${agentId}" is still connecting. Try again shortly.`);
+        return;
+      }
       setError(null);
       setLoading(spec.testId);
       try {
-        if (!agent) {
-          throw new Error(
-            `Agent "${agentId}" is not yet available. Try again in a moment.`,
-          );
-        }
         const sample = await fetchSample(spec);
         const partType =
           spec.mimeType === "application/pdf" ? "document" : "image";
@@ -241,7 +247,7 @@ export function SampleAttachmentButtons({
         setLoading(null);
       }
     },
-    [agent, agentId, copilotkit],
+    [agent, agentId, copilotkit, isReady],
   );
 
   return (
@@ -259,11 +265,15 @@ export function SampleAttachmentButtons({
             key={spec.testId}
             type="button"
             data-testid={spec.testId}
-            disabled={loading !== null}
+            disabled={!isReady || loading !== null}
             onClick={() => void sendSample(spec)}
             className="rounded border border-black/15 bg-white px-3 py-1 text-xs font-medium text-black transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:bg-neutral-900 dark:text-white dark:hover:bg-white/5"
           >
-            {isLoading ? "Sending…" : spec.buttonLabel}
+            {isLoading
+              ? "Sending…"
+              : !isReady
+                ? "Connecting…"
+                : spec.buttonLabel}
           </button>
         );
       })}

@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+// Canonical source; materialized into each selected integration by
+// showcase/scripts/sync-shared-frontends.ts.
+
+import React, { useEffect } from "react";
 import {
   CopilotKit,
   useAgent,
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 
-import { Preferences } from "./preferences-card";
+import type { Preferences } from "./preferences-card";
 import { DemoLayout } from "./demo-layout";
 import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
@@ -28,11 +31,13 @@ interface RWAgentState {
 }
 
 export default function SharedStateReadWriteDemo() {
+  // @region[shared-state-provider]
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
       <DemoContent />
     </CopilotKit>
   );
+  // @endregion[shared-state-provider]
 }
 
 function DemoContent() {
@@ -41,7 +46,7 @@ function DemoContent() {
   // Subscribe the component to agent state changes. Any time the agent
   // mutates its state (e.g. via its `set_notes` tool) this hook fires,
   // we re-render, and the sidebar panels reflect the new values.
-  const { agent } = useAgent({
+  const { agent, isReady } = useAgent({
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
@@ -54,36 +59,28 @@ function DemoContent() {
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
   const notes = agentState?.notes ?? [];
 
-  // Seed initial preferences exactly once, AFTER agent.state has been
-  // observed at least once. The previous mount-only effect with empty
-  // deps could fire before the runtime hydrated state on reload, wiping
-  // backend-persisted preferences with INITIAL_PREFERENCES.
-  const seededRef = useRef(false);
+  // Wait for the runtime-synchronized agent before seeding. `useAgent` first
+  // exposes a provisional instance, then swaps in the instance that
+  // serializes `input.state` on a run. Seeding the provisional instance loses
+  // preferences; seeding before hydration can overwrite persisted state.
   useEffect(() => {
-    if (seededRef.current) return;
-    if (agentState === undefined) return; // wait for first state event
-    seededRef.current = true;
-    if (!agentState?.preferences) {
-      // Spread the observed state so any keys the runtime owns
-      // (`copilotkit` slot, future framework additions) survive the
-      // seed write — `agent.setState` replaces the whole state object
-      // rather than merging. `notes` falls back to the observed value
-      // (or `[]` if absent) so an existing notes list isn't wiped just
-      // because the user landed without persisted preferences.
+    if (!isReady) return;
+    const currentState = agent.state as RWAgentState | undefined;
+    if (!currentState?.preferences) {
       agent.setState({
-        ...(agentState as object | undefined),
+        ...(currentState as object | undefined),
         preferences: INITIAL_PREFERENCES,
-        notes: agentState?.notes ?? [],
+        notes: currentState?.notes ?? [],
       } as RWAgentState);
     }
-  }, [agent, agentState]);
+  }, [agent, isReady]);
 
   // @region[set-state]
   // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
-  // On the agent's next turn, `_inject_preferences` reads this back out
-  // of state and prepends a preferences SystemMessage — so the UI's
-  // writes visibly steer the model.
+  // On the agent's next turn, the route's opt-in stateSystemPrompt formatter
+  // reads this back out of state and adds it to the system prompt — so the
+  // UI's writes visibly steer the model.
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
       ...(agentState as object | undefined),

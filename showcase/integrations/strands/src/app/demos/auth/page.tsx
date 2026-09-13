@@ -1,5 +1,8 @@
 "use client";
 
+// Canonical source; materialized into each selected integration by
+// showcase/scripts/sync-shared-frontends.ts.
+
 // Auth demo — framework-native request authentication via the V2 runtime's
 // `onRequest` hook. The runtime route (/api/copilotkit-auth) rejects any
 // request whose `Authorization: Bearer <demo-token>` header is missing or
@@ -26,11 +29,9 @@
 // sign-out path produces.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  type CopilotKitCoreErrorCode,
-} from "@copilotkit/react-core/v2";
+import type { SyntheticEvent } from "react";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
 import { AuthBanner } from "./auth-banner";
 import { SignInCard } from "./sign-in-card";
 import { useDemoAuth } from "./use-demo-auth";
@@ -38,12 +39,23 @@ import { DEMO_TOKEN } from "./demo-token";
 
 interface AuthDemoErrorState {
   message: string;
-  code: CopilotKitCoreErrorCode | string;
+  code: string;
 }
 
 interface AuthErrorEvent {
-  error?: { message?: string } | null;
-  code: CopilotKitCoreErrorCode;
+  error?: {
+    message?: string;
+    code?: string;
+    extensions?: { code?: string };
+  } | null;
+  code?: CopilotKitCoreErrorCode | string;
+  context?: { response?: { status?: number | string } };
+}
+
+type AuthErrorInput = AuthErrorEvent | SyntheticEvent<HTMLDivElement>;
+
+function isAuthErrorEvent(event: AuthErrorInput): event is AuthErrorEvent {
+  return "error" in event || "code" in event || "context" in event;
 }
 
 export default function AuthDemoPage() {
@@ -55,23 +67,31 @@ export default function AuthDemoPage() {
     signOut,
   } = useDemoAuth();
 
-  const headers = useMemo<Record<string, string>>(
-    () => (authorizationHeader ? { Authorization: authorizationHeader } : {}),
+  // @region[auth-request-headers]
+  const headers = useMemo(
+    (): Record<string, string> =>
+      authorizationHeader ? { Authorization: authorizationHeader } : {},
     [authorizationHeader],
   );
+  // @endregion[auth-request-headers]
 
   const [authError, setAuthError] = useState<AuthDemoErrorState | null>(null);
 
   // Shared error handler wired to BOTH the provider-level and chat-level
   // `onError` channels (see the file header for why both are needed).
-  const handleAuthError = useCallback((event: AuthErrorEvent) => {
+  const handleAuthError = useCallback((event: AuthErrorInput) => {
+    if (!isAuthErrorEvent(event)) return;
+    const code =
+      event.code ??
+      event.error?.code ??
+      event.error?.extensions?.code ??
+      event.context?.response?.status?.toString() ??
+      "UNKNOWN";
     setAuthError({
       message:
         (event.error?.message && event.error.message.trim()) ||
-        (event.code
-          ? `Request rejected (${event.code})`
-          : "The request was rejected."),
-      code: event.code,
+        (code ? `Request rejected (${code})` : "The request was rejected."),
+      code,
     });
   }, []);
 
@@ -99,49 +119,50 @@ export default function AuthDemoPage() {
   }
 
   return (
-    // `useSingleEndpoint={false}` opts into the V2 multi-endpoint protocol
-    // (separate /info, /agents/<id>/run, etc.), which is what this demo's
-    // runtime route is wired up for.
-    <CopilotKit
-      runtimeUrl="/api/copilotkit-auth"
-      agent="auth-demo"
-      headers={headers}
-      useSingleEndpoint={false}
-      onError={handleAuthError}
-    >
-      <div className="flex h-screen flex-col gap-3 p-6">
-        <AuthBanner
-          authenticated={isAuthenticated}
-          onSignOut={signOut}
-          onSignIn={() => signIn(DEMO_TOKEN)}
-        />
-        <header>
-          <h1 className="text-lg font-semibold">Authentication</h1>
-        </header>
-        {authError && (
-          <div
-            data-testid="auth-demo-error"
-            className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-          >
-            <strong className="font-semibold">
-              Runtime rejected the request:
-            </strong>{" "}
-            <span data-testid="auth-demo-error-message">
-              {authError.message}
-            </span>{" "}
-            <code className="ml-1 rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">
-              {authError.code}
-            </code>
-          </div>
-        )}
-        <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
-          <CopilotChat
-            agentId="auth-demo"
-            className="h-full"
-            onError={handleAuthError}
+    <>
+      {/* @region[auth-runtime-transport] */}
+      <CopilotKit
+        runtimeUrl="/api/copilotkit-auth"
+        agent="auth-demo"
+        headers={headers}
+        useSingleEndpoint={false}
+        onError={handleAuthError}
+      >
+        {/* @endregion[auth-runtime-transport] */}
+        <div className="flex h-screen flex-col gap-3 p-6">
+          <AuthBanner
+            authenticated={isAuthenticated}
+            onSignOut={signOut}
+            onSignIn={() => signIn(DEMO_TOKEN)}
           />
+          <header>
+            <h1 className="text-lg font-semibold">Authentication</h1>
+          </header>
+          {authError && (
+            <div
+              data-testid="auth-demo-error"
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+            >
+              <strong className="font-semibold">
+                Runtime rejected the request:
+              </strong>{" "}
+              <span data-testid="auth-demo-error-message">
+                {authError.message}
+              </span>{" "}
+              <code className="ml-1 rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">
+                {authError.code}
+              </code>
+            </div>
+          )}
+          <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
+            <CopilotChat
+              agentId="auth-demo"
+              className="h-full"
+              onError={handleAuthError}
+            />
+          </div>
         </div>
-      </div>
-    </CopilotKit>
+      </CopilotKit>
+    </>
   );
 }

@@ -1,5 +1,8 @@
 "use client";
 
+// Canonical source; materialized into each selected integration by
+// showcase/scripts/sync-shared-frontends.ts.
+
 import { useCallback } from "react";
 import { CopilotChat } from "@copilotkit/react-core/v2";
 import { fileToDataAttachment } from "./file-to-data-attachment";
@@ -9,11 +12,9 @@ const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ACCEPT_MIME = "image/*,application/pdf";
 
 export function MultimodalChat() {
-  // `onUpload` is passed into CopilotChat's `AttachmentsConfig`. Both the
-  // paperclip button and the sample-injection path route files through
-  // this same function (sample buttons drive CopilotChat's hidden file
-  // input, which calls this internally via `useAttachments`). No
-  // duplicated upload code lives in the sample-button component.
+  // `onUpload` is passed into CopilotChat's `AttachmentsConfig` for the
+  // paperclip path. Sample buttons build the equivalent data attachment
+  // directly so their canned prompt can be dispatched as one atomic turn.
   const onUpload = useCallback(fileToDataAttachment, []);
 
   return (
@@ -65,6 +66,7 @@ export function MultimodalChat() {
           data-multimodal-demo-chat-root
           className="min-h-0 flex-1 overflow-hidden rounded-lg border border-black/10 dark:border-white/10"
         >
+          {/* @region[multimodal-attachments] */}
           <CopilotChat
             agentId="multimodal-demo"
             className="h-full"
@@ -80,6 +82,7 @@ export function MultimodalChat() {
               },
             }}
           />
+          {/* @endregion[multimodal-attachments] */}
         </div>
       </div>
     </>
