@@ -147,6 +147,15 @@ showcase-iso<N>-aimock` + DOM/probe text):
    `--isolate` slots cold-start aimock from the volume mount, so the first
    post-edit run picks up the change automatically; warm-slot reuse will not.
 
+   **Qualification replay for tool follow-ups.** Keep ordinary local and broad
+   CI replay behavior unchanged. For an audited integration whose fixture
+   exchange includes a tool result, launch aimock with
+   `AIMOCK_STRICT_TURN_INDEX=1` in addition to the normal fixture directories.
+   This prevents a turn-zero fixture from answering a later tool follow-up.
+   The focused matcher regression lives at
+   `showcase/scripts/__tests__/aimock-strict-turn-index.test.ts`; broaden this
+   mode only after validating the fixture corpus it would cover.
+
 8. **`--isolate` slot pinning and conflict detection.** Pin a specific slot with `SHOWCASE_ISO_SLOT=<N>` (1-45; slot 0 is reserved for the base stack), or use the equivalent CLI sugar `--isolate=<N>` — the picker uses exactly that slot or fails loudly. The auto-picker now port-probes every candidate via `lsof` before committing, so foreign-Docker (`ag2mm-*`) and host-process (macOS AirPlay on 5000) conflicts are detected pre-`docker compose up`. Run `bin/showcase slots` to inspect all 46 slots across DIR / PID / LIVE / PORTS / OFFSET (and PROJECT) — same code path the picker uses. The `LIVE` column reports `live` / `stale` / `inconclusive` and folds the live-pid and live-containers checks into one axis.
 
 9. **Cell-color flip claims MUST be empirically value-tested via the
