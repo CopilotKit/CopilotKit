@@ -167,7 +167,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
@@ -989,7 +989,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
@@ -1670,6 +1670,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "@anthropic-ai/sdk": ">=0.57.0",
           "@langchain/aws": ">=0.1.9",
@@ -1694,6 +1697,11 @@
           "openai"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
@@ -2000,7 +2008,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "better-sqlite3": "^12.2.0"
@@ -2077,7 +2085,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "@copilotkit/runtime": "workspace:*"
@@ -2183,7 +2191,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "vue": ">=3.3.0"
@@ -2278,7 +2286,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "peerDependencies": {
           "lit": "^3.3.2"
@@ -2347,7 +2355,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20"
         },
         "provenance": [
           {
