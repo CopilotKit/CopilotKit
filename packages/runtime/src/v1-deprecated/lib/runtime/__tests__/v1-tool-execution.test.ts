@@ -116,3 +116,56 @@ describe("v1 `mcpServers` execute against the MCP client", () => {
     expect(result).toBe("booked");
   });
 });
+
+describe("attaching tools is idempotent", () => {
+  // The endpoint factory calls `handleServiceAdapter` every time it runs, and
+  // the documented v1 route builds the endpoint inside the request handler. A
+  // module-scope runtime therefore gets it called once per request.
+  it("does not re-append the same action on repeated endpoint construction", async () => {
+    const runtime = new CopilotRuntime({
+      agents: agents(),
+      actions: [{ name: "greet", parameters: [], handler: () => "hi" }],
+    } as any);
+
+    await toolsOf(runtime);
+    await toolsOf(runtime);
+    const tools = await toolsOf(runtime);
+
+    expect(tools.filter((t: any) => t.name === "greet")).toHaveLength(1);
+  });
+
+  it("does not re-append the same MCP tool either", async () => {
+    const createMCPClient = vi.fn().mockResolvedValue({
+      tools: async () => ({ book: { execute: vi.fn(), schema: {} } }),
+    });
+    const runtime = new CopilotRuntime({
+      agents: agents(),
+      mcpServers: [{ endpoint: "https://mcp.example.com" }],
+      createMCPClient,
+    } as any);
+
+    await toolsOf(runtime);
+    const tools = await toolsOf(runtime);
+
+    expect(tools.filter((t: any) => t.name === "book")).toHaveLength(1);
+  });
+
+  it("leaves a tool the agent already defines in place", async () => {
+    const agentOwn = vi.fn().mockResolvedValue("from the agent");
+    const agent = new HttpAgent({ url: "https://example.com/a" });
+    Reflect.set(agent, "config", {
+      tools: [{ name: "greet", parameters: {}, execute: agentOwn }],
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: { default: agent } as any,
+      actions: [{ name: "greet", parameters: [], handler: () => "from v1" }],
+    } as any);
+
+    const tools = await toolsOf(runtime);
+    const greet = tools.filter((t: any) => t.name === "greet");
+
+    expect(greet).toHaveLength(1);
+    expect(await greet[0].execute({})).toBe("from the agent");
+  });
+});

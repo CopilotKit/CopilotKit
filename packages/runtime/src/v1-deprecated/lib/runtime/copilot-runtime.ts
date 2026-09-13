@@ -696,9 +696,21 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         existingConfig as unknown as BuiltInAgentClassicConfig;
       const existingTools = classicConfig.tools ?? [];
 
+      // The endpoint factory runs `handleServiceAdapter` every time it is
+      // called, and the documented v1 route builds the endpoint inside the
+      // request handler — so a module-scope runtime lands here once per
+      // request. Appending unconditionally advertised N copies of every tool
+      // to the model. Skip names the agent already carries, which also leaves
+      // a tool the agent defines itself in place.
+      const existingNames = new Set(existingTools.map((tool) => tool.name));
+      const newTools = tools.filter((tool) => !existingNames.has(tool.name));
+      if (newTools.length === 0) {
+        continue;
+      }
+
       const updatedConfig: BuiltInAgentClassicConfig = {
         ...classicConfig,
-        tools: [...existingTools, ...tools],
+        tools: [...existingTools, ...newTools],
       };
 
       Reflect.set(agent, "config", updatedConfig);
