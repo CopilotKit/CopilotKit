@@ -1,0 +1,150 @@
+{
+  "checked_at": "2026-09-13T17:58:29.062856+00:00",
+  "source": "Official PyPI JSON release metadata; compatibility untested",
+  "packages": [
+    {
+      "package": "google-adk",
+      "url": "https://pypi.org/pypi/google-adk/json",
+      "version": "2.9.0",
+      "requires_python": ">=3.10",
+      "release_files": [
+        {
+          "filename": "google_adk-2.9.0-py3-none-any.whl",
+          "yanked": false,
+          "upload_time": "2026-09-10T22:11:11.443665Z"
+        },
+        {
+          "filename": "google_adk-2.9.0.tar.gz",
+          "yanked": false,
+          "upload_time": "2026-09-10T22:11:13.919769Z"
+        }
+      ]
+    },
+    {
+      "package": "google-genai",
+      "url": "https://pypi.org/pypi/google-genai/json",
+      "version": "2.23.0",
+      "requires_python": ">=3.10",
+      "release_files": [
+        {
+          "filename": "google_genai-2.23.0-py3-none-any.whl",
+          "yanked": false,
+          "upload_time": "2026-09-10T22:55:29.282427Z"
+        },
+        {
+          "filename": "google_genai-2.23.0.tar.gz",
+          "yanked": false,
+          "upload_time": "2026-09-10T22:55:31.120927Z"
+        }
+      ]
+    },
+    {
+      "package": "ag-ui-adk",
+      "url": "https://pypi.org/pypi/ag-ui-adk/json",
+      "version": "0.7.0",
+      "requires_python": "<3.15,>=3.10",
+      "release_files": [
+        {
+          "filename": "ag_ui_adk-0.7.0-py3-none-any.whl",
+          "yanked": false,
+          "upload_time": "2026-06-23T05:58:51.401239Z"
+        },
+        {
+          "filename": "ag_ui_adk-0.7.0.tar.gz",
+          "yanked": false,
+          "upload_time": "2026-06-23T05:58:52.569745Z"
+        }
+      ]
+    },
+    {
+      "package": "ag-ui-protocol",
+      "url": "https://pypi.org/pypi/ag-ui-protocol/json",
+      "version": "0.1.22",
+      "requires_python": ">=3.9",
+      "release_files": [
+        {
+          "filename": "ag_ui_protocol-0.1.22-py3-none-any.whl",
+          "yanked": false,
+          "upload_time": "2026-08-31T18:20:03.430188Z"
+        },
+        {
+          "filename": "ag_ui_protocol-0.1.22.tar.gz",
+          "yanked": false,
+          "upload_time": "2026-08-31T18:20:04.334045Z"
+        }
+      ]
+    },
+    {
+      "package": "ag-ui-strands",
+      "url": "https://pypi.org/pypi/ag-ui-strands/json",
+      "version": "0.4.0",
+      "requires_python": "<3.15,>=3.10",
+      "release_files": [
+        {
+          "filename": "ag_ui_strands-0.4.0-py3-none-any.whl",
+          "yanked": false,
+          "upload_time": "2026-09-11T14:02:31.462740Z"
+        },
+        {
+          "filename": "ag_ui_strands-0.4.0.tar.gz",
+          "yanked": false,
+          "upload_time": "2026-09-11T14:02:33.056199Z"
+        }
+      ]
+    },
+    {
+      "package": "strands-agents",
+      "url": "https://pypi.org/pypi/strands-agents/json",
+      "version": "1.55.1",
+      "requires_python": ">=3.10",
+      "release_files": [
+        {
+          "filename": "strands_agents-1.55.1-py3-none-any.whl",
+          "yanked": false,
+          "upload_time": "2026-09-09T21:24:35.259883Z"
+        },
+        {
+          "filename": "strands_agents-1.55.1.tar.gz",
+          "yanked": false,
+          "upload_time": "2026-09-09T21:24:37.159498Z"
+        }
+      ]
+    },
+    {
+      "package": "strands-agents-tools",
+      "url": "https://pypi.org/pypi/strands-agents-tools/json",
+      "version": "0.8.8",
+      "requires_python": ">=3.10",
+      "release_files": [
+        {
+          "filename": "strands_agents_tools-0.8.8-py3-none-any.whl",
+          "yanked": false,
+          "upload_time": "2026-09-04T14:58:19.783908Z"
+        },
+        {
+          "filename": "strands_agents_tools-0.8.8.tar.gz",
+          "yanked": false,
+          "upload_time": "2026-09-04T14:58:21.668209Z"
+        }
+      ]
+    },
+    {
+      "package": "copilotkit",
+      "url": "https://pypi.org/pypi/copilotkit/json",
+      "version": "0.1.96",
+      "requires_python": "<3.15,>=3.10",
+      "release_files": [
+        {
+          "filename": "copilotkit-0.1.96-py3-none-any.whl",
+          "yanked": false,
+          "upload_time": "2026-08-26T22:31:59.098008Z"
+        },
+        {
+          "filename": "copilotkit-0.1.96.tar.gz",
+          "yanked": false,
+          "upload_time": "2026-08-26T22:32:00.113145Z"
+        }
+      ]
+    }
+  ]
+}

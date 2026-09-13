@@ -1,0 +1,90 @@
+{
+  "checked_at": "2026-09-13T17:58:21.290888+00:00",
+  "command": "npm view <package> version --json",
+  "packages": [
+    {
+      "package": "@copilotkit/a2ui-renderer",
+      "exit_code": 0,
+      "stdout": "\"1.71.1\"",
+      "stderr": ""
+    },
+    {
+      "package": "@copilotkit/react-core",
+      "exit_code": 0,
+      "stdout": "\"1.71.1\"",
+      "stderr": ""
+    },
+    {
+      "package": "@copilotkit/react-ui",
+      "exit_code": 0,
+      "stdout": "\"1.71.1\"",
+      "stderr": ""
+    },
+    {
+      "package": "@copilotkit/runtime",
+      "exit_code": 0,
+      "stdout": "\"1.71.1\"",
+      "stderr": ""
+    },
+    {
+      "package": "@copilotkit/sdk-js",
+      "exit_code": 0,
+      "stdout": "\"1.71.1\"",
+      "stderr": ""
+    },
+    {
+      "package": "@copilotkit/shared",
+      "exit_code": 0,
+      "stdout": "\"1.71.1\"",
+      "stderr": ""
+    },
+    {
+      "package": "@copilotkit/voice",
+      "exit_code": 0,
+      "stdout": "\"1.71.1\"",
+      "stderr": ""
+    },
+    {
+      "package": "@langchain/core",
+      "exit_code": 0,
+      "stdout": "\"1.2.11\"",
+      "stderr": ""
+    },
+    {
+      "package": "@langchain/langgraph",
+      "exit_code": 0,
+      "stdout": "\"1.4.15\"",
+      "stderr": ""
+    },
+    {
+      "package": "@langchain/langgraph-checkpoint",
+      "exit_code": 0,
+      "stdout": "\"1.1.5\"",
+      "stderr": ""
+    },
+    {
+      "package": "@langchain/openai",
+      "exit_code": 0,
+      "stdout": "\"1.5.13\"",
+      "stderr": ""
+    },
+    {
+      "package": "@langchain/langgraph-cli",
+      "exit_code": 0,
+      "stdout": "\"1.4.6\"",
+      "stderr": ""
+    },
+    {
+      "package": "langchain",
+      "exit_code": 0,
+      "stdout": "\"1.5.11\"",
+      "stderr": ""
+    },
+    {
+      "package": "@ag-ui/client",
+      "exit_code": 0,
+      "stdout": "\"0.0.59\"",
+      "stderr": ""
+    }
+  ]
+}
