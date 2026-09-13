@@ -82,7 +82,16 @@ const manageSalesTodos = tool(
           z.object({
             id: z.string().optional(),
             title: z.string(),
-            stage: z.string().optional(),
+            stage: z
+              .enum([
+                "prospect",
+                "qualified",
+                "proposal",
+                "negotiation",
+                "closed-won",
+                "closed-lost",
+              ])
+              .optional(),
             value: z.number().optional(),
             dueDate: z.string().optional(),
             assignee: z.string().optional(),
@@ -105,7 +114,16 @@ const getSalesTodos = tool(
           z.object({
             id: z.string().optional(),
             title: z.string().optional(),
-            stage: z.string().optional(),
+            stage: z
+              .enum([
+                "prospect",
+                "qualified",
+                "proposal",
+                "negotiation",
+                "closed-won",
+                "closed-lost",
+              ])
+              .optional(),
             value: z.number().optional(),
             dueDate: z.string().optional(),
             assignee: z.string().optional(),
@@ -142,7 +160,7 @@ const searchFlights = tool(
         .array(
           z.object({
             airline: z.string(),
-            airlineLogo: z.string().optional(),
+            airlineLogo: z.string(),
             flightNumber: z.string(),
             origin: z.string(),
             destination: z.string(),
@@ -151,9 +169,9 @@ const searchFlights = tool(
             arrivalTime: z.string(),
             duration: z.string(),
             status: z.string(),
-            statusColor: z.string().optional(),
+            statusColor: z.string(),
             price: z.string(),
-            currency: z.string().optional(),
+            currency: z.string(),
           }),
         )
         .describe("Array of flight results"),
