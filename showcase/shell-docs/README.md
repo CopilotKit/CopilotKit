@@ -31,13 +31,16 @@ pass, opt in to the shared local-port map and start the chosen integration at
 its registered port in `showcase/shared/local-ports.json`:
 
 ```bash
-SHOWCASE_LOCAL=1 npm run dev -- --port 3004
+NEXT_PUBLIC_BASE_URL=http://localhost:3004 SHOWCASE_LOCAL=1 npm run dev -- --port 3004
 ```
 
 `SHOWCASE_LOCAL=1` maps an integration with a local-port entry to its local
 origin. It never starts that integration for you. An integration without a map
 entry continues to use its generated registry URL, so verify the selected
 integration's local stack is ready before treating its embedded demo as local.
+Set `NEXT_PUBLIC_BASE_URL` to the same docs origin you open in the browser. It
+keeps copied Markdown and prompt previews on that local docs server instead of
+the default development origin (`http://localhost:3003`).
 
 The shell-docs npm lifecycle generates registry, demo-content, setup-content, and search
 data before `dev`, `build`, and `typecheck`.

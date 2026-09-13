@@ -309,12 +309,16 @@ focused gate. The local preview command, once a runtime owner has started a
 selected stack, is:
 
 ```sh
-SHOWCASE_LOCAL=1 npm --prefix showcase/shell-docs run dev -- --port 3004
+NEXT_PUBLIC_BASE_URL=http://localhost:3004 SHOWCASE_LOCAL=1 \
+  npm --prefix showcase/shell-docs run dev -- --port 3004
 ```
 
-The browser pass must not treat an iframe as working until the runtime owner
-has reported that integration's local port ready. No docs server was started by
-this repair.
+`NEXT_PUBLIC_BASE_URL` must match the docs origin opened in the browser. This
+keeps copied Markdown and prompt previews on port 3004 instead of the normal
+development fallback on port 3003; it is an environment requirement for the
+local reader pass, not a source defect. The browser pass must not treat an
+iframe as working until the runtime owner has reported that integration's local
+port ready. No docs server was started by this repair.
 
 ## Resumed focused validation — REPAIR-008/009/010 and authored provenance
 
@@ -345,3 +349,29 @@ The test initially used an unavailable DOM matcher; replacing it with the
 equivalent built-in `getAttribute("href")` equality assertion preserved that
 contract and was independently reviewed. An elevated process scan after the
 passing run found no remaining Vitest or generation workers.
+
+## Current focused validation — REPAIR-009/012/013 and C028/C029/C031
+
+After the local reader walkthrough verified the Built-in Agent's natural
+configuration flow against the strict mock, the audit-owned preview was stopped
+before validation. The generation lifecycle completed successfully, then the
+following focused shell-docs gate ran from the shell-docs working directory:
+
+```sh
+NODE_OPTIONS=--max-old-space-size=4096 \
+  ./node_modules/.bin/vitest run --pool=forks --maxWorkers=2 \
+  --no-file-parallelism \
+  src/lib/__tests__/selected-showcase-provenance.test.ts \
+  src/lib/__tests__/current-v2-authored-guides.test.ts \
+  src/components/__tests__/page-actions-onboarding-prompt.test.tsx \
+  src/components/__tests__/docs-page-tools.test.tsx \
+  'src/app/llms-mdx/[[...slug]]/route.test.ts'
+```
+
+Result: **5 files passed, 70 tests passed** in 18.91 seconds. This covers the
+Built-in Agent source-backed configuration and exact natural-prompt wording,
+feature-aware onboarding prompts and framework-scoped Markdown URLs, Microsoft
+Agent Framework A2UI/state-rendering regions, and the honest Pydantic state
+rendering availability correction. Output is preserved at
+`/private/tmp/docs-audit-focused-20260913.log`. An elevated cleanup scan found
+no remaining shell-docs Vitest, generator, or preview-server workers.

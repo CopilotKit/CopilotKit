@@ -41,7 +41,7 @@
         "reviewer": "independent lane review",
         "remaining": "Final selected guide reader review and applicable runtime gates remain open."
       },
-      "remaining": "Add or deliberately remap the source-of-truth guide routes, regenerate docs data, then assert meaningful HTML and 200 Markdown output for both /google-adk URLs with ADK-owned snippets. Run their isolated AIMock cells before claiming behavior qualification."
+      "remaining": "Canonical mapping and redirects are committed. Recheck meaningful local HTML/Markdown output and run isolated ADK behavior cells before claiming feature behavior."
     },
     {
       "id": "CONTENT-GEN-003",
@@ -79,7 +79,7 @@
         "reviewer": "independent lane review",
         "remaining": "Final selected guide reader review and applicable runtime gates remain open."
       },
-      "remaining": "Add canonical shell_docs_path values that point to the existing guides, regenerate the inventory, and validate the generated feature links and selected framework HTML/Markdown routes."
+      "remaining": "Catalog mappings and navigation are committed with 200 HTML/Markdown route evidence. Keep final selected-reader and behavior checks open; do not redo mapping work."
     },
     {
       "id": "CONTENT-GEN-006",
@@ -98,7 +98,7 @@
         "reviewer": "feature_audit_scope",
         "remaining": "Full rendered reader-path verification."
       },
-      "remaining": "Describe named registration with useRenderTool and reserve useRenderToolCall for rendering/consuming existing tool calls. Verify the selected Built-in Agent guide's browser and Markdown output against the v2 reference."
+      "remaining": "Current hook guidance and source-backed examples are committed. Recheck selected Built-in Agent browser/Markdown output against the v2 reference."
     },
     {
       "id": "CONTENT-GEN-007",
@@ -178,7 +178,7 @@
         "reviewer": "intelligence_showcase_support",
         "remaining": "Full five-agent example matrix."
       },
-      "remaining": "Add a Built-in-Agent-appropriate region or a scoped guide branch that describes its actual fixed-schema factory, then assert no Missing snippet alert and useful HTML/Markdown source for the scoped route. Run its isolated AIMock cell separately."
+      "remaining": "Built-in Agent regions and scoped guide branch are committed with focused route evidence. Keep isolated AIMock and full five-agent reader/example gates open; do not add another region."
     },
     {
       "id": "CONTENT-GEN-011",
@@ -197,7 +197,7 @@
         "reviewer": "independent lane review",
         "remaining": "Final selected guide reader review and applicable runtime gates remain open."
       },
-      "remaining": "Edit the two sentences and confirm the LangGraph Python and TypeScript HTML/Markdown pages retain their shared source and feature routing."
+      "remaining": "The two LangGraph sentences are repaired. Recheck shared source and final HTML/Markdown reader output; no prose rewrite remains."
     },
     {
       "id": "CONTENT-GEN-012",
@@ -216,7 +216,7 @@
         "reviewer": "independent lane review",
         "remaining": "Final selected guide reader review and applicable runtime gates remain open."
       },
-      "remaining": "When the adjacent setup instructions are next changed, remove @copilotkit/react-ui if no omitted step requires it, retain the required runtime and AG-UI client packages, then run the scoped quickstart doctests/build and confirm the generated instructions in HTML and Markdown."
+      "remaining": "Selected unused setup dependencies are removed. Run scoped quickstart install/typecheck and representation checks before treating setup as qualified."
     },
     {
       "id": "CONTENT-GEN-013",
@@ -236,7 +236,7 @@
         "reviewer": "intelligence_showcase_support",
         "remaining": "Only the startup defect is qualified here; the full ADK guide/matrix remains open."
       },
-      "remaining": "Keep one unambiguous auth route shape, start the Google ADK frontend against the local agent, then run the manifest-wired cells with the local AIMock harness and recheck the affected guide routes."
+      "remaining": "Scoped ADK startup repair is qualified locally with three strict D6 cells. Final guide representation and broader ADK matrix remain separate gates; do not repeat the duplicate-route repair."
     },
     {
       "id": "CONTENT-GEN-014",
@@ -255,7 +255,7 @@
         "reviewer": "feature_audit_scope",
         "remaining": "Rendered quickstart checks; no multi-user runtime qualification claimed."
       },
-      "remaining": "Replace the header shortcut with a server-verified session example (or state it is strictly local single-user), add the required onRequest and ownership guards or link to the exact complete auth setup, then verify all four affected quickstart representations and a two-user local authorization probe."
+      "remaining": "The guides now state the local single-user limit and link the complete authorization contract. Recheck rendered representations and a two-user authorization probe; no replacement helper remains."
     },
     {
       "id": "CONTENT-GEN-015",
@@ -274,7 +274,7 @@
         "reviewer": "independent lane review",
         "remaining": "Final selected guide reader review and applicable runtime gates remain open."
       },
-      "remaining": "Remove 0.0.0.0 as a client target, explain it only as an optional server bind address if needed, retain valid loopback targets, then recheck both starter and bring-your-own rendered troubleshooting sections."
+      "remaining": "Client-target wording is repaired. Recheck starter and bring-your-own rendered troubleshooting sections; no address rewrite remains."
     },
     {
       "id": "CONTENT-GEN-016",
@@ -293,7 +293,7 @@
         "reviewer": "intelligence_showcase_support",
         "remaining": "Local rendered demonstration and final guide review."
       },
-      "remaining": "Replace the embedded hand-written handoff with RichThreadsSetupPrompt (or a wrapper that passes through its exact prompt), preserve only page-specific context outside the copied prompt, then assert browser and raw Markdown expose the same canonical command and that the CLI intent remains the source of setup steps."
+      "remaining": "RichThreadsSetupPrompt is the canonical source and raw-Markdown expansion is covered. Recheck browser output and the copied CLI intent contract; do not recreate a hand-written handoff."
     },
     {
       "id": "CONTENT-GEN-017",
@@ -358,7 +358,7 @@
         "reviewer": "feature_audit_scope",
         "remaining": "AG2 runtime/typecheck unavailable until its dependency tree is installed; not qualified."
       },
-      "remaining": "Use the current v2 reference and boolean availability semantics, then typecheck and exercise the AG2 frontend-tools demo."
+      "remaining": "Current v2 reference and Showcase frontend-tool source are committed. Typecheck/exercise the AG2 demo separately; source rewrite is complete."
     },
     {
       "id": "CONTENT-GEN-021",
@@ -392,7 +392,7 @@
         "reviewer": "feature_audit_scope",
         "remaining": "AG2 runtime/typecheck unavailable until its dependency tree is installed; not qualified."
       },
-      "remaining": "Update the guide to provide a parameter schema and use RenderToolProps.parameters, then typecheck the example."
+      "remaining": "Current parameter schema and RenderToolProps source are committed. Typecheck the displayed example; source rewrite is complete."
     },
     {
       "id": "CONTENT-GEN-023",
@@ -428,14 +428,20 @@
       "id": "CONTENT-GEN-025",
       "area": "CrewAI Flows human-in-the-loop guide current frontend contract",
       "severity": "high",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-025",
-      "fix_commits": [],
-      "after_evidence": [
-        "Pending source-only rewrite uses canonical crewai-crews hitl-in-chat frontend and flow regions; independent source review approved it."
+      "fix_commits": [
+        "499a085f62"
       ],
-      "sanity_review": null,
-      "remaining": "Paused by user with a source-backed CrewAI rewrite and raw-Markdown test pending the next approved docs slot; then run its focused render contract and separate local flow behavior check."
+      "after_evidence": [
+        "CrewAI source-backed HITL rewrite and its raw-Markdown contract passed the focused 16-test docs gate (`499a085f62`)."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Keep local CrewAI flow behavior as a separate gate; do not infer it from the docs contract."
+      },
+      "remaining": "Keep local CrewAI flow behavior as a separate gate; do not infer it from the docs contract."
     },
     {
       "id": "CONTENT-GEN-026",
@@ -468,49 +474,77 @@
       "id": "CONTENT-GEN-028",
       "area": "cross-runtime A2UI setup guidance",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-028",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Split or conditionalize the runtime setup by .NET versus Python, then run each exact dynamic-schema demo with its documented setting."
+      "fix_commits": [
+        "26691e24fc"
+      ],
+      "after_evidence": [
+        "Committed source-backed .NET/Python Microsoft Agent Framework dynamic-schema guide (`26691e24fc`).",
+        "Shell-docs pretypecheck and the five-file focused gate passed 70 tests in 18.91s (`/private/tmp/docs-audit-focused-20260913.log`)."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Focused raw-Markdown contract and runtime-specific behavior remain open."
+      },
+      "remaining": "Render and exercise each exact dynamic-schema demo separately; source/Markdown evidence is not runtime qualification."
     },
     {
       "id": "CONTENT-GEN-029",
       "area": "state-rendering guide agent selection",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-029",
-      "fix_commits": [],
-      "after_evidence": [],
-      "sanity_review": null,
-      "remaining": "Use one documented identifier or show an explicit runtime alias mapping, then validate both in-chat and outside-chat state subscriptions against each MAF runtime."
+      "fix_commits": [
+        "26691e24fc"
+      ],
+      "after_evidence": [
+        "Committed source-backed Microsoft Agent Framework state-rendering guide with the public gen-ui-agent key and actual publisher/runtime distinctions (`26691e24fc`).",
+        "Shell-docs pretypecheck and the five-file focused gate passed 70 tests in 18.91s (`/private/tmp/docs-audit-focused-20260913.log`)."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Focused raw-Markdown contract and runtime-specific behavior remain open."
+      },
+      "remaining": "Render and exercise each MAF state-rendering behavior path separately; source/Markdown evidence is not runtime qualification."
     },
     {
       "id": "CONTENT-GEN-030",
       "area": "framework-specific interactive example selection",
       "severity": "medium",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-030",
-      "fix_commits": [],
-      "after_evidence": [
-        "Pending source-only change replaces the hard-coded .NET selector with the active framework prop."
+      "fix_commits": [
+        "499a085f62"
       ],
-      "sanity_review": null,
-      "remaining": "Paused by user with the active-framework selector and regression assertion untested; render both .NET and Python routes when a docs slot is available."
+      "after_evidence": [
+        "The active Microsoft Agent Framework selector and regression assertion passed the focused 16-test docs gate (`499a085f62`)."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Render both .NET and Python routes in the reader pass; source/test coverage is not full framework qualification."
+      },
+      "remaining": "Render both .NET and Python routes in the reader pass; source/test coverage is not full framework qualification."
     },
     {
       "id": "CONTENT-GEN-031",
       "area": "copy-paste guide language and API contract",
       "severity": "high",
-      "stage": "investigating",
+      "stage": "verifying",
       "before_record": "content-defects.json#CONTENT-GEN-031",
-      "fix_commits": [],
+      "fix_commits": [
+        "26691e24fc"
+      ],
       "after_evidence": [
-        "Static source review found no Showcase-backed Pydantic steps publisher/runtime to extract; this is an implementation gap, not a documentation-only completion."
+        "Static source review found no Showcase-backed Pydantic steps publisher/runtime to extract; this remains an implementation gap, not a Pydantic AI platform limitation.",
+        "Committed availability notice removes the invalid copied example and names the selected frontend steps versus routed backend todos mismatch (`26691e24fc`).",
+        "Shell-docs pretypecheck and the five-file focused gate passed 70 tests in 18.91s (`/private/tmp/docs-audit-focused-20260913.log`)."
       ],
       "sanity_review": null,
-      "remaining": "A runnable Pydantic state-rendering guide requires product implementation: the current gen-ui-agent documents its steps publisher as unimplemented and proxies to an agent that exposes todos. Keep the guide/runtime gap explicit; do not invent a replacement snippet."
+      "remaining": "Render the availability notice in the reader pass. A runnable Pydantic state-rendering guide still requires product implementation; keep the gap explicit and do not invent a replacement snippet."
     },
     {
       "id": "CONTENT-GEN-032",
@@ -752,48 +786,78 @@
       "severity": "medium",
       "stage": "verifying",
       "before_record": "The bounded suite found Angular output with cross-frontend comparisons and React-only Built-in Agent links; its Microsoft Agent Python HITL overview was incorrectly required to contain provider setup.",
-      "fix_commits": [],
+      "fix_commits": [
+        "59afbe980c"
+      ],
       "after_evidence": [
         "Scoped Angular wording and frontend branches remove cross-frontend copy from the rendered Angular surface.",
         "The Microsoft Agent Python HITL overview test now verifies its two child paths instead of backend provider imports.",
         "Focused raw-Markdown suite: angular-docs-content plus ms-agent-python-stable-api, 17 passing tests."
       ],
       "sanity_review": null,
-      "remaining": "Commit the source/test unit, complete the generator-owned Angular resolver mappings separately, and retain browser-level Angular validation as an open representation gate.",
+      "remaining": "Angular content and resolver unit are committed (`59afbe980c`); retain browser-level Angular validation as the remaining representation gate.",
       "disposition": "Angular content defect plus test-only MAF contract drift; no provider code belongs in the overview."
     },
     {
       "id": "REPAIR-008",
       "area": "local Showcase embed override configuration",
       "severity": "medium",
-      "stage": "verifying",
+      "stage": "qualified_locally",
       "before_record": "Initial local-preview boot failed because a cross-app TypeScript helper compiled with CommonJS exports in shell-docs config loading.",
-      "fix_commits": ["bea9c584ac"],
-      "after_evidence": ["The in-app local-backend helper keeps shared local-ports.json as the map source; focused contract coverage passed 5 checks."],
-      "sanity_review": {"status": "approved_for_source_change", "reviewer": "intelligence_showcase_support", "remaining": "Actual local preview boot and iframe-local-origin reader proof."},
-      "remaining": "Paused by user while runtime owns the heavy slot. Confirm startup and selected iframe origin without changing the remote default."
+      "fix_commits": [
+        "bea9c584ac"
+      ],
+      "after_evidence": [
+        "Focused configuration contract passed 5 checks and preserves the shared local-ports map.",
+        "A local shell-docs preview booted and the reader walkthrough observed the selected Built-in Agent iframe at its local origin; remote behavior remains the default when SHOWCASE_LOCAL is absent."
+      ],
+      "sanity_review": {
+        "status": "approved",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "The scoped local-embed defect is closed; integration behavior is governed by its own runtime gates."
+      },
+      "remaining": "Scoped local-embed configuration is qualified locally. Do not treat this representation repair as a full integration qualification."
     },
     {
       "id": "REPAIR-009",
       "area": "Built-in Agent agent-config guide provenance",
       "severity": "high",
-      "stage": "implementing",
+      "stage": "verifying",
       "before_record": "Reader walkthrough found illustrative agentConfigFactory/buildSystemPrompt/makeAgent stubs instead of the actual Showcase provider and in-process factory.",
-      "fix_commits": [],
-      "after_evidence": ["Pending guide change uses real provider-setup and agent-config-factory regions; independent source review approved the source/order contract."],
-      "sanity_review": null,
-      "remaining": "Paused by user before the focused raw-Markdown contract, local guide render, and behavior recheck."
+      "fix_commits": [
+        "26691e24fc"
+      ],
+      "after_evidence": [
+        "Committed guide uses real provider-setup and agent-config-factory regions, names Quickstart, the current properties reference, forwarded-properties safety contract, and an observable demo action (`26691e24fc`).",
+        "Independent source/reader review cleared it; shell-docs pretypecheck and the five-file focused gate passed 70 tests in 18.91s (`/private/tmp/docs-audit-focused-20260913.log`).",
+        "Local strict-AIMock reader evidence covers casual/expert/detailed and the exact natural action; it is patched-local-core replay, not a published-package qualification."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Focused raw-Markdown, local guide render, and behavior recheck remain open."
+      },
+      "remaining": "Keep broader Built-in Agent matrix and registry-only 1.71.1 release limitation separate; no further guide provenance rewrite remains."
     },
     {
       "id": "REPAIR-010",
       "area": "footer integrations link retains SSR placeholder after hydration",
       "severity": "high",
-      "stage": "implementing",
+      "stage": "qualified_locally",
       "before_record": "Live reader walkthrough observed https://ssr-placeholder.invalid//integrations after hydration.",
-      "fix_commits": [],
-      "after_evidence": ["Pending layout/runtime-config change passes server-resolved shell configuration into RuntimeConfigProvider so SSR emits a real link instead of a suppressed sentinel."],
-      "sanity_review": null,
-      "remaining": "Paused by user before focused configuration validation and actual browser hydration proof."
+      "fix_commits": [
+        "d54b5eed0d"
+      ],
+      "after_evidence": [
+        "Server-resolved runtime configuration removes the SSR placeholder from the footer link.",
+        "Focused SSR/client contract passed and the local reader walkthrough observed the configured shell integrations URL after hydration."
+      ],
+      "sanity_review": {
+        "status": "approved",
+        "reviewer": "feature_audit_scope",
+        "remaining": "The scoped footer-link defect is closed; separate guide/integration gates remain open."
+      },
+      "remaining": "Scoped SSR/hydration footer-link defect is qualified locally. It does not qualify the surrounding framework demos."
     },
     {
       "id": "REPAIR-011",
@@ -801,11 +865,62 @@
       "severity": "high",
       "stage": "verifying",
       "before_record": "Published core 1.71.0 produces Invalid URL for browser-relative runtime paths in the Built-in Agent reader flow.",
-      "fix_commits": ["6e7ad99316"],
-      "after_evidence": ["Core full suite passed 841 checks; uncached publint and attw passed; three patched-local Built-in Agent D6 probes are green. Independent static review cleared browser-relative, absolute URL, and SSR boundaries."],
-      "sanity_review": {"status": "approved_for_scoped_core_change", "reviewer": "intelligence_showcase_support", "remaining": "Remove the temporary patched node_modules overlay and repeat behavior through the published/package-consumed artifact."},
-      "remaining": "Core repair is verified at its scoped boundary. The Built-in Agent dependency overlay and full guide/integration qualification remain explicit."
+      "fix_commits": [
+        "6e7ad99316"
+      ],
+      "after_evidence": [
+        "Core full suite passed 841 checks; uncached publint and attw passed; three patched-local Built-in Agent D6 probes are green. Independent static review cleared browser-relative, absolute URL, and SSR boundaries.",
+        "A fresh registry-only 1.71.1 install reproduces Invalid URL before AIMock/model traffic. The unreleased core repair is absent from current published artifacts; this is a release-availability limit, not a local source-repair failure."
+      ],
+      "sanity_review": {
+        "status": "approved_for_scoped_core_change",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "No further source repair is required. Keep latest-published compatibility separately release-blocked; any distribution confirmation should consume a freshly packed local artifact, not an opaque node_modules overlay."
+      },
+      "remaining": "Local source repair is verified. Current registry 1.71.1 remains release-blocked until it includes the core change; that published limitation does not reopen the local repair or qualify the full Built-in Agent matrix."
+    },
+    {
+      "id": "REPAIR-012",
+      "area": "page-action onboarding feature intent and scoped Markdown source URL",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "Reader walkthrough verified Copy/View Prompt behavior after hydration, but the generic copied onboarding prompt only named framework/frontend and a bare Markdown URL can resolve as Built-in Agent in a stateless fetch.",
+      "fix_commits": [
+        "c257bcbb3a"
+      ],
+      "after_evidence": [
+        "Committed page actions derive a feature outcome only from existing snippet_cell plus title/description, append it after canonical onboarding/framework/frontend context, and name the scoped MDX URL (`c257bcbb3a`).",
+        "Independent review cleared scoped URL and intent behavior; shell-docs pretypecheck and the five-file focused gate passed 70 tests in 18.91s (`/private/tmp/docs-audit-focused-20260913.log`).",
+        "Actual hydrated browser copy for Agent Config included the feature outcome and `http://localhost:3004/agent-config.mdx` with Built-in Agent + Next.js selection."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "feature_audit_scope",
+        "remaining": "Run focused prompt and llms-mdx contracts, then verify copied text from a hydrated local route."
+      },
+      "remaining": "Keep dedicated Learning and Rich Threads prompt cards unchanged. Recheck representative scoped links in the final reader pass; no CLI flag or prompt-API change is required."
+    },
+    {
+      "id": "REPAIR-013",
+      "area": "Built-in Agent local AIMock context forwarding and agent-config reader fixture",
+      "severity": "high",
+      "stage": "qualified_locally",
+      "before_record": "After the local core repair removed Invalid URL, normal browser agent-config traffic reached strict AIMock without a harness x-aimock-context header and failed 503 before an assistant reply.",
+      "fix_commits": [
+        "0177395811"
+      ],
+      "after_evidence": [
+        "Committed local-only AIMock context fallback and strict Agent Config fixture (`0177395811`).",
+        "Root browser evidence: professional/intermediate/concise plus tone:professional receives a reply after the candidate.",
+        "Exact reader action is green: casual/expert/detailed plus Introduce yourself in the style I selected. returned the active-config reply; the fixture strictly matches built-in-agent context and all three consumed system-prompt controls.",
+        "These are strict local replay results with the unreleased local core repair. Registry-only 1.71.1 remains RED at Invalid URL before model traffic because that release lacks REPAIR-011."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "Source/fixture and strict local reader flow are qualified; retain the separate current-published release limitation."
+      },
+      "remaining": "Scoped local fixture/transport defect is qualified. The public 1.71.1 release limitation and full Built-in Agent matrix remain separate."
     }
-
   ]
 }

@@ -123,24 +123,37 @@ The [per-guide reader checklist](selected-reader-sanity.md) tracks all 220 basel
 | 26 | C035–C036 source-region coverage | Headless/tool-rendering routes lacked compatible excerpts | Bounded frontend/backend regions and regression coverage committed (`88ee9b4e70`) | Verifying; renderer proof remains open |
 | 27 | Latest LangGraph Python dependencies | Stable dependency set had not been exercised against native graph boot | Updated requirements and three local D6 cells are green (`24401cb24f`) | Scoped 3-cell evidence only; not integration qualification |
 | 28 | User-requested pause checkpoint | C025/C030 edits and REPAIR-008–011 had incomplete reader/runtime gates | Sources and before-state evidence preserved; no new tests or repairs run | Paused by user; no framework fully qualified |
+| 29 | Resume from pause checkpoint | Saved source repairs and evidence require focused validation | Dependency/lock review is clear; C025/C030 focused contracts passed; REPAIR-008/010 local representation checks are qualified | Active repair; no framework qualified |
+| 30 | C031 honest unavailable route and REPAIR-009 reader path | Pydantic state page taught a non-running copied example; BIA config page exposed real regions without a usable setup/action path | C031 and REPAIR-009 committed (`26691e24fc`); pretypecheck + 70 focused docs tests passed, and strict local reader evidence covers the BIA Try it flow | Pydantic backend gap remains open; full BIA matrix is separate |
+| 31 | C028/C029 source-backed MAF guides and REPAIR-012 prompt intent | MAF guides had copied cross-runtime contracts; generic copied prompt lost the feature outcome and could name a bare Markdown source | C028/29 committed (`26691e24fc`), REPAIR-012 committed (`c257bcbb3a`); pretypecheck + 70 focused docs tests passed and hydrated Agent Config copy proved scoped outcome/link | MAF behavior paths and final representative reader checks remain open |
+| 32 | REPAIR-013 strict browser fixture transport | Normal local browser traffic lacked an AIMock context, so a strict fixture rejected the guide action | Local-only context fallback and natural action fixture committed (`0177395811`); six D6 control turns and exact casual/expert/detailed reader action are green with patched local core | Registry-only 1.71.1 still lacks REPAIR-011; full BIA matrix remains separate |
 
 Subsequent rows must link the defect IDs, commit, command/result or screenshot, remaining failures,
 and next step. Unresolved checks belong here even when another check turns green.
 
-## Pause checkpoint — user requested
+## Pause checkpoint — historical
 
-Work is paused at the user's request, not blocked or complete. The last bounded
+Work paused at the user's request and has now resumed. The pause was not a block or a completion. The last bounded
 shell-docs suite remains **911/922 passing**; it is not a full-suite pass.
 `CONTENT-GEN-025` (CrewAI source-backed HITL rewrite) and `CONTENT-GEN-030`
-(active Microsoft Agent Framework interactive selector) are untested working
-changes. `CONTENT-GEN-031` remains a genuine Pydantic product/backend gap:
+(active Microsoft Agent Framework interactive selector) later passed their
+focused 16-test docs gate (`499a085f62`); reader/runtime gates remain open. `CONTENT-GEN-031` remains a genuine Pydantic product/backend gap:
 the current Showcase has no `steps` publisher/runtime that the guide can
 truthfully extract. `REPAIR-008` through `REPAIR-011` remain explicit in the
 ledger: local embed boot, Built-in Agent guide provenance, hydrated footer
 link, and relative runtime URL respectively. The scoped core repair is committed
-as `6e7ad99316` with full core checks and patched-local D6 proof; its dependency
-overlay still needs removal before Built-in Agent qualification. The Copy/View prompt observation
-remains inconclusive until a real local browser recheck.
+as `6e7ad99316` with full core checks and patched-local D6 proof. Registry-only
+1.71.1 independently remains RED because that release lacks the core repair;
+this is a release-availability limit, separate from local repair verification. Copy/View Prompt itself was verified after local hydration; REPAIR-012 addresses the separate feature-intent and scoped-source contract.
+
+## Resume checkpoint — active work
+
+The repair queue is active again. Current source work remains bounded: C025 and C030 have passed their focused
+docs contracts and await reader/runtime gates; C028/C029 and C031 passed the 70-test focused gate; C031 remains an explicit Pydantic backend
+implementation gap. REPAIR-008 through REPAIR-010 require their planned local
+representation checks. REPAIR-011 is locally verified; the separate latest-published 1.71.1
+compatibility result is release-blocked because it lacks the core repair. REPAIR-012 keeps generic onboarding plus a scoped feature outcome and passed focused prompt/Markdown plus hydrated-browser checks. No integration is qualified, and
+the last full docs result remains 911/922.
 
 ## Local rendered comparisons
 
