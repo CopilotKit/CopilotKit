@@ -66,7 +66,9 @@ describe("strict turn-index fixture routing", () => {
     ]);
 
     const relaxed = matchFixture(candidates, followUpRequest);
-    expect(relaxed?.response).toHaveProperty("toolCalls");
+    expect(relaxed?.response).toMatchObject({
+      toolCalls: [{ id: "call_d5_open_gen_ui_3d_axis_001" }],
+    });
 
     const strict = matchFixture(
       candidates,
