@@ -1,5 +1,8 @@
 "use client";
 
+// Canonical source; materialized into each selected integration by
+// showcase/scripts/sync-shared-frontends.ts.
+
 import React, { useEffect } from "react";
 import {
   CopilotKit,
@@ -7,7 +10,7 @@ import {
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 
-import { Preferences } from "./preferences-card";
+import type { Preferences } from "./preferences-card";
 import { DemoLayout } from "./demo-layout";
 import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
@@ -28,11 +31,13 @@ interface RWAgentState {
 }
 
 export default function SharedStateReadWriteDemo() {
+  // @region[shared-state-provider]
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
       <DemoContent />
     </CopilotKit>
   );
+  // @endregion[shared-state-provider]
 }
 
 function DemoContent() {
@@ -41,7 +46,7 @@ function DemoContent() {
   // Subscribe the component to agent state changes. Any time the agent
   // mutates its state (e.g. via its `set_notes` tool) this hook fires,
   // we re-render, and the sidebar panels reflect the new values.
-  const { agent } = useAgent({
+  const { agent, isReady } = useAgent({
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
@@ -54,28 +59,33 @@ function DemoContent() {
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
   const notes = agentState?.notes ?? [];
 
-  // Seed initial preferences + empty notes into agent state once, so the
-  // agent has something to read on the very first turn.
+  // Wait for the runtime-synchronized agent before seeding. `useAgent` first
+  // exposes a provisional instance, then swaps in the instance that
+  // serializes `input.state` on a run. Seeding the provisional instance loses
+  // preferences; seeding before hydration can overwrite persisted state.
   useEffect(() => {
-    if (!agentState?.preferences) {
+    if (!isReady) return;
+    const currentState = agent.state as RWAgentState | undefined;
+    if (!currentState?.preferences) {
       agent.setState({
+        ...(currentState as object | undefined),
         preferences: INITIAL_PREFERENCES,
-        notes: [],
+        notes: currentState?.notes ?? [],
       } as RWAgentState);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent, isReady]);
 
   // @region[set-state]
   // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
-  // On the agent's next turn, `PreferencesInjectorMiddleware` reads this
-  // back out of state and adds it to the system prompt — so the UI's
-  // writes visibly steer the model.
+  // On the agent's next turn, the route's opt-in stateSystemPrompt formatter
+  // reads this back out of state and adds it to the system prompt — so the
+  // UI's writes visibly steer the model.
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
+      ...(agentState as object | undefined),
       preferences: next,
-      notes, // preserve what the agent has written
+      notes: agentState?.notes ?? [],
     } as RWAgentState);
   };
   // @endregion[use-agent-write]
@@ -83,7 +93,11 @@ function DemoContent() {
 
   // WRITE: let the user clear the agent-authored notes from the UI.
   const handleClearNotes = () => {
-    agent.setState({ preferences, notes: [] } as RWAgentState);
+    agent.setState({
+      ...(agentState as object | undefined),
+      preferences: agentState?.preferences ?? INITIAL_PREFERENCES,
+      notes: [],
+    } as RWAgentState);
   };
 
   return (

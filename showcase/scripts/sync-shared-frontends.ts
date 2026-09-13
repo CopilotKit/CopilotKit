@@ -11,32 +11,97 @@ import { fileURLToPath } from "node:url";
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const showcaseRoot = path.resolve(scriptsDir, "..");
 
-const sharedStateReadSource = path.join(
-  showcaseRoot,
-  "shared/react/demos/shared-state-read/page.tsx",
-);
-const sharedStateReadTargets = [
+const sharedStateReadIntegrations = [
   "strands",
   "langgraph-python",
   "langgraph-typescript",
-].map((slug) =>
-  path.join(
-    showcaseRoot,
-    "integrations",
-    slug,
-    "src/app/demos/shared-state-read/page.tsx",
-  ),
-);
+] as const;
+
+const selectedReactIntegrations = [
+  ...sharedStateReadIntegrations,
+  "google-adk",
+  "built-in-agent",
+] as const;
+
+const sharedStateReadWriteIntegrations = selectedReactIntegrations;
+
+function demoTargets(
+  integrations: readonly string[],
+  demoPath: string,
+): string[] {
+  return integrations.map((slug) =>
+    path.join(showcaseRoot, "integrations", slug, "src/app/demos", demoPath),
+  );
+}
+
+const sharedFrontendEntries = [
+  {
+    source: path.join(
+      showcaseRoot,
+      "shared/react/demos/shared-state-read/page.tsx",
+    ),
+    targets: demoTargets(
+      sharedStateReadIntegrations,
+      "shared-state-read/page.tsx",
+    ),
+  },
+  {
+    source: path.join(
+      showcaseRoot,
+      "shared/react/demos/shared-state-read-write/page.tsx",
+    ),
+    targets: demoTargets(
+      sharedStateReadWriteIntegrations,
+      "shared-state-read-write/page.tsx",
+    ),
+  },
+  {
+    source: path.join(showcaseRoot, "shared/react/demos/auth/page.tsx"),
+    targets: demoTargets(selectedReactIntegrations, "auth/page.tsx"),
+  },
+  {
+    source: path.join(
+      showcaseRoot,
+      "shared/react/demos/multimodal/multimodal-chat.tsx",
+    ),
+    targets: demoTargets(
+      selectedReactIntegrations,
+      "multimodal/multimodal-chat.tsx",
+    ),
+  },
+  {
+    source: path.join(
+      showcaseRoot,
+      "shared/react/demos/multimodal/file-to-data-attachment.ts",
+    ),
+    targets: demoTargets(
+      selectedReactIntegrations,
+      "multimodal/file-to-data-attachment.ts",
+    ),
+  },
+  {
+    source: path.join(
+      showcaseRoot,
+      "shared/react/demos/multimodal/sample-attachment-buttons.tsx",
+    ),
+    targets: demoTargets(
+      selectedReactIntegrations,
+      "multimodal/sample-attachment-buttons.tsx",
+    ),
+  },
+];
 
 export function syncSharedFrontends(write = false): string[] {
-  const source = fs.readFileSync(sharedStateReadSource, "utf8");
   const drift: string[] = [];
 
-  for (const target of sharedStateReadTargets) {
-    const current = fs.readFileSync(target, "utf8");
-    if (current === source) continue;
-    drift.push(path.relative(showcaseRoot, target));
-    if (write) fs.writeFileSync(target, source);
+  for (const entry of sharedFrontendEntries) {
+    const source = fs.readFileSync(entry.source, "utf8");
+    for (const target of entry.targets) {
+      const current = fs.readFileSync(target, "utf8");
+      if (current === source) continue;
+      drift.push(path.relative(showcaseRoot, target));
+      if (write) fs.writeFileSync(target, source);
+    }
   }
 
   return drift;
@@ -56,7 +121,8 @@ if (
     );
   } else {
     console.error(
-      `Shared frontend drift detected. Edit ${path.relative(showcaseRoot, sharedStateReadSource)} then run ` +
+      "Shared frontend drift detected. Edit the canonical source under " +
+        "showcase/shared/react/demos, then run " +
         `\`pnpm --dir showcase/scripts sync-shared-frontends -- --write\`:\n${drift.join("\n")}`,
     );
     process.exitCode = 1;

@@ -1,5 +1,8 @@
 "use client";
 
+// Canonical source; materialized into each selected integration by
+// showcase/scripts/sync-shared-frontends.ts.
+
 /**
  * Two buttons that auto-attach a bundled sample file (image or PDF) and
  * immediately submit a canned prompt about it.

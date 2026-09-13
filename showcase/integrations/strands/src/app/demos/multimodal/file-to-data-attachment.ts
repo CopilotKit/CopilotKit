@@ -1,5 +1,8 @@
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
+// Canonical source; materialized into each selected integration by
+// showcase/scripts/sync-shared-frontends.ts.
+
 /**
  * `onUpload` must resolve to an `AttachmentUploadResult` (data or url). We
  * always return the `data` variant — the demo inlines base64 instead of
@@ -17,6 +20,7 @@ type DataUploadResult = Extract<AttachmentUploadResult, { type: "data" }>;
  * prefix so the runtime forwards the raw base64 value (what the agent
  * expects in `source.value`).
  */
+// @region[multimodal-upload-adapter]
 export function fileToDataAttachment(file: File): Promise<DataUploadResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -44,3 +48,4 @@ export function fileToDataAttachment(file: File): Promise<DataUploadResult> {
     reader.readAsDataURL(file);
   });
 }
+// @endregion[multimodal-upload-adapter]
