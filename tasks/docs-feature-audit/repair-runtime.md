@@ -121,3 +121,37 @@
 
 - `packages/core/src/utils/single-route-resource-request.ts` constructed `new URL(runtimeUrl)` without a browser base, while 206 selected-five frontend providers pass relative `/api/...` runtime URLs. The shared core source now resolves those paths against the browser location and keeps absolute server runtime URLs valid; its focused regression tests cover relative browser and absolute server inputs.
 - This needs a new CopilotKit package release before the selected demos can claim latest _published_ SDK qualification. The local build/relink and D6 green proof are tracked separately from the published-1.71.0 RED.
+
+### Built-in Agent dependency checkpoint (2026-09-13)
+
+- Independent lock review found all five direct CopilotKit dependencies pinned and resolved from the public registry, with no `file:`, `link:`, workspace, or `/private` source in the lock. It also found the direct `cmdk` 1.1.1 and `openai` 6.49.0 changes coherent with React 19, root Zod 4, and the installed TanStack OpenAI adapter.
+- A normal registry `npm ci --dry-run --ignore-scripts` resolver run completed. Its proposed node_modules changes show that the pre-pause local tree still contains the test-only patched-core overlay; this is not clean-install proof.
+- Official npm registry latest tags observed before the registry DNS interruption: every direct CopilotKit package moved to 1.71.1. The current committed 1.71.0 pins are therefore stale. `cmdk` remains 1.1.1; OpenAI and TanStack releases also advanced, but they require a compatibility decision rather than an automatic major upgrade.
+- Next gate: update the direct CopilotKit set to 1.71.1, perform a real normal `npm ci --ignore-scripts` from the registry to replace the overlay, record installed versions, then run scoped local strict-AIMock proof. Until then, neither 1.71.0 nor the patched local core establishes latest-published qualification.
+
+### Built-in Agent 1.71.1 clean-install result
+
+- The five direct CopilotKit pins and registry lock were updated to 1.71.1. A real `npm ci --ignore-scripts` completed successfully from the final lock, installed 947 packages, and replaced the test-only local core overlay.
+- Installed direct graph: `@copilotkit/a2ui-renderer`, `react-core`, `core`, `runtime`, `shared`, and `voice` are all 1.71.1; `cmdk` is 1.1.1; root `openai` is 6.49.0; the voice package keeps its declared nested OpenAI 5.23.2. The lock has no `file:`, `link:`, or `/private` source.
+- The lockfile-update log is `/private/tmp/built-in-agent-ck1711-lock-update.log`; the normal clean-install log is `/private/tmp/built-in-agent-ck1711-normal-ci.log`. The next required evidence is a no-overlay published-1.71.1 local strict-AIMock probe; it has not yet run.
+
+### Published 1.71.1 no-overlay probe
+
+- The 1.71.1 registry install started cleanly with the local UI and strict fixture-only AIMock healthy. `agentic-chat` then failed on both D6 retry attempts before AIMock received a request: the browser raised `Failed to construct 'URL': Invalid URL` with `agent_run_failed` and no assistant response.
+- Durable result: `tasks/docs-feature-audit/stable1711-built-in-agent-agentic-chat-d6.log`. This is a fresh latest-published reproduction, not a leftover patched dependency or fixture miss.
+- The shared core repair in commit `6e7ad99316` has not been released in the current 1.71.1 registry artifacts. Built-in Agent cannot qualify against latest published CopilotKit until a release includes that repair; no per-demo workaround is appropriate.
+
+## REPAIR-013 — Built-in Agent local AIMock context fallback
+
+### Browser RED and cause
+
+- After the unreleased local core overlay allowed the browser to reach the model, the embedded Built-in Agent `agent-config` guide selected `professional` / `intermediate` / `concise`, sent `tone:professional`, and received `503 Strict mode: no fixture matched`.
+- The local AIMock journal (`/private/tmp/aimock-journal-bia-browser-red.json`) shows all three selected values in the outbound system prompt, but no `x-aimock-context` request header. The integration-scoped fixture correctly rejected that context-less request; the controls channel itself was not broken.
+
+### Change and verification
+
+- The shared Built-in Agent header-forwarding shim now supplies `built-in-agent` only when `AIMOCK_URL` is explicitly configured and an incoming request did not already set `x-aimock-context`. Explicit D6 context remains authoritative; a live-provider run without `AIMOCK_URL` retains its prior headers.
+- Root repeated the original local browser flow after the change: the same professional/intermediate/concise controls and `tone:professional` rendered the professional reply without a 503.
+- Shared strict D6 regression: `tasks/docs-feature-audit/repair013-built-in-agent-agent-config-d6.log` — six control turns, zero failures.
+- Reader-flow fixture: the Built-in Agent fixture now requires the natural prompt `Introduce yourself in the style I selected.` plus `built-in-agent` context and all three selected prompt fields (`tone=casual`, `expertise=expert`, `responseLength=detailed`). Root's local browser selected casual/expert/detailed and received the explicit reply `Active config: casual tone, expert expertise, detailed response length...`.
+- This is strict local replay evidence on the patched local core build. The current public 1.71.1 core remains separately red for relative runtime URLs until the shared repair is released.
