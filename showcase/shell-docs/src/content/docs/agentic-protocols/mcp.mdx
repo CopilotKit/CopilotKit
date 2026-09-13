@@ -413,9 +413,9 @@ lifecycle when you need persistent connections or per-request credentials.
 
 <Callout type="warn" title="`createMCPClient` on the v1 runtime">
   `new CopilotRuntime({ mcpServers, createMCPClient })` from
-  `@copilotkit/runtime` is the v1 API. It no longer executes: the tools are
-  offered to the model and never called. Use the agent-level configuration
-  above instead.
+  `@copilotkit/runtime` is the deprecated v1 API. It still works, but it keeps
+  one client per endpoint for the life of the runtime instead of opening and
+  closing one per run. Use the agent-level configuration above for new work.
 </Callout>
 
 </details>

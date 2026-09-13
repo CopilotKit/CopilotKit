@@ -616,36 +616,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       const actions = this.params?.actions;
 
-      // These tools are advertised to the model and then never executed: the
-      // machinery that ran them (remote-actions.ts, remote-action-constructors.ts,
-      // agui-action.ts) was removed in v1.50.0 and only the parameters were kept.
-      // The model calls the tool, `execute` resolves `undefined`,
-      // `JSON.stringify(undefined)` is not a string, and the emitted
-      // TOOL_CALL_RESULT loses its required `content` — which reaches the caller
-      // as a Zod validation error in the browser (#2915, #3198). Fail at
-      // construction instead of at the first tool call.
-      if (actions || this.params?.mcpServers?.length) {
-        throw new CopilotKitMisuseError({
-          message:
-            "`actions` and `mcpServers` on the v1 `CopilotRuntime` no longer execute. " +
-            "Their executor was removed in v1.50.0, so the tools would be offered to the " +
-            "model and then return nothing, breaking the response.\n\n" +
-            "Server-side tools: define them on the agent instead.\n" +
-            '  import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";\n' +
-            '  new CopilotRuntime({ agents: { default: new BuiltInAgent({ model: "...", tools: [defineTool({ ... })] }) } })\n\n' +
-            "MCP servers: pass them to the agent, which creates and closes a client per run.\n" +
-            '  new BuiltInAgent({ model: "...", mcpServers: [{ type: "sse", url: "..." }] })\n\n' +
-            "See https://docs.copilotkit.ai/docs/integrations/built-in-agent/mcp-servers",
-        });
-      }
-
-      if (actions) {
-        const mcpTools = await this.getToolsFromMCP();
-        agentsList = this.assignToolsToAgents(agentsList, [
-          ...this.getToolsFromActions(actions),
-          ...mcpTools,
-        ]);
-      }
+      // `actions` and `mcpServers` are attached independently: a runtime may
+      // configure MCP servers without any local actions.
+      const mcpTools = await this.getToolsFromMCP();
+      const actionTools = actions ? this.getToolsFromActions(actions) : [];
+      agentsList = this.assignToolsToAgents(agentsList, [
+        ...actionTools,
+        ...mcpTools,
+      ]);
 
       return agentsList;
     });
@@ -670,7 +648,25 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         name: action.name,
         description: action.description || "",
         parameters: zodSchema,
-        execute: () => Promise.resolve(),
+        // `handler` is an in-process function and was never part of the remote
+        // executor deleted in v1.50.0 — only the wiring to it was lost. Call it.
+        //
+        // The result must never be `undefined`: `JSON.stringify(undefined)` is
+        // not a string, which strips the required `content` off
+        // TOOL_CALL_RESULT and surfaces as a Zod error in the browser
+        // (#2915, #3198). Both branches below return a string instead.
+        execute: async (args: unknown) => {
+          if (typeof action.handler !== "function") {
+            return (
+              `The tool "${action.name}" was advertised without a handler, so it ` +
+              `has no implementation to run. Tell the user this tool is unavailable.`
+            );
+          }
+          const result = await action.handler(args as any);
+          return result === undefined
+            ? `The tool "${action.name}" ran and returned no value.`
+            : result;
+        },
       };
     });
   }
@@ -955,7 +951,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
             description:
               tool.description || `MCP tool: ${toolName} (from ${endpointUrl})`,
             parameters: zodSchema,
-            execute: () => Promise.resolve(),
+            // The MCP client stays live for the lifetime of the cached tool
+            // definitions; `tool.execute` calls the server.
+            execute: async (args: unknown) => tool.execute(args),
           };
         });
 

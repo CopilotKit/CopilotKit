@@ -2409,7 +2409,8 @@
         "symbol": "ExperimentalOllamaAdapter",
         "configurationType": "OllamaAdapterOptions",
         "configurationKeys": [
-          "model"
+          "model",
+          "baseUrl"
         ],
         "provenance": {
           "importPath": {
