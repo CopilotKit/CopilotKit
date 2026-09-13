@@ -44,6 +44,8 @@ export interface DocsPageToolsProps {
    * prompt.
    */
   onboardingFrontend?: { id: string; name: string };
+  /** Showcase-backed feature outcome derived from the page frontmatter. */
+  onboardingFeature?: { cell: string; title: string; description?: string };
   /** Hide the generic onboarding prompt when the page provides its own CTA. */
   hideOnboardingPrompt?: boolean;
   /**
@@ -76,6 +78,7 @@ export function DocsPageTools({
   githubUrl,
   onboardingFramework,
   onboardingFrontend,
+  onboardingFeature,
   hideOnboardingPrompt = false,
   pagePrompt,
 }: DocsPageToolsProps): React.JSX.Element {
@@ -106,6 +109,7 @@ export function DocsPageTools({
         <OnboardingPromptCopyButton
           framework={onboardingFramework}
           frontend={onboardingFrontend}
+          feature={onboardingFeature}
           markdownUrl={markdownUrl}
           className="docs-page-actions-primary"
         >

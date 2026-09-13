@@ -87,6 +87,12 @@ const SLACK = { id: "slack", name: "Slack" };
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
 const PAGE_SENTENCE = ` I started from this CopilotKit docs page: ${DOCS_ORIGIN}/mastra/generative-ui.`;
 const MASTRA_TOPIC = " The page covers the Mastra agent framework.";
+const FEATURE = {
+  cell: "agent-config",
+  title: "Agent Config",
+  description:
+    "Let users change the agent's tone, expertise, and response length.",
+};
 
 /**
  * Render with the props every framework-scoped page supplies, so each test
@@ -142,6 +148,32 @@ function reportedRunId(callIndex = 0): string {
   ];
   return properties.onboarding_run_id as string;
 }
+
+it("asks for the Showcase-bound outcome after generic onboarding", async () => {
+  const writeText = stubClipboard();
+
+  renderButton({ feature: FEATURE });
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+  expect(writeText.mock.calls[0][0]).toContain(
+    "After onboarding, implement the Showcase feature “Agent Config” in this app. Its goal: Let users change the agent's tone, expertise, and response length. Follow the linked guide.",
+  );
+});
+
+it("leaves quickstarts and references generic without a feature binding", async () => {
+  const writeText = stubClipboard();
+
+  renderButton();
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+  expect(writeText.mock.calls[0][0]).not.toContain(
+    "After onboarding, implement",
+  );
+});
 
 it("mints a run id in the shape the CLI validates", async () => {
   // `copilotkit onboard start --run <id>` rejects anything outside this

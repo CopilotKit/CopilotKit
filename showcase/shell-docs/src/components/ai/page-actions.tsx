@@ -35,6 +35,7 @@ import {
   createChannelsOnboardingPrompt,
   isChannelOnboardingId,
 } from "@/lib/channels-onboarding-prompt";
+import { onboardingFeaturePromptSuffix } from "@/lib/docs-onboarding-feature";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -187,11 +188,12 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
  * straight into their coding agent.
  *
  * The copied string is `createIntelligenceOnboardingPrompt(runId)` followed by
- * what the page covers and which page the reader started from. Both are facts
- * for the receiving agent, never instructions — the prompt itself is the only
- * thing that tells the agent what to do, and the sibling copies in the
- * Intelligence repo and the Inspector have to keep matching that part byte for
- * byte.
+ * what the page covers, the selected Showcase feature outcome when the page
+ * is bound to one, and which page the reader started from. The page facts are
+ * for the receiving agent, not claims about the reader's project — the prompt
+ * itself is the only thing that tells the agent how to onboard, and the
+ * sibling copies in the Intelligence repo and the Inspector have to keep
+ * matching that part byte for byte.
  *
  * The page's framework and frontend describe the page, never the reader's
  * project: "The page covers …", not "I use …" (PE-309).
@@ -204,6 +206,7 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
 export function OnboardingPromptCopyButton({
   framework,
   frontend,
+  feature,
   markdownUrl,
   ...props
 }: ComponentProps<"button"> & {
@@ -230,6 +233,8 @@ export function OnboardingPromptCopyButton({
    * also selects the Channels prompt.
    */
   frontend?: { id: string; name: string };
+  /** Showcase feature represented by this page, when it has a bound cell. */
+  feature?: { cell: string; title: string; description?: string };
   /**
    * The page's `.mdx` URL as a site-root-relative path — the same value the
    * page-tools row hands `MarkdownCopyButton`. Passed in rather than derived
@@ -280,7 +285,8 @@ export function OnboardingPromptCopyButton({
             (channel
               ? createChannelsOnboardingPrompt(runId)
               : createIntelligenceOnboardingPrompt(runId) +
-                pageTopicSentence(framework, frontend)) +
+                pageTopicSentence(framework, frontend) +
+                (feature ? onboardingFeaturePromptSuffix(feature) : "")) +
             pageSourceSentence(markdownUrl),
           onAction: (action) =>
             posthog?.capture(
