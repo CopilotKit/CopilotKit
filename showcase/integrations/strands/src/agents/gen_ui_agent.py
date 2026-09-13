@@ -71,6 +71,7 @@ def set_steps(steps: list[dict]) -> str:
 # ---- State hook ---------------------------------------------------------
 
 
+# @region[gen-ui-agent-backend]
 async def steps_state_from_args(context: Any) -> dict | None:
     """Emit a StateSnapshotEvent for the ``steps`` slot on every ``set_steps``.
 
@@ -129,6 +130,9 @@ async def steps_state_from_args(context: Any) -> dict | None:
             }
         )
     return {"steps": cleaned}
+
+
+# @endregion[gen-ui-agent-backend]
 
 
 # ---- Prompt addendum ----------------------------------------------------

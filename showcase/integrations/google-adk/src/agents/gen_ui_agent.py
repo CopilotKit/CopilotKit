@@ -17,6 +17,7 @@ from google.adk.tools import ToolContext
 from agents.shared_chat import get_model, stop_on_terminal_text
 
 
+# @region[gen-ui-agent-backend]
 def set_steps(tool_context: ToolContext, steps: list[dict]) -> dict:
     """Publish the current plan + step statuses.
 
@@ -59,3 +60,4 @@ gen_ui_agent = LlmAgent(
     tools=[set_steps, AGUIToolset()],
     after_model_callback=stop_on_terminal_text,
 )
+# @endregion[gen-ui-agent-backend]

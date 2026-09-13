@@ -301,6 +301,11 @@ demos:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
+    highlight:
+      - src/agents/gen_ui_agent.py
+      - src/app/demos/gen-ui-agent/page.tsx
+      - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation

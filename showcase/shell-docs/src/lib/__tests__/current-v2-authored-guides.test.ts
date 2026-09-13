@@ -108,8 +108,20 @@ test("gives LangGraph TypeScript a source-backed existing-agent path", () => {
   expect(guide).toContain('file="src/agent/package.json"');
   expect(guide).toContain('file="src/agent/langgraph.json"');
   expect(guide).toContain('region="cli-start-graph-export"');
+  expect(guide).toContain(
+    "git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git",
+  );
+  expect(guide).toContain(
+    "cd CopilotKit/showcase/integrations/langgraph-typescript",
+  );
+  expect(guide).toContain("cp .env.example .env");
+  expect(guide).toContain("cd src/agent");
+  expect(guide).toContain("npm ci");
   expect(guide).toContain("npm install");
   expect(guide).toContain("npm run dev");
+  expect(guide).toContain("not a starter project");
+  expect(guide).toContain("reference only");
+  expect(guide).not.toContain("mkdir my-langgraph-agent");
 
   const output = renderPageToLlmText({
     url: "langgraph-typescript/quickstart",
@@ -123,8 +135,138 @@ test("gives LangGraph TypeScript a source-backed existing-agent path", () => {
   );
   expect(output).toContain('"starterAgent": "./graph.ts:graph"');
   expect(output).toContain("export const graph = workflow.compile");
+  expect(output).toContain("Want the complete runnable Showcase agent?");
+  expect(output).toContain(
+    "git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git",
+  );
+  expect(output).toContain("cp .env.example .env");
+  expect(output).toContain("configuration is a reference only");
   expect(output).not.toContain("Missing snippet");
   expect(output).not.toContain("<Snippet");
+});
+
+test("limits selected Showcase multimodal claims to images and PDFs", () => {
+  const guide = source("multimodal-attachments");
+  expect(guide).toContain("snippet_cell: multimodal");
+  expect(guide).toContain('region="multimodal-attachments"');
+  expect(guide).toContain('region="multimodal-upload-adapter"');
+  expect(guide).toContain('accept: "image/*,application/pdf"');
+  expect(guide).toContain("No selected Showcase end-to-end claim");
+  expect(guide).not.toContain("Audio player");
+  expect(guide).not.toContain(
+    "GPT-4o supports images but not audio file parts",
+  );
+
+  const doc = loadDoc("multimodal-attachments");
+  if (!doc) throw new Error("Missing multimodal attachments guide");
+  const output = renderPageToLlmText({
+    url: "built-in-agent/multimodal-attachments",
+    title: doc.fm.title,
+    filePath: doc.filePath,
+    loadSlug: "multimodal-attachments",
+    framework: "built-in-agent",
+  });
+  expect(output).toContain("Try with sample image");
+  expect(output).toContain("accept: ACCEPT_MIME");
+  expect(output).toContain("No selected Showcase end-to-end claim");
+  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<Snippet");
+});
+
+test("separates the Voice sample-text path from microphone transcription", () => {
+  const guide = source("voice");
+  expect(guide).toContain("snippet_cell: voice");
+  expect(guide).toContain('region="voice-page"');
+  expect(guide).toContain('region="sample-audio-button"');
+  expect(guide).toContain('region="voice-runtime"');
+  expect(guide).toContain(
+    "prepared text and does not upload or transcribe audio",
+  );
+  expect(guide).not.toContain("transcript will auto-send");
+
+  const doc = loadDoc("voice");
+  if (!doc) throw new Error("Missing voice guide");
+  const output = renderPageToLlmText({
+    url: "built-in-agent/voice",
+    title: doc.fm.title,
+    filePath: doc.filePath,
+    loadSlug: "voice",
+    framework: "built-in-agent",
+  });
+  expect(output).toContain("Try a sample audio");
+  expect(output).toContain(
+    "prepared text and does not upload or transcribe audio",
+  );
+  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<Snippet");
+});
+
+test("replaces four LangGraph Python legacy viewer guides with Showcase sources", () => {
+  const cases = [
+    {
+      slug: "integrations/langgraph/shared-state/predictive-state-updates",
+      url: "langgraph-python/shared-state/predictive-state-updates",
+      sourceTerms: [
+        "shared-state-streaming",
+        "state-streaming-middleware",
+        "frontend-use-coagent-state",
+      ],
+      outputTerms: [
+        "StateStreamingMiddleware",
+        'agentId: "shared-state-streaming"',
+      ],
+    },
+    {
+      slug: "integrations/langgraph/shared-state/state-inputs-outputs",
+      url: "langgraph-python/shared-state/state-inputs-outputs",
+      sourceTerms: [
+        "shared-state-read-write",
+        "shared-state-setup",
+        "use-agent-write",
+      ],
+      outputTerms: ["PreferencesInjectorMiddleware", "agent.setState"],
+    },
+    {
+      slug: "integrations/langgraph/agent-app-context",
+      url: "langgraph-python/agent-app-context",
+      sourceTerms: [
+        "readonly-state-agent-context",
+        "use-agent-context-call",
+        "agent-context-setup",
+      ],
+      outputTerms: ["useAgentContext({", "CopilotKitMiddleware"],
+    },
+    {
+      slug: "integrations/langgraph/multi-agent-flows",
+      url: "langgraph-python/multi-agent-flows",
+      sourceTerms: [
+        "subagents",
+        "supervisor-delegation-tools",
+        "delegation-log-frontend",
+      ],
+      outputTerms: ["research_agent", "useRenderTool("],
+    },
+  ];
+
+  for (const item of cases) {
+    const guide = source(item.slug);
+    for (const term of item.sourceTerms) expect(guide).toContain(term);
+    expect(guide).not.toContain("IframeSwitcher");
+    expect(guide).not.toContain("feature-viewer.copilotkit.ai");
+
+    const doc = loadDoc(item.slug);
+    if (!doc) throw new Error(`Missing ${item.slug}`);
+    const output = renderPageToLlmText({
+      url: item.url,
+      title: doc.fm.title,
+      filePath: doc.filePath,
+      loadSlug: item.slug,
+      framework: "langgraph-python",
+    });
+    for (const term of item.outputTerms) expect(output).toContain(term);
+    expect(output).not.toContain("Missing snippet");
+    expect(output).not.toContain("<Snippet");
+  }
 });
 
 test("uses the CrewAI Showcase flow and browser tool for HITL", () => {

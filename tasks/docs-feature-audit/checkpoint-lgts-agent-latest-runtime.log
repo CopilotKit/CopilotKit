@@ -1,0 +1,83 @@
+
+> langgraph-typescript-agent@0.0.1 dev
+> npx @langchain/langgraph-cli@1.4.6 dev --port 8123 --no-browser
+
+
+          Welcome to
+
+╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴.js
+
+- 🚀 API: [36mhttp://localhost:8123[0m
+- 🎨 Studio UI: [36mhttps://smith.langchain.com/studio?baseUrl=http://localhost:8123[0m
+
+This in-memory server is designed for development and testing.
+For production use, please use LangSmith Deployment.
+
+
+[32minfo[39m:    [32m[2m▪[22m[0m [0m[32mStarting server...[39m
+[32minfo[39m:    [32m[2m▪[22m[0m [0m[32mInitializing storage...[39m
+[32minfo[39m:    [32m[2m▪[22m[0m [0m[32mRegistering graphs from /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/integrations/langgraph-typescript/src/agent[39m
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'sample_agent'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'sample_agent'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'starterAgent'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'starterAgent'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'beautiful_chat'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'beautiful_chat'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'headless_complete'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'headless_complete'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'multimodal'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'multimodal'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'agent_config_agent'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'agent_config_agent'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'agentic-chat-reasoning'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'agentic-chat-reasoning'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'tool_rendering'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'tool_rendering'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'tool-rendering-reasoning-chain'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'tool-rendering-reasoning-chain'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'interrupt_agent'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'interrupt_agent'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'a2ui_dynamic'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'a2ui_dynamic'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'a2ui_fixed'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'a2ui_fixed'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'a2ui_recovery'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'a2ui_recovery'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'mcp_apps'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'mcp_apps'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'frontend_tools'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'frontend_tools'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'frontend_tools_async'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'frontend_tools_async'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'hitl_in_app'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'hitl_in_app'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'hitl_in_chat'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'hitl_in_chat'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'readonly_state_agent_context'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'readonly_state_agent_context'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'byoc_hashbrown'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'byoc_hashbrown'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'byoc_json_render'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'byoc_json_render'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'open_gen_ui'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'open_gen_ui'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'open_gen_ui_advanced'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'open_gen_ui_advanced'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'shared_state_read_write'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'shared_state_read_write'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'shared_state_streaming'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'shared_state_streaming'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'subagents'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'subagents'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'gen_ui_agent'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'gen_ui_agent'[39m }
+[32minfo[39m:    [32m[2m┏[22m[0m [0m[32mRegistering graph with id 'gen_ui_tool_based'[39m
+[2m[32minfo[39m[22m:    [32m[2m┗[22m[0m [0m[2m[1][22m { graph_id: [32m'gen_ui_tool_based'[39m }
+[32minfo[39m:    [32m[2m▪[22m[0m [0m[32mStarting 10 workers[39m
+[31merror[39m:   [31m[2m▪[22m[0m [0m[31mError: listen EADDRINUSE: address already in use ::1:8123[39m
+[31m    at Server.setupListenHandle [as _listen2] (node:net:1939:16)[39m
+[31m    at listenInCluster (node:net:1996:12)[39m
+[31m    at GetAddrInfoReqWrap.callback (node:net:2205:7)[39m
+[31m    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:134:8)[39m

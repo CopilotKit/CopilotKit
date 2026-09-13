@@ -1,0 +1,33 @@
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-09-13T18:09:31.991Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureCount":1,"backendUrl":"http://localhost:3117"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=a64d7f65-2293-49cc-96e5-b4237b1305b2 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a64d7f65-2293-49cc-96e5-b4237b1305b2 error=","ts":"2026-09-13T18:09:32.245Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state { url: 'http://localhost:3117/demos/voice', hadTrackedRequest: false }
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state { url: 'http://localhost:3117/demos/voice', hadTrackedRequest: false }
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-13T18:09:33.081Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"voice","hydrated":true,"hydrationMs":25}
+[conversation-runner] starting conversation { totalTurns: 1, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/1 — sending message { inputLength: 0, timeoutMs: 30000 }
+[conversation-runner] turn 1/1 — running preFill hook
+[conversation-runner] turn 1/1 — preFill hook completed
+[conversation-runner] turn 1/1 — skipFill=true, waiting for textarea content then pressing Enter
+[conversation-runner] waitForContentAndSend — start { selector: '[data-testid="copilot-chat-textarea"]', timeoutMs: 30000 }
+[conversation-runner] waitForContentAndSend — textarea has content, pressing Enter { valueLength: 29, valuePreview: 'What is the weather in Tokyo?' }
+[conversation-runner] turn 1/1 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 30000
+}
+[conversation-runner] turn 1/1 — assistant settled { bubbleIndex: 0, textLength: 72, hasAssertions: true }
+[conversation-runner] turn 1/1 — settled metadata { turnNum: 1, bubbleIndex: 0, textLength: 72 }
+[conversation-runner] turn 1/1 — running assertions { bubbleIndex: 0, textLength: 72 }
+[conversation-runner] turn 1/1 — assertions passed
+[conversation-runner] conversation completed successfully { turnsCompleted: 1, totalDurationMs: 2242 }
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-09-13T18:09:35.344Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/voice"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-09-13T18:09:35.345Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"voice","pass":true,"durationMs":3103}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=a64d7f65-2293-49cc-96e5-b4237b1305b2 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-a64d7f65-2293-49cc-96e5-b4237b1305b2 error=","ts":"2026-09-13T18:09:35.376Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-09-13T18:09:35.376Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","passed":1,"failed":0,"skipped":0,"incapable":0,"total":1,"state":"green","durationMs":3385}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-09-13T18:09:35.376Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent"}
+  [32m✓[0m d6:built-in-agent [32mgreen[0m [2m(3.6s)[0m
+{"slug":"built-in-agent","results":[{"key":"d6:built-in-agent","state":"green","durationMs":3650,"signal":{"shape":"package","slug":"built-in-agent","backendUrl":"http://localhost:3117","total":1,"passed":1,"failed":[],"skipped":[]}}]}

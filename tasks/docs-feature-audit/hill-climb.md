@@ -3,7 +3,7 @@
 This is the live progress document for repairing the five selected agent integrations in React:
 LangGraph Python, LangGraph JS, Google ADK, Strands, and Built-in Agent.
 
-**Current position: repair underway. No integration is qualified yet.**
+**Current position: paused at the user’s request. No integration is fully qualified yet.**
 
 The [per-defect ledger](repair-status.json) tracks all 37 confirmed findings, fix commits,
 after-evidence, and independent reviews. New failures found during repairs use separate `REPAIR-*`
@@ -53,13 +53,13 @@ Local execution follows the [resource budget](resource-budget.md): the user-appr
   results below used Webpack because the default Turbopack command failed.
 - Keep new results in iteration records; do not overwrite the original failed verdicts.
 
-| Integration      | Original baseline                                  | Current repair status                                                                                                                                                                | Qualification |
-| ---------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
-| LangGraph Python | 38/40; voice and multimodal failed                 | Latest pinned graph booted; 3 strict local cells green. Full refresh pending.                                                                                                        | Not qualified |
-| LangGraph JS     | 37/40 under Webpack; default dev broken            | Default Turbopack command and 3 local probes green. Full refresh pending.                                                                                                            | Not qualified |
-| Google ADK       | UI startup blocked by conflicting routes           | Startup and normal-browser AIMock context fixed; scoped auth/chat/tool evidence green. Full refresh pending.                                                                         | Not qualified |
-| Strands          | 34/36; voice and multimodal failed                 | Recipe/state bridge and 3 related strict local cells green. Full refresh pending.                                                                                                    | Not qualified |
-| Built-in Agent   | 35/39; three confirmed fixture gaps plus a timeout | 37/39 full strict local matrix with public 1.71.1 plus the local REPAIR-011 core fix. Voice and an unshipped thread-ID demo remain RED; clean public 1.71.1 still fails Invalid URL. | Not qualified |
+| Integration      | Original baseline                                  | Current repair status                                                                                                                                                                                                                      | Qualification |
+| ---------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| LangGraph Python | 38/40; voice and multimodal failed                 | Latest pinned graph booted; 3 strict local cells green. Full refresh pending.                                                                                                                                                              | Not qualified |
+| LangGraph JS     | 37/40 under Webpack; default dev broken            | Default Turbopack command and 3 local probes green. Full refresh pending.                                                                                                                                                                  | Not qualified |
+| Google ADK       | UI startup blocked by conflicting routes           | Startup and normal-browser AIMock context fixed; scoped auth/chat/tool evidence green. Full refresh pending.                                                                                                                               | Not qualified |
+| Strands          | 34/36; voice and multimodal failed                 | Recipe/state bridge and 3 related strict local cells green. Full refresh pending.                                                                                                                                                          | Not qualified |
+| Built-in Agent   | 35/39; three confirmed fixture gaps plus a timeout | Final 38/39 raw strict local matrix: all 38 published checks pass; the unshipped thread-ID demo remains RED. Uses public 1.71.1 plus local core URL fix; unpatched public package still fails. Voice audio transcription remains untested. | Not qualified |
 
 Check counts differ from routed-demo counts because D6 expands some features. The two LangGraph
 interrupt demos remain explicitly quarantined pending supported SDK behavior. See the
@@ -188,3 +188,13 @@ progress; it is not a forecast or a claim that the unfinished work already passe
 - Strict tool-followup replay regression and explicit qualification instructions are committed in `0579611845`. The default replay mode for unrelated integrations was preserved.
 
 No integration is fully qualified yet. Local patched behavior, latest published compatibility, exact setup reproduction, and live-provider behavior remain distinct results.
+
+### Built-in Agent final runtime checkpoint
+
+The full run after voice commit `6c38d7ef74` is **38/39 raw checks; 38/38 published checks**. The sole raw failure is the explicitly unshipped thread-ID demo; it remains in the evidence. [Before/after comparison](built-in-agent-runtime-comparison-20260913.md) records all seven changed outcomes. Voice passes the prepared transcript handoff, while actual audio capture/transcription remains a separate open gate. Full documentation/setup qualification and unpatched published SDK compatibility are not inferred from this runtime pass.
+
+The audit-owned BIA UI and AIMock were stopped before starting LangGraph TypeScript.
+
+## Latest pause checkpoint
+
+Paused on September 13 at the user’s request. Audit servers and workers are stopped. See [the restart checkpoint](checkpoint-20260913.md) for verified commits, unfinished source units, exact remaining failures, and restart order. Final BIA replay is 38/38 published checks, with the unshipped raw failure and local SDK patch kept explicit. REPAIR-027 still has a RED selected-guide setup gate; its final state-rendering edit is unvalidated WIP.

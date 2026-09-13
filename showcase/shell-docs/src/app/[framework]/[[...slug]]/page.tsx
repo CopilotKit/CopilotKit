@@ -43,6 +43,7 @@ import {
 import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import { resolveFrameworkContent } from "@/lib/framework-content-resolution";
 import {
   getFrontendGuidanceContentSlug,
   getFrontendContentSlug,
@@ -823,47 +824,9 @@ export default async function FrameworkScopedDocsPage({
     frameworkOverviews[scopedFramework]?.frameworkName ??
     scopedFramework;
 
-  let contentSlugPath: string = slugPath;
-  let doc: ReturnType<typeof loadDoc> = null;
-
-  // Content resolution order depends on docs_mode:
-  //
-  //   authored  — per-framework MDX wins for every slug. Authored pages
-  //               can replace root pages while keeping the framework's
-  //               authored sidebar IA.
-  //               Only fall back to root if the framework simply has no
-  //               file for the requested slug (preserves the "shared"
-  //               fallback for slugs the framework intentionally leaves
-  //               to the agnostic page, e.g. enterprise CTAs).
-  //   generated — root MDX wins (Model 1, current behavior); the
-  //               per-framework tree is a sparse override layer.
-  if (docsMode === "authored") {
-    const frameworkPath = `integrations/${docsFolder}/${slugPath}`;
-    doc = loadDoc(frameworkPath);
-    if (doc) contentSlugPath = frameworkPath;
-    if (!doc) doc = loadDoc(slugPath);
-  } else {
-    // A few root pages are shared nav shims/overviews whose framework-scoped
-    // URLs should render the per-framework MDX when it exists.
-    //
-    // - `/quickstart` at the root is a routing shim; real quickstart content
-    //   lives per-framework.
-    // - `/threads-import` is a cross-source overview at the root, but ADK and
-    //   LangGraph have source-specific import guides at the same framework URL.
-    if (slugPath === "quickstart" || slugPath === "threads-import") {
-      const overridePath = `integrations/${docsFolder}/${slugPath}`;
-      doc = loadDoc(overridePath);
-      if (doc) contentSlugPath = overridePath;
-    }
-    if (!doc) {
-      doc = loadDoc(slugPath);
-      if (!doc) {
-        const fallbackPath = `integrations/${docsFolder}/${slugPath}`;
-        doc = loadDoc(fallbackPath);
-        if (doc) contentSlugPath = fallbackPath;
-      }
-    }
-  }
+  const resolvedContent = resolveFrameworkContent(scopedFramework, slugPath);
+  const contentSlugPath = resolvedContent?.contentSlugPath ?? slugPath;
+  const doc = resolvedContent?.doc ?? null;
 
   // Authored integrations own their full docs tree and sidebar IA.
   // Generated integrations use the root docs IA with a sparse

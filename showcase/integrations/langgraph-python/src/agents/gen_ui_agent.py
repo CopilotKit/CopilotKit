@@ -38,6 +38,7 @@ class GenUiAgentState(AgentState):
     steps: Annotated[NotRequired[list[Step]], _last_steps, OmitFromInput]
 
 
+# @region[gen-ui-agent-backend]
 @tool
 def set_steps(
     steps: list[Step], tool_call_id: Annotated[str, InjectedToolCallId]
@@ -57,6 +58,9 @@ def set_steps(
             ],
         }
     )
+
+
+# @endregion[gen-ui-agent-backend]
 
 
 SYSTEM_PROMPT = (

@@ -188,3 +188,10 @@
 - Explicit qualification-mode AIMock (`AIMOCK_STRICT_TURN_INDEX=1`) ran all 39 current BIA D6 checks against the existing local UI and fixture-only mock: 37 passed, 2 failed, no checks skipped. Durable aggregate: `tasks/docs-feature-audit/repair021-built-in-agent-full-d6-strict-turn.log`.
 - `threadid-frontend-tool-roundtrip` fails with `503 Strict mode: no fixture matched`. It is deliberately a manifest feature without a `demos:` entry, so this is retained as unshipped/non-applicable evidence rather than omitted or treated as a published guide cell.
 - `voice` has no request start or user/assistant DOM after the immediate sample-button click (`runStartCount=0`). Its sample writes the composer during the provisional-agent window, before CopilotChat enables submit after runtime discovery. The byte-identical five-integration voice components need the same canonical `isReady` gate as multimodal; its repair/replay is pending at this checkpoint.
+
+### Final strict qualification replay
+
+- After the canonical voice readiness gate, the complete strict-turn replay ran 39 checks against the local Built-in Agent UI and fixture-only AIMock: `tasks/docs-feature-audit/repair021-built-in-agent-full-d6-strict-turn-final.log`.
+- Raw result: 38 passed, 1 failed. The only failure is `threadid-frontend-tool-roundtrip`, which made two real attempts and received `503 Strict mode: no fixture matched`. The Built-in Agent manifest declares this as a feature but contains no `demos:` entry; it is retained as an unshipped, non-applicable raw-matrix failure rather than silently skipped.
+- Published-catalog result: 38 applicable cells passed. This result uses the strict local AIMock qualification configuration and the local core artifact patched only with unreleased REPAIR-011 relative-URL behavior. It does not qualify the latest published CopilotKit 1.71.1 artifact, which remains red until that shared repair is released.
+- Voice’s strict D6 and normal-browser sample are green only for the bundled text-transcript handoff. Neither exercises microphone capture nor WAV upload/transcription; that provider/API path remains untested.

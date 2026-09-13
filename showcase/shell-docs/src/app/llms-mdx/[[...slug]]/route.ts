@@ -3,6 +3,7 @@ import path from "path";
 import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import { resolveFrameworkContent } from "@/lib/framework-content-resolution";
 import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
 import {
   getFrontendContentSlug,
@@ -377,41 +378,21 @@ function resolveFrameworkScopedPage(
   tail: string,
   url: string,
 ): ResolvedPage | null {
-  const docsFolder = getDocsFolder(framework);
-  const docsMode = getDocsMode(framework);
-  if (docsMode === "hidden") return null;
+  const resolved = resolveFrameworkContent(framework, tail);
+  if (!resolved) return null;
 
-  const rootSlugPath = tail;
-  const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
-
-  // `authored` frameworks own their entire IA — try the per-framework
-  // tree first. `generated` is the inverse — root wins, framework
-  // tree is the override, except quickstart where the root file is
-  // only a routing shim and the page route prefers framework content.
-  const candidateOrder =
-    docsMode === "authored" || tail === "quickstart"
-      ? [frameworkSlugPath, rootSlugPath]
-      : [rootSlugPath, frameworkSlugPath];
-  if (tail === "index") {
-    candidateOrder.push(`integrations/${docsFolder}/quickstart`);
-  }
-
-  for (const candidate of candidateOrder) {
-    const doc = loadDoc(candidate);
-    if (!doc) continue;
-    return {
-      page: {
-        url,
-        title: doc.fm.title,
-        description: doc.fm.description,
-        filePath: doc.filePath,
-        loadSlug: candidate,
-        framework,
-      },
+  const { doc, contentSlugPath } = resolved;
+  return {
+    page: {
+      url,
+      title: doc.fm.title,
+      description: doc.fm.description,
+      filePath: doc.filePath,
+      loadSlug: contentSlugPath,
       framework,
-    };
-  }
-  return null;
+    },
+    framework,
+  };
 }
 
 /**

@@ -584,21 +584,36 @@ Before you begin, you'll need the following:
           <Tab value="TypeScript">
             ### Run an existing TypeScript LangGraph agent
 
-            The selected TypeScript Showcase runs its graph with Node.js 20 and
-            `@langchain/langgraph-cli`. Start in your agent directory; keep your
-            existing graph implementation, then use the Showcase package as the
-            dependency and start-script reference.
+            This path assumes you already have a TypeScript LangGraph project.
+            Keep your graph and its helpers together; the Showcase package and
+            configuration below are references for the dependencies, CLI command,
+            and graph registration shape.
 
-            ```bash
-            mkdir my-langgraph-agent
-            cd my-langgraph-agent
-            npm init -y
-            ```
+            <Callout type="info" title="Want the complete runnable Showcase agent?">
+              The excerpts on this page are not a starter project: the selected
+              graph imports its own helpers and shared tools, and its configuration
+              registers other Showcase graphs. To run that exact sample, clone the
+              integration directory intact:
 
-            Merge the dependencies and `dev` script below into your agent's
-            `package.json`, then install them. The script starts the graph on
-            port `8123`, which matches the selected Showcase runtime's local
-            deployment URL.
+              ```bash
+              git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
+              cd CopilotKit/showcase/integrations/langgraph-typescript
+              cp .env.example .env
+              # Set OPENAI_API_KEY in .env, then:
+              cd src/agent
+              npm ci
+              npm run dev
+              ```
+
+              This starts the selected agent on `http://localhost:8123`. The
+              `langgraph.json` file loads `../../.env`, so leave `.env` in the
+              integration directory.
+            </Callout>
+
+            For your existing project, merge the dependencies and `dev` script
+            below into its `package.json`, install them, and keep your own graph
+            files and imports in place. The script starts the graph on port `8123`,
+            which matches the selected Showcase runtime's local deployment URL.
 
             <Snippet
               framework="langgraph-typescript"
@@ -612,20 +627,23 @@ Before you begin, you'll need the following:
             npm run dev
             ```
 
-            Register the graph export that should receive chat runs in
+            Register the graph export that should receive chat runs in your own
             `langgraph.json`. The selected Showcase maps `starterAgent` to the
-            `graph` export in `graph.ts`; replace that path and export only when
-            your existing agent uses different names.
+            `graph` export in `graph.ts`; use your own path and export when they
+            differ. Its full configuration is a reference only because it also
+            registers the other graphs included with the Showcase sample.
 
             <Snippet
               framework="langgraph-typescript"
               cell="cli-start"
               file="src/agent/langgraph.json"
-              title="src/agent/langgraph.json — selected TypeScript graph registrations"
+              title="src/agent/langgraph.json — selected TypeScript graph registrations (reference)"
             />
 
-            The selected graph compiles a `StateGraph` and exports it as
-            `graph`, matching the `starterAgent` registration above:
+            The selected graph compiles a `StateGraph` and exports it as `graph`,
+            matching the `starterAgent` registration above. This excerpt depends
+            on the selected sample's chat node and tools, so use it to compare
+            graph shape rather than pasting it into an otherwise empty project:
 
             <Snippet
               framework="langgraph-typescript"

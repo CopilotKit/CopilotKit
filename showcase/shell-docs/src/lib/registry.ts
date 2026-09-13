@@ -5,6 +5,7 @@ export interface Feature {
   name: string;
   category: string;
   description: string;
+  shell_docs_path?: string | null;
 }
 
 export interface FeatureCategory {
@@ -17,7 +18,9 @@ export interface Demo {
   name: string;
   description: string;
   tags: string[];
-  route: string;
+  route?: string | null;
+  command?: string | null;
+  highlight?: string[];
   animated_preview_url?: string | null;
 }
 
@@ -121,6 +124,9 @@ export interface Integration {
   };
   features: string[];
   demos: Demo[];
+  docs_links?: {
+    features?: Record<string, { shell_docs_path?: string | null }>;
+  };
 }
 
 export interface Registry {

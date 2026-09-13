@@ -189,6 +189,7 @@ export async function* convertStream(
           delta: (parsedContent as { delta: unknown[] }).delta,
         };
       }
+      // @region[gen-ui-agent-backend]
       // `set_steps` is the gen-ui-agent demo's custom plan tool (see
       // state-tools.ts). The tool's server handler returns `{ steps }`;
       // translate that into a STATE_DELTA that adds `/steps` on the
@@ -220,6 +221,7 @@ export async function* convertStream(
           ],
         };
       }
+      // @endregion[gen-ui-agent-backend]
       // `set_notes` is the shared-state-read-write demo's agent-authored
       // notes tool (see server-tools.ts). Its server handler returns
       // `{ notes }`; translate that into a STATE_DELTA that adds `/notes`
