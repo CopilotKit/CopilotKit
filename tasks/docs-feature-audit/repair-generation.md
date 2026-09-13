@@ -315,3 +315,33 @@ SHOWCASE_LOCAL=1 npm --prefix showcase/shell-docs run dev -- --port 3004
 The browser pass must not treat an iframe as working until the runtime owner
 has reported that integration's local port ready. No docs server was started by
 this repair.
+
+## Resumed focused validation — REPAIR-008/009/010 and authored provenance
+
+The resumed focused gate first ran from the repository root. That invocation
+was invalid: Vitest did not load shell-docs's path aliases and the Next config
+resolved the local-port file relative to the wrong working directory. It is
+recorded as a command-context failure, not a product failure. Its processes
+exited before the documented retry.
+
+After a fresh generation lifecycle, the documented shell-docs working
+directory passed the following bounded command:
+
+```sh
+cd showcase/shell-docs
+NODE_OPTIONS=--max-old-space-size=4096 \
+  ./node_modules/.bin/vitest run --pool=forks --maxWorkers=2 \
+  --no-file-parallelism \
+  src/lib/__tests__/inline-demo-url.test.ts \
+  src/components/__tests__/integration-grid-runtime-config.test.tsx \
+  src/lib/__tests__/selected-showcase-provenance.test.ts \
+  src/lib/__tests__/current-v2-authored-guides.test.ts
+```
+
+Result: **4 files passed, 16 tests passed**. The new SSR footer assertion uses
+the configured provider value in server-rendered markup, rejects the
+`ssr-placeholder.invalid` sentinel, and then checks the exact hydrated href.
+The test initially used an unavailable DOM matcher; replacing it with the
+equivalent built-in `getAttribute("href")` equality assertion preserved that
+contract and was independently reviewed. An elevated process scan after the
+passing run found no remaining Vitest or generation workers.

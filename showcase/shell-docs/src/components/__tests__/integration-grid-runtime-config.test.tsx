@@ -42,9 +42,8 @@ it("renders the resolved shell host in SSR HTML and after hydration", async () =
   render(tree);
 
   await waitFor(() =>
-    expect(screen.getByRole("link", { name: "Integrations" })).toHaveAttribute(
-      "href",
-      "https://showcase.example.com/integrations",
-    ),
+    expect(
+      screen.getByRole("link", { name: "Integrations" }).getAttribute("href"),
+    ).toBe("https://showcase.example.com/integrations"),
   );
 });
