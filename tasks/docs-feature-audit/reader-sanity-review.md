@@ -30,3 +30,29 @@ Observed in the in-app browser on the current repair checkout, with one docs pre
 - **Copy/preview inconclusive:** clicking Copy prompt adds a View prompt affordance, but the browser clipboard read is empty. Clicking View prompt produces no accessibility or screenshot-visible preview. This remains inconclusive pending independent diagnosis, not a confirmed product defect.
 
 No external provider request was authorized or used for this walkthrough; the stack uses strict local AIMock and fake provider configuration. The full guide is not qualified. Repeat the identical local interaction after repair and keep this before-state.
+
+## September 13 resumed reader checks
+
+The current local Agent Config guide now renders the actual Showcase provider/factory regions, prerequisite and API links, and a Try it section. The CopilotKitCoreConfig reference link opens its actual reference page. The footer no longer emits the placeholder hostname; it uses the configured shell URL. These observations advance representation evidence, not complete guide qualification.
+
+Copy Prompt and View prompt both work after the localhost page initializes: the browser clipboard contains the canonical onboarding command, and View prompt opens a native dialog. Earlier unresponsive observations are inconclusive dev initialization evidence, not a confirmed control defect. The copied guide URL initially used the configured port-3003 fallback while the preview ran on 3004; the documented preview environment is being corrected. REPAIR-012 now adds the selected feature outcome and scoped Markdown-link contract; focused resolver tests and hydrated Agent Config copy have passed.
+
+With the published 1.71.1 graph plus the locally patched core, root repeated professional/intermediate/concise and `tone:professional` in the actual local iframe. Two Playwright fill attempts failed the browser tool's iframe focus guard; native accessibility setValue submitted the exact prompt successfully. The former Invalid URL error is gone, but the actual reply fails with **503 Strict mode: no fixture matched**. This remains RED. Runtime lane is inspecting the exact normal-browser request rather than weakening the fixture (REPAIR-013 candidate).
+
+### Agent Config local strict-AIMock retest (REPAIR-013)
+
+With the registry-installed 1.71.1 graph plus the unreleased local core repair
+from `6e7ad99316`, the same local iframe path was retested after the candidate
+AIMock context fallback. Selecting professional/intermediate/concise and sending
+`tone:professional` now receives an assistant reply in the browser. This proves
+the ordinary browser request reaches the strict local fixture after the previous
+missing-context 503; it does **not** qualify registry-only 1.71.1, which still
+fails earlier at the unreleased relative-URL core defect.
+
+The reader-facing natural action is `Introduce yourself in the style I
+selected.` with casual/expert/detailed. Root selected all three controls and
+received the fixture reply beginning `Active config: casual tone, expert
+expertise, detailed response length.` The fixture is strict on those three
+consumed system-prompt values and the built-in-agent context. This is patched-
+local-core strict replay evidence; registry-only 1.71.1 remains separately RED
+before model traffic because it lacks REPAIR-011.

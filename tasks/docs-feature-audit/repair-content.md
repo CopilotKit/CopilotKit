@@ -233,3 +233,55 @@ src/lib/__tests__/ms-agent-python-stable-api.test.ts --pool=forks
 --maxWorkers=1 --no-file-parallelism` passed after generator pretest: 2 files,
 17 tests. This is raw-Markdown/source-contract evidence only. Angular browser
 representation and generator-owned resolver mappings remain separate gates.
+
+## Iteration 14 — unavailable Pydantic state-rendering route and Built-in Agent reader path
+
+`CONTENT-GEN-031` cannot be repaired with a source snippet: the selected
+Pydantic frontend expects `steps`, while its routed backend publishes `todos`.
+The guide therefore removes the invalid Python/TypeScript hybrid and remote
+iframe, makes the integration gap explicit, and directs readers to the working
+Pydantic Shared State guide. It does not claim Pydantic AI lacks state support,
+and the underlying Showcase backend implementation remains open.
+
+`REPAIR-009` now gives the Built-in Agent page a complete reader path around
+its actual provider and factory excerpts: start with Quickstart, consult the
+current `CopilotKitCoreConfig` properties contract and forwarded-properties
+safety rules, then set the demo to casual/expert/detailed and observe the
+factory's active-config echo. This does not present the factory region as a
+complete application. Independent review cleared both source/reader changes.
+
+Focused raw-Markdown contracts were added to the existing authored-guide and
+selected-provenance tests. They are queued for the currently coordinated docs
+slot; no test, preview, or runtime qualification is claimed here.
+
+## Iteration 15 — Microsoft Agent Framework source contracts and page-action feature intent
+
+`CONTENT-GEN-028` replaces the copied universal A2UI policy with the selected
+.NET runtime/agent regions (`injectA2UITool: false` plus an explicit tool) and
+Python runtime/agent regions (`injectA2UITool: true` plus no bound tool).
+`CONTENT-GEN-029` replaces the viewer and stale examples with the public
+`gen-ui-agent` registration, actual publishers/factories, and the shared React
+subscription. Both have independent source reviews; runtime behavior remains separate.
+
+`REPAIR-012` keeps the canonical onboarding command unchanged. For a page with
+an existing `snippet_cell`, page actions add the frontmatter title/description
+as the feature outcome after onboarding and link the same framework/frontend
+scoped `.mdx` URL that the route resolves. Quickstarts and references have no
+cell and retain the generic prompt. Dedicated Learning and Rich Threads prompts
+remain on their existing CLI intent routes. Focused prompt/route contracts and hydrated Agent Config browser copy subsequently passed.
+
+## Iteration 16 — focused selected-guide gate
+
+After independent review, shell-docs pretypecheck and the coordinated five-file
+focused suite passed **70 tests in 18.91 seconds** using two forks and a 4 GiB
+heap cap (`/private/tmp/docs-audit-focused-20260913.log`). It covers the
+C028/C029 Microsoft Agent Framework rewrites, the C031 truthful Pydantic
+availability notice, REPAIR-009 Agent Config provenance/action, REPAIR-012
+feature-aware copied prompts and scoped Markdown URLs, and REPAIR-013 wording.
+
+The browser independently confirmed the Agent Config copy contains its feature
+outcome and selected scoped Markdown URL. Strict local AIMock replay confirms
+the guide’s casual/expert/detailed action after the local fixture transport
+repair. These are source/representation or patched-local results as applicable;
+they do not qualify the complete framework matrix or current registry-only
+1.71.1, which lacks the unreleased relative-URL core repair.

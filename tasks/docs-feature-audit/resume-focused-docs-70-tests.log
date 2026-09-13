@@ -1,0 +1,9 @@
+
+ RUN  v4.1.7 /Users/tylerslaton/.codex/worktrees/3715/CopilotKit/showcase/shell-docs
+
+
+ Test Files  5 passed (5)
+      Tests  70 passed (70)
+   Start at  10:14:04
+   Duration  18.91s (transform 4.19s, setup 0ms, import 17.38s, tests 459ms, environment 721ms)
+
