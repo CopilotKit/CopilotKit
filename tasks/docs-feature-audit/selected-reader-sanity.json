@@ -125,15 +125,15 @@
         "availability": "docs-or-command-only"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/langgraph-python-cli-start.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/langgraph-python-cli-start.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -1267,15 +1267,15 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/langgraph-python-auth.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/langgraph-python-auth.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -1447,15 +1447,15 @@
         "availability": "docs-or-command-only"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/langgraph-typescript-cli-start.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/langgraph-typescript-cli-start.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -2589,15 +2589,15 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
-        "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
+        "copy_or_preview": "Local browser check verified View Prompt and Copy Prompt include the selected backend, frontend, feature, and scoped Markdown URL.",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/langgraph-typescript-auth.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/langgraph-typescript-auth.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -2769,15 +2769,15 @@
         "availability": "docs-or-command-only"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/google-adk-cli-start.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/google-adk-cli-start.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -3915,15 +3915,15 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/google-adk-auth.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/google-adk-auth.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -4095,15 +4095,15 @@
         "availability": "docs-or-command-only"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/strands-cli-start.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/strands-cli-start.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -5243,15 +5243,15 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/strands-auth.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/strands-auth.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -5425,15 +5425,15 @@
         "availability": "docs-or-command-only"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/built-in-agent-cli-start.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/built-in-agent-cli-start.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -6581,15 +6581,15 @@
         "availability": "declared-wired-unverified"
       },
       "after_state": {
-        "source_and_clarity": "completed baseline source audit; post-repair reader check pending",
-        "showcase_example": "source ownership audited where resolved; post-repair route check pending",
-        "setup": "semantic setup-contract triage complete; post-repair page check pending",
-        "api_links": "static current-v2/link scan complete where resolved; post-repair route check pending",
+        "source_and_clarity": "Current root-first Markdown route captured locally; effective rendered source and headings recorded. Reader-clarity review remains separate.",
+        "showcase_example": "Not established by this route capture; source ownership and runtime evidence remain separate.",
+        "setup": "Rendered Markdown source was captured; setup semantic qualification remains separate.",
+        "api_links": "Rendered Markdown source was captured; API-link validation remains separate.",
         "copy_or_preview": "not probed in this binding; browser/IAB behavior is not inferred from source audit",
-        "html_markdown": "baseline local render coverage complete where deliverable; post-repair scoped route check pending",
+        "html_markdown": "Current Markdown GET 200 with no snippet errors; capture: tasks/docs-feature-audit/route-source-check-20260913/built-in-agent-auth.mdx. HTML parity was not exercised in this capture.",
         "runtime": "separate local AIMock evidence only; not a provider/platform qualification",
         "current_disposition": [
-          "Post-repair reader/example/setup/API/copy-preview route checks pending"
+          "Current Markdown route captured: 200 with no snippet errors (tasks/docs-feature-audit/route-source-check-20260913/built-in-agent-auth.mdx)."
         ]
       },
       "targeted_notes": [],
@@ -6755,5 +6755,15 @@
     "google-adk::hitl-in-chat": "/google-adk/human-in-the-loop; legacy /google-adk/generative-ui/your-components/interactive redirects here",
     "declarative-hashbrown": "C004 maps every selected integration to /<framework>/generative-ui/hashbrown",
     "declarative-json-render": "C004 maps every selected integration to /<framework>/generative-ui/json-render"
+  },
+  "post_repair_route_source_capture": {
+    "artifact": "tasks/docs-feature-audit/route-source-check-20260913/index.json",
+    "bindings_updated": 10,
+    "scope": "Five selected integrations \u00d7 auth and cli-start only",
+    "evidence": "Local Markdown HTTP 200 responses with recorded headings and no snippet errors.",
+    "limits": [
+      "This capture does not establish HTML parity for these bindings.",
+      "This capture does not establish local iframe behavior, source provenance beyond rendered output, API-link validity, or runtime qualification except where separately stated."
+    ]
   }
 }

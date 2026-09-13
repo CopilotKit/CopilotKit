@@ -1,0 +1,2374 @@
+{
+  "purpose": "Post-repair effective-source and required-setup pass for selected React guides. Derived from the selected binding inventory, source tags, setup-content bundle, and static page/Markdown resolvers; the recorded local route capture is authoritative for Auth and quickstart scope.",
+  "selected_integrations": [
+    "built-in-agent",
+    "google-adk",
+    "langgraph-python",
+    "langgraph-typescript",
+    "strands"
+  ],
+  "counts": {
+    "selected_bindings_with_effective_source": 193,
+    "unique_effective_source_units": 40,
+    "units_with_framework_setup": 62,
+    "known_repair_units": 8
+  },
+  "resolver_evidence": {
+    "html": "showcase/shell-docs/src/app/[framework]/[[...slug]]/page.tsx:829-865",
+    "markdown": "showcase/shell-docs/src/app/llms-mdx/[[...slug]]/route.ts:375-411",
+    "tab_defaults": "showcase/shell-docs/src/lib/registry.ts:266-304",
+    "setup_resolution": "showcase/shell-docs/src/lib/setup-concept.tsx:31-51",
+    "caveat": "The capture confirms root auth.mdx for all five selected Auth routes. LangGraph-specific output is its auth_pattern=langgraph gated branch, not integrations/langgraph/auth.mdx. A later runtime/docs change requires a fresh capture.",
+    "route_capture": "tasks/docs-feature-audit/route-source-check-20260913/index.json (ten scoped Markdown captures, all 200 without snippet markers)"
+  },
+  "units": [
+    {
+      "source": "showcase/shell-docs/src/content/docs/agent-config.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/agent-config",
+          "feature": "agent-config",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/agent-config",
+          "feature": "agent-config",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/agent-config",
+          "feature": "agent-config",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/agent-config",
+          "feature": "agent-config",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/agent-config",
+          "feature": "agent-config",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [
+        "agent_config_pattern=shared-state",
+        "agent_config_pattern=runtime-properties"
+      ],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "agent-config-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "agent-config-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "agent-config-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "agent-config-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [
+            "agent-config-setup"
+          ],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/agentic-chat-ui.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/agentic-chat-ui",
+          "feature": "agentic-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/agentic-chat-ui",
+          "feature": "beautiful-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/agentic-chat-ui",
+          "feature": "agentic-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/agentic-chat-ui",
+          "feature": "beautiful-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/agentic-chat-ui",
+          "feature": "agentic-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/agentic-chat-ui",
+          "feature": "beautiful-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/agentic-chat-ui",
+          "feature": "agentic-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/agentic-chat-ui",
+          "feature": "beautiful-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/agentic-chat-ui",
+          "feature": "agentic-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/agentic-chat-ui",
+          "feature": "beautiful-chat",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/auth.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/auth",
+          "feature": "auth",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/auth",
+          "feature": "auth",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/auth",
+          "feature": "auth",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/auth",
+          "feature": "auth",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/auth",
+          "feature": "auth",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [
+        "auth_pattern=runtime-onrequest",
+        "auth_pattern=langgraph",
+        "auth_pattern=ag2-context-variables",
+        "auth_pattern=microsoft-agent-framework"
+      ],
+      "url_default_tabs": [
+        "language_microsoft-agent-framework_agent: ['.NET', 'Python']"
+      ],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "known repair in progress: REPAIR-017; ten-route capture confirms this root body for all five selected Auth routes, with auth_pattern selecting the rendered branch"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/custom-look-and-feel/css.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/custom-look-and-feel/css",
+          "feature": "chat-customization-css",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/custom-look-and-feel/css",
+          "feature": "chat-customization-css",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/custom-look-and-feel/css",
+          "feature": "chat-customization-css",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/custom-look-and-feel/css",
+          "feature": "chat-customization-css",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/custom-look-and-feel/css",
+          "feature": "chat-customization-css",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/custom-look-and-feel/reasoning-messages.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-custom",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-default",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-custom",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-default",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-custom",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-default",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-custom",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-default",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-custom",
+          "availability": "unshipped"
+        },
+        {
+          "route": "/strands/custom-look-and-feel/reasoning-messages",
+          "feature": "reasoning-default",
+          "availability": "unshipped"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/custom-look-and-feel/slots.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/google-adk/custom-look-and-feel/slots",
+          "feature": "chat-slots",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/custom-look-and-feel/slots",
+          "feature": "chat-slots",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/custom-look-and-feel/slots",
+          "feature": "chat-slots",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/custom-look-and-feel/slots",
+          "feature": "chat-slots",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/frontend-tools.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/google-adk/frontend-tools",
+          "feature": "frontend-tools",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/frontend-tools",
+          "feature": "frontend-tools-async",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/frontend-tools",
+          "feature": "threadid-frontend-tool-roundtrip",
+          "availability": "unshipped"
+        },
+        {
+          "route": "/langgraph-python/frontend-tools",
+          "feature": "frontend-tools",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/frontend-tools",
+          "feature": "frontend-tools-async",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/frontend-tools",
+          "feature": "threadid-frontend-tool-roundtrip",
+          "availability": "unshipped"
+        },
+        {
+          "route": "/langgraph-typescript/frontend-tools",
+          "feature": "frontend-tools",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/frontend-tools",
+          "feature": "frontend-tools-async",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/frontend-tools",
+          "feature": "threadid-frontend-tool-roundtrip",
+          "availability": "unshipped"
+        },
+        {
+          "route": "/strands/frontend-tools",
+          "feature": "frontend-tools",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/frontend-tools",
+          "feature": "frontend-tools-async",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/frontend-tools",
+          "feature": "threadid-frontend-tool-roundtrip",
+          "availability": "unshipped"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "google-adk": {
+          "bundled": [
+            "frontend-tools-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "frontend-tools-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "frontend-tools-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [
+            "frontend-tools-setup"
+          ],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/dynamic-schema.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/generative-ui/a2ui/dynamic-schema",
+          "feature": "a2ui-recovery",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/generative-ui/a2ui/dynamic-schema",
+          "feature": "declarative-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/a2ui/dynamic-schema",
+          "feature": "a2ui-recovery",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/a2ui/dynamic-schema",
+          "feature": "declarative-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/a2ui/dynamic-schema",
+          "feature": "a2ui-recovery",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/a2ui/dynamic-schema",
+          "feature": "declarative-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/a2ui/dynamic-schema",
+          "feature": "a2ui-recovery",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/a2ui/dynamic-schema",
+          "feature": "declarative-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/a2ui/dynamic-schema",
+          "feature": "a2ui-recovery",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/a2ui/dynamic-schema",
+          "feature": "declarative-gen-ui",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/generative-ui/a2ui/fixed-schema.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/generative-ui/a2ui/fixed-schema",
+          "feature": "a2ui-fixed-schema",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/a2ui/fixed-schema",
+          "feature": "a2ui-fixed-schema",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/a2ui/fixed-schema",
+          "feature": "a2ui-fixed-schema",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/a2ui/fixed-schema",
+          "feature": "a2ui-fixed-schema",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/a2ui/fixed-schema",
+          "feature": "a2ui-fixed-schema",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [
+        "a2ui_pattern=schema-loading",
+        "a2ui_agent_form=langgraph-state-graph",
+        "a2ui_pattern=schema-inline",
+        "a2ui_pattern=llm-driven"
+      ],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "a2ui-fixed-schema-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": [
+            "a2ui-fixed-schema-setup"
+          ]
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": [
+            "a2ui-fixed-schema-setup"
+          ]
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": [
+            "a2ui-fixed-schema-setup"
+          ]
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "a2ui-fixed-schema-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/generative-ui/mcp-apps.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/google-adk/generative-ui/mcp-apps",
+          "feature": "mcp-apps",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/mcp-apps",
+          "feature": "mcp-apps",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/mcp-apps",
+          "feature": "mcp-apps",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/mcp-apps",
+          "feature": "mcp-apps",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/generative-ui/open-generative-ui.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui-advanced",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui-advanced",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui-advanced",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui-advanced",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/open-generative-ui",
+          "feature": "open-gen-ui-advanced",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/generative-ui/state-rendering.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/generative-ui/state-rendering",
+          "feature": "gen-ui-agent",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/state-rendering",
+          "feature": "gen-ui-agent",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/state-rendering",
+          "feature": "gen-ui-agent",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/state-rendering",
+          "feature": "gen-ui-agent",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/state-rendering",
+          "feature": "gen-ui-agent",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "state-streaming-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "state-streaming-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "state-streaming-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "state-streaming-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "state-streaming-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/generative-ui/tool-rendering.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/google-adk/generative-ui/tool-rendering",
+          "feature": "tool-rendering",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/tool-rendering",
+          "feature": "tool-rendering-custom-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/tool-rendering",
+          "feature": "tool-rendering-default-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/generative-ui/tool-rendering",
+          "feature": "tool-rendering-reasoning-chain",
+          "availability": "unshipped"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/tool-rendering",
+          "feature": "tool-rendering",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/tool-rendering",
+          "feature": "tool-rendering-custom-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/tool-rendering",
+          "feature": "tool-rendering-default-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/generative-ui/tool-rendering",
+          "feature": "tool-rendering-reasoning-chain",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/tool-rendering",
+          "feature": "tool-rendering",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/tool-rendering",
+          "feature": "tool-rendering-custom-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/tool-rendering",
+          "feature": "tool-rendering-default-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/tool-rendering",
+          "feature": "tool-rendering-reasoning-chain",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/tool-rendering",
+          "feature": "tool-rendering",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/tool-rendering",
+          "feature": "tool-rendering-custom-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/tool-rendering",
+          "feature": "tool-rendering-default-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/generative-ui/tool-rendering",
+          "feature": "tool-rendering-reasoning-chain",
+          "availability": "manifest-unsupported"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": [
+            "tool-rendering-setup"
+          ]
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": [
+            "tool-rendering-setup"
+          ]
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": [
+            "tool-rendering-setup"
+          ]
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "tool-rendering-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/headless.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/headless",
+          "feature": "headless-complete",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/headless",
+          "feature": "headless-simple",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/headless",
+          "feature": "headless-complete",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/headless",
+          "feature": "headless-simple",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/headless",
+          "feature": "headless-complete",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/headless",
+          "feature": "headless-simple",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/headless",
+          "feature": "headless-complete",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/headless",
+          "feature": "headless-simple",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/headless",
+          "feature": "headless-complete",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/headless",
+          "feature": "headless-simple",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "programmatic-control-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "programmatic-control-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "programmatic-control-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "programmatic-control-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "programmatic-control-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/human-in-the-loop/headless.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/human-in-the-loop/headless",
+          "feature": "interrupt-headless",
+          "availability": "manifest-unsupported"
+        },
+        {
+          "route": "/google-adk/human-in-the-loop/headless",
+          "feature": "interrupt-headless",
+          "availability": "manifest-unsupported"
+        },
+        {
+          "route": "/langgraph-python/human-in-the-loop/headless",
+          "feature": "interrupt-headless",
+          "availability": "release-quarantine"
+        },
+        {
+          "route": "/langgraph-typescript/human-in-the-loop/headless",
+          "feature": "interrupt-headless",
+          "availability": "release-quarantine"
+        },
+        {
+          "route": "/strands/human-in-the-loop/headless",
+          "feature": "interrupt-headless",
+          "availability": "manifest-unsupported"
+        }
+      ],
+      "framework_gates": [
+        "interrupt_pattern=native",
+        "interrupt_pattern=promise-based",
+        "interrupt_pattern=native",
+        "interrupt_pattern=promise-based",
+        "interrupt_pattern=native"
+      ],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "programmatic-control-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "programmatic-control-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "programmatic-control-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "programmatic-control-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "programmatic-control-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/human-in-the-loop/index.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/human-in-the-loop",
+          "feature": "hitl-in-app",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/human-in-the-loop",
+          "feature": "hitl-in-app",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/human-in-the-loop",
+          "feature": "hitl-in-app",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/human-in-the-loop",
+          "feature": "hitl-in-app",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/human-in-the-loop",
+          "feature": "hitl-in-app",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "human-in-the-loop-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "human-in-the-loop-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "human-in-the-loop-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "human-in-the-loop-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "human-in-the-loop-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/human-in-the-loop/useInterrupt.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/human-in-the-loop/useInterrupt",
+          "feature": "gen-ui-interrupt",
+          "availability": "manifest-unsupported"
+        },
+        {
+          "route": "/google-adk/human-in-the-loop/useInterrupt",
+          "feature": "gen-ui-interrupt",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/human-in-the-loop/useInterrupt",
+          "feature": "gen-ui-interrupt",
+          "availability": "release-quarantine"
+        },
+        {
+          "route": "/langgraph-typescript/human-in-the-loop/useInterrupt",
+          "feature": "gen-ui-interrupt",
+          "availability": "release-quarantine"
+        },
+        {
+          "route": "/strands/human-in-the-loop/useInterrupt",
+          "feature": "gen-ui-interrupt",
+          "availability": "manifest-unsupported"
+        }
+      ],
+      "framework_gates": [
+        "interrupt_pattern=native",
+        "interrupt_pattern=promise-based",
+        "interrupt_pattern=native",
+        "interrupt_pattern=promise-based",
+        "interrupt_pattern=native"
+      ],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "human-in-the-loop-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "human-in-the-loop-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "human-in-the-loop-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "human-in-the-loop-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "human-in-the-loop-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/adk/quickstart.mdx",
+      "resolver_path": "framework quickstart override (explicit page/Markdown exception)",
+      "selected_frameworks": [
+        "google-adk"
+      ],
+      "bindings": [
+        {
+          "route": "/google-adk/quickstart",
+          "feature": "cli-start",
+          "availability": "docs-or-command-only"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [
+        "package-manager: ['npm', 'pnpm', 'yarn', 'bun']",
+        "package-manager: ['npm', 'pnpm', 'yarn', 'bun']"
+      ],
+      "framework_setup": {
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/aws-strands/generative-ui/your-components/display-only.mdx",
+      "resolver_path": "generated fallback/override after absent root source",
+      "selected_frameworks": [
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/strands/generative-ui/your-components/display-only",
+          "feature": "gen-ui-tool-based",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "known repair in progress: REPAIR-016"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/aws-strands/generative-ui/your-components/interactive.mdx",
+      "resolver_path": "generated fallback/override after absent root source",
+      "selected_frameworks": [
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/strands/generative-ui/your-components/interactive",
+          "feature": "hitl-in-chat",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/aws-strands/quickstart.mdx",
+      "resolver_path": "framework quickstart override (explicit page/Markdown exception)",
+      "selected_frameworks": [
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/strands/quickstart",
+          "feature": "cli-start",
+          "availability": "docs-or-command-only"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [
+        "language_strands_agent: ['Python', 'TypeScript']",
+        "package-manager: ['npm', 'pnpm', 'yarn', 'bun']",
+        "language_strands_agent: ['Python', 'TypeScript']",
+        "language_strands_agent: ['Python', 'TypeScript']",
+        "language_strands_agent: ['Python', 'TypeScript']",
+        "language_strands_agent: ['Python', 'TypeScript']",
+        "package-manager: ['npm', 'pnpm', 'yarn', 'bun']"
+      ],
+      "framework_setup": {
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/custom-look-and-feel/slots.mdx",
+      "resolver_path": "authored framework override",
+      "selected_frameworks": [
+        "built-in-agent"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/custom-look-and-feel/slots",
+          "feature": "chat-slots",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/frontend-tools.mdx",
+      "resolver_path": "authored framework override",
+      "selected_frameworks": [
+        "built-in-agent"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/frontend-tools",
+          "feature": "frontend-tools",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/frontend-tools",
+          "feature": "frontend-tools-async",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/frontend-tools",
+          "feature": "threadid-frontend-tool-roundtrip",
+          "availability": "unshipped"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/generative-ui/mcp-apps.mdx",
+      "resolver_path": "authored framework override",
+      "selected_frameworks": [
+        "built-in-agent"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/generative-ui/mcp-apps",
+          "feature": "mcp-apps",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "known repair in progress: REPAIR-014"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/generative-ui/tool-rendering.mdx",
+      "resolver_path": "authored framework override",
+      "selected_frameworks": [
+        "built-in-agent"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/generative-ui/tool-rendering",
+          "feature": "tool-rendering",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/generative-ui/tool-rendering",
+          "feature": "tool-rendering-custom-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/generative-ui/tool-rendering",
+          "feature": "tool-rendering-default-catchall",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/generative-ui/tool-rendering",
+          "feature": "tool-rendering-reasoning-chain",
+          "availability": "manifest-unsupported"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/generative-ui/your-components/display-only.mdx",
+      "resolver_path": "authored framework override",
+      "selected_frameworks": [
+        "built-in-agent"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/generative-ui/your-components/display-only",
+          "feature": "gen-ui-tool-based",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "known repair in progress: REPAIR-016"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/generative-ui/your-components/interactive.mdx",
+      "resolver_path": "authored framework override",
+      "selected_frameworks": [
+        "built-in-agent"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/generative-ui/your-components/interactive",
+          "feature": "hitl-in-chat",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/quickstart.mdx",
+      "resolver_path": "framework quickstart override (explicit page/Markdown exception)",
+      "selected_frameworks": [
+        "built-in-agent"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/quickstart",
+          "feature": "cli-start",
+          "availability": "docs-or-command-only"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [
+        "package-manager: ['npm', 'pnpm', 'yarn', 'bun']"
+      ],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/shared-state.mdx",
+      "resolver_path": "authored framework override",
+      "selected_frameworks": [
+        "built-in-agent"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/shared-state",
+          "feature": "shared-state-read",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/built-in-agent/shared-state",
+          "feature": "shared-state-read-write",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "known repair in progress: REPAIR-015"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/langgraph/generative-ui/your-components/display-only.mdx",
+      "resolver_path": "generated fallback/override after absent root source",
+      "selected_frameworks": [
+        "langgraph-python",
+        "langgraph-typescript"
+      ],
+      "bindings": [
+        {
+          "route": "/langgraph-python/generative-ui/your-components/display-only",
+          "feature": "gen-ui-tool-based",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/your-components/display-only",
+          "feature": "gen-ui-tool-based",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "known repair in progress: REPAIR-016"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/langgraph/generative-ui/your-components/interactive.mdx",
+      "resolver_path": "generated fallback/override after absent root source",
+      "selected_frameworks": [
+        "langgraph-python",
+        "langgraph-typescript"
+      ],
+      "bindings": [
+        {
+          "route": "/langgraph-python/generative-ui/your-components/interactive",
+          "feature": "hitl-in-chat",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/generative-ui/your-components/interactive",
+          "feature": "hitl-in-chat",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx",
+      "resolver_path": "framework quickstart override (explicit page/Markdown exception)",
+      "selected_frameworks": [
+        "langgraph-python",
+        "langgraph-typescript"
+      ],
+      "bindings": [
+        {
+          "route": "/langgraph-python/quickstart",
+          "feature": "cli-start",
+          "availability": "docs-or-command-only"
+        },
+        {
+          "route": "/langgraph-typescript/quickstart",
+          "feature": "cli-start",
+          "availability": "docs-or-command-only"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [
+        "package-manager: ['npm', 'pnpm', 'yarn', 'bun']",
+        "deployment_method: ['LangSmith', 'FastAPI']",
+        "deployment_method: ['LangSmith', 'FastAPI']",
+        "deployment_method: ['LangSmith', 'FastAPI']",
+        "package-manager: ['npm', 'pnpm', 'yarn', 'bun']",
+        "language_langgraph_agent: ['Python', 'TypeScript']"
+      ],
+      "framework_setup": {
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "known repair in progress: REPAIR-018"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/multi-agent/subagents.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/multi-agent/subagents",
+          "feature": "subagents",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/multi-agent/subagents",
+          "feature": "subagents",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/multi-agent/subagents",
+          "feature": "subagents",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/multi-agent/subagents",
+          "feature": "subagents",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/multi-agent/subagents",
+          "feature": "subagents",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "subagents-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "subagents-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "subagents-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "subagents-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "subagents-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/multimodal-attachments.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/multimodal-attachments",
+          "feature": "multimodal",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/multimodal-attachments",
+          "feature": "multimodal",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/multimodal-attachments",
+          "feature": "multimodal",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/multimodal-attachments",
+          "feature": "multimodal",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/multimodal-attachments",
+          "feature": "multimodal",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "known repair in progress: REPAIR-017, REPAIR-020"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/prebuilt-components/popup.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/prebuilt-components/popup",
+          "feature": "prebuilt-popup",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/prebuilt-components/popup",
+          "feature": "prebuilt-popup",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/prebuilt-components/popup",
+          "feature": "prebuilt-popup",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/prebuilt-components/popup",
+          "feature": "prebuilt-popup",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/prebuilt-components/popup",
+          "feature": "prebuilt-popup",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/prebuilt-components/sidebar.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/prebuilt-components/sidebar",
+          "feature": "prebuilt-sidebar",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/prebuilt-components/sidebar",
+          "feature": "prebuilt-sidebar",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/prebuilt-components/sidebar",
+          "feature": "prebuilt-sidebar",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/prebuilt-components/sidebar",
+          "feature": "prebuilt-sidebar",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/prebuilt-components/sidebar",
+          "feature": "prebuilt-sidebar",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/shared-state.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/google-adk/shared-state",
+          "feature": "shared-state-read",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/shared-state",
+          "feature": "shared-state-read-write",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/shared-state",
+          "feature": "shared-state-read",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/shared-state",
+          "feature": "shared-state-read-write",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/shared-state",
+          "feature": "shared-state-read",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/shared-state",
+          "feature": "shared-state-read-write",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/shared-state",
+          "feature": "shared-state-read",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/shared-state",
+          "feature": "shared-state-read-write",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "google-adk": {
+          "bundled": [
+            "shared-state-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "shared-state-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "shared-state-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [
+            "shared-state-setup"
+          ],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/shared-state/agent-readonly.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/shared-state/agent-readonly",
+          "feature": "readonly-state-agent-context",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/shared-state/agent-readonly",
+          "feature": "readonly-state-agent-context",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/shared-state/agent-readonly",
+          "feature": "readonly-state-agent-context",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/shared-state/agent-readonly",
+          "feature": "readonly-state-agent-context",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/shared-state/agent-readonly",
+          "feature": "readonly-state-agent-context",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "agent-context-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "agent-context-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "agent-context-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "agent-context-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [
+            "agent-context-setup"
+          ],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/shared-state/streaming.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/shared-state/streaming",
+          "feature": "shared-state-streaming",
+          "availability": "manifest-unsupported"
+        },
+        {
+          "route": "/google-adk/shared-state/streaming",
+          "feature": "shared-state-streaming",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/shared-state/streaming",
+          "feature": "shared-state-streaming",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/shared-state/streaming",
+          "feature": "shared-state-streaming",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/shared-state/streaming",
+          "feature": "shared-state-streaming",
+          "availability": "manifest-unsupported"
+        }
+      ],
+      "framework_gates": [],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": [
+            "state-streaming-setup"
+          ]
+        },
+        "google-adk": {
+          "bundled": [
+            "state-streaming-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [
+            "state-streaming-setup"
+          ],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [
+            "state-streaming-setup"
+          ],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": [
+            "state-streaming-setup"
+          ]
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    },
+    {
+      "source": "showcase/shell-docs/src/content/docs/voice.mdx",
+      "resolver_path": "generated root body (framework context selects snippets and gated branches)",
+      "selected_frameworks": [
+        "built-in-agent",
+        "google-adk",
+        "langgraph-python",
+        "langgraph-typescript",
+        "strands"
+      ],
+      "bindings": [
+        {
+          "route": "/built-in-agent/voice",
+          "feature": "voice",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/google-adk/voice",
+          "feature": "voice",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-python/voice",
+          "feature": "voice",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/langgraph-typescript/voice",
+          "feature": "voice",
+          "availability": "declared-wired-unverified"
+        },
+        {
+          "route": "/strands/voice",
+          "feature": "voice",
+          "availability": "declared-wired-unverified"
+        }
+      ],
+      "framework_gates": [
+        "voice_backend_pattern=adk-fastapi-agent-path"
+      ],
+      "url_default_tabs": [],
+      "framework_setup": {
+        "built-in-agent": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "google-adk": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-python": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "langgraph-typescript": {
+          "bundled": [],
+          "not_bundled": []
+        },
+        "strands": {
+          "bundled": [],
+          "not_bundled": []
+        }
+      },
+      "current_status": "no new effective-source defect in this replay; final reader/render gate remains separate"
+    }
+  ]
+}

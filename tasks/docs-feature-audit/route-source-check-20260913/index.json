@@ -1,0 +1,216 @@
+[
+  {
+    "integration": "langgraph-python",
+    "feature": "cli-start",
+    "requested_url": "http://localhost:3004/langgraph-python/quickstart.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/langgraph-python/quickstart.mdx",
+    "bytes": 27642,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/langgraph-python-cli-start.mdx",
+    "headings": [
+      "Quickstart",
+      "Prerequisites",
+      "Getting started",
+      "Deploying to AWS?",
+      "What's next?"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "langgraph-python",
+    "feature": "auth",
+    "requested_url": "http://localhost:3004/langgraph-python/auth.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/auth.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/langgraph-python/auth.mdx",
+    "bytes": 19604,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/langgraph-python-auth.mdx",
+    "headings": [
+      "Authentication",
+      "Start with the Showcase auth path",
+      "When to use this",
+      "Frontend",
+      "Backend",
+      "Tool gating",
+      "Thread authorization",
+      "CopilotKit Intelligence scopes most thread routes",
+      "Scope threads yourself",
+      "Own the mapping",
+      "Enforce it in `onBeforeHandler`",
+      "Filter the thread list"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "langgraph-typescript",
+    "feature": "cli-start",
+    "requested_url": "http://localhost:3004/langgraph-typescript/quickstart.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/integrations/langgraph/quickstart.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/langgraph-typescript/quickstart.mdx",
+    "bytes": 27662,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/langgraph-typescript-cli-start.mdx",
+    "headings": [
+      "Quickstart",
+      "Prerequisites",
+      "Getting started",
+      "Deploying to AWS?",
+      "What's next?"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "langgraph-typescript",
+    "feature": "auth",
+    "requested_url": "http://localhost:3004/langgraph-typescript/auth.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/auth.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/langgraph-typescript/auth.mdx",
+    "bytes": 19628,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/langgraph-typescript-auth.mdx",
+    "headings": [
+      "Authentication",
+      "Start with the Showcase auth path",
+      "When to use this",
+      "Frontend",
+      "Backend",
+      "Tool gating",
+      "Thread authorization",
+      "CopilotKit Intelligence scopes most thread routes",
+      "Scope threads yourself",
+      "Own the mapping",
+      "Enforce it in `onBeforeHandler`",
+      "Filter the thread list"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "google-adk",
+    "feature": "cli-start",
+    "requested_url": "http://localhost:3004/google-adk/quickstart.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/integrations/adk/quickstart.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/google-adk/quickstart.mdx",
+    "bytes": 16929,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/google-adk-cli-start.mdx",
+    "headings": [
+      "Quickstart",
+      "Prerequisites",
+      "Getting started",
+      "What's next?"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "google-adk",
+    "feature": "auth",
+    "requested_url": "http://localhost:3004/google-adk/auth.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/auth.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/google-adk/auth.mdx",
+    "bytes": 15425,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/google-adk-auth.mdx",
+    "headings": [
+      "Authentication",
+      "Start with the Showcase auth path",
+      "When to use this",
+      "Frontend",
+      "Backend",
+      "Tool gating",
+      "Thread authorization",
+      "CopilotKit Intelligence scopes most thread routes",
+      "Scope threads yourself",
+      "Own the mapping",
+      "Enforce it in `onBeforeHandler`",
+      "Filter the thread list"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "strands",
+    "feature": "cli-start",
+    "requested_url": "http://localhost:3004/strands/quickstart.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/integrations/aws-strands/quickstart.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/strands/quickstart.mdx",
+    "bytes": 19502,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/strands-cli-start.mdx",
+    "headings": [
+      "Quickstart",
+      "Prerequisites",
+      "Getting started",
+      "Deploying to AWS?",
+      "What's next?"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "strands",
+    "feature": "auth",
+    "requested_url": "http://localhost:3004/strands/auth.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/auth.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/strands/auth.mdx",
+    "bytes": 15426,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/strands-auth.mdx",
+    "headings": [
+      "Authentication",
+      "Start with the Showcase auth path",
+      "When to use this",
+      "Frontend",
+      "Backend",
+      "Tool gating",
+      "Thread authorization",
+      "CopilotKit Intelligence scopes most thread routes",
+      "Scope threads yourself",
+      "Own the mapping",
+      "Enforce it in `onBeforeHandler`",
+      "Filter the thread list"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "built-in-agent",
+    "feature": "cli-start",
+    "requested_url": "http://localhost:3004/built-in-agent/quickstart.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/integrations/built-in-agent/quickstart.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/quickstart.mdx",
+    "bytes": 8561,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/built-in-agent-cli-start.mdx",
+    "headings": [
+      "Quickstart",
+      "Prerequisites",
+      "Getting started",
+      "Keep conversations between visits",
+      "What's next?"
+    ],
+    "snippet_errors": []
+  },
+  {
+    "integration": "built-in-agent",
+    "feature": "auth",
+    "requested_url": "http://localhost:3004/built-in-agent/auth.mdx",
+    "inventory_source": "showcase/shell-docs/src/content/docs/auth.mdx",
+    "status": 200,
+    "final_url": "http://localhost:3004/auth.mdx",
+    "bytes": 15512,
+    "response_file": "tasks/docs-feature-audit/route-source-check-20260913/built-in-agent-auth.mdx",
+    "headings": [
+      "Authentication",
+      "Start with the Showcase auth path",
+      "When to use this",
+      "Frontend",
+      "Backend",
+      "Tool gating",
+      "Thread authorization",
+      "CopilotKit Intelligence scopes most thread routes",
+      "Scope threads yourself",
+      "Own the mapping",
+      "Enforce it in `onBeforeHandler`",
+      "Filter the thread list"
+    ],
+    "snippet_errors": []
+  }
+]

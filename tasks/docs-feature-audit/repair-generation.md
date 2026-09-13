@@ -375,3 +375,167 @@ Agent Framework A2UI/state-rendering regions, and the honest Pydantic state
 rendering availability correction. Output is preserved at
 `/private/tmp/docs-audit-focused-20260913.log`. An elevated cleanup scan found
 no remaining shell-docs Vitest, generator, or preview-server workers.
+
+## Full regression checkpoint and MAF Python test correction
+
+The first full shell-docs regression run after the source-backed guide repair
+completed with **125 of 126 files** and **947 of 948 tests** passing in 210.33
+seconds under the two-fork, 4 GiB heap cap. Its sole failure was a stale
+provider-configuration assertion in `ms-agent-python-stable-api.test.ts`: it
+expected an OpenAI client import on the State Rendering guide even though that
+page now correctly presents the selected Showcase `gen-ui-agent` state
+publisher and factory. The failure is preserved at
+`/private/tmp/shell-docs-full-20260913.log`.
+
+The test was split so its six provider-configuration routes retain the
+existing provider assertions while State Rendering has an explicit contract
+for the public `gen-ui-agent` key, `set_steps` publisher, `steps` snapshot,
+and agent factory. An independent review confirmed this strengthens rather
+than removes coverage. The corrected focused test passed **1 file, 9 tests**
+in 9.49 seconds; output is at
+`/private/tmp/ms-agent-python-stable-api-20260913.log`. Cleanup found no
+audit-owned Vitest, generator, or docs-server workers. A final full suite is
+required after the pending Auth/Multimodal guide bindings settle.
+
+## Source-only five-backend Shared State preference-consumption audit
+
+This is a static implementation check, not a local runtime qualification. It
+distinguishes state reaching the runtime from the separate requirement that a
+backend supplies that state to the model before a response is generated.
+
+| Selected backend     | State-to-model path                                                                                                                                                            | Evidence                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| LangGraph Python     | `PreferencesInjectorMiddleware` reads `request.state["preferences"]` and prepends a `SystemMessage` before the model handler.                                                  | `showcase/integrations/langgraph-python/src/agents/shared_state_read_write.py:78-140`     |
+| LangGraph TypeScript | The chat node builds a preference message from `state.preferences` and includes it before `state.messages` in the model invocation.                                            | `showcase/integrations/langgraph-typescript/src/agent/shared-state-read-write.ts:143-188` |
+| Google ADK           | The before-model callback reads `callback_context.state["preferences"]` and updates the request system instruction.                                                            | `showcase/integrations/google-adk/src/agents/shared_state_read_write_agent.py:78-135`     |
+| Strands              | `build_state_prompt` reads `input_data.state.preferences`; the agent config registers it as `state_context_builder`.                                                           | `showcase/integrations/strands/src/agents/agent.py:1046-1093`, `1474-1487`                |
+| Built-in Agent       | **Missing at this checkpoint.** The generic factory converts messages and system prompts but does not read `input.state`; it therefore cannot pass `preferences` to the model. | `showcase/integrations/built-in-agent/src/lib/factory/tanstack-factory.ts:406-448`        |
+
+The Built-in Agent's opposite-direction notes path is implemented separately:
+the `set_notes` result is converted to a `/notes` state delta
+(`tanstack-factory.ts:222-253`). The demo provider and runtime key are now
+source-addressable as `shared-state-provider` and `shared-state-runtime`.
+Those facts do not establish preference consumption. The previous fixture is
+user-message gated, so it cannot qualify that missing path. Kepler owns the
+runtime repair and strict negative fixture; the BIA guide must retain its
+limitation until that repair is demonstrated.
+
+## Focused provenance and canonical frontend-fanout checkpoint
+
+The shell-docs generation lifecycle completed successfully after the BIA
+provider/runtime/notes source regions and the Display-only/MCP guide bindings
+were added. The first two runs of the new provenance test exposed only
+over-broad test negatives: the current LangGraph TypeScript setup legitimately
+uses both `CopilotKitStateAnnotation` and `@copilotkit/sdk-js/langgraph`, and
+the current Built-in Agent route legitimately passes `stateSystemPrompt` to
+`createBuiltInAgent`. The assertions were narrowed to each framework's actual
+source contract; no guide or renderer behavior was relaxed.
+
+```sh
+NODE_OPTIONS=--max-old-space-size=4096 \
+  npm --prefix showcase/shell-docs run pretypecheck
+
+cd showcase/shell-docs
+NODE_OPTIONS=--max-old-space-size=4096 \
+  ./node_modules/.bin/vitest run --pool=forks --maxWorkers=2 \
+  --no-file-parallelism \
+  src/lib/__tests__/selected-showcase-provenance.test.ts
+
+cd ../scripts
+NODE_OPTIONS=--max-old-space-size=4096 \
+  ./node_modules/.bin/vitest run --pool=forks --maxWorkers=2 \
+  --no-file-parallelism __tests__/sync-shared-frontends.test.ts
+```
+
+Result: pretypecheck passed; the provenance gate passed **1 file, 6 tests** in
+8.68 seconds; the existing shared-frontend no-drift gate passed **1 file, 1
+test** in 90ms. A process scan after both gates found no remaining Vitest,
+generator, or docs-preview workers.
+
+Auth and Multimodal now use the existing canonical fanout mechanism:
+`showcase/shared/react/demos/{auth,multimodal}` is the source of truth and
+`showcase/scripts/sync-shared-frontends.ts` materializes it into the selected
+React integrations (LangGraph Python, LangGraph TypeScript, Google ADK,
+Strands, and Built-in Agent). This preserves package-local Next.js resolution
+without treating an integration copy as a documentation source. The sync test
+proves materialized copies have no drift; it does not constitute runtime
+qualification for any agent or feature.
+
+## Canonical Shared State read/write frontend ownership
+
+The new Built-in Agent provider region originally sat in a package-local
+`shared-state-read-write` page. A source-hash review found three selected
+copies already byte-identical, with Google ADK and Built-in Agent carrying
+separate seed timing variants. That is shared React behavior, not a framework
+contract, so the provider boundary and state seeding logic now live in
+`showcase/shared/react/demos/shared-state-read-write/page.tsx` and fan out to
+all five selected React integrations through `sync-shared-frontends.ts`.
+
+The canonical implementation waits for `useAgent` readiness before seeding the
+runtime-synchronized agent, preserves existing state fields on seed/write/clear,
+and uses the current agent instance. This combines the prior persisted-state
+guard with the Built-in Agent provisional-to-runtime instance protection. The
+sync command reports no drift and all five materialized files pass the parser
+format check. Kepler owns the BIA and Google ADK D6 behavior checks; this
+structural validation alone does not qualify their runtime behavior.
+
+## Canonical Auth fanout syntax and type repair
+
+The first materialized Built-in Agent Auth compilation exposed a source error
+in the new region boundary: a JSX comment preceded the return expression,
+which made every generated Auth page unparsable. The canonical source now uses
+a fragment for the JSX boundary and preserves the region around the actual
+`CopilotKit` transport opening. The same repair made the shared header return
+explicitly `Record<string, string>` and accepts the real provider/chat error
+event union via a guard. The canonical source was resynced to all five selected
+React integrations.
+
+Post-repair `pretypecheck` passed. The canonical source and its five
+materialized Auth pages pass Prettier's parser check, and the source-backed
+provenance gate again passes **1 file, 6 tests** in 8.62 seconds. A full
+Built-in Agent compiler invocation no longer reports an Auth-page diagnostic,
+but still exits on unrelated dependency, target, and other-demo diagnostics;
+the exact output and classification are preserved in
+`tasks/docs-feature-audit/bia-auth-fanout-tsc-20260913.{log,md}`. This records
+an app-wide compiler limitation without suppressing it or treating it as
+qualification for the repaired Auth feature.
+
+## Command-only source extraction and focused guide gate (2026-09-13)
+
+The first Auth/TypeScript quickstart focused run was intentionally retained as
+RED: the new TypeScript guide referenced `langgraph-typescript::cli-start`,
+but `bundle-demo-content.ts` skipped every no-route command cell. Its Markdown
+therefore emitted `snippet skipped: no demo for cell 'cli-start'`; the guide
+was not considered rendered or source-backed at that point.
+
+The manifest already distinguished this case without a new route or iframe:
+`cli-start` has a `command` and explicit `highlight` files. The bundler now
+includes only command cells with explicit highlights as source-only content.
+It neither creates a demo directory nor grants those cells an `InlineDemo`
+route. The regression confirms the TypeScript command cell publishes its
+package, `langgraph.json`, and graph-export region while a normal routed
+`agentic-chat` cell continues to include its demo-page source.
+
+```sh
+NODE_OPTIONS=--max-old-space-size=4096 \
+  npm --prefix showcase/shell-docs run pretypecheck
+
+cd showcase/shell-docs
+NODE_OPTIONS=--max-old-space-size=4096 \
+  ./node_modules/.bin/vitest run --pool=forks --maxWorkers=2 \
+  --no-file-parallelism \
+  src/lib/__tests__/selected-showcase-provenance.test.ts \
+  src/lib/__tests__/current-v2-authored-guides.test.ts
+
+cd ../scripts
+NODE_OPTIONS=--max-old-space-size=4096 \
+  pnpm exec vitest run __tests__/bundle-demo-content.test.ts \
+  --maxWorkers=1 --fileParallelism=false
+```
+
+Result: pretypecheck passed; the source-backed Auth, MCP, Display-only,
+Shared State, and LangGraph TypeScript quickstart contracts passed **2 files,
+18 tests** in 19.32 seconds; the command-only bundler regression passed **1
+file, 9 tests** in 10.99 seconds. A post-run process scan found no Vitest,
+generator, or shell-docs preview worker. These are representation gates, not
+runtime qualification.

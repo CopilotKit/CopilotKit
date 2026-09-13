@@ -155,3 +155,36 @@
 - Shared strict D6 regression: `tasks/docs-feature-audit/repair013-built-in-agent-agent-config-d6.log` — six control turns, zero failures.
 - Reader-flow fixture: the Built-in Agent fixture now requires the natural prompt `Introduce yourself in the style I selected.` plus `built-in-agent` context and all three selected prompt fields (`tone=casual`, `expertise=expert`, `responseLength=detailed`). Root's local browser selected casual/expert/detailed and received the explicit reply `Active config: casual tone, expert expertise, detailed response length...`.
 - This is strict local replay evidence on the patched local core build. The current public 1.71.1 core remains separately red for relative runtime URLs until the shared repair is released.
+
+## REPAIR-021 — Built-in Agent V2 multi-route runtime handling
+
+### Fresh RED
+
+- The V2 client requested `GET /api/copilotkit-multimodal/info`; the former base-only App Router handler returned 404. Durable headers/body: `/private/tmp/bia-info-before.headers` and `/private/tmp/bia-info-before.body`.
+- Changing only the App Router path made that request reach the handler but return 405, proving that its explicit `single-route` mode could not serve V2 `/info`.
+
+### Change
+
+- Moved the base runtime handlers to optional App Router catchalls and removed their explicit single-route mode. The base runtime URLs remain unchanged; the V2 handler now serves `/info` and `POST /agent/:id/run` below each endpoint.
+- Updated Built-in Agent manifest highlights to the catchall paths. Generated registry inputs remain derived.
+- Updated the canonical readonly-state probe to accept either the supported legacy JSON-RPC `agent/run` envelope at a base runtime URL or a V2 raw POST whose pathname ends in `/agent/:id/run`. Resource and stop requests remain excluded. Regression coverage includes a raw V2 run followed by a resource request and a raw body on a non-run route.
+
+### Green / current boundary
+
+- `GET /api/copilotkit-multimodal/info` now returns 200: `/private/tmp/bia-info-after.headers` and `/private/tmp/bia-info-after.body`.
+- Focused shared probe regression is green, 12 tests: `/private/tmp/repair020-readonly-probe-test.log`.
+- Strict local-AIMock readonly BIA cell is green: `tasks/docs-feature-audit/repair021-built-in-agent-readonly-multiroute-green.log`. The UI log records `GET /api/copilotkit/info` 200 and `POST /api/copilotkit/agent/readonly-state-agent-context/run` 200.
+- The multimodal sample-button D6 cell remains red after this transport repair: `tasks/docs-feature-audit/repair020-built-in-agent-multimodal-after-multiroute-red.log`. Both attempts reach `GET /info` and `POST /agent/multimodal-demo/run` with HTTP 200, but the click occurs during the provisional-agent window and no message survives in the DOM. A normal delayed browser image and PDF action is green. The shared sample-button `isReady` gate is a separate canonical frontend repair; do not count multimodal green until its strict replay passes.
+
+## REPAIR-020 — canonical multimodal sample-button readiness
+
+- After REPAIR-021 restored V2 `/info` and run transport, the strict multimodal D6 still clicked a sample button during the provisional-agent window. Both retries reached the backend and returned HTTP 200 but no user or assistant message remained in the DOM: `tasks/docs-feature-audit/repair020-built-in-agent-multimodal-after-multiroute-red.log`.
+- A delayed local browser image and PDF action succeeded, identifying readiness rather than attachment data or fixture matching as the boundary.
+- The single canonical sample-button source now waits for `useAgent().isReady`, visibly disables the sample actions while connecting, and defensively rejects a stale provisional instance. It is materialized into all five selected React integrations by `showcase/scripts/sync-shared-frontends.ts`.
+- The unchanged strict shared D6 now passes both image and PDF turns: `tasks/docs-feature-audit/repair020-built-in-agent-multimodal-readiness-green.log` (one cell passed, zero failed). This is a repaired behavior result, not a relaxed probe.
+
+### Built-in Agent strict-turn full-matrix checkpoint
+
+- Explicit qualification-mode AIMock (`AIMOCK_STRICT_TURN_INDEX=1`) ran all 39 current BIA D6 checks against the existing local UI and fixture-only mock: 37 passed, 2 failed, no checks skipped. Durable aggregate: `tasks/docs-feature-audit/repair021-built-in-agent-full-d6-strict-turn.log`.
+- `threadid-frontend-tool-roundtrip` fails with `503 Strict mode: no fixture matched`. It is deliberately a manifest feature without a `demos:` entry, so this is retained as unshipped/non-applicable evidence rather than omitted or treated as a published guide cell.
+- `voice` has no request start or user/assistant DOM after the immediate sample-button click (`runStartCount=0`). Its sample writes the composer during the provisional-agent window, before CopilotChat enables submit after runtime discovery. The byte-identical five-integration voice components need the same canonical `isReady` gate as multimodal; its repair/replay is pending at this checkpoint.
