@@ -6,7 +6,8 @@ import {
   buildTurns,
   buildContextAssertion,
   installRequestCapture,
-  isAgentRunRequestBody,
+  isAgentRunRequest,
+  isSingleRouteAgentRunRequestBody,
   preNavigateRoute,
   CONTEXT_NAME_SENTINEL,
   READONLY_PILL_PROMPT,
@@ -213,13 +214,76 @@ describe("d5-readonly-state-context script", () => {
     ]);
   });
 
-  it("recognizes only the supported single-route agent/run envelope", () => {
-    expect(isAgentRunRequestBody('{"method":"agent/run","params":{}}')).toBe(
-      true,
-    );
+  it("retains a V2 multi-route run payload when a later resource request follows", async () => {
+    let handler:
+      | ((
+          route: { continue(): Promise<void> },
+          request: {
+            url(): string;
+            method(): string;
+            postData(): string | null;
+          },
+        ) => void | Promise<void>)
+      | undefined;
+    const page = {
+      async route(_url: string | RegExp, nextHandler: typeof handler) {
+        handler = nextHandler;
+      },
+      async unroute() {},
+    } as unknown as Page;
+    const capture = await installRequestCapture(page, "test");
+    const route = { async continue() {} };
+    await handler!(route, {
+      url: () => "http://localhost:3117/api/copilotkit/agent/agentic_chat/run",
+      method: () => "POST",
+      postData: () =>
+        '{"input":{"context":[{"value":"' + CONTEXT_NAME_SENTINEL + '"}]}}',
+    });
+    await handler!(route, {
+      url: () => "http://localhost:3117/api/copilotkit/resource/request",
+      method: () => "POST",
+      postData: () => '{"path":"/' + CONTEXT_NAME_SENTINEL + '"}',
+    });
+
+    expect(capture.getAgentRunBodies()).toHaveLength(1);
+    await expect(
+      buildContextAssertion("test", capture, CONTEXT_NAME_SENTINEL)(page),
+    ).resolves.toBeUndefined();
+  });
+
+  it("recognizes only supported single-route and V2 multi-route agent runs", () => {
     expect(
-      isAgentRunRequestBody('{"method":"resource/request","params":{}}'),
+      isSingleRouteAgentRunRequestBody('{"method":"agent/run","params":{}}'),
+    ).toBe(true);
+    expect(
+      isSingleRouteAgentRunRequestBody(
+        '{"method":"resource/request","params":{}}',
+      ),
     ).toBe(false);
-    expect(isAgentRunRequestBody("not json")).toBe(false);
+    expect(isSingleRouteAgentRunRequestBody("not json")).toBe(false);
+    expect(
+      isAgentRunRequest(
+        "http://localhost:3117/api/copilotkit-multimodal/agent/multimodal-demo/run",
+        "POST",
+        '{"input":{}}',
+      ),
+    ).toBe(true);
+    expect(
+      isAgentRunRequest(
+        "http://localhost:3117/api/copilotkit-multimodal/agent/multimodal-demo/stop",
+        "POST",
+        '{"input":{}}',
+      ),
+    ).toBe(false);
+  });
+
+  it("does not treat a raw body on a non-run route as an agent run", () => {
+    expect(
+      isAgentRunRequest(
+        "http://localhost:3117/api/copilotkit/resource/request",
+        "POST",
+        '{"context":[{"value":"' + CONTEXT_NAME_SENTINEL + '"}]}',
+      ),
+    ).toBe(false);
   });
 });
