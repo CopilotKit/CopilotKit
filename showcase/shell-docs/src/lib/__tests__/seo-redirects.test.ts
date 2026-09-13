@@ -2,6 +2,23 @@ import { describe, expect, it } from "vitest";
 import { matchesSeoRedirectSource, seoRedirects } from "../seo-redirects";
 
 describe("seoRedirects", () => {
+  it("keeps the retired LangGraph shared-state write URL on its source-backed guide", () => {
+    expect(seoRedirects).toEqual(
+      expect.arrayContaining([
+        {
+          id: "LGP-state-write-legacy",
+          source: "/langgraph/shared-state/in-app-agent-write",
+          destination: "/langgraph-python/shared-state/state-inputs-outputs",
+        },
+        {
+          id: "LGP-state-write-canonical",
+          source: "/langgraph-python/shared-state/in-app-agent-write",
+          destination: "/langgraph-python/shared-state/state-inputs-outputs",
+        },
+      ]),
+    );
+  });
+
   it("consolidates Conversational Flow URLs under CrewAI", () => {
     expect(seoRedirects).toEqual(
       expect.arrayContaining([

@@ -1,19 +1,22 @@
 ---
 title: Voice
-description: Real-time speech-to-text in the chat composer. The user speaks, the runtime transcribes, the agent runs the resulting prompt.
+description: Configure runtime speech-to-text that places a transcript in the chat composer.
 icon: "lucide/Mic"
 snippet_cell: voice
 ---
 
 <InlineDemo demo="voice" />
 
-You have a working chat surface and you want users to be able to speak instead of type. By the end of this guide, the chat composer will sprout a mic button, recorded audio will be transcribed by the runtime, and the transcript will auto-send to the agent like any other message.
+You have a working chat surface and want users to be able to speak instead of
+type. The runtime can transcribe recorded audio into editable text in the chat
+composer; the user can review and send that text as a normal message.
 
 ## When to use this
 
 - **Hands-free or accessibility flows** where typing isn't the right input modality.
 - **Mobile or kiosk surfaces** where a long voice query is faster than thumb-typing.
-- **Demo and test loops** where you want canned audio to drive the chat without a microphone.
+- **Demo and test loops** where a prepared text sample can exercise the composer
+  without a microphone.
 
 If you only need file uploads (audio, images, video, documents), use [Multimodal Attachments](/multimodal-attachments) instead. Voice is specifically about live transcription of recorded speech into chat input.
 
@@ -23,15 +26,31 @@ If you only need file uploads (audio, images, video, documents), use [Multimodal
 
 <Snippet region="voice-page" title="frontend/src/app/page.tsx — chat surface" />
 
-The `runtimeUrl="/api/copilotkit-voice"` points the browser to your Next.js API route. When the user clicks the mic, the chat captures audio, POSTs it to that runtime route's `/transcribe` endpoint, drops the resulting transcript into the composer, and submits.
+The `runtimeUrl="/api/copilotkit-voice"` points the browser to your Next.js API
+route. When the user clicks the mic, the chat captures audio, POSTs it to that
+runtime route's `/transcribe` endpoint, and places the resulting transcript in
+the composer for review.
 
 ### Driving the demo without a mic
 
-For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that emits a canned sample phrase through an `onTranscribed` callback, bypassing the transcription endpoint entirely:
+For Playwright runs, screenshots, or any flow where prompting for mic
+permissions is awkward, the Showcase offers a button that inserts a prepared
+sample phrase through an `onTranscribed` callback. It bypasses microphone
+capture and the transcription endpoint entirely:
 
 <Snippet region="sample-audio-button" title="frontend/src/app/sample-audio-button.tsx" />
 
-The parent chat component can then drop that text into the composer's textarea (matched via `data-testid="copilot-chat-textarea"`) using the native value setter and a synthetic `input` event so React's managed state updates correctly.
+The parent chat component drops that text into the composer's textarea (matched
+via `data-testid="copilot-chat-textarea"`) using the native value setter and a
+synthetic `input` event so React's managed state updates correctly. This proves
+the prepared-text path only; validate microphone permissions and transcription
+with your configured runtime separately.
+
+## Try it
+
+Wait until **Try a sample audio** is enabled, select it, then send the inserted
+weather question from the composer. The button’s label is historical: it
+inserts prepared text and does not upload or transcribe audio.
 
 ## Backend
 

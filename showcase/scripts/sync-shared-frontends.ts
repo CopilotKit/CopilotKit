@@ -56,6 +56,10 @@ const sharedFrontendEntries = [
     ),
   },
   {
+    source: path.join(showcaseRoot, "shared/react/demos/gen-ui-agent/page.tsx"),
+    targets: demoTargets(selectedReactIntegrations, "gen-ui-agent/page.tsx"),
+  },
+  {
     source: path.join(showcaseRoot, "shared/react/demos/auth/page.tsx"),
     targets: demoTargets(selectedReactIntegrations, "auth/page.tsx"),
   },

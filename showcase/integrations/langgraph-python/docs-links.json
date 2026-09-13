@@ -114,8 +114,8 @@
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "shared-state-read-write": {
-      "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/in-app-agent-write",
-      "shell_docs_path": "/shared-state/in-app-agent-write"
+      "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/state-inputs-outputs",
+      "shell_docs_path": "/shared-state/state-inputs-outputs"
     },
     "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/predictive-state-updates",

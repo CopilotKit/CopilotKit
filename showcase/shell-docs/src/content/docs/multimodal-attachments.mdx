@@ -1,13 +1,17 @@
 ---
 title: Multimodal Attachments
 icon: "lucide/Paperclip"
-description: Let users send images, audio, video, and documents to the AI alongside their messages.
+description: Configure chat attachments; the selected Showcase path verifies image and PDF turns.
 snippet_cell: multimodal
 ---
 
 <InlineDemo demo="multimodal" />
 
-You have a working CopilotChat and want users to attach files — images, PDFs, audio, video — that the AI can see and respond to. By the end of this guide, your chat will support drag-and-drop file attachments with previews, lightbox viewing, and multimodal AI responses.
+You have a working CopilotChat and want users to attach files alongside their
+messages. The selected Showcase path below verifies image and PDF attachments.
+The attachments API can accept other MIME types in your own app, but that does
+not establish that a selected Showcase agent or its configured model processes
+those types.
 
 ## The Showcase attachment path
 
@@ -29,20 +33,27 @@ responds.
 
 ## Quick start
 
-Add `attachments` to your `CopilotChat` component:
+For a smaller application-owned setup, add an `attachments` configuration to
+your `CopilotChat` component. Start with the same image-and-PDF policy the
+selected Showcase demo uses:
 
 ```tsx title="page.tsx"
 import { CopilotChat } from "@copilotkit/react-core/v2";
 
 <CopilotChat
   agentId="my-agent"
-  attachments={{ enabled: true }} // [!code highlight]
+  attachments={{
+    enabled: true,
+    accept: "image/*,application/pdf",
+    maxSize: 10 * 1024 * 1024,
+  }} // [!code highlight]
 />
 ```
 
-That's it. Users can now click the attachment button or drag-and-drop files into the chat. The files are sent as part of the message content to your agent.
+Users can now click the attachment button or drag files into the chat. Validate
+the MIME types with the model and agent runtime you deploy.
 
-## Configuration
+## Attachments API configuration
 
 The `attachments` prop accepts an `AttachmentsConfig` object:
 
@@ -51,8 +62,8 @@ The `attachments` prop accepts an `AttachmentsConfig` object:
   attachments={{
     enabled: true,
     // Omit `accept` to allow all file types (default: "*/*").
-    // Restrict with a MIME filter if needed:
-    accept: "image/*,audio/*,video/*,application/pdf",
+    // Choose only types your agent and model handle:
+    accept: "image/*,application/pdf",
     maxSize: 10 * 1024 * 1024,      // 10MB limit (default: 20MB)
   }}
 />
@@ -67,19 +78,21 @@ The `attachments` prop accepts an `AttachmentsConfig` object:
 | `onUpload` | `(file: File) => AttachmentUploadResult \| Promise<...>` | — | Custom upload handler. See [Custom upload handler](#custom-upload-handler). |
 | `onUploadFailed` | `(error: AttachmentUploadError) => void` | — | Called when a file fails validation or upload. See [Handling upload errors](#handling-upload-errors). |
 
-## Supported file types
+## File types and model support
 
-Attachments are categorized by modality based on their MIME type:
+`accept` controls the browser file picker; it does not make a model understand
+the selected file. The selected Showcase cells exercise only these paths:
 
-| Modality | MIME types | Preview | AI support |
-| --- | --- | --- | --- |
-| **Image** | `image/*` | Thumbnail with lightbox | Supported by most vision-capable models (GPT-4o, Claude, etc.) |
-| **Audio** | `audio/*` | Audio player | Model-dependent |
-| **Video** | `video/*` | Thumbnail with play button + lightbox | Model-dependent |
-| **Document** | Everything else | File icon + name; PDF and text get lightbox preview | Sent as file content — model support varies |
+| Type | Selected Showcase evidence | Your application |
+| --- | --- | --- |
+| **Image** | Image upload and a sample image turn | Use a vision-capable agent/model. |
+| **PDF** | PDF upload and a sample PDF turn | Ensure your agent extracts or otherwise handles document content. |
+| **Audio or video** | No selected Showcase end-to-end claim | Add your MIME filter only after validating the agent and model path. |
 
 <Callout type="info">
-  Not all models support all modalities. For example, OpenAI's GPT-4o supports images but not audio file parts. If the model doesn't support a file type, you'll get a `RUN_ERROR` event. Use the `onError` callback to handle this gracefully.
+  Model and runtime support varies by MIME type. Handle a rejected or failed
+  attachment with `onUploadFailed`, and handle errors returned after dispatch
+  with `onError`.
 </Callout>
 
 ## Custom upload handler
@@ -214,6 +227,9 @@ When a user attaches files and sends a message, CopilotKit:
 1. Reads each file (via the default base64 reader or your `onUpload` handler)
 2. Builds an array of `InputContent` parts — text + one part per attachment
 3. Adds the message to the agent with `content: [{ type: "text", ... }, { type: "image", source: ... }, ...]`
-4. The agent receives the multimodal content via the AG-UI protocol and forwards it to the model
+4. The agent receives the multipart content through AG-UI and handles it
+   according to its model integration
 
-The attachments are part of the standard AG-UI `InputContent` schema, so any AG-UI-compatible agent (BuiltInAgent, LangGraph, custom) can receive them.
+Attachments use the standard AG-UI `InputContent` schema. That protocol shape
+does not by itself prove that a given agent or model supports every MIME type;
+use the selected image/PDF path above or validate your own runtime path.

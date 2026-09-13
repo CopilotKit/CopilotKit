@@ -12,14 +12,11 @@
  */
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import {
-  AIMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import {
   Annotation,
@@ -69,6 +66,7 @@ export type AgentState = typeof AgentStateAnnotation.State;
 // the `steps` channel (the UI re-renders from shared state).
 // ---------------------------------------------------------------------------
 
+// @region[gen-ui-agent-backend]
 const setSteps = tool(
   async ({ steps }, config: ToolRunnableConfig) => {
     const toolCallId = config.toolCall?.id;
@@ -106,6 +104,7 @@ const setSteps = tool(
     }),
   },
 );
+// @endregion[gen-ui-agent-backend]
 
 const tools = [setSteps];
 

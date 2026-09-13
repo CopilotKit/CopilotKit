@@ -41,6 +41,7 @@ export default function GenUiAgentDemo() {
   );
 }
 
+// @region[gen-ui-agent-state-rendering]
 type AgentState = {
   steps?: Step[];
 };
@@ -73,3 +74,4 @@ function Chat() {
     />
   );
 }
+// @endregion[gen-ui-agent-state-rendering]

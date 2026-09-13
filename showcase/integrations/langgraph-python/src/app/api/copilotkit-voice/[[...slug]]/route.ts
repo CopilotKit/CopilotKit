@@ -6,7 +6,7 @@
 //    composer renders the mic button.
 // 2. Handle `POST /transcribe` by invoking an OpenAI-backed
 //    `TranscriptionServiceOpenAI` (from `@copilotkit/voice`), so recorded
-//    audio is transcribed and the transcript auto-sends.
+//    audio is transcribed and placed in the chat composer for review.
 // 3. Return a deterministic 4xx when `OPENAI_API_KEY` is not configured,
 //    instead of an opaque 5xx. The V2 runtime's `handleTranscribe` maps
 //    error messages containing "api key" or "unauthorized" to

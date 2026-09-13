@@ -1,0 +1,484 @@
+{
+  "integration": "built-in-agent",
+  "scope": "Local strict AIMock replay; public 1.71.1 plus local core URL fix. Published unpatched compatibility remains RED. Voice covers a prepared transcript, not audio transcription.",
+  "before_log": "stable1711-localcore-built-in-agent-full-d6.log",
+  "after_log": "repair021-built-in-agent-full-d6-strict-turn-final.log",
+  "before_counts": {
+    "total": 39,
+    "passed": 31
+  },
+  "after_counts": {
+    "total": 39,
+    "passed": 38
+  },
+  "checks": [
+    {
+      "feature": "a2ui-recovery",
+      "before": {
+        "pass": true,
+        "duration_ms": 7851
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 6618
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "agent-config",
+      "before": {
+        "pass": true,
+        "duration_ms": 14817
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 14868
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "agentic-chat",
+      "before": {
+        "pass": true,
+        "duration_ms": 8537
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 8868
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "auth",
+      "before": {
+        "pass": true,
+        "duration_ms": 54415
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 53114
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "beautiful-chat-bar-chart",
+      "before": {
+        "pass": true,
+        "duration_ms": 7764
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 6714
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "beautiful-chat-pie-chart",
+      "before": {
+        "pass": true,
+        "duration_ms": 7733
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 6794
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "beautiful-chat-schedule-meeting",
+      "before": {
+        "pass": true,
+        "duration_ms": 4928
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 5719
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "beautiful-chat-search-flights",
+      "before": {
+        "pass": true,
+        "duration_ms": 6927
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 5867
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "beautiful-chat-toggle-theme",
+      "before": {
+        "pass": true,
+        "duration_ms": 7742
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 6614
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "byoc",
+      "before": {
+        "pass": true,
+        "duration_ms": 5881
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4544
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "chat-css",
+      "before": {
+        "pass": true,
+        "duration_ms": 6162
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4707
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "chat-slots",
+      "before": {
+        "pass": true,
+        "duration_ms": 5425
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4893
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "frontend-tools",
+      "before": {
+        "pass": true,
+        "duration_ms": 9686
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 9401
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "frontend-tools-async",
+      "before": {
+        "pass": false,
+        "duration_ms": 126862
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 5331
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "gen-ui-a2ui-fixed",
+      "before": {
+        "pass": true,
+        "duration_ms": 5588
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4492
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "gen-ui-agent",
+      "before": {
+        "pass": true,
+        "duration_ms": 9939
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 9966
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "gen-ui-custom",
+      "before": {
+        "pass": true,
+        "duration_ms": 5798
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4589
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "gen-ui-declarative",
+      "before": {
+        "pass": true,
+        "duration_ms": 11950
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 10851
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "gen-ui-headless-complete",
+      "before": {
+        "pass": false,
+        "duration_ms": 160444
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 20800
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "gen-ui-open",
+      "before": {
+        "pass": false,
+        "duration_ms": 187126
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4650
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "gen-ui-open-advanced",
+      "before": {
+        "pass": false,
+        "duration_ms": 67763
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4547
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "headless-simple",
+      "before": {
+        "pass": true,
+        "duration_ms": 13907
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 12510
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "hitl-approve-deny",
+      "before": {
+        "pass": true,
+        "duration_ms": 7936
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 6356
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "hitl-text-input",
+      "before": {
+        "pass": true,
+        "duration_ms": 7342
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 6354
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "mcp-apps",
+      "before": {
+        "pass": true,
+        "duration_ms": 7304
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 6676
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "multimodal",
+      "before": {
+        "pass": false,
+        "duration_ms": 122065
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 5377
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "prebuilt-popup",
+      "before": {
+        "pass": true,
+        "duration_ms": 6113
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4897
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "prebuilt-sidebar",
+      "before": {
+        "pass": true,
+        "duration_ms": 6130
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4660
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "readonly-state-context",
+      "before": {
+        "pass": false,
+        "duration_ms": 130296
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 5009
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "reasoning-custom",
+      "before": {
+        "pass": true,
+        "duration_ms": 5661
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4561
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "reasoning-default",
+      "before": {
+        "pass": true,
+        "duration_ms": 5324
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 4557
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "shared-state-read",
+      "before": {
+        "pass": true,
+        "duration_ms": 8151
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 6861
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "shared-state-write",
+      "before": {
+        "pass": true,
+        "duration_ms": 7934
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 7068
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "subagents",
+      "before": {
+        "pass": true,
+        "duration_ms": 8851
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 7968
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "threadid-frontend-tool-roundtrip",
+      "before": {
+        "pass": false,
+        "duration_ms": 122374
+      },
+      "after": {
+        "pass": false,
+        "duration_ms": 120695
+      },
+      "catalog_disposition": "unshipped"
+    },
+    {
+      "feature": "tool-rendering",
+      "before": {
+        "pass": true,
+        "duration_ms": 6453
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 5557
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "tool-rendering-custom-catchall",
+      "before": {
+        "pass": true,
+        "duration_ms": 8656
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 7852
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "tool-rendering-default-catchall",
+      "before": {
+        "pass": true,
+        "duration_ms": 5551
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 5109
+      },
+      "catalog_disposition": "published"
+    },
+    {
+      "feature": "voice",
+      "before": {
+        "pass": false,
+        "duration_ms": 62402
+      },
+      "after": {
+        "pass": true,
+        "duration_ms": 2559
+      },
+      "catalog_disposition": "published"
+    }
+  ]
+}

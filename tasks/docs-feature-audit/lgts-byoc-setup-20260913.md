@@ -1,32 +1,48 @@
-# LangGraph TypeScript bring-your-own setup reproduction — 2026-09-13
+# LangGraph TypeScript Showcase-agent setup reproduction — 2026-09-13
 
-Scope: the corrected `/langgraph-typescript/quickstart` TypeScript
-bring-your-own branch. This validation copied the selected Showcase agent
-layout into `/private/tmp/lgts-byoc-setup-20260913`, installed from the exact
-shown `src/agent/package.json`, and did not start a LangGraph or Next server.
+Scope: the TypeScript branch of `/langgraph-typescript/quickstart` after its
+copy-path correction. It now distinguishes an existing-agent reference from
+the complete runnable Showcase sample.
+
+The earlier attempt copied `src/agent` and `shared-tools` directly. That did
+not reproduce the guide because it included existing `node_modules` and named
+an undocumented partial layout. It is retained as a rejected observation, not
+as setup evidence.
+
+## Reproduction
+
+`tasks/docs-feature-audit/reproduce-lgts-byoc-setup.sh` creates a fresh
+temporary copy of the complete checked-in
+`showcase/integrations/langgraph-typescript` directory, excluding installed
+dependencies. This mirrors the guide's complete-sample clone layout. It then:
+
+1. copies `.env.example` to `.env` at the integration root, matching the
+   selected `langgraph.json` `../../.env` path;
+2. runs `npm ci --ignore-scripts --no-audit --no-fund` in `src/agent` from the
+   checked-in lockfile; and
+3. type-checks the selected `graph.ts` with strict TypeScript settings, without
+   starting a server.
+
+The rendered package, configuration, and graph snippets remain reference
+material for an **existing** TypeScript agent. They do not form a standalone
+copy path: the graph imports `openai-headers`, shared tools, and its full
+configuration registers other sample graphs.
 
 ## Result
 
-`npm install --ignore-scripts --no-audit --no-fund` completed successfully
-(`up to date in 267ms`). Its package configuration and imports therefore
-resolve in an isolated app layout containing `src/agent` and the selected
-`shared-tools` dependency.
+Clean rerun passed on 2026-09-13:
 
-The focused graph typecheck used:
-
-```bash
-NODE_OPTIONS=--max-old-space-size=4096 ./node_modules/.bin/tsc --noEmit \
-  --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck graph.ts
+```text
+added 204 packages in 1s
 ```
 
-It reaches the graph and reports three type errors at lines 75, 98, and 136:
-two `string` versus `SalesStage` schema mismatches and one optional-field
-versus `Flight` mismatch. The exact command run in the checked-in selected
-source reports the same three errors. This is an existing Showcase graph type
-error, not an isolated-install or documented-config failure.
+The strict graph check completed with no diagnostics. Before this rerun, the
+selected `graph.ts` reported three real source errors: the two sales-tool
+schemas accepted arbitrary `stage` strings although the shared implementation
+uses `SalesStage`, and the flight schema made fields optional although its
+shared implementation accepts complete `Flight` values. The source now uses
+the declared sales-stage values and requires every `Flight` field, so the
+strict check passes in the clean sample layout.
 
-The reproduction script is
-`tasks/docs-feature-audit/reproduce-lgts-byoc-setup.sh`. It creates and removes
-its own `/private/tmp` directory and intentionally does not run `npm run dev`.
-CLI graph-load/start validation needs the dedicated runtime slot after the
-active Built-in Agent matrix ends.
+No LangGraph or Next server is started by this reproduction; graph-load/start
+validation requires a separate runtime slot.

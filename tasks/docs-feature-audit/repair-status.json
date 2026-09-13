@@ -1114,6 +1114,85 @@
       ],
       "sanity_review": "Independent static review clear; actual normal browser image/PDF proof is separate from the focused route checks.",
       "remaining": "Complete voice diagnosis and selected published-guide runtime qualification. These runs use public 1.71.1 plus the local core URL fix; unpatched published compatibility remains blocked."
+    },
+    {
+      "id": "REPAIR-022",
+      "area": "HTML/Markdown effective source resolver diverges for generated threads-import",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Generated HTML and Markdown used different source candidate ordering.",
+      "fix_commits": [],
+      "after_evidence": [
+        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md."
+      ],
+      "sanity_review": null,
+      "remaining": "Shared resolver and derived output guard are unfinished WIP; validate final route parity."
+    },
+    {
+      "id": "REPAIR-023",
+      "area": "LangGraph Python streaming guide lacks Showcase source binding",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Effective predictive-state-updates guide used legacy viewer and handwritten examples.",
+      "fix_commits": [],
+      "after_evidence": [
+        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md."
+      ],
+      "sanity_review": null,
+      "remaining": "Source-backed rewrite is checkpointed WIP; final rendered/setup/runtime checks pending."
+    },
+    {
+      "id": "REPAIR-024",
+      "area": "LangGraph Python read/write guide and route binding drift",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Feature docs link selected in-app-agent-write instead of the repaired state-inputs-outputs guide.",
+      "fix_commits": [],
+      "after_evidence": [
+        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md."
+      ],
+      "sanity_review": null,
+      "remaining": "Rewrite, owning docs-link correction and old-URL redirects are checkpointed WIP; final validation pending."
+    },
+    {
+      "id": "REPAIR-025",
+      "area": "LangGraph Python readonly context guide lacks Showcase source binding",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Effective agent-app-context guide lacked the selected Showcase source carrier.",
+      "fix_commits": [],
+      "after_evidence": [
+        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md."
+      ],
+      "sanity_review": null,
+      "remaining": "Source-backed rewrite is checkpointed WIP; final rendered/setup/runtime checks pending."
+    },
+    {
+      "id": "REPAIR-026",
+      "area": "LangGraph Python subagents guide lacks Showcase source binding",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Effective multi-agent-flows guide relied on narrative/handwritten content instead of actual selected sources.",
+      "fix_commits": [],
+      "after_evidence": [
+        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md."
+      ],
+      "sanity_review": null,
+      "remaining": "Source-backed rewrite is checkpointed WIP; final rendered/setup/runtime checks pending."
+    },
+    {
+      "id": "REPAIR-027",
+      "area": "Selected framework setup omissions and state-rendering identity mismatch",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Actual rendered selected-guide guard found 20 setup-skipped markers and BIA/Strands state-rendering demo failures; root state-rendering used unsupported streaming-state identity.",
+      "fix_commits": [],
+      "after_evidence": [
+        "Unfinished source is explicitly preserved in the September 13 pause checkpoint; see checkpoint-20260913.md."
+      ],
+      "sanity_review": null,
+      "remaining": "Central source/setup repairs are unfinished. Last selected-guide guard is RED. Final Gen UI identity/frontend/backend region edit was not validated; review then rerun before qualification."
     }
-  ]
+  ],
+  "pause_checkpoint": "checkpoint-20260913.md"
 }

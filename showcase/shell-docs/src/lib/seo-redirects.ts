@@ -359,6 +359,19 @@ const DEEP_COAGENTS: RedirectEntry[] = [
 // ---------------------------------------------------------------------------
 
 const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
+  // The selected LGP shared-state cell now documents the source-backed
+  // state-inputs-outputs guide. Keep both the legacy and canonical slugs
+  // from serving the retired Feature Viewer page.
+  {
+    id: "LGP-state-write-legacy",
+    source: "/langgraph/shared-state/in-app-agent-write",
+    destination: "/langgraph-python/shared-state/state-inputs-outputs",
+  },
+  {
+    id: "LGP-state-write-canonical",
+    source: "/langgraph-python/shared-state/in-app-agent-write",
+    destination: "/langgraph-python/shared-state/state-inputs-outputs",
+  },
   {
     id: "CF-mode-parity",
     source: "/crewai-conversational-flows/feature-parity",

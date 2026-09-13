@@ -2,10 +2,10 @@
 title: State Rendering
 icon: "lucide/Bot"
 description: Render your agent's state with custom UI components in real-time.
-snippet_cell: shared-state-streaming
+snippet_cell: gen-ui-agent
 ---
 
-<InlineDemo demo="shared-state-streaming" />
+<InlineDemo demo="gen-ui-agent" />
 
 ## What is this?
 
@@ -26,21 +26,17 @@ Use state rendering when you want to:
 
 ## How it works in code
 
-On the frontend, subscribe to the agent's state. Each time the backend
-forwards a fresh value, your component re-renders with the latest partial
-output.
+On the frontend, subscribe to the agent's `steps` state. Each time the
+backend publishes the current plan, your component re-renders the progress
+card inside the chat transcript.
 
-<Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
+<Snippet region="gen-ui-agent-state-rendering" title="frontend/src/app/demos/gen-ui-agent/page.tsx — state subscription and progress card" />
 
-On the backend, a state-streaming mapping forwards a specific tool argument
-straight into a state key *as it's being generated*. Some frameworks provide
-that as middleware; direct SDK adapters can emit `STATE_SNAPSHOT` events from
-their streaming loop. Either way, the UI can watch the answer assemble
-token-by-token rather than appearing in one burst between checkpoints.
+On the backend, `set_steps` publishes the complete step list as agent state.
+The exact bridge differs by integration: the selected source below is the
+implementation that makes the frontend's `agent.state.steps` update.
 
-<FrameworkSetup concept="state-streaming-setup" />
-
-<Snippet region="state-streaming-middleware" title="backend — state streaming mapping" />
+<Snippet region="gen-ui-agent-backend" title="backend — publish the live steps state" />
 
 <IntegrationGrid
   path="generative-ui/state-rendering"
