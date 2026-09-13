@@ -125,3 +125,62 @@ test("selects the active Microsoft Agent Framework interactive example", () => {
   expect(guide).toContain("framework={props.framework}");
   expect(guide).not.toContain('framework="microsoft-agent-framework-dotnet"');
 });
+
+test("uses the distinct Microsoft Agent Framework A2UI policies", () => {
+  const guide = source(
+    "integrations/microsoft-agent-framework/generative-ui/a2ui/dynamic-schema",
+  );
+  expect(guide).toContain("snippet_cell: declarative-gen-ui");
+  expect(guide).toContain('framework="ms-agent-dotnet"');
+  expect(guide).toContain('framework="ms-agent-python"');
+  expect(guide).toContain('region="a2ui-runtime-policy"');
+  expect(guide).toContain('region="dynamic-a2ui-agent"');
+
+  const output = rendered(
+    "integrations/microsoft-agent-framework/generative-ui/a2ui/dynamic-schema",
+  );
+  expect(output).toContain("injectA2UITool: false");
+  expect(output).toContain("injectA2UITool: true");
+  expect(output).toContain('Name = "generate_a2ui"');
+  expect(output).toContain("The agent has no tools");
+});
+
+test("uses the Microsoft Agent Framework steps publisher and public route key", () => {
+  const guide = source(
+    "integrations/microsoft-agent-framework/generative-ui/state-rendering",
+  );
+  expect(guide).toContain("snippet_cell: gen-ui-agent");
+  expect(guide).toContain('region="state-rendering-runtime"');
+  expect(guide).toContain('region="state-rendering-publisher"');
+  expect(guide).toContain('region="state-rendering-subscription"');
+  expect(guide).not.toContain("IframeSwitcher");
+  expect(guide).not.toContain("search_agent");
+
+  const output = rendered(
+    "integrations/microsoft-agent-framework/generative-ui/state-rendering",
+  );
+  expect(output).toContain('agents["gen-ui-agent"] = createGenUiAgent()');
+  expect(output).toContain("def set_steps(");
+  expect(output).toContain('state={"steps": steps}');
+  expect(output).toContain('agentId: "gen-ui-agent"');
+});
+
+test("does not present an unavailable Pydantic state-rendering demo as runnable", () => {
+  const guide = source(
+    "integrations/pydantic-ai/generative-ui/state-rendering",
+  );
+  expect(guide).toContain("This Showcase example is not ready");
+  expect(guide).toContain("not a limitation of\nPydantic AI");
+  expect(guide).toContain("/pydantic-ai/shared-state");
+  expect(guide).not.toContain("IframeSwitcher");
+  expect(guide).not.toContain("useAgent({");
+
+  const output = rendered(
+    "integrations/pydantic-ai/generative-ui/state-rendering",
+  );
+  expect(output).toContain("This Showcase example is not ready");
+  expect(output).toContain("frontend expects `steps`");
+  expect(output).toContain("backend currently exposes `todos`");
+  expect(output).toContain("](/pydantic-ai/shared-state)");
+  expect(output).not.toContain("my_agent");
+});

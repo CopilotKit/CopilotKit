@@ -45,6 +45,7 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+# @region[dynamic-a2ui-agent]
 def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     """Instantiate the MS-Agent-backed declarative-gen-ui agent.
 
@@ -66,3 +67,6 @@ def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         description="Dynamic A2UI generator that designs rich UI surfaces on demand.",
         require_confirmation=False,
     )
+
+
+# @endregion[dynamic-a2ui-agent]

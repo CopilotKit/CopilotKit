@@ -570,10 +570,12 @@ agents["hitl-in-app"] = createReplaySafeAgent("/hitl-in-app", [
 // /hitl-in-chat on the FastAPI backend.
 agents["hitl-in-chat"] = createReplaySafeAgent("/hitl-in-chat", ["book_call"]);
 
+// @region[state-rendering-runtime]
 // Generative UI Agent — backend with `set_steps` tool + `steps` state
 // schema mirrored from LGP's gen_ui_agent. The frontend renders a live
 // progress card subscribed to `agent.state.steps`.
 agents["gen-ui-agent"] = createGenUiAgent();
+// @endregion[state-rendering-runtime]
 
 // Tool-Based Generative UI -- frontend registers `render_bar_chart` and
 // `render_pie_chart` via `useComponent`; backend agent has tools=[] and a

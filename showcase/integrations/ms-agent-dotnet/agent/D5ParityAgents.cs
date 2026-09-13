@@ -64,6 +64,7 @@ public sealed class D5ParityAgentFactory
         return new ReadonlyContextAgent(inner, _loggerFactory.CreateLogger<ReadonlyContextAgent>());
     }
 
+    // @region[state-rendering-agent]
     public AIAgent CreateGenUiAgent()
     {
         var store = new SnapshotStore<PlanStep[]>(
@@ -105,6 +106,7 @@ public sealed class D5ParityAgentFactory
             _jsonSerializerOptions,
             _loggerFactory.CreateLogger<SnapshotAfterRunAgent<PlanStep[]>>());
     }
+    // @endregion[state-rendering-agent]
 
     // Shared State (Streaming). The `write_document` tool exposes a single
     // `document` string argument. Because the OpenAI chat client streams

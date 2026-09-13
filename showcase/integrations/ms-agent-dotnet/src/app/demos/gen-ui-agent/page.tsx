@@ -45,6 +45,7 @@ type AgentState = {
   steps?: Step[];
 };
 
+// @region[state-rendering-subscription]
 function Chat() {
   const { agent } = useAgent({
     agentId: "gen-ui-agent",
@@ -73,3 +74,4 @@ function Chat() {
     />
   );
 }
+// @endregion[state-rendering-subscription]
