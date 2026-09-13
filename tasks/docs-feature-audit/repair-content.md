@@ -285,3 +285,162 @@ the guide’s casual/expert/detailed action after the local fixture transport
 repair. These are source/representation or patched-local results as applicable;
 they do not qualify the complete framework matrix or current registry-only
 1.71.1, which lacks the unreleased relative-URL core repair.
+
+## Iteration 17 — full shell-docs suite
+
+The bounded full shell-docs suite reached **125/126 files and 947/948 tests**.
+The sole red test is `ms-agent-python-stable-api.test.ts`, which still requires
+a retired `OpenAIChatClient` import from the C029 state-rendering page. The new
+guide intentionally extracts the actual `set_steps` publisher, public runtime
+key, and factory instead. The follow-up is test-only and must assert that
+current contract rather than reintroduce obsolete code.
+
+## Iteration 18 — selected React guide provenance and current API repair family
+
+The selected-reader audit found four guide-family defects after the earlier
+source-backed repair commits. These are recorded as `REPAIR-014` through
+`REPAIR-017` in `repair-status.json` before their first render gate.
+
+- **MCP Apps (REPAIR-014):** the effective Built-in Agent override taught the
+  retired `MCPAppsMiddleware`/`.use()` shape. Its actual runtime configures
+  `CopilotRuntime({ mcpApps: { servers } })`; the replacement extracts that
+  runtime configuration and the existing no-manual-renderer frontend region.
+- **Shared State (REPAIR-015):** the Built-in Agent override invented
+  task/todo state. The selected demo really stores `preferences` and returns
+  `notes`, but the generic factory does not yet read `input.state.preferences`.
+  The replacement binds its provider/runtime and verified notes bridge, labels
+  model-side preference use as pending, and uses the real **Remember something**
+  action.
+- **Display-only (REPAIR-016):** the four affected selected bindings are
+  LangGraph Python, LangGraph TypeScript, Strands, and Built-in Agent. Their
+  sources now share the actual `gen-ui-tool-based` bar-chart renderer and
+  `useComponent` setup, removing legacy `CopilotKitState` and
+  `@copilotkit/sdk-js/langgraph` instructions.
+- **Auth and multimodal (REPAIR-017):** both root guides resolve for all five
+  selected React integrations. The new excerpts bind the actual auth request
+  headers/provider/on-request gate and the actual attachment configuration/File
+  adapter. This is provenance and setup repair, not evidence that every
+  backend or media fixture is qualified.
+
+The next required check is one source/render contract that exercises the
+effective selected Markdown bindings and rejects the retired MCP, task-state,
+and legacy display-only fragments. Local browser and runtime gates remain
+separate.
+
+## Iteration 19 — refreshed public CLI contract
+
+The prior published CLI proof was version `4.9.50`, so it could not stand for
+the now-current `copilotkit@4.9.60`. In an empty temporary directory with
+isolated npm and XDG state, the exact Rich Threads command exited zero and
+printed the **Add Rich Threads to the existing CopilotKit app** plan:
+
+```text
+npx --yes copilotkit@4.9.60 onboard start --coding-agent codex --intent add-rich-threads
+```
+
+The generic copied prompt shape also exited zero with its requested 12-character
+run id preserved as `onboarding_run_id`:
+
+```text
+npx --yes copilotkit@4.9.60 onboard start --run 4960cli00001 --coding-agent codex
+```
+
+Both commands stopped after printing instructions. They did not inspect a user
+project, log in, provision cloud resources, or execute an implementation step.
+This refresh closes only the current public CLI syntax/intent check; it does not
+qualify a local app setup.
+
+## Iteration 20 — LangGraph TypeScript bring-your-own prerequisite gap
+
+`/langgraph-typescript/quickstart` resolves to the shared
+`integrations/langgraph/quickstart.mdx` source. Its URL-specific tab default
+selects TypeScript only for `language_langgraph_agent`, but the actual
+bring-your-own setup has no such tabs: it tells the reader to run `uv init`,
+`uv add`, and create Python/FastAPI files. That makes the TypeScript route
+present Python prerequisites as its implementation path.
+
+The selected Showcase TypeScript agent provides the repair source of truth:
+`showcase/integrations/langgraph-typescript/src/agent/package.json` declares
+the current JavaScript packages and `dev` command,
+`src/agent/langgraph.json` maps `starterAgent` to `graph.ts:graph`, and the
+Next runtime route creates a `LangGraphAgent` against the local deployment.
+`REPAIR-018` records the scoped prerequisite mismatch. The next change must
+add source regions and a TypeScript-specific bring-your-own branch; it must not
+translate the Python example or label current `CopilotKitStateAnnotation` or
+`@copilotkit/sdk-js/langgraph` usage as legacy.
+
+## Iteration 21 — Built-in Agent Shared State bridge
+
+The prior guide limitation is now resolved by runtime commit `4ed958ba1f`.
+Only the `shared-state-read-write` agent opts into the factory's
+`stateSystemPrompt`, which shape-filters its `preferences` object and adds the
+known fields to that run's model prompt. The strict fixture has a preserved RED
+before-state and a two-turn GREEN result that requires the preference prompt
+on the initial tool call; the formatter unit has three focused passing checks.
+The guide now extracts that formatter rather than retaining its pending-work
+callout. A raw-Markdown contract and rendered reader check remain before this
+docs repair can advance; neither result qualifies the complete Built-in Agent
+matrix or current registry-only 1.71.1 release.
+
+## Iteration 22 — effective Auth and Multimodal guide boundaries
+
+The earlier REPAIR-017 path statement was wrong. The authoritative local capture
+at `tasks/docs-feature-audit/route-source-check-20260913/index.json` fetched all
+five selected Auth Markdown routes successfully. Every response contains the
+root guide heading **Start with the Showcase auth path** and has no snippet
+marker. LangGraph Python and TypeScript therefore use root `auth.mdx` too; their
+selected content is its `auth_pattern="langgraph"` branch, not the shadowed
+`integrations/langgraph/auth.mdx` file. Auth repairs must stay in the root body,
+with any server-verification pattern labelled application-owned rather than a
+parallel Showcase implementation.
+
+The selected multimodal frontend sources accept only `image/*` and
+`application/pdf` at 10 MB and expose PNG/PDF sample actions. `REPAIR-020`
+records the mismatch with the shared guide's broader audio/video outcome. The
+repair will distinguish the runnable Showcase image/PDF path from general
+attachment API options and will not claim broader provider support before
+behavior evidence exists.
+
+## Iteration 23 — readonly capture classification
+
+`REPAIR-019` is a test-observability correction, not a runtime product repair.
+The prior readonly capture counted a resource request as an agent run. Commit
+`9a56b9b0e8` narrows it to the agent/run boundary and ignores resource POSTs;
+ten unit checks plus a real Built-in Agent capture are green. Any future strict
+turn-mode policy remains a distinct test concern.
+
+## Iteration 24 — Auth and TypeScript quickstart source/render contracts
+
+The root Auth guide now selects the actual request-header, provider transport,
+and complete V2 `onRequest` gate for all five selected routes. Its LangGraph
+branch uses the selected `LangGraphAgent` runtime excerpts and no longer
+presents the Python FastAPI path as a TypeScript Showcase setup.
+
+The shared LangGraph quickstart now gives the TypeScript URL a source-backed
+bring-your-own tab. It renders the selected agent `package.json`,
+`langgraph.json`, and bounded exported graph, then uses the package's actual
+`npm install` and `npm run dev` path. The demo-content bundler now admits an
+explicit command-only cell with source highlights without inventing a browser
+route.
+
+Shell-docs pretypecheck passed. The Auth/REPAIR-018 focused contracts passed
+2 files / 18 tests in 19.32s, and the command-only bundle regression passed 1
+file / 9 tests in 10.99s. These are source/render checks; temporary-app setup
+and framework qualification remain separate.
+
+## Iteration 25 — LangGraph TypeScript isolated bring-your-own setup
+
+The TypeScript BYO configuration was reproduced in an isolated `/private/tmp`
+layout with the selected `src/agent` directory and its actual `shared-tools`
+dependency. The exact documented package manifest installed successfully with
+`npm install --ignore-scripts --no-audit --no-fund` under a 4 GiB heap cap.
+
+A focused no-emit typecheck reached the copied graph and all of its imports,
+but reported three existing source type errors: two `SalesStage` schema
+mismatches and one optional-field-to-`Flight` mismatch. The identical command
+against the checked-in agent source reports the same three errors, so the
+result is a baseline Showcase graph issue rather than an isolated setup or
+package-resolution failure. The reproduction script and full result are
+`reproduce-lgts-byoc-setup.sh` and `lgts-byoc-setup-20260913.md` in this
+directory. No agent server was launched; graph-load validation waits for the
+runtime slot after the active Built-in Agent matrix.

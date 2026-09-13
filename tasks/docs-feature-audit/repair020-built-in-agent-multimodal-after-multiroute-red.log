@@ -1,0 +1,79 @@
+{"level":"info","msg":"probe.e2e-full.service-start","ts":"2026-09-13T17:54:11.267Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureCount":1,"backendUrl":"http://localhost:3117"}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=0c12fb16-27fc-4eec-82f6-e038f76cc757 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-0c12fb16-27fc-4eec-82f6-e038f76cc757 error=","ts":"2026-09-13T17:54:11.441Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/multimodal',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/multimodal',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-13T17:54:11.694Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"multimodal","hydrated":true,"hydrationMs":29}
+[conversation-runner] starting conversation { totalTurns: 2, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/2 — sending message { inputLength: 31, timeoutMs: 60000 }
+[conversation-runner] turn 1/2 — running preFill hook
+[conversation-runner] turn 1/2 — preFill hook completed
+[conversation-runner] turn 1/2 — skipSend=true, preFill handled submission; not touching textarea
+[conversation-runner] turn 1/2 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/2 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 60061,
+  bodyTextLength: 143,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-09-13T17:55:11.791Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"multimodal","error":"waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)","diagnostics":{"userMsgCount":0,"apiRequestCount":15,"apiRequests":[{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_29ec4558._.js","duration":31,"transferSize":54129,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbbcdc32._.js","duration":41,"transferSize":69674,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_4b61297a._.js","duration":37,"transferSize":2458,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_copilotkit-D5BTo0YG_mjs_469af6c1._.js","duration":53,"transferSize":146832,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_a2ui-renderer_dist_ff0b6948._.js","duration":49,"transferSize":18509,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3117/demos/multimodal","title":"CopilotKit's Built-in Agent","bodyTextSnippet":"Bundled samples:\nTry with sample image\nTry with sample PDF\nHow can I help you today?\nAI can make mistakes. Please verify important information.","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/announcements.json' from origin 'http://localhost:3117' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: ","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load announcement TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at WebInspectorElement.fetchAnnouncement (http://localhost:3117/_next/static/chunks","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED"],"requestFailures":["GET https://cdn.copilotkit.ai/announcements.json => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=0c12fb16-27fc-4eec-82f6-e038f76cc757 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=miss test_id=d6-built-in-agent-0c12fb16-27fc-4eec-82f6-e038f76cc757 error=waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)","ts":"2026-09-13T17:55:11.792Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry","ts":"2026-09-13T17:55:11.797Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"multimodal","attempt":1,"errorClass":"conversation-error","errorDesc":"waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)","attempt1DurationMs":60360}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=inbound run_id=0c12fb16-27fc-4eec-82f6-e038f76cc757 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-0c12fb16-27fc-4eec-82f6-e038f76cc757 error=","ts":"2026-09-13T17:55:11.799Z","component":"docs-feature-audit-local-d6"}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/multimodal',
+  hadTrackedRequest: false
+}
+[sse-interceptor] mainFrame framenavigated — resetting per-stream tracking state {
+  url: 'http://localhost:3117/demos/multimodal',
+  hadTrackedRequest: false
+}
+{"level":"info","msg":"probe.e2e-full.runFeature.hydration-timing","ts":"2026-09-13T17:55:12.061Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"multimodal","hydrated":true,"hydrationMs":31}
+[conversation-runner] starting conversation { totalTurns: 2, settleMs: 1500, chatInputSelector: '(cascade)' }
+[conversation-runner] resolving chat input selector { candidateCount: 6, override: '(none — using cascade)' }
+[conversation-runner] chat input selector resolved { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] resolved chat input selector at boot { selector: '[data-testid="copilot-chat-textarea"]' }
+[conversation-runner] turn 1/2 — sending message { inputLength: 31, timeoutMs: 60000 }
+[conversation-runner] turn 1/2 — running preFill hook
+[conversation-runner] turn 1/2 — preFill hook completed
+[conversation-runner] turn 1/2 — skipSend=true, preFill handled submission; not touching textarea
+[conversation-runner] turn 1/2 — waiting for assistant settle {
+  selector: '[data-testid="copilot-chat-textarea"]',
+  turnIndex: 1,
+  settleMs: 1500,
+  timeoutMs: 60000
+}
+[conversation-runner] turn 1/2 — FAILED {
+  errorCategory: 'settle-dom-missing',
+  turnsCompleted: 0,
+  elapsedMs: 60127,
+  bodyTextLength: 143,
+  hasTextarea: true,
+  hasErrorBoundary: false
+}
+{"level":"warn","msg":"probe.e2e-full.runFeature.flap-diagnostics","ts":"2026-09-13T17:56:12.201Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"multimodal","error":"waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)","diagnostics":{"userMsgCount":0,"apiRequestCount":15,"apiRequests":[{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_29ec4558._.js","duration":34,"transferSize":54129,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_4b61297a._.js","duration":40,"transferSize":2458,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_core_dist_index_mjs_bbbcdc32._.js","duration":44,"transferSize":69674,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_react-core_dist_copilotkit-D5BTo0YG_mjs_469af6c1._.js","duration":54,"transferSize":146832,"status":200},{"url":"http://localhost:3117/_next/static/chunks/bdfc8_%40copilotkit_a2ui-renderer_dist_ff0b6948._.js","duration":50,"transferSize":18509,"status":200}],"pageErrors":[],"chatContainerExists":true,"url":"http://localhost:3117/demos/multimodal","title":"CopilotKit's Built-in Agent","bodyTextSnippet":"Bundled samples:\nTry with sample image\nTry with sample PDF\nHow can I help you today?\nAI can make mistakes. Please verify important information.","assistantMsgCount":0,"consoleLogs":["[warning] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.","[error] Access to fetch at 'https://cdn.copilotkit.ai/announcements.json' from origin 'http://localhost:3117' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: ","[error] Failed to load resource: net::ERR_FAILED","[warning] [CopilotKit Inspector] Failed to load announcement TypeError: Failed to fetch\n    at g.fetch (<anonymous>:88:31)\n    at WebInspectorElement.fetchAnnouncement (http://localhost:3117/_next/static/chunks","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED","[error] Access to font at 'https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2' from origin 'http://localhost:3117' has been blocked by CORS policy: Request header f","[error] Failed to load resource: net::ERR_FAILED"],"requestFailures":["GET https://cdn.copilotkit.ai/announcements.json => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED","GET https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yygg_vb.woff2 => net::ERR_FAILED"]}}
+{"level":"warn","msg":"CVDIAG component=harness-d6 boundary=fixture-match run_id=0c12fb16-27fc-4eec-82f6-e038f76cc757 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=miss test_id=d6-built-in-agent-0c12fb16-27fc-4eec-82f6-e038f76cc757 error=waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)","ts":"2026-09-13T17:56:12.201Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.feature-retry-result","ts":"2026-09-13T17:56:12.205Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"multimodal","attempt":2,"ok":false,"errorClass":"conversation-error"}
+{"level":"warn","msg":"probe.e2e-full.writer-missing","ts":"2026-09-13T17:56:12.205Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent/multimodal"}
+{"level":"info","msg":"probe.e2e-full.feature-complete","ts":"2026-09-13T17:56:12.205Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","featureType":"multimodal","pass":false,"errorDesc":"waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)","durationMs":120768}
+{"level":"info","msg":"CVDIAG component=harness-d6 boundary=cv-verdict run_id=0c12fb16-27fc-4eec-82f6-e038f76cc757 slug=built-in-agent header_present=true header_value_prefix=built-in-age hop=- status=ok test_id=d6-built-in-agent-0c12fb16-27fc-4eec-82f6-e038f76cc757 error=","ts":"2026-09-13T17:56:12.211Z","component":"docs-feature-audit-local-d6"}
+{"level":"info","msg":"probe.e2e-full.service-complete","ts":"2026-09-13T17:56:12.211Z","component":"docs-feature-audit-local-d6","slug":"built-in-agent","passed":0,"failed":1,"skipped":0,"incapable":0,"total":1,"state":"red","durationMs":120944}
+{"level":"warn","msg":"probe.e2e-full.aggregate-writer-missing","ts":"2026-09-13T17:56:12.211Z","component":"docs-feature-audit-local-d6","key":"d6:built-in-agent"}
+  [31m✗[0m d6:built-in-agent [31mred[0m [2m(121.2s)[0m
+    [31mmultimodal: waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)[0m
+{"slug":"built-in-agent","results":[{"key":"d6:built-in-agent","state":"red","durationMs":121208,"signal":{"shape":"package","slug":"built-in-agent","backendUrl":"http://localhost:3117","total":1,"passed":0,"failed":["multimodal"],"skipped":[],"failureSummary":"multimodal: waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)"},"error":"multimodal: waitForTurnComplete: turn 1 did not complete within 60000ms (reason=dom-missing, runsFinished=1, count=0, attrPresent=true, runningNow=false, runStartCount=0)"}]}

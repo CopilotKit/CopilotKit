@@ -9,6 +9,22 @@ This tracker preserves the **baseline** resolution counts and records current re
 - Baseline source resolution: **193** resolved, **17** unresolved, **10** without a catalog mapping.
 - Completed baseline source evidence: **40** unique MDX units + **11** transitive shared snippets. Post-repair reader checks remain explicit in JSON.
 
+## Current root-first route capture
+
+`route-source-check-20260913/index.json` records a local Markdown HTTP capture
+for the ten selected **Auth** and **Quickstart** bindings (five integrations ×
+two routes). Every requested route returned **200** with no snippet error
+marker. The capture also records each final URL and headings, including the
+root-first Auth source selection and the Built-in Agent redirects to the root
+quickstart/Auth routes.
+
+Those ten JSON binding records now distinguish this exercised Markdown result
+from the remaining checks: the capture does not establish HTML parity, local
+embed behavior, API-link validity, or runtime qualification. The
+LangGraph-TypeScript Auth binding additionally has a local browser Copy/View
+Prompt check with the selected context and scoped Markdown URL. All other
+unexercised dimensions remain pending rather than being inferred from HTTP 200.
+
 ## Per-integration baseline
 
 | Integration            | Bindings | Resolved | Unresolved | No guide mapping |

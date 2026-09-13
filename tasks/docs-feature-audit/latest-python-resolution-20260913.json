@@ -1,0 +1,27 @@
+[
+  {
+    "integration": "google-adk",
+    "requirements": [
+      "google-adk==2.9.0",
+      "google-genai==2.23.0",
+      "ag-ui-adk==0.7.0",
+      "ag-ui-protocol==0.1.22"
+    ],
+    "exit_code": 0,
+    "log": "tasks/docs-feature-audit/latest-google-adk-resolution-20260913.log",
+    "resolution_only": true
+  },
+  {
+    "integration": "strands",
+    "requirements": [
+      "ag-ui-protocol==0.1.22",
+      "ag-ui-strands==0.4.0",
+      "strands-agents==1.55.1",
+      "strands-agents-tools==0.8.8",
+      "copilotkit==0.1.96"
+    ],
+    "exit_code": 0,
+    "log": "tasks/docs-feature-audit/latest-strands-resolution-20260913.log",
+    "resolution_only": true
+  }
+]

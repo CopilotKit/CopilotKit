@@ -501,14 +501,15 @@
       ],
       "after_evidence": [
         "Committed source-backed Microsoft Agent Framework state-rendering guide with the public gen-ui-agent key and actual publisher/runtime distinctions (`26691e24fc`).",
-        "Shell-docs pretypecheck and the five-file focused gate passed 70 tests in 18.91s (`/private/tmp/docs-audit-focused-20260913.log`)."
+        "Shell-docs pretypecheck and the five-file focused gate passed 70 tests in 18.91s (`/private/tmp/docs-audit-focused-20260913.log`).",
+        "Full shell-docs suite then reached 125/126 files and 947/948 tests; its only failure is a stale MAF Python stable-API assertion for a retired OpenAIChatClient import, not a source rewrite failure."
       ],
       "sanity_review": {
         "status": "approved_for_source_change",
         "reviewer": "feature_audit_scope",
         "remaining": "Focused raw-Markdown contract and runtime-specific behavior remain open."
       },
-      "remaining": "Render and exercise each MAF state-rendering behavior path separately; source/Markdown evidence is not runtime qualification."
+      "remaining": "Update the stale test to assert the current source-backed state-rendering contract, then rerun its focused gate. Exercise each MAF behavior path separately; source/Markdown evidence is not runtime qualification."
     },
     {
       "id": "CONTENT-GEN-030",
@@ -749,15 +750,16 @@
       "before_record": "Canonical Intelligence source parser lacks copied --intent option; stale local dist also lacks onboard, not evidence about published CLI.",
       "fix_commits": [],
       "after_evidence": [
-        "Published copilotkit@4.9.50 accepts exact copied --intent add-rich-threads command in isolated local state, exit0, returns Rich Threads plan.",
-        "Local Intelligence checkout4.9.39 is older; its parser/dist failure does not describe current published behavior."
+        "Published copilotkit@4.9.50 previously accepted the exact Rich Threads intent in isolated state; local Intelligence checkout4.9.39 was older and not representative.",
+        "Refreshed isolated public CLI evidence: copilotkit@4.9.60 exits 0 for `onboard start --coding-agent codex --intent add-rich-threads`, emits \u201cAdd Rich Threads to the existing CopilotKit app\u201d, and stops before project work.",
+        "The exact generic docs shape with a 12-character run id exits 0: `onboard start --run 4960cli00001 --coding-agent codex` returns the same id as `onboarding_run_id` and its generic onboarding plan."
       ],
       "sanity_review": {
         "status": "verified_published_contract",
         "reviewer": "intelligence_showcase_support",
-        "finding": "No docs-helper repair required; no cloud/login/project action occurred."
+        "finding": "No docs-helper repair is required. Both current public CLI contracts were verified in an empty temporary directory with isolated npm/XDG state; no login, project, cloud, or implementation step ran."
       },
-      "remaining": "No product fix needed. Local checkout version difference remains explicit in repair-content.md.",
+      "remaining": "No product fix needed. The current 4.9.60 contract is refreshed; preserve the local checkout version difference as historical context.",
       "disposition": "local_checkout_version_skew"
     },
     {
@@ -891,7 +893,8 @@
       "after_evidence": [
         "Committed page actions derive a feature outcome only from existing snippet_cell plus title/description, append it after canonical onboarding/framework/frontend context, and name the scoped MDX URL (`c257bcbb3a`).",
         "Independent review cleared scoped URL and intent behavior; shell-docs pretypecheck and the five-file focused gate passed 70 tests in 18.91s (`/private/tmp/docs-audit-focused-20260913.log`).",
-        "Actual hydrated browser copy for Agent Config included the feature outcome and `http://localhost:3004/agent-config.mdx` with Built-in Agent + Next.js selection."
+        "Actual hydrated browser copy for Agent Config included the feature outcome and `http://localhost:3004/agent-config.mdx` with Built-in Agent + Next.js selection.",
+        "Actual LangGraph TypeScript Authentication View prompt and Copy displayed prompt preserve backend, React, feature intent, and scoped Markdown URL; see copy-prompt-langgraph-typescript-browser-20260913.md. Main Copy action still needs its foreground repeat."
       ],
       "sanity_review": {
         "status": "approved_for_source_change",
@@ -921,6 +924,196 @@
         "remaining": "Source/fixture and strict local reader flow are qualified; retain the separate current-published release limitation."
       },
       "remaining": "Scoped local fixture/transport defect is qualified. The public 1.71.1 release limitation and full Built-in Agent matrix remain separate."
+    },
+    {
+      "id": "REPAIR-014",
+      "area": "Built-in Agent MCP Apps guide uses retired runtime middleware API",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Selected reader audit after 26691e24fc: effective Built-in Agent override showcase/shell-docs/src/content/docs/integrations/built-in-agent/generative-ui/mcp-apps.mdx taught MCPAppsMiddleware chained with .use(), while showcase/integrations/built-in-agent/src/app/api/copilotkit-mcp-apps/route.ts configures CopilotRuntime({ mcpApps: { servers } }).",
+      "fix_commits": [
+        "f50d3ad853"
+      ],
+      "after_evidence": [
+        "Working source-backed replacement uses runtime-mcpapps-config and no-frontend-renderer-needed regions from the selected mcp-apps Showcase cell.",
+        "The shared root guide and Built-in Agent override now reuse one shared guide body; focused rendered Markdown contract is pending a granted docs slot.",
+        "Source-backed guide family committed in f50d3ad853. Pretypecheck passed; selected provenance and current authored-guide contracts passed 18/18; command-only source bundling passed 9/9. Final rendered reader and exact setup qualification remain separate."
+      ],
+      "sanity_review": null,
+      "remaining": "Review the shared source excerpt and run a raw-Markdown contract for the Built-in Agent mcp-apps binding. Then render the local selected route and run its independent behavior gate. Do not claim MCP server/provider qualification from guide work.",
+      "affected_bindings": [
+        "built-in-agent React /generative-ui/mcp-apps (effective override)"
+      ],
+      "classification": "confirmed current runtime API drift plus missing Showcase-source provenance"
+    },
+    {
+      "id": "REPAIR-015",
+      "area": "Built-in Agent Shared State guide invents unsupported task state",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Selected reader audit after 26691e24fc found the effective Built-in Agent override invented tasks/todos. Follow-up source-path review found the actual UI writes preferences, but generic createBuiltInAgent() never reads input.state.preferences; the existing fixture is user-message gated and cannot prove context propagation.",
+      "fix_commits": [
+        "f50d3ad853"
+      ],
+      "after_evidence": [
+        "Working guide now binds the selected provider/runtime key and the actual set_notes to STATE_DELTA /notes bridge, rather than inventing task state.",
+        "The guide now binds the selected stateSystemPrompt formatter. Runtime repair 4ed958ba1f opts only shared-state-read-write into that formatter; its three focused formatter checks and strict two-turn D6 preference fixture are green.",
+        "Source-backed guide family committed in f50d3ad853. Pretypecheck passed; selected provenance and current authored-guide contracts passed 18/18; command-only source bundling passed 9/9. Final rendered reader and exact setup qualification remain separate."
+      ],
+      "sanity_review": null,
+      "remaining": "Run the focused raw-Markdown contract and a final local rendered reader check. The strict preference path is qualified locally; keep the four-cell Built-in Agent scope and registry-only 1.71.1 release limitation separate from full integration qualification.",
+      "affected_bindings": [
+        "built-in-agent React /shared-state/read",
+        "built-in-agent React /shared-state/read-write"
+      ],
+      "classification": "confirmed source/API behavior drift plus unimplemented state-to-prompt runtime path"
+    },
+    {
+      "id": "REPAIR-016",
+      "area": "Selected Display-only guides retain legacy copied implementation guidance",
+      "severity": "high",
+      "stage": "implementing",
+      "before_record": "Selected reader audit after 26691e24fc: effective LangGraph, Strands, and Built-in Agent display-only pages presented legacy or generic copied code; the selected gen-ui-tool-based cells expose the actual bar-chart-renderer useComponent registration.",
+      "fix_commits": [
+        "f50d3ad853"
+      ],
+      "after_evidence": [
+        "Working shared guide body binds gen-ui-tool-based/bar-chart-renderer, frontend-tools-setup, and the current useComponent reference; three framework wrappers only set their selected snippet cell.",
+        "Retired CopilotKitState and @copilotkit/sdk-js/langgraph guidance is removed from the LangGraph source; focused raw-Markdown contract is pending.",
+        "Source-backed guide family committed in f50d3ad853. Pretypecheck passed; selected provenance and current authored-guide contracts passed 18/18; command-only source bundling passed 9/9. Final rendered reader and exact setup qualification remain separate."
+      ],
+      "sanity_review": null,
+      "remaining": "Run selected LangGraph Python, LangGraph TypeScript, Strands, and Built-in Agent raw-Markdown contracts, inspect local output, and keep backend behavior/fixture qualification separate.",
+      "affected_bindings": [
+        "langgraph-python React /generative-ui/your-components/display-only",
+        "langgraph-typescript React /generative-ui/your-components/display-only",
+        "strands React /generative-ui/your-components/display-only",
+        "built-in-agent React /generative-ui/your-components/display-only"
+      ],
+      "classification": "confirmed current API/provenance drift"
+    },
+    {
+      "id": "REPAIR-017",
+      "area": "Shared Auth and Multimodal guides omit selected Showcase implementation paths",
+      "severity": "medium",
+      "stage": "verifying",
+      "before_record": "Selected reader audit after 26691e24fc found that the all-five selected Auth and Multimodal views lacked a selected Showcase implementation path or feature-specific action. The initial path-only note incorrectly treated LangGraph Auth as an authored override.",
+      "fix_commits": [
+        "f50d3ad853"
+      ],
+      "after_evidence": [
+        "Authoritative local route capture (`tasks/docs-feature-audit/route-source-check-20260913/index.json`) fetched all five scoped Auth Markdown URLs: each returned 200, contains \u201cStart with the Showcase auth path\u201d, and contains no snippet error marker. The effective source is root `auth.mdx` for all five.",
+        "The root Auth guide\u2019s `auth_pattern=langgraph` gated branch is the selected LangGraph Python/TypeScript variant; `auth_pattern=runtime-onrequest` is the selected Google ADK, Strands, and Built-in Agent variant. The old `integrations/langgraph/auth.mdx` is not an effective selected route source.",
+        "Working root-auth changes add request-header, provider transport, and onRequest-gate excerpts. Working multimodal changes add the selected attachment configuration and File-to-AttachmentUploadResult adapter; canonical frontend fanout remains source-only until its render contract.",
+        "Auth and multimodal source-marker changes do not establish auth-provider or media-backend behavior.",
+        "Focused docs validation after the command-only bundle fix: shell-docs pretypecheck passed; selected Auth/REPAIR-018 contracts passed 2 files / 18 tests in 19.32s. This verifies selected Markdown source resolution, not an auth-provider or complete media-backend matrix.",
+        "Source-backed guide family committed in f50d3ad853. Pretypecheck passed; selected provenance and current authored-guide contracts passed 18/18; command-only source bundling passed 9/9. Final rendered reader and exact setup qualification remain separate."
+      ],
+      "sanity_review": null,
+      "remaining": "Commit the reviewed root-auth/source-binding and canonical multimodal units, then inspect the selected HTML/Markdown routes. Keep the separate image/PDF scoped browser and strict-D6 evidence distinct from broader media qualification.",
+      "affected_bindings": [
+        "langgraph-python React auth and multimodal",
+        "langgraph-typescript React auth and multimodal",
+        "google-adk React auth and multimodal",
+        "strands React auth and multimodal",
+        "built-in-agent React auth and multimodal"
+      ],
+      "classification": "confirmed Showcase provenance/setup gap; not a new auth or media runtime failure"
+    },
+    {
+      "id": "REPAIR-018",
+      "area": "LangGraph TypeScript bring-your-own quickstart resolves to Python prerequisites",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "The effective /langgraph-typescript/quickstart route uses integrations/langgraph/quickstart.mdx via DOCS_FOLDER_OVERRIDES. Its bring-your-own initialization, package installation, agent source, FastAPI endpoint, and start steps are Python/uv-only; TAB_DEFAULTS_BY_SLUG selects TypeScript only for language_langgraph_agent tabs, which this setup path does not use.",
+      "fix_commits": [
+        "f50d3ad853"
+      ],
+      "after_evidence": [
+        "The actual selected source is showcase/integrations/langgraph-typescript/src/agent/package.json (current @copilotkit/sdk-js, LangChain/LangGraph, and dev command), src/agent/langgraph.json (starterAgent mapping), and src/app/api/copilotkit/route.ts (LangGraphAgent to the local deployment URL).",
+        "No TypeScript setup content has been added yet. This is a scoped prerequisite repair, not a claim that a new app or the full LangGraph TypeScript matrix has run.",
+        "The shared quickstart now has a URL-defaulted TypeScript BYO tab with file-mode Showcase package/langgraph configuration excerpts and the bounded graph export. Pretypecheck and the selected Auth/REPAIR-018 contracts passed 2 files / 18 tests in 19.32s; the command-only source-bundle regression passed 1 file / 9 tests in 10.99s.",
+        "Source-backed guide family committed in f50d3ad853. Pretypecheck passed; selected provenance and current authored-guide contracts passed 18/18; command-only source bundling passed 9/9. Final rendered reader and exact setup qualification remain separate.",
+        "Isolated reproducible setup proof: `tasks/docs-feature-audit/reproduce-lgts-byoc-setup.sh` copies the selected agent and its actual shared-tools dependency into /private/tmp, then runs the exact shown npm install. Install passed. A focused graph tsc command reaches all imports but reports three existing Showcase graph schema errors; the same command against checked-in source has the identical errors. See `lgts-byoc-setup-20260913.md`."
+      ],
+      "sanity_review": null,
+      "remaining": "Use a dedicated post-BIA runtime slot to run the documented `npm run dev` graph-load/start command. The source-level TypeScript errors remain an existing Showcase defect and prevent a clean typecheck qualification; do not call isolated install/config fully qualified.",
+      "affected_bindings": [
+        "langgraph-typescript React /quickstart bring-your-own path"
+      ],
+      "classification": "confirmed framework-specific prerequisite/source-language mismatch"
+    },
+    {
+      "id": "REPAIR-019",
+      "area": "readonly local probe counted resource requests as agent runs",
+      "severity": "medium",
+      "stage": "qualified_locally",
+      "before_record": "The readonly capture treated a resource POST as agent execution, creating a false-positive runtime observation rather than proving the agent consumed readonly state.",
+      "fix_commits": [
+        "9a56b9b0e8",
+        "1f9082b919"
+      ],
+      "after_evidence": [
+        "The test-only capture now accepts the actual agent/run request boundary and ignores resource POSTs.",
+        "Ten focused unit checks and a real Built-in Agent capture are green; independent review cleared the narrow matcher boundary.",
+        "Follow-up 1f9082b919 recognizes real multi-route POST agent runs while preserving resource negatives; 12 unit checks and a fresh BIA readonly run passed."
+      ],
+      "sanity_review": {
+        "status": "approved_for_source_change",
+        "reviewer": "intelligence_showcase_support",
+        "remaining": "This validates capture classification only; it does not qualify readonly-state runtime behavior or the integration."
+      },
+      "remaining": "Keep any strict turn-mode policy as a separately scoped test improvement. Do not classify the prior capture issue as a runtime product defect.",
+      "affected_bindings": [
+        "Built-in Agent readonly-state local probe"
+      ],
+      "classification": "test-observability false positive; no runtime product defect"
+    },
+    {
+      "id": "REPAIR-020",
+      "area": "Selected multimodal guide overstates the runnable Showcase media contract",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "The effective shared multimodal guide promises images, PDFs, audio, video, and general model responses. The selected five Showcase frontends currently configure accept=image/*,application/pdf and their source-backed sample actions cover only PNG and PDF. Existing strict media evidence remains incomplete, so that broader guide outcome is not established.",
+      "fix_commits": [
+        "f50d3ad853",
+        "1947f20ccf",
+        "be9052f5c5"
+      ],
+      "after_evidence": [
+        "The source-backed attachment and adapter excerpts accurately expose the current image/PDF, 10 MB, inline-data configuration.",
+        "The shared guide still needs its surrounding prose and generic examples separated into current Showcase behavior versus application-owned API options.",
+        "Source-backed guide family committed in f50d3ad853. Pretypecheck passed; selected provenance and current authored-guide contracts passed 18/18; command-only source bundling passed 9/9. Final rendered reader and exact setup qualification remain separate.",
+        "Canonical sample-button readiness guard is synchronized to all five React cells. BIA unchanged strict image/PDF D6 passes after the preserved early-click failure; actual normal-browser image/PDF evidence is in built-in-agent-multimodal-browser-20260913.md. Other integration runtime checks remain pending."
+      ],
+      "sanity_review": null,
+      "remaining": "Narrow Showcase claims to image/PDF attachments and the actual sample actions. Keep broader attachment API guidance explicitly application-owned and link the API reference; do not promise a selected backend accepts audio/video without behavior evidence. Coordinate canonical frontend fanout before binding the selected source regions and run its effective-guide contract.",
+      "affected_bindings": [
+        "langgraph-python React /multimodal",
+        "langgraph-typescript React /multimodal",
+        "google-adk React /multimodal",
+        "strands React /multimodal",
+        "built-in-agent React /multimodal"
+      ],
+      "classification": "confirmed guide outcome/API-scope drift; media backend behavior remains separately unqualified"
+    },
+    {
+      "id": "REPAIR-021",
+      "area": "Built-in Agent discovery and multi-route endpoint compatibility",
+      "severity": "high",
+      "stage": "verifying",
+      "before_record": "BIA base-only runtime routes returned 404 for /info. Moving files alone retained single-route mode and returned 405. Both route shape and handler mode required correction.",
+      "fix_commits": [
+        "be9052f5c5",
+        "1f9082b919"
+      ],
+      "after_evidence": [
+        "Optional-catchall runtime routes and matching Showcase highlights committed; independent source review clear. Info requests now return 200 and real multi-route runs complete.",
+        "Focused readonly request classifier passed 12 checks. Fresh BIA agentic chat, readonly context and six-turn agent config checks passed.",
+        "Full strict local BIA matrix: 37/39 passed in 196 seconds; see repair021-built-in-agent-full-d6-strict-turn.log. Voice remains RED; unshipped thread-ID demo retains explicit strict-fixture RED."
+      ],
+      "sanity_review": "Independent static review clear; actual normal browser image/PDF proof is separate from the focused route checks.",
+      "remaining": "Complete voice diagnosis and selected published-guide runtime qualification. These runs use public 1.71.1 plus the local core URL fix; unpatched published compatibility remains blocked."
     }
   ]
 }

@@ -1,0 +1,16 @@
+[
+  {
+    "integration": "google-adk",
+    "exit_code": 0,
+    "log": "tasks/docs-feature-audit/latest-google-adk-import-smoke-20260913.log",
+    "environment": "/private/tmp/docs-audit-latest-google-adk-venv",
+    "scope": "latest pinned direct SDK sets; dependency install and import only, no agent start or guide reproduction"
+  },
+  {
+    "integration": "strands",
+    "exit_code": 0,
+    "log": "tasks/docs-feature-audit/latest-strands-import-smoke-20260913.log",
+    "environment": "/private/tmp/docs-audit-latest-strands-venv",
+    "scope": "latest pinned direct SDK sets; dependency install and import only, no agent start or guide reproduction"
+  }
+]
