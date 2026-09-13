@@ -7,13 +7,19 @@ const RUNTIME_URL = "https://runtime.example.com/api/copilotkit";
 interface SetupOptions {
   capability?: boolean;
   transport?: "rest" | "single";
+  runtimeUrl?: string;
 }
 
 /** Connects a core to a mocked runtime and returns isolated cleanup. */
 async function setup(options: SetupOptions = {}) {
   const originalFetch = globalThis.fetch;
   const originalWindow = (globalThis as { window?: unknown }).window;
-  (globalThis as { window?: unknown }).window = {};
+  (globalThis as { window?: unknown }).window = {
+    location: {
+      href: "https://app.example.com/chat",
+      origin: "https://app.example.com",
+    },
+  };
 
   const fetchMock = vi.fn().mockImplementation(() =>
     Promise.resolve(
@@ -51,7 +57,7 @@ async function setup(options: SetupOptions = {}) {
   globalThis.fetch = fetchMock;
 
   const core = new CopilotKitCore({
-    runtimeUrl: RUNTIME_URL,
+    runtimeUrl: options.runtimeUrl ?? RUNTIME_URL,
     runtimeTransport: options.transport ?? "single",
   });
   await vi.waitFor(() => {
@@ -75,6 +81,40 @@ async function setup(options: SetupOptions = {}) {
     },
   };
 }
+
+test("a relative runtime URL reaches fetch for Intelligence chat and resources", async () => {
+  const context = await setup({
+    capability: true,
+    runtimeUrl: "/api/copilotkit",
+  });
+
+  try {
+    context.fetchMock.mockClear();
+    const runUrl =
+      "https://app.example.com/api/copilotkit/agent/researcher/run";
+    await context.core.ɵruntimeFetch(runUrl, { method: "POST", body: "{}" });
+    expect(context.fetchMock).toHaveBeenCalledWith(runUrl, {
+      method: "POST",
+      body: "{}",
+    });
+
+    await context.core.ɵruntimeFetch("/api/copilotkit/threads", {
+      method: "GET",
+    });
+    expect(context.fetchMock).toHaveBeenLastCalledWith(
+      "/api/copilotkit",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          method: "resource/request",
+          params: { path: "/threads", httpMethod: "GET" },
+        }),
+      }),
+    );
+  } finally {
+    context.teardown();
+  }
+});
 
 test("single transport sends every Intelligence resource operation to one URL", async () => {
   const context = await setup({ capability: true });
