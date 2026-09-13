@@ -1,0 +1,70 @@
+## What is this?
+
+MCP Apps are MCP servers that expose tools with associated UI resources. When
+the agent calls one of these tools, CopilotKit automatically fetches the
+resource and renders the UI component in the chat; no additional frontend
+code is required.
+
+Key benefits:
+
+- **Zero frontend code** — UI components are served by the MCP server.
+- **Full interactivity** — components can use HTML, CSS, and JavaScript.
+- **Secure sandboxing** — content runs in isolated iframes.
+- **Thread persistence** — MCP Apps are stored in conversation history and restored on reconnect.
+
+## Wire the runtime to your MCP server
+
+A single `mcpApps.servers` entry on the runtime is enough. The runtime
+auto-applies MCP Apps support to every registered agent. When an agent calls a
+tool backed by an MCP UI resource, CopilotKit emits an activity event and the
+built-in renderer mounts the result in a sandboxed iframe.
+
+<Snippet region="runtime-mcpapps-config" />
+
+<Callout type="info" title="Always pin a serverId">
+  In production, provide a stable `serverId`. Otherwise CopilotKit hashes the
+  server URL, and a URL change between environments breaks restoration of MCP
+  Apps persisted in earlier conversations.
+</Callout>
+
+## No frontend renderer needed
+
+The built-in MCP Apps activity renderer is already registered by `CopilotKit`.
+A plain `<CopilotChat />` is enough; do not add a manual
+`useRenderActivityMessage` registration.
+
+<Snippet region="no-frontend-renderer-needed" />
+
+## Try it
+
+Ask the Showcase agent to draw a simple diagram. Its `create_view` MCP tool
+should render the diagram inline without an app-side renderer.
+
+## Transport types
+
+Use the transport your MCP server exposes. The Showcase cell uses HTTP; SSE
+servers may supply the same `serverId` plus authenticated headers.
+
+```typescript
+{
+  type: "http",
+  url: "http://localhost:3101/mcp",
+  serverId: "my-http-server"
+}
+```
+
+```typescript
+{
+  type: "sse",
+  url: "https://mcp.example.com/sse",
+  headers: { Authorization: "Bearer token" },
+  serverId: "my-sse-server"
+}
+```
+
+## Example MCP servers
+
+- [Excalidraw](https://mcp.excalidraw.com) — collaborative whiteboard rendered in chat.
+- [modelcontextprotocol/ext-apps](https://github.com/modelcontextprotocol/ext-apps) — reference implementations.
+
+<IntegrationGrid path="generative-ui/mcp-apps" />

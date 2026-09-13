@@ -99,6 +99,34 @@ test("keeps audited quickstart install commands on current package-manager defau
   expect(crewai).not.toContain("crewai>=");
 });
 
+test("gives LangGraph TypeScript a source-backed existing-agent path", () => {
+  const guide = source("integrations/langgraph/quickstart");
+  expect(guide).toContain('groupId="language_langgraph_agent"');
+  expect(guide).toContain('<Tab value="TypeScript">');
+  expect(guide).toContain('framework="langgraph-typescript"');
+  expect(guide).toContain('cell="cli-start"');
+  expect(guide).toContain('file="src/agent/package.json"');
+  expect(guide).toContain('file="src/agent/langgraph.json"');
+  expect(guide).toContain('region="cli-start-graph-export"');
+  expect(guide).toContain("npm install");
+  expect(guide).toContain("npm run dev");
+
+  const output = renderPageToLlmText({
+    url: "langgraph-typescript/quickstart",
+    title: "Quickstart",
+    filePath: loadDoc("integrations/langgraph/quickstart")!.filePath,
+    loadSlug: "integrations/langgraph/quickstart",
+    framework: "langgraph-typescript",
+  });
+  expect(output).toContain(
+    '"dev": "npx @langchain/langgraph-cli@1.2.1 dev --port 8123 --no-browser"',
+  );
+  expect(output).toContain('"starterAgent": "./graph.ts:graph"');
+  expect(output).toContain("export const graph = workflow.compile");
+  expect(output).not.toContain("Missing snippet");
+  expect(output).not.toContain("<Snippet");
+});
+
 test("uses the CrewAI Showcase flow and browser tool for HITL", () => {
   const guide = source("integrations/crewai-flows/human-in-the-loop/flow");
   expect(guide).toContain('framework="crewai-crews"');

@@ -1,0 +1,20 @@
+<InlineDemo demo="gen-ui-tool-based" />
+
+## Register a component the agent can render
+
+Use [`useComponent`](/reference/hooks/useComponent) to register a typed React
+component as a browser-side tool. The selected Showcase cell registers a bar
+chart; when the agent calls that tool, CopilotKit renders the chart inline in
+the conversation.
+
+<Snippet cell="gen-ui-tool-based" region="bar-chart-renderer" />
+
+<FrameworkSetup concept="frontend-tools-setup" />
+
+## Try it
+
+Ask the Showcase agent to show a bar chart. Its `render_bar_chart` tool call
+should render the chart in the chat with the data it supplied.
+
+For a component that collects a user choice before the run continues, see
+[Interactive components](./interactive).

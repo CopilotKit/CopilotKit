@@ -2,9 +2,30 @@
 title: Multimodal Attachments
 icon: "lucide/Paperclip"
 description: Let users send images, audio, video, and documents to the AI alongside their messages.
+snippet_cell: multimodal
 ---
 
+<InlineDemo demo="multimodal" />
+
 You have a working CopilotChat and want users to attach files — images, PDFs, audio, video — that the AI can see and respond to. By the end of this guide, your chat will support drag-and-drop file attachments with previews, lightbox viewing, and multimodal AI responses.
+
+## The Showcase attachment path
+
+The selected cell enables attachments for images and PDFs, caps uploads at
+10 MB, and converts each browser `File` into the `AttachmentUploadResult` the
+runtime receives. This is the working local demo path; keep the type and size
+policy that matches your own backend.
+
+<Snippet region="multimodal-attachments" title="frontend/src/app/demos/multimodal/multimodal-chat.tsx — attachment configuration" />
+
+<Snippet region="multimodal-upload-adapter" title="frontend/src/app/demos/multimodal/file-to-data-attachment.ts — inline upload adapter" />
+
+## Try it
+
+Select **Try with sample image** in the Showcase cell. It sends the bundled
+image through the same agent surface as an attachment; the message should
+appear in the transcript with the image before a vision-capable backend
+responds.
 
 ## Quick start
 

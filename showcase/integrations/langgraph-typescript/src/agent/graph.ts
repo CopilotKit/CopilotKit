@@ -227,6 +227,7 @@ function shouldContinue({ messages, copilotkit }: AgentState) {
 // 5. Compile the graph
 // ---------------------------------------------------------------------------
 
+// @region[cli-start-graph-export]
 const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("chat_node", chatNode)
   .addNode("tool_node", new ToolNode(tools))
@@ -239,3 +240,4 @@ const memory = new MemorySaver();
 export const graph = workflow.compile({
   checkpointer: memory,
 });
+// @endregion[cli-start-graph-export]

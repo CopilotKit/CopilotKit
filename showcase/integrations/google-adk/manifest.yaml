@@ -460,6 +460,8 @@ demos:
     highlight:
       - src/agents/multimodal_agent.py
       - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/multimodal-chat.tsx
+      - src/app/demos/multimodal/file-to-data-attachment.ts
       - src/app/api/copilotkit/route.ts
   - id: auth
     name: Authentication

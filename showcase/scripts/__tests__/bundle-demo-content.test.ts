@@ -135,6 +135,30 @@ describe("Content Bundler", () => {
     }
   });
 
+  it("bundles explicit source highlights for a command-only cell without inventing a route", () => {
+    const content = runBundlerAndRead();
+    const cliStart = content.demos["langgraph-typescript::cli-start"];
+
+    expect(cliStart).toBeDefined();
+    expect(cliStart.readme).toBeNull();
+    expect(cliStart.files.map((file: any) => file.filename)).toEqual(
+      expect.arrayContaining([
+        "src/agent/package.json",
+        "src/agent/langgraph.json",
+        "src/agent/graph.ts",
+      ]),
+    );
+    expect(cliStart.regions["cli-start-graph-export"]?.file).toBe(
+      "src/agent/graph.ts",
+    );
+
+    // A normal runnable demo still brings along its own route-folder source.
+    const agenticChat = content.demos["langgraph-typescript::agentic-chat"];
+    expect(agenticChat.files.map((file: any) => file.filename)).toContain(
+      "src/app/demos/agentic-chat/page.tsx",
+    );
+  });
+
   it("bundles the Strands TypeScript sub-agent documentation regions", () => {
     const content = runBundlerAndRead();
     const demo = content.demos["strands-typescript::subagents"];

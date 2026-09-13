@@ -27,6 +27,7 @@ function buildHandler(forwardedHeaders: Record<string, string>) {
     runtime,
     basePath: BASE_PATH,
     hooks: {
+      // @region[auth-on-request-gate]
       onRequest: ({ request }) => {
         if (request.headers.get("authorization") !== DEMO_AUTH_HEADER) {
           throw new Response(
@@ -39,6 +40,7 @@ function buildHandler(forwardedHeaders: Record<string, string>) {
           );
         }
       },
+      // @endregion[auth-on-request-gate]
     },
   });
 }

@@ -28,6 +28,7 @@ const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: BASE_PATH,
   hooks: {
+    // @region[auth-on-request-gate]
     onRequest: ({ request }) => {
       const authHeader = request.headers.get("authorization");
       if (authHeader !== DEMO_AUTH_HEADER) {
@@ -46,6 +47,7 @@ const handler = createCopilotRuntimeHandler({
         );
       }
     },
+    // @endregion[auth-on-request-gate]
   },
 });
 

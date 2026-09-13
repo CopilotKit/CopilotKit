@@ -418,33 +418,47 @@ function main() {
       const pkgRoot = path.join(PACKAGES_DIR, pkgDir);
 
       for (const demo of demos) {
-        // Informational-only demos (e.g. cli-start with a `command:` field)
-        // have no route/folder. Skip them — nothing to bundle.
-        if (!demo.route) continue;
+        const key = `${slug}::${demo.id}`;
+        const sourceOnly =
+          !demo.route && Boolean(demo.command && demo.highlight?.length);
 
-        const routeDir = demo.route.replace(/^\/demos\//, "");
-        const demoDir = path.join(pkgRoot, "src", "app", "demos", routeDir);
-        if (!fs.existsSync(demoDir)) {
-          throw new Error(
-            `${slug}::${demo.id}: demo folder does not exist at ${demoDir}.`,
-          );
+        // Command-only cells normally have no on-disk demo folder and remain
+        // absent from the browser-facing bundle. A command cell that explicitly
+        // names source highlights is different: its documentation can show
+        // those exact files, but it still must not acquire a fake iframe route.
+        if (!demo.route && !sourceOnly) continue;
+
+        let readme: string | null = null;
+        let files: DemoFile[] = [];
+        let perFileRegions: Record<
+          string,
+          Record<string, ExtractedRegion[]>
+        > = {};
+
+        if (demo.route) {
+          const routeDir = demo.route.replace(/^\/demos\//, "");
+          const demoDir = path.join(pkgRoot, "src", "app", "demos", routeDir);
+          if (!fs.existsSync(demoDir)) {
+            throw new Error(
+              `${key}: demo folder does not exist at ${demoDir}.`,
+            );
+          }
+
+          // 1. Collect the demo folder's contents.
+          //    The bundled `filename` for each is prefixed with the
+          //    column-relative path so highlight: entries can be matched as
+          //    full column-relative paths.
+          const demoRelPrefix = `src/app/demos/${routeDir}`;
+          ({ readme, files, perFileRegions } = collectDemoFiles(
+            demoDir,
+            demoRelPrefix,
+            key,
+          ));
         }
 
-        const key = `${slug}::${demo.id}`;
-
-        // 1. Collect the demo folder's contents.
-        //    The bundled `filename` for each is prefixed with the
-        //    column-relative path so highlight: entries can be matched as
-        //    full column-relative paths.
-        const demoRelPrefix = `src/app/demos/${routeDir}`;
-        const { readme, files, perFileRegions } = collectDemoFiles(
-          demoDir,
-          demoRelPrefix,
-          key,
-        );
-
         // 2. Pull in any highlight: entries that sit OUTSIDE the demo folder
-        //    (typically backend agents under src/agents/*). Error if a
+        //    (typically backend agents under src/agents/*), or every source
+        //    file for an explicit command-only source cell. Error if a
         //    highlight path doesn't resolve to a real file.
         const highlightList = demo.highlight ?? [];
         const demoPathSet = new Set(files.map((f) => f.filename));
