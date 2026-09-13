@@ -3,7 +3,10 @@ import {
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+import {
+  createBuiltInAgent,
+  formatSharedStatePreferences,
+} from "@/lib/factory/tanstack-factory";
 // Per-demo system prompts, ported from the reference's dedicated graphs. The
 // demos below that pass one are those whose behaviour the model has to be told
 // (walk a plan, invent sample chart data, delegate to sub-agents); the rest are
@@ -67,7 +70,11 @@ const runtime = new CopilotRuntime({
     "hitl-in-app": createBuiltInAgent(),
 
     "shared-state-read": createBuiltInAgent(),
-    "shared-state-read-write": createBuiltInAgent(),
+    // @region[shared-state-runtime]
+    "shared-state-read-write": createBuiltInAgent({
+      stateSystemPrompt: formatSharedStatePreferences,
+    }),
+    // @endregion[shared-state-runtime]
     "shared-state-streaming": createBuiltInAgent(),
     "readonly-state-agent-context": createBuiltInAgent(),
 
