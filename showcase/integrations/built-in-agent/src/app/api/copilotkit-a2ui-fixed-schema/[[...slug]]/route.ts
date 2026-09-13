@@ -3,39 +3,31 @@ import {
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { createDeclarativeGenUIAgent } from "@/lib/factory/a2ui-factory";
+import { createA2UIFixedSchemaAgent } from "@/lib/factory/a2ui-fixed-schema-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
-// Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic
-// Schema) demo.
+// Dedicated runtime for the A2UI — Fixed Schema demo.
 //
 // `a2ui.injectA2UITool: false` — the backend factory owns the
-// `generate_a2ui` tool itself (see `src/lib/factory/a2ui-factory.ts`), so
-// the runtime MUST NOT auto-inject its own A2UI tool on top. The A2UI
-// middleware still runs — it serialises the registered client catalog
-// schema into the agent's `input.context` so the secondary LLM inside
-// `generate_a2ui` knows which components to emit, and it still detects the
-// `a2ui_operations` container in the tool result and streams rendered
-// surfaces to the frontend.
+// `display_flight` tool which emits its own `a2ui_operations` container
+// (see src/lib/factory/a2ui-fixed-schema-factory.ts). The A2UI middleware
+// still runs so it detects the container in tool results and forwards the
+// rendered surface to the frontend renderer; we just don't want it to also
+// inject a runtime `render_a2ui` tool on top of our own.
 const runtime = new CopilotRuntime({
-  agents: { "declarative-gen-ui": createDeclarativeGenUIAgent() },
+  agents: { "a2ui-fixed-schema": createA2UIFixedSchemaAgent() },
   runner: new InMemoryAgentRunner(),
   a2ui: {
     injectA2UITool: false,
-    // Models follow the tool-usage guide and omit `catalogId`, and the
-    // middleware then falls back to the unregistered spec basic catalog
-    // ("Catalog not found" render error). Pin the catalog the page registers.
-    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 
 const handler = createCopilotRuntimeHandler({
   runtime,
-  basePath: "/api/copilotkit-declarative-gen-ui",
-  mode: "single-route",
+  basePath: "/api/copilotkit-a2ui-fixed-schema",
 });
 
 async function withProbeCompat(req: Request): Promise<Response> {

@@ -24,7 +24,7 @@ interaction_modalities:
 # byte-identical copies of the LangGraph-Python (LGP) reference demos, and the
 # backend is a named-agent registry — each demo targets a NAMED agent equal to
 # its frontend `agent="<id>"` value (registered in
-# src/app/api/copilotkit/route.ts and the dedicated copilotkit-* routes),
+# src/app/api/copilotkit/[[...slug]]/route.ts and dedicated copilotkit-* optional catchalls),
 # NOT the old `default`-only convention. See PARITY_NOTES.md.
 features:
   - beautiful-chat
@@ -108,7 +108,7 @@ demos:
     highlight:
       - src/app/demos/agentic-chat/page.tsx
       - src/lib/factory/agentic-chat-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: chat-customization-css
     name: "Chat Customization: CSS"
     description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -119,7 +119,7 @@ demos:
       - src/app/demos/chat-customization-css/page.tsx
       - src/app/demos/chat-customization-css/theme.css
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: tool-rendering-default-catchall
     name: "Generative UI: Tool Rendering (Default)"
     description: Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI
@@ -130,7 +130,7 @@ demos:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/lib/factory/server-tools.ts
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: tool-rendering-custom-catchall
     name: "Generative UI: Tool Rendering (Catch-all)"
     description: Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call
@@ -141,7 +141,7 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/lib/factory/server-tools.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: frontend-tools
     name: "Frontend Tools: In-app Actions"
     description: Agent invokes client-side handlers registered with useFrontendTool
@@ -151,7 +151,7 @@ demos:
     highlight:
       - src/app/demos/frontend-tools/page.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: frontend-tools-async
     name: "Frontend Tools: Async"
     description: useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result
@@ -162,7 +162,7 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: hitl-in-chat
     name: "Human In the Loop: In-chat"
     description: Time-slot picker rendered inline in the chat via `useHumanInTheLoop` — the agent requests user input, the frontend renders a TimePickerCard, and the user's choice resumes the agent.
@@ -173,7 +173,7 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: hitl-in-app
     name: "Human in the Loop: In-app"
     description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
@@ -184,7 +184,7 @@ demos:
       - src/app/demos/hitl-in-app/page.tsx
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: tool-rendering
     name: "Generative UI: Tool Rendering (Custom)"
     description: Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool
@@ -196,7 +196,7 @@ demos:
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx
       - src/lib/factory/server-tools.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: tool-rendering-reasoning-chain
     name: "Generative UI: Tool calls + reasoning"
     description: "Per-tool renderers (WeatherCard, FlightListCard, custom catchall) interleaved with a reasoningMessage slot rendering the agent's reasoning tokens — combines reasoning-display + tool-rendering in one chat surface."
@@ -210,7 +210,7 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/lib/factory/reasoning-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: gen-ui-tool-based
     name: "Generative UI: useComponent"
     description: Agent uses tools to trigger UI generation
@@ -221,7 +221,7 @@ demos:
       - src/app/demos/gen-ui-tool-based/page.tsx
       - src/app/demos/gen-ui-tool-based/bar-chart.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: gen-ui-agent
     name: "Generative UI: Agent State"
     description: "Agent-state-driven Gen UI — the agent plans a live step list via Command(update={steps}); the frontend subscribes through useAgent and renders the steps inside CopilotChat's messageView.children slot."
@@ -232,7 +232,7 @@ demos:
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: shared-state-streaming
     name: "Shared State: Streaming"
     description: Per-token state delta streaming from agent to UI
@@ -243,7 +243,7 @@ demos:
       - src/app/demos/shared-state-streaming/page.tsx
       - src/app/demos/shared-state-streaming/document-view.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: shared-state-read-write
     name: "Shared State: Read + Write"
     description: Bidirectional shared state — UI writes preferences via agent.setState; agent writes notes via a Command-returning tool
@@ -255,7 +255,7 @@ demos:
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/lib/factory/state-tools.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: shared-state-read
     name: "Shared State: Read-only"
     description: "Recipe editor publishes form state via agent.setState; the agent reads the recipe context but does not mutate it (no backend tool — neutral default agent)."
@@ -265,7 +265,7 @@ demos:
     highlight:
       - src/app/demos/shared-state-read/page.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: subagents
     name: Sub-Agents
     description: Multiple agents with visible task delegation
@@ -276,7 +276,7 @@ demos:
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
       - src/lib/factory/subagent-tools.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />
@@ -286,7 +286,7 @@ demos:
     highlight:
       - src/app/demos/prebuilt-sidebar/page.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: prebuilt-popup
     name: "Pre-Built: Popup"
     description: Floating popup chat via <CopilotPopup />
@@ -296,7 +296,7 @@ demos:
     highlight:
       - src/app/demos/prebuilt-popup/page.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: chat-slots
     name: "Chat Customization: Slots"
     description: Customize CopilotChat via its slot system
@@ -307,7 +307,7 @@ demos:
       - src/app/demos/chat-slots/page.tsx
       - src/app/demos/chat-slots/slot-wrappers.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: headless-simple
     name: "Headless UI: Simple"
     description: Minimum viable headless chat — useAgent + useCopilotKit dressed in shadcn/ui primitives. No tool rendering, no generative UI, just text in / text out.
@@ -338,7 +338,7 @@ demos:
       - src/app/demos/headless-complete/tools/chart-card.tsx
       - src/app/demos/headless-complete/tools/highlight-note.tsx
       - src/lib/factory/mcp-apps-factory.ts
-      - src/app/api/copilotkit-mcp-apps/route.ts
+      - src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts
   - id: reasoning-default
     name: "Reasoning: Default"
     description: Built-in CopilotChatReasoningMessage rendering with no slot override.
@@ -349,7 +349,7 @@ demos:
       - src/app/demos/reasoning-default/page.tsx
       - src/app/demos/reasoning-default/suggestions.ts
       - src/lib/factory/reasoning-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: reasoning-custom
     name: "Reasoning: Custom"
     description: Visible reasoning/thinking chain alongside the final answer
@@ -360,7 +360,7 @@ demos:
       - src/app/demos/reasoning-custom/page.tsx
       - src/app/demos/reasoning-custom/reasoning-block.tsx
       - src/lib/factory/reasoning-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: gen-ui-interrupt
     name: "Human in the Loop: Interrupts"
     description: Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle
@@ -371,7 +371,7 @@ demos:
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: interrupt-headless
     name: "Human in the Loop: Headless Interrupts"
     description: "Same interrupt(...) backend pattern as gen-ui-interrupt, but the time-picker mounts in a separate app-surface pane (left) instead of inline inside the chat — uses useHeadlessInterrupt (custom-event subscribe + manual runAgent forwardedProps.command.resume)."
@@ -381,7 +381,7 @@ demos:
     highlight:
       - src/app/demos/interrupt-headless/page.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: declarative-gen-ui
     name: "Declarative UI: Dynamic A2UI"
     description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider
@@ -394,7 +394,7 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/lib/factory/a2ui-factory.ts
-      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+      - src/app/api/copilotkit-declarative-gen-ui/[[...slug]]/route.ts
   - id: a2ui-fixed-schema
     name: "Declarative UI: Fixed A2UI"
     description: Render an A2UI tree from a fixed, server-side schema — the agent streams data into a pre-authored component tree
@@ -407,7 +407,7 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/lib/factory/a2ui-fixed-schema-factory.ts
-      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+      - src/app/api/copilotkit-a2ui-fixed-schema/[[...slug]]/route.ts
   - id: a2ui-recovery
     name: A2UI Error Recovery
     description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. Backend-owned via get_a2ui_tools (injectA2UITool=false); reuses the declarative-gen-ui catalog.
@@ -418,7 +418,7 @@ demos:
       - src/app/demos/a2ui-recovery/page.tsx
       - src/app/demos/a2ui-recovery/suggestions.ts
       - src/lib/factory/a2ui-factory.ts
-      - src/app/api/copilotkit-a2ui-recovery/route.ts
+      - src/app/api/copilotkit-a2ui-recovery/[[...slug]]/route.ts
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
@@ -428,7 +428,7 @@ demos:
     highlight:
       - src/app/demos/mcp-apps/page.tsx
       - src/lib/factory/mcp-apps-factory.ts
-      - src/app/api/copilotkit-mcp-apps/route.ts
+      - src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts
   - id: readonly-state-agent-context
     name: "Shared State: Frontend Context"
     description: Frontend provides read-only context to the agent via useAgentContext
@@ -438,7 +438,7 @@ demos:
     highlight:
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
   - id: declarative-json-render
     name: "Declarative UI: json-render"
     description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
@@ -456,7 +456,7 @@ demos:
       - src/app/demos/declarative-json-render/types.ts
       - src/app/demos/declarative-json-render/suggestions.ts
       - src/lib/factory/byoc-json-render-factory.ts
-      - src/app/api/copilotkit-declarative-json-render/route.ts
+      - src/app/api/copilotkit-declarative-json-render/[[...slug]]/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
     description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills
@@ -472,7 +472,7 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit-beautiful-chat/route.ts
+      - src/app/api/copilotkit-beautiful-chat/[[...slug]]/route.ts
   - id: multimodal
     name: Attachments
     description: Image and PDF uploads via CopilotChat attachments, processed by a vision-capable agent
@@ -483,7 +483,7 @@ demos:
       - src/app/demos/multimodal/page.tsx
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/lib/factory/tanstack-factory.ts
-      - src/app/api/copilotkit-multimodal/route.ts
+      - src/app/api/copilotkit-multimodal/[[...slug]]/route.ts
   - id: auth
     name: Authentication
     description: Bearer-token gate via runtime onRequest hook with unauthenticated / authenticated states
@@ -513,7 +513,7 @@ demos:
       - src/app/demos/declarative-hashbrown/types.ts
       - src/app/demos/declarative-hashbrown/suggestions.ts
       - src/lib/factory/byoc-hashbrown-factory.ts
-      - src/app/api/copilotkit-declarative-hashbrown/route.ts
+      - src/app/api/copilotkit-declarative-hashbrown/[[...slug]]/route.ts
   - id: open-gen-ui
     name: "Open Generative UI: Default"
     description: "Agent composes UI from a registered component library — distinct from Tool Rendering, which attaches a custom renderer to a *named* backend tool. Use Open Generative UI when you want the agent to assemble UI freely from a palette you control."
@@ -523,7 +523,7 @@ demos:
     highlight:
       - src/app/demos/open-gen-ui/page.tsx
       - src/lib/factory/ogui-factory.ts
-      - src/app/api/copilotkit-ogui/route.ts
+      - src/app/api/copilotkit-ogui/[[...slug]]/route.ts
   - id: open-gen-ui-advanced
     name: "Open Generative UI: Custom"
     description: "Same Open Generative UI surface, with the iframe-rendered components able to call back into frontend sandbox functions (e.g., a Calculator app whose buttons trigger handlers in the host page)."
@@ -535,7 +535,7 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/lib/factory/ogui-factory.ts
-      - src/app/api/copilotkit-ogui/route.ts
+      - src/app/api/copilotkit-ogui/[[...slug]]/route.ts
   - id: voice
     name: Voice
     description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
@@ -558,7 +558,7 @@ demos:
       - src/app/demos/agent-config/config-card.tsx
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
-      - src/app/api/copilotkit-agent-config/route.ts
+      - src/app/api/copilotkit-agent-config/[[...slug]]/route.ts
 # NOTE: starter omitted intentionally for v1 of this column. The
 # `showcase/scripts/generate-starters.ts` generator expects every package
 # to have a separate `src/agent/` backend; built-in-agent runs in-process
@@ -567,7 +567,7 @@ demos:
 #
 # NOTE: `threadid-frontend-tool-roundtrip` is listed under `features:` (the
 # backend registers a named `threadid-frontend-tool-roundtrip` agent in
-# src/app/api/copilotkit/route.ts and the byte-identical frontend lives at
+# src/app/api/copilotkit/[[...slug]]/route.ts and the byte-identical frontend lives at
 # src/app/demos/threadid-frontend-tool-roundtrip/). It is intentionally NOT a
 # `demos:` entry: LGP's own manifest has no threadid demos entry either, and a
 # demos entry here would fail validate-constraints because the shared

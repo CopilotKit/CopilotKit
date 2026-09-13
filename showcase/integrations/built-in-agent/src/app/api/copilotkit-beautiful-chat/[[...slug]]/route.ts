@@ -53,7 +53,6 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit-beautiful-chat",
-  mode: "single-route",
 });
 
 async function withProbeCompat(req: Request): Promise<Response> {

@@ -1,31 +1,29 @@
-// Dedicated runtime for the Multimodal Attachments demo.
+// Dedicated runtime for the BYOC json-render demo.
 //
-// Uses the multimodal built-in-agent variant: images flow through
-// `convertInputToTanStackAI` and are consumed natively by the vision adapter,
-// while PDF `document` parts (which the OpenAI text adapter cannot consume) are
-// flattened to text server-side with `unpdf` before the model call — parity
-// with LGP's `pypdf` flatten.
+// Built-in-agent factory with a sales-dashboard system prompt and OpenAI
+// `response_format: { type: "json_object" }` so the model emits exactly
+// one JSON object — what `<Renderer />` consumes as a flat
+// `{ root, elements }` spec.
 
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { createMultimodalAgent } from "@/lib/factory/multimodal-factory";
+import { createByocJsonRenderAgent } from "@/lib/factory/byoc-json-render-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
-  agents: { "multimodal-demo": createMultimodalAgent() },
+  agents: { byoc_json_render: createByocJsonRenderAgent() },
   runner: new InMemoryAgentRunner(),
 });
 
 const handler = createCopilotRuntimeHandler({
   runtime,
-  basePath: "/api/copilotkit-multimodal",
-  mode: "single-route",
+  basePath: "/api/copilotkit-declarative-json-render",
 });
 
 async function withProbeCompat(req: Request): Promise<Response> {

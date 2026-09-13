@@ -95,7 +95,6 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit-agent-config",
-  mode: "single-route",
 });
 
 async function withProbeCompat(req: Request): Promise<Response> {
