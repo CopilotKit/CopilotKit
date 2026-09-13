@@ -1,16 +1,9 @@
-import {
-  Component,
-  TemplateRef,
-  Type,
-  input,
-  output,
-  signal,
-  viewChild,
-} from "@angular/core";
+import type { TemplateRef, Type } from "@angular/core";
+import { Component, input, output, signal, viewChild } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { describe, expect, it } from "vitest";
 import { CopilotSlot } from "../copilot-slot";
-import { SlotOutputs } from "../slot.types";
+import type { SlotOutputs } from "../slot.types";
 
 @Component({
   selector: "test-content",

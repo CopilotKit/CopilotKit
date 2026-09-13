@@ -1,25 +1,23 @@
 /**
  * D5 — interrupt-headless script.
  *
- * Drives `/demos/interrupt-headless`. Same backend `interrupt(...)`
- * pattern as gen-ui-interrupt — the agent's `schedule_meeting` tool
- * calls LangGraph's `interrupt({"topic","attendee","slots":[...]})`.
- * The DIFFERENCE: instead of `useInterrupt` rendering a TimePickerCard
- * inline inside the chat bubble, this demo uses
- * `useHeadlessInterrupt` (custom-event subscribe + manual
- * `runAgent({forwardedProps:{command:{resume,interruptEvent}}})`).
- * The popup mounts in a separate "app surface" pane (left), not in the
- * chat (right).
+ * Drives `/demos/interrupt-headless`. Same backend pause as
+ * gen-ui-interrupt: the agent's `schedule_meeting` tool interrupts the run and
+ * hands the client its pause-time context. The DIFFERENCE is where the picker
+ * goes. Instead of rendering inline in the chat bubble, this demo places the
+ * interrupt element in a separate "app surface" pane (left), not in the chat
+ * (right), either through `useInterrupt({ renderInChat: false })`, or, on the
+ * bridges that surface a pause as a legacy custom event, through a hand-rolled
+ * subscribe-and-resume hook.
  *
  * Two-turn flow per chip:
- *   1. Send the chip prompt → backend `interrupt()` fires → frontend
- *      `useHeadlessInterrupt` consumes the `on_interrupt` custom event
- *      → `[data-testid="interrupt-headless-popup"]` mounts in the
- *      app surface (NOT in the chat).
- *   2. Click the first slot button → `resolve({chosen_time, chosen_label})`
- *      fires → `runAgent({forwardedProps:{command:{resume,...}}})` →
- *      agent resumes, popup unmounts back to `interrupt-headless-empty`,
- *      assistant confirmation lands in chat.
+ *   1. Send the chip prompt, the backend pauses, and
+ *      `[data-testid="interrupt-headless-popup"]` mounts in the app surface
+ *      (NOT in the chat).
+ *   2. Click the first slot button, which resolves with
+ *      `{chosen_time, chosen_label}`; the run resumes, the popup unmounts back
+ *      to `interrupt-headless-empty`, and the assistant confirmation lands in
+ *      chat.
  *
  * The "popup unmounts back to empty" + "assistant confirmation" pair is
  * the genuine downstream signal — it proves resolve() fired AND
@@ -86,10 +84,10 @@ export function buildInterruptHeadlessAssertion(
     // Step 3: wait for either:
     //   a. `interrupt-headless-empty` to mount (popup unmounted →
     //      resolve()/runAgent()/resume completed cleanly); OR
-    //   b. an assistant continuation message landing in chat that
-    //      mentions "scheduled" / "confirmed" (agent narrated the
-    //      booking).
-    // Either signal proves the resolve→resume round-trip worked.
+    //   b. an assistant continuation IN THE TRANSCRIPT naming the booking.
+    // The text search is scoped to the transcript and to phrases the demo's
+    // own static copy does not contain, so neither signal can be satisfied by
+    // the page merely rendering.
     const deadline = Date.now() + 30_000;
     let lastSnap = "";
     while (Date.now() < deadline) {
@@ -97,6 +95,9 @@ export function buildInterruptHeadlessAssertion(
         const win = globalThis as unknown as {
           document: {
             querySelector(sel: string): unknown;
+            querySelectorAll(
+              sel: string,
+            ): ArrayLike<{ textContent: string | null }>;
             body: { textContent: string | null };
           };
         };
@@ -106,11 +107,32 @@ export function buildInterruptHeadlessAssertion(
         const popupGone = !win.document.querySelector(
           '[data-testid="interrupt-headless-popup"]',
         );
-        const text = (win.document.body.textContent ?? "").toLowerCase();
+        // Scoped to assistant bubbles, never the whole page: this demo's own
+        // static copy contains "Nothing scheduled yet" and "the confirmed
+        // booking", so a body-wide search would be satisfied before the agent
+        // narrated anything.
+        const selectors = [
+          '[data-testid="copilot-assistant-message"]',
+          '[role="article"]:not([data-message-role="user"])',
+          '[data-message-role="assistant"]',
+        ];
+        let bubbles: ArrayLike<{ textContent: string | null }> = { length: 0 };
+        for (const selector of selectors) {
+          const found = win.document.querySelectorAll(selector);
+          if (found.length > 0) {
+            bubbles = found;
+            break;
+          }
+        }
+        let text = "";
+        for (let i = 0; i < bubbles.length; i += 1) {
+          text += " " + (bubbles[i]?.textContent ?? "");
+        }
+        text = text.toLowerCase();
         const scheduledNarration =
-          text.includes("scheduled") ||
-          text.includes("confirmed") ||
-          text.includes("booked");
+          text.includes("meeting scheduled") ||
+          text.includes("booked") ||
+          text.includes("confirmed for");
         const sample = (win.document.body.textContent ?? "")
           .slice(-200)
           .replace(/\s+/g, " ")
@@ -136,6 +158,11 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return INTERRUPT_HEADLESS_PILLS.map(({ tag, prompt }) => ({
     input: prompt,
     completionSignal: "sse",
+    // Same shape as gen-ui-interrupt: the turn ends AT the pause, with the
+    // picker mounted in the app surface and no assistant prose on a bridge
+    // that emits the tool call before pausing. Settle on the popup mounting
+    // instead of text stability; run-finished and new-bubble still apply.
+    completeOnMount: { testIds: ["interrupt-headless-popup"] },
     assertions: buildInterruptHeadlessAssertion(tag),
     // Each pill exercises a full interrupt → resolve → resume cycle —
     // bigger budget than agentic-chat's text-only turns. The 60s ceiling

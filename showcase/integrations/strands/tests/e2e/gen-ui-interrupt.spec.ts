@@ -4,10 +4,11 @@ import { test, expect } from "@playwright/test";
 // Demo source: src/app/demos/gen-ui-interrupt/{page.tsx, time-picker-card.tsx}
 //
 // Uses `useInterrupt({ renderInChat: true })` — the low-level CopilotKit
-// primitive wired to LangGraph's `interrupt()` on the `interrupt_agent`
-// graph (shared with `interrupt-headless`). When the agent invokes the
-// backend `schedule_meeting` tool, the graph interrupts and a
-// `TimePickerCard` renders INLINE in the chat transcript (no portal).
+// primitive wired to Strands' native `tool_context.interrupt(...)` on the
+// dedicated interrupt agent (`src/agents/interrupt_agent.py`, shared with
+// `interrupt-headless`). When the agent invokes the backend
+// `schedule_meeting` tool, the tool pauses and a `TimePickerCard` renders
+// INLINE in the chat transcript (no portal).
 //
 // Card states (mutually exclusive, per-interrupt):
 //   - `time-picker-card`      — initial, 4 slot buttons + "None of these work"
@@ -20,7 +21,7 @@ import { test, expect } from "@playwright/test";
 // (non-body) render contract.
 
 test.describe("Gen UI via useInterrupt (inline time picker)", () => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
 
   test.beforeEach(async ({ page }) => {
     // Wait for the CopilotKit runtime info response to complete before
@@ -88,6 +89,12 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       card.getByRole("button", { name: "None of these work" }),
     ).toBeVisible();
 
+    // Count the bubbles BEFORE the pick so the assertion below can require a
+    // NEW one. The pre-pause bubble is already on screen, so asserting that
+    // "a bubble is visible" passes even when the resume never lands.
+    const bubbles = page.locator('[data-testid="copilot-assistant-message"]');
+    const bubblesBeforePick = await bubbles.count();
+
     await card.getByRole("button", { name: "Monday 9:00 AM" }).click();
 
     const picked = page.locator('[data-testid="time-picker-picked"]').first();
@@ -99,11 +106,23 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
       0,
     );
 
-    await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
-    ).toBeVisible({
-      timeout: 45_000,
-    });
+    // A NEW bubble is necessary but nowhere near sufficient: a resume that
+    // loses the answer still narrates ("user did not pick a time"), so the
+    // count alone passes on a broken resume. Verified by breaking the tool's
+    // resume read and watching this block stay green on the count alone.
+    await expect
+      .poll(() => bubbles.count(), { timeout: 45_000 })
+      .toBeGreaterThan(bubblesBeforePick);
+
+    // The narration must carry the slot the user actually picked, and must not
+    // be the did-not-pick branch. That pins the DATA rather than the fixture's
+    // phrasing, so a real model saying "Monday at 9:00 AM" still passes while a
+    // lost answer fails.
+    const narration = bubbles.last();
+    await expect(narration).toContainText(/9:00/, { timeout: 45_000 });
+    await expect(narration).not.toContainText(
+      /not scheduled|did not pick|didn'?t pick/i,
+    );
   });
 
   test("cancel path: None-of-these-work transitions to cancelled state", async ({
@@ -118,6 +137,9 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     const card = page.locator('[data-testid="time-picker-card"]').first();
     await expect(card).toBeVisible({ timeout: 60_000 });
 
+    const bubbles = page.locator('[data-testid="copilot-assistant-message"]');
+    const bubblesBeforeCancel = await bubbles.count();
+
     await card.getByRole("button", { name: "None of these work" }).click();
 
     const cancelled = page
@@ -126,10 +148,32 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     await expect(cancelled).toBeVisible({ timeout: 10_000 });
     await expect(cancelled).toContainText("Cancelled");
 
+    // The cancelled resume has to produce a NEW assistant bubble: the pre-pause
+    // text is already on screen, so "a bubble is visible" passes even when the
+    // resume never lands. Counting is phrasing-agnostic, so it holds against a
+    // real model as well as the fixture.
+    await expect
+      .poll(() => bubbles.count(), { timeout: 45_000 })
+      .toBeGreaterThan(bubblesBeforeCancel);
+
+    // Wait for the resumed run to actually finish before reading its final
+    // text. A bubble appears as soon as streaming starts, and a negative
+    // assertion passes against a partial string: a response streaming "B" and
+    // then "Booked: ..." would slip through while it is still one character
+    // long. With an empty composer this control disables once the run ends.
     await expect(
-      page.locator('[data-testid="copilot-assistant-message"]').first(),
-    ).toBeVisible({
-      timeout: 45_000,
-    });
+      page.locator('[data-testid="copilot-send-button"]').first(),
+    ).toBeDisabled({ timeout: 45_000 });
+
+    // Regression (cancel-path narration): a cancel resumes with the SAME
+    // toolCallId as a pick, so before the cancelled leg was gated on the tool
+    // result the resume replayed the booking confirmation after the user had
+    // declined. Asserting the ABSENCE of a confirmation is the part that
+    // catches it, and unlike the fixture's exact wording it survives live.
+    const narration = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .last();
+    await expect(narration).not.toContainText("Booked:");
+    await expect(narration).not.toContainText("Scheduled:");
   });
 });

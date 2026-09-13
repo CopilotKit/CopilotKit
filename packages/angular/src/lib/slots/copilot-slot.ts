@@ -1,7 +1,7 @@
+import type { Type } from "@angular/core";
 import {
   Component,
   TemplateRef,
-  Type,
   ViewContainerRef,
   computed,
   effect,
@@ -10,7 +10,7 @@ import {
   viewChild,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
-import { SlotOutputs } from "./slot.types";
+import type { SlotOutputs } from "./slot.types";
 import { slotBindings, slotInputNames } from "./slot.utils";
 
 /**

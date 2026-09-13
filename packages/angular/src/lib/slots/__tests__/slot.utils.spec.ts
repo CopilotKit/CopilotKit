@@ -1,10 +1,10 @@
+import type { TemplateRef } from "@angular/core";
 import {
   Component,
   createEnvironmentInjector,
   EnvironmentInjector,
   input,
   runInInjectionContext,
-  TemplateRef,
   viewChild,
   ViewContainerRef,
 } from "@angular/core";

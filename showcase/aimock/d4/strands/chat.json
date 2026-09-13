@@ -267,7 +267,7 @@
     },
     {
       "match": {
-        "userMessage": "weather",
+        "userMessage": "_d4_unused_weather_probe_sf",
         "hasToolResult": false,
         "context": "strands"
       },
@@ -279,7 +279,8 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ]
-      }
+      },
+      "_comment": "Retired to a sentinel key, matching langgraph-python and mastra: the bare \"weather\" key is a substring of D6 prompts (the reasoning chain's flights-then-weather turn among them) and, since D4 fixtures load first, it hijacked them."
     },
     {
       "match": {
@@ -474,7 +475,7 @@
     },
     {
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "_d4_unused_flights_probe_sfo_jfk",
         "hasToolResult": false,
         "context": "strands"
       },
@@ -486,7 +487,8 @@
             "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
           }
         ]
-      }
+      },
+      "_comment": "Retired to a sentinel key, matching langgraph-python and mastra: the \"flights from SFO to JFK\" key is a substring of the reasoning chain's third D6 turn and, since D4 fixtures load first, it hijacked it."
     },
     {
       "match": {
@@ -640,12 +642,13 @@
     },
     {
       "match": {
-        "userMessage": "detailed",
+        "userMessage": "Make this more detailed",
         "context": "strands"
       },
       "response": {
         "content": "# Budget Report - Q3\n\n## Overview\n- **Total Budget**: $150,000\n- **Spent to Date**: $89,500 (59.7%)\n- **Remaining**: $60,500\n\n## Breakdown by Category\n- **Personnel**: $52,000 (58.1% of spend)\n- **Infrastructure**: $18,500 (20.7%)\n- **Software Licenses**: $12,000 (13.4%)\n- **Miscellaneous**: $7,000 (7.8%)\n\n## Key Highlights\n- Personnel costs are tracking 5% under budget\n- Infrastructure spend increased due to scaling needs\n- Software license renewal saved $3,000 through annual plan\n\n## Recommendations\n- Reallocate $5,000 from personnel to infrastructure\n- Prepay Q4 licenses for additional savings"
-      }
+      },
+      "_comment": "Key widened to the reference integrations' wording: 'detailed' is short enough to be a substring of unrelated D6 prompts, and D4 fixtures load first."
     },
     {
       "match": {
@@ -859,7 +862,7 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die",
+        "userMessage": "Roll a 20-sided die for me",
         "hasToolResult": false,
         "context": "strands"
       },
@@ -870,7 +873,8 @@
             "arguments": "{\"sides\":20}"
           }
         ]
-      }
+      },
+      "_comment": "Key narrowed to the reference integration's wording: the bare \"Roll a 20-sided die\" is a substring of the D6 dice pills and, since D4 fixtures load first, it served them instead."
     },
     {
       "_comment": "agentic-chat e2e: typed-message test sends 'Say hello in one word.'",
@@ -913,9 +917,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "_comment": "Key widened to the reference integrations' wording: 'fun fact' is short enough to be a substring of unrelated D6 prompts, and D4 fixtures load first.",
       "match": {
-        "userMessage": "fun fact",
+        "userMessage": "fun fact for the prebuilt sidebar",
         "context": "strands"
       },
       "response": {
@@ -933,9 +937,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "_comment": "Key narrowed to the reference integration's wording: bare \"Say hi\" is a substring of longer D6 prompts.",
       "match": {
-        "userMessage": "Say hi",
+        "userMessage": "Say hi!",
         "context": "strands"
       },
       "response": {
