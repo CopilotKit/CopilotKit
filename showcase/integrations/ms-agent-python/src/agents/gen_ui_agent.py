@@ -52,6 +52,7 @@ PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
 }
 
 
+# @region[state-rendering-publisher]
 @tool(
     name="set_steps",
     description=(
@@ -84,6 +85,9 @@ def set_steps(
     )
 
 
+# @endregion[state-rendering-publisher]
+
+
 SYSTEM_PROMPT = dedent(
     """
     You are an agentic planner. For each user request, follow this exact
@@ -107,6 +111,7 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+# @region[state-rendering-agent]
 def create_gen_ui_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     """Instantiate the gen-ui-agent MAF agent."""
     base_agent = Agent(
@@ -141,3 +146,6 @@ def create_gen_ui_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         ),
         require_confirmation=False,
     )
+
+
+# @endregion[state-rendering-agent]

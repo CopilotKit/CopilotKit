@@ -210,6 +210,10 @@ demos:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
+    highlight:
+      - agent/D5ParityAgents.cs
+      - src/app/demos/gen-ui-agent/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -330,6 +334,7 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
   - id: a2ui-fixed-schema
     name: Declarative Generative UI (A2UI — Fixed Schema)
     description: A2UI rendering against a known client-side schema

@@ -29,6 +29,7 @@ const declarativeGenUiAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
+  // @region[a2ui-runtime-policy]
   a2ui: {
     // Native auto-injection (matches the langgraph-python reference). The
     // backend agent (src/agents/a2ui_dynamic.py) owns NO A2UI tool; the
@@ -44,6 +45,7 @@ const runtime = new CopilotRuntime({
     // ("Catalog not found" render error). Pin the catalog the page registers.
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
+  // @endregion[a2ui-runtime-policy]
 });
 
 export const POST = async (req: NextRequest) => {

@@ -51,6 +51,7 @@ public class DeclarativeGenUiAgent
         // Instructions (not Description) is the system prompt ChatClientAgent
         // actually sends to the model. Without it the agent narrates walls of
         // text and only sometimes calls generate_a2ui.
+        // @region[dynamic-a2ui-agent]
         return new ChatClientAgent(
             chatClient,
             instructions: """
@@ -73,6 +74,7 @@ public class DeclarativeGenUiAgent
             tools: [
                 AIFunctionFactory.Create(GenerateA2ui, options: new() { Name = "generate_a2ui", SerializerOptions = _jsonSerializerOptions })
             ]);
+        // @endregion[dynamic-a2ui-agent]
     }
 
     [Description("Generate dynamic A2UI components using a secondary LLM call")]

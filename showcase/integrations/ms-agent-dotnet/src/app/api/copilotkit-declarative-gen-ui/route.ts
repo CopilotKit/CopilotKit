@@ -24,6 +24,7 @@ const declarativeGenUiAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
+  // @region[a2ui-runtime-policy]
   a2ui: {
     // The backend agent owns the `generate_a2ui` tool explicitly, so the
     // runtime MUST NOT auto-inject its own A2UI tool on top. The A2UI
@@ -38,6 +39,7 @@ const runtime = new CopilotRuntime({
     // ("Catalog not found" render error). Pin the catalog the page registers.
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
+  // @endregion[a2ui-runtime-policy]
 });
 
 export const POST = async (req: NextRequest) => {

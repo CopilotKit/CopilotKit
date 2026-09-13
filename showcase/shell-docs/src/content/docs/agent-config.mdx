@@ -12,6 +12,15 @@ Let users tune how the agent responds: its tone, expertise level, response
 length, language, or persona. This guide shows how the UI sends those settings
 with each run so the agent can rebuild its system prompt.
 
+## Before you start
+
+Start with the [Quickstart](/quickstart) so you have a running CopilotKit
+provider, runtime route, and chat. This guide adds user-controlled preferences
+to that working path; it does not replace the runtime setup. For the current
+`properties` contract, see [`CopilotKitCoreConfig`](/reference/core/types/CopilotKitCoreConfig).
+For the backend boundary and validation rules for browser-supplied settings, see
+[forwarded properties](/backend/custom-agent#with-forwardedprops).
+
 ## When to use this
 
 Reach for agent config whenever the agent's behaviour depends on user-controllable settings that don't fit naturally as chat input:
@@ -142,6 +151,14 @@ system prompt for that turn:
   cell="agent-config"
   region="agent-config-factory"
 />
+
+### Try it
+
+In the demo above, choose **casual**, **expert**, and **detailed**, then send
+`Introduce yourself in the style I selected.` The selected Showcase agent
+begins its reply by reporting the active tone, expertise, and response-length
+settings, so you can verify that the current provider properties reached the
+factory for that run.
 
 </WhenFrameworkHas>
 

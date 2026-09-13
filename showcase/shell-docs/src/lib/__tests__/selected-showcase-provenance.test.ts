@@ -98,4 +98,13 @@ test("Built-in Agent agent config shows its provider and in-process factory", ()
   expect(output).not.toContain("agentConfigFactory");
   expect(output).not.toContain("makeAgent({ systemPrompt");
   expect(output).not.toContain("Missing snippet");
+  expect(output).toContain("[Quickstart](/quickstart)");
+  expect(output).toContain(
+    "[`CopilotKitCoreConfig`](/reference/core/types/CopilotKitCoreConfig)",
+  );
+  expect(output).toContain(
+    "[forwarded properties](/backend/custom-agent#with-forwardedprops)",
+  );
+  expect(output).toContain("choose **casual**, **expert**, and **detailed**");
+  expect(output).toContain("Introduce yourself in the style I selected.");
 });
