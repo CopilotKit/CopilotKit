@@ -5,7 +5,6 @@ import { getAllLlmPages, renderPageToLlmText } from "../llm-text";
 
 const stableApiRoutes = [
   "generative-ui/tool-rendering",
-  "generative-ui/state-rendering",
   "frontend-tools",
   "auth",
   "quickstart",
@@ -57,6 +56,36 @@ test.each(stableApiRoutes)(
     expect(output).not.toContain("model_id=");
   },
 );
+
+test("renders the current Microsoft Agent Python state-rendering contract", () => {
+  const page = getAllLlmPages().find(
+    (candidate) =>
+      candidate.url === "ms-agent-python/generative-ui/state-rendering",
+  );
+  expect(page).toBeDefined();
+
+  const doc = loadDoc(page!.loadSlug);
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      ...page!,
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+    },
+    { framework: "ms-agent-python" },
+  );
+
+  expect(output).toContain('agents["gen-ui-agent"] = createGenUiAgent()');
+  expect(output).toContain('agentId: "gen-ui-agent"');
+  expect(output).toContain("def set_steps");
+  expect(output).toContain('state={"steps": steps}');
+  expect(output).toContain("def create_gen_ui_agent");
+  expect(output).not.toContain(
+    "from agent_framework.openai import OpenAIChatClient",
+  );
+});
 
 test("keeps the Microsoft Agent Python HITL overview focused on its two patterns", () => {
   const page = getAllLlmPages().find(
