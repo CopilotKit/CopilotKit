@@ -35,6 +35,23 @@ function keyOf(value: unknown): string {
 }
 
 /**
+ * Stable key for the widget resource a session is bound to. A session fetches
+ * and renders exactly ONE resource. If the store activity for this messageId is
+ * later replaced by a different resource (resourceUri/serverHash/serverId), the
+ * store subscription must NOT push the new widget's tool input/result into this
+ * (old) iframe - the adapter re-binds a fresh session for the new identity.
+ */
+function identityKeyOf(content: {
+  resourceUri?: string;
+  serverHash?: string;
+  serverId?: string;
+}): string {
+  return [content.resourceUri, content.serverHash, content.serverId]
+    .map((v) => v ?? "")
+    .join("::");
+}
+
+/**
  * The MCP Apps protocol version this host negotiates. Sourced directly from the
  * ext-apps bridge (single source of truth, no hand-maintained literal). It lives
  * here (a bridge-side module) rather than in the bridge-free `./constants` /
@@ -154,6 +171,11 @@ export interface McpAppSession {
 export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   const { iframe, getContent, getAgent, host, messageId, hooks } = opts;
 
+  // The widget resource identity this session is bound to, captured once at bind
+  // time. The store subscription refuses to forward content for any other
+  // identity (see `pushFromContent`).
+  const boundIdentity = identityKeyOf(getContent());
+
   let disposed = false;
   let ready = false;
   let bridge: AppBridge | null = null;
@@ -185,6 +207,13 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
    * imperative sender until the widget is initialized. Self-driving mode only.
    */
   const pushFromContent = (content: MCPAppsActivityContent) => {
+    // Identity guard: only forward tool input/result for the resource this
+    // session is bound to. If the store activity for this messageId has been
+    // replaced by a different widget (resourceUri/serverHash/serverId), pushing
+    // here would leak the new widget's data into this (old, still-mounted) iframe
+    // before the adapter tears the session down and re-binds for the new
+    // identity. Refuse it; the fresh session will forward the new widget's data.
+    if (identityKeyOf(content) !== boundIdentity) return;
     const { toolInput, result } = content;
     if (toolInput !== undefined) {
       const key = keyOf(toolInput);
@@ -222,6 +251,12 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     const parsed = MCPAppsActivityContentSchema.safeParse(msg.content);
     if (parsed.success) pushFromContent(parsed.data);
   };
+
+  /** True when this activity currently lives in the agent's message store. */
+  const activityInStore = (): boolean =>
+    !!(getAgent()?.messages as readonly ActivityLike[] | undefined)?.some(
+      (m) => m?.id === messageId && m?.activityType === MCPAppsActivityType,
+    );
 
   /** Fetch the widget resource (`resources/read`) through the agent proxy queue. */
   const fetchResource = async (): Promise<FetchedResource> => {
@@ -431,13 +466,22 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         if (disposed) return;
         ready = true;
         hooks?.onInitialized?.();
+        // Self-driving: reconcile the buffers BEFORE the first flush. When this
+        // activity lives in the store, the store is authoritative, so discard any
+        // prop-seeded buffers - e.g. an activity that was absent at bind time and
+        // seeded via syncContent, then appeared in the store with the applied
+        // content during the resource fetch - and push the CURRENT store content
+        // instead. Clearing first means a stale pre-init value is never sent
+        // ahead of (or instead of) the applied one; reading from the store - not
+        // getContent() - honors an update that arrived before initialize.
+        if (messageId && activityInStore()) {
+          pendingToolInput = undefined;
+          pendingToolResult = undefined;
+          lastToolInputKey = undefined;
+          lastToolResultKey = undefined;
+          pushFromMessages();
+        }
         flushPending();
-        // Self-driving: push the CURRENT tool input/result now that the widget
-        // is ready. Read it from the agent's message store (the authoritative
-        // post-apply state), NOT from getContent(): an update that arrived before
-        // initialize must not be overwritten by a possibly-stale React prop, and
-        // the forwarding effects that used to correct it are gone.
-        if (messageId) pushFromMessages();
       };
       bridge.onloggingmessage = (p) => {
         console.log("[MCPAppsRenderer] App log:", p);
@@ -493,14 +537,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       // content), so ignore the prop to avoid pushing a possibly-stale React
       // prop over it. Forward props only for activities absent from the store
       // (rendered from an external messages list).
-      if (messageId) {
-        const inStore = (
-          getAgent()?.messages as readonly ActivityLike[] | undefined
-        )?.some(
-          (m) => m?.id === messageId && m?.activityType === MCPAppsActivityType,
-        );
-        if (inStore) return;
-      }
+      if (messageId && activityInStore()) return;
       pushFromContent(content);
     },
     teardown() {

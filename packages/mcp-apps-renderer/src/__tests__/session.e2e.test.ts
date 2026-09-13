@@ -378,6 +378,12 @@ describe("bindMcpApp self-subscription (messageId)", () => {
       get hasSubscriber() {
         return subscriber !== null;
       },
+      /** Apply a new message store snapshot and notify the subscriber, mirroring
+       * the agent's onMessagesChanged after AG-UI applies an update. */
+      emitMessagesChanged(messages: unknown[]) {
+        (base as any).messages = messages;
+        subscriber?.onMessagesChanged?.({ messages });
+      },
     };
   }
 
@@ -532,6 +538,102 @@ describe("bindMcpApp self-subscription (messageId)", () => {
     );
     expect(input?.params?.arguments).toEqual({ via: "props" });
     expect(result?.params?.content?.[0]?.text).toBe("props result");
+  });
+
+  it("discards a prop seeded before the activity entered the store, sending only the applied content", async () => {
+    const sub = makeSubscribingAgent();
+    const staleLondon = makeContent({
+      toolInput: { city: "London" },
+      result: { content: [{ type: "text", text: "Old forecast" }] },
+    });
+    const currentParis = makeContent({
+      toolInput: { city: "Paris" },
+      result: { content: [{ type: "text", text: "Current forecast" }] },
+    });
+    const iframe = mount();
+    // Activity absent from the store at bind: the adapter seeds via syncContent...
+    const session = bindSelfDriving(iframe, sub.agent, staleLondon);
+    session.syncContent(staleLondon);
+    // ...then it appears in the store with the applied (Paris) content during the
+    // resource fetch, before the widget initializes. The subscription is installed
+    // only after connect, so it misses this absent -> present transition; the fix
+    // must reconcile the buffered prop against the store at initialize.
+    (sub.agent as any).messages = [
+      {
+        id: "act-1",
+        role: "activity",
+        activityType: "mcp-apps",
+        content: currentParis,
+      },
+    ];
+    const captured = await connect(iframe);
+
+    // The full notification history: only the applied content is ever sent - the
+    // buffered London prop is discarded, never sent ahead of Paris.
+    expect(
+      captured
+        .filter((m) => m.method === "ui/notifications/tool-input")
+        .map((m) => m.params.arguments),
+    ).toEqual([currentParis.toolInput]);
+    expect(
+      captured
+        .filter((m) => m.method === "ui/notifications/tool-result")
+        .map((m) => m.params),
+    ).toEqual([currentParis.result]);
+  });
+
+  it("does not forward store updates to the iframe after the resource identity changes", async () => {
+    const sub = makeSubscribingAgent();
+    const widgetA = makeContent({
+      resourceUri: "ui://test/widget-a",
+      toolInput: { widget: "A" },
+      result: { content: [{ type: "text", text: "For widget A" }] },
+    });
+    (sub.agent as any).messages = [
+      {
+        id: "act-1",
+        role: "activity",
+        activityType: "mcp-apps",
+        content: widgetA,
+      },
+    ];
+    const iframe = mount();
+    bindSelfDriving(iframe, sub.agent, widgetA);
+    const captured = await connect(iframe);
+
+    // Sanity: widget A's data reached A's iframe on initialize.
+    expect(
+      captured.filter((m) => m.method === "ui/notifications/tool-result").at(-1)
+        ?.params?.content?.[0]?.text,
+    ).toBe("For widget A");
+    captured.length = 0;
+
+    // The store replaces act-1 with a DIFFERENT resource (widget B) under the
+    // same message id. The adapter will tear this session down and bind a fresh
+    // one for B, but that happens later; the store subscription must not push B's
+    // data into A's still-mounted iframe in the meantime.
+    const widgetB = makeContent({
+      resourceUri: "ui://test/widget-b",
+      toolInput: { widget: "B" },
+      result: { content: [{ type: "text", text: "For widget B" }] },
+    });
+    sub.emitMessagesChanged([
+      {
+        id: "act-1",
+        role: "activity",
+        activityType: "mcp-apps",
+        content: widgetB,
+      },
+    ]);
+    await tick(20);
+
+    // A's iframe never receives widget B's tool input/result.
+    expect(
+      captured.filter((m) => m.method === "ui/notifications/tool-input"),
+    ).toEqual([]);
+    expect(
+      captured.filter((m) => m.method === "ui/notifications/tool-result"),
+    ).toEqual([]);
   });
 });
 
