@@ -49,9 +49,9 @@ jobs:
       - name: Build packages
         run: >
           npx nx run-many -t build
-          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer
+          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer,@copilotkit/mcp-apps-renderer
 
       - name: Run compat-check
         run: >
           npx nx run-many -t compat-check
-          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer
+          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer,@copilotkit/mcp-apps-renderer
