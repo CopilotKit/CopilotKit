@@ -2,6 +2,7 @@ import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import type { TanStackChatMessage } from "@copilotkit/runtime/v2";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
@@ -232,6 +233,7 @@ export async function* convertStream(
       // `@ag-ui/client` swallows with a console.warn and never applies —
       // leaving the panel in its placeholder. `add` creates `/notes` on the
       // first emission and idempotently overwrites on subsequent calls.
+      // @region[shared-state-notes-bridge]
       if (
         toolName === "set_notes" &&
         parsedContent &&
@@ -249,6 +251,7 @@ export async function* convertStream(
           ],
         };
       }
+      // @endregion[shared-state-notes-bridge]
 
       // Sub-agent delegation results (subagents demo). `buildSubagentTools`
       // exposes `research_agent` / `writing_agent` / `critique_agent`, each
@@ -392,7 +395,55 @@ export interface BuiltInAgentOptions {
    * narrating instead of walking the steps.
    */
   systemPrompt?: string;
+  /**
+   * Optional state-to-prompt bridge for a demo whose user-visible state must
+   * steer the model. The generic agent deliberately does not serialize every
+   * state field, so each consumer opts in to its own bounded representation.
+   */
+  stateSystemPrompt?: (input: RunAgentInput) => string | undefined;
 }
+
+/**
+ * Render the preferences owned by the shared-state read/write demo. This is
+ * intentionally opt-in at the route binding below: unrelated demo state must
+ * not become model context just because it shares the generic factory.
+ */
+// @region[shared-state-preferences-prompt]
+export function formatSharedStatePreferences(
+  input: Pick<RunAgentInput, "state">,
+): string | undefined {
+  const state = input.state;
+  if (!state || typeof state !== "object") return undefined;
+  const preferences = (state as { preferences?: unknown }).preferences;
+  if (!preferences || typeof preferences !== "object") return undefined;
+
+  const value = preferences as {
+    name?: unknown;
+    tone?: unknown;
+    language?: unknown;
+    interests?: unknown;
+  };
+  const stringValue = (candidate: unknown, fallback: string) =>
+    typeof candidate === "string" && candidate.trim().length > 0
+      ? candidate.trim()
+      : fallback;
+  const interests = Array.isArray(value.interests)
+    ? value.interests
+        .filter((interest): interest is string => typeof interest === "string")
+        .map((interest) => interest.trim())
+        .filter(Boolean)
+    : [];
+
+  return [
+    "Shared state preferences:",
+    `- Name: ${stringValue(value.name, "(not provided)")}`,
+    `- Tone: ${stringValue(value.tone, "(not provided)")}`,
+    `- Language: ${stringValue(value.language, "(not provided)")}`,
+    `- Interests: ${interests.length > 0 ? interests.join(", ") : "(none)"}`,
+    "Use these preferences when responding on this turn.",
+  ].join("\n");
+}
+// @endregion[shared-state-preferences-prompt]
 
 export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
   return new BuiltInAgent({
@@ -408,6 +459,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
       const messages = options.preprocessMessages
         ? await options.preprocessMessages(convertedMessages)
         : convertedMessages;
+      const stateSystemPrompt = options.stateSystemPrompt?.(input);
       // Subagent tools are built per-run so their nested chat() calls
       // abort with the parent.
       const subagentTools = buildSubagentTools(abortController);
@@ -441,9 +493,11 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
         // miss every fixture (404) and the D6 subset goes 0/6.
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
-        systemPrompts: options.systemPrompt
-          ? [options.systemPrompt, ...systemPrompts]
-          : systemPrompts,
+        systemPrompts: [
+          ...(options.systemPrompt ? [options.systemPrompt] : []),
+          ...(stateSystemPrompt ? [stateSystemPrompt] : []),
+          ...systemPrompts,
+        ],
         tools: [...serverTools, ...frontendTools],
         abortController,
         agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,

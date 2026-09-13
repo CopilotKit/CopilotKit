@@ -16,6 +16,8 @@ export default defineConfig({
       // TanStack→AG-UI converter state emission (`/delegations`, `/steps`).
       // Pure event-in/event-out, so it needs no Next.js build either.
       "src/lib/factory/tanstack-factory.test.ts",
+      // The shared-state route opts into a bounded preferences→prompt bridge.
+      "src/lib/factory/tanstack-factory.shared-state.test.ts",
       // Shared agent-loop budget + RUN_ERROR fail-loud guard, and the two
       // real-LLM defects they fix (see demo-stream.ts). Pure functions.
       "src/lib/factory/demo-stream.test.ts",
