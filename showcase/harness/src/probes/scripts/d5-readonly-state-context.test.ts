@@ -5,6 +5,8 @@ import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
   buildContextAssertion,
+  installRequestCapture,
+  isAgentRunRequestBody,
   preNavigateRoute,
   CONTEXT_NAME_SENTINEL,
   READONLY_PILL_PROMPT,
@@ -42,10 +44,11 @@ describe("d5-readonly-state-context script", () => {
 
   it("assertion succeeds when captured body contains the sentinel", async () => {
     const capture = {
-      getLastBody: () =>
-        '{"messages":[{"role":"user","content":"hi"}],"context":[{"value":"' +
-        CONTEXT_NAME_SENTINEL +
-        '"}]}',
+      getAgentRunBodies: () => [
+        '{"method":"agent/run","params":{"input":{"context":[{"value":"' +
+          CONTEXT_NAME_SENTINEL +
+          '"}]}}}',
+      ],
     };
     const assertion = buildContextAssertion(
       "test",
@@ -64,7 +67,7 @@ describe("d5-readonly-state-context script", () => {
   });
 
   it("assertion fails when no request body has been captured", async () => {
-    const capture = { getLastBody: () => null };
+    const capture = { getAgentRunBodies: () => [] };
     const assertion = buildContextAssertion(
       "test",
       capture,
@@ -78,10 +81,10 @@ describe("d5-readonly-state-context script", () => {
     // resolving. To avoid hanging the suite, use a stub that throws
     // after a few polls.
     let calls = 0;
-    capture.getLastBody = () => {
+    capture.getAgentRunBodies = () => {
       calls += 1;
       if (calls > 3) throw new Error("simulated timeout");
-      return null;
+      return [];
     };
     const page: Page = {
       async waitForSelector() {},
@@ -97,10 +100,10 @@ describe("d5-readonly-state-context script", () => {
   it("assertion fails when captured body lacks the sentinel", async () => {
     let calls = 0;
     const capture = {
-      getLastBody: () => {
+      getAgentRunBodies: () => {
         calls += 1;
         if (calls > 3) throw new Error("simulated timeout");
-        return '{"messages":[{"role":"user","content":"hi"}]}';
+        return ['{"method":"agent/run","params":{"input":{}}}'];
       },
     };
     const assertion = buildContextAssertion(
@@ -117,5 +120,106 @@ describe("d5-readonly-state-context script", () => {
       },
     };
     await expect(assertion(page)).rejects.toThrow();
+  });
+
+  it("retains an agent/run context payload when a later resource request follows", async () => {
+    let handler:
+      | ((
+          route: { continue(): Promise<void> },
+          request: {
+            url(): string;
+            method(): string;
+            postData(): string | null;
+          },
+        ) => void | Promise<void>)
+      | undefined;
+    const page = {
+      async route(_url: string | RegExp, nextHandler: typeof handler) {
+        handler = nextHandler;
+      },
+      async unroute() {},
+    } as unknown as Page;
+    const capture = await installRequestCapture(page, "test");
+    const route = { async continue() {} };
+    await handler!(route, {
+      url: () => "http://localhost:3117/api/copilotkit",
+      method: () => "POST",
+      postData: () =>
+        '{"method":"agent/run","params":{"input":{"context":[{"value":"' +
+        CONTEXT_NAME_SENTINEL +
+        '"}]}}}',
+    });
+    await handler!(route, {
+      url: () => "http://localhost:3117/api/copilotkit",
+      method: () => "POST",
+      postData: () =>
+        '{"method":"resource/request","params":{"path":"/threads"}}',
+    });
+
+    expect(capture.getAgentRunBodies()).toHaveLength(1);
+    await expect(
+      buildContextAssertion("test", capture, CONTEXT_NAME_SENTINEL)(page),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does not accept a sentinel that appears only in a later resource request", async () => {
+    let handler:
+      | ((
+          route: { continue(): Promise<void> },
+          request: {
+            url(): string;
+            method(): string;
+            postData(): string | null;
+          },
+        ) => void | Promise<void>)
+      | undefined;
+    const page = {
+      async route(_url: string | RegExp, nextHandler: typeof handler) {
+        handler = nextHandler;
+      },
+      async unroute() {},
+    } as unknown as Page;
+    const capture = await installRequestCapture(page, "test");
+    const route = { async continue() {} };
+    await handler!(route, {
+      url: () => "http://localhost:3117/api/copilotkit",
+      method: () => "POST",
+      postData: () => '{"method":"agent/run","params":{"input":{}}}',
+    });
+    await handler!(route, {
+      url: () => "http://localhost:3117/api/copilotkit",
+      method: () => "POST",
+      postData: () =>
+        '{"method":"resource/request","params":{"path":"/' +
+        CONTEXT_NAME_SENTINEL +
+        '"}}',
+    });
+
+    let calls = 0;
+    const assertion = buildContextAssertion(
+      "test",
+      {
+        getAgentRunBodies: () => {
+          calls += 1;
+          if (calls > 3) throw new Error("simulated timeout");
+          return capture.getAgentRunBodies();
+        },
+      },
+      CONTEXT_NAME_SENTINEL,
+    );
+    await expect(assertion(page)).rejects.toThrow("simulated timeout");
+    expect(capture.getAgentRunBodies()).toEqual([
+      '{"method":"agent/run","params":{"input":{}}}',
+    ]);
+  });
+
+  it("recognizes only the supported single-route agent/run envelope", () => {
+    expect(isAgentRunRequestBody('{"method":"agent/run","params":{}}')).toBe(
+      true,
+    );
+    expect(
+      isAgentRunRequestBody('{"method":"resource/request","params":{}}'),
+    ).toBe(false);
+    expect(isAgentRunRequestBody("not json")).toBe(false);
   });
 });
