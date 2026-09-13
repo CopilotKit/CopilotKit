@@ -46,10 +46,10 @@ export const CONTEXT_NAME_SENTINEL = "CTX-PROBE-7g3kqz";
 export const READONLY_PILL_PROMPT =
   "What do you know about me from my context?";
 
-/** The single-route transport multiplexes `agent/run`, `agent/stop`, and
- * `resource/request` through the same runtime endpoint. Only an agent run
- * carries the context that this probe is meant to prove. */
-export function isAgentRunRequestBody(body: string): boolean {
+/** The legacy single-route transport multiplexes `agent/run`, `agent/stop`,
+ * and `resource/request` through the same runtime endpoint. Only an agent
+ * run carries the context that this probe is meant to prove. */
+export function isSingleRouteAgentRunRequestBody(body: string): boolean {
   try {
     const parsed: unknown = JSON.parse(body);
     return (
@@ -61,6 +61,32 @@ export function isAgentRunRequestBody(body: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** V2 multi-route transports send the run input directly to an
+ * `/api/copilotkit…/agent/:id/run` path, rather than wrapping it in the legacy
+ * JSON-RPC envelope. Keep the URL check narrow so later resource or stop
+ * requests cannot satisfy the context assertion. */
+export function isAgentRunRequest(
+  url: string,
+  method: string,
+  body: string,
+): boolean {
+  if (method !== "POST") return false;
+
+  try {
+    const pathname = new URL(url).pathname;
+    if (/\/api\/copilotkit[^/]*\/agent\/[^/]+\/run$/.test(pathname)) {
+      return true;
+    }
+    if (/\/api\/copilotkit[^/]*$/.test(pathname)) {
+      return isSingleRouteAgentRunRequestBody(body);
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
 }
 
 /** Install a `page.route()` interceptor that records agent-run request
@@ -92,9 +118,9 @@ export async function installRequestCapture(
   const agentRunBodies: string[] = [];
   const pattern = /\/api\/copilotkit/;
   await candidate.route(pattern, (route, request) => {
-    if (request.method() === "POST") {
-      const body = request.postData();
-      if (body && isAgentRunRequestBody(body)) agentRunBodies.push(body);
+    const body = request.postData();
+    if (body && isAgentRunRequest(request.url(), request.method(), body)) {
+      agentRunBodies.push(body);
     }
     void route.continue();
   });
