@@ -18,7 +18,7 @@
     "@google/generative-ai": "^0.11.2",
     "@heroicons/react": "^2.0.18",
     "clsx": "^1.2.1",
-    "next": "14.2.35",
+    "next": "15.5.24",
     "openai": "^4.85.1",
     "react": "^18",
     "react-dom": "^18"
