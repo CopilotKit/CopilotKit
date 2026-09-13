@@ -25,6 +25,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 const headersStorage = new AsyncLocalStorage<Record<string, string>>();
+const AIMOCK_CONTEXT = "built-in-agent";
 
 /** Extract the x-* headers off a Web Request / NextRequest. */
 function extractXHeaders(req: { headers: Headers }): Record<string, string> {
@@ -35,6 +36,12 @@ function extractXHeaders(req: { headers: Headers }): Record<string, string> {
       out[lower] = value;
     }
   });
+  // Interactive local traffic does not carry the harness's extra headers.
+  // When this Showcase is explicitly configured for AIMock, provide its
+  // stable fixture namespace while preserving any caller-supplied context.
+  if (!out["x-aimock-context"] && process.env.AIMOCK_URL) {
+    out["x-aimock-context"] = AIMOCK_CONTEXT;
+  }
   return out;
 }
 
