@@ -22,11 +22,8 @@
  * structural Page type does not, so we runtime-cast and verify.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import {
   FIRST_SIGNAL_TIMEOUT_MS,
@@ -49,14 +46,31 @@ export const CONTEXT_NAME_SENTINEL = "CTX-PROBE-7g3kqz";
 export const READONLY_PILL_PROMPT =
   "What do you know about me from my context?";
 
-/** Install a `page.route()` interceptor that records any matching
- *  request body. Returns a getter for the most recent capture and an
- *  unhook function to restore default routing. */
-async function installRequestCapture(
+/** The single-route transport multiplexes `agent/run`, `agent/stop`, and
+ * `resource/request` through the same runtime endpoint. Only an agent run
+ * carries the context that this probe is meant to prove. */
+export function isAgentRunRequestBody(body: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "method" in parsed &&
+      parsed.method === "agent/run"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Install a `page.route()` interceptor that records agent-run request
+ * bodies only. A later thread `resource/request` must not overwrite the
+ * actual run payload. */
+export async function installRequestCapture(
   page: Page,
   pillTag: string,
 ): Promise<{
-  getLastBody: () => string | null;
+  getAgentRunBodies: () => string[];
   unhook: () => Promise<void>;
 }> {
   type PageWithRoute = {
@@ -75,17 +89,17 @@ async function installRequestCapture(
       `${pillTag}: page is missing route() — runner did not provide a Playwright-shaped page`,
     );
   }
-  let lastBody: string | null = null;
+  const agentRunBodies: string[] = [];
   const pattern = /\/api\/copilotkit/;
   await candidate.route(pattern, (route, request) => {
     if (request.method() === "POST") {
       const body = request.postData();
-      if (body) lastBody = body;
+      if (body && isAgentRunRequestBody(body)) agentRunBodies.push(body);
     }
     void route.continue();
   });
   return {
-    getLastBody: () => lastBody,
+    getAgentRunBodies: () => [...agentRunBodies],
     unhook: async () => {
       if (typeof candidate.unroute === "function") {
         try {
@@ -121,21 +135,23 @@ async function seedContextName(
 
 export function buildContextAssertion(
   pillTag: string,
-  capture: { getLastBody: () => string | null },
+  capture: { getAgentRunBodies: () => string[] },
   sentinel: string,
 ): (page: Page) => Promise<void> {
   return async (page: Page): Promise<void> => {
     const deadline = Date.now() + FIRST_SIGNAL_TIMEOUT_MS;
-    let lastBody: string | null = null;
+    let agentRunBodies: string[] = [];
     while (Date.now() < deadline) {
-      lastBody = capture.getLastBody();
-      if (lastBody && lastBody.includes(sentinel)) return;
+      agentRunBodies = capture.getAgentRunBodies();
+      if (agentRunBodies.some((body) => body.includes(sentinel))) return;
       await new Promise((r) => setTimeout(r, 200));
     }
     void page;
     throw new Error(
       `readonly-state-context-${pillTag}: outgoing /api/copilotkit request body did not contain sentinel "${sentinel}" — captured body: ${
-        lastBody ? `"${lastBody.slice(0, 200)}"` : "(none)"
+        agentRunBodies.length > 0
+          ? `"${agentRunBodies.at(-1)!.slice(0, 200)}"`
+          : "(no agent/run request)"
       }`,
     );
   };
@@ -145,9 +161,12 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   // Capture state is closed over the closure so preFill (which sets it
   // up) and assertions (which read it) share the same instance.
   const captureRef: {
-    handle: { getLastBody: () => string | null; unhook: () => Promise<void> };
+    handle: {
+      getAgentRunBodies: () => string[];
+      unhook: () => Promise<void>;
+    };
   } = {
-    handle: { getLastBody: () => null, unhook: async () => {} },
+    handle: { getAgentRunBodies: () => [], unhook: async () => {} },
   };
   return [
     {
