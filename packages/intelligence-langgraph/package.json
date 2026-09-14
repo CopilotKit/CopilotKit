@@ -29,7 +29,9 @@
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16"
+    "attw": "attw --pack . --profile node16",
+    "test-minimum": "node test/compatibility.mjs --lane minimum",
+    "test-latest": "node test/compatibility.mjs --lane latest"
   },
   "dependencies": {
     "@copilotkit/runtime": "workspace:*",
