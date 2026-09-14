@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
+import { RUNTIME_MODE_INTELLIGENCE } from "@copilotkit/shared";
 import { CopilotKitCore } from "../core";
+import { ProxiedCopilotRuntimeAgent } from "../agent";
 import {
   ɵawaitActiveRunSettlement,
   ɵdetachActiveRunWhenReady,
@@ -48,6 +50,105 @@ class ProbeAgent extends AbstractAgent {
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     return this.run(input);
   }
+}
+
+/**
+ * Delegate whose `connect()` stream never completes — the Intelligence
+ * connect shape Ben probed on #6964. `run()` finishes immediately so a
+ * follow-up `runAgent` can complete after detach.
+ */
+class LongLivedDelegate extends AbstractAgent {
+  tornDown = false;
+
+  constructor() {
+    super({ agentId: "d", threadId: "t" });
+  }
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable((subscriber) => {
+      subscriber.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      subscriber.next({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      subscriber.complete();
+    });
+  }
+
+  protected connect(input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable((subscriber) => {
+      subscriber.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      return () => {
+        this.tornDown = true;
+      };
+    });
+  }
+}
+
+type ProxyDelegateAccess = { delegate?: AbstractAgent };
+
+function assignDelegate(
+  proxy: ProxiedCopilotRuntimeAgent,
+  delegate: AbstractAgent,
+) {
+  (proxy as unknown as ProxyDelegateAccess).delegate = delegate;
+}
+
+function lifecycleOf(agent: object): {
+  activeRunDetach$?: unknown;
+  activeRunCompletionPromise?: Promise<void>;
+} {
+  return agent as {
+    activeRunDetach$?: unknown;
+    activeRunCompletionPromise?: Promise<void>;
+  };
+}
+
+async function expectResolvesWithin<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(
+        () => reject(new Error(`${label} did not settle within ${ms}ms`)),
+        ms,
+      );
+    }),
+  ]);
+}
+
+async function startIntelligenceProxyConnect(): Promise<{
+  proxy: ProxiedCopilotRuntimeAgent;
+  delegate: LongLivedDelegate;
+}> {
+  const proxy = new ProxiedCopilotRuntimeAgent({
+    runtimeUrl: "http://localhost/api/copilotkit",
+    agentId: "probe",
+    runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+  });
+  const delegate = new LongLivedDelegate();
+  assignDelegate(proxy, delegate);
+  void proxy.connectAgent();
+  const started = Date.now();
+  while (!proxy.isRunning) {
+    if (Date.now() - started > 500) {
+      throw new Error("proxy.isRunning did not become true");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return { proxy, delegate };
 }
 
 describe("ɵawaitActiveRunSettlement (#6937)", () => {
@@ -162,5 +263,69 @@ describe("RunHandler double-send during onInitialize (#6937)", () => {
     await Promise.allSettled([first, second]);
 
     expect(agent.maxConcurrent).toBe(1);
+  });
+});
+
+describe("proxied Intelligence connect (#6964)", () => {
+  it("does not await a delegate's long-lived completion from the proxy", async () => {
+    const owner = {
+      isRunning: true,
+      activeRunDetach$: {},
+      activeRunCompletionPromise: new Promise<void>(() => {}),
+      detachActiveRun: vi.fn(async () => {}),
+    };
+    const proxy = {
+      isRunning: true,
+      delegate: owner,
+      detachActiveRun: vi.fn(async () => {
+        await owner.detachActiveRun();
+      }),
+    };
+
+    await expectResolvesWithin(
+      ɵawaitActiveRunSettlement(proxy),
+      150,
+      "ɵawaitActiveRunSettlement(proxy)",
+    );
+    await expectResolvesWithin(
+      ɵdetachActiveRunWhenReady(proxy),
+      150,
+      "ɵdetachActiveRunWhenReady(proxy)",
+    );
+    expect(proxy.detachActiveRun).toHaveBeenCalledTimes(1);
+    expect(owner.detachActiveRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns promptly on a live Intelligence proxy connect and detaches the delegate", async () => {
+    const { proxy, delegate } = await startIntelligenceProxyConnect();
+
+    expect(proxy.isRunning).toBe(true);
+    expect(lifecycleOf(proxy).activeRunDetach$).toBeUndefined();
+    expect(lifecycleOf(proxy).activeRunCompletionPromise).toBeUndefined();
+
+    await expectResolvesWithin(
+      ɵawaitActiveRunSettlement(proxy),
+      300,
+      "ɵawaitActiveRunSettlement(Intelligence proxy)",
+    );
+
+    await expectResolvesWithin(
+      ɵdetachActiveRunWhenReady(proxy),
+      300,
+      "ɵdetachActiveRunWhenReady(Intelligence proxy)",
+    );
+    expect(delegate.tornDown).toBe(true);
+  });
+
+  it("lets RunHandler.runAgent pre-empt a live Intelligence proxy connect", async () => {
+    const { proxy, delegate } = await startIntelligenceProxyConnect();
+    const core = new CopilotKitCore({});
+
+    await expectResolvesWithin(
+      core.runAgent({ agent: proxy }),
+      400,
+      "runAgent during Intelligence proxy connect",
+    );
+    expect(delegate.tornDown).toBe(true);
   });
 });

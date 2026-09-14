@@ -96,16 +96,15 @@ export class AgentThreadLockedError extends Error {
  * Typed contract for agents that expose the completion promise of their
  * currently in-flight run.
  *
- * `IntelligenceAgent` resolves this promise once a run's observable pipeline
- * finalizes (see {@link IntelligenceAgent.connectAgent}). Consumers (e.g. the
- * v2 `CopilotChat` send-serialization path) await it to let an in-flight run —
- * notably an interrupt RESUME — finish before dispatching a new run, instead
- * of pre-empting it.
+ * `AbstractAgent` from `@ag-ui/client` only declares this property privately.
+ * This contract plus {@link isRunCompletionAware} is the public typed way to
+ * read it without an `as unknown` cast, and it stays exported for that reason
+ * even though CopilotKit internals now go through `ɵawaitActiveRunSettlement`.
+ * That helper also covers the window where `isRunning` is already true but
+ * the promise is not assigned yet — a case this guard alone cannot see.
  *
- * The base `AbstractAgent` from `@ag-ui/client` only declares this property
- * privately, so it is reachable only through this contract plus the
- * {@link isRunCompletionAware} type guard. This keeps callers off `as unknown`
- * casts while still degrading safely for agents that don't implement it.
+ * `IntelligenceAgent` resolves the promise once a run's observable pipeline
+ * finalizes (see {@link IntelligenceAgent.connectAgent}).
  */
 export interface RunCompletionAware {
   /**
@@ -120,6 +119,10 @@ export interface RunCompletionAware {
  * an `activeRunCompletionPromise` property, so callers can await an in-flight
  * run without an `as unknown as` cast. Returns false for agents that don't
  * implement the contract, letting the caller skip the await and degrade safely.
+ *
+ * Prefer `ɵawaitActiveRunSettlement` when the caller must also wait out
+ * the `onInitialize` window (promise not assigned yet) or tolerate a proxied
+ * Intelligence agent that mirrors `isRunning` without owning the promise.
  */
 export function isRunCompletionAware(
   agent: unknown,
