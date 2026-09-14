@@ -20,7 +20,7 @@ describe("onboarding-prompt", () => {
     // If this string drifts, the copied prompt sends the coding agent to a
     // command the CLI does not expose and onboarding dead-ends silently.
     expect(ONBOARDING_PROMPT_TEMPLATE).toContain(
-      "npx --yes copilotkit@latest onboard start --run <run-id> --coding-agent <coding-agent-slug>",
+      "npx --yes copilotkit@latest onboard start --run <run-id>",
     );
   });
 
@@ -30,7 +30,7 @@ describe("onboarding-prompt", () => {
     expect(prompt).toContain("--run abc123def456");
     expect(prompt).not.toContain("<run-id>");
     // The agent-slug placeholder is the coding agent's to fill, so it stays.
-    expect(prompt).toContain("<coding-agent-slug>");
+    expect(prompt).not.toContain("<coding-agent-slug>");
   });
 
   it("mints a 12-character id from randomUUID", () => {
@@ -118,12 +118,12 @@ describe("feature onboarding intents", () => {
     const prompt = createFeatureOnboardingPrompt("a2ui", "abc123def456");
 
     expect(prompt).toContain(
-      "npx --yes copilotkit@latest onboard start --run abc123def456 --coding-agent <coding-agent-slug> --intent add-a2ui",
+      "npx --yes copilotkit@latest onboard start --run abc123def456 --intent add-a2ui",
     );
     expect(prompt).not.toContain("<run-id>");
     expect(prompt).not.toContain("<intent>");
     // The agent-slug placeholder is the coding agent's to fill, so it stays.
-    expect(prompt).toContain("<coding-agent-slug>");
+    expect(prompt).not.toContain("<coding-agent-slug>");
   });
 
   it("carries no feature-specific instruction of its own", () => {

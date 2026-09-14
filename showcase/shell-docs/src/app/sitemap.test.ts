@@ -103,6 +103,13 @@ test("publishes every sitemap URL at most once", () => {
   expect(new Set(urls).size).toBe(urls.length);
 });
 
+test("does not publish the retired AG-UI protocol docs", () => {
+  const paths = sitemapPaths();
+
+  expect(paths).not.toContain("/ag-ui");
+  expect(paths.some((pathname) => pathname.startsWith("/ag-ui/"))).toBe(false);
+});
+
 test("excludes every hidden framework from every sitemap surface", () => {
   const paths = sitemapPaths();
 

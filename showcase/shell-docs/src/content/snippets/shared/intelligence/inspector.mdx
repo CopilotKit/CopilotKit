@@ -108,17 +108,9 @@ If you are building the Thread picker and conversation surface yourself, see
 If Intelligence is not connected, open **Home** and choose **Copy setup prompt**.
 The [Intelligence quickstart](/intelligence/quickstart) explains the project,
 credentials, and Runtime routes that prompt configures. If Threads remains
-locked after setup, follow the action shown for the Runtime's current state:
-
-| State       | Next step Inspector can offer                                                    |
-| ----------- | -------------------------------------------------------------------------------- |
-| Active      | **Finish setting up Rich Threads**, a repair prompt, and the Runtime route guide |
-| Not enabled | **Enable Intelligence** when the Runtime supplies a trusted action               |
-| Expired     | **Renew** or **Manage Your Plan** when the Runtime supplies a trusted action     |
-| Unknown     | An unavailable message without an action                                         |
-
-Inspector opens only trusted URLs supplied by the Runtime. It does not build a
-URL from project details or use a fixed signup fallback.
+locked after setup, Inspector shows one Rich Threads setup view with **Copy
+setup prompt** and **Talk to an Engineer**. The view is based on Runtime Threads
+capability rather than license metadata.
 
 `NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` is a browser-visible publishable key. It is
 different from the server-side `CPK_INTELLIGENCE_API_KEY` that
@@ -174,6 +166,11 @@ period ends.
 An Intelligence-backed Runtime can supply trusted organization, project, plan,
 Thread usage, retention, and action metadata. Home shows valid project context;
 the Threads footer shows valid usage and relevant actions.
+
+Inspector opens only action URLs supplied by the Runtime. It never constructs a
+project URL or uses a fixed signup fallback. If metadata and Runtime license
+states conflict, Runtime status wins and Inspector hides the incompatible
+action.
 
 Finite plans show `used / limit Threads` and a progress bar. Unlimited plans
 show the used count without a bar. **Limit unavailable** means the Runtime sent

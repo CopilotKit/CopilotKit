@@ -13,6 +13,13 @@ import type { HomeServiceId } from "./home-briefing.js";
  * The CLI resolves `onboard start` against a prompt graph, so the two surfaces
  * must not drift — if the CLI's entry point changes, both change together.
  *
+ * Two lines, and deliberately nothing else. It used to open by telling the
+ * agent to identify itself and pass the slug as a flag -- two sentences of
+ * instruction to a machine, in the one piece of text a human reads, decides on
+ * and pastes. The graph asks for the slug itself now, with `onboard identify`,
+ * which is the surface that talks to the agent for the rest of the run
+ * (Intelligence OSS-1157).
+ *
  * This one stays generic, and so do the docs and Intelligence web-app copies
  * of it (OSS-1150). Those three are entry points for a developer with no
  * CopilotKit app yet, and every `--intent` route requires an existing app: it
@@ -24,12 +31,9 @@ import type { HomeServiceId } from "./home-briefing.js";
 const RUN_ID_PLACEHOLDER = "<run-id>";
 
 export const ONBOARDING_PROMPT_TEMPLATE =
-  "Identify which coding-agent product you are, using a short slug such as " +
-  "`codex` or `claude-code`. From the root of the project where you want " +
-  "CopilotKit, run `npx --yes copilotkit@latest onboard start --run " +
-  `${RUN_ID_PLACEHOLDER}` +
-  " --coding-agent <coding-agent-slug>`. Follow the Markdown instructions it " +
-  "prints until onboarding is complete.";
+  "Help me get started with CopilotKit. Run this command and follow the " +
+  "instructions:\n\nnpx --yes copilotkit@latest onboard start --run " +
+  `${RUN_ID_PLACEHOLDER}`;
 
 /** Length and alphabet are the CLI's, so a run id copied here resolves there. */
 const RUN_ID_LENGTH = 12;
@@ -136,14 +140,11 @@ const INTENT_PLACEHOLDER = "<intent>";
  * developer granted by copying the prompt.
  */
 export const FEATURE_ONBOARDING_PROMPT_TEMPLATE =
-  "Identify your coding-agent slug (for example, `codex` or `claude-code`). " +
-  "From the target project root, run `npx --yes copilotkit@latest onboard " +
-  `start --run ${RUN_ID_PLACEHOLDER} --coding-agent <coding-agent-slug> ` +
-  `--intent ${INTENT_PLACEHOLDER}` +
-  "`. Follow the Markdown instructions it prints until onboarding is " +
-  "complete. If it requires a CopilotKit CLI session check, you have " +
-  "permission to run it; never reveal credentials or send optional " +
-  "diagnostic feedback reports.";
+  "Help me set this up in my CopilotKit app. Run this command and follow the " +
+  "instructions:\n\nnpx --yes copilotkit@latest onboard start --run " +
+  `${RUN_ID_PLACEHOLDER} --intent ${INTENT_PLACEHOLDER}` +
+  "\n\nIf it requires a CopilotKit CLI session check, you have permission to " +
+  "run it. Never reveal credentials.";
 
 /** Bind one run id and one tile's feature outcome into the copied prompt. */
 export function createFeatureOnboardingPrompt(
