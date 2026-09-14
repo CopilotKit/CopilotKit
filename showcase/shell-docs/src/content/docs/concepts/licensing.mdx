@@ -1,0 +1,54 @@
+---
+title: Licensing
+description: License boundaries for the SDKs, runtime, AG-UI, CLI, Showcase, and Intelligence.
+icon: "lucide/Scale"
+doc_type: explanation
+---
+
+## Open-source packages
+
+The CopilotKit frontend SDKs and `@copilotkit/runtime` use the
+[MIT license](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).
+The runtime can connect to Intelligence, but that connection does not change its MIT license.
+The public `@copilotkit/license-verifier` package also uses MIT.
+
+AG-UI uses MIT at its repository root. Individual integrations can have separate licenses.
+For example, the Mastra and Spring AI TypeScript integrations use Apache-2.0.
+Check the [license files in AG-UI](https://github.com/ag-ui-protocol/ag-ui)
+and the exact package version that you install.
+Third-party dependencies retain their own licenses.
+
+## CopilotKit Showcase
+
+The `showcase/` directory uses the
+[CopilotKit Source Available License 1.0](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/LICENSE).
+It permits personal, non-commercial study and evaluation. Commercial use requires
+separate written permission. The license also restricts copying and competitive development.
+These restrictions do not apply to the MIT SDKs merely because Showcase uses them.
+The separate `examples/showcases/` directory is not the `showcase/` directory.
+Check the license file that applies to each example or bundled component.
+
+## CLI and Intelligence
+
+The `copilotkit` CLI is commercial software. Its package uses `UNLICENSED` metadata
+and a commercial notice. `UNLICENSED` does not grant an open-source license.
+The CLI notice does not change the licenses of projects that the CLI creates.
+Historical CLI versions can lack this metadata.
+
+Intelligence is a separate commercial platform. Access to the hosted service or
+self-hosted platform follows the applicable agreement. An MIT SDK license does not
+grant rights to the platform implementation or service.
+
+The [Self-Service Agreement](https://www.copilotkit.ai/self-service-agreement)
+excludes open-source components from its scope. Their own licenses govern those components.
+A signed agreement takes precedence for the services it covers, as that agreement states.
+Self-hosting changes deployment location. It does not make commercial components open source.
+
+## Package versions and procurement
+
+A repository license and an npm metadata field are different evidence.
+Check the SPDX `license` field and the LICENSE file inside the exact package archive.
+Old versions and old prerelease tags can retain missing metadata after a source fix.
+A later corrected version does not change those historical artifacts.
+
+For contract questions, contact [legal@copilotkit.ai](mailto:legal@copilotkit.ai).
