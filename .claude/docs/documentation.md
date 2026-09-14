@@ -86,26 +86,8 @@ It exists for `cd docs` muscle memory, not as a separate docs app. The old
 content remains recoverable from the archive refs: `archive/docs-save-do-not-prune` and
 `archive/docs-retired-2026-06-17`.
 
-## 2. AG-UI protocol docs → upstream `ag-ui-protocol/ag-ui`
-
-The AG-UI protocol docs (the `showcase/shell-docs/src/content/ag-ui/` tree) are **not**
-authored in this repo. Their canonical source is the upstream repo
-**[`ag-ui-protocol/ag-ui`](https://github.com/ag-ui-protocol/ag-ui)** under its `docs/`
-directory, which publishes to **docs.ag-ui.com**.
-
-The `content/ag-ui/` copy here is a **downstream mirror** rendered on the CopilotKit docs
-host. To change AG-UI protocol docs, make the change upstream in `ag-ui-protocol/ag-ui`;
-it then needs to be synced back into the CopilotKit copy.
-
-> **Do not author AG-UI content changes directly in `content/ag-ui/`** — they would diverge
-> from upstream and never reach docs.ag-ui.com.
-
-**Caveat (known, out of scope here):** there is currently no automated sync for the
-`content/ag-ui/` mirror, so it can drift from upstream. Upstream is canonical — don't try to
-change that process as part of unrelated work.
-
 ## Quick decision
 
 - Changing a CopilotKit guide, reference, snippet, or framework page? → `showcase/shell-docs/src/content/`
-- Changing AG-UI protocol docs? → upstream `ag-ui-protocol/ag-ui`, then sync
+- Changing AG-UI protocol docs? → upstream `ag-ui-protocol/ag-ui`
 - Tempted to recreate `docs/content/docs/`? → stop, it's retired; use `showcase/shell-docs/`
