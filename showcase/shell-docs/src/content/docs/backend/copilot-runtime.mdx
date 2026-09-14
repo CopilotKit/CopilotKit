@@ -92,6 +92,30 @@ The runtime supports multiple agent types. `BuiltInAgent` is the primary agent c
 - **Simple mode:** pass a model string and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
 - **Factory mode:** bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
+<Callout type="warn" title="Wiring an external agent: what to pass, and which URL">
+Two mistakes account for most failures here.
+
+`agents` takes `AbstractAgent` instances. A framework's own SDK client is not one — pass the
+`@ag-ui/<framework>` wrapper for it, or a plain `HttpAgent`, rather than the client itself.
+
+And the URL an external agent takes is its **own** server or deployment, not
+`/api/copilotkit`. That path is the browser-to-runtime hop; this is the runtime-to-agent hop,
+and they are different addresses. Each integration guide names the exact URL its framework
+serves, including any required suffix.
+</Callout>
+
+<Callout type="warn" title="One agent instance runs one turn at a time">
+A `BuiltInAgent` refuses a second concurrent run on itself, with
+`Agent is already running. Call abortRun() first or create a new instance.` The instance in
+the examples here is created once at module scope, so on a server handling more than one
+person the second concurrent request is the one that fails.
+
+Per-thread state lives in the runner, not the agent, so the fix is to give each concurrent
+run its own agent instance — construct it inside the request rather than at module scope —
+or to serialise turns per user. A single shared instance is fine for local development and
+for a single-user surface.
+</Callout>
+
 ## The default agent
 
 If you register an agent under the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.

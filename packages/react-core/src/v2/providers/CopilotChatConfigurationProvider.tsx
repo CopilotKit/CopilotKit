@@ -26,7 +26,14 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
   assistantMessageToolbarCopyMessageLabel: "Copy",
   assistantMessageToolbarInspectorLabel: "View in Inspector",
-  assistantMessageToolbarInspectorLocalOnlyLabel: "Development Only",
+  assistantMessageToolbarInspectorDescription:
+    "Open this message in the Inspector",
+  assistantMessageToolbarInspectorLocalOnlyLabel: "Local only",
+  assistantMessageToolbarInspectorLocalOnlyDescription:
+    "Only visible on localhost or loopback hosts in development. Never shown in production.",
+  assistantMessageToolbarInspectorTitle: "CopilotKit Inspector",
+  assistantMessageToolbarInspectorHideLabel: "Hide this icon",
+  assistantMessageToolbarInspectorHideDescription: "Until you reload this page",
   assistantMessageToolbarThumbsUpLabel: "Good response",
   assistantMessageToolbarThumbsDownLabel: "Bad response",
   assistantMessageToolbarReadAloudLabel: "Read aloud",

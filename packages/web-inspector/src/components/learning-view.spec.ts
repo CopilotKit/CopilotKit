@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
 import type { CpkLearningView } from "./learning-view.js";
 import { deriveLearningViewState } from "./learning-view.js";
@@ -319,9 +319,46 @@ describe("Learning setup progress", () => {
     expect(promptStep.querySelector(".step-number")?.textContent).toBe("✓");
     expect(setupStep.classList.contains("current")).toBe(true);
     expect(
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".copy-again")
+        ?.textContent,
+    ).toContain("Copy prompt again");
+    expect(
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".pane-actions button")
+        ?.textContent,
+    ).toContain("Go back");
+    expect(
       view.shadowRoot!.querySelector<HTMLButtonElement>("button[disabled]")
         ?.textContent,
     ).toContain("Analyze Threads");
+    view.remove();
+  });
+
+  it("emits copy and back actions from setup progress", async () => {
+    const view = await renderProgress(snapshot(), true);
+    const copy = vi.fn();
+    const goBack = vi.fn();
+    view.addEventListener("learning-recopy-setup", copy);
+    view.addEventListener("learning-go-back", goBack);
+
+    view.shadowRoot!.querySelector<HTMLButtonElement>(".copy-again")?.click();
+    view
+      .shadowRoot!.querySelector<HTMLButtonElement>(".pane-actions button")
+      ?.click();
+
+    expect(copy).toHaveBeenCalledOnce();
+    expect(goBack).toHaveBeenCalledOnce();
+    view.remove();
+  });
+
+  it("confirms when the setup prompt is copied again", async () => {
+    const view = await renderProgress(snapshot(), true);
+    view.recopyState = "copied";
+    await view.updateComplete;
+
+    expect(
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".copy-again")
+        ?.textContent,
+    ).toContain("Copied!");
     view.remove();
   });
 

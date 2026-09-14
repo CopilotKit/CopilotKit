@@ -10,14 +10,12 @@
 //                                              override pages under
 //                                              src/content/docs/integrations/
 //   - Reference (/reference/<slug>)            from src/content/reference/
-//   - AG-UI (/ag-ui/<slug>)                    from src/content/ag-ui/
 //
 // Each entry's `lastModified` is resolved via resolveLastModified —
 // frontmatter `lastmod` first, then file mtime, then `new Date()`.
 
 import type { MetadataRoute } from "next";
 import {
-  getAgUiPages,
   getBareDocsPages,
   getBaseUrl,
   getFrameworkOverridePages,
@@ -281,16 +279,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }
   // Reference index.
   pushUnique({ url: `${baseUrl}/reference`, lastModified: now });
-
-  // 5. AG-UI.
-  for (const { slug, filePath } of getAgUiPages()) {
-    pushUnique({
-      url: `${baseUrl}/ag-ui/${slug}`,
-      lastModified: resolveLastModified(filePath),
-    });
-  }
-  // AG-UI overview landing.
-  pushUnique({ url: `${baseUrl}/ag-ui`, lastModified: now });
 
   return entries;
 }

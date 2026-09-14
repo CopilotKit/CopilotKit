@@ -70,6 +70,11 @@ function useFrontendTool<T extends Record<string, unknown>>(
   `ToolCallStatus.Executing`, or `ToolCallStatus.Complete`), and `result` (the
   string result returned by the handler, available only when status is
   `Complete`).
+
+  **The declared return type is `ReactNode`, which is wider than React Native can
+  draw.** `render` is a `React.ComponentType`, so a `render` that returns a bare
+  string typechecks and then throws on a device. See [The render type React
+  Native needs](#the-render-type-react-native-needs).
 </PropertyReference>
 
   <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
@@ -216,6 +221,79 @@ function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
 }
 ```
 
+## The render type React Native needs
+
+`render` is typed as `ReactToolCallRenderer<T>["render"]`, which is a
+`React.ComponentType`. A function component's return type is `ReactNode`, so
+**this compiles**:
+
+```tsx
+useFrontendTool({
+  name: "showWeather",
+  description: "Show the weather",
+  parameters: z.object({ city: z.string() }),
+  handler: async ({ city }) => city,
+  // Compiles. `ReactNode` includes `string`.
+  render: ({ args }) => `Weather in ${args.city}`,
+});
+```
+
+and then fails on a device. The string reaches the prebuilt chat's `FlatList` as
+a bare text child of a host view, and React Native throws *Text strings must be
+rendered within a `<Text>` component*. The same applies to a number, an array of
+elements, or `undefined` — all of them are `ReactNode`, and none of them is
+something React Native's list renderer can draw.
+
+`@copilotkit/react-native` exports an **opt-in** type that narrows the return to
+`ReactElement | null`, so the compiler rejects it instead:
+
+```tsx
+import { useFrontendTool } from "@copilotkit/react-native";
+import type { FrontendToolRenderFunction } from "@copilotkit/react-native";
+import { Text } from "react-native";
+import { z } from "zod";
+
+const renderWeather: FrontendToolRenderFunction<{ city: string }> = ({
+  args,
+}) => <Text>{args.city}</Text>;
+
+// `TS2322: Type 'string' is not assignable to type 'ReactElement…'`
+const broken: FrontendToolRenderFunction<{ city: string }> = ({ args }) =>
+  `Weather in ${args.city}`;
+
+useFrontendTool({
+  name: "showWeather",
+  description: "Show the weather",
+  parameters: z.object({ city: z.string() }),
+  handler: async ({ city }) => city,
+  render: renderWeather,
+});
+```
+
+<PropertyReference name="FrontendToolRenderFunction<T>" type="(props: React.ComponentProps<ReactToolCallRenderer<T>['render']>) => React.ReactElement | null">
+  A tool-call render function whose return type is narrowed to React Native's
+  `ReactElement | null`. The props are read straight off react-core's canonical
+  `ReactToolCallRenderer` contract and are not changed in any way, so they cannot
+  drift from the props a registered renderer is actually invoked with; only the
+  return type is React-Native-specific.
+
+  `T` is the parsed tool arguments — the same `T` as `useFrontendTool`'s — and
+  defaults to `Record<string, unknown>`, so the bare spelling is legal.
+</PropertyReference>
+
+<Callout type="warn" title="It is opt-in, and only opt-in">
+  This type changes no hook signature. A renderer written **inline** in a
+  `useFrontendTool` call is still checked against react-core's
+  `ReactNode`-returning contract, and a bare string still compiles there. You get
+  the narrowing on renderers you annotate with it — declare `render` as a
+  standalone `FrontendToolRenderFunction<T>` and pass it in, as above. It does
+  not make the package safe on its own.
+</Callout>
+
+[`useRenderTool`](/reference/react-native/hooks/useRenderTool) needs none of
+this: it declares its own `render` as `(props) => ReactElement | null`, so a bare
+string is rejected there without any annotation.
+
 ## Behavior
 
 - **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
@@ -223,6 +301,7 @@ function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
 - **Dependency tracking**: When `deps` is provided, the registration is refreshed whenever the **serialised** array changes — `JSON.stringify(deps)`, not `useEffect`'s per-element `Object.is`. See [Dependency comparison](#dependency-comparison) below; the difference is load-bearing.
 - **Handler and render are captured at registration**: Neither closure is re-read on every render. A value your `handler` or `render` reads from component state or props is frozen at whatever it was when the tool was last registered, so it must be declared in `deps` (subject to the comparison rules below).
 - **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
+- **`render`'s return type is `ReactNode`, not `ReactElement | null`**: a bare string typechecks and then throws in the chat's `FlatList`. Annotate the renderer with [`FrontendToolRenderFunction<T>`](#the-render-type-react-native-needs) to have the compiler reject it.
 - **No return value**: The hook returns `void`.
 
 ## Dependency comparison
@@ -304,6 +383,6 @@ list in `deps`.
 
 ## Related
 
-- [`useRenderTool`](/reference/react-native/hooks/useRenderTool): register renderer-only tool call UI (named or wildcard)
+- [`useRenderTool`](/reference/react-native/hooks/useRenderTool): register renderer-only tool call UI (named or wildcard), and the migration notes for React Native's older local hook of the same name
 - [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit): access the core instance and run tools programmatically
 - [React (V2) reference](/reference/v2/hooks/useFrontendTool): the web equivalent this page mirrors
