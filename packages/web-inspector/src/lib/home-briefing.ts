@@ -39,27 +39,6 @@ export type HomeServiceTile = {
   docsUrl: string;
 };
 
-export type HomeFeatureImplementationPromptContext = {
-  onboardingRunId: string;
-};
-
-/**
- * A self-contained handoff for a coding agent. It answers the onboarding
- * workflow's session and feedback consent gates up front, while keeping the
- * feature guide—not a generic product-onboarding branch—in control of the
- * implementation plan.
- */
-export function homeFeatureImplementationPrompt(
-  service: Pick<HomeServiceTile, "label" | "docsUrl">,
-  context: HomeFeatureImplementationPromptContext,
-): string {
-  return `Identify your coding-agent slug (for example, \`codex\` or \`claude-code\`). From the target project root, run \`npx copilotkit@latest onboard start --run ${context.onboardingRunId} --coding-agent <coding-agent-slug>\` and use its output as onboarding context. If it requires a CopilotKit CLI session check, you have permission to run it; never reveal credentials or send optional diagnostic feedback reports.
-
-This task is specifically to enable ${service.label}, not to re-onboard the application. First inspect the existing CopilotKit runtime, provider, agent, and UI wiring, and confirm that ${service.label} is not already enabled. Then read the ${service.label} guide (${service.docsUrl}) and make a short plan before editing. Preserve the project's framework, package manager, installed CopilotKit version, existing agent IDs, routes, provider layout, and working behavior. Do not create, select, or alter a CopilotKit Intelligence project—or add Intelligence configuration—unless this feature's official guide explicitly requires it or the user asks.
-
-Implement the smallest complete integration: wire every feature-required client and runtime configuration into the chat-to-agent path people already use, reuse local patterns, and do not invent environment values or hardcode secrets. Add or update focused tests and run the relevant project checks. Finish only after local validation proves ${service.label} works—not merely that the code compiles. Use a feature-specific runtime or Inspector capability check and, when the feature supports one, a representative UI interaction that proves the user-facing result. If the project overrides default rendering (for example, with a wildcard tool renderer), make that override compatible with this feature; a capability flag alone is not success. Summarize the changed files, validation, and any manual setup still required.`;
-}
-
 export type HomeModel = {
   hero: {
     connection: HomeConnection;

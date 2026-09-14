@@ -13,15 +13,31 @@ import { frameworkPromptSuffix } from "@/lib/intelligence-onboarding-framework";
 import { createIntelligenceOnboardingPrompt } from "@/lib/intelligence-onboarding-prompt";
 import { HeroOnboardingPromptButton } from "../hero-onboarding-prompt-button";
 
-const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+const analytics = vi.hoisted(() => ({
+  capture: vi.fn(),
+  actionCapture: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
 vi.mock("posthog-js/react", () => ({
-  usePostHog: () => analytics,
+  usePostHog: () => ({
+    capture: (...args: unknown[]) => {
+      if (args[0] === "docs.intelligence_onboarding_prompt_action_clicked")
+        return analytics.actionCapture(...args);
+      return analytics.capture(...args);
+    },
+  }),
 }));
+
+HTMLDialogElement.prototype.showModal = function () {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close = function () {
+  this.open = false;
+};
 
 afterEach(() => {
   cleanup();
@@ -38,16 +54,14 @@ it("renders the onboarding copy label", () => {
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
 
-  expect(
-    screen.getByRole("button", { name: /copy onboarding prompt/i }),
-  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^copy prompt$/i })).toBeTruthy();
 });
 
 it("copies the CLI onboarding prompt and confirms with a Copied label", async () => {
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
@@ -55,7 +69,7 @@ it("copies the CLI onboarding prompt and confirms with a Copied label", async ()
   expect(copied).toContain("npx --yes copilotkit@latest onboard start --run");
 
   await waitFor(() =>
-    expect(screen.getByRole("button").textContent).toContain("Copied"),
+    expect(screen.getByRole("status").textContent).toContain("Prompt copied"),
   );
 });
 
@@ -65,12 +79,12 @@ it("embeds a run id the CLI accepts", async () => {
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = copied.match(/onboard start --run (\S+) --coding-agent/)?.[1];
+  const runId = copied.match(/onboard start --run (\S+)/)?.[1];
   expect(runId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 });
 
@@ -78,10 +92,10 @@ it("reports a blocked clipboard instead of throwing", async () => {
   mockClipboard(vi.fn().mockRejectedValue(new Error("clipboard blocked")));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() =>
-    expect(screen.getByRole("button").textContent).toContain("Copy blocked"),
+    expect(screen.getByRole("status").textContent).toContain("Copy blocked"),
   );
   expect(analytics.capture).not.toHaveBeenCalled();
 });
@@ -92,14 +106,12 @@ it("copies the canonical prompt unchanged when no framework is given", async () 
   const writeText = mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = copied.match(
-    /onboard start --run (\S+) --coding-agent/,
-  )?.[1] as string;
+  const runId = copied.match(/onboard start --run (\S+)/)?.[1] as string;
   expect(copied).toBe(createIntelligenceOnboardingPrompt(runId));
   expect(copied.endsWith("until onboarding is complete.")).toBe(true);
 });
@@ -113,7 +125,7 @@ it("appends the framework sentence without disturbing the CLI command", async ()
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
@@ -136,12 +148,12 @@ it("keeps the run id intact when the framework sentence is appended", async () =
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = copied.match(/onboard start --run (\S+) --coding-agent/)?.[1];
+  const runId = copied.match(/onboard start --run (\S+)/)?.[1];
   expect(runId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 });
 
@@ -154,11 +166,12 @@ it("reports the graph framework slug to analytics", async () => {
       framework={{ slug: "mastra", name: "Mastra" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
 
   expect(analytics.capture.mock.calls[0][1]).toStrictEqual({
+    action: "copy",
     from_path: "/",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "framework-hero",
@@ -170,13 +183,14 @@ it("sends no framework property when no framework is given", async () => {
   mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
 
   const props = analytics.capture.mock.calls[0][1];
-  expect(props).not.toHaveProperty("agent_framework");
-  expect(props).toStrictEqual({
+  expect(props.agent_framework).toBeUndefined();
+  expect(JSON.parse(JSON.stringify(props))).toStrictEqual({
+    action: "copy",
     from_path: "/",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
     surface: "docs-home-hero",
@@ -192,18 +206,49 @@ it("stays canonical for a framework the onboarding graph does not cover", async 
       framework={{ slug: "langroid", name: "Langroid" }}
     />,
   );
-  fireEvent.click(screen.getByRole("button"));
+  fireEvent.click(screen.getByRole("button", { name: /^copy prompt$/i }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
 
   const copied = writeText.mock.calls[0][0] as string;
-  const runId = copied.match(
-    /onboard start --run (\S+) --coding-agent/,
-  )?.[1] as string;
+  const runId = copied.match(/onboard start --run (\S+)/)?.[1] as string;
   expect(copied).toBe(createIntelligenceOnboardingPrompt(runId));
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
-  expect(analytics.capture.mock.calls[0][1]).not.toHaveProperty(
-    "agent_framework",
+  expect(analytics.capture.mock.calls[0][1].agent_framework).toBeUndefined();
+});
+
+it("records view and preview copy with the same run id and framework context", async () => {
+  mockClipboard(vi.fn().mockResolvedValue(undefined));
+  render(
+    <HeroOnboardingPromptButton
+      surface="docs_framework_hero"
+      framework={{ slug: "mastra", name: "Mastra" }}
+    />,
   );
+  fireEvent.click(screen.getByRole("button", { name: "View prompt" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Copy displayed prompt" }),
+  );
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
+  const actions = analytics.actionCapture.mock.calls;
+  expect(actions.map((entry) => entry[1].action)).toEqual([
+    "view_prompt",
+    "copy_preview",
+  ]);
+  expect(actions[0][1].onboarding_run_id).toBe(actions[1][1].onboarding_run_id);
+  expect(analytics.capture.mock.calls[0][1]).toEqual({
+    action: "copy_preview",
+    from_path: "/",
+    onboarding_run_id: actions[0][1].onboarding_run_id,
+    surface: "docs_framework_hero",
+    agent_framework: "mastra",
+  });
+  expect(Object.keys(actions[0][1]).sort()).toEqual([
+    "action",
+    "agent_framework",
+    "from_path",
+    "onboarding_run_id",
+    "surface",
+  ]);
 });

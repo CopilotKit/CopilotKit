@@ -131,6 +131,9 @@ test("mapped feature pages import the matching Inspector Callout", () => {
   expect(read("snippets/shared/intelligence/overview.mdx")).toContain(
     "open-inspector-pane-learning.mdx",
   );
+  expect(read("docs/learning.mdx")).toContain(
+    "open-inspector-pane-learning.mdx",
+  );
 });
 
 test("Inspector Callout snippets name shipped panes and skip retired controls", () => {
@@ -176,9 +179,21 @@ test("pane map lists each shipped pane with a Callout or no page yet", () => {
     expect(paneMap).toMatch(new RegExp(`\\|\\s*${pane}\\s*\\|`));
   }
   expect(paneMap).toContain("no page yet");
-  expect(paneMap).toContain("Playground");
+  expect(paneMap).toMatch(/\|\s*Playground\s*\|\s*Inspector overview\s*\|/);
   expect(paneMap).toContain("React Native");
   expect(paneMap).toContain("Channels");
+});
+
+test("shared Inspector docs preserve task routes and production guards", () => {
+  const sharedPage = read("snippets/shared/intelligence/inspector.mdx");
+
+  expect(sharedPage).toContain("## Choose what you need to do");
+  expect(sharedPage).toContain("**Threads** → **Try from here**");
+  expect(sharedPage).toContain("## Control when Inspector appears");
+  expect(sharedPage).toMatch(
+    /never loaded or rendered in a\s+production build/,
+  );
+  expect(sharedPage).not.toContain("including in a production build");
 });
 
 test("React Native and Channels do not tell the reader to click the Inspector button", () => {

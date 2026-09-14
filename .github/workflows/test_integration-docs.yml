@@ -16,6 +16,17 @@ on:
       - "showcase/shell-docs/src/lib/setup-concept.tsx"
       - "showcase/shell-docs/src/lib/__tests__/frontend-tools-setup-coverage.test.ts"
       - "showcase/shell-docs/src/lib/__tests__/setup-concept.test.ts"
+      # The docs feature prompts only name a CLI intent now, so the route owns
+      # the instructions. Nothing else in CI reads these files, and OSS-1150
+      # retired the prose that used to make a drift visible on the page.
+      - "showcase/shell-docs/src/lib/intelligence-onboarding-prompt.ts"
+      - "showcase/shell-docs/src/lib/learning-setup-prompt.ts"
+      - "showcase/shell-docs/src/lib/rich-threads-setup-prompt.ts"
+      - "showcase/shell-docs/src/lib/__tests__/learning-setup-docs.test.ts"
+      - "showcase/shell-docs/src/lib/__tests__/rich-threads-setup-docs.test.ts"
+      - "showcase/shell-docs/src/lib/__tests__/intelligence-quickstart-docs.test.ts"
+      - "showcase/shell-docs/src/components/__tests__/learning-setup-prompt.test.tsx"
+      - "showcase/shell-docs/src/components/__tests__/rich-threads-setup-prompt.test.tsx"
       - "showcase/scripts/bundle-setup-content.ts"
       - "showcase/shell-docs/package.json"
       - "showcase/shell-docs/package-lock.json"
@@ -39,6 +50,17 @@ on:
       - "showcase/shell-docs/src/lib/setup-concept.tsx"
       - "showcase/shell-docs/src/lib/__tests__/frontend-tools-setup-coverage.test.ts"
       - "showcase/shell-docs/src/lib/__tests__/setup-concept.test.ts"
+      # The docs feature prompts only name a CLI intent now, so the route owns
+      # the instructions. Nothing else in CI reads these files, and OSS-1150
+      # retired the prose that used to make a drift visible on the page.
+      - "showcase/shell-docs/src/lib/intelligence-onboarding-prompt.ts"
+      - "showcase/shell-docs/src/lib/learning-setup-prompt.ts"
+      - "showcase/shell-docs/src/lib/rich-threads-setup-prompt.ts"
+      - "showcase/shell-docs/src/lib/__tests__/learning-setup-docs.test.ts"
+      - "showcase/shell-docs/src/lib/__tests__/rich-threads-setup-docs.test.ts"
+      - "showcase/shell-docs/src/lib/__tests__/intelligence-quickstart-docs.test.ts"
+      - "showcase/shell-docs/src/components/__tests__/learning-setup-prompt.test.tsx"
+      - "showcase/shell-docs/src/components/__tests__/rich-threads-setup-prompt.test.tsx"
       - "showcase/scripts/bundle-setup-content.ts"
       - "showcase/shell-docs/package.json"
       - "showcase/shell-docs/package-lock.json"
@@ -134,6 +156,47 @@ jobs:
           npm exec -- vitest run \
             src/lib/__tests__/frontend-tools-setup-coverage.test.ts \
             src/lib/__tests__/setup-concept.test.ts
+
+  feature-prompt-intents:
+    name: Docs feature prompts name a CLI intent
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # zizmor: ignore[undocumented-permissions] Depot runner OIDC.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: showcase/shell-docs/package-lock.json
+      - name: Install dependencies
+        run: |
+          cd showcase/scripts && npm ci --ignore-scripts
+          cd ../shell-docs && npm ci --ignore-scripts
+      # Same two steps as setup-concept-coverage above, and for the same two
+      # reasons: the harness catalog resolves `js-yaml` by walking up from
+      # `showcase/harness/`, and `src/data/*.json` is gitignored.
+      - name: Link harness module scope
+        run: ln -s ../scripts/node_modules showcase/harness/node_modules
+      - name: Generate registry and bundled content
+        working-directory: showcase/shell-docs
+        run: npm run pretypecheck
+      # Scoped to these five files on purpose. The whole shell-docs suite is
+      # not green on main, so running it here would gate every prompt change on
+      # unrelated failures.
+      - name: Check the docs feature prompts reach a feature route
+        working-directory: showcase/shell-docs
+        run: |
+          npm exec -- vitest run \
+            src/lib/__tests__/learning-setup-docs.test.ts \
+            src/lib/__tests__/rich-threads-setup-docs.test.ts \
+            src/lib/__tests__/intelligence-quickstart-docs.test.ts \
+            src/components/__tests__/learning-setup-prompt.test.tsx \
+            src/components/__tests__/rich-threads-setup-prompt.test.tsx
 
   doc-tests:
     runs-on: depot-ubuntu-24.04-4

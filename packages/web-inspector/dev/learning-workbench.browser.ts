@@ -62,7 +62,7 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Copy setup prompt for Threads" }),
+    page.getByRole("button", { name: "Copy setup prompt for Learning" }),
   ).toBeVisible();
   await expect(
     page.locator('[data-inspector-locked-feature-talk="memory"]'),
@@ -161,7 +161,7 @@ test("provides a dedicated post-copy Learning setup state", async ({
     setup.getByRole("heading", { name: "Waiting for Learning setup" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Copy setup prompt for Threads" }),
+    page.getByRole("button", { name: "Copy setup prompt for Learning" }),
   ).toHaveCount(0);
 });
 
@@ -191,7 +191,7 @@ test("keeps the copied Learning setup state after a root workbench reload", asyn
   });
   await openWorkbenchState(page, "landing");
   await page
-    .getByRole("button", { name: "Copy setup prompt for Threads" })
+    .getByRole("button", { name: "Copy setup prompt for Learning" })
     .click();
 
   const setup = page.getByRole("region", { name: "Set up Learning" });
@@ -223,7 +223,7 @@ test("keeps the copied Learning setup state after a root workbench reload", asyn
       .first(),
   ).toHaveClass(/complete/);
   await expect(
-    page.getByRole("button", { name: "Copy setup prompt for Threads" }),
+    page.getByRole("button", { name: "Copy setup prompt for Learning" }),
   ).toHaveCount(0);
 });
 

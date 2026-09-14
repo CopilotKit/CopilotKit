@@ -504,9 +504,7 @@ const nextConfig: NextConfig = {
       // to /<page>. Specific entries first (they must win over the
       // catch-all), then the catch-all that strips the prefix.
       // ----------------------------------------------------------------
-      // BIA's AG-UI backend page lives at /backend/ag-ui at the root —
-      // the bare /ag-ui segment is owned by the AG-UI protocol docs
-      // (src/app/ag-ui/), so the page can't keep its old slug.
+      // BIA's AG-UI backend page lives at /backend/ag-ui at the root.
       {
         source: "/built-in-agent/ag-ui",
         destination: "/backend/ag-ui",

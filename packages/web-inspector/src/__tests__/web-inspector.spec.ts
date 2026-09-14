@@ -2003,6 +2003,7 @@ type RuntimeEntitlementDiagnostics = NonNullable<
 >;
 
 type HeaderMockCore = {
+  intelligence: { wsUrl: string };
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
@@ -2052,6 +2053,7 @@ function createHeaderMockCore(
     globalThis.fetch(...args),
   );
   const core: HeaderMockCore = {
+    intelligence: { wsUrl: "" },
     agents,
     context: {},
     properties: {},
@@ -2258,7 +2260,8 @@ test.each([
         entitlementSource: "clerk_subscription",
       },
     },
-    lockedHeading: "Renew Intelligence to inspect Threads.",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "expired self-hosted entitlement",
@@ -2273,7 +2276,8 @@ test.each([
         traceId: "trace-expired",
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "misconfigured self-hosted entitlement",
@@ -2286,7 +2290,8 @@ test.each([
         retryable: false,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "unavailable managed entitlement",
@@ -2299,7 +2304,8 @@ test.each([
         retryable: true,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "SDK fail-soft entitlement lookup",
@@ -2312,7 +2318,8 @@ test.each([
         retryable: true,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ] as const)(
   "keeps the unified locked splash for $diagnostic",
@@ -2359,7 +2366,7 @@ test("keeps the unified locked splash for an expired legacy license", async () =
     );
     expect(diagnostics).toHaveLength(0);
     expect(inspector.shadowRoot?.textContent ?? "").toContain(
-      "Renew Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
   } finally {
     fixture.teardown();
@@ -2386,7 +2393,7 @@ test.each([
     diagnostics: { licenseStatus: "expired" },
   },
 ] as const)(
-  "keeps Threads available for $diagnostic when the Runtime advertises list capability",
+  "shows setup for $diagnostic without Intelligence while still requesting local Threads",
   async ({ diagnostics }) => {
     const fixture = setupRuntimeDiagnostics();
 
@@ -2402,10 +2409,14 @@ test.each([
       ).find((button) => button.textContent?.trim() === "Threads");
       expect(threadsButton).toBeDefined();
       await vi.waitFor(() => {
-        expect(threadListText(inspector)).toContain("Realtime thread sync");
+        expect(
+          inspector.shadowRoot?.querySelector(
+            '[data-inspector-locked-feature="threads"]',
+          ),
+        ).not.toBeNull();
       });
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
-        "Threads are persistent, inspectable conversations",
+        "Production-grade chat threads without the complexity. Self hostable.",
       );
       expect(inspector.shadowRoot?.textContent ?? "").not.toContain(
         "Enable Intelligence to inspect Threads.",
@@ -2432,12 +2443,14 @@ test.each([
       },
       licenseStatus: "expired",
     },
-    lockedHeading: "Renew Intelligence to inspect Threads.",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "legacy valid license",
     diagnostics: { licenseStatus: "valid" },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ] as const)(
   "keeps Threads unavailable for $diagnostic when the Runtime omits list capability",
@@ -3582,8 +3595,12 @@ describe("WebInspectorElement memories — view states", () => {
     expect(landing?.textContent).toContain(
       "Turn every interaction into reusable context.",
     );
+    // The Learning pane asks for Learning. It used to borrow the Threads
+    // target, so this button copied a Threads prompt and announced itself as
+    // one, on a page headed "Turn every interaction into reusable context"
+    // (OSS-1151).
     const copy = landing?.querySelector<HTMLButtonElement>(
-      '[data-inspector-feature-setup-prompt="threads"]',
+      '[data-inspector-feature-setup-prompt="memory"]',
     );
     expect(copy).not.toBeNull();
     copy?.click();
@@ -3595,6 +3612,13 @@ describe("WebInspectorElement memories — view states", () => {
         agentId: null,
       });
     });
+    // What the developer actually pastes. `add-learning` refuses cleanly
+    // through `feature/stop` when a prerequisite is missing, which is why the
+    // route beats this pane guessing at one.
+    expect(String(writeText.mock.calls[0]?.[0])).toContain(
+      "--intent add-learning",
+    );
+    expect(copy?.getAttribute("aria-label")).toContain("Learning");
     expect(internals.selectedMenu).toBe("memories");
     await el.updateComplete;
     const view = el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
@@ -3895,7 +3919,7 @@ describe("WebInspectorElement memories — view states", () => {
     const preview = learningPreview(el);
 
     expect(
-      preview.querySelector('[data-inspector-feature-setup-prompt="threads"]'),
+      preview.querySelector('[data-inspector-feature-setup-prompt="memory"]'),
     ).not.toBeNull();
     expect(preview.textContent).toContain("Copy setup prompt");
   });
