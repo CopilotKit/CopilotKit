@@ -1,22 +1,24 @@
-import {
+import type {
   Binding,
   ComponentRef,
   EmbeddedViewRef,
-  TemplateRef,
   Type,
   ViewContainerRef,
+} from "@angular/core";
+import {
+  TemplateRef,
   inject,
   inputBinding,
   outputBinding,
   reflectComponentType,
 } from "@angular/core";
-import {
+import type {
   SlotValue,
   SlotOutputs,
   RenderSlotOptions,
   SlotRegistryEntry,
-  SLOT_CONFIG,
 } from "./slot.types";
+import { SLOT_CONFIG } from "./slot.types";
 
 /**
  * Returns the component inputs that should be bound for the current context.

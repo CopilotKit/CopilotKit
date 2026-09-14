@@ -12,6 +12,7 @@ import {
   finalizeRunEvents,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
+  logger,
 } from "@copilotkit/shared";
 import type { Channel } from "phoenix";
 import { Socket } from "phoenix";
@@ -47,6 +48,11 @@ interface ThreadState {
   hasJoined: boolean;
   supportsRunnerEventBatch: boolean;
   producerFinished: boolean;
+  cancellation: Promise<void>;
+  cancelRun: () => void;
+  completion: Promise<boolean>;
+  resolveCompletion: (completed: boolean) => void;
+  stopTimer: ReturnType<typeof setTimeout> | null;
   pendingEvents: Map<
     string,
     { payload: Record<string, unknown>; queuedAt: number }
@@ -235,6 +241,14 @@ export class IntelligenceAgentRunner extends AgentRunner {
         run_id: input.runId,
       });
 
+      let cancelRun!: () => void;
+      const cancellation = new Promise<void>((resolve) => {
+        cancelRun = resolve;
+      });
+      let resolveCompletion!: (completed: boolean) => void;
+      const completion = new Promise<boolean>((resolve) => {
+        resolveCompletion = resolve;
+      });
       const state: ThreadState = {
         threadId,
         runId: input.runId,
@@ -249,6 +263,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
         hasJoined: false,
         supportsRunnerEventBatch: false,
         producerFinished: false,
+        cancellation,
+        cancelRun,
+        completion,
+        resolveCompletion,
+        stopTimer: null,
         pendingEvents: new Map(),
         activeEventBatch: null,
         nextEventPushAttempt: 0,
@@ -258,7 +277,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
         socketReconnectWatchdog: null,
         eventRetryAttempt: 0,
         completeRun: () => observer.complete(),
-        failRun: (error) => observer.error(error),
+        failRun: (error) => {
+          startupBoundary?.rejectStartup(error);
+          observer.error(error);
+        },
       };
       this.threads.set(threadId, state);
 
@@ -324,7 +346,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
           payload.type === EventType.CUSTOM &&
           (payload as BaseEvent & { name?: string }).name === "stop"
         ) {
-          this.stop({ threadId, runId: state.runId });
+          this.stop({ threadId, runId: state.runId }).catch((error) => {
+            logger.error(
+              { err: error, threadId, runId: state.runId },
+              "Failed to stop Intelligence run",
+            );
+          });
         }
       });
 
@@ -472,6 +499,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return Promise.resolve(state?.isRunning ?? false);
   }
 
+  /** Stops this run and waits until its terminal events have been acknowledged. */
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
     const state = this.threads.get(request.threadId);
     if (!state || !state.isRunning || state.stopRequested) {
@@ -483,16 +511,51 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     state.stopRequested = true;
 
+    // Fence output before abort: adapters may emit synchronously, throw, or
+    // ignore cancellation. Finalization must not depend on their cooperation.
+    state.cancelRun();
+    state.stopTimer = setTimeout(() => {
+      this.failThread(
+        state.threadId,
+        state,
+        new Error("Timed out stopping Intelligence run"),
+      );
+    }, EVENT_DURABILITY_DEADLINE_MS);
+
     // Direct local abort — the runtime is the authority.
     if (state.agent) {
       try {
         state.agent.abortRun();
       } catch {
-        // Ignore abort errors.
+        // The local run is still fenced and must deliver its terminal events.
+      }
+      // Older AG-UI agents may not expose detachActiveRun. The cancellation
+      // race still finalizes their run without waiting for the producer.
+      if (typeof state.agent.detachActiveRun === "function") {
+        try {
+          Promise.resolve(state.agent.detachActiveRun()).catch((error) => {
+            logger.warn(
+              { err: error, threadId: state.threadId, runId: state.runId },
+              "Failed to detach stopped agent",
+            );
+          });
+        } catch (error) {
+          logger.warn(
+            { err: error, threadId: state.threadId, runId: state.runId },
+            "Failed to detach stopped agent",
+          );
+        }
       }
     }
 
-    return Promise.resolve(true);
+    return state.completion.then((completed) => {
+      if (!completed) {
+        throw new Error(
+          "Intelligence run stopped before terminal events were acknowledged",
+        );
+      }
+      return true;
+    });
   }
 
   private async executeAgentRun(
@@ -566,19 +629,26 @@ export class IntelligenceAgentRunner extends AgentRunner {
     };
 
     try {
-      await request.agent.runAgent(request.input, {
-        onEvent: ({ event }: { event: BaseEvent }) => {
-          if (event.type === EventType.RUN_STARTED) {
-            pushCanonicalEvent(buildRunStartedEvent(event as RunStartedEvent));
-            return;
-          }
+      if (state.stopRequested) return;
+      await Promise.race([
+        request.agent.runAgent(request.input, {
+          onEvent: ({ event }: { event: BaseEvent }) => {
+            if (state.stopRequested || state.producerFinished) return;
+            if (event.type === EventType.RUN_STARTED) {
+              pushCanonicalEvent(
+                buildRunStartedEvent(event as RunStartedEvent),
+              );
+              return;
+            }
 
-          ensureRunStarted();
-          pushCanonicalEvent(event);
-        },
-      });
+            ensureRunStarted();
+            pushCanonicalEvent(event);
+          },
+        }),
+        state.cancellation,
+      ]);
     } catch (error) {
-      if (!this.isCurrentThreadState(threadId, state)) {
+      if (state.stopRequested || !this.isCurrentThreadState(threadId, state)) {
         return;
       }
       ensureRunStarted();
@@ -883,7 +953,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    this.removeThread(threadId, state);
+    this.removeThread(threadId, state, true);
     state.completeRun();
   }
 
@@ -1000,7 +1070,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
    * Idempotent — safe to call multiple times for the same threadId
    * (e.g. from join error handlers, finalize, and Observable teardown).
    */
-  private removeThread(threadId: string, state: ThreadState): void {
+  private removeThread(
+    threadId: string,
+    state: ThreadState,
+    completed = false,
+  ): void {
     if (this.threads.get(threadId) !== state) {
       return;
     }
@@ -1008,6 +1082,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
     // Delete first so concurrent calls see the entry as already removed.
     this.threads.delete(threadId);
     state.isRunning = false;
+    state.resolveCompletion(completed);
+    if (state.stopTimer !== null) {
+      clearTimeout(state.stopTimer);
+      state.stopTimer = null;
+    }
     this.clearPendingEventRetry(state);
     this.clearPendingEventFlush(state);
     if (state.eventDeadlineTimer !== null) {
