@@ -25,7 +25,7 @@ export type WebMCPRegisteredTool = {
 /**
  * Filters for importing page WebMCP tools into CopilotKit.
  *
- * Applied in order: allow, then deny, then `name`. Deny wins when a name is
+ * Applied in order: allow, then deny, then `filter`. Deny wins when a name is
  * on both lists. With no filters, every same-origin tool that has a name
  * and a description is imported.
  */
@@ -36,8 +36,8 @@ export type WebMCPToolsOptions = {
   allow?: readonly string[];
   /** These names are never imported. */
   deny?: readonly string[];
-  /** Keep an exact name, or names that match this regular expression. */
-  name?: string | RegExp;
+  /** Return true to import this page tool. Applied after allow and deny. */
+  filter?: (tool: WebMCPRegisteredTool) => boolean;
 };
 
 /**
@@ -461,22 +461,10 @@ function shouldImportPageTool(
   if (options.deny?.includes(toolName)) {
     return false;
   }
-  return matchesNameFilter(toolName, options.name);
-}
-
-function matchesNameFilter(
-  toolName: string,
-  name: string | RegExp | undefined,
-) {
-  if (name === undefined) {
-    return true;
+  if (options.filter && !options.filter(pageTool)) {
+    return false;
   }
-  if (typeof name === "string") {
-    return toolName === name;
-  }
-  // Clone without g/y so test() does not move lastIndex on the caller's regex.
-  const stateless = new RegExp(name.source, name.flags.replace(/[gy]/g, ""));
-  return stateless.test(toolName);
+  return true;
 }
 
 function hasExactTool(host: WebMCPToolHost, name: string, agentId?: string) {

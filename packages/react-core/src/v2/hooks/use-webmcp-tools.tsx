@@ -5,22 +5,12 @@ import { useCopilotKit } from "../context";
 
 export type { WebMCPToolsOptions };
 
-function nameWatchKey(name: WebMCPToolsOptions["name"]) {
-  if (name instanceof RegExp) {
-    return `re:/${name.source}/${name.flags}`;
-  }
-  if (name === undefined) {
-    return "";
-  }
-  return `str:${name}`;
-}
-
 /**
  * Import page WebMCP tools from `document.modelContext.getTools()` so a
  * CopilotKit agent can call them.
  *
  * With no filters, every same-origin tool that has a name and a description
- * is imported. Filter order is allow, then deny, then `name`. Tools this
+ * is imported. Filter order is allow, then deny, then `filter`. Tools this
  * app already published with `useFrontendTool({ webmcp: true })` are skipped.
  * Missing `document.modelContext` is a no-op.
  *
@@ -42,7 +32,6 @@ export function useWebmcpTools(options: WebMCPToolsOptions = {}) {
   const { copilotkit } = useCopilotKit();
   const allowKey = JSON.stringify(options.allow ?? null);
   const denyKey = JSON.stringify(options.deny ?? null);
-  const nameKey = nameWatchKey(options.name);
 
   useLayoutEffect(() => {
     const consumer = new WebMCPConsumer(copilotkit);
@@ -50,13 +39,13 @@ export function useWebmcpTools(options: WebMCPToolsOptions = {}) {
       agentId: options.agentId,
       allow: options.allow,
       deny: options.deny,
-      name: options.name,
+      filter: options.filter,
     });
     return () => {
       consumer.stop();
     };
-    // allow/deny/name are represented by allowKey/denyKey/nameKey so object
-    // identity does not re-register on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- serialized filter keys
-  }, [copilotkit, options.agentId, allowKey, denyKey, nameKey]);
+    // allow/deny are serialized so array identity does not re-register.
+    // filter is compared by function identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- serialized allow/deny keys
+  }, [copilotkit, options.agentId, allowKey, denyKey, options.filter]);
 }

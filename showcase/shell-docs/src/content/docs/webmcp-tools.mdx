@@ -12,7 +12,7 @@ Call `useWebmcpTools` (React and Vue) or `registerWebmcpTools` (Angular). Copilo
 
 1. Keep the page tools registered on `document.modelContext` (they need a description).
 2. Mount the import API inside `CopilotKitProvider`.
-3. Filter with `allow`, `deny`, and `name` if you do not want every same-origin tool.
+3. Filter with `allow`, `deny`, and `filter` if you do not want every same-origin tool.
 4. Pass `agentId` when the tools belong to one agent.
 
 ```tsx title="page.tsx"
@@ -48,7 +48,7 @@ registerWebmcpTools({
 });
 ```
 
-With no filters, every same-origin page tool that has a name and a description is imported. Filter order is allow, then deny, then `name` (`name` is an exact string or a `RegExp`). Deny wins if a name is on both lists.
+With no filters, every same-origin page tool that has a name and a description is imported. Filter order is allow, then deny, then `filter`. `filter` receives the page tool and returns true to import it. Deny wins if a name is on both lists.
 
 The import is a no-op where `document.modelContext` is missing (SSR, React Native, browsers without WebMCP). Unmount (or injector destroy) removes only the tools this call added.
 
