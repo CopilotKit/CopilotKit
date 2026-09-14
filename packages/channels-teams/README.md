@@ -36,13 +36,20 @@ This self-hosted adapter remains fully supported. Choose it when you want the pr
 
 ```sh
 pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
-pnpm add @microsoft/agents-hosting @microsoft/agents-activity express
+pnpm add @microsoft/agents-hosting @microsoft/agents-activity
 ```
 
-The Microsoft 365 Agents SDK packages and `express` are **optional peer
-dependencies**, so they are not installed for you. Add them as shown above —
-this adapter is the self-hosted path, and it needs the SDK to run the Teams
-ingress and `express` to serve `POST /api/messages`.
+The Microsoft 365 Agents SDK packages are **optional peer dependencies**, so
+they are not installed for you. Add them as shown above — this adapter is the
+self-hosted path, and it needs them to run the Teams ingress.
+
+`express` is an optional peer too, but you only need it if you use the built-in
+listener, `createTeamsServer`. It is loaded lazily inside `start()`, so a bot
+that serves `POST /api/messages` from its own HTTP server does not install it:
+
+```sh
+pnpm add express   # only for createTeamsServer
+```
 
 They are optional because the managed path does not need them. Managed Channels
 reach this package only through the `./render` subpath, which never touches the

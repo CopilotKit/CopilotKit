@@ -19,7 +19,6 @@
     "@copilotkit/runtime": "workspace:*",
     "@microsoft/agents-activity": "^1.5.3",
     "@microsoft/agents-hosting": "^1.5.3",
-    "express": "^4.21.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
