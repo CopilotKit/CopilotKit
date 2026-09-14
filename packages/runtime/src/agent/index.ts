@@ -2,7 +2,7 @@ import type {
   BaseEvent,
   RunAgentInput,
   Message,
-  InputContent,
+  ContentPart,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
@@ -18,6 +18,7 @@ import type {
   RunErrorEvent,
   Interrupt,
   ResumeEntry,
+  ToolMessage,
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
@@ -174,6 +175,56 @@ export interface MCPClientProvider {
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
+
+/**
+ * An AG-UI tool result as the AI SDK's tool result output.
+ *
+ * Providers hold one response per tool call, and the Google adapter emits one
+ * functionResponse per text entry of a content list, so all of a result's text
+ * is collected into a single entry: text parts run together, and a
+ * URL-referenced part contributes the URL it carries on a line of its own —
+ * the bytes are not here to hand over, and the reference is the content the
+ * tool actually returned. A result with no inline media is that text alone.
+ * One with inline media is a content list: the text entry first, when there is
+ * any, then each media part with its bytes and media type. A media-only result
+ * is media alone: a placeholder text would be content the tool never returned.
+ * Which adapters can place media inside a tool response is theirs to decide.
+ */
+function toolResultOutput(
+  content: ToolMessage["content"],
+): ToolResultPart["output"] {
+  if (typeof content === "string") return { type: "text", value: content };
+  const segments: string[] = [];
+  const media: Array<{ type: "media"; data: string; mediaType: string }> = [];
+  let open = false; // whether the last segment is text still being appended to
+  for (const part of content) {
+    if (part.type === "text") {
+      if (open) segments[segments.length - 1] += part.text;
+      else segments.push(part.text);
+      open = true;
+    } else if (part.source.type === "url") {
+      segments.push(part.source.value);
+      open = false;
+    } else {
+      media.push({
+        type: "media",
+        data: part.source.value,
+        mediaType: part.source.mimeType,
+      });
+      open = false;
+    }
+  }
+  const text = segments.join("\n");
+  if (media.length === 0) return { type: "text", value: text };
+  return {
+    type: "content",
+    value: [
+      ...(text.length > 0 ? [{ type: "text" as const, text }] : []),
+      ...media,
+    ],
+  };
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
@@ -349,7 +400,7 @@ type LegacyBinaryInputContent = {
  * and legacy BinaryInputContent for backward compatibility.
  */
 function convertUserMessageContent(
-  content: string | Array<InputContent | LegacyBinaryInputContent>,
+  content: string | Array<ContentPart | LegacyBinaryInputContent>,
 ): string | Array<TextPart | ImagePart | FilePart> {
   if (!content) {
     return "";
@@ -553,10 +604,7 @@ export function convertMessagesToVercelAISDKMessages(
         type: "tool-result",
         toolCallId: message.toolCallId,
         toolName: toolName,
-        output: {
-          type: "text",
-          value: message.content,
-        },
+        output: toolResultOutput(message.content),
       };
 
       const toolMsg: ToolModelMessage = {

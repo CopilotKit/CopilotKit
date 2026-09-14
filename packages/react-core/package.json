@@ -75,8 +75,8 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@390d432a0ed01ca4ddcee8165b6c6f7f22045c4e",
-    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@390d432a0ed01ca4ddcee8165b6c6f7f22045c4e",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@d8d4b3c13b4600504eb23d211769348f559d1e93",
+    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@d8d4b3c13b4600504eb23d211769348f559d1e93",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/runtime-client-gql": "workspace:*",

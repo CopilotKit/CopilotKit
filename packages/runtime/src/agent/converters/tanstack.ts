@@ -16,7 +16,7 @@ import type {
   ReasoningMessageEndEvent,
   ReasoningEndEvent,
 } from "@ag-ui/client";
-import { EventType } from "@ag-ui/client";
+import { contentToText, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
 import {
@@ -267,9 +267,13 @@ export function convertInputToTanStackAI(
         content:
           m.role === "user"
             ? convertUserContent(m.content)
-            : typeof m.content === "string"
-              ? m.content
-              : null,
+            : m.role === "tool"
+              ? // A tool result is a string or a list of parts; TanStack takes
+                // text here, so the text parts are concatenated.
+                contentToText(m.content)
+              : typeof m.content === "string"
+                ? m.content
+                : null,
       };
       if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
         msg.toolCalls = m.toolCalls.map((tc) => ({
