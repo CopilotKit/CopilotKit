@@ -177,60 +177,52 @@ export interface MCPClientProvider {
  */
 
 /**
- * An AG-UI tool result as the AI SDK's tool result output. A string is text,
- * and so is a result made only of text parts, concatenated: providers hold
- * one response per tool call, and the Google adapter in particular emits one
- * functionResponse per text entry of a content list, so text is never split
- * across entries. A result carrying media becomes a content list in which
- * adjacent text parts are merged, inline media rides as media with its bytes
- * and media type, and a URL-referenced part rides as the URL it carries — the
- * bytes are not here to hand over, and the reference is the content the tool
- * actually returned. Nothing is invented for what cannot be represented, and
- * an empty list is the empty result it is.
+ * An AG-UI tool result as the AI SDK's tool result output.
+ *
+ * Providers hold one response per tool call, and the Google adapter emits one
+ * functionResponse per text entry of a content list, so all of a result's text
+ * is collected into a single entry: text parts run together, and a
+ * URL-referenced part contributes the URL it carries on a line of its own —
+ * the bytes are not here to hand over, and the reference is the content the
+ * tool actually returned. A result with no inline media is that text alone.
+ * One with inline media is a content list: the text entry first, when there is
+ * any, then each media part with its bytes and media type. A media-only result
+ * is media alone: a placeholder text would be content the tool never returned.
+ * Which adapters can place media inside a tool response is theirs to decide.
  */
 function toolResultOutput(
   content: ToolMessage["content"],
 ): ToolResultPart["output"] {
   if (typeof content === "string") return { type: "text", value: content };
-  // What a part contributes as text: its text, or the URL it references.
-  const textOf = (part: ContentPart): string | undefined =>
-    part.type === "text"
-      ? part.text
-      : part.source.type === "url"
-        ? part.source.value
-        : undefined;
-  if (
-    !content.some((part) => part.type !== "text" && part.source.type === "data")
-  ) {
-    return {
-      type: "text",
-      value: content.map((part) => textOf(part) ?? "").join(""),
-    };
-  }
-  const value: Array<
-    | { type: "text"; text: string }
-    | { type: "media"; data: string; mediaType: string }
-  > = [];
+  const segments: string[] = [];
+  const media: Array<{ type: "media"; data: string; mediaType: string }> = [];
+  let open = false; // whether the last segment is text still being appended to
   for (const part of content) {
-    const text = textOf(part);
-    if (text !== undefined) {
-      const last = value[value.length - 1];
-      if (last?.type === "text") {
-        last.text += text;
-      } else {
-        value.push({ type: "text", text });
-      }
-      continue;
-    }
-    if (part.type !== "text" && part.source.type === "data") {
-      value.push({
+    if (part.type === "text") {
+      if (open) segments[segments.length - 1] += part.text;
+      else segments.push(part.text);
+      open = true;
+    } else if (part.source.type === "url") {
+      segments.push(part.source.value);
+      open = false;
+    } else {
+      media.push({
         type: "media",
         data: part.source.value,
         mediaType: part.source.mimeType,
       });
+      open = false;
     }
   }
-  return { type: "content", value };
+  const text = segments.join("\n");
+  if (media.length === 0) return { type: "text", value: text };
+  return {
+    type: "content",
+    value: [
+      ...(text.length > 0 ? [{ type: "text" as const, text }] : []),
+      ...media,
+    ],
+  };
 }
 
 export function resolveModel(

@@ -204,13 +204,15 @@ function isContentPart(part: unknown): boolean {
   if (typeof record.type !== "string" || !MEDIA_PART_TYPES.has(record.type))
     return false;
   const source = record.source as
-    | { type?: unknown; value?: unknown }
+    | { type?: unknown; value?: unknown; mimeType?: unknown }
     | undefined;
+  if (typeof source !== "object" || source === null) return false;
+  if (typeof source.value !== "string") return false;
+  // Inline bytes need their type; a URL may leave it to the response.
+  if (source.type === "data") return typeof source.mimeType === "string";
   return (
-    typeof source === "object" &&
-    source !== null &&
-    (source.type === "data" || source.type === "url") &&
-    typeof source.value === "string"
+    source.type === "url" &&
+    (source.mimeType === undefined || typeof source.mimeType === "string")
   );
 }
 

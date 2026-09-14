@@ -456,6 +456,19 @@ describe("CopilotChat tool-result content", () => {
     expect(String(warn.mock.calls[0]?.[0])).toContain("tc1");
   });
 
+  it("serialises a media part whose inline source lacks its mime type, and warns", () => {
+    // Inline bytes without a mimeType is a malformed part, not a part: the
+    // schema rejects it, so it keeps the serialise-and-warn path.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([
+      { type: "image", source: { type: "data", value: "abc" } },
+    ]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|[{"type":"image","source":{"type":"data","value":"abc"}}]',
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("serialises an ARRAY of typed records that are not content parts, and warns", () => {
     // A `type` field alone does not make a part. Restored or unvalidated
     // content like this used to be serialised and warned about, and must not

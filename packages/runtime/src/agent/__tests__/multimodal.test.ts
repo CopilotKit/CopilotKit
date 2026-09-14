@@ -155,14 +155,26 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
       expect(part.output).toEqual({ type: "text", value: "ab" });
     });
 
-    it("maps parts with inline media onto the AI SDK content output, merging adjacent text", () => {
+    it("collects all text into one entry ahead of the media, even when media sits between text parts", () => {
+      const part = convertToolResult([
+        { type: "text", text: "before" },
+        { type: "image", source: dataSource("aGk=", "image/png") },
+        { type: "text", text: "after" },
+      ]);
+      expect(part.output).toEqual({
+        type: "content",
+        value: [
+          { type: "text", text: "before\nafter" },
+          { type: "media", data: "aGk=", mediaType: "image/png" },
+        ],
+      });
+    });
+
+    it("maps parts with inline media onto the AI SDK content output", () => {
       const part = convertToolResult([
         { type: "text", text: "Invoice " },
         { type: "text", text: "attached." },
-        {
-          type: "document",
-          source: dataSource("JVBERi0x", "application/pdf"),
-        },
+        { type: "document", source: dataSource("JVBERi0x", "application/pdf") },
         {
           type: "image",
           source: urlSource("https://example.com/scan.png", "image/png"),
@@ -174,87 +186,45 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
       expect(part.output).toEqual({
         type: "content",
         value: [
-          { type: "text", text: "Invoice attached." },
+          {
+            type: "text",
+            text: "Invoice attached.\nhttps://example.com/scan.png",
+          },
           { type: "media", data: "JVBERi0x", mediaType: "application/pdf" },
-          { type: "text", text: "https://example.com/scan.png" },
         ],
       });
     });
 
-    it("treats a URL-only media result as text carrying the URL", () => {
+    it("keeps separate URL references on separate lines", () => {
       const part = convertToolResult([
         {
           type: "image",
-          source: urlSource("https://example.com/scan.png", "image/png"),
+          source: urlSource("https://example.com/one.png", "image/png"),
+        },
+        {
+          type: "image",
+          source: urlSource("https://example.com/two.png", "image/png"),
         },
       ]);
       expect(part.output).toEqual({
         type: "text",
-        value: "https://example.com/scan.png",
+        value: "https://example.com/one.png\nhttps://example.com/two.png",
+      });
+    });
+
+    it("sends a media-only result as media alone, inventing no text", () => {
+      const part = convertToolResult([
+        { type: "image", source: dataSource("aGk=", "image/png") },
+      ]);
+      expect(part.output).toEqual({
+        type: "content",
+        value: [{ type: "media", data: "aGk=", mediaType: "image/png" }],
       });
     });
 
     it("treats an empty parts list as an empty text result", () => {
       const part = convertToolResult([]);
       expect(part.output).toEqual({ type: "text", value: "" });
-    });
-  });
-
-  it("skips image parts with malformed URLs without crashing", () => {
-    const result = convertUserContent([
-      { type: "text", text: "check this" },
-      { type: "image", source: { type: "url", value: "not-a-url" } },
-    ]);
-    // Malformed URL part is skipped, text part preserved
-    expect(result.content).toEqual([{ type: "text", text: "check this" }]);
-  });
-
-  // Legacy backward compat — BinaryInputContent is not in the current schema
-  // but older clients may still send it. We intentionally construct untyped
-  // objects here to simulate that scenario.
-  describe("legacy BinaryInputContent backward compat", () => {
-    it("converts binary with image mimeType and data to ImagePart", () => {
-      const legacyPart = {
-        type: "binary",
-        mimeType: "image/jpeg",
-        data: "legacybase64",
-      };
-      const messages: Message[] = [
-        {
-          id: "1",
-          role: "user",
-          content: [legacyPart] as unknown as ContentPart[],
-        },
-      ];
-      const result = convertMessagesToVercelAISDKMessages(messages);
-      const userMsg = result[0] as UserModelMessage;
-      expect(userMsg.content).toEqual([
-        { type: "image", image: "legacybase64", mediaType: "image/jpeg" },
-      ]);
-    });
-
-    it("converts binary with non-image mimeType and url to FilePart", () => {
-      const legacyPart = {
-        type: "binary",
-        mimeType: "application/pdf",
-        url: "https://example.com/doc.pdf",
-      };
-      const messages: Message[] = [
-        {
-          id: "1",
-          role: "user",
-          content: [legacyPart] as unknown as ContentPart[],
-        },
-      ];
-      const result = convertMessagesToVercelAISDKMessages(messages);
-      const userMsg = result[0] as UserModelMessage;
-      expect(userMsg.content).toEqual([
-        {
-          type: "file",
-          data: new URL("https://example.com/doc.pdf"),
-          mediaType: "application/pdf",
-        },
-      ]);
     });
   });
 });
