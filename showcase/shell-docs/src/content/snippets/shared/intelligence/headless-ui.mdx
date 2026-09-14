@@ -18,25 +18,14 @@ import {
 
 CopilotKit offers **fully headless UI** through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces from the ground up while still utilizing CopilotKit's core features and ease-of-use.
 
-<Callout type="info">
-Fully Headless UI is available through CopilotKit Intelligence. Use cloud-hosted CopilotKit Intelligence or a self-hosted license to unlock it.
-</Callout>
-
-<OpsPlatformCTA
-  variant="card"
-  title="Headless UI requires a CopilotKit Intelligence license key"
-  body="Sign up for a free account to get a publicLicenseKey and unlock the headless hooks."
-  ctaLabel="Create a free account"
-  surface="docs_intelligence_headless_ui"
-/>
-
 <Callout type="warn">
+  **This guide applies to self-hosted and OSS projects only.**
   `useCopilotChatHeadless_c` checks for a `publicLicenseKey` on the provider and
   returns a non-functional fallback without one. Managed Intelligence projects
   are issued a project-scoped `CPK_INTELLIGENCE_API_KEY` and no license key, so
   this hook is not available to them. If the CopilotKit CLI created your
-  project, build your headless UI on the ungated primitives described in
-  [Fully Headless UI](/custom-look-and-feel/headless-ui) instead.
+  project, build your headless UI on the ungated v2 primitives described in
+  [Fully Headless UI](/built-in-agent/custom-look-and-feel/headless-ui) instead.
 </Callout>
 
 ## Navigation
@@ -85,22 +74,30 @@ This page has all the information you need to get started with CopilotKit's head
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/full-headless-chat.mp4"
-  style={{ width: "100%", borderRadius: "0.5rem", marginBottom: "1rem" }}
+  className="rounded-xl shadow-lg border"
   loop
   playsInline
   autoPlay
   muted
 />
 
+These steps need a `publicLicenseKey`. `npx copilotkit@latest create` creates a
+**managed** project, which receives `CPK_INTELLIGENCE_API_KEY` and no license
+key, so do not follow this section for a CLI-scaffolded project. Use
+[Fully Headless UI](/built-in-agent/custom-look-and-feel/headless-ui) instead.
+
 <Steps>
 <Step>
 ### Create a new application
 
-Scaffold a new CopilotKit project using the CLI:
+Scaffold a self-hosted or OSS CopilotKit project:
 
 ```bash
 npx copilotkit@latest create
 ```
+
+Then [self-host the Runtime](/intelligence/self-hosting) and get a free public
+license key for the provider.
 </Step>
 
 <Step>
@@ -123,7 +120,7 @@ Use `useCopilotChatHeadless_c` to access messages, a send function, and loading 
 ```tsx title="src/app/page.tsx"
 "use client";
 import { useState } from "react";
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core/v2";
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
 
 export default function Home() {
   const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();
@@ -176,11 +173,21 @@ export default function Home() {
 
 You can render generative UI either via `useFrontendTool` / `useComponent`, or by reading tools and rendering them directly.
 
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/gen-ui.mp4"
+  className="rounded-xl shadow-lg border"
+  loop
+  playsInline
+  autoPlay
+  muted
+/>
+
 ### With `useFrontendTool`
 
 Register a frontend tool and attach a render function. CopilotKit inserts your component wherever that tool call appears in the message stream:
 
 ```tsx title="src/app/components/chat.tsx"
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
 import { useFrontendTool } from "@copilotkit/react-core/v2";
 
 export const Chat = () => {
@@ -224,6 +231,8 @@ export const Chat = () => {
 If you don't want to use `useFrontendTool`, render the raw data directly:
 
 ```tsx title="src/app/components/chat.tsx"
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+
 export const Chat = () => {
   const { messages } = useCopilotChatHeadless_c();
 
@@ -248,6 +257,15 @@ export const Chat = () => {
 
 CopilotKit's suggestions give users a list of generated or static prompts. The headless hook exposes full control over the lifecycle.
 
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/suggestions.mp4"
+  className="rounded-xl shadow-lg border"
+  loop
+  playsInline
+  autoPlay
+  muted
+/>
+
 ### Generating suggestions
 
 Use `useCopilotChatSuggestions` to generate and display prompt suggestions in your headless UI:
@@ -256,7 +274,7 @@ Use `useCopilotChatSuggestions` to generate and display prompt suggestions in yo
 import {
   useCopilotChatHeadless_c,
   useCopilotChatSuggestions,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useEffect } from "react";
 
 export const Chat = () => {
@@ -313,15 +331,38 @@ useEffect(() => {
 
 Human-in-the-loop (HITL) pauses the chat and waits for the user's input. It comes in two flavors: **tool-based** and **interrupt-based** (certain frameworks only).
 
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/hitl.mp4"
+  className="rounded-xl shadow-lg border"
+  loop
+  playsInline
+  autoPlay
+  muted
+/>
+
 ### Tool-based
 
 Tool-based HITL pauses tool execution until the user responds. The response becomes the tool's result.
 
 ```tsx title="src/app/components/chat.tsx"
-import {
-  useFrontendTool,
-  useCopilotChatHeadless_c,
-} from "@copilotkit/react-core/v2";
+import { useState } from "react";
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+const NameForm = ({ defaultName, onSubmit }) => {
+  const [name, setName] = useState(defaultName || "");
+
+  return (
+    <div>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Enter your name"
+      />
+      <button onClick={() => onSubmit?.(name)}>Submit</button>
+    </div>
+  );
+};
 
 export const Chat = () => {
   const { messages } = useCopilotChatHeadless_c();
@@ -331,16 +372,9 @@ export const Chat = () => {
     renderAndWaitForResponse: ({ respond, args, status }) => {
       if (status === "complete") return <div>Name retrieved…</div>;
 
-      return (
-        <div>
-          <input
-            value={args.name || ""}
-            onChange={(e) => respond?.(e.target.value)}
-            placeholder="Enter your name"
-          />
-          <button onClick={() => respond?.(args.name)}>Submit</button>
-        </div>
-      );
+      // `respond` resolves the pending tool call, so call it only on submit.
+      // Editing the field must not complete the turn on the first keystroke.
+      return <NameForm defaultName={args.name} onSubmit={respond} />;
     },
   });
 

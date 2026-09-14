@@ -136,9 +136,11 @@ organization's subscription. Managed project setup does not issue
 licensing and does not replace the managed project API key. If the CLI created
 your project, the key is already in `.env` and the drawer needs nothing further.
 
-**Self-hosted and OSS.** Set `COPILOTKIT_LICENSE_TOKEN` in the Runtime
-environment. Without it the drawer shows a locked view with an Upgrade link in
-place of the list, and it issues no thread requests.
+**Self-hosted and OSS.** Give the Runtime a license token, either as the
+`licenseToken` option or as the `COPILOTKIT_LICENSE_TOKEN` environment variable.
+The option wins when you set both. Without a token the drawer shows a locked
+view with an Upgrade link in place of the list, and it issues no thread
+requests.
 
 The locked view appears whenever the Runtime reports no active entitlement: a
 self-hosted deployment whose license token is missing or expired, or a managed
