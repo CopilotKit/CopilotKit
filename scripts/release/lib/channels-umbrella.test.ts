@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
@@ -176,5 +176,30 @@ describe("createConsumerWorkspaceYaml", () => {
       ...npmrc.matchAll(/^minimum-release-age-exclude\[\]=(.+)$/gm),
     ].map((match) => match[1]);
     expect([...RELEASE_AGE_EXCLUDE]).toEqual(fromNpmrc);
+  });
+
+  // The packed-consumer install runs in a temp dir, which never inherits the
+  // repo-root `.npmrc`, so this list is a second copy of the same policy. The
+  // two drifted once: `@ag-ui/mcp-middleware` was added to `.npmrc` alone, and
+  // a fresh publish then failed the age gate only inside the packed-runtime
+  // verification. Keep them identical.
+  it("matches the age-gate exemptions in the repo-root .npmrc", () => {
+    const root = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "..",
+      "..",
+    );
+    const npmrc = readFileSync(join(root, ".npmrc"), "utf8");
+    const fromNpmrc = npmrc
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("minimum-release-age-exclude[]="))
+      .map((line) =>
+        line.slice("minimum-release-age-exclude[]=".length).trim(),
+      );
+
+    expect(fromNpmrc.length).toBeGreaterThan(0);
+    expect([...fromNpmrc].sort()).toEqual([...RELEASE_AGE_EXCLUDE].sort());
   });
 });

@@ -338,6 +338,17 @@
     @apply cpk:overflow-x-auto cpk:border-t cpk:border-border cpk:p-4 cpk:text-sm;
   }
 
+  /* One <span> per source line inside the code body. streamdown gives each of
+     them the raw Tailwind utility `block` (no `data-streamdown` attribute), and
+     CopilotKit builds Tailwind with `prefix(cpk)`, so `.block` is never emitted
+     into the packaged CSS. Without it every line renders inline and the whole
+     block collapses onto one row (#3330). The <pre> keeps `white-space: pre`
+     from the UA stylesheet, but there are no newlines left in the text to
+     preserve — the line breaks come entirely from this display rule. */
+  [data-copilotkit] [data-streamdown="code-block-body"] > code > span {
+    @apply cpk:block;
+  }
+
   [data-copilotkit] [data-streamdown="code-block-copy-button"],
   [data-copilotkit] [data-streamdown="code-block-download-button"] {
     @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;

@@ -36,6 +36,9 @@ import type {
   RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
+import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
+import { deriveLearningViewState } from "./components/learning-view.js";
+import type { LearningViewState } from "./components/learning-view.js";
 import type {
   Anchor,
   ContextKey,
@@ -55,11 +58,14 @@ import {
 } from "./lib/context-helpers.js";
 import {
   clearLegacyAnnouncementReadState,
+  INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  loadInspectorDismissedUntil,
   loadAnnouncementPulsedTimestamp,
   loadAnnouncementReadTimestamp,
   loadInspectorState,
   saveAnnouncementPulsedTimestamp,
   saveAnnouncementReadTimestamp,
+  saveInspectorDismissedUntil,
   saveInspectorState,
   isValidAnchor,
   isValidPosition,
@@ -67,6 +73,18 @@ import {
   isValidDockMode,
 } from "./lib/persistence.js";
 import type { PersistedState } from "./lib/persistence.js";
+import {
+  clearLearningSetupMarker,
+  learningSetupMarkerMatches,
+  readLearningSetupMarker,
+  subscribeToLearningSetupMarker,
+  writeLearningSetupMarker,
+} from "./lib/learning-setup.js";
+import type { LearningSetupMarker } from "./lib/learning-setup.js";
+import {
+  fetchInspectorLearning,
+  InspectorLearningUnsupportedError,
+} from "./lib/inspector-learning.js";
 import {
   buildPopOutFeatures,
   ensureBrandFont,
@@ -86,6 +104,7 @@ import type {
   HomeHeroAction,
   HomeModel,
   HomeRuntimeHealthTone,
+  HomeServiceId,
 } from "./lib/home-briefing.js";
 import {
   INSPECTOR_GROUPS,
@@ -104,10 +123,20 @@ import {
   maybeShowDisclosure,
   trackErrorSignalViewed,
   trackHomeCtaClicked,
+  trackHomeFeaturePromptClicked,
   trackHomePromptCopied,
   trackHomeStoryBeatSelected,
   trackHomeViewed,
   trackInspectorOpened,
+  learningCountBucket,
+  learningDurationBucket,
+  trackLearningEvidenceOpened,
+  trackLearningPageChanged,
+  trackLearningPaneViewed,
+  trackLearningSetupPromptClicked,
+  trackLearningSkillToggled,
+  trackLearningSnapshotLoaded,
+  trackLearningWebAppOpened,
   trackMetadataActionClicked,
   trackMetadataModuleViewed,
   trackTalkToEngineerClicked,
@@ -131,6 +160,7 @@ import {
   trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import {
+  createFeatureOnboardingPrompt,
   createOnboardingPrompt,
   createOnboardingRunId,
 } from "./lib/onboarding-prompt.js";
@@ -176,6 +206,7 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  * "memories" for persistence and telemetry stability.
  */
 const LEARNING_VIEW_LABEL = "Learning";
+const LEARNING_RECOPY_CONFIRMATION_MS = 2_000;
 
 /**
  * User-facing label for the What's new view. Its menu key stays `whats-new`
@@ -361,24 +392,27 @@ const EVENT_ERROR_GUIDANCE: Readonly<
  */
 const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
-type LauncherHudRowId = "inspector" | "threads" | "intelligence" | "learning";
+type LauncherHudRowId = "threads" | "learning";
 
-const HUD_OPEN_INSPECTOR_LABEL = "Open Inspector";
-const HUD_THREADS_OFF_LABEL = "Turn on Threads";
-const HUD_THREADS_ON_LABEL = "Threads on";
-const HUD_INTELLIGENCE_OFF_LABEL = "Turn on Intelligence";
-const HUD_INTELLIGENCE_ON_LABEL = "Intelligence connected";
-const HUD_THREADS_OFF_DETAIL = "Inspect conversations from this app.";
-const HUD_THREADS_ON_DETAIL = "Threads is on. Opens the Threads view.";
-const HUD_INTELLIGENCE_OFF_DETAIL =
-  "Connect Intelligence to use Threads and Learning.";
-const HUD_INTELLIGENCE_ON_DETAIL = "Intelligence is connected. Opens Home.";
-const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
-const HUD_LEARNING_ON_LABEL = "Learning on";
-const HUD_LEARNING_OFF_DETAIL = "Connect Intelligence to use Learning.";
-const HUD_LEARNING_ON_DETAIL = "Learning is on. Opens the Learning view.";
-const HUD_OPEN_INSPECTOR_DETAIL =
-  "Same as clicking the circle. Opens the full Inspector.";
+const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
+const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
+const HUD_THREADS_LABEL = "Rich Threads";
+const HUD_LEARNING_LABEL = "Automatic Learning";
+const HUD_LEARN_MORE_LABEL = "Click to learn more";
+
+type InspectorDismissalDuration = "day" | "week";
+const INSPECTOR_DISMISSAL_MS: Readonly<
+  Record<InspectorDismissalDuration, number>
+> = {
+  day: 24 * 60 * 60 * 1000,
+  week: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+};
+
+type HomeFeaturePromptId = HomeServiceId;
+type HomeFeaturePromptTarget = Readonly<{
+  id: HomeFeaturePromptId;
+  label: string;
+}>;
 
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
@@ -577,22 +611,29 @@ type InspectorColorScheme = "light" | "dark";
 
 const EDGE_MARGIN = 16;
 /** HUD card plus the hover bridge. Used to pick left vs right. */
-const LAUNCHER_HUD_WIDTH = 248;
+const LAUNCHER_HUD_WIDTH = 258;
 /**
  * One page-load preview of the launcher's feature HUD.
  *
- * The card arrives after the host page has had a beat to settle. Its four rows
- * then come online in order, stay readable, and leave together. Nothing is
- * persisted: a new Inspector element means a new preview.
+ * The card arrives after the host page has had a beat to settle. Its feature
+ * contents then arrive from top to bottom, stay readable, and leave together.
+ * Nothing is persisted: a new Inspector element means a new preview.
  */
 const LAUNCHER_HUD_INTRO_MS = {
   delay: 500,
   duration: 3400,
-  rowStart: 180,
-  rowStagger: 170,
-  rowDuration: 300,
+  waterfallStart: 180,
+  waterfallStagger: 170,
+  waterfallDuration: 300,
   blockedRetry: 250,
 } as const;
+
+/** Return the staggered reveal delay for one launcher HUD layer. */
+const launcherHudWaterfallDelay = (introIndex: number): string =>
+  `${
+    LAUNCHER_HUD_INTRO_MS.waterfallStart +
+    introIndex * LAUNCHER_HUD_INTRO_MS.waterfallStagger
+  }ms`;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
@@ -627,20 +668,10 @@ const CAPABILITIES_TAB_LABEL = "Capabilities";
 function createPlaygroundThreadId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `playground-${Date.now()}`;
 }
+
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
-const THREADS_RUNTIME_SETUP_DOCS_URL =
-  "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
-const THREADS_RUNTIME_SETUP_PROMPT = [
-  `Read ${THREADS_RUNTIME_SETUP_DOCS_URL} and finish setting up Rich Threads in this repository.`,
-  "",
-  "First inspect the repository's agent instructions, installed CopilotKit versions, Runtime adapter, frontend provider, route or proxy setup, and existing authentication. Preserve the current framework and deployment model. Preserve existing authentication middleware and access checks on every Runtime route.",
-  "",
-  "Follow the guide to enable the multi-route Runtime, align the frontend transport, scope identifyUser to the existing server-verified signed-in application user, and expose the full Runtime subtree for GET, POST, PATCH, and DELETE. Never use a fixed demo identity in production. If no trusted user identity exists, stop and ask me which auth source to use.",
-  "",
-  "Start the app and verify GET {basePath}/info reports threadEndpoints.list, inspect, mutations, and realtimeMetadata as true. Run focused tests, lint, and typecheck. Report the files changed, commands run, and verification result. If blocked, explain the missing input; do not invent setup.",
-].join("\n");
 const SELF_HOSTED_INTELLIGENCE_URL =
-  "https://docs.copilotkit.ai/premium/self-hosting";
+  "https://docs.copilotkit.ai/intelligence/self-hosting";
 
 // ── The Intelligence story on Home ────────────────────────────────────────
 //
@@ -805,6 +836,67 @@ const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
   "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
+const THREADS_LOCKED_VIDEO_URL =
+  "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
+const LEARNING_LOCKED_VIDEO_URL =
+  "https://www.loom.com/embed/2978fbfe42324e509057ac5fd46b7a70?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
+type LockedFeatureOutlineItem = Readonly<{
+  icon: LucideIconName;
+  title: string;
+  description: string;
+}>;
+const THREADS_LOCKED_FEATURE_OUTLINE = [
+  {
+    icon: "MessagesSquare",
+    title: "The whole conversation comes back",
+    description:
+      "Rich Threads restores the complete interaction, not just a transcript. Messages, tool calls, shared state, generated interfaces, and supported files return together when a user reopens the thread.",
+  },
+  {
+    icon: "LayoutGrid",
+    title: "Generated UI stays in the thread",
+    description:
+      "Cards, charts, A2UI surfaces, MCP Apps, and tool renderers remain part of the conversation. The demo above shows a generated spending chart returning after a reload.",
+  },
+  {
+    icon: "RefreshCw",
+    title: "Return without starting over",
+    description:
+      "Users can move across sessions and devices while thread lists stay synchronized across open tabs. Rich Threads replays missed events and reconnects to work already in progress.",
+  },
+  {
+    icon: "Server",
+    title: "Infrastructure you do not have to rebuild",
+    description:
+      "CopilotKit handles durable event storage, replay, synchronization, lifecycle APIs, and thread locks on one portable AG-UI history model. Use CopilotKit Cloud or deploy Intelligence in your own Kubernetes environment.",
+  },
+] as const satisfies ReadonlyArray<LockedFeatureOutlineItem>;
+const LEARNING_LOCKED_FEATURE_OUTLINE = [
+  {
+    icon: "History",
+    title: "Memory across sessions",
+    description:
+      "Keep useful facts, preferences, and decisions after the thread closes. Learning gives future conversations the context they need without asking users to repeat themselves.",
+  },
+  {
+    icon: "Search",
+    title: "Recall by meaning",
+    description:
+      "Surface relevant memories by what they mean, not by an exact phrase. Your agent can bring the right context into a new interaction even when the user asks in a completely different way.",
+  },
+  {
+    icon: "Layers",
+    title: "Built-in structure",
+    description:
+      "Turn raw interactions into organized topical, episodic, and operational knowledge. Learning separates enduring facts from individual experiences and useful instructions automatically.",
+  },
+  {
+    icon: "Eye",
+    title: "Full visibility",
+    description:
+      "Inspect exactly what your agent learned and trace each memory back to the threads that shaped it. Review the stored context instead of treating memory like a black box.",
+  },
+] as const satisfies ReadonlyArray<LockedFeatureOutlineItem>;
 const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
   "cpk:inspector:threads-example-tour:v1";
 const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
@@ -815,7 +907,7 @@ type ThreadsExampleOverviewVideoState =
   | "ready"
   | "playing"
   | "failed";
-type ThreadsSetupPromptCopyState = "idle" | "copied" | "error";
+type HomeFeaturePromptCopyState = "idle" | "copied" | "error";
 type ThreadsExampleOverviewVideoListeners = Readonly<{
   loadeddata: EventListener;
   play: EventListener;
@@ -931,6 +1023,13 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "ACTIVITY_SNAPSHOT",
   "ACTIVITY_DELTA",
 ] as const;
+
+const THREADS_LOCKED_COPY = {
+  heading:
+    "Production-grade chat threads without the complexity. Self hostable.",
+  description:
+    "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
+} as const;
 
 type SanitizedValue =
   | string
@@ -4801,8 +4900,8 @@ export class CpkThreadInspector extends PortableLitElement {
       ${
         this.viewInAppError
           ? html`<span class="cpk-td__view-in-app-error" role="alert"
-              >${this.viewInAppError}</span
-            >`
+            >${this.viewInAppError}</span
+          >`
           : nothing
       }
     `;
@@ -4837,11 +4936,9 @@ export class CpkThreadInspector extends PortableLitElement {
       </button>
       ${
         this.tryFromHereError
-          ? html`<span
-              class="cpk-td__try-from-here-error"
-              role="alert"
-              >${this.tryFromHereError}</span
-            >`
+          ? html`<span class="cpk-td__try-from-here-error" role="alert"
+            >${this.tryFromHereError}</span
+          >`
           : nothing
       }
     `;
@@ -4955,9 +5052,7 @@ export class CpkThreadInspector extends PortableLitElement {
       `;
     }
     if (this._eventsError) {
-      return html`<div
-        class="cpk-td__status cpk-td__status--error"
-      >
+      return html`<div class="cpk-td__status cpk-td__status--error">
         ${this._eventsError}
       </div>`;
     }
@@ -5053,14 +5148,14 @@ export class CpkThreadInspector extends PortableLitElement {
           ${
             item.sourceIndex
               ? html`
-                  <button
-                    type="button"
-                    class="cpk-td__source-link"
-                    @click=${() => this.revealSourceEvent(item.sourceIndex)}
-                  >
-                    Source event #${item.sourceIndex}
-                  </button>
-                `
+                <button
+                  type="button"
+                  class="cpk-td__source-link"
+                  @click=${() => this.revealSourceEvent(item.sourceIndex)}
+                >
+                  Source event #${item.sourceIndex}
+                </button>
+              `
               : nothing
           }
           <span class="cpk-td__timeline-time"
@@ -5456,62 +5551,64 @@ export class CpkThreadInspector extends PortableLitElement {
             const eventId = this.rawEventId(event);
             const detailsExpanded = this._expandedRawEvents.has(eventId);
             return html`
-            <div
-              class="cpk-td__event cpk-td__event--${eventCategory(event.type)}"
-              data-source-index=${event.sourceIndex}
-            >
-              <div class="cpk-td__event-header">
-                <span class="cpk-td__event-type" title=${event.type}
-                  >${humanizeEventType(event.type)}</span
-                >
-                <span class="cpk-td__event-time"
-                  >${formatTimestamp(event.timestamp)}</span
-                >
-              </div>
-              <button
-                type="button"
-                class="cpk-td__timeline-details-toggle"
-                aria-expanded=${detailsExpanded ? "true" : "false"}
-                @click=${() => this.toggleRawEventDetails(eventId)}
+              <div
+                class="cpk-td__event cpk-td__event--${eventCategory(
+                  event.type,
+                )}"
+                data-source-index=${event.sourceIndex}
               >
+                <div class="cpk-td__event-header">
+                  <span class="cpk-td__event-type" title=${event.type}
+                    >${humanizeEventType(event.type)}</span
+                  >
+                  <span class="cpk-td__event-time"
+                    >${formatTimestamp(event.timestamp)}</span
+                  >
+                </div>
+                <button
+                  type="button"
+                  class="cpk-td__timeline-details-toggle"
+                  aria-expanded=${detailsExpanded ? "true" : "false"}
+                  @click=${() => this.toggleRawEventDetails(eventId)}
+                >
+                  ${
+                    detailsExpanded
+                      ? html`
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        `
+                      : html`
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        `
+                  }
+                  <span
+                    >${detailsExpanded ? "Hide details" : "Show details"}</span
+                  >
+                </button>
                 ${
                   detailsExpanded
-                    ? html`
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="m6 9 6 6 6-6" />
-                        </svg>
-                      `
-                    : html`
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="m9 18 6-6-6-6" />
-                        </svg>
-                      `
+                    ? renderHighlightedJsonBlock(event.rawEvent ?? event)
+                    : nothing
                 }
-                <span
-                  >${detailsExpanded ? "Hide details" : "Show details"}</span
-                >
-              </button>
-              ${
-                detailsExpanded
-                  ? renderHighlightedJsonBlock(event.rawEvent ?? event)
-                  : nothing
-              }
-            </div>
-          `;
+              </div>
+            `;
           },
         )}`;
       },
@@ -6379,6 +6476,25 @@ export class WebInspectorElement extends LitElement {
   // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
   // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
   private _memoryStoreUnsupported = false;
+  private learningSnapshot: InspectorLearningSnapshotV1 | null = null;
+  private learningSnapshotScope: string | null = null;
+  private learningProjectIdentity: string | null = null;
+  private learningLoading = false;
+  private learningRefreshing = false;
+  private learningError: string | null = null;
+  private learningSupported = false;
+  private learningRequestGeneration = 0;
+  private learningAbortController: AbortController | null = null;
+  private learningPollTimer: ReturnType<typeof setTimeout> | null = null;
+  private learningPollFailureCount = 0;
+  private learningSetupMarker: LearningSetupMarker | null = null;
+  private learningSetupCopyRequest = 0;
+  private learningSetupUnsubscribe: (() => void) | null = null;
+  private learningPromptCopyState: "idle" | "copied" | "error" = "idle";
+  private learningPromptRecopyState: "idle" | "copied" | "error" = "idle";
+  private learningPromptRecopyTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private learningViewedState: LearningViewState | null = null;
   // ── Semantic recall (B3) ──────────────────────────────────────────────
   // `null` = no recall run yet (section hidden). `[]` = ran, no matches.
   private _recallResults: Memory[] | null = null;
@@ -6484,6 +6600,7 @@ export class WebInspectorElement extends LitElement {
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
+  private ephemeralThreadsSetupOpen = false;
   private inAppThreadId: string | null = null;
   private inAppAgentId: string | null = null;
   private inAppSource: "app" | "override" | null = null;
@@ -6580,7 +6697,7 @@ export class WebInspectorElement extends LitElement {
   private pulsingSignal: LauncherSignalKey | null = null;
   /**
    * The single pending-beat slot. A beat that cannot land is deferred, never
-   * discarded — see `startSignalPulse` for the four reasons it cannot land.
+   * discarded — see `startSignalPulse` for the five reasons it cannot land.
    */
   private pendingPulseSignal: LauncherSignalKey | null = null;
   private pulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -6642,12 +6759,15 @@ export class WebInspectorElement extends LitElement {
   /** Hover/focus menu on the closed launcher. */
   private launcherHudOpen = false;
   private launcherHudSide: "left" | "right" = "left";
-  private launcherHudHelp: LauncherHudRowId | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private launcherHudIntro = false;
   private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
     null;
   private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Host-wide deadline that suppresses both the Inspector and its launcher. */
+  private inspectorDismissedUntil: number | null = null;
+  private lastReportedInspectorVisibility: boolean | null = null;
+  private inspectorDismissalTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
    * the circle cannot steal "Turn on Threads". Not a public open option.
@@ -6713,9 +6833,12 @@ export class WebInspectorElement extends LitElement {
   private threadsExampleOverviewVideoPlayAttemptGeneration = 0;
   private threadsExampleOverviewVideoPlayPromise: Promise<void> | null = null;
   private threadsExampleOverviewVideoPlayOnNextBind = false;
-  private threadsSetupPromptCopyState: ThreadsSetupPromptCopyState = "idle";
-  private threadsSetupPromptCopyResetTimeoutId: number | null = null;
-  private threadsSetupPromptCopyGeneration = 0;
+  private homeFeaturePromptCopyState: {
+    serviceId: HomeFeaturePromptId;
+    state: HomeFeaturePromptCopyState;
+  } | null = null;
+  private homeFeaturePromptCopyResetTimeoutId: number | null = null;
+  private homeFeaturePromptCopyGeneration = 0;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -6730,6 +6853,7 @@ export class WebInspectorElement extends LitElement {
     this.detachFromCore();
 
     const hadResolvedCore = this.hasResolvedCore;
+    this.ephemeralThreadsSetupOpen = false;
     this._core = value ?? null;
     if (this._core) {
       this.hasResolvedCore = true;
@@ -7025,6 +7149,7 @@ export class WebInspectorElement extends LitElement {
     if (
       this.selectedMenu !== "threads" ||
       this.settingsOpen ||
+      this.ephemeralThreadsSetupOpen ||
       !this.areThreadEndpointsAvailable()
     ) {
       return false;
@@ -7098,13 +7223,6 @@ export class WebInspectorElement extends LitElement {
     return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
   }
 
-  private getThreadsRuntimeSetupDocsUrl(): string {
-    return this.appendRefParam(
-      THREADS_RUNTIME_SETUP_DOCS_URL,
-      "cpk-inspector-threads",
-    );
-  }
-
   private getThreadsIntelligenceSignupUrl(): string {
     return this.appendRefParam(
       INTELLIGENCE_SIGNUP_URL,
@@ -7153,6 +7271,14 @@ export class WebInspectorElement extends LitElement {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this.rebuildFlattenedThreads();
       this.autoSelectLatestThread();
+      if (
+        this.selectedMenu === "memories" &&
+        this.shouldPollLearningSetup() &&
+        !this.learningLoading &&
+        !this.learningRefreshing
+      ) {
+        void this.refreshLearningSnapshot({ preserve: true });
+      }
       this.requestUpdate();
     });
     const statusSub = store
@@ -7441,6 +7567,10 @@ export class WebInspectorElement extends LitElement {
     this.updateInspectorMetadataProjection(
       this.readCoreInspectorMetadata(core),
     );
+    this.learningSupported = core.inspectorLearning;
+    this.learningProjectIdentity = JSON.stringify(
+      this.inspectorMetadataProjection.identity ?? null,
+    );
 
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
@@ -7450,11 +7580,16 @@ export class WebInspectorElement extends LitElement {
           this.threadCapabilityEnabled === true;
         this.synchronizeThreadCapability();
         if (status === "connected") {
+          this.learningSupported = core.inspectorLearning;
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
           this.flushPendingWhatsNewTelemetry();
+          if (this.isLearningStatusVisible()) {
+            this.clearLearningSnapshot();
+            void this.refreshLearningSnapshot({ preserve: false });
+          }
           if (
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
@@ -7468,6 +7603,7 @@ export class WebInspectorElement extends LitElement {
           this._threadsByAgent.clear();
           this._threads = [];
           this.clearInspectorUsageRefresh();
+          this.clearLearningSnapshot();
         }
         this.requestUpdate();
       },
@@ -7486,6 +7622,16 @@ export class WebInspectorElement extends LitElement {
                 return;
               }
               this.updateInspectorMetadataProjection(inspectorMetadata);
+              const identity = JSON.stringify(
+                this.inspectorMetadataProjection.identity ?? null,
+              );
+              if (identity !== this.learningProjectIdentity) {
+                this.learningProjectIdentity = identity;
+                this.clearLearningSnapshot();
+                if (this.isLearningStatusVisible()) {
+                  void this.refreshLearningSnapshot({ preserve: false });
+                }
+              }
               this.requestUpdate();
             },
           }
@@ -7706,6 +7852,429 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
+  private getLearningAgentId(): string | null {
+    if (
+      this.selectedContext !== "all-agents" &&
+      this.core?.agents[this.selectedContext]
+    ) {
+      return this.selectedContext;
+    }
+    // `all-agents` is intentionally unscoped. Choosing the first object key
+    // silently binds Learning to whichever agent happened to be enumerated
+    // first and can select the wrong container. Omit agentId so Intelligence
+    // applies its deterministic sole-container / selection-required rules.
+    return null;
+  }
+
+  /** Whether a visible surface needs the current Learning connection status. */
+  private isLearningStatusVisible(): boolean {
+    return (
+      this.launcherHudOpen ||
+      (this.isOpen &&
+        (this.selectedMenu === "home" || this.selectedMenu === "memories"))
+    );
+  }
+
+  private isLearningSetupActive(): boolean {
+    const runtimeUrl = this.core?.runtimeUrl;
+    if (!runtimeUrl) return false;
+    return learningSetupMarkerMatches(
+      this.learningSetupMarker,
+      runtimeUrl,
+      this.getLearningAgentId(),
+    );
+  }
+
+  private trackLearningViewState(): void {
+    if (
+      !this.isOpen ||
+      this.selectedMenu !== "memories" ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
+    const state = deriveLearningViewState({
+      supported: this.learningSupported,
+      loading: this.learningLoading,
+      error: this.learningError,
+      snapshot: this.learningSnapshot,
+      setupActive: this.isLearningSetupActive(),
+    });
+    if (state === this.learningViewedState) return;
+    this.learningViewedState = state;
+    trackLearningPaneViewed({ state });
+  }
+
+  private cancelLearningPoll(): void {
+    if (this.learningPollTimer !== null) {
+      clearTimeout(this.learningPollTimer);
+      this.learningPollTimer = null;
+    }
+  }
+
+  private shouldPollLearningSetup(): boolean {
+    if (
+      !this.isOpen ||
+      this.selectedMenu !== "memories" ||
+      document.visibilityState !== "visible" ||
+      !this.learningSupported
+    ) {
+      return false;
+    }
+    const snapshot = this.learningSnapshot;
+    if (!snapshot) return this.isLearningSetupActive();
+    if (snapshot.configuration.state === "not_configured") {
+      return this.isLearningSetupActive();
+    }
+    return (
+      snapshot.configuration.state === "configured" &&
+      !snapshot.run.hasEverSucceeded &&
+      !snapshot.run.hasActiveRun &&
+      snapshot.pendingThreadCount === 0 &&
+      snapshot.skillsPage.total === 0 &&
+      snapshot.insightsPage.total === 0
+    );
+  }
+
+  private scheduleLearningPoll(): void {
+    this.cancelLearningPoll();
+    if (!this.shouldPollLearningSetup()) return;
+    const delay =
+      this.learningPollFailureCount === 0
+        ? 5_000
+        : this.learningPollFailureCount === 1
+          ? 10_000
+          : 30_000;
+    this.learningPollTimer = setTimeout(() => {
+      this.learningPollTimer = null;
+      void this.refreshLearningSnapshot({ preserve: true });
+    }, delay);
+  }
+
+  private clearLearningSnapshot(): void {
+    this.cancelLearningRequest();
+    this.learningSnapshot = null;
+    this.learningSnapshotScope = null;
+    this.learningError = null;
+    this.learningLoading = false;
+    this.learningRefreshing = false;
+    this.cancelLearningPoll();
+  }
+
+  private cancelLearningRequest(): void {
+    this.learningRequestGeneration += 1;
+    this.learningAbortController?.abort();
+    this.learningAbortController = null;
+  }
+
+  private refreshLearningSnapshot = async (
+    options: {
+      preserve?: boolean;
+      skillsPage?: number;
+      insightsPage?: number;
+    } = {},
+  ): Promise<void> => {
+    const core = this.core;
+    const runtimeUrl = core?.runtimeUrl;
+    this.learningSupported = Boolean(core?.inspectorLearning);
+    if (!core || !runtimeUrl || !this.learningSupported) {
+      this.clearLearningSnapshot();
+      this.requestUpdate();
+      this.trackLearningViewState();
+      return;
+    }
+    this.cancelLearningPoll();
+    const startedAt = performance.now();
+    let loadOutcome: "success" | "unsupported" | "failure" = "failure";
+    let loadedSkills = 0;
+    let loadedInsights = 0;
+    let loadedPendingThreads = 0;
+    let resetSkillsPage = false;
+    let resetInsightsPage = false;
+    const previousSnapshot = this.learningSnapshot;
+    const agentId = this.getLearningAgentId();
+    const requestContext = `${runtimeUrl.replace(/\/+$/u, "")}|${agentId ?? ""}`;
+    if (
+      this.learningSnapshotScope &&
+      !this.learningSnapshotScope.startsWith(`${requestContext}|`)
+    ) {
+      this.clearLearningSnapshot();
+    }
+    const generation = ++this.learningRequestGeneration;
+    this.learningAbortController?.abort();
+    const controller = new AbortController();
+    this.learningAbortController = controller;
+    const preserve =
+      options.preserve === true && this.learningSnapshot !== null;
+    this.learningLoading = !preserve;
+    this.learningRefreshing = preserve;
+    this.learningError = null;
+    this.requestUpdate();
+    try {
+      const snapshot = await fetchInspectorLearning({
+        runtimeUrl,
+        runtimeTransport: core.runtimeTransport,
+        request: {
+          ...(agentId ? { agentId } : {}),
+          skillsPage:
+            options.skillsPage ?? this.learningSnapshot?.skillsPage.page ?? 1,
+          insightsPage:
+            options.insightsPage ??
+            this.learningSnapshot?.insightsPage.page ??
+            1,
+        },
+        fetch: core.ɵruntimeFetch,
+        headers: core.headers,
+        credentials: core.credentials,
+        signal: controller.signal,
+      });
+      if (generation !== this.learningRequestGeneration) return;
+      if (
+        (snapshot.pendingThreadCount > 0 && !snapshot.links.runs) ||
+        (snapshot.pendingCandidateCount > 0 && !snapshot.links.candidates)
+      ) {
+        throw new Error(
+          "Learning snapshot is missing a required web-app link.",
+        );
+      }
+      const containerId =
+        snapshot.configuration.state === "configured"
+          ? snapshot.configuration.container.id
+          : "";
+      const previousContainerId =
+        previousSnapshot?.configuration.state === "configured"
+          ? previousSnapshot.configuration.container.id
+          : "";
+      const scopeChanged =
+        previousSnapshot !== null &&
+        (previousSnapshot.projectKey !== snapshot.projectKey ||
+          previousContainerId !== containerId);
+      const isBackgroundRefresh =
+        options.skillsPage === undefined && options.insightsPage === undefined;
+      resetSkillsPage = Boolean(
+        isBackgroundRefresh &&
+        previousSnapshot &&
+        previousSnapshot.skillsPage.page > 1 &&
+        (scopeChanged ||
+          JSON.stringify([
+            previousSnapshot.skillsPage.total,
+            previousSnapshot.skillsPage.items.map((skill) => [
+              skill.id,
+              skill.revision,
+            ]),
+          ]) !==
+            JSON.stringify([
+              snapshot.skillsPage.total,
+              snapshot.skillsPage.items.map((skill) => [
+                skill.id,
+                skill.revision,
+              ]),
+            ])),
+      );
+      resetInsightsPage = Boolean(
+        isBackgroundRefresh &&
+        previousSnapshot &&
+        previousSnapshot.insightsPage.page > 1 &&
+        (scopeChanged ||
+          JSON.stringify([
+            previousSnapshot.insightsPage.total,
+            previousSnapshot.insightsPage.items.map((insight) => insight.id),
+          ]) !==
+            JSON.stringify([
+              snapshot.insightsPage.total,
+              snapshot.insightsPage.items.map((insight) => insight.id),
+            ])),
+      );
+      this.learningSnapshot = snapshot;
+      loadOutcome = "success";
+      loadedSkills = snapshot.skillsPage.total;
+      loadedInsights = snapshot.insightsPage.total;
+      loadedPendingThreads = snapshot.pendingThreadCount;
+      this.learningSnapshotScope = `${requestContext}|${snapshot.projectKey}|${containerId}`;
+      this.learningError = null;
+      this.learningPollFailureCount = 0;
+      if (snapshot.configuration.state === "configured") {
+        clearLearningSetupMarker();
+        this.learningSetupMarker = null;
+      }
+    } catch (error) {
+      if (
+        generation !== this.learningRequestGeneration ||
+        controller.signal.aborted
+      )
+        return;
+      if (error instanceof InspectorLearningUnsupportedError) {
+        loadOutcome = "unsupported";
+        this.learningSupported = false;
+        this.learningSnapshot = null;
+      } else {
+        this.learningError =
+          error instanceof Error
+            ? error.message
+            : "Learning data is unavailable.";
+        this.learningPollFailureCount += 1;
+      }
+    } finally {
+      if (generation === this.learningRequestGeneration) {
+        this.learningLoading = false;
+        this.learningRefreshing = false;
+        this.learningAbortController = null;
+        if (!core.telemetryDisabled) {
+          trackLearningSnapshotLoaded({
+            outcome: loadOutcome,
+            duration_bucket: learningDurationBucket(
+              performance.now() - startedAt,
+            ),
+            skills_bucket: learningCountBucket(loadedSkills),
+            insights_bucket: learningCountBucket(loadedInsights),
+            pending_threads_bucket: learningCountBucket(loadedPendingThreads),
+          });
+        }
+        this.scheduleLearningPoll();
+        this.requestUpdate();
+        this.trackLearningViewState();
+        if (resetSkillsPage || resetInsightsPage) {
+          void this.refreshLearningSnapshot({
+            preserve: true,
+            ...(resetSkillsPage ? { skillsPage: 1 } : {}),
+            ...(resetInsightsPage ? { insightsPage: 1 } : {}),
+          });
+        }
+      }
+    }
+  };
+
+  private copyFeaturePromptToClipboard = async (
+    service: HomeFeaturePromptTarget,
+    event?: Event,
+    onboardingRunId = createOnboardingRunId(),
+  ): Promise<boolean> => {
+    const clipboard = this.getClipboard(event);
+    if (!clipboard?.writeText) return false;
+    try {
+      await clipboard.writeText(
+        createFeatureOnboardingPrompt(service.id, onboardingRunId),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  private handleLearningSetupCopy = async (
+    event?: Event,
+    recopy = false,
+  ): Promise<void> => {
+    // The Learning tile, not the Threads one. This pane borrowed the Threads
+    // target, so its button copied a Threads prompt and announced itself as
+    // "Threads setup prompt copied" under a Learning heading (OSS-1151).
+    //
+    // Learning does not need the Threads feature first. A runtime mounted
+    // `mode: "single-route"` serves no thread route at all and still binds
+    // Containers, because the binding happens server-side while a run starts;
+    // and `learningOn` reads the `memory` tile independently of `threadsOn`.
+    // `add-learning` inspects its own prerequisites and refuses through
+    // `feature/stop` when one is missing, which is why the route decides that
+    // rather than this pane.
+    const service = this.getHomeFeaturePromptTarget("memory");
+    if (!service || !this.core?.runtimeUrl) return;
+    const request = ++this.learningSetupCopyRequest;
+    const copied = await this.copyFeaturePromptToClipboard(
+      service,
+      event,
+      this.getOnboardingRunId(),
+    );
+    if (request !== this.learningSetupCopyRequest) return;
+    if (!this.core.telemetryDisabled) {
+      trackLearningSetupPromptClicked({
+        outcome: copied ? "success" : "failure",
+      });
+    }
+    if (!copied) {
+      if (recopy) {
+        this.cancelLearningPromptRecopyReset();
+        this.learningPromptRecopyState = "error";
+      } else {
+        this.learningPromptCopyState = "error";
+      }
+      this.requestUpdate();
+      return;
+    }
+    if (recopy) {
+      this.cancelLearningPromptRecopyReset();
+      this.learningPromptRecopyState = "copied";
+      this.learningPromptRecopyTimer = setTimeout(() => {
+        this.learningPromptRecopyTimer = null;
+        this.learningPromptRecopyState = "idle";
+        this.requestUpdate();
+      }, LEARNING_RECOPY_CONFIRMATION_MS);
+    } else {
+      this.learningPromptCopyState = "copied";
+    }
+    this.learningSetupMarker = writeLearningSetupMarker({
+      runtimeUrl: this.core.runtimeUrl,
+      agentId: this.getLearningAgentId(),
+    });
+    this.selectedMenu = "memories";
+    this.persistState();
+    this.requestUpdate();
+    void this.refreshLearningSnapshot({ preserve: false });
+  };
+
+  private cancelLearningPromptRecopyReset(): void {
+    if (this.learningPromptRecopyTimer !== null) {
+      clearTimeout(this.learningPromptRecopyTimer);
+      this.learningPromptRecopyTimer = null;
+    }
+  }
+
+  private handleLearningGoBack = (): void => {
+    this.learningSetupCopyRequest += 1;
+    this.cancelLearningPromptRecopyReset();
+    clearLearningSetupMarker();
+    this.learningSetupMarker = null;
+    this.learningPromptCopyState = "idle";
+    this.learningPromptRecopyState = "idle";
+    this.cancelLearningPoll();
+    this.requestUpdate();
+    this.trackLearningViewState();
+  };
+
+  private handleLearningPage = (
+    event: CustomEvent<{
+      section: "skills" | "insights";
+      page: number;
+    }>,
+  ): void => {
+    const { section, page } = event.detail;
+    const currentPage =
+      section === "skills"
+        ? (this.learningSnapshot?.skillsPage.page ?? 1)
+        : (this.learningSnapshot?.insightsPage.page ?? 1);
+    if (!this.core?.telemetryDisabled) {
+      trackLearningPageChanged({
+        section,
+        direction: page < currentPage ? "previous" : "next",
+      });
+    }
+    void this.refreshLearningSnapshot({
+      preserve: true,
+      ...(section === "skills" ? { skillsPage: page } : { insightsPage: page }),
+    });
+  };
+
+  private handleLearningEvidence = (
+    event: CustomEvent<{
+      threadId: string;
+      messageId?: string;
+    }>,
+  ): void => {
+    this.focusThread({
+      threadId: event.detail.threadId,
+      ...(event.detail.messageId ? { messageId: event.detail.messageId } : {}),
+    });
+  };
+
   private detachFromCore(): void {
     this.threadCapabilityGeneration += 1;
     this.threadCapabilityEnabled = null;
@@ -7729,6 +8298,8 @@ export class WebInspectorElement extends LitElement {
     // activation re-subscribes (and re-evaluates SDK support) cleanly.
     this._memorySubscribed = false;
     this._memoryStoreUnsupported = false;
+    this.cancelLearningPromptRecopyReset();
+    this.learningPromptRecopyState = "idle";
     // Reset recall state and bump the sequence token so any in-flight recall
     // resolving after detach is ignored.
     this._recallSeq += 1;
@@ -7736,6 +8307,8 @@ export class WebInspectorElement extends LitElement {
     this._recallLoading = false;
     this._recallError = null;
     this._recallQuery = "";
+    this.clearLearningSnapshot();
+    this.learningSupported = false;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.cancelThreadRefreshDebounce();
@@ -7771,6 +8344,7 @@ export class WebInspectorElement extends LitElement {
   private processAgentsChanged(
     agents: Readonly<Record<string, AbstractAgent>>,
   ): void {
+    const previousLearningAgentId = this.getLearningAgentId();
     this.synchronizeThreadCapability();
     const seenAgentIds = new Set<string>();
 
@@ -7797,6 +8371,29 @@ export class WebInspectorElement extends LitElement {
     }
 
     this.updateContextOptions(seenAgentIds);
+    const learningAgentId = this.getLearningAgentId();
+    if (
+      learningAgentId &&
+      this.core?.runtimeUrl &&
+      this.learningSetupMarker?.agentId === null &&
+      learningSetupMarkerMatches(
+        this.learningSetupMarker,
+        this.core.runtimeUrl,
+        null,
+      )
+    ) {
+      this.learningSetupMarker = writeLearningSetupMarker({
+        runtimeUrl: this.core.runtimeUrl,
+        agentId: learningAgentId,
+      });
+    }
+    if (
+      previousLearningAgentId !== learningAgentId &&
+      this.isLearningStatusVisible()
+    ) {
+      this.clearLearningSnapshot();
+      void this.refreshLearningSnapshot({ preserve: false });
+    }
     this.refreshToolsSnapshot();
     this.requestUpdate();
   }
@@ -8402,7 +8999,9 @@ export class WebInspectorElement extends LitElement {
               </div>
               ${
                 isFailedCall && toolError?.message
-                  ? html`<p class="mt-2 break-words leading-relaxed text-gray-800">
+                  ? html`<p
+                    class="mt-2 break-words leading-relaxed text-gray-800"
+                  >
                     ${toolError.message}
                   </p>`
                   : nothing
@@ -8723,13 +9322,15 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-playground-composer {
         border: 1px solid #dcdce8;
-        box-shadow: 0 8px 22px rgba(31, 23, 57, 0.08),
+        box-shadow:
+          0 8px 22px rgba(31, 23, 57, 0.08),
           0 1px 2px rgba(31, 23, 57, 0.1);
       }
 
       .cpk-playground-composer:focus-within {
         border-color: #aaa4d4;
-        box-shadow: 0 10px 26px rgba(86, 53, 155, 0.13),
+        box-shadow:
+          0 10px 26px rgba(86, 53, 155, 0.13),
           0 0 0 3px rgba(190, 194, 255, 0.3);
       }
 
@@ -8746,20 +9347,22 @@ export class WebInspectorElement extends LitElement {
       .inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
         border-color: #464957;
         background: #15171e !important;
-        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26),
+        box-shadow:
+          0 8px 22px rgba(0, 0, 0, 0.26),
           0 1px 2px rgba(0, 0, 0, 0.36);
       }
 
       .inspector-window[data-color-scheme="dark"]
         .cpk-playground-composer:focus-within {
         border-color: #777aae;
-        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34),
+        box-shadow:
+          0 10px 26px rgba(0, 0, 0, 0.34),
           0 0 0 3px rgba(102, 106, 158, 0.3);
       }
 
       .cpk-playground-message-enter {
-        animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
-          both;
+        animation: cpk-playground-message-enter 0.24s
+          cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
       .cpk-playground-thinking-dot {
@@ -8778,8 +9381,7 @@ export class WebInspectorElement extends LitElement {
         display: none;
       }
 
-      .cpk-playground-reasoning[open]
-        .cpk-playground-reasoning-chevron {
+      .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
         transform: rotate(90deg);
       }
 
@@ -9715,56 +10317,66 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud {
         --hud-fill: var(--cpk-inspector-surface-dark);
-        --hud-line: rgb(190 194 255 / 0.5);
+        --hud-line: rgb(190 194 255 / 0.38);
+        --hud-accent: #b8adf5;
+        --hud-accent-soft: rgb(184 173 245 / 0.13);
+        --hud-hover-fill: #252231;
         --hud-blur: blur(12px) saturate(1.2);
+        --hud-card-gap: 8px;
+        --hud-dismiss-day-height: 32px;
         position: absolute;
-        top: 0;
         z-index: 4;
-        padding-right: 14px;
+        width: 258px;
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
-        transform: translateX(8px);
         transition:
           opacity 160ms ease,
           transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
       }
 
+      .cpk-launcher-hud[data-cpk-hud-vertical="top"] {
+        top: 0;
+        bottom: auto;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"] {
+        top: auto;
+        bottom: 0;
+      }
+
       .cpk-launcher-hud[data-cpk-hud-side="left"] {
         right: 100%;
+        left: auto;
         padding-right: 14px;
-        padding-left: 0;
+        transform: translateX(8px);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] {
         left: 100%;
         right: auto;
-        padding-right: 0;
         padding-left: 14px;
         transform: translateX(-8px);
       }
 
-      .console-button-wrapper[data-cpk-hud="open"]
-        .cpk-launcher-hud[data-cpk-hud-side="right"] {
+      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-hud {
         transform: none;
       }
 
       .cpk-launcher-hud__card {
         position: relative;
-        width: 228px;
-        padding: 4px;
-        border: 1px dotted var(--hud-line);
-        border-radius: var(--cpk-inspector-shell-radius);
-        background: var(--hud-fill);
+        display: grid;
+        width: 244px;
+        gap: var(--hud-card-gap);
         color: #fff;
-        backdrop-filter: var(--hud-blur);
-        -webkit-backdrop-filter: var(--hud-blur);
-        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] {
         --hud-fill: #fff;
-        --hud-line: #d8d8e8;
+        --hud-line: #ddd6f4;
+        --hud-accent: #6757b0;
+        --hud-accent-soft: #f1edff;
+        --hud-hover-fill: #f1edff;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
@@ -9774,23 +10386,65 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud__arrow {
         position: absolute;
         top: calc(var(--cpk-launcher-size) / 2);
-        z-index: 1;
+        z-index: 2;
         width: 10px;
         height: 10px;
         border: 0;
-        /* The card frosts the page behind it, so it reads lighter than the
-           raw fill. Mix a little white so the arrow matches the glass card
-           without going lighter than the HUD. */
-        background: color-mix(in srgb, var(--hud-fill) 88%, white 12%);
-        transform: translateY(-50%) rotate(45deg);
+        background: var(--hud-fill);
+        transform: rotate(45deg);
+        transition: background 120ms ease;
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
         right: 9px;
+        border-top: 1px solid var(--hud-line);
+        border-right: 1px solid var(--hud-line);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
         left: 9px;
+        border-bottom: 1px solid var(--hud-line);
+        border-left: 1px solid var(--hud-line);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="top"] .cpk-launcher-hud__arrow {
+        top: calc(var(--cpk-launcher-size) / 2 - 5px);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"]
+        .cpk-launcher-hud__arrow {
+        top: auto;
+        bottom: calc(var(--cpk-launcher-size) / 2 - 5px);
+      }
+
+      /* A bottom-anchored HUD can end with the narrower dismissal bubble.
+         Keep the pointer attached to the full-width feature panel instead of
+         letting it float in the empty space beside that final action. */
+      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"]:has(
+          .cpk-launcher-hud__dismiss-day
+        )
+        .cpk-launcher-hud__arrow {
+        bottom: calc(
+          var(--hud-dismiss-day-height) + var(--hud-card-gap) + 2px
+        );
+      }
+
+      /* With no news or setup actions, the dismissal is the whole HUD. */
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] {
+        --hud-dismiss-day-height: 36px;
+        width: max-content;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only][data-cpk-hud-vertical="top"] {
+        top: calc((var(--cpk-launcher-size) - var(--hud-dismiss-day-height)) / 2);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only][data-cpk-hud-vertical="bottom"] {
+        bottom: calc((var(--cpk-launcher-size) - var(--hud-dismiss-day-height)) / 2);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] .cpk-launcher-hud__card {
+        width: max-content;
       }
 
       .cpk-launcher-hud__list {
@@ -9799,45 +10453,253 @@ export class WebInspectorElement extends LitElement {
         list-style: none;
       }
 
-      .cpk-launcher-hud__list + .cpk-launcher-hud__list {
-        margin-top: 4px;
-        padding-top: 4px;
-        border-top: 1px dotted var(--hud-line);
+      .cpk-launcher-hud__masthead {
+        position: relative;
+        z-index: 1;
+        margin-top: 6px;
+        padding: 0;
+        border: 1px solid var(--hud-line);
+        border-radius: var(--cpk-inspector-shell-radius);
+        background: var(--hud-fill);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
+        box-shadow: 0 10px 28px rgb(46 37 91 / 0.16);
+        transition: background 120ms ease;
+      }
+
+      .cpk-launcher-hud__news-wrap {
+        position: relative;
+        margin: 0;
+      }
+
+      .cpk-launcher-hud__news {
+        position: relative;
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 18px 12px 11px;
+        border: 0;
+        border-radius: calc(var(--cpk-inspector-shell-radius) - 1px);
+        background: transparent;
+        color: #fff;
+        font-family: inherit;
+        line-height: 1;
+        text-align: start;
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__news:hover,
+      .cpk-launcher-hud__news:focus-visible {
+        background: transparent;
+      }
+
+      .cpk-launcher-hud__masthead:has(.cpk-launcher-hud__news:hover),
+      .cpk-launcher-hud__masthead:has(.cpk-launcher-hud__news:focus-visible),
+      .cpk-launcher-hud:has(.cpk-launcher-hud__news:hover)
+        .cpk-launcher-hud__arrow,
+      .cpk-launcher-hud:has(.cpk-launcher-hud__news:focus-visible)
+        .cpk-launcher-hud__arrow {
+        background: var(--hud-hover-fill);
+      }
+
+      .cpk-launcher-hud__news:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__news-title {
+        display: block;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.32;
+        overflow-wrap: anywhere;
+        white-space: normal;
+      }
+
+      .cpk-launcher-hud__news-label {
+        position: absolute;
+        top: -9px;
+        left: 12px;
+        display: inline-flex;
+        min-height: 20px;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #7563c7;
+        color: #fff;
+        box-shadow: 0 3px 8px rgb(46 37 91 / 0.18);
+        font-size: 9px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .cpk-launcher-hud__news-dismiss {
+        position: absolute;
+        top: -1px;
+        right: 2px;
+        z-index: 2;
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: rgb(255 255 255 / 0.68);
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__news-dismiss:hover,
+      .cpk-launcher-hud__news-dismiss:focus-visible {
+        background: var(--hud-accent-soft);
+        color: #fff;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss {
+        color: #6e697c;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss:hover,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss:focus-visible {
+        color: #27233a;
+      }
+
+      .cpk-launcher-hud__news-dismiss:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__news-dismiss svg {
+        width: 7px;
+        height: 7px;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__news {
+        color: #17131f;
+      }
+
+      .cpk-launcher-hud__dismiss-day {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        width: auto;
+        min-height: var(--hud-dismiss-day-height);
+        align-items: center;
+        justify-content: center;
+        justify-self: center;
+        gap: 6px;
+        margin: 0;
+        padding: 7px 13px;
+        border: 1px solid var(--hud-line);
+        border-radius: var(--cpk-inspector-shell-radius);
+        background: var(--hud-fill);
+        color: #c9cad3;
+        box-shadow: 0 8px 20px rgb(17 14 29 / 0.18);
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 650;
+        line-height: 1.2;
+        cursor: pointer;
+        transition:
+          border-color 120ms ease,
+          background 120ms ease,
+          color 120ms ease;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] .cpk-launcher-hud__dismiss-day {
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .cpk-launcher-hud__dismiss-day:hover,
+      .cpk-launcher-hud__dismiss-day:focus-visible {
+        border-color: var(--hud-accent);
+        background: var(--hud-hover-fill);
+        color: #f3f4f8;
+      }
+
+      .cpk-launcher-hud__dismiss-day:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__dismiss-day svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__dismiss-day {
+        box-shadow: 0 8px 20px rgb(46 37 91 / 0.12);
+        color: #5f6068;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__dismiss-day:hover,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__dismiss-day:focus-visible {
+        color: #36373d;
+      }
+
+      .cpk-launcher-hud__feature-list {
+        position: relative;
+        z-index: 1;
+        padding: 5px;
+        border: 1px solid var(--hud-line);
+        border-radius: var(--cpk-inspector-shell-radius);
+        background: var(--hud-fill);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
+        box-shadow: 0 10px 28px rgb(46 37 91 / 0.16);
       }
 
       .cpk-launcher-hud__row {
         position: relative;
         display: grid;
-        grid-template-columns: 1fr 28px;
-        align-items: start;
-        border-radius: 7px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        min-height: 54px;
+        border-radius: 9px;
         cursor: pointer;
       }
 
       .cpk-launcher-hud__row + .cpk-launcher-hud__row {
-        margin-top: 1px;
+        border-top: 1px solid var(--hud-line);
+        border-radius: 0 0 9px 9px;
       }
 
       .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+      .cpk-launcher-hud__row:focus-within {
         background: rgb(255 255 255 / 0.06);
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
-        background: #f0f0f4;
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within {
+        background: #f7f5ff;
+      }
+
+      .cpk-launcher-hud__primary {
+        position: relative;
+        display: flex;
+        min-width: 0;
       }
 
       .cpk-launcher-hud__action {
         display: flex;
+        width: 100%;
         gap: 8px;
-        min-height: 32px;
+        min-height: 52px;
         align-items: center;
-        padding: 6px 8px;
+        padding: 7px 4px;
         border: 0;
-        border-radius: 7px;
+        border-radius: 9px;
         background: transparent;
         color: #fff;
         font-family: inherit;
@@ -9847,31 +10709,88 @@ export class WebInspectorElement extends LitElement {
         cursor: pointer;
       }
 
+      .cpk-launcher-hud__label {
+        min-width: 0;
+      }
+
+      .cpk-launcher-hud__feature-icon {
+        display: inline-flex;
+        width: 28px;
+        height: 32px;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        color: var(--hud-accent);
+      }
+
+      .cpk-launcher-hud__feature-icon svg {
+        width: 17px;
+        height: 17px;
+        stroke-width: 1.8;
+      }
+
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
         color: #010507;
       }
 
-      /* Stretch the row action over the whole tab, including the detail
-         copy. The help mark sits above this layer. */
+      /* Stretch the row action over the whole tab. The icon controls sit
+         above this layer and keep their own focused interactions. */
       .cpk-launcher-hud__action::after {
         content: "";
         position: absolute;
         inset: 0;
       }
 
-      .cpk-launcher-hud__check {
-        flex: none;
-        width: 14px;
-        height: 14px;
-        color: #34d399;
-      }
-
-      .cpk-launcher-hud__help {
+      .cpk-launcher-hud__controls {
         position: relative;
         z-index: 1;
+        display: flex;
+        gap: 0;
+        align-items: center;
+        padding-right: 5px;
+      }
+
+      .cpk-launcher-hud__learn-more {
         display: inline-flex;
-        width: 28px;
-        height: 32px;
+        width: 24px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: rgb(190 194 255 / 0.72);
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__learn-more:hover,
+      .cpk-launcher-hud__learn-more:focus-visible {
+        color: #fff;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more {
+        color: #777080;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more:hover,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more:focus-visible {
+        color: #4b416b;
+      }
+
+      .cpk-launcher-hud__learn-more svg {
+        width: 16px;
+        height: 16px;
+        stroke-width: 1.8;
+      }
+
+      .cpk-launcher-hud__toggle {
+        display: inline-flex;
+        width: 38px;
+        height: 44px;
         align-items: center;
         justify-content: center;
         padding: 0;
@@ -9883,77 +10802,150 @@ export class WebInspectorElement extends LitElement {
         cursor: pointer;
       }
 
-      .cpk-launcher-hud__help span {
-        display: inline-flex;
-        width: 16px;
-        height: 16px;
-        align-items: center;
-        justify-content: center;
-        border: 1px dotted rgb(190 194 255 / 0.55);
+      .cpk-launcher-hud__toggle:disabled {
+        cursor: not-allowed;
+        opacity: 1;
+      }
+
+      .cpk-launcher-hud__toggle-track {
+        position: relative;
+        display: block;
+        width: 34px;
+        height: 20px;
+        border: 1px solid rgb(190 194 255 / 0.38);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 0.08);
+        transition:
+          border-color 120ms ease,
+          background 120ms ease;
+      }
+
+      .cpk-launcher-hud__toggle-track::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
-        line-height: 1;
+        background: #8c8e99;
+        transition:
+          background 120ms ease,
+          transform 120ms ease;
       }
 
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
-        color: #68686e;
+      .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: #087653;
+        background: #087653;
       }
 
-      .cpk-launcher-hud__help:focus-visible,
+      .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #fff;
+        transform: translateX(14px);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: #c9c9d2;
+        background: #e7e7ec;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #777780;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: #087653;
+        background: #087653;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #fff;
+      }
+
+      .cpk-launcher-hud__toggle:focus-visible,
+      .cpk-launcher-hud__learn-more:focus-visible,
       .cpk-launcher-hud__action:focus-visible {
         outline: 2px solid #bec2ff;
         outline-offset: 1px;
       }
 
-      .cpk-launcher-hud__detail {
-        grid-column: 1 / -1;
-        max-height: 0;
-        margin: 0;
-        padding: 0 8px;
-        overflow: hidden;
-        color: rgb(255 255 255 / 0.78);
-        font-size: 11px;
-        font-weight: 400;
-        line-height: 1.4;
+      .cpk-launcher-hud__tooltip {
+        position: absolute;
+        top: 50%;
+        z-index: 30;
+        width: max-content;
+        max-width: min(220px, 52vw);
+        padding: 7px 9px;
+        border: 1px solid #3a3d49;
+        border-radius: 4px;
+        background: #15171e;
+        color: #f3f4f8;
+        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
+        font-size: 10px;
+        font-weight: 500;
+        line-height: 1.45;
         opacity: 0;
         pointer-events: none;
-        transform: translateY(-6px);
+        transform: translate(3px, -50%);
+        white-space: normal;
         transition:
-          max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-          opacity 150ms ease-out,
-          transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-          padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+          opacity 120ms ease,
+          transform 120ms ease;
       }
 
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
-        color: #68686e;
-      }
-
-      .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"] .cpk-launcher-hud__detail {
-        max-height: 72px;
-        padding: 0 8px 7px;
+      .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:hover)
+        .cpk-launcher-hud__tooltip,
+      .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:focus-visible)
+        .cpk-launcher-hud__tooltip {
         opacity: 1;
-        transform: none;
+        transform: translate(0, -50%);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__tooltip {
+        right: calc(100% + 8px);
+        left: auto;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__tooltip {
+        right: auto;
+        left: calc(100% + 8px);
+        transform: translate(-3px, -50%);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"]
+        .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:hover)
+        .cpk-launcher-hud__tooltip,
+      .cpk-launcher-hud[data-cpk-hud-side="right"]
+        .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:focus-visible)
+        .cpk-launcher-hud__tooltip {
+        transform: translate(0, -50%);
       }
 
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-hud,
-        .cpk-launcher-hud__detail {
+        .cpk-launcher-hud__tooltip {
           transition: none;
         }
       }
 
       /*
        * On mount, borrow the hover HUD for one short introduction. The card
-       * establishes the destination first; its rows then resolve in order so
-       * the eye can count the available features instead of receiving one
-       * undifferentiated block. Only opacity and transform move.
+       * establishes the destination first; notification, features, and hide
+       * action then fall into place from top to bottom. Only opacity and
+       * transform move.
        */
       @keyframes cpk-launcher-hud-intro {
         0% {
           opacity: 0;
-          transform: translateX(8px);
+          transform: translateY(-4px);
         }
         8%,
         88% {
@@ -9962,79 +10954,48 @@ export class WebInspectorElement extends LitElement {
         }
         100% {
           opacity: 0;
-          transform: translateX(4px);
+          transform: translateY(3px);
         }
       }
 
-      @keyframes cpk-launcher-hud-intro-right {
-        0% {
-          opacity: 0;
-          transform: translateX(-8px);
-        }
-        8%,
-        88% {
-          opacity: 1;
-          transform: none;
-        }
-        100% {
-          opacity: 0;
-          transform: translateX(-4px);
-        }
-      }
-
-      @keyframes cpk-launcher-hud-row-online {
+      @keyframes cpk-launcher-hud-waterfall {
         from {
           opacity: 0;
-          transform: translateY(4px);
+          transform: translateY(-8px);
         }
         to {
           opacity: 1;
           transform: none;
-        }
-      }
-
-      @keyframes cpk-launcher-hud-check-online {
-        from {
-          opacity: 0;
-          transform: scale(0.65);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1);
         }
       }
 
       .cpk-launcher-hud[data-cpk-hud-intro="true"] {
-        animation: cpk-launcher-hud-intro
-          var(--cpk-launcher-hud-intro-duration)
+        animation: cpk-launcher-hud-intro var(--cpk-launcher-hud-intro-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
-        animation-name: cpk-launcher-hud-intro-right;
       }
 
       .cpk-launcher-hud[data-cpk-hud-intro="true"]
-        .cpk-launcher-hud__row {
-        animation: cpk-launcher-hud-row-online
-          var(--cpk-launcher-hud-row-duration)
+        :is(
+          .cpk-launcher-hud__masthead,
+          .cpk-launcher-hud__feature-list,
+          .cpk-launcher-hud__row,
+          .cpk-launcher-hud__dismiss-day
+        ) {
+        animation: cpk-launcher-hud-waterfall
+          var(--cpk-launcher-hud-waterfall-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
-        animation-delay: var(--cpk-hud-row-delay);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-intro="true"]
-        .cpk-launcher-hud__check {
-        animation: cpk-launcher-hud-check-online 220ms
-          cubic-bezier(0.16, 1, 0.3, 1) both;
-        animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
+        animation-delay: var(--cpk-hud-waterfall-delay);
       }
 
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-hud[data-cpk-hud-intro="true"],
         .cpk-launcher-hud[data-cpk-hud-intro="true"]
-          .cpk-launcher-hud__row,
-        .cpk-launcher-hud[data-cpk-hud-intro="true"]
-          .cpk-launcher-hud__check {
+          :is(
+            .cpk-launcher-hud__masthead,
+            .cpk-launcher-hud__feature-list,
+            .cpk-launcher-hud__row,
+            .cpk-launcher-hud__dismiss-day
+          ) {
           animation: none !important;
           opacity: 1;
           transform: none;
@@ -10078,13 +11039,13 @@ export class WebInspectorElement extends LitElement {
       }
 
       .inspector-account-strip {
-        background: linear-gradient(
-          90deg,
-          #ffffff 0%,
-          #f3f1ff 58%,
-          #eefbf7 100%
-        ) !important;
+        background: #f7f6fd !important;
         color: #010507 !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .drag-handle,
+      .inspector-window[data-color-scheme="dark"] .inspector-account-strip {
+        background: #15171e !important;
       }
 
       /* ── Tab buttons ─────────────────────────────────────────────── */
@@ -10146,6 +11107,11 @@ export class WebInspectorElement extends LitElement {
         height: 100%;
         object-fit: cover;
       }
+      .cpk-threads-overview-video-embed {
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
 
       /* ── Header controls on the branded account strip ──────────── */
       .drag-handle > div[data-inspector-account-strip] button {
@@ -10201,7 +11167,9 @@ export class WebInspectorElement extends LitElement {
       .inspector-sidebar[data-icon-rail="true"]
         .inspector-context-dropdown-icon
         svg,
-      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder svg {
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-agent-placeholder
+        svg {
         width: 18px !important;
         height: 18px !important;
         overflow: visible !important;
@@ -10464,6 +11432,15 @@ export class WebInspectorElement extends LitElement {
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.learningSetupMarker = readLearningSetupMarker();
+      this.learningSetupUnsubscribe = subscribeToLearningSetupMarker(
+        (marker) => {
+          this.learningSetupMarker = marker;
+          this.requestUpdate();
+          this.scheduleLearningPoll();
+        },
+      );
+      this.refreshInspectorDismissalState();
       this.subscribeToSystemColorScheme();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
       // The superseded, origin-scoped read state is discarded rather than
@@ -10472,7 +11449,9 @@ export class WebInspectorElement extends LitElement {
       // the key rather than leaving it means nothing can fall back to it.
       clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
-      this.ensureAnnouncementLoading();
+      if (!this.isInspectorDismissed) {
+        this.ensureAnnouncementLoading();
+      }
       this.subscribeToInspectorThreadBridge();
     }
     this.requestUpdate();
@@ -10484,9 +11463,23 @@ export class WebInspectorElement extends LitElement {
 
   private handleDocumentVisibilityChange = (): void => {
     this.accountCtaMotionPaused = document.visibilityState !== "visible";
-    // Flush point for defer reason 2: somebody is looking again.
-    if (document.visibilityState === "visible" && !this.isOpen) {
+    this.refreshInspectorDismissalState();
+    // Flush point for defer reason 3: somebody is looking again.
+    if (
+      document.visibilityState === "visible" &&
+      !this.isOpen &&
+      !this.isInspectorDismissed
+    ) {
       this.flushPendingSignalPulse();
+    }
+    if (
+      document.visibilityState === "visible" &&
+      this.isOpen &&
+      this.selectedMenu === "memories"
+    ) {
+      void this.refreshLearningSnapshot({ preserve: true });
+    } else {
+      this.cancelLearningPoll();
     }
     this.requestUpdate();
   };
@@ -10518,17 +11511,21 @@ export class WebInspectorElement extends LitElement {
     }
     this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
+    this.learningSetupUnsubscribe?.();
+    this.learningSetupUnsubscribe = null;
+    this.clearLearningSnapshot();
     this.stopIntelligenceStory();
     this.clearIntelligencePromptReset();
-    this.threadsSetupPromptCopyGeneration += 1;
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-      this.threadsSetupPromptCopyResetTimeoutId = null;
+    this.homeFeaturePromptCopyGeneration += 1;
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+      this.homeFeaturePromptCopyResetTimeoutId = null;
     }
-    this.threadsSetupPromptCopyState = "idle";
+    this.homeFeaturePromptCopyState = null;
     this.stopSignalPulse();
     this.cancelGestureTail();
     this.cancelLauncherHudIntro();
+    this.clearInspectorDismissalTimer();
     this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
@@ -10586,13 +11583,22 @@ export class WebInspectorElement extends LitElement {
       }
     }
 
-    this.ensureAnnouncementLoading();
+    if (this.isInspectorDismissed) {
+      // The close action persists this immediately. This branch also covers a
+      // different localhost port whose own Inspector state was still open.
+      this.persistState();
+    } else {
+      this.ensureAnnouncementLoading();
+    }
 
     this.updateHostTransform(this.isOpen ? "window" : "button");
-    this.scheduleLauncherHudIntro();
+    if (!this.isInspectorDismissed) {
+      this.scheduleLauncherHudIntro();
+    }
   }
 
   render() {
+    if (this.isInspectorDismissed) return nothing;
     return this.isOpen
       ? html`
           <div data-inspector-portal-anchor></div>
@@ -10614,6 +11620,17 @@ export class WebInspectorElement extends LitElement {
   }
 
   protected updated(): void {
+    // Host message shortcuts follow the actual Inspector, including persisted
+    // dismissals and their expiry. Closing the panel still leaves it available.
+    const visible = !this.isInspectorDismissed;
+    if (visible !== this.lastReportedInspectorVisibility) {
+      this.lastReportedInspectorVisibility = visible;
+      this.dispatchEvent(
+        new CustomEvent("cpk-inspector-visibility-change", {
+          detail: { visible },
+        }),
+      );
+    }
     this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
@@ -10737,15 +11754,7 @@ export class WebInspectorElement extends LitElement {
               ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
               : LAUNCHER_BASE_LABEL
           }
-          title=${
-            // Visible text, so it is offered for the announcement only. No
-            // error detail is rendered over the host application: a developer
-            // who ships the Inspector to production must not leak internal
-            // failure detail to their end users.
-            activeSignal === NEWS_SIGNAL_ID
-              ? `${WHATS_NEW_VIEW_LABEL} — unread`
-              : nothing
-          }
+          title=${HUD_INSPECTOR_LABEL}
           data-drag-context="button"
           data-cpk-signal=${signal ? signal.tone : nothing}
           data-cpk-signal-pulsing=${
@@ -10773,9 +11782,9 @@ export class WebInspectorElement extends LitElement {
           />
           ${
             // Purely decorative: the button is the target, it carries the
-            // hover hint and the accessible name, and an unread announcement
-            // is announced by its navigation entry, which is where a keyboard
-            // user arrives.
+            // stable hover hint and the accessible name, and an unread
+            // announcement is announced by its navigation entry, which is
+            // where a keyboard user arrives.
             activeSignal !== null
               ? html`<span
                     class="cpk-launcher-signal-wash"
@@ -10887,19 +11896,95 @@ export class WebInspectorElement extends LitElement {
     this.openInspector("floating_button");
   };
 
+  /** Whether a persisted temporary dismissal is still active. */
+  private get isInspectorDismissed(): boolean {
+    return (
+      this.inspectorDismissedUntil !== null &&
+      this.inspectorDismissedUntil > Date.now()
+    );
+  }
+
+  /** Cancel the timer that restores Inspector after a temporary dismissal. */
+  private clearInspectorDismissalTimer(): void {
+    if (this.inspectorDismissalTimer === null) return;
+    clearTimeout(this.inspectorDismissalTimer);
+    this.inspectorDismissalTimer = null;
+  }
+
+  /** Schedule Inspector to return just after its persisted deadline. */
+  private scheduleInspectorDismissalExpiry(): void {
+    this.clearInspectorDismissalTimer();
+    if (this.inspectorDismissedUntil === null) return;
+    const delay = Math.max(0, this.inspectorDismissedUntil - Date.now() + 25);
+    this.inspectorDismissalTimer = setTimeout(() => {
+      this.inspectorDismissalTimer = null;
+      this.refreshInspectorDismissalState();
+    }, delay);
+  }
+
+  /** Reconcile this tab with host-scoped dismissal state from other ports. */
+  private refreshInspectorDismissalState(): void {
+    const hadDismissal = this.inspectorDismissedUntil !== null;
+    this.inspectorDismissedUntil = loadInspectorDismissedUntil();
+    this.clearInspectorDismissalTimer();
+
+    if (this.inspectorDismissedUntil !== null) {
+      this.closePopOut();
+      this.closeInspector();
+      this.scheduleInspectorDismissalExpiry();
+      if (!hadDismissal) this.requestUpdate();
+      return;
+    }
+
+    if (!hadDismissal || !this.isConnected) return;
+    this.ensureAnnouncementLoading();
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      if (!this.isConnected || this.isInspectorDismissed) return;
+      this.measureContext("button");
+      this.applyAnchorPosition("button");
+      this.scheduleLauncherHudIntro();
+      this.flushPendingSignalPulse();
+    });
+  }
+
+  /** Hide Inspector for a supported duration and persist it for this host. */
+  private dismissInspectorFor(duration: InspectorDismissalDuration): void {
+    const now = Date.now();
+    const until = now + INSPECTOR_DISMISSAL_MS[duration];
+    saveInspectorDismissedUntil(until, now);
+    this.inspectorDismissedUntil = until;
+    this.scheduleInspectorDismissalExpiry();
+    this.settingsOpen = false;
+    this.closeLauncherHud();
+    this.stopSignalPulse();
+    this.cancelGestureTail();
+    this.cancelLauncherHudIntro();
+    this.closePopOut();
+
+    if (this.isOpen) {
+      this.closeInspector();
+      return;
+    }
+
+    this.persistState();
+    this.requestUpdate();
+  }
+
   private isLauncherHudBlocked(): boolean {
-    return this.gestureSignal !== null;
+    return this.gestureSignal !== null || this.isInspectorDismissed;
   }
 
   private scheduleLauncherHudIntro(
     delay: number = LAUNCHER_HUD_INTRO_MS.delay,
   ): void {
+    if (this.isInspectorDismissed) return;
     if (this.launcherHudIntroStartTimer !== null) {
       clearTimeout(this.launcherHudIntroStartTimer);
     }
     this.launcherHudIntroStartTimer = setTimeout(() => {
       this.launcherHudIntroStartTimer = null;
-      if (!this.isConnected || this.isOpen) return;
+      if (!this.isConnected || this.isOpen || this.isInspectorDismissed) return;
       if (this.isLauncherHudBlocked()) {
         this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
         return;
@@ -10908,12 +11993,12 @@ export class WebInspectorElement extends LitElement {
       this.resolveLauncherHudSide();
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
+      void this.refreshLearningSnapshot({ preserve: true });
       this.requestUpdate();
       this.launcherHudIntroEndTimer = setTimeout(() => {
         this.launcherHudIntroEndTimer = null;
         this.launcherHudIntro = false;
         this.launcherHudOpen = false;
-        this.launcherHudHelp = null;
         this.requestUpdate();
       }, LAUNCHER_HUD_INTRO_MS.duration);
     }, delay);
@@ -10963,6 +12048,7 @@ export class WebInspectorElement extends LitElement {
     }
     if (this.launcherHudOpen) return;
     this.launcherHudOpen = true;
+    void this.refreshLearningSnapshot({ preserve: true });
     this.requestUpdate();
   }
 
@@ -10972,9 +12058,8 @@ export class WebInspectorElement extends LitElement {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
     }
-    if (!this.launcherHudOpen && this.launcherHudHelp === null) return;
+    if (!this.launcherHudOpen) return;
     this.launcherHudOpen = false;
-    this.launcherHudHelp = null;
     this.requestUpdate();
   }
 
@@ -11029,101 +12114,138 @@ export class WebInspectorElement extends LitElement {
     event.preventDefault();
     event.stopPropagation();
     this.hudLandingMenu =
-      row === "inspector"
-        ? null
-        : row === "threads"
-          ? "threads"
-          : row === "learning"
-            ? "memories"
-            : "home";
+      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
     this.closeLauncherHud();
     this.openInspector("floating_button");
-  };
-
-  private handleHudHelpClick = (event: Event, row: LauncherHudRowId): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.launcherHudHelp = this.launcherHudHelp === row ? null : row;
-    this.requestUpdate();
   };
 
   private handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {
     const target = event.target;
     if (
       target instanceof Element &&
-      target.closest(".cpk-launcher-hud__help, [data-cpk-hud-action]")
+      target.closest(".cpk-launcher-hud__controls, [data-cpk-hud-action]")
     ) {
       return;
     }
     this.handleHudActionClick(event, row);
   };
 
-  private renderHudCheck(): TemplateResult {
-    return html`
-      <svg
-        class="cpk-launcher-hud__check"
-        viewBox="0 0 16 16"
-        aria-hidden="true"
-        focusable="false"
-        data-cpk-hud-check
-      >
-        <path
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M3 8.5 6.5 12 13 4.5"
-        />
-      </svg>
-    `;
+  private handleHudNewsClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.hudLandingMenu = WHATS_NEW_MENU_KEY;
+    this.closeLauncherHud();
+    this.openInspector("floating_button");
+  };
+
+  private handleHudNewsDismissClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.clearNewsSignal();
+    this.activeRoot
+      .querySelector<HTMLButtonElement>(".console-button")
+      ?.focus({ preventScroll: true });
+  };
+
+  /** Apply the launcher HUD's one-day dismissal without opening Inspector. */
+  private handleHudDismissDayClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dismissInspectorFor("day");
+  };
+
+  private getUnreadAnnouncementTitle(): string | null {
+    if (!this.newsSignalArmed || !this.announcementLoaded) return null;
+    const title = this.announcementPreviewText?.trim() || "New in CopilotKit";
+    const titleCharacters = Array.from(title);
+    return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
+      ? `${titleCharacters
+          .slice(0, HUD_ANNOUNCEMENT_TITLE_LIMIT)
+          .join("")
+          .trimEnd()}...`
+      : title;
   }
 
   private renderHudRow(args: {
     id: LauncherHudRowId;
     label: string;
-    detail: string;
+    icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
-  }): TemplateResult {
-    const helpOpen = this.launcherHudHelp === args.id;
+  }): TemplateResult | typeof nothing {
+    if (args.connected) return nothing;
     const detailId = `cpk-hud-detail-${args.id}`;
     return html`
       <li
         class="cpk-launcher-hud__row"
         data-cpk-hud-row=${args.id}
-        data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        data-cpk-hud-action-kind="navigate"
         style=${styleMap({
-          "--cpk-hud-row-index": `${args.introIndex}`,
-          "--cpk-hud-row-delay": `${
-            LAUNCHER_HUD_INTRO_MS.rowStart +
-            args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
-          }ms`,
+          "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+            args.introIndex,
+          ),
         })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
-        <button
-          type="button"
-          class="cpk-launcher-hud__action"
-          data-cpk-hud-action
-          aria-describedby=${detailId}
-          @click=${(event: Event) => this.handleHudActionClick(event, args.id)}
-          @pointerdown=${(event: Event) => event.stopPropagation()}
-        >
-          ${args.connected ? this.renderHudCheck() : nothing}${args.label}
-        </button>
-        <button
-          type="button"
-          class="cpk-launcher-hud__help"
-          aria-expanded=${helpOpen ? "true" : "false"}
-          aria-controls=${detailId}
-          aria-label=${`About ${args.label}`}
-          @click=${(event: Event) => this.handleHudHelpClick(event, args.id)}
-          @pointerdown=${(event: Event) => event.stopPropagation()}
-        >
-          <span aria-hidden="true">?</span>
-        </button>
-        <p class="cpk-launcher-hud__detail" id=${detailId}>${args.detail}</p>
+        <span class="cpk-launcher-hud__primary">
+          <button
+            type="button"
+            class="cpk-launcher-hud__action"
+            data-cpk-hud-action
+            aria-label=${`Open ${args.label} in Inspector`}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            <span
+              class="cpk-launcher-hud__feature-icon"
+              data-cpk-hud-icon=${args.id}
+              aria-hidden="true"
+              >${this.renderIcon(args.icon)}</span
+            >
+            <span class="cpk-launcher-hud__label">${args.label}</span>
+          </button>
+          <span
+            class="cpk-launcher-hud__tooltip"
+            id=${detailId}
+            role="tooltip"
+            >${HUD_LEARN_MORE_LABEL}</span
+          >
+        </span>
+        <span class="cpk-launcher-hud__controls">
+          <button
+            type="button"
+            class="cpk-launcher-hud__learn-more"
+            data-cpk-hud-learn-more=${args.id}
+            aria-label=${`Learn more about ${args.label}`}
+            aria-describedby=${detailId}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            ${this.renderIcon("CircleHelp")}
+          </button>
+          <button
+            type="button"
+            class="cpk-launcher-hud__toggle"
+            data-cpk-hud-toggle=${args.id}
+            data-enabled=${args.connected ? "true" : "false"}
+            aria-label=${
+              args.connected
+                ? `${args.label} is enabled`
+                : `Open ${args.label} in Inspector`
+            }
+            ?disabled=${args.connected}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            <span
+              class="cpk-launcher-hud__toggle-track"
+              aria-hidden="true"
+            ></span>
+          </button>
+        </span>
       </li>
     `;
   }
@@ -11140,63 +12262,125 @@ export class WebInspectorElement extends LitElement {
     const learningOn = homeModel.services.some(
       (service) => service.id === "memory" && service.enabled,
     );
-    const intelligenceOn = homeModel.hero.connection === "connected";
+    const announcementTitle = this.getUnreadAnnouncementTitle();
+    const featureBlockIntroIndex = announcementTitle ? 1 : 0;
+    const dismissOnly = !announcementTitle && threadsOn && learningOn;
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
+        ?data-cpk-hud-dismiss-only=${dismissOnly}
         data-cpk-hud-side=${this.launcherHudSide}
+        data-cpk-hud-vertical=${this.contextState.button.anchor.vertical}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         data-color-scheme=${this.colorScheme}
         style=${styleMap({
           "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
-          "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
+          "--cpk-launcher-hud-waterfall-duration": `${LAUNCHER_HUD_INTRO_MS.waterfallDuration}ms`,
         })}
       >
-        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+        ${
+          dismissOnly
+            ? nothing
+            : html`
+                <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+              `
+        }
         <div class="cpk-launcher-hud__card">
-          <ul class="cpk-launcher-hud__list" role="list">
-            ${this.renderHudRow({
-              id: "inspector",
-              label: HUD_OPEN_INSPECTOR_LABEL,
-              detail: HUD_OPEN_INSPECTOR_DETAIL,
-              introIndex: 0,
+          ${
+            announcementTitle
+              ? html`
+                  <div
+                    class="cpk-launcher-hud__masthead"
+                    style=${styleMap({
+                      "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(0),
+                    })}
+                  >
+                    <div class="cpk-launcher-hud__news-wrap">
+                      <button
+                        type="button"
+                        class="cpk-launcher-hud__news"
+                        data-cpk-hud-news
+                        aria-label=${`Open new notification: ${announcementTitle}`}
+                        @click=${this.handleHudNewsClick}
+                        @pointerdown=${(event: Event) => event.stopPropagation()}
+                      >
+                        <span
+                          class="cpk-launcher-hud__news-label"
+                          data-cpk-hud-news-label
+                          aria-hidden="true"
+                          >New</span
+                        >
+                        <span class="cpk-launcher-hud__news-title"
+                          >${announcementTitle}</span
+                        >
+                      </button>
+                      <button
+                        type="button"
+                        class="cpk-launcher-hud__news-dismiss"
+                        data-cpk-hud-news-dismiss
+                        aria-label="Dismiss notification"
+                        @click=${this.handleHudNewsDismissClick}
+                        @pointerdown=${(event: Event) => event.stopPropagation()}
+                      >
+                        ${this.renderIcon("X")}
+                      </button>
+                    </div>
+                  </div>
+                `
+              : nothing
+          }
+          ${
+            threadsOn && learningOn
+              ? nothing
+              : html`
+                  <ul
+                    class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
+                    role="list"
+                    style=${styleMap({
+                      "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+                        featureBlockIntroIndex,
+                      ),
+                    })}
+                  >
+                    ${this.renderHudRow({
+                      id: "threads",
+                      label: HUD_THREADS_LABEL,
+                      icon: "MessageSquare",
+                      connected: threadsOn,
+                      introIndex: featureBlockIntroIndex + 1,
+                    })}
+                    ${this.renderHudRow({
+                      id: "learning",
+                      label: HUD_LEARNING_LABEL,
+                      icon: "Brain",
+                      connected: learningOn,
+                      introIndex: featureBlockIntroIndex + (threadsOn ? 1 : 2),
+                    })}
+                  </ul>
+                `
+          }
+          <button
+            type="button"
+            class="cpk-launcher-hud__dismiss-day"
+            data-cpk-dismiss-inspector="day"
+            style=${styleMap({
+              "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+                dismissOnly
+                  ? 0
+                  : featureBlockIntroIndex +
+                      Number(!threadsOn) +
+                      Number(!learningOn) +
+                      1,
+              ),
             })}
-          </ul>
-          <ul class="cpk-launcher-hud__list" role="list">
-            ${this.renderHudRow({
-              id: "threads",
-              label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
-              detail: threadsOn
-                ? HUD_THREADS_ON_DETAIL
-                : HUD_THREADS_OFF_DETAIL,
-              connected: threadsOn,
-              introIndex: 1,
-            })}
-            ${this.renderHudRow({
-              id: "intelligence",
-              label: intelligenceOn
-                ? HUD_INTELLIGENCE_ON_LABEL
-                : HUD_INTELLIGENCE_OFF_LABEL,
-              detail: intelligenceOn
-                ? HUD_INTELLIGENCE_ON_DETAIL
-                : HUD_INTELLIGENCE_OFF_DETAIL,
-              connected: intelligenceOn,
-              introIndex: 2,
-            })}
-            ${this.renderHudRow({
-              id: "learning",
-              label: learningOn
-                ? HUD_LEARNING_ON_LABEL
-                : HUD_LEARNING_OFF_LABEL,
-              detail: learningOn
-                ? HUD_LEARNING_ON_DETAIL
-                : HUD_LEARNING_OFF_DETAIL,
-              connected: learningOn,
-              introIndex: 3,
-            })}
-          </ul>
+            @click=${this.handleHudDismissDayClick}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            <span aria-hidden="true">${this.renderIcon("Clock")}</span>
+            Hide Inspector for a day
+          </button>
         </div>
       </div>
     `;
@@ -11332,12 +12516,12 @@ export class WebInspectorElement extends LitElement {
                       ${
                         marker
                           ? html`
-                              <span
-                                class="inspector-nav-signal-dot"
-                                data-cpk-signal-tone=${marker.tone}
-                                aria-hidden="true"
-                              ></span>
-                            `
+                            <span
+                              class="inspector-nav-signal-dot"
+                              data-cpk-signal-tone=${marker.tone}
+                              aria-hidden="true"
+                            ></span>
+                          `
                           : nothing
                       }
                     </button>
@@ -11367,7 +12551,9 @@ export class WebInspectorElement extends LitElement {
                   data-inspector-sidebar-toggle
                   aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
                   aria-expanded=${iconRail ? "false" : "true"}
-                  data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
+                  data-inspector-tooltip=${
+                    iconRail ? "Expand sidebar" : nothing
+                  }
                   title=${iconRail ? nothing : "Collapse sidebar"}
                   style=${INTERACTIVE_FOCUS_BASE_STYLE}
                   @pointerenter=${
@@ -11385,7 +12571,9 @@ export class WebInspectorElement extends LitElement {
                   @click=${this.handleSidebarToggle}
                 >
                   <span class="inspector-nav-icon" aria-hidden="true">
-                    ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
+                    ${this.renderIcon(
+                      iconRail ? "ChevronRight" : "ChevronLeft",
+                    )}
                   </span>
                   <span class="inspector-nav-label"
                     >${iconRail ? "Expand" : "Collapse"}</span
@@ -11550,7 +12738,12 @@ export class WebInspectorElement extends LitElement {
             timestamp: lastRuntimeEvent.timestamp,
           }
         : undefined,
-      memoriesOn: this._memoriesAvailable,
+      // A capability advertises the endpoint, not a configured Learning
+      // container. Use its successful snapshot for Home and launcher status.
+      learningOn:
+        this.learningSupported &&
+        this.learningError === null &&
+        this.learningSnapshot?.configuration.state === "configured",
       a2uiOn: this._core?.a2uiEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
@@ -11707,13 +12900,13 @@ export class WebInspectorElement extends LitElement {
                 // still just the product's name.
                 installing
                   ? html`
-                    <img
-                      class="inspector-intelligence-mark"
-                      src=${inspectorLogoKiteUrl}
-                      alt=""
-                      aria-hidden="true"
-                    />
-                  `
+                      <img
+                        class="inspector-intelligence-mark"
+                        src=${inspectorLogoKiteUrl}
+                        alt=""
+                        aria-hidden="true"
+                      />
+                    `
                   : nothing
               }
               ${connected ? "Intelligence" : model.hero.title}
@@ -11766,7 +12959,11 @@ export class WebInspectorElement extends LitElement {
                 `
                 : nothing
             }
-            ${installing ? this.renderIntelligenceInstallActions(action) : nothing}
+            ${
+              installing
+                ? this.renderIntelligenceInstallActions(action)
+                : nothing
+            }
           </div>
         </header>
 
@@ -11775,15 +12972,15 @@ export class WebInspectorElement extends LitElement {
           // bands rather than being squeezed into the header's action column.
           installing && this.promptCopyState === "failed"
             ? html`
-              <code class="inspector-intelligence-install-fallback" tabindex="0"
-                >${createOnboardingPrompt(this.getOnboardingRunId())}</code
-              >
-            `
+                <code
+                  class="inspector-intelligence-install-fallback"
+                  tabindex="0"
+                  >${createOnboardingPrompt(this.getOnboardingRunId())}</code
+                >
+              `
             : nothing
         }
-
         ${installing ? this.renderIntelligenceStory() : nothing}
-
         ${
           connected
             ? html`
@@ -12120,25 +13317,94 @@ export class WebInspectorElement extends LitElement {
     const disabledServices = model.services.filter(
       (service) => !service.enabled,
     );
-    const renderService = (service: HomeModel["services"][number]) => html`
-      <a
+    const renderService = (service: HomeModel["services"][number]) => {
+      const copyState =
+        this.homeFeaturePromptCopyState?.serviceId === service.id
+          ? this.homeFeaturePromptCopyState.state
+          : "idle";
+      const stateDescription = `${service.label} is ${
+        service.enabled
+          ? "enabled in your runtime"
+          : "not enabled in your runtime"
+      }`;
+      const copyLabel =
+        copyState === "copied"
+          ? "Copied"
+          : copyState === "error"
+            ? "Copy failed"
+            : "Copy prompt";
+      const copyTitle = copyLabel;
+      return html`
+      <div
         class="inspector-home-feature"
         data-inspector-service=${service.id}
         data-state=${service.enabled ? "on" : "off"}
-        href=${this.appendRefParam(service.docsUrl, "cpk-inspector-home")}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Learn more about ${service.label}, currently ${
-          service.enabled ? "on" : "off"
-        }"
+        role="listitem"
       >
-        <span>${service.label}</span>
-        <small>${service.enabled ? "On" : "Off"}</small>
-        <span class="inspector-home-feature-arrow" aria-hidden="true">
-          ${this.renderIcon("ArrowUpRight")}
+        <span
+          class="inspector-home-feature-status"
+          role="img"
+          aria-label=${stateDescription}
+          title=${stateDescription}
+        >
+          <span aria-hidden="true"></span>
         </span>
-      </a>
+        <a
+          class="inspector-home-feature-label"
+          data-inspector-home-feature-docs=${service.id}
+          href=${this.appendRefParam(service.docsUrl, "cpk-inspector-home")}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open ${service.label} documentation in a new tab"
+        >
+          <span>${service.label}</span>
+          <span class="inspector-home-feature-label-icon" aria-hidden="true"
+            >${this.renderIcon("ArrowUpRight")}</span
+          >
+        </a>
+        <span class="inspector-home-feature-actions">
+          ${
+            service.enabled
+              ? nothing
+              : html`
+                  <button
+                    type="button"
+                    class="inspector-home-feature-action inspector-system-health-url"
+                    data-inspector-home-feature-prompt=${service.id}
+                    data-copy-state=${copyState}
+                    data-full-value=${copyTitle}
+                    aria-label="${copyLabel} for ${service.label}"
+                    @click=${(event: Event) =>
+                      this.handleHomeFeaturePromptCopy(service, event)}
+                  >
+                    <span class="inspector-home-feature-action-icon" aria-hidden="true"
+                      >${this.renderIcon(copyState === "copied" ? "Check" : "Bot")}</span
+                    >
+                    <span class="inspector-home-feature-action-label"
+                      >${copyTitle}</span
+                    >
+                  </button>
+                `
+          }
+          ${
+            service.enabled
+              ? nothing
+              : html`
+                  <span class="sr-only" aria-live="polite">
+                    ${
+                      copyState === "copied"
+                        ? `${service.label} implementation prompt copied.`
+                        : copyState === "error"
+                          ? `Could not copy the ${service.label} implementation prompt.`
+                          : ""
+                    }
+                  </span>
+                `
+          }
+        </span>
+      </div>
     `;
+    };
     return html`
       <section
         class="inspector-home-section inspector-home-features"
@@ -12147,7 +13413,7 @@ export class WebInspectorElement extends LitElement {
         <header class="inspector-home-section-header">
           <h2 class="inspector-home-section-title">Features</h2>
           <span>
-            ${enabledServices.length} active, ${disabledServices.length} off
+            ${enabledServices.length} enabled, ${disabledServices.length} available
           </span>
         </header>
         ${
@@ -12162,13 +13428,13 @@ export class WebInspectorElement extends LitElement {
                 <section
                   class="inspector-home-feature-group"
                   data-feature-state-group="active"
-                  aria-label="Active features"
+                  aria-label="Enabled features"
                 >
                   <header class="inspector-home-feature-group-header">
-                    <strong>Active</strong>
+                    <strong>Enabled</strong>
                     <span>${enabledServices.length}</span>
                   </header>
-                  <div class="inspector-home-feature-list">
+                  <div class="inspector-home-feature-list" role="list">
                     ${
                       enabledServices.length > 0
                         ? enabledServices.map(renderService)
@@ -12181,13 +13447,13 @@ export class WebInspectorElement extends LitElement {
                 <section
                   class="inspector-home-feature-group"
                   data-feature-state-group="available"
-                  aria-label="Available features"
+                  aria-label="Features available to add"
                 >
                   <header class="inspector-home-feature-group-header">
-                    <strong>Available</strong>
+                    <strong>Available to add</strong>
                     <span>${disabledServices.length}</span>
                   </header>
-                  <div class="inspector-home-feature-list">
+                  <div class="inspector-home-feature-list" role="list">
                     ${
                       disabledServices.length > 0
                         ? disabledServices.map(renderService)
@@ -12201,6 +13467,127 @@ export class WebInspectorElement extends LitElement {
             `
         }
       </section>
+    `;
+  }
+
+  private showHomeFeaturePromptCopyState(
+    serviceId: HomeFeaturePromptId,
+    state: Exclude<HomeFeaturePromptCopyState, "idle">,
+    generation: number,
+  ): void {
+    if (
+      !this.isConnected ||
+      generation !== this.homeFeaturePromptCopyGeneration
+    )
+      return;
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+    }
+    this.homeFeaturePromptCopyState = { serviceId, state };
+    this.requestUpdate();
+    this.homeFeaturePromptCopyResetTimeoutId = window.setTimeout(() => {
+      if (
+        !this.isConnected ||
+        generation !== this.homeFeaturePromptCopyGeneration
+      )
+        return;
+      this.homeFeaturePromptCopyState = null;
+      this.homeFeaturePromptCopyResetTimeoutId = null;
+      this.requestUpdate();
+    }, 2_000);
+  }
+
+  private handleHomeFeaturePromptCopy = async (
+    service: HomeFeaturePromptTarget,
+    event?: Event,
+  ): Promise<void> => {
+    const generation = (this.homeFeaturePromptCopyGeneration += 1);
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+      this.homeFeaturePromptCopyResetTimeoutId = null;
+    }
+    this.homeFeaturePromptCopyState = null;
+    this.requestUpdate();
+
+    const onboardingRunId = createOnboardingRunId();
+    if (!this.core?.telemetryDisabled) {
+      trackHomeFeaturePromptClicked({
+        feature_id: service.id,
+        onboarding_run_id: onboardingRunId,
+      });
+    }
+
+    if (
+      await this.copyFeaturePromptToClipboard(service, event, onboardingRunId)
+    ) {
+      this.showHomeFeaturePromptCopyState(service.id, "copied", generation);
+    } else {
+      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
+    }
+  };
+
+  private getHomeFeaturePromptTarget(
+    serviceId: HomeFeaturePromptId,
+  ): HomeFeaturePromptTarget | undefined {
+    return this.getHomeModel().services.find(
+      (service) => service.id === serviceId,
+    );
+  }
+
+  private renderFeatureSetupPrompt(
+    serviceId: HomeFeaturePromptId,
+    className: string,
+    options?: Readonly<{
+      copyState?: HomeFeaturePromptCopyState;
+      onClick?: (event: Event) => void;
+    }>,
+  ): TemplateResult | typeof nothing {
+    const service = this.getHomeFeaturePromptTarget(serviceId);
+    if (!service) return nothing;
+    const copyState =
+      options?.copyState ??
+      (this.homeFeaturePromptCopyState?.serviceId === service.id
+        ? this.homeFeaturePromptCopyState.state
+        : "idle");
+    const label =
+      copyState === "copied"
+        ? "Copied"
+        : copyState === "error"
+          ? "Copy blocked"
+          : "Copy setup prompt";
+    return html`
+      <button
+        type="button"
+        class=${className}
+        data-inspector-feature-setup-prompt=${service.id}
+        data-inspector-threads-setup-prompt=${
+          service.id === "threads" ? "" : nothing
+        }
+        data-copy-state=${copyState}
+        aria-label=${
+          copyState === "copied"
+            ? `${service.label} setup prompt copied`
+            : copyState === "error"
+              ? `Could not copy the ${service.label} setup prompt. Try again`
+              : `Copy setup prompt for ${service.label}`
+        }
+        @click=${(event: Event) =>
+          options?.onClick
+            ? options.onClick(event)
+            : this.handleHomeFeaturePromptCopy(service, event)}
+      >
+        ${this.renderIcon(copyState === "copied" ? "Check" : "Copy")}
+        ${label}
+      </button>
+      <span class="sr-only" aria-live="polite">
+        ${
+          copyState === "copied"
+            ? `${service.label} setup prompt copied.`
+            : copyState === "error"
+              ? `Could not copy the ${service.label} setup prompt.`
+              : ""
+        }
+      </span>
     `;
   }
 
@@ -12252,33 +13639,33 @@ export class WebInspectorElement extends LitElement {
           this.promptCopyState === "idle"
             ? action
               ? html`
-                <a
-                  class="inspector-intelligence-install-secondary"
-                  data-inspector-home-intelligence-action=${action.kind}
-                  href=${action.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Set Intelligence up yourself (opens in a new tab)"
-                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                  @click=${() => this.handleHomeHeroCta(action)}
-                >
-                  Set it up yourself ${this.renderIcon("ArrowUpRight")}
-                </a>
-              `
+                  <a
+                    class="inspector-intelligence-install-secondary"
+                    data-inspector-home-intelligence-action=${action.kind}
+                    href=${action.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Set Intelligence up yourself (opens in a new tab)"
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${() => this.handleHomeHeroCta(action)}
+                  >
+                    Set it up yourself ${this.renderIcon("ArrowUpRight")}
+                  </a>
+                `
               : nothing
             : html`
-              <p
-                class="inspector-intelligence-install-hint"
-                data-tone=${failed ? "error" : "success"}
-                role="status"
-              >
-                ${
-                  failed
-                    ? "Clipboard blocked — copy the prompt below."
-                    : "Paste it into your coding agent."
-                }
-              </p>
-            `
+                <p
+                  class="inspector-intelligence-install-hint"
+                  data-tone=${failed ? "error" : "success"}
+                  role="status"
+                >
+                  ${
+                    failed
+                      ? "Clipboard blocked — copy the prompt below."
+                      : "Paste it into your coding agent."
+                  }
+                </p>
+              `
         }
         <button
           type="button"
@@ -12562,15 +13949,11 @@ export class WebInspectorElement extends LitElement {
             <em>Pending review</em>
           </header>
           <div class="inspector-intelligence-skill-code">
-            <span data-line="1"
-              ><b># Meeting scheduling</b></span
-            >
+            <span data-line="1"><b># Meeting scheduling</b></span>
             <span data-line="2">When planning a meeting:</span>
             ${INTELLIGENCE_STORY_RULES.map(
               (rule, index) => html`
-                <span
-                  data-line=${index + 3}
-                  style="--rule-index:${index}"
+                <span data-line=${index + 3} style="--rule-index:${index}"
                   >${index + 1}. ${rule}</span
                 >
               `,
@@ -14057,6 +15440,9 @@ export class WebInspectorElement extends LitElement {
     source: InspectorOpenSource,
     options: InspectorOpenOptions = {},
   ): void {
+    if (this.isInspectorDismissed) {
+      return;
+    }
     if (options.threadId) {
       this.focusThread(options);
     }
@@ -14086,8 +15472,10 @@ export class WebInspectorElement extends LitElement {
     const hudMenu = this.hudLandingMenu;
     this.hudLandingMenu = null;
     if (hudMenu) {
-      this.selectedMenu = hudMenu;
-      this.lastSelectedMenuByGroup[getGroupForMenu(hudMenu)] = hudMenu;
+      // Use the same activation path as sidebar navigation. In particular,
+      // Learning must initialize its lazy memory subscription before deciding
+      // whether to show the enabled view or the setup gate.
+      this.handleMenuSelect(hudMenu);
     } else if (activeSignalAtOpen !== null && source === "floating_button") {
       const landing = LAUNCHER_SIGNALS[activeSignalAtOpen].landingTarget;
       this.selectedMenu = landing;
@@ -14102,6 +15490,11 @@ export class WebInspectorElement extends LitElement {
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
+    if (this.isLearningStatusVisible()) {
+      void this.refreshLearningSnapshot({
+        preserve: this.learningSnapshot !== null,
+      });
+    }
     // The launcher is gone, so its gesture is gone with it — and the slot it
     // was holding is free again for whatever beats after the panel closes.
     this.cancelGestureTail();
@@ -14145,6 +15538,9 @@ export class WebInspectorElement extends LitElement {
     }
 
     this.isOpen = false;
+    this.cancelLearningPoll();
+    this.cancelLearningRequest();
+    this.learningViewedState = null;
 
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
@@ -14995,40 +16391,44 @@ export class WebInspectorElement extends LitElement {
 
     return html`
       <form
-        class=${centered ? "cpk-playground-form mt-5 w-full" : "cpk-playground-form bg-white px-3 pb-3 pt-1.5"}
+        class=${
+          centered
+            ? "cpk-playground-form mt-5 w-full"
+            : "cpk-playground-form bg-white px-3 pb-3 pt-1.5"
+        }
         @submit=${this.handlePlaygroundSubmit}
       >
         ${
           this.playgroundError
             ? html`<div
-                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-950"
-                role="alert"
-                data-playground-error
+              class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-950"
+              role="alert"
+              data-playground-error
+            >
+              <span class="mt-0.5 shrink-0"
+                >${this.renderIcon("TriangleAlert")}</span
               >
-                <span class="mt-0.5 shrink-0"
-                  >${this.renderIcon("TriangleAlert")}</span
-                >
-                <div class="min-w-0 flex-1">
-                  <p class="font-semibold">Agent run failed</p>
-                  <p class="mt-0.5 break-words leading-relaxed">
-                    ${this.playgroundError}
-                  </p>
-                </div>
-                ${
-                  hasRetry
-                    ? html`
-                        <button
-                          type="button"
-                          class="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-1 disabled:opacity-50"
-                          ?disabled=${busy}
-                          @click=${this.handlePlaygroundRetry}
-                        >
-                          Retry
-                        </button>
-                      `
-                    : nothing
-                }
-              </div>`
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold">Agent run failed</p>
+                <p class="mt-0.5 break-words leading-relaxed">
+                  ${this.playgroundError}
+                </p>
+              </div>
+              ${
+                hasRetry
+                  ? html`
+                    <button
+                      type="button"
+                      class="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-1 disabled:opacity-50"
+                      ?disabled=${busy}
+                      @click=${this.handlePlaygroundRetry}
+                    >
+                      Retry
+                    </button>
+                  `
+                  : nothing
+              }
+            </div>`
             : nothing
         }
         <div
@@ -15185,7 +16585,9 @@ export class WebInspectorElement extends LitElement {
                 class="h-3 w-px shrink-0 bg-gray-200"
                 aria-hidden="true"
               ></span>
-              <span class="truncate" title=${runtimeLabel}>${runtimeLabel}</span>
+              <span class="truncate" title=${runtimeLabel}
+                >${runtimeLabel}</span
+              >
             </div>
           </div>
           <div
@@ -15194,39 +16596,39 @@ export class WebInspectorElement extends LitElement {
             ${
               sourceThreads.length > 0
                 ? html`
-                    <label class="sr-only" for="cpk-playground-thread-source"
-                      >Start from a thread</label
+                  <label class="sr-only" for="cpk-playground-thread-source"
+                    >Start from a thread</label
+                  >
+                  <select
+                    id="cpk-playground-thread-source"
+                    class="cpk-playground-thread-select max-w-[200px] rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    .value=${this.playgroundSourceThreadId ?? ""}
+                    ?disabled=${busy}
+                    @change=${this.handlePlaygroundThreadSourceChange}
+                  >
+                    <option
+                      value=""
+                      ?selected=${!this.playgroundSourceThreadId}
                     >
-                    <select
-                      id="cpk-playground-thread-source"
-                      class="cpk-playground-thread-select max-w-[200px] rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      .value=${this.playgroundSourceThreadId ?? ""}
-                      ?disabled=${busy}
-                      @change=${this.handlePlaygroundThreadSourceChange}
-                    >
-                      <option
-                        value=""
-                        ?selected=${!this.playgroundSourceThreadId}
-                      >
-                        Load a thread...
-                      </option>
-                      ${sourceThreads.map(
-                        (thread) => html`
-                          <option
-                            value=${thread.id}
-                            ?selected=${
-                              this.playgroundSourceThreadId === thread.id
-                            }
-                          >
-                            ${
-                              thread.name?.trim() ||
-                              `Thread ${thread.id.slice(0, 8)}`
-                            }
-                          </option>
-                        `,
-                      )}
-                    </select>
-                  `
+                      Load a thread...
+                    </option>
+                    ${sourceThreads.map(
+                      (thread) => html`
+                        <option
+                          value=${thread.id}
+                          ?selected=${
+                            this.playgroundSourceThreadId === thread.id
+                          }
+                        >
+                          ${
+                            thread.name?.trim() ||
+                            `Thread ${thread.id.slice(0, 8)}`
+                          }
+                        </option>
+                      `,
+                    )}
+                  </select>
+                `
                 : nothing
             }
             <button
@@ -15243,39 +16645,38 @@ export class WebInspectorElement extends LitElement {
         ${
           this.playgroundShowEphemeralNotice && runtimeMode !== "intelligence"
             ? html`
-                <div
-                  role="alert"
-                  class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
-                  data-playground-ephemeral-notice
+              <div
+                role="alert"
+                class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
+                data-playground-ephemeral-notice
+              >
+                <span class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                  >${this.renderIcon("Clock3")}</span
                 >
-                  <span
-                    class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                    >${this.renderIcon("Clock3")}</span
-                  >
-                  <p class="min-w-0 flex-1 leading-relaxed">
-                    Scratch threads are ephemeral and will be deleted when your
-                    local session ends. Need durable history?
-                    <a
-                      class="font-semibold underline decoration-violet-300 underline-offset-2 hover:decoration-violet-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
-                      href=${this.getThreadsIntelligenceSignupUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      >Set up Intelligence</a
-                    >.
-                  </p>
-                  <button
-                    type="button"
-                    class="rounded p-0.5 text-violet-500 transition hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
-                    aria-label="Dismiss ephemeral thread notice"
-                    @click=${() => {
-                      this.playgroundShowEphemeralNotice = false;
-                      this.requestUpdate();
-                    }}
-                  >
-                    ${this.renderIcon("X")}
-                  </button>
-                </div>
-              `
+                <p class="min-w-0 flex-1 leading-relaxed">
+                  Scratch threads are ephemeral and will be deleted when your
+                  local session ends. Need durable history?
+                  <a
+                    class="font-semibold underline decoration-violet-300 underline-offset-2 hover:decoration-violet-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
+                    href=${this.getThreadsIntelligenceSignupUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >Set up Intelligence</a
+                  >.
+                </p>
+                <button
+                  type="button"
+                  class="rounded p-0.5 text-violet-500 transition hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
+                  aria-label="Dismiss ephemeral thread notice"
+                  @click=${() => {
+                    this.playgroundShowEphemeralNotice = false;
+                    this.requestUpdate();
+                  }}
+                >
+                  ${this.renderIcon("X")}
+                </button>
+              </div>
+            `
             : nothing
         }
 
@@ -15286,297 +16687,297 @@ export class WebInspectorElement extends LitElement {
           ${
             this.playgroundIsLoadingThread
               ? html`
-                  <div
-                    class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
+                <div
+                  class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
+                >
+                  <span
+                    class="text-gray-500 [&>svg]:animate-spin"
+                    aria-hidden="true"
+                    >${this.renderIcon("LoaderCircle")}</span
                   >
-                    <span
-                      class="text-gray-500 [&>svg]:animate-spin"
-                      aria-hidden="true"
-                      >${this.renderIcon("LoaderCircle")}</span
-                    >
-                    Loading thread into a scratch session...
-                  </div>
-                `
+                  Loading thread into a scratch session...
+                </div>
+              `
               : visibleMessages.length === 0
                 ? html`
-                    <div
-                      class="cpk-playground-welcome mx-auto flex h-full w-full flex-col items-center justify-center text-center"
-                    >
-                      <p class="cpk-playground-welcome-title">
-                        How can I help you today?
-                      </p>
-                      ${this.renderPlaygroundComposer(
-                        agentId,
-                        busy,
-                        hasRetry,
-                        true,
-                      )}
-                    </div>
-                  `
+                  <div
+                    class="cpk-playground-welcome mx-auto flex h-full w-full flex-col items-center justify-center text-center"
+                  >
+                    <p class="cpk-playground-welcome-title">
+                      How can I help you today?
+                    </p>
+                    ${this.renderPlaygroundComposer(
+                      agentId,
+                      busy,
+                      hasRetry,
+                      true,
+                    )}
+                  </div>
+                `
                 : html`
-                    <div class="mx-auto flex max-w-3xl flex-col pb-5">
-                      ${visibleMessages.map((message, index) => {
-                        const isUser = message.role === "user";
-                        const isReasoning = message.role === "reasoning";
-                        const isActivity = message.role === "activity";
-                        const content = isActivity
-                          ? (message.activityType ?? "Agent activity")
-                          : message.contentText;
-                        if (
-                          !isReasoning &&
-                          !content &&
-                          message.toolCalls.length === 0
-                        ) {
-                          return nothing;
-                        }
-                        if (isReasoning) {
-                          const isStreaming =
-                            this.playgroundIsRunning &&
-                            index === lastReasoningIndex;
-                          const duration = message.id
-                            ? this.playgroundReasoningDurations.get(message.id)
-                            : undefined;
-                          const durationLabel =
-                            duration === undefined || duration < 1000
-                              ? "a few seconds"
-                              : `${Math.round(duration / 1000)} seconds`;
-                          const label = isStreaming
-                            ? "Thinking…"
-                            : `Thought for ${durationLabel}`;
+                  <div class="mx-auto flex max-w-3xl flex-col pb-5">
+                    ${visibleMessages.map((message, index) => {
+                      const isUser = message.role === "user";
+                      const isReasoning = message.role === "reasoning";
+                      const isActivity = message.role === "activity";
+                      const content = isActivity
+                        ? (message.activityType ?? "Agent activity")
+                        : message.contentText;
+                      if (
+                        !isReasoning &&
+                        !content &&
+                        message.toolCalls.length === 0
+                      ) {
+                        return nothing;
+                      }
+                      if (isReasoning) {
+                        const isStreaming =
+                          this.playgroundIsRunning &&
+                          index === lastReasoningIndex;
+                        const duration = message.id
+                          ? this.playgroundReasoningDurations.get(message.id)
+                          : undefined;
+                        const durationLabel =
+                          duration === undefined || duration < 1000
+                            ? "a few seconds"
+                            : `${Math.round(duration / 1000)} seconds`;
+                        const label = isStreaming
+                          ? "Thinking…"
+                          : `Thought for ${durationLabel}`;
 
-                          if (isStreaming) {
-                            return html`
-                              <section
-                                class="cpk-playground-message-enter my-1 text-[11px] text-gray-500"
-                                data-playground-message-role="reasoning"
+                        if (isStreaming) {
+                          return html`
+                            <section
+                              class="cpk-playground-message-enter my-1 text-[11px] text-gray-500"
+                              data-playground-message-role="reasoning"
+                            >
+                              <div
+                                class="inline-flex items-center gap-1 py-1 font-medium"
                               >
-                                <div
-                                  class="inline-flex items-center gap-1 py-1 font-medium"
-                                >
-                                  <span>${label}</span>
-                                  ${
-                                    content
-                                      ? nothing
-                                      : html`
-                                          <span
-                                            class="cpk-playground-thinking-dot ml-1 h-1.5 w-1.5 rounded-full bg-gray-500"
-                                            aria-hidden="true"
-                                          ></span>
-                                        `
-                                  }
-                                </div>
+                                <span>${label}</span>
                                 ${
                                   content
-                                    ? html`<div
-                                        class="pb-2 pt-1 leading-5 text-gray-500"
-                                      >
-                                        ${content}
-                                      </div>`
-                                    : nothing
+                                    ? nothing
+                                    : html`
+                                        <span
+                                          class="cpk-playground-thinking-dot ml-1 h-1.5 w-1.5 rounded-full bg-gray-500"
+                                          aria-hidden="true"
+                                        ></span>
+                                      `
                                 }
-                              </section>
-                            `;
-                          }
-
-                          return content
-                            ? html`
-                                <details
-                                  class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-[11px] text-gray-500"
-                                  data-playground-message-role="reasoning"
-                                >
-                                  <summary
-                                    class="inline-flex cursor-pointer list-none items-center gap-1 py-1 font-medium transition-colors hover:text-gray-900 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                              </div>
+                              ${
+                                content
+                                  ? html`<div
+                                    class="pb-2 pt-1 leading-5 text-gray-500"
                                   >
-                                    <span>${label}</span>
-                                    <span
-                                      class="cpk-playground-reasoning-chevron transition-transform duration-200 [&>svg]:h-3 [&>svg]:w-3"
-                                      >${this.renderIcon("ChevronRight")}</span
-                                    >
-                                  </summary>
-                                  <div class="pb-2 pt-1 leading-5 text-gray-500">
+                                    ${content}
+                                  </div>`
+                                  : nothing
+                              }
+                            </section>
+                          `;
+                        }
+
+                        return content
+                          ? html`
+                              <details
+                                class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-[11px] text-gray-500"
+                                data-playground-message-role="reasoning"
+                              >
+                                <summary
+                                  class="inline-flex cursor-pointer list-none items-center gap-1 py-1 font-medium transition-colors hover:text-gray-900 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                                >
+                                  <span>${label}</span>
+                                  <span
+                                    class="cpk-playground-reasoning-chevron transition-transform duration-200 [&>svg]:h-3 [&>svg]:w-3"
+                                    >${this.renderIcon("ChevronRight")}</span
+                                  >
+                                </summary>
+                                <div class="pb-2 pt-1 leading-5 text-gray-500">
+                                  ${content}
+                                </div>
+                              </details>
+                            `
+                          : html`
+                              <div
+                                class="cpk-playground-message-enter my-1 py-1 text-[11px] font-medium text-gray-500"
+                                data-playground-message-role="reasoning"
+                              >
+                                ${label}
+                              </div>
+                            `;
+                      }
+                      const isMultiline =
+                        content.includes("\n") || content.length > 72;
+                      const copyKey = `playground-message-${
+                        message.id ?? index
+                      }`;
+                      const showToolbar =
+                        !isUser &&
+                        !isActivity &&
+                        Boolean(content) &&
+                        !(
+                          this.playgroundIsRunning &&
+                          index === lastAssistantIndex
+                        );
+                      return html`
+                        <article
+                          class=${
+                            isActivity
+                              ? "cpk-playground-message-enter mr-auto mt-3 flex max-w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[10px] text-gray-600"
+                              : isUser
+                                ? "cpk-playground-message-enter flex w-full flex-col items-end pt-8"
+                                : "cpk-playground-message-enter w-full"
+                          }
+                          data-playground-message-role=${message.role}
+                        >
+                          ${
+                            isActivity
+                              ? html`
+                                <span class="text-gray-500"
+                                  >${this.renderIcon("Activity")}</span
+                                >
+                                <span class="font-medium text-gray-700"
+                                  >Activity</span
+                                >
+                                <span class="truncate">${content}</span>
+                              `
+                              : isUser
+                                ? html`
+                                  <div
+                                    class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[16px] bg-gray-100 px-3 text-[13px] leading-5 text-gray-900 ${
+                                      isMultiline ? "py-2.5" : "py-1"
+                                    }`}
+                                  >
                                     ${content}
                                   </div>
-                                </details>
-                              `
-                            : html`
+                                `
+                                : html`
+                                  <div
+                                    class="whitespace-pre-wrap break-words py-3 text-[13px] leading-[22px] text-gray-800"
+                                  >
+                                    ${content}
+                                  </div>
+                                `
+                          }
+                          ${
+                            !isUser && message.toolCalls.length > 0
+                              ? this.renderToolCallDetails(message.toolCalls)
+                              : nothing
+                          }
+                          ${
+                            showToolbar
+                              ? html`
                                 <div
-                                  class="cpk-playground-message-enter my-1 py-1 text-[11px] font-medium text-gray-500"
-                                  data-playground-message-role="reasoning"
+                                  class="-ml-1 flex min-h-7 w-full items-center gap-1 bg-transparent"
+                                  data-playground-assistant-toolbar
                                 >
-                                  ${label}
+                                  <button
+                                    type="button"
+                                    class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                                    title="Copy message"
+                                    aria-label="Copy message"
+                                    @click=${(event: Event) =>
+                                      this.copyToClipboard(
+                                        content,
+                                        copyKey,
+                                        event,
+                                      )}
+                                  >
+                                    ${
+                                      this.copiedEvents.has(copyKey)
+                                        ? this.renderIcon("Check")
+                                        : this.renderIcon("Copy")
+                                    }
+                                  </button>
+                                  ${
+                                    index === lastAssistantIndex &&
+                                    hasRetry &&
+                                    !busy &&
+                                    !this.playgroundError
+                                      ? html`
+                                        <button
+                                          type="button"
+                                          class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                                          title="Retry last prompt"
+                                          aria-label="Retry last prompt"
+                                          @click=${this.handlePlaygroundRetry}
+                                        >
+                                          ${this.renderIcon("RotateCcw")}
+                                        </button>
+                                      `
+                                      : nothing
+                                  }
                                 </div>
-                              `;
-                        }
-                        const isMultiline =
-                          content.includes("\n") || content.length > 72;
-                        const copyKey = `playground-message-${
-                          message.id ?? index
-                        }`;
-                        const showToolbar =
-                          !isUser &&
-                          !isActivity &&
-                          Boolean(content) &&
-                          !(
-                            this.playgroundIsRunning &&
-                            index === lastAssistantIndex
-                          );
-                        return html`
-                          <article
-                            class=${
-                              isActivity
-                                ? "cpk-playground-message-enter mr-auto mt-3 flex max-w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[10px] text-gray-600"
-                                : isUser
-                                  ? "cpk-playground-message-enter flex w-full flex-col items-end pt-8"
-                                  : "cpk-playground-message-enter w-full"
-                            }
-                            data-playground-message-role=${message.role}
+                              `
+                              : nothing
+                          }
+                        </article>
+                      `;
+                    })}
+                    ${
+                      this.playgroundIsRunning && lastReasoningIndex < 0
+                        ? html`
+                            <div
+                              class="cpk-playground-message-enter mt-3 flex items-center gap-1 px-1 py-1"
+                              aria-label="Agent is working"
+                            >
+                              <span
+                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                              ></span>
+                              <span
+                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                              ></span>
+                              <span
+                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                              ></span>
+                            </div>
+                          `
+                        : nothing
+                    }
+                    ${
+                      !busy && lastAssistantIndex >= 0 && suggestions.length > 0
+                        ? html`
+                          <div
+                            class="mt-3 flex flex-wrap items-center gap-1.5"
+                            data-playground-suggestions
                           >
-                            ${
-                              isActivity
-                                ? html`
-                                    <span class="text-gray-500"
-                                      >${this.renderIcon("Activity")}</span
-                                    >
-                                    <span class="font-medium text-gray-700"
-                                      >Activity</span
-                                    >
-                                    <span class="truncate">${content}</span>
-                                  `
-                                : isUser
-                                  ? html`
-                                      <div
-                                        class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[16px] bg-gray-100 px-3 text-[13px] leading-5 text-gray-900 ${
-                                          isMultiline ? "py-2.5" : "py-1"
-                                        }`}
-                                      >${content}</div>
-                                    `
-                                  : html`
-                                      <div
-                                        class="whitespace-pre-wrap break-words py-3 text-[13px] leading-[22px] text-gray-800"
-                                      >${content}</div>
-                                    `
-                            }
-                            ${
-                              !isUser && message.toolCalls.length > 0
-                                ? this.renderToolCallDetails(message.toolCalls)
-                                : nothing
-                            }
-                            ${
-                              showToolbar
-                                ? html`
-                                    <div
-                                      class="-ml-1 flex min-h-7 w-full items-center gap-1 bg-transparent"
-                                      data-playground-assistant-toolbar
-                                    >
-                                      <button
-                                        type="button"
-                                        class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                                        title="Copy message"
-                                        aria-label="Copy message"
-                                        @click=${(event: Event) =>
-                                          this.copyToClipboard(
-                                            content,
-                                            copyKey,
-                                            event,
-                                          )}
-                                      >
-                                        ${
-                                          this.copiedEvents.has(copyKey)
-                                            ? this.renderIcon("Check")
-                                            : this.renderIcon("Copy")
-                                        }
-                                      </button>
-                                      ${
-                                        index === lastAssistantIndex &&
-                                        hasRetry &&
-                                        !busy &&
-                                        !this.playgroundError
-                                          ? html`
-                                              <button
-                                                type="button"
-                                                class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                                                title="Retry last prompt"
-                                                aria-label="Retry last prompt"
-                                                @click=${
-                                                  this.handlePlaygroundRetry
-                                                }
-                                              >
-                                                ${this.renderIcon("RotateCcw")}
-                                              </button>
-                                            `
-                                          : nothing
-                                      }
-                                    </div>
-                                  `
-                                : nothing
-                            }
-                          </article>
-                        `;
-                      })}
-                      ${
-                        this.playgroundIsRunning && lastReasoningIndex < 0
-                          ? html`
-                              <div
-                                class="cpk-playground-message-enter mt-3 flex items-center gap-1 px-1 py-1"
-                                aria-label="Agent is working"
-                              >
-                                <span
-                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
-                                <span
-                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
-                                <span
-                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
-                              </div>
-                            `
-                          : nothing
-                      }
-                      ${
-                        !busy &&
-                        lastAssistantIndex >= 0 &&
-                        suggestions.length > 0
-                          ? html`
-                              <div
-                                class="mt-3 flex flex-wrap items-center gap-1.5"
-                                data-playground-suggestions
-                              >
-                                ${suggestions.map(
-                                  (suggestion) => html`
-                                    <button
-                                      type="button"
-                                      class="inline-flex h-7 items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 text-[10px] font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
-                                      ?disabled=${suggestion.isLoading}
-                                      aria-busy=${
-                                        suggestion.isLoading ? "true" : "false"
-                                      }
-                                      @click=${() =>
-                                        this.handlePlaygroundSuggestion(
-                                          suggestion.message,
-                                        )}
-                                    >
-                                      ${
-                                        suggestion.isLoading
-                                          ? html`<span
-                                              class="[&>svg]:animate-spin"
-                                              aria-hidden="true"
-                                              >${this.renderIcon(
-                                                "LoaderCircle",
-                                              )}</span
-                                            >`
-                                          : nothing
-                                      }
-                                      <span>${suggestion.title}</span>
-                                    </button>
-                                  `,
-                                )}
-                              </div>
-                            `
-                          : nothing
-                      }
-                    </div>
-                  `
+                            ${suggestions.map(
+                              (suggestion) => html`
+                                <button
+                                  type="button"
+                                  class="inline-flex h-7 items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 text-[10px] font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
+                                  ?disabled=${suggestion.isLoading}
+                                  aria-busy=${
+                                    suggestion.isLoading ? "true" : "false"
+                                  }
+                                  @click=${() =>
+                                    this.handlePlaygroundSuggestion(
+                                      suggestion.message,
+                                    )}
+                                >
+                                  ${
+                                    suggestion.isLoading
+                                      ? html`<span
+                                        class="[&>svg]:animate-spin"
+                                        aria-hidden="true"
+                                        >${this.renderIcon(
+                                          "LoaderCircle",
+                                        )}</span
+                                      >`
+                                      : nothing
+                                  }
+                                  <span>${suggestion.title}</span>
+                                </button>
+                              `,
+                            )}
+                          </div>
+                        `
+                        : nothing
+                    }
+                  </div>
+                `
           }
         </div>
 
@@ -15672,6 +17073,40 @@ export class WebInspectorElement extends LitElement {
             </a>
           </div>
         </section>
+
+        <section
+          class="inspector-settings-section"
+          aria-labelledby="inspector-settings-visibility-title"
+        >
+          <div class="inspector-settings-section-heading">
+            <span class="inspector-settings-section-icon" aria-hidden="true">
+              ${this.renderIcon("EyeOff")}
+            </span>
+            <div>
+              <h2 id="inspector-settings-visibility-title">Visibility</h2>
+              <p>Temporarily hide the Inspector on this domain.</p>
+            </div>
+          </div>
+
+          <div class="inspector-settings-visibility">
+            <div>
+              <h3>Take a break from the Inspector</h3>
+              <p>
+                Hide the Inspector for seven days. It will return automatically
+                when the week is over.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="inspector-settings-dismiss"
+              data-cpk-dismiss-inspector="week"
+              @click=${() => this.dismissInspectorFor("week")}
+            >
+              <span aria-hidden="true">${this.renderIcon("Clock")}</span>
+              Hide Inspector for one week
+            </button>
+          </div>
+        </section>
       </div>
     `;
   }
@@ -15723,22 +17158,14 @@ export class WebInspectorElement extends LitElement {
         placement: "threads-footer" | "locked";
       }>
     | undefined {
-    const { threadsFooterAction, lockedAction } =
-      this.inspectorMetadataProjection;
+    const { threadsFooterAction } = this.inspectorMetadataProjection;
     if (
       threadsFooterAction &&
       !this.settingsOpen &&
-      this.selectedMenu === "threads"
+      this.selectedMenu === "threads" &&
+      this.areThreadEndpointsAvailable()
     ) {
       return { action: threadsFooterAction, placement: "threads-footer" };
-    }
-    if (
-      lockedAction &&
-      !this.settingsOpen &&
-      this.selectedMenu === "threads" &&
-      !this.areThreadEndpointsAvailable()
-    ) {
-      return { action: lockedAction, placement: "locked" };
     }
     return undefined;
   }
@@ -15978,14 +17405,12 @@ export class WebInspectorElement extends LitElement {
   }
 
   private shouldRenderExampleThreads(
-    locked: boolean,
     displayThreads: ɵThread[],
     threadsErrorMessage: string | null,
     threadsLoading: boolean,
   ): boolean {
     return (
-      locked ||
-      (!threadsErrorMessage && !threadsLoading && displayThreads.length === 0)
+      !threadsErrorMessage && !threadsLoading && displayThreads.length === 0
     );
   }
 
@@ -16730,163 +18155,147 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  /** Show a copy result briefly and announce it to assistive technology. */
-  private showThreadsSetupPromptCopyState(
-    state: Exclude<ThreadsSetupPromptCopyState, "idle">,
-    generation: number,
-  ): void {
-    if (
-      !this.isConnected ||
-      generation !== this.threadsSetupPromptCopyGeneration
-    ) {
-      return;
-    }
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-    }
-    this.threadsSetupPromptCopyState = state;
-    this.requestUpdate();
-    this.threadsSetupPromptCopyResetTimeoutId = window.setTimeout(() => {
-      if (
-        !this.isConnected ||
-        generation !== this.threadsSetupPromptCopyGeneration
-      ) {
-        return;
-      }
-      this.threadsSetupPromptCopyState = "idle";
-      this.threadsSetupPromptCopyResetTimeoutId = null;
-      this.requestUpdate();
-    }, 2_000);
-  }
-
-  /** Copy the static, docs-backed Rich Threads repair prompt. */
-  private handleThreadsSetupPromptCopy = async (
-    event?: Event,
-  ): Promise<void> => {
-    const generation = (this.threadsSetupPromptCopyGeneration += 1);
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-      this.threadsSetupPromptCopyResetTimeoutId = null;
-    }
-    this.threadsSetupPromptCopyState = "idle";
-    this.requestUpdate();
-
-    const clipboard = this.getClipboard(event);
-    if (!clipboard?.writeText) {
-      this.showThreadsSetupPromptCopyState("error", generation);
-      return;
-    }
-
-    try {
-      await clipboard.writeText(THREADS_RUNTIME_SETUP_PROMPT);
-      this.showThreadsSetupPromptCopyState("copied", generation);
-    } catch {
-      this.showThreadsSetupPromptCopyState("error", generation);
-    }
-  };
-
-  private renderThreadsExampleOverview(locked: boolean) {
-    const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
-    const { lockedAction } = this.inspectorMetadataProjection;
+  private renderThreadsExampleOverview() {
     const onboardingAction = this.getThreadsEmptyOnboardingAction();
     return html`
       <div class="cpk-threads-overview">
         <div class="cpk-threads-overview-content">
           <h2 class="cpk-threads-overview-title">
-            ${
-              lockedCopy?.heading ??
-              "Threads are persistent, inspectable conversations"
-            }
+            Threads are persistent, inspectable conversations
           </h2>
           ${this.renderThreadsExampleOverviewVideo()}
           <p class="cpk-threads-overview-copy">
-            ${
-              lockedCopy?.description ??
-              "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
-            }
+            Take a tour with the example threads in the sidebar. Then, start
+            chatting in your app to create the first real thread.
           </p>
           <div class="cpk-threads-overview-actions">
-            ${
-              locked
-                ? html`
-                  ${
-                    this.inspectorMetadataProjection.licenseState === "valid"
-                      ? html`
-                        <button
-                          data-inspector-threads-setup-prompt
-                          type="button"
-                          aria-label=${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Setup prompt copied"
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Copy setup prompt failed. Try again"
-                                : "Copy setup prompt for your coding agent"
-                          }
-                          @click=${this.handleThreadsSetupPromptCopy}
-                        >
-                          ${this.renderIcon(
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Check"
-                              : "Copy",
-                          )}
-                          ${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Copied"
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Copy blocked"
-                                : "Copy prompt for your agent"
-                          }
-                        </button>
-                        <a
-                          data-inspector-threads-setup-link
-                          href=${this.getThreadsRuntimeSetupDocsUrl()}
-                          target="_blank"
-                          rel="noopener"
-                          aria-label="Open setup guide (opens in a new tab)"
-                        >
-                          Open setup guide
-                        </a>
-                        <span
-                          class="sr-only"
-                          data-inspector-threads-setup-copy-status
-                          aria-live="polite"
-                          >${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Setup prompt copied."
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Setup prompt copy failed. Open the setup guide and copy it manually."
-                                : ""
-                          }</span
-                        >
-                      `
-                      : nothing
-                  }
-                  ${
-                    lockedAction
-                      ? this.renderInspectorAction(lockedAction, "locked")
-                      : nothing
-                  }
-                `
-                : html`
-                  <a
-                    href=${this.getThreadsDocsUrl()}
-                    target="_blank"
-                    rel="noopener"
-                    class="cpk-threads-overview-action cpk-threads-overview-action-primary"
-                  >
-                    Learn how Threads work
-                  </a>
-                  <a
-                    href=${onboardingAction.href}
-                    target="_blank"
-                    rel="noopener"
-                    class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
-                  >
-                    ${onboardingAction.label}
-                  </a>
-                `
-            }
+            <a
+              href=${this.getThreadsDocsUrl()}
+              target="_blank"
+              rel="noopener"
+              class="cpk-threads-overview-action cpk-threads-overview-action-primary"
+            >
+              Learn how Threads work
+            </a>
+            <a
+              href=${onboardingAction.href}
+              target="_blank"
+              rel="noopener"
+              class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
+            >
+              ${onboardingAction.label}
+            </a>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderLockedFeatureOverview({
+    serviceId,
+    featureName,
+    heading,
+    description,
+    videoUrl,
+    videoTitle,
+    outlineItems,
+    setupPrompt,
+  }: {
+    serviceId: HomeFeaturePromptId;
+    featureName: string;
+    heading: string;
+    description: string;
+    videoUrl: string;
+    videoTitle: string;
+    outlineItems: ReadonlyArray<LockedFeatureOutlineItem>;
+    setupPrompt?: Readonly<{
+      serviceId: HomeFeaturePromptId;
+      copyState: HomeFeaturePromptCopyState;
+      onClick: (event: Event) => void;
+    }>;
+  }) {
+    return html`
+      <div
+        class="cpk-locked-feature"
+        data-inspector-locked-feature=${serviceId}
+      >
+        <div class="cpk-locked-feature-layout">
+          <div class="cpk-locked-feature-hero">
+            <div class="cpk-locked-feature-copy">
+              <div class="cpk-locked-feature-name">
+                <span class="cpk-locked-feature-icon" aria-hidden="true">
+                  ${
+                    serviceId === "threads"
+                      ? unsafeHTML(this.customTabIcons.threads)
+                      : this.renderIcon("Brain")
+                  }
+                </span>
+                ${featureName}
+              </div>
+              <h2 class="cpk-locked-feature-title">${heading}</h2>
+              <p class="cpk-locked-feature-description">${description}</p>
+              <div class="cpk-threads-overview-actions">
+                ${this.renderFeatureSetupPrompt(
+                  setupPrompt?.serviceId ?? serviceId,
+                  "inspector-account-cta cpk-locked-feature-setup-cta",
+                  setupPrompt
+                    ? {
+                        copyState: setupPrompt.copyState,
+                        onClick: setupPrompt.onClick,
+                      }
+                    : undefined,
+                )}
+                <a
+                  data-inspector-locked-feature-talk=${serviceId}
+                  href=${this.getTalkToEngineerUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Talk to an Engineer (opens in a new tab)"
+                  class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
+                  @click=${this.handleThreadsTalkToEngineerClick}
+                >
+                  Talk to an Engineer
+                </a>
+              </div>
+            </div>
+            <div class="cpk-locked-feature-media">
+              <div class="cpk-threads-overview-video-frame cpk-locked-feature-video">
+                <iframe
+                  class="cpk-threads-overview-video-embed"
+                  data-inspector-feature-video=${serviceId}
+                  src=${videoUrl}
+                  title=${videoTitle}
+                  loading="lazy"
+                  allow="fullscreen; picture-in-picture"
+                  allowfullscreen
+                ></iframe>
+              </div>
+            </div>
+          </div>
+          <section
+            class="cpk-locked-feature-outline"
+            data-inspector-feature-outline=${serviceId}
+            aria-label="${featureName} capabilities"
+          >
+            <div class="cpk-locked-feature-outline-list">
+              ${outlineItems.map(
+                (item) => html`
+                  <section class="cpk-locked-feature-outline-item">
+                    <h3>
+                      <span
+                        class="cpk-locked-feature-outline-icon"
+                        aria-hidden="true"
+                      >
+                        ${this.renderIcon(item.icon)}
+                      </span>
+                      ${item.title}
+                    </h3>
+                    <p>${item.description}</p>
+                  </section>
+                `,
+              )}
+            </div>
+          </section>
         </div>
       </div>
     `;
@@ -16964,90 +18373,6 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  private renderThreadsLockedBackgroundMockup() {
-    const threadRows = [
-      { width: 74, accent: true },
-      { width: 92 },
-      { width: 68 },
-      { width: 84 },
-      { width: 58 },
-      { width: 76 },
-    ];
-
-    return html`
-      <div aria-hidden="true" class="cpk-locked-preview">
-        <div class="cpk-locked-preview-sidebar">
-          ${threadRows.map(
-            (row) => html`
-              <div
-                class="cpk-locked-preview-row"
-                data-accent=${row.accent ? "true" : "false"}
-              >
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-title"
-                  style="--preview-width: ${row.width}%;"
-                ></div>
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-line"
-                ></div>
-                <div
-                  class="cpk-locked-preview-bar cpk-locked-preview-row-line"
-                ></div>
-              </div>
-            `,
-          )}
-        </div>
-        <div class="cpk-locked-preview-main">
-          <div class="cpk-locked-preview-bar cpk-locked-preview-heading"></div>
-          <div class="cpk-locked-preview-bar cpk-locked-preview-copy"></div>
-          <div class="cpk-locked-preview-bar cpk-locked-preview-copy"></div>
-          <div class="cpk-locked-preview-cards">
-            <div class="cpk-locked-preview-card"></div>
-            <div class="cpk-locked-preview-card"></div>
-          </div>
-          <div
-            class="cpk-locked-preview-bar cpk-locked-preview-footer-line"
-          ></div>
-          <div
-            class="cpk-locked-preview-bar cpk-locked-preview-footer-line"
-          ></div>
-        </div>
-      </div>
-    `;
-  }
-
-  private getThreadsLockedCopy(): {
-    heading: string;
-    description: string;
-  } {
-    switch (this.inspectorMetadataProjection.licenseState) {
-      case "valid":
-        return {
-          heading: "Finish setting up Rich Threads",
-          description:
-            "Copy this prompt into your coding agent to finish the setup.",
-        };
-      case "none":
-        return {
-          heading: "Enable Intelligence to inspect Threads.",
-          description:
-            "Persist conversations and inspect saved thread history from the Inspector.",
-        };
-      case "expired":
-        return {
-          heading: "Renew Intelligence to inspect Threads.",
-          description:
-            "Your Intelligence access has expired. Renew it to inspect saved thread history.",
-        };
-      case "unknown":
-        return {
-          heading: "Threads are unavailable.",
-          description:
-            "This runtime does not expose Threads for the Inspector.",
-        };
-    }
-  }
-
   /**
    * Renders the realtime-connection indicator in the memory-store header.
    * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
@@ -17095,49 +18420,116 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderMemoriesView() {
-    // 1. Locked teaser — intelligence not configured or memories not available.
-    if (!this.core?.intelligence || !this._memoriesAvailable) {
-      return html`
-        <div class="cpk-memory-locked">
-          ${this.renderThreadsLockedBackgroundMockup()}
-          <div aria-hidden="true" class="cpk-memory-locked-scrim"></div>
-          <div class="cpk-memory-locked-content">
-            <div aria-hidden="true" class="cpk-memory-locked-icon-wrap">
-              <div class="cpk-memory-locked-icon">
-                ${this.renderIcon("Lock")}
-              </div>
-            </div>
-            <h2 class="cpk-memory-locked-title">Learning</h2>
-            <p class="cpk-memory-locked-copy">
-              ${
-                this._memoryStoreUnsupported
-                  ? "Learning is unavailable in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports long-term memory."
-                  : "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment."
-              }
-            </p>
-            <div class="cpk-memory-locked-actions">
-              <a
-                href=${this.getTalkToEngineerUrl()}
-                target="_blank"
-                rel="noopener"
-                class="cpk-memory-locked-action"
-                @click=${this.handleThreadsTalkToEngineerClick}
-              >
-                Talk to an Engineer
-              </a>
-              <a
-                href=${this.getIntelligenceSignupUrl()}
-                target="_blank"
-                rel="noopener"
-                class="cpk-memory-locked-action cpk-memory-locked-action-secondary"
-                @click=${this.handleThreadsIntelligenceSignupClick}
-              >
-                Sign up for Intelligence
-              </a>
-            </div>
-          </div>
-        </div>
-      `;
+    const state = deriveLearningViewState({
+      supported: this.learningSupported,
+      loading: this.learningLoading,
+      error: this.learningError,
+      snapshot: this.learningSnapshot,
+      setupActive: this.isLearningSetupActive(),
+    });
+    if (state === "landing") {
+      return this.renderLockedFeatureOverview({
+        serviceId: "memory",
+        featureName: "Learning",
+        heading: "Turn every interaction into reusable context.",
+        description:
+          "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
+        videoUrl: LEARNING_LOCKED_VIDEO_URL,
+        videoTitle: "CopilotKit Learning overview",
+        outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
+        setupPrompt: {
+          serviceId: "memory",
+          copyState: this.learningPromptCopyState,
+          onClick: (event) => void this.handleLearningSetupCopy(event),
+        },
+      });
+    }
+    return html`
+      <cpk-learning-view
+        data-color-scheme=${this.colorScheme}
+        .supported=${this.learningSupported}
+        .loading=${this.learningLoading}
+        .refreshing=${this.learningRefreshing}
+        .error=${this.learningError}
+        .snapshot=${this.learningSnapshot}
+        .setupActive=${this.isLearningSetupActive()}
+        .copyState=${this.learningPromptCopyState}
+        .recopyState=${this.learningPromptRecopyState}
+        .setupPrompt=${createFeatureOnboardingPrompt(
+          "memory",
+          this.getOnboardingRunId(),
+        )}
+        @learning-retry=${() =>
+          this.refreshLearningSnapshot({
+            preserve: this.learningSnapshot !== null,
+          })}
+        @learning-copy-setup=${(event: Event) =>
+          this.handleLearningSetupCopy(event)}
+        @learning-recopy-setup=${(event: Event) =>
+          this.handleLearningSetupCopy(event, true)}
+        @learning-go-back=${this.handleLearningGoBack}
+        @learning-page=${(event: CustomEvent) =>
+          this.handleLearningPage(
+            event as CustomEvent<{
+              section: "skills" | "insights";
+              page: number;
+            }>,
+          )}
+        @learning-open-evidence=${(event: CustomEvent) =>
+          this.handleLearningEvidence(
+            event as CustomEvent<{
+              threadId: string;
+              messageId?: string;
+            }>,
+          )}
+        @learning-evidence-opened=${() => {
+          if (!this.core?.telemetryDisabled) trackLearningEvidenceOpened();
+        }}
+        @learning-skill-toggle=${(
+          event: CustomEvent<{ action: "expanded" | "collapsed" }>,
+        ) => {
+          if (!this.core?.telemetryDisabled) {
+            trackLearningSkillToggled({ action: event.detail.action });
+          }
+        }}
+        @learning-web-link=${(
+          event: CustomEvent<{
+            category: "learning" | "runs" | "candidates";
+          }>,
+        ) => {
+          if (!this.core?.telemetryDisabled) {
+            trackLearningWebAppOpened({ category: event.detail.category });
+          }
+        }}
+      ></cpk-learning-view>
+    `;
+  }
+
+  /** Legacy Memory rendering kept isolated while published Memory APIs remain. */
+  private renderLegacyMemoriesView() {
+    // Once the user enters Learning, its lazy subscription is the capability
+    // probe. Preserve the loading state while that request is in flight, then
+    // let an unavailable response fall through to the setup gate.
+    const learningEnabled = this.getHomeModel().services.some(
+      (service) => service.id === "memory" && service.enabled,
+    );
+    // 1. Locked teaser — use the same entitlement-aware capability decision
+    // as Home and the launcher so an unavailable feature always lands on its
+    // setup path instead of an enabled-looking empty state.
+    if (!learningEnabled) {
+      return this.renderLockedFeatureOverview({
+        serviceId: "memory",
+        featureName: "Learning",
+        heading: this._memoryStoreUnsupported
+          ? "Upgrade to enable Learning"
+          : "Turn every interaction into reusable context.",
+        description: this._memoryStoreUnsupported
+          ? "Learning requires a newer version of @copilotkit/core and @copilotkit/react. Copy the setup prompt to upgrade and add long-term memory."
+          : "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
+        videoUrl: LEARNING_LOCKED_VIDEO_URL,
+        videoTitle: "CopilotKit Learning overview",
+        outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
+      });
     }
 
     // 2. Full-screen error — only for a snapshot-LOAD failure (no memories
@@ -17408,23 +18800,59 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderThreadsView() {
-    const locked = !this.areThreadEndpointsAvailable();
     const { displayThreads, threadsErrorMessage, threadsLoading } =
       this.getActiveThreadsState();
+    const ephemeral = !this._core?.intelligence;
+    const available = this.areThreadEndpointsAvailable();
+    const hasEphemeralThreads =
+      ephemeral && available && displayThreads.length > 0;
+    if (!ephemeral) this.ephemeralThreadsSetupOpen = false;
+    const locked =
+      !available ||
+      (ephemeral &&
+        displayThreads.length === 0 &&
+        !threadsLoading &&
+        !threadsErrorMessage);
+    if (locked || this.ephemeralThreadsSetupOpen) {
+      this.trackThreadsViewStateOnce("locked");
+      return html`
+        ${
+          hasEphemeralThreads
+            ? html`
+          <nav class="cpk-threads-setup-navigation" aria-label="Threads setup navigation">
+            <button type="button" class="cpk-threads-setup-back"
+              data-inspector-ephemeral-back
+              @click=${() => {
+                this.ephemeralThreadsSetupOpen = false;
+                this.requestUpdate();
+              }}>
+              <span aria-hidden="true">←</span> Back to your threads
+            </button>
+          </nav>
+        `
+            : nothing
+        }
+        ${this.renderLockedFeatureOverview({
+          serviceId: "threads",
+          featureName: "Rich Threads",
+          heading: THREADS_LOCKED_COPY.heading,
+          description: THREADS_LOCKED_COPY.description,
+          videoUrl: THREADS_LOCKED_VIDEO_URL,
+          videoTitle: "Rich Threads overview",
+          outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
+        })}`;
+    }
+
     const loadingWithoutRows =
-      !locked &&
-      threadsLoading &&
-      !threadsErrorMessage &&
-      displayThreads.length === 0;
+      threadsLoading && !threadsErrorMessage && displayThreads.length === 0;
 
     const showingExamples = this.shouldRenderExampleThreads(
-      locked,
       displayThreads,
       threadsErrorMessage,
       threadsLoading,
     );
     const visibleThreads =
-      !locked && (threadsErrorMessage || loadingWithoutRows)
+      threadsErrorMessage || loadingWithoutRows
         ? []
         : showingExamples
           ? THREADS_EXAMPLE_THREADS
@@ -17441,9 +18869,7 @@ export class WebInspectorElement extends LitElement {
       selectedThread !== null &&
       selectedThread.id === this.selectedLocalExampleThreadId;
 
-    if (locked) {
-      this.trackThreadsViewStateOnce("locked");
-    } else if (
+    if (
       !threadsErrorMessage &&
       (!threadsLoading || displayThreads.length > 0)
     ) {
@@ -17463,6 +18889,28 @@ export class WebInspectorElement extends LitElement {
               this.threadListWidth
             }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
+        ${
+          ephemeral
+            ? html`
+          <button type="button" class="cpk-ephemeral-threads-banner"
+            data-inspector-ephemeral-banner data-inspector-ephemeral-upgrade
+            aria-label="Make threads permanent. Ephemeral history can disappear on restart."
+            @click=${() => {
+              this.ephemeralThreadsSetupOpen = true;
+              this.requestUpdate();
+            }}>
+            <span class="cpk-ephemeral-threads-icon" aria-hidden="true">${this.renderIcon("Clock")}</span>
+            <span class="cpk-ephemeral-threads-copy">
+              <span class="cpk-ephemeral-threads-headline">
+                <strong>Keep your threads.</strong>
+              </span>
+              <span class="cpk-ephemeral-threads-description">Ephemeral history can disappear on restart.</span>
+              <span class="cpk-ephemeral-threads-upgrade">Make them permanent <span aria-hidden="true">${this.renderIcon("ArrowRight")}</span></span>
+            </span>
+          </button>
+        `
+            : nothing
+        }
             <cpk-thread-list
               style="min-height:0;flex:1;"
               data-color-scheme=${this.colorScheme}
@@ -17492,7 +18940,7 @@ export class WebInspectorElement extends LitElement {
             style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;"
           >
             ${
-              !locked && threadsErrorMessage
+              threadsErrorMessage
                 ? html`
                   <div
                     role="alert"
@@ -17595,7 +19043,7 @@ export class WebInspectorElement extends LitElement {
                           : nothing
                       }`
                     : showingExamples
-                      ? this.renderThreadsExampleOverview(locked)
+                      ? this.renderThreadsExampleOverview()
                       : html`
                         <div
                           style="
@@ -18216,7 +19664,6 @@ export class WebInspectorElement extends LitElement {
                         const hasContent = rawContent.trim().length > 0;
                         const contentFallback =
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
-
                         const toolError = this.eventErrorDetails.tool;
                         const isFailedResult =
                           role === "tool" &&
@@ -18246,9 +19693,10 @@ export class WebInspectorElement extends LitElement {
                             <div class="flex-1 px-4 py-2">
                               ${
                                 hasContent
-                                  ? html`<div
-                                    class="whitespace-pre-wrap break-words text-gray-700"
-                                  >${rawContent}</div>`
+                                  ? html`
+                                    <!-- prettier-ignore -->
+                                    <div class="whitespace-pre-wrap break-words text-gray-700">${rawContent}</div>
+                                  `
                                   : html`<div class="italic text-gray-400">
                                     ${contentFallback}
                                   </div>`
@@ -18554,16 +20002,23 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (key === "memories") {
-      // Lazily create + subscribe to the memory store on first activation. This
-      // is the only place that touches getMemoryStore(), so the store/realtime
-      // are never started just by attaching the inspector.
-      this.ensureMemorySubscription();
+      this.learningSupported = Boolean(this.core?.inspectorLearning);
+      if (previousMenu !== "memories" || this.learningSnapshot === null) {
+        void this.refreshLearningSnapshot({
+          preserve: previousMenu === "memories",
+        });
+      }
       if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
         trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
       }
+    } else if (previousMenu === "memories") {
+      this.learningViewedState = null;
+      this.cancelLearningPoll();
+      this.cancelLearningRequest();
     }
 
     if (key === "home" && previousMenu !== "home") {
+      void this.refreshLearningSnapshot({ preserve: true });
       this.homeViewedThisOpen = false;
     }
 
@@ -18670,6 +20125,9 @@ export class WebInspectorElement extends LitElement {
       this.autoSelectLatestThread();
       if (this.selectedMenu === "playground") {
         this.startPlaygroundSession(false);
+      } else if (this.isLearningStatusVisible()) {
+        this.clearLearningSnapshot();
+        void this.refreshLearningSnapshot({ preserve: false });
       }
     }
 
@@ -19456,7 +20914,11 @@ export class WebInspectorElement extends LitElement {
                         void this.copyContextValue(id, `${id}:id`, e);
                       }}
                     >
-                      ${this.copiedContextItems.has(`${id}:id`) ? "Copied" : "Copy"}
+                      ${
+                        this.copiedContextItems.has(`${id}:id`)
+                          ? "Copied"
+                          : "Copy"
+                      }
                     </button>
                   </div>
                   <code
@@ -19847,12 +21309,12 @@ export class WebInspectorElement extends LitElement {
   /**
    * Requests one beat for a signal, running it now or deferring it.
    *
-   * There is a single pending slot and four reasons a beat cannot land. All
-   * four are the same situation — "cannot land now, run later" — and treating
+   * There is a single pending slot and five reasons a beat cannot land. All
+   * five are the same situation — "cannot land now, run later" — and treating
    * them alike is the point: three separate behaviours for one situation would
    * not survive a third signal.
    *
-   * Reason 3 is not cosmetic. Starting a beat while one runs does not restart
+   * Reason 4 is not cosmetic. Starting a beat while one runs does not restart
    * the animation, because the attribute it binds to does not change value and
    * the pseudo-element selectors match on attribute *presence*; the running
    * beat would merely change colour mid-flight. A failure that arms during an
@@ -19861,7 +21323,7 @@ export class WebInspectorElement extends LitElement {
    *
    * A failure's beat is followed by a pill, and the whole 3.4-second gesture
    * holds this one slot for its full duration. That is not a second scheduling
-   * concept: reason 3 already says "another beat is running", and a gesture is
+   * concept: reason 4 already says "another beat is running", and a gesture is
    * simply a longer beat.
    */
   private startSignalPulse(key: LauncherSignalKey): void {
@@ -19869,12 +21331,14 @@ export class WebInspectorElement extends LitElement {
       // 1. The panel is open, so there is no visible launcher. Pop-out is the
       //    same case: the host page renders only a portal anchor.
       this.isOpen ||
-      // 2. Nobody is looking.
+      // 2. The developer deliberately hid the entire Inspector for a while.
+      this.isInspectorDismissed ||
+      // 3. Nobody is looking.
       (typeof document !== "undefined" &&
         document.visibilityState !== "visible") ||
-      // 3. Another beat — or the pill that follows it — is already running.
+      // 4. Another beat — or the pill that follows it — is already running.
       (this.gestureSlotSignal !== null && this.gestureSlotSignal !== key) ||
-      // 4. Another signal currently owns the dot.
+      // 5. Another signal currently owns the dot.
       this.getActiveLauncherSignal() !== key;
 
     if (deferred) {
@@ -19923,7 +21387,7 @@ export class WebInspectorElement extends LitElement {
         this.endGesture();
         return;
       }
-      // Reason 3 has just cleared.
+      // Reason 4 has just cleared.
       this.flushPendingSignalPulse();
     }, LAUNCHER_SIGNALS[key].cadence);
   }
@@ -19970,7 +21434,7 @@ export class WebInspectorElement extends LitElement {
 
   /**
    * The signal holding the single gesture slot: a beat in flight, or the pill
-   * and spoken sentence that follow it. One slot, not two — see reason 3 in
+   * and spoken sentence that follow it. One slot, not two — see reason 4 in
    * `startSignalPulse`.
    */
   private get gestureSlotSignal(): LauncherSignalKey | null {

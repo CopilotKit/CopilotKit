@@ -128,7 +128,10 @@ test("mapped feature pages import the matching Inspector Callout", () => {
   expect(read("docs/human-in-the-loop/index.mdx")).toContain(
     "open-inspector-pane-frontend-tools.mdx",
   );
-  expect(read("snippets/shared/premium/overview.mdx")).toContain(
+  expect(read("snippets/shared/intelligence/overview.mdx")).toContain(
+    "open-inspector-pane-learning.mdx",
+  );
+  expect(read("docs/learning.mdx")).toContain(
     "open-inspector-pane-learning.mdx",
   );
 });
@@ -176,9 +179,21 @@ test("pane map lists each shipped pane with a Callout or no page yet", () => {
     expect(paneMap).toMatch(new RegExp(`\\|\\s*${pane}\\s*\\|`));
   }
   expect(paneMap).toContain("no page yet");
-  expect(paneMap).toContain("Playground");
+  expect(paneMap).toMatch(/\|\s*Playground\s*\|\s*Inspector overview\s*\|/);
   expect(paneMap).toContain("React Native");
   expect(paneMap).toContain("Channels");
+});
+
+test("shared Inspector docs preserve task routes and production guards", () => {
+  const sharedPage = read("snippets/shared/intelligence/inspector.mdx");
+
+  expect(sharedPage).toContain("## Choose what you need to do");
+  expect(sharedPage).toContain("**Threads** → **Try from here**");
+  expect(sharedPage).toContain("## Control when Inspector appears");
+  expect(sharedPage).toMatch(
+    /never loaded or rendered in a\s+production build/,
+  );
+  expect(sharedPage).not.toContain("including in a production build");
 });
 
 test("React Native and Channels do not tell the reader to click the Inspector button", () => {
@@ -189,4 +204,33 @@ test("React Native and Channels do not tell the reader to click the Inspector bu
   expect(reactNative).not.toContain("OpenInspectorStep");
   expect(channels).not.toContain("click the Inspector button");
   expect(channels).not.toContain("OpenInspectorStep");
+});
+
+// Skipping the Open Inspector step kept the docs from pointing React Native at a surface it
+// cannot open, but it never stated the absence. Both pages now say it (OSS-977).
+test("Inspector states that it needs a browser and React Native has none", () => {
+  const inspector = read("docs/inspector.mdx");
+
+  expect(inspector).toContain("## Where Inspector runs");
+  expect(inspector).toContain("Inspector is a browser overlay");
+  expect(inspector).toContain("There is no React Native build of Inspector");
+
+  // Naming the gap without naming the substitutes moves the cost rather than removing it.
+  expect(inspector).toContain("copilotkit verify --round-trip");
+  expect(inspector).toContain("/troubleshooting/debug-mode");
+  expect(inspector).toContain("/react-native#proving-it-works");
+});
+
+test("the React Native page lists the missing Inspector among its limitations", () => {
+  const reactNative = read("docs/frontends/react-native.mdx");
+
+  // The limitations list is where a mobile developer checks what does not carry over.
+  const limitationsAt = reactNative.indexOf("## Known limitations");
+  const inspectorAt = reactNative.indexOf("**Inspector**");
+  expect(limitationsAt).toBeGreaterThanOrEqual(0);
+  expect(inspectorAt).toBeGreaterThan(limitationsAt);
+
+  expect(reactNative).toContain("no React Native surface");
+  expect(reactNative).toContain("[Inspector](/inspector#where-inspector-runs)");
+  expect(reactNative).toContain("[Proving it works](#proving-it-works)");
 });

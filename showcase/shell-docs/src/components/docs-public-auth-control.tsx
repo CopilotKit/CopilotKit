@@ -1,6 +1,7 @@
 "use client";
 
 import { UserButton, useUser } from "@clerk/nextjs";
+import { Brain, CreditCard } from "lucide-react";
 import type { ReactNode } from "react";
 import { Component } from "react";
 import { buildIntelligenceAuthEntryHref } from "@/lib/docs-cta-href";
@@ -13,6 +14,13 @@ export function buildDocsAuthEntryHref(
   opsPublicUrl = "https://dashboard.operations.copilotkit.ai",
 ): string {
   return buildIntelligenceAuthEntryHref(opsPublicUrl, { surface: "navbar" });
+}
+
+export function buildDocsUserMenuHref(
+  path: "/intelligence" | "/pricing",
+  opsPublicUrl = "https://dashboard.operations.copilotkit.ai",
+): string {
+  return new URL(path, opsPublicUrl).toString();
 }
 
 export function useDocsAuthEntryHref(): string {
@@ -51,12 +59,29 @@ export class DocsAuthFallbackBoundary extends Component<
 
 function ClerkDocsAuthControl({ fallback }: { fallback: ReactNode }) {
   const { isLoaded, isSignedIn } = useUser();
+  const opsPublicUrl = usePublicOpsUrl();
 
   if (!isLoaded || !isSignedIn) return <>{fallback}</>;
 
+  const intelligenceHref = buildDocsUserMenuHref("/intelligence", opsPublicUrl);
+  const pricingHref = buildDocsUserMenuHref("/pricing", opsPublicUrl);
+
   return (
     <div className="flex h-10 min-w-10 shrink-0 items-center justify-center">
-      <UserButton />
+      <UserButton>
+        <UserButton.MenuItems>
+          <UserButton.Link
+            href={intelligenceHref}
+            label="Intelligence"
+            labelIcon={<Brain size={16} aria-hidden="true" />}
+          />
+          <UserButton.Link
+            href={pricingHref}
+            label="Manage your plan"
+            labelIcon={<CreditCard size={16} aria-hidden="true" />}
+          />
+        </UserButton.MenuItems>
+      </UserButton>
     </div>
   );
 }

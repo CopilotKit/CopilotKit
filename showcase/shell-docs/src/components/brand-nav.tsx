@@ -7,9 +7,10 @@ import { CalendarDays, ChefHat } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import { ThemeSwitch } from "./theme-switch";
-import BookIcon from "./icons/book";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
+import { DocsMegaMenu } from "./docs-mega-menu";
+import { isDocsExplorePath } from "@/lib/docs-mega-menu";
 import {
   DocsPublicAuthControl,
   buildDocsAuthEntryHref,
@@ -36,11 +37,6 @@ type LeftLink = {
 
 const LEFT_LINKS: LeftLink[] = [
   {
-    icon: <BookIcon className="text-current" />,
-    label: "Docs",
-    href: "/",
-  },
-  {
     icon: <ConsoleIcon className="text-current" />,
     label: "Reference",
     href: "/reference",
@@ -64,9 +60,8 @@ export function BrandNav(_props: BrandNavProps = {}) {
   const posthog = usePostHog();
   const authEntryHref = useDocsAuthEntryHref();
 
-  // Active-route detection: anything under /reference highlights Reference,
-  // anything under /cookbook highlights Cookbook, everything else (root,
-  // framework-scoped pages) highlights Docs.
+  // Active-route detection: Reference and Cookbook each own their prefix.
+  // Everything else highlights Docs.
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
   const activeRoute =
     firstSegment === "/reference"
@@ -86,7 +81,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
 
   return (
     <nav className="shell-docs-brand-nav relative hidden h-16 bg-[var(--bg)] xl:mx-[22px] xl:block">
-      <div className="shell-docs-brand-nav-inner relative grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 bg-[var(--nav-surface)]">
+      <div className="shell-docs-brand-nav-inner relative grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-8 bg-[var(--nav-surface)]">
         <Link
           href="/"
           className="shell-docs-brand-link flex min-w-0 shrink-0 items-center gap-2 justify-self-start"
@@ -104,6 +99,15 @@ export function BrandNav(_props: BrandNavProps = {}) {
           </span>
         </Link>
         <ul className="hidden min-w-0 items-center gap-2 justify-self-center xl:flex">
+          <li className="relative h-full">
+            <DocsMegaMenu
+              triggerClassName={`shell-docs-radius-control h-10 px-4 text-sm font-medium whitespace-nowrap transition-colors duration-200 ${
+                isDocsExplorePath(pathname)
+                  ? "shell-docs-nav-link-active"
+                  : "shell-docs-nav-link-idle"
+              }`}
+            />
+          </li>
           {LEFT_LINKS.map((link) => {
             const isActive = activeRoute === link.href;
             return (
@@ -130,7 +134,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
           })}
         </ul>
 
-        <div className="flex min-w-0 items-center gap-2 justify-self-end pl-2">
+        <div className="flex min-w-0 items-center gap-2 justify-self-end pl-4">
           <SearchTrigger iconOnly />
           <DocsPublicAuthControl
             fallback={

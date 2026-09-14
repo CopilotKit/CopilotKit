@@ -36,7 +36,8 @@ Per-instance `allowedDivergence` list in `manifest.json`:
 - `src/app/api/copilotkit/**` — north-star uses `LangGraphAgent`, Docker
   instances use `HttpAgent`. Different routes. The Intelligence wiring block
   inside those routes is held to one shape by
-  `scripts/validate-intelligence-wiring-block.ts`, which covers all 22 starters
+  `scripts/validate-intelligence-wiring-block.ts`, which covers the 21 shared
+  starter wiring blocks. AgentCore has a separate request-identity contract test
   rather than the 7 tracked here (OSS-982).
 - `Dockerfile`, `docker/Dockerfile.agent`, `serve.py`, `scripts/**` —
   language-specific build/run tooling.

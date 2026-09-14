@@ -32,6 +32,22 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        # The declared floor and the newest release, across every supported
+        # Python. Covering the floor in CI is what lets the runtime floor stay
+        # at 0.0.42: raising it for test coverage alone would also raise the
+        # effective LangGraph floor from >=0.3.25 to >=0.6.0 for every
+        # consumer.
+        ag-ui-langgraph-version: ["0.0.42", "0.0.44"]
+        # 0.0.43 is the one still-supported version whose clone() forwards
+        # its behavior flags unconditionally, so it is the only leg that
+        # reproduces the default-construction 500 this shim fixes. 0.0.44's
+        # clone() is signature-aware and omits default-valued flags, which
+        # means the clone tests pass there even without the passthrough. One
+        # representative Python is enough for a regression leg; the flag
+        # forwarding it exercises is not version-specific.
+        include:
+          - python-version: "3.12"
+            ag-ui-langgraph-version: "0.0.43"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -52,6 +68,15 @@ jobs:
       - name: Install dependencies
         working-directory: sdk-python
         run: poetry lock && poetry install --with dev
+
+      - name: Pin ag-ui-langgraph for this matrix leg
+        working-directory: sdk-python
+        # Installed after the lock resolve rather than by editing pyproject, so
+        # the declared floor stays untouched and only the installed version
+        # varies across legs.
+        run: |
+          poetry run pip install "ag-ui-langgraph[fastapi]==${{ matrix.ag-ui-langgraph-version }}"
+          poetry run python -c "import importlib.metadata as m; print('ag-ui-langgraph', m.version('ag-ui-langgraph'))"
 
       - name: Run tests
         working-directory: sdk-python

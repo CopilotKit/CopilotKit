@@ -1,3 +1,4 @@
+import { RENDER_A2UI_TOOL } from "@ag-ui/a2ui-middleware";
 import type {
   BaseEvent,
   RunAgentInput,
@@ -19,6 +20,7 @@ import type {
   ResumeEntry,
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
+import { Validator } from "@cfworker/json-schema";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type {
   LanguageModel,
@@ -49,8 +51,17 @@ import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
-import { convertAISDKStream } from "./converters/aisdk";
+import {
+  convertAISDKStream,
+  getAISDKRunFinishedDetails,
+} from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
+import {
+  collectStandardRunFinishedDetails,
+  getNonEmptyString,
+  isRecord,
+} from "./converters/usage";
+import type { AgentRunFinishedDetails } from "./converters/usage";
 import { createStateEventNormalizer } from "./state-delta";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -563,7 +574,14 @@ export function convertMessagesToVercelAISDKMessages(
  * JSON Schema type definition
  */
 interface JsonSchema {
-  type?: "object" | "string" | "number" | "integer" | "boolean" | "array";
+  type?:
+    | "object"
+    | "string"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "array"
+    | "null";
   description?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
@@ -583,6 +601,11 @@ export function convertJsonSchemaToZodSchema(
   jsonSchema: JsonSchema,
   required: boolean,
 ): z.ZodSchema {
+  if (jsonSchema.type === "null") {
+    const schema = z.null().describe(jsonSchema.description ?? "");
+    return required ? schema : schema.optional();
+  }
+
   // Handle `anyOf` / `oneOf` unions (e.g. `z.discriminatedUnion` or `z.union`
   // on a frontend tool) as `z.union`. These nodes usually carry no top-level
   // `type`, so they MUST be handled before the empty-schema guard below —
@@ -683,6 +706,7 @@ function toLanguageModelSchema(schema: z.ZodSchema): Schema<any> {
   return schema as unknown as Schema<any>;
 }
 
+/** Preserve AG-UI tool schemas when passing them to the model provider. */
 export function convertToolsToVercelAITools(
   tools: RunAgentInput["tools"],
 ): ToolSet {
@@ -693,10 +717,25 @@ export function convertToolsToVercelAITools(
     if (!isJsonSchema(tool.parameters)) {
       throw new Error(`Invalid JSON schema for tool ${tool.name}`);
     }
-    const zodSchema = convertJsonSchemaToZodSchema(tool.parameters, true);
+    const validator = new Validator(tool.parameters, "7");
     result[tool.name] = createVercelAISDKTool({
       description: tool.description,
-      inputSchema: toLanguageModelSchema(zodSchema),
+      // AG-UI already supplies JSON Schema. A Zod round trip loses open object
+      // fields (including A2UI components), references, and other constraints.
+      inputSchema: aiJsonSchema(tool.parameters, {
+        validate: (value) => {
+          const result = validator.validate(value);
+          return result.valid
+            ? { success: true, value }
+            : {
+                success: false,
+                error: new Error(`Invalid arguments for tool ${tool.name}`),
+              };
+        },
+      }),
+      // A2UI components require open objects. Other tools keep the provider's
+      // existing strictness default instead of opting every tool out.
+      ...(tool.name === RENDER_A2UI_TOOL.name ? { strict: false } : {}),
     });
   }
 
@@ -1378,9 +1417,14 @@ export class BuiltInAgent extends AbstractAgent {
                 // actually ask for SSE ever load it.
                 const { SSEClientTransport } =
                   await import("@modelcontextprotocol/sdk/client/sse.js");
+                // SSEClientTransport's second arg is SSEClientTransportOptions
+                // (`requestInit.headers`), not a raw header map. Passing
+                // `{ Authorization: ... }` as options is silently ignored.
                 transport = new SSEClientTransport(
                   new URL(serverConfig.url),
-                  serverConfig.headers,
+                  serverConfig.headers
+                    ? { requestInit: { headers: serverConfig.headers } }
+                    : undefined,
                 );
               }
 
@@ -1737,10 +1781,22 @@ export class BuiltInAgent extends AbstractAgent {
 
               case "finish": {
                 // Emit run finished event
-                const finishedEvent: RunFinishedEvent = {
+                const model = streamTextParams.model as unknown;
+                const finishedEvent = {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
                   runId: input.runId,
+                  ...getAISDKRunFinishedDetails(
+                    part as unknown as Record<string, unknown>,
+                    {
+                      provider: isRecord(model)
+                        ? getNonEmptyString(model.provider)
+                        : undefined,
+                      model: isRecord(model)
+                        ? getNonEmptyString(model.modelId)
+                        : undefined,
+                    },
+                  ),
                   ...(pendingInterrupts.length > 0
                     ? {
                         outcome: {
@@ -1749,7 +1805,7 @@ export class BuiltInAgent extends AbstractAgent {
                         },
                       }
                     : {}),
-                };
+                } as RunFinishedEvent;
                 subscriber.next(finishedEvent);
                 terminalEventEmitted = true;
 
@@ -1931,8 +1987,10 @@ export class BuiltInAgent extends AbstractAgent {
       const factoryCtx: AgentFactoryContext = { ...ctx, input: factoryInput };
 
       (async () => {
+        const runFinishedDetails: AgentRunFinishedDetails = {};
         try {
           let events: AsyncIterable<BaseEvent>;
+          let customRunFinishedEvent: RunFinishedEvent | undefined;
           // Filled by the converters with one Interrupt per native approval
           // request; a non-empty array after the stream drains pauses the run.
           const pendingInterrupts: Interrupt[] = [];
@@ -1945,6 +2003,7 @@ export class BuiltInAgent extends AbstractAgent {
                 controller.signal,
                 pendingInterrupts,
                 input.state,
+                runFinishedDetails,
               );
               break;
             }
@@ -1955,6 +2014,7 @@ export class BuiltInAgent extends AbstractAgent {
                 controller.signal,
                 pendingInterrupts,
                 input.state,
+                runFinishedDetails,
               );
               break;
             }
@@ -1971,6 +2031,17 @@ export class BuiltInAgent extends AbstractAgent {
           }
 
           for await (const event of events) {
+            if (
+              config.type === "custom" &&
+              event.type === EventType.RUN_FINISHED
+            ) {
+              customRunFinishedEvent = event as RunFinishedEvent;
+              collectStandardRunFinishedDetails(
+                event as unknown as Record<string, unknown>,
+                runFinishedDetails,
+              );
+              continue;
+            }
             subscriber.next(event);
           }
 
@@ -1982,22 +2053,25 @@ export class BuiltInAgent extends AbstractAgent {
           }
 
           if (!controller.signal.aborted) {
-            const finishedEvent: RunFinishedEvent = {
+            const finishedEvent = {
+              ...customRunFinishedEvent,
               type: EventType.RUN_FINISHED,
               threadId: input.threadId,
               runId: input.runId,
-            };
+              ...runFinishedDetails,
+            } as RunFinishedEvent;
             subscriber.next(finishedEvent);
           }
           subscriber.complete();
         } catch (error) {
           if (error instanceof InterruptSignal) {
-            const finishedEvent: RunFinishedEvent = {
+            const finishedEvent = {
               type: EventType.RUN_FINISHED,
               threadId: input.threadId,
               runId: input.runId,
+              ...runFinishedDetails,
               outcome: { type: "interrupt", interrupts: error.interrupts },
-            };
+            } as RunFinishedEvent;
             subscriber.next(finishedEvent);
             subscriber.complete();
           } else if (controller.signal.aborted) {

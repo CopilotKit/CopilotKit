@@ -90,7 +90,7 @@ bot.onMention(async ({ thread, message }) => {
 
 const intelligence = new CopilotKitIntelligence({
   // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence.
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 const runtime = new CopilotRuntime({
   agents: {},
@@ -374,17 +374,27 @@ The optional **Notion MCP sidecar** is only for Notion tools. Linear uses
 
 ```bash
 cp .env.example .env
-# Required for the default Intelligence path:
-#   INTELLIGENCE_API_KEY              (REQUIRED — owns the Channel; free tier)
-#   OPENAI_API_KEY
-#   AGENT_URL                         (default: local runtime on :8200)
-# Optional:
-#   LINEAR_API_KEY / NOTION_*
+# Fill in (set SLACK_*, DISCORD_*, and/or TELEGRAM_BOT_TOKEN — whichever you want):
+#   CPK_INTELLIGENCE_API_KEY                         (REQUIRED — owns the Channel; free tier)
+#   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
+#   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
+#   TELEGRAM_BOT_TOKEN                         (to run on Telegram)
+#   OPENAI_API_KEY  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY + AGENT_MODEL)
+#   LINEAR_API_KEY          (linear.app → Settings → API → Personal API keys)
+#   NOTION_TOKEN            (notion.so → Settings → Connections → integrations)
+#   NOTION_MCP_AUTH_TOKEN   (any strong string; shared between the sidecar and the agent)
 ```
 
-`INTELLIGENCE_API_KEY` is required (`COPILOTKIT_API_KEY` is a deprecated alias).
-URLs default to the managed Intelligence platform. Slack tokens are not used
-on `pnpm dev`. Use `pnpm direct` only if you want local adapters.
+A Channel runs only through the Intelligence runtime, so `CPK_INTELLIGENCE_API_KEY` is
+**required** (free tier; `COPILOTKIT_API_KEY` is a deprecated alias, still read as a
+fallback). There are no URLs to set — the SDK defaults to the
+cloud-hosted CopilotKit Intelligence. The platform adapters stay direct — the runtime that owns the Channel starts each
+of them for you. Linear and Notion are independent — set only the ones you want;
+the agent wires up whichever credentials are present.
+
+`pnpm dev` runs the managed Intelligence path (`app/managed.ts`) and does not
+use the Slack tokens at all. Use `pnpm direct` (`app/index.ts`) when you want the
+bot to hold its own adapter credentials and talk to Slack directly.
 
 ### 3. Notion MCP sidecar (only if using Notion)
 

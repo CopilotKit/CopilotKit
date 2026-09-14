@@ -61,14 +61,15 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
 5. **Open [http://localhost:3000](http://localhost:3000)** and try the suggested prompts
    (add todos, draw a chart, search flights, build a dashboard, schedule a meeting).
 
-6. **(Optional) Enable the Threads drawer.** Thread history is gated behind a CopilotKit
-   Intelligence license. Set `COPILOTKIT_LICENSE_TOKEN` (and the `INTELLIGENCE_*` URLs) in
-   `.env` to activate live thread history; without it the drawer shows a locked state.
+6. **(Optional) Enable the Threads drawer.** Set `CPK_INTELLIGENCE_API_KEY` in
+   `.env` to activate live thread history; without it the drawer shows a locked
+   state. The license token and `INTELLIGENCE_*` URLs are only for self-hosted
+   or offline Intelligence deployments.
 
 ## Running a Channel
 
 `channel-host.mts` mounts the same agent as an Intelligence Channel
-(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+(Slack, Teams). It requires `CPK_INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
 `.env` needs, then:

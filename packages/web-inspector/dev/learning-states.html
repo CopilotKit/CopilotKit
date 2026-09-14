@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inspector Learning integrated state lab</title>
+    <script type="module" src="/learning-states.ts"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        background: #eeeef3;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body,
+      #inspector-host {
+        width: 100%;
+        min-width: 320px;
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 0, #f9f9fc 0, transparent 54%), #eeeef3;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="inspector-host" aria-label="Integrated Inspector fixture"></main>
+  </body>
+</html>

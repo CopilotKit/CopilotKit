@@ -1257,10 +1257,11 @@ test("nothing stays over the host application once the gesture has finished", as
   await armConnectionFailure(context);
 
   const button = requireElement(launcher(context.inspector));
-  // No tooltip, still: a developer who deliberately ships the Inspector to
-  // production must not leak internal failure detail to their end users, and
-  // the pill carries a fixed failure *class*, never a message.
-  expect(button.getAttribute("title")).toBeNull();
+  // The hover title is deliberately stable product copy. A developer who
+  // ships the Inspector to production still cannot leak internal failure
+  // detail through it; the pill carries a fixed failure *class*, never a
+  // message.
+  expect(button.getAttribute("title")).toBe("CopilotKit Inspector");
 
   // Mid-gesture the pill is on the page and says its piece: the failure class
   // twice over and only twice — once visibly on the pill and once in the live
@@ -2477,7 +2478,7 @@ test("reading the landing view clears the unread event, not the how-to-fix card"
   expect(launcherDot(context.inspector)).toBeNull();
 });
 
-test("a Learning failure names itself and lands on Learning", async () => {
+test("a legacy Memory failure does not masquerade as a Learning failure", async () => {
   const context = await setup({ intelligence: true });
   // The store is only reached from the view, so visiting it once is what makes
   // the latch reachable at all. This mirrors how a developer gets here.
@@ -2491,22 +2492,8 @@ test("a Learning failure names itself and lands on Learning", async () => {
 
   await context.failMemory("Failed to load memories: 500");
 
-  expect(dotSubject(context.inspector)).toBe("memory");
-  expect(launcherName(context.inspector)).toContain("learning error");
-  await context.advance(ERROR_BEAT_MS);
-  expect(pillHeading(context.inspector)).toBe("Failed to load learning data");
-
-  await context.activate(pill(context.inspector));
-  expect(currentMenu(context.inspector)).toBe("memories");
-  // Learning keeps its own error display rather than the shared banner that
-  // run and tool use, so this asserts what the view actually renders: the
-  // store's message, and the advice line from the shared guidance table.
-  const view = root(context.inspector).textContent;
-  expect(view).toContain("Failed to load memories: 500");
-  expect(view).toContain("Intelligence is connected");
-  // Advice is not a claim about this view, so nothing here promises a
-  // highlight — and there is none to promise.
-  expect(view).not.toContain("highlighted below");
+  expect(dotSubject(context.inspector)).toBeNull();
+  expect(launcherName(context.inspector)).not.toContain("learning error");
 });
 
 test("a Learning failure arms nothing while the view has never been opened", async () => {
@@ -2520,7 +2507,7 @@ test("a Learning failure arms nothing while the view has never been opened", asy
   expect(markers(context.inspector)).toEqual([]);
 });
 
-test("a resolved Learning failure stays unread until Learning renders", async () => {
+test("a resolved legacy Memory failure leaves Learning unread state alone", async () => {
   const context = await setup({ intelligence: true });
   await context.press(launcher(context.inspector));
   await context.activate(
@@ -2530,11 +2517,11 @@ test("a resolved Learning failure stays unread until Learning renders", async ()
   );
   await context.closePanel();
   await context.failMemory("Failed to load memories: 500");
-  expect(dotSubject(context.inspector)).toBe("memory");
+  expect(dotSubject(context.inspector)).toBeNull();
 
   await context.failMemory(null);
 
-  expect(dotSubject(context.inspector)).toBe("memory");
+  expect(dotSubject(context.inspector)).toBeNull();
   await context.press(launcher(context.inspector));
   expect(currentMenu(context.inspector)).toBe("memories");
   await context.closePanel();

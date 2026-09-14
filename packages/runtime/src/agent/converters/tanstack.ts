@@ -19,6 +19,14 @@ import type {
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
+import {
+  aggregateRunUsage,
+  collectStandardRunFinishedDetails,
+  getNonEmptyString,
+  getTokenCount,
+  isRecord,
+} from "./usage";
+import type { AgentRunFinishedDetails } from "./usage";
 
 type ContentPartSource =
   | { type: "data"; value: string; mimeType: string }
@@ -334,6 +342,7 @@ export async function* convertTanStackStream(
   abortSignal: AbortSignal,
   pendingInterrupts?: Interrupt[],
   initialState?: unknown,
+  runFinishedDetails?: AgentRunFinishedDetails,
 ): AsyncGenerator<BaseEvent> {
   const messageId = randomUUID();
   const toolNamesById = new Map<string, string>();
@@ -414,9 +423,11 @@ export async function* convertTanStackStream(
     }
 
     // Per-turn lifecycle markers are owned by the Agent wrapper, not forwarded.
-    if (type === "RUN_STARTED" || type === "RUN_FINISHED") {
+    if (type === "RUN_FINISHED") {
+      collectTanStackRunFinishedDetails(raw, runFinishedDetails);
       continue;
     }
+    if (type === "RUN_STARTED") continue;
 
     // Surface engine errors instead of dropping them: throw so the Agent
     // wrapper emits a terminal RUN_ERROR. Without this a failed run (e.g. a
@@ -590,6 +601,48 @@ export async function* convertTanStackStream(
   }
 
   yield* closeReasoningIfOpen();
+}
+
+/** Normalizes legacy and standard TanStack usage into AG-UI token usage. */
+function collectTanStackRunFinishedDetails(
+  event: Record<string, unknown>,
+  details?: AgentRunFinishedDetails,
+): void {
+  if (!details) return;
+
+  if (typeof event.finishReason === "string") {
+    details.finishReason = event.finishReason;
+  }
+
+  const fallbackIdentity = {
+    provider: getNonEmptyString(event.provider),
+    model: getNonEmptyString(event.model),
+  };
+  const usage = event.usage;
+
+  if (Array.isArray(usage)) {
+    collectStandardRunFinishedDetails(event, details, fallbackIdentity);
+    return;
+  }
+
+  if (!isRecord(usage)) return;
+
+  const promptDetails = isRecord(usage.promptTokensDetails)
+    ? usage.promptTokensDetails
+    : {};
+  const completionDetails = isRecord(usage.completionTokensDetails)
+    ? usage.completionTokensDetails
+    : {};
+  aggregateRunUsage(details, [
+    {
+      ...fallbackIdentity,
+      inputTokens: getTokenCount(usage.promptTokens),
+      outputTokens: getTokenCount(usage.completionTokens),
+      totalTokens: getTokenCount(usage.totalTokens),
+      reasoningTokens: getTokenCount(completionDetails.reasoningTokens),
+      cachedInputTokens: getTokenCount(promptDetails.cachedTokens),
+    },
+  ]);
 }
 
 function safeParse(value: string): unknown {

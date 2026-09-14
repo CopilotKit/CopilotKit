@@ -1,5 +1,6 @@
 packages:
   - "packages/*"
+  - "tools/runtime-conformance"
   - "examples/v1/*"
   - "examples/v2/*"
   - "examples/v2/*/apps/*"
@@ -36,6 +37,7 @@ packages:
   - "examples/teams"
   - "!examples/v1/_legacy"
   - "showcase/scripts"
+  # No npm lockfile here: installs with pnpm from the root pnpm-lock.yaml.
   - "showcase/harness"
   - "showcase/eval-webhook"
   - "showcase/angular"

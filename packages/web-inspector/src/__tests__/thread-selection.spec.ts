@@ -133,6 +133,7 @@ async function setup(options: SetupOptions): Promise<ThreadSelectionHarness> {
             agents: {},
             audioFileTranscriptionEnabled: false,
             mode: "sse",
+            intelligence: { wsUrl: "" },
             threadEndpoints: {
               list: true,
               inspect: true,

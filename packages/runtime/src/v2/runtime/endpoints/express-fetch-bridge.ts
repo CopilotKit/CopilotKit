@@ -113,11 +113,17 @@ function buildPreParsedRequest(
 function hasPreParsedBody(req: IncomingMessage & { body?: unknown }): boolean {
   if (req.body === undefined || req.body === null) return false;
 
-  // Check if the stream has already been consumed.
-  const state = (req as any)._readableState;
-  return Boolean(
-    req.readableEnded || req.complete || state?.ended || state?.endEmitted,
-  );
+  // Only `readableEnded` means "a parser drained this stream to its end".
+  // `req.complete` and the private `_readableState.ended` are set by the HTTP
+  // parser once the socket has all the bytes, whether or not anything read them.
+  //
+  // That distinction matters because `req.body` being set does not prove a parser
+  // ran: body-parser 1.x (Express 4) assigns `req.body = req.body || {}` before
+  // its own content-type checks, so a request it declines to parse — multipart
+  // upload, text/plain — reaches us with `req.body === {}` and a full, unread
+  // stream. Treating that as pre-parsed rebuilt the request from `{}` and
+  // dropped the real payload.
+  return Boolean(req.readableEnded);
 }
 
 function synthesizeBody(body: unknown): {

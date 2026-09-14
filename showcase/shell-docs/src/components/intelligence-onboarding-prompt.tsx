@@ -83,7 +83,7 @@ export function IntelligenceOnboardingPrompt({
     capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
       feature,
       from_path: pathname,
-      run_id: runId,
+      onboarding_run_id: runId,
       surface,
     });
     setTimeout(() => setCopyState("idle"), 1800);

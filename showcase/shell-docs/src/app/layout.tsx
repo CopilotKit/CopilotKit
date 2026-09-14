@@ -138,7 +138,7 @@ export default function RootLayout({
                     e = ${JSON.stringify(REO_KEY)};
                     t = function() {
                       if (window.Reo) {
-                        window.Reo.init({ clientID: e });
+                        window.Reo.init({ clientID: e, enableThirdPartyTracking: true });
                       }
                     };
                     n = document.createElement("script");

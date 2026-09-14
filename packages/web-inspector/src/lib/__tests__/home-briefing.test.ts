@@ -30,7 +30,7 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeConnectionState: "unavailable",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -64,6 +64,17 @@ describe("home-briefing", () => {
       "audio",
       "websocket",
     ]);
+    const learning = model.services.find((service) => service.id === "memory");
+    const suggestions = model.services.find(
+      (service) => service.id === "suggestions",
+    );
+    const voice = model.services.find((service) => service.id === "audio");
+    expect(learning).toMatchObject({ label: "Learning" });
+    expect(voice).toMatchObject({ label: "Voice" });
+    expect(suggestions).toMatchObject({
+      docsUrl:
+        "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
+    });
   });
 
   it("marks a linked project as connected and keeps Threads usage on the project card", () => {
@@ -91,7 +102,7 @@ describe("home-briefing", () => {
         "valid",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: true,
+      learningOn: true,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: true,
@@ -123,7 +134,7 @@ describe("home-briefing", () => {
         "none",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: true,
+      learningOn: true,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -161,7 +172,7 @@ describe("home-briefing", () => {
         "expired",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -189,7 +200,7 @@ describe("home-briefing", () => {
         "valid",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -212,7 +223,7 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeConnectionState: "unavailable",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -237,7 +248,7 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeUrl: "http://localhost:4000/api/copilotkit",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -323,7 +334,7 @@ describe("home-briefing", () => {
       intelligenceConnected: false,
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -360,7 +371,7 @@ describe("home-briefing", () => {
         type: "RUN_ERROR",
         timestamp: 2_000,
       },
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
