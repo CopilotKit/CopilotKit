@@ -455,11 +455,16 @@ which fails only where TypeScript's excess-property check reaches it — see
 [three shapes the compiler cannot see](#three-shapes-the-compiler-cannot-see)
 for the call shapes it does not.
 
+Because the hook is **overloaded**, an excess `description` or `handler` is
+reported as `TS2769: No overload matches this call` rather than the bare
+`TS2353` you would get on a single-signature function. The excess property is
+named in the nested per-overload detail, so read past the first line.
+
 | Before (old RN hook) | Change it to | What happens if you don't |
 | --- | --- | --- |
-| `useRenderTool({ name, description, parameters, handler, render }, deps)` | `useFrontendTool({ …identical object }, deps)` — rename only | **`TS2353`** on `description` / `handler` at any call site the compiler can see — but see [three shapes the compiler cannot see](#three-shapes-the-compiler-cannot-see), where it compiles and the tool silently stops being registered |
+| `useRenderTool({ name, description, parameters, handler, render }, deps)` | `useFrontendTool({ …identical object }, deps)` — rename only | **`TS2769: No overload matches this call`**, naming `description` under the named overload — but see [three shapes the compiler cannot see](#three-shapes-the-compiler-cannot-see), where it compiles and the tool silently stops being registered |
 | renderer-only registration: impossible in TypeScript (`description` was required), reachable from plain JS | `useRenderTool({ name, parameters, render, agentId? }, deps)` — `parameters` required on a named renderer | already correct; nothing to do |
-| wildcard: registers a tool named `*` | `useRenderTool({ name: "*", render })` — the one case that takes no schema | `description` / `handler` / `parameters` no longer compile on this overload; drop them |
+| wildcard: registers a tool named `*` | `useRenderTool({ name: "*", render })` — the one case that takes no schema | **`TS2769`** — `description` / `handler` / `parameters` are not on this overload; drop them |
 | render props `{ args, status, … }` | `{ parameters, status, … }` | **`TS2339: Property 'args' does not exist on type 'RenderToolProps<…>'`.** (The wildcard overload types its props as `any`, so `args` still compiles there.) |
 | `RenderToolProps<T>` (args-shaped, generic over parsed args) | `RenderToolProps<S>` (parameters-shaped, generic over schema) | re-exported from react-core |
 | bare `RenderToolProps` — RN's had `T = Record<string, unknown>` | `RenderToolProps<typeof mySchema>` | **`TS2314: Generic type 'RenderToolProps' requires 1 type argument(s)`.** core's `S` has no default, so the natural spelling for an untyped renderer no longer compiles |
