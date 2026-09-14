@@ -160,3 +160,6 @@ jobs:
         run: pnpm nx run "@copilotkit/${{ matrix.project }}:test-${{ matrix.compatibility }}"
       - name: Validate package exports and types
         run: pnpm nx run-many -t check-types,publint,attw -p @copilotkit/${{ matrix.project }} --parallel=1
+      - name: Native delivery against HTTP and AIMock
+        if: matrix.project == 'intelligence-mastra' && matrix.compatibility == 'latest'
+        run: pnpm nx run learned-skill-conformance:test-native-delivery-drivers

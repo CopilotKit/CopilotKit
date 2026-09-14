@@ -4173,12 +4173,22 @@ importers:
       '@copilotkit/intelligence-langgraph':
         specifier: workspace:*
         version: link:../../packages/intelligence-langgraph
+      '@copilotkit/intelligence-mastra':
+        specifier: workspace:*
+        version: link:../../packages/intelligence-mastra
       '@langchain/openai':
         specifier: 1.5.12
         version: 1.5.12(@aws-sdk/credential-provider-node@3.972.29)(@langchain/core@1.2.11(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.25.0)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(undici@7.25.0)(ws@8.21.3)
+      '@mastra/core':
+        specifier: 1.66.0
+        version: 1.66.0(@bufbuild/protobuf@2.11.0)(ai@6.0.156(zod@3.25.76))(express@5.2.1)(rxjs@7.8.2)(zod@3.25.76)
       langchain:
         specifier: 1.5.11
         version: 1.5.11(@langchain/core@1.2.11(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.25.0)(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(@opentelemetry/api@1.9.0)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.25.0)(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
+    devDependencies:
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
 
   tools/runtime-conformance:
     dependencies:

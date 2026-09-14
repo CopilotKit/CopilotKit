@@ -7,6 +7,11 @@
     "@copilotkit/aimock": "1.10.0",
     "@copilotkit/intelligence-langgraph": "workspace:*",
     "@langchain/openai": "1.5.12",
-    "langchain": "1.5.11"
+    "langchain": "1.5.11",
+    "@copilotkit/intelligence-mastra": "workspace:*",
+    "@mastra/core": "1.66.0"
+  },
+  "devDependencies": {
+    "fflate": "0.8.2"
   }
 }

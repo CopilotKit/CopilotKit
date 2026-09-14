@@ -5,8 +5,8 @@ import { LLMock } from "@copilotkit/aimock";
 
 const adapter = process.argv[2];
 assert(
-  ["langgraph", "adk", "dotnet", "typescript"].includes(adapter),
-  "Choose langgraph, adk, dotnet, or typescript.",
+  ["langgraph", "adk", "dotnet", "typescript", "mastra"].includes(adapter),
+  "Choose langgraph, adk, dotnet, typescript, or mastra.",
 );
 for (const name of [
   "INTELLIGENCE_API_URL",
@@ -73,25 +73,24 @@ mock.on(
 );
 await mock.start();
 try {
-  const command =
-    adapter === "typescript"
-      ? ["node", "tools/learned-skill-conformance/typescript_driver.mjs"]
-      : adapter === "dotnet"
-        ? [
-            "dotnet",
-            "run",
-            "--project",
-            "tools/learned-skill-conformance/dotnet/Acceptance.csproj",
-          ]
-        : [
-            "uv",
-            "run",
-            "--project",
-            "tools/learned-skill-conformance",
-            "python",
-            "tools/learned-skill-conformance/python_driver.py",
-            adapter,
-          ];
+  const command = ["typescript", "mastra"].includes(adapter)
+    ? ["node", `tools/learned-skill-conformance/${adapter}_driver.mjs`]
+    : adapter === "dotnet"
+      ? [
+          "dotnet",
+          "run",
+          "--project",
+          "tools/learned-skill-conformance/dotnet/Acceptance.csproj",
+        ]
+      : [
+          "uv",
+          "run",
+          "--project",
+          "tools/learned-skill-conformance",
+          "python",
+          "tools/learned-skill-conformance/python_driver.py",
+          adapter,
+        ];
   const child = spawn(command[0], command.slice(1), {
     cwd: root,
     env: { ...process.env, LEARNED_SKILL_AIMOCK_URL: mock.url },

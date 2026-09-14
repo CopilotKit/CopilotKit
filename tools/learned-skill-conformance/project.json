@@ -48,6 +48,15 @@
           "projects": ["@copilotkit/runtime"]
         }
       ]
+    },
+    "test-native-delivery-drivers": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/learned-skill-conformance/native-drivers.test.mjs"
+      },
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
+      "cache": true
     }
   },
   "tags": ["scope:intelligence", "type:test"]

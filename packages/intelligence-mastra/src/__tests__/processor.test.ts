@@ -3,6 +3,8 @@ import { Agent } from "@mastra/core/agent";
 import { Mastra } from "@mastra/core/mastra";
 import { InMemoryStore } from "@mastra/core/storage";
 import { RequestContext } from "@mastra/core/request-context";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod/v4";
 import { describe, expect, it, vi } from "vitest";
 import type {
   SkillRegistry,
@@ -37,7 +39,14 @@ function snapshot(revision: string): VerifiedSnapshot {
   });
 }
 
-function setup() {
+function setup(
+  options: {
+    toolName?: string;
+    toolInput?: string;
+    hostTools?: Record<string, ReturnType<typeof createTool>>;
+    onModelStep?: () => void;
+  } = {},
+) {
   let revision = "A";
   const acquire = vi.fn(async () => snapshot(revision));
   const skills = createSkillRegistryProcessor({
@@ -51,6 +60,7 @@ function setup() {
     modelId: "skills",
     supportedUrls: {},
     async doGenerate({ prompt }: { prompt: Array<{ role: string }> }) {
+      options.onModelStep?.();
       prompts.push(JSON.stringify(prompt));
       const done = prompt.some((message) => message.role === "tool");
       return {
@@ -60,8 +70,8 @@ function setup() {
               {
                 type: "tool-call",
                 toolCallId: "load",
-                toolName: "copilotkit_load_skill",
-                input: '{"skill_name":"refund"}',
+                toolName: options.toolName ?? "copilotkit_load_skill",
+                input: options.toolInput ?? '{"skill_name":"refund"}',
               },
             ],
         finishReason: done ? "stop" : "tool-calls",
@@ -70,6 +80,7 @@ function setup() {
       };
     },
     async doStream({ prompt }: { prompt: Array<{ role: string }> }) {
+      options.onModelStep?.();
       prompts.push(JSON.stringify(prompt));
       const done = prompt.some((message) => message.role === "tool");
       const chunks = [
@@ -84,8 +95,8 @@ function setup() {
               {
                 type: "tool-call",
                 toolCallId: "load",
-                toolName: "copilotkit_load_skill",
-                input: '{"skill_name":"refund"}',
+                toolName: options.toolName ?? "copilotkit_load_skill",
+                input: options.toolInput ?? '{"skill_name":"refund"}',
               },
             ]),
         {
@@ -110,7 +121,7 @@ function setup() {
     instructions: "Host instructions.",
     model: model as any,
     inputProcessors: [skills],
-    tools: { ...skills?.tools },
+    tools: { ...options.hostTools, ...skills.tools },
   });
   const storage = new InMemoryStore();
   const mastra = new Mastra({
@@ -322,3 +333,119 @@ it("registers both native tools and an empty catalog for an empty container", as
   expect(test.prompts[0]).toContain("No learned skills are available.");
   expect(test.prompts[0]).toContain("Host instructions.");
 });
+
+describe.each(["resumeGenerate", "resumeStream"] as const)(
+  "%s host tools",
+  (method) => {
+    it("blocks a suspended side effect on denial and permits the same resume after recovery", async () => {
+      const execute = vi.fn(async () => "Refund submitted.");
+      const test = setup({
+        toolName: "submit_refund",
+        toolInput: "{}",
+        hostTools: {
+          submit_refund: createTool({
+            id: "submit_refund",
+            description: "Submit the customer's refund.",
+            inputSchema: z.object({}),
+            execute,
+          }),
+        },
+      });
+      const agent = test.skills.wrapAgent(test.native);
+      const runId = randomUUID();
+      const suspended = await agent.generate("Submit a refund", {
+        runId,
+        requireToolApproval: true,
+      });
+      expect(suspended.finishReason).toBe("suspended");
+      expect(execute).not.toHaveBeenCalled();
+      const promptCount = test.prompts.length;
+      const denied = new Error("DELIVERY_DISABLED");
+      test.acquire.mockRejectedValueOnce(denied);
+      await expect(
+        agent[method]({ approved: true }, { runId, toolCallId: "load" }),
+      ).rejects.toBe(denied);
+      expect(execute).not.toHaveBeenCalled();
+      expect(test.prompts).toHaveLength(promptCount);
+
+      test.setRevision("B");
+      const recovered = await agent[method](
+        { approved: true },
+        { runId, toolCallId: "load" },
+      );
+      if (method === "resumeStream") await recovered.consumeStream();
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(test.prompts.at(-1)).toContain("Refund submitted.");
+      expect(test.prompts.at(-1)).toContain("Refund guidance B");
+      expect(test.acquire).toHaveBeenCalledTimes(3);
+    });
+  },
+);
+
+describe.each(["generate", "stream"] as const)(
+  "%s supporting files",
+  (method) => {
+    it("keeps the file and catalog pinned while a newer registry revision becomes available", async () => {
+      let nextRevision = "B";
+      const test = setup({
+        toolName: "copilotkit_read_skill_file",
+        toolInput: '{"skill_name":"refund","path":"reference.txt"}',
+        // Native model execution happens after the invocation acquired its pin.
+        onModelStep: () => test.setRevision(nextRevision),
+      });
+      const agent = test.skills.wrapAgent(test.native);
+      const first = await agent[method]("Read refund reference");
+      if (method === "stream") await first.consumeStream();
+      expect(test.acquire).toHaveBeenCalledTimes(1);
+      expect(test.prompts.at(-1)).toContain("Reference A");
+      expect(test.prompts.at(-1)).toContain("Refund guidance A");
+      expect(test.prompts.at(-1)).not.toContain("Reference B");
+
+      nextRevision = "C";
+      const second = await agent[method]("Read the current refund reference");
+      if (method === "stream") await second.consumeStream();
+      expect(test.acquire).toHaveBeenCalledTimes(2);
+      expect(test.prompts.at(-1)).toContain("Reference B");
+      expect(test.prompts.at(-1)).toContain("Refund guidance B");
+      expect(test.prompts.at(-1)).not.toContain("Reference C");
+    });
+  },
+);
+
+it.each(["declineToolCall", "declineToolCallGenerate"] as const)(
+  "%s acquires a fresh catalog without running the declined tool",
+  async (method) => {
+    const test = setup();
+    const agent = test.skills.wrapAgent(test.native);
+    const runId = randomUUID();
+    const requestContext = new RequestContext();
+    requestContext.set("customer", "test-customer");
+    const suspended = await agent.generate("Help", {
+      runId,
+      requestContext,
+      requireToolApproval: true,
+    });
+    expect(suspended.finishReason).toBe("suspended");
+    test.setRevision("B");
+    const result = await agent[method]({
+      runId,
+      toolCallId: "load",
+      requestContext,
+    });
+    if (method === "declineToolCall") await result.consumeStream();
+    expect(test.acquire).toHaveBeenCalledTimes(2);
+    expect(test.prompts.at(-1)).toContain("Refund guidance B");
+    expect(test.prompts.at(-1)).not.toContain("Skill body");
+    // Inspect the native public entries API, rather than serializing a Map's
+    // empty object representation and accidentally accepting hidden state.
+    const callerEntries = [...requestContext.entries()];
+    expect(callerEntries).toContainEqual(["customer", "test-customer"]);
+    expect(JSON.stringify(callerEntries)).not.toMatch(
+      /Refund guidance|Skill body|Reference [AB]/,
+    );
+    const acquiredSnapshot = await test.acquire.mock.results[0]?.value;
+    expect(callerEntries.some(([, value]) => value === acquiredSnapshot)).toBe(
+      false,
+    );
+  },
+);
