@@ -11,6 +11,10 @@ const source = readFileSync(
   "utf8",
 );
 
+/** The same source with runs of whitespace collapsed, for assertions about a
+ *  sentence that JSX wraps across several source lines. */
+const flatSource = source.replace(/\s+/g, " ");
+
 describe("the docs homepage route", () => {
   it("renders the product map", () => {
     expect(source).toContain("<DocsProductMap />");
@@ -39,15 +43,32 @@ describe("the docs homepage route", () => {
 
   // The hero used to carry the three starting points as a separate line of
   // middot-separated labels below the buttons. Review called that placement
-  // wrong: the point it was making — that CopilotKit goes into an app you
-  // already have — belongs in the sentence a reader meets first. The line is
+  // wrong: the point it was making, that CopilotKit goes into an app you
+  // already have, belongs in the sentence a reader meets first. The line is
   // gone and the subtitle says it instead.
+  //
+  // Matched on whitespace-collapsed source, because the sentence is wrapped
+  // across source lines and a plain `toContain` would break on a reflow that
+  // changes nothing a reader sees.
   it("says in the subtitle that an existing app works, and keeps no separate list", () => {
-    expect(source).toContain("a React app\n                you already have");
+    expect(flatSource).toContain("into an app you already have");
     expect(source).not.toContain("HERO_STARTING_POINTS");
     expect(source).not.toContain("Existing app or agent");
     expect(source).not.toContain("DOCS_START_SECTION_ID");
     expect(source).not.toContain("HERO_PATH_ANCHORS");
+  });
+
+  // The page names five frontends two blocks down and says CopilotKit ships
+  // the same primitives for all of them, so the hero must not narrow that to
+  // one. Raised on review: the hero said "a React app" while the Frontend
+  // block offered React, React SPA, Vue, React Native and Angular. The
+  // selector cannot change this copy either, since picking a frontend
+  // navigates to that frontend's quickstart rather than restyling this page.
+  it("keeps the hero and the page metadata frontend-neutral", () => {
+    const hero = flatSource.slice(flatSource.indexOf("Drop chat"));
+
+    expect(hero).not.toContain("React app");
+    expect(flatSource).not.toContain("steps to a React app");
   });
 
   // Review asked for one or two sentences under the heading, against the three

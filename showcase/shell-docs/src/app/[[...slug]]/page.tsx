@@ -69,7 +69,7 @@ export async function generateMetadata({
       // benefit, so the tab, the search result and the page disagreed.
       title: "CopilotKit: give your app an agent your users can use",
       description:
-        "Add chat, generative UI, and approval steps to a React app you already have, or start a new one, on any agent framework. CopilotKit Intelligence adds persistent threads, memory, and agents that learn from real use.",
+        "Add chat, generative UI, and approval steps to an app you already have, or start a new one, on any agent framework. CopilotKit Intelligence adds persistent threads, memory, and agents that learn from real use.",
       canonicalPath: "/",
     });
   }
@@ -148,9 +148,9 @@ function DocsOverview() {
                   below with the same link, and repeating it up here made the
                   hero a third paragraph long. */}
               <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
-                Drop chat, generative UI, and approval steps into a React app
-                you already have, or start a new one, on whatever agent
-                framework you run.
+                Drop chat, generative UI, and approval steps into an app you
+                already have, or start a new one, on whatever agent framework
+                you run.
               </p>
             </div>
             <div className="mt-7">
