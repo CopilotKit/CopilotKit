@@ -169,7 +169,12 @@ which the bot listens on for `/api/messages`.
 > **Copying this example out of the monorepo?** Replace the `workspace:*` range
 > for `@copilotkit/channels` with version `0.2.0` or later (for example,
 > `@copilotkit/channels: ^0.2.0`), retain the `@copilotkit/runtime` dependency,
-> and import the Teams APIs from `@copilotkit/channels/teams`.
+> and import the Teams APIs from `@copilotkit/channels/teams`. Keep the two
+> `@microsoft/agents-*` dependencies too: `@copilotkit/channels` declares them
+> as **optional** peer dependencies, so a package manager does not install them
+> for you. They are required by the self-hosted Teams adapter, and without them
+> the bot starts and then fails at import with
+> `Cannot find package '@microsoft/agents-hosting'`.
 
 Set the environment for wherever you deploy:
 
