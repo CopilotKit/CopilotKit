@@ -1,9 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  input,
-} from "@angular/core";
+import { Component, computed, input } from "@angular/core";
 import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
 import type { ActivityRenderer } from "../../../activity-renderer";
 
@@ -15,7 +10,6 @@ import type { ActivityRenderer } from "../../../activity-renderer";
  */
 @Component({
   selector: "primary-activity-renderer",
-  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       data-testid="primary-activity"
@@ -37,7 +31,6 @@ export class PrimaryActivityRenderer implements ActivityRenderer {
 
 @Component({
   selector: "secondary-activity-renderer",
-  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div data-testid="secondary-activity"></div>
   `,
@@ -51,7 +44,6 @@ export class SecondaryActivityRenderer implements ActivityRenderer {
 
 @Component({
   selector: "wildcard-activity-renderer",
-  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div data-testid="wildcard-activity"></div>
   `,
