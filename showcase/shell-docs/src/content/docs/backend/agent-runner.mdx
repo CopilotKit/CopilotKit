@@ -71,6 +71,12 @@ agent it serves. The same runner handles `run`, `connect`, and `stop` for all
 registered agents.
 </Callout>
 
+<Callout type="warn" title="Don't pass a `runner` on an Intelligence runtime">
+An Intelligence runtime wires `IntelligenceAgentRunner` itself, so it accepts no `runner` of
+your own — passing one is a type error, and if you force it past the types the Intelligence
+runner is used anyway. Choosing a runner is a decision for a self-hosted runtime only.
+</Callout>
+
 ## Bounding in-memory history
 
 `InMemoryAgentRunner` holds every thread's run history in a process-global

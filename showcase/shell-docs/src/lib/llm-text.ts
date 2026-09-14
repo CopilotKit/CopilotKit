@@ -59,11 +59,7 @@ import {
   loadReferenceVersionItems,
   resolveReferencePage,
 } from "./reference-items";
-import {
-  AG_UI_CONTENT_DIR,
-  DOCS_CONTENT_DIR,
-  walkMdx,
-} from "./sitemap-helpers";
+import { DOCS_CONTENT_DIR, walkMdx } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
 import angularSourceContent from "@/data/angular-source-content.json";
 import setupContentData from "@/data/setup-content.json";
@@ -174,7 +170,6 @@ export interface LlmPage {
  *   - Per-framework        (/<framework>/<slug>)
  *   - Channel-scoped       (/<slack|teams>/<framework?>/<guide?>)
  *   - Reference            (/reference/<slug>)
- *   - AG-UI                (/ag-ui/<slug>)
  *
  * We intentionally do NOT cross-product unscoped pages × every framework
  * — that would emit dozens of near-duplicate entries for the LLM. The
@@ -405,18 +400,6 @@ export function getAllLlmPages(
         loadSlug: `__reference__/${resolved.contentSlug}`,
       });
     }
-  }
-
-  // 5. AG-UI.
-  for (const { slug, filePath } of walkMdx(AG_UI_CONTENT_DIR)) {
-    const meta = readMetaFromFile(filePath);
-    push({
-      url: slug ? `ag-ui/${slug}` : "ag-ui",
-      title: meta.title ?? slug,
-      description: meta.description,
-      filePath,
-      loadSlug: `__ag-ui__/${slug || "index"}`,
-    });
   }
 
   return pages.sort((a, b) => a.url.localeCompare(b.url));
@@ -1002,13 +985,10 @@ export function renderPageToLlmText(
 /**
  * Read the source MDX for a page. Bare docs slugs go through
  * `loadDoc()` (which also handles index files and frontmatter parsing).
- * Reference / AG-UI files use the absolute path stashed on `LlmPage`.
+ * Reference files use the absolute path stashed on `LlmPage`.
  */
 function readSource(page: LlmPage): string | null {
-  if (
-    page.loadSlug.startsWith("__reference__/") ||
-    page.loadSlug.startsWith("__ag-ui__/")
-  ) {
+  if (page.loadSlug.startsWith("__reference__/")) {
     try {
       return fs.readFileSync(page.filePath, "utf-8");
     } catch (err) {
