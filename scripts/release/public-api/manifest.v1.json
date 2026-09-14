@@ -1050,13 +1050,24 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=18"
+          "node": ">=20.19.0"
+        },
+        "peerDependencies": {
+          "@langchain/core": ">=1.2.10 <2",
+          "@langchain/langgraph": ">=1.4.14 <2",
+          "langchain": ">=1.5.11 <2",
+          "zod": "^3.25.76 || ^4.0.0"
         },
         "provenance": [
           {
             "kind": "package-json",
             "path": "packages/intelligence-langgraph/package.json",
             "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-langgraph/package.json",
+            "selector": "peerDependencies"
           }
         ]
       },

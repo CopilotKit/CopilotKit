@@ -3,17 +3,27 @@
   "version": "0.1.0",
   "description": "Learned skill delivery for LangGraph agents through CopilotKit Intelligence",
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/CopilotKit/CopilotKit.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
   "exports": {
-    ".": { "import": "./dist/index.mjs", "require": "./dist/index.cjs" },
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
     "./package.json": "./package.json"
   },
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsdown",
     "check-types": "tsc --noEmit",
@@ -32,7 +42,19 @@
     "fflate": "0.8.2",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@langchain/core": "1.2.11",
+    "@langchain/langgraph": "1.4.15",
+    "langchain": "1.5.11",
+    "zod": "4.6.1"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "peerDependencies": {
+    "@langchain/core": ">=1.2.10 <2",
+    "@langchain/langgraph": ">=1.4.14 <2",
+    "langchain": ">=1.5.11 <2",
+    "zod": "^3.25.76 || ^4.0.0"
+  }
 }

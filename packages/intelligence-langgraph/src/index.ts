@@ -1,2 +1,7 @@
-/* eslint-disable unicorn/no-empty-file */
-// The framework-native middleware will define this package's public entry point.
+export { createSkillRegistryMiddleware } from "./middleware.js";
+export type { SkillRegistryMiddlewareOptions } from "./middleware.js";
+export { SkillRegistry } from "./registry.js";
+export type { SkillRegistryStatus } from "./registry.js";
+export type { SkillRegistryOptions } from "./config.js";
+export { SkillDeliveryError } from "./errors.js";
+export type { SkillDeliveryErrorCode } from "./errors.js";
