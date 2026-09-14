@@ -1,0 +1,47 @@
+An Antigravity agent is an `AntigravityAgent` from `ag_ui_antigravity`. You give
+it a model, the OpenAI-compatible root URL the harness should call (the root, not
+`.../v1` — the harness appends `/v1/chat/completions` itself), the `workspaces`
+it may touch on disk, and a `save_dir` for its conversation trajectories.
+Antigravity is session-based rather than a stateless graph — the SDK drives a
+bundled Go `localharness` subprocess — so the session knobs belong here too.
+
+<DemoCode file="src/agents/_common.py" region="agent-setup" />
+
+Nothing about CopilotKit is configured on the agent: every tool the browser
+registers arrives with each run in `RunAgentInput.tools`, and the adapter
+rebuilds those as custom Antigravity tools for that turn, so a call the browser
+has to answer parks as an awaited coroutine until the answer arrives on a later
+run. Handing every agent the same `harness_pool` **and** the same `save_dir` is
+what keeps one Go harness process behind the whole server instead of one per
+agent — `save_dir` is half the pool's partition key, so passing the pool alone
+changes nothing.
+
+`create_antigravity_app` (also from `ag_ui_antigravity`) turns a `{name: agent}`
+mapping into a FastAPI app with one AG-UI endpoint per name, mounted at
+`/<name>`:
+
+<DemoCode file="src/agent_server.py" region="agent-server" />
+
+Pass a single agent instead of a mapping to mount it at `/`. Then point Copilot
+Runtime at `http://localhost:8000/<agent name>`.
+
+<Accordions>
+  <Accordion title="Install the SDK">
+    The adapter is not on PyPI yet — it lives on an open AG-UI pull request.
+    Once published:
+
+    ```bash
+    pip install ag-ui-antigravity google-antigravity
+    ```
+
+    Until then, install it from the AG-UI repo:
+
+    ```bash
+    pip install "git+https://github.com/ag-ui-protocol/ag-ui@19f654744c663533eea5dfe1bbb1c70db85524a3#subdirectory=integrations/antigravity/python" google-antigravity
+    ```
+
+    `google-antigravity` ships platform wheels that bundle the `localharness`
+    binary, so there is no separate download step.
+
+  </Accordion>
+</Accordions>

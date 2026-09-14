@@ -8,6 +8,7 @@ import claudeSdkTypescript from "./claude-sdk-typescript";
 import crewaiCrews from "./crewai-crews";
 import deepagents from "./deepagents";
 import googleAdk from "./google-adk";
+import googleAntigravity from "./google-antigravity";
 import langgraphPython from "./langgraph-python";
 import llamaindex from "./llamaindex";
 import mastra from "./mastra";
@@ -29,6 +30,7 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   "crewai-crews": crewaiCrews,
   deepagents,
   "google-adk": googleAdk,
+  "google-antigravity": googleAntigravity,
   "langgraph-python": langgraphPython,
   // LangGraph variants share the same intro content (legacy /langgraph in
   // docs/ never differentiated python/typescript/fastapi at the landing

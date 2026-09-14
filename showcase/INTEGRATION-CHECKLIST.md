@@ -178,6 +178,7 @@ Several packages have different names in `examples/integrations/` vs `showcase/i
 | `showcase/integrations/` slug | `examples/integrations/` name | Why different                                             |
 | ----------------------------- | ----------------------------- | --------------------------------------------------------- |
 | `google-adk`                  | `adk`                         | Showcase prefixes with vendor for disambiguation          |
+| `google-antigravity`          | `antigravity`                 | Showcase prefixes with vendor for disambiguation          |
 | `langgraph-typescript`        | `langgraph-js`                | Showcase prefers full language name (`-typescript`)       |
 | `ms-agent-dotnet`             | `ms-agent-framework-dotnet`   | Showcase shortens `-framework-` out of the slug           |
 | `ms-agent-python`             | `ms-agent-framework-python`   | Same — shorter slug in showcase                           |

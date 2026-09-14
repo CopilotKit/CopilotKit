@@ -296,7 +296,7 @@ describe("resolveDocsHref", () => {
     );
     const quickstartLinks: Array<{ framework: string; href: string }> = [];
 
-    expect(channelSetups).toHaveLength(19);
+    expect(channelSetups).toHaveLength(20);
     for (const { framework, source } of channelSetups) {
       for (const match of source.matchAll(/\]\((\/[^)\s]*\/?quickstart)\)/g)) {
         quickstartLinks.push({ framework, href: match[1] });

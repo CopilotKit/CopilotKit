@@ -72,6 +72,7 @@ on:
         options:
           - crewai-crews
           - langgraph-python
+          - google-antigravity
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.

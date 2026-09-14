@@ -125,6 +125,23 @@ function markersFor(ext: string): {
   };
 }
 
+/**
+ * A published body must not show the markers of a region nested inside it.
+ * `subagent-setup` wraps `supervisor-delegation-tools` in several integrations
+ * (google-adk, google-antigravity), so the outer body carries the inner
+ * `@region[...]` / `@endregion[...]` comment lines — noise the reader is left
+ * to interpret in a snippet they are meant to copy. Drop marker-only lines;
+ * anything else, including a comment that merely mentions a region, is kept.
+ */
+const MARKER_ONLY_LINE_RX = /^\s*(?:#|\/\/)\s*@(?:end)?region\[[^\]]*\]\s*$/;
+
+function stripNestedMarkers(body: string): string {
+  return body
+    .split("\n")
+    .filter((line) => !MARKER_ONLY_LINE_RX.test(line))
+    .join("\n");
+}
+
 function extractRegion(
   source: string,
   region: string,
@@ -173,7 +190,7 @@ function extractRegion(
       `[demo-code] duplicate region "${region}" appears ${blocks.length} times`,
     );
   }
-  return blocks[0];
+  return stripNestedMarkers(blocks[0]);
 }
 
 function matchAttr(attrs: string, name: string): string | undefined {

@@ -21,6 +21,7 @@ export const ALLOWED_MULTI_FILE_REGION_KEYS = new Set([
   "crewai-crews::open-gen-ui-advanced::sandbox-function-registration",
   "google-adk::headless-complete::custom-bubbles",
   "google-adk::open-gen-ui-advanced::sandbox-function-registration",
+  "google-antigravity::headless-complete::custom-bubbles",
   "langgraph-fastapi::headless-complete::custom-bubbles",
   "langgraph-fastapi::open-gen-ui-advanced::sandbox-function-registration",
   "langgraph-python::headless-complete::custom-bubbles",

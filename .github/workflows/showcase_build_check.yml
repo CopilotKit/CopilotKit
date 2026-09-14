@@ -71,6 +71,8 @@ jobs:
               - 'showcase/integrations/pydantic-ai/**'
             google_adk:
               - 'showcase/integrations/google-adk/**'
+            google_antigravity:
+              - 'showcase/integrations/google-antigravity/**'
             ag2:
               - 'showcase/integrations/ag2/**'
             agno:
@@ -150,6 +152,7 @@ jobs:
             {"dispatch_name":"crewai-conversational-flows","filter_key":"crewai_conversational_flows","context":"showcase/integrations/crewai-conversational-flows","image":"showcase-crewai-conversational-flows","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"google-antigravity","filter_key":"google_antigravity","context":"showcase/integrations/google-antigravity","image":"showcase-google-antigravity","timeout":20,"build_args":"","dockerfile":""},
             {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","timeout":15,"build_args":"","dockerfile":""},

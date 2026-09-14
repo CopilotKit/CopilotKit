@@ -1,0 +1,26 @@
+[project]
+name = "antigravity-starter-agent"
+version = "0.1.0"
+description = "Google Antigravity agent server for AG-UI / CopilotKit"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  # `google-antigravity` ships platform wheels (~32 MB) that bundle the Go
+  # `localharness` binary, so there is no separate download step.
+  "google-antigravity==0.1.9",
+  "ag-ui-protocol==0.1.19",
+  "fastapi==0.141.0",
+  "uvicorn[standard]==0.52.0",
+  "sse-starlette==3.4.6",
+  "httpx==0.28.1",
+  "python-dotenv==1.0.1",
+  # INTERIM: the Antigravity AG-UI adapter is not on PyPI yet, so it installs
+  # from a pinned AG-UI commit. Swap this for `ag-ui-antigravity==<version>`
+  # once it is published. Installing from git means the build environment
+  # needs a git client (see docker/Dockerfile.agent).
+  "ag-ui-antigravity @ git+https://github.com/ag-ui-protocol/ag-ui@19f654744c663533eea5dfe1bbb1c70db85524a3#subdirectory=integrations/antigravity/python",
+]
+
+# This project is a plain script tree (main.py + src/), not an installable
+# package — `package = false` stops uv from trying to build it as one.
+[tool.uv]
+package = false
