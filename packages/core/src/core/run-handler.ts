@@ -318,18 +318,23 @@ export class RunHandler {
   }
 
   /**
-   * Remove a tool by name and optionally by agentId
+   * Remove a tool by name and optionally by agentId.
+   *
+   * If an imperative (`addTool`) registration exists, only that registration
+   * is removed. A provider tool of the same name stays, so hook unmount and
+   * WebMCP import cleanup do not delete a later provider tool. If there is
+   * no imperative registration, the matching provider tool is removed.
    */
   removeTool(id: string, agentId?: string): void {
-    this._hookTools.delete(this.capabilityKey(id, agentId));
-    this._propTools = this._propTools.filter((tool) => {
-      // Remove tool if both name and agentId match
-      if (agentId !== undefined) {
-        return !(tool.name === id && tool.agentId === agentId);
-      }
-      // If no agentId specified, only remove global tools with matching name
-      return !(tool.name === id && !tool.agentId);
-    });
+    const hadHook = this._hookTools.delete(this.capabilityKey(id, agentId));
+    if (!hadHook) {
+      this._propTools = this._propTools.filter((tool) => {
+        if (agentId !== undefined) {
+          return !(tool.name === id && tool.agentId === agentId);
+        }
+        return !(tool.name === id && !tool.agentId);
+      });
+    }
     this._cachedMergedTools = null;
     this.syncWebMCP();
   }

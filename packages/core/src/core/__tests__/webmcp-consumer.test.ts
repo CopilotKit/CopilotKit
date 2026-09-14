@@ -390,6 +390,70 @@ describe("WebMCPConsumer", () => {
     expect(host.tools.map((tool) => tool.name)).toEqual(["handWritten"]);
   });
 
+  it("stop() leaves a later provider tool of the same name", async () => {
+    stubImportWebMCP([createPageTool({ name: "addTodo" })]);
+    const host = createHost();
+
+    const consumer = await startedConsumer(host);
+    await vi.waitFor(() => {
+      expect(host.getTool({ toolName: "addTodo" })?.description).toBe(
+        "addTodo description",
+      );
+    });
+
+    host.setTools([{ name: "addTodo", description: "from provider" }]);
+    expect(host.getTool({ toolName: "addTodo" })?.description).toBe(
+      "addTodo description",
+    );
+
+    consumer.stop();
+
+    expect(host.getTool({ toolName: "addTodo" })?.description).toBe(
+      "from provider",
+    );
+  });
+
+  it("replaces host metadata when a same-name page tool changes", async () => {
+    const modelContext = stubImportWebMCP([
+      createPageTool({
+        name: "addTodo",
+        description: "old description",
+        inputSchema: {
+          type: "object",
+          properties: { text: { type: "string" } },
+        },
+      }),
+    ]);
+    const host = createHost();
+
+    await startedConsumer(host);
+    await vi.waitFor(() => {
+      expect(host.getTool({ toolName: "addTodo" })?.description).toBe(
+        "old description",
+      );
+    });
+
+    const updated = createPageTool({
+      name: "addTodo",
+      description: "new description",
+      inputSchema: {
+        type: "object",
+        properties: { title: { type: "string" } },
+      },
+    });
+    modelContext.pageTools = [updated];
+    modelContext.emitToolChange();
+
+    await vi.waitFor(() => {
+      const tool = host.getTool({ toolName: "addTodo" });
+      expect(tool?.description).toBe("new description");
+      expect(createToolSchema(tool!)).toMatchObject({
+        type: "object",
+        properties: { title: { type: "string" } },
+      });
+    });
+  });
+
   it("ignores a stale getTools() result after a newer sync", async () => {
     let resolveFirst!: (tools: WebMCPRegisteredTool[]) => void;
     const firstBatch = [createPageTool({ name: "stale" })];
