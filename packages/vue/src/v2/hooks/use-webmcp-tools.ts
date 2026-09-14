@@ -7,19 +7,22 @@ export type { WebMCPToolsOptions };
 
 function nameWatchKey(name: WebMCPToolsOptions["name"]) {
   if (name instanceof RegExp) {
-    return `/${name.source}/${name.flags}`;
+    return `re:/${name.source}/${name.flags}`;
   }
-  return name ?? "";
+  if (name === undefined) {
+    return "";
+  }
+  return `str:${name}`;
 }
 
 /**
  * Import page WebMCP tools from `document.modelContext.getTools()` so a
  * CopilotKit agent can call them.
  *
- * With no filters, every same-origin tool is imported. Filter order is allow,
- * then deny, then `name`. Tools this app already published with
- * `useFrontendTool({ webmcp: true })` are skipped. Missing
- * `document.modelContext` is a no-op.
+ * With no filters, every same-origin tool that has a name and a description
+ * is imported. Filter order is allow, then deny, then `name`. Tools this
+ * app already published with `useFrontendTool({ webmcp: true })` are skipped.
+ * Missing `document.modelContext` is a no-op.
  *
  * @example
  * ```ts

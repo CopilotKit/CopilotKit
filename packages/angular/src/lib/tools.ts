@@ -181,11 +181,11 @@ export type { WebMCPToolsOptions };
  * Import page WebMCP tools from `document.modelContext.getTools()` so a
  * CopilotKit agent can call them.
  *
- * With no filters, every same-origin tool is imported. Filter order is allow,
- * then deny, then `name`. Tools this app already published with
- * `registerFrontendTool({ webmcp: true })` are skipped. Missing
- * `document.modelContext` is a no-op. Registration is removed when the calling
- * injector is destroyed.
+ * With no filters, every same-origin tool that has a name and a description
+ * is imported. Filter order is allow, then deny, then `name`. Tools this
+ * app already published with `registerFrontendTool({ webmcp: true })` are
+ * skipped. Missing `document.modelContext` is a no-op. Registration is
+ * removed when the calling injector is destroyed.
  *
  * @example
  * ```ts

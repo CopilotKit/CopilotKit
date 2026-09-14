@@ -7,7 +7,7 @@ description: "Vue composable that imports page WebMCP tools so a CopilotKit agen
 
 The page already registered tools on `document.modelContext`. `useWebmcpTools` imports those tools as CopilotKit frontend tools. When the agent calls one, CopilotKit runs `document.modelContext.executeTool` with the `RegisteredTool` object from `getTools()`.
 
-With no filters, every same-origin tool is imported. Filter order is allow, then deny, then `name`. Tools this app already published with `useFrontendTool({ webmcp: true })` are skipped. Missing `document.modelContext` is a no-op.
+With no filters, every same-origin tool that has a name and a description is imported. Filter order is allow, then deny, then `name`. Tools this app already published with `useFrontendTool({ webmcp: true })` are skipped. Missing `document.modelContext` is a no-op.
 
 <Callout type="info">
   Import from the `/v2` subpath: `@copilotkit/vue/v2`. Call `useWebmcpTools` from
@@ -30,7 +30,7 @@ function useWebmcpTools(options?: {
 ## Parameters
 
 <PropertyReference name="options" type="WebMCPToolsOptions">
-  Optional filters and agent scope. Omit the object to import every same-origin page tool.
+  Optional filters and agent scope. Omit the object to import every same-origin page tool that has a name and a description.
 
   <PropertyReference name="agentId" type="string">
     Scope imported tools to this agent. Omit it to register them as global tools.

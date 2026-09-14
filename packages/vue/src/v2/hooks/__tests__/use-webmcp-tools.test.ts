@@ -1,4 +1,4 @@
-import { defineComponent, watch } from "vue";
+import { defineComponent, reactive, watch } from "vue";
 import { waitFor } from "@testing-library/vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useWebmcpTools } from "../use-webmcp-tools";
@@ -69,54 +69,63 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function renderImportedTools(setupFn: () => void) {
+  let coreRef: CopilotKitCoreVue | null = null;
+  const ToolComponent = defineComponent({
+    setup() {
+      setupFn();
+      return {};
+    },
+    template: `<div />`,
+  });
+  const Host = defineComponent({
+    components: { ToolComponent, CoreCapture },
+    setup() {
+      return {
+        setCore: (core: CopilotKitCoreVue) => {
+          coreRef = core;
+        },
+      };
+    },
+    template: `
+      <div>
+        <ToolComponent />
+        <CoreCapture :on-core="setCore" />
+      </div>
+    `,
+  });
+  const ui = renderWithCopilotKit({
+    children: Host,
+  });
+  return {
+    ui,
+    getCore: () => coreRef,
+  };
+}
+
 describe("useWebmcpTools", () => {
   it("imports page tools onto the core and cleans them up on unmount", async () => {
     stubPageTools([createPageTool("addTodo"), createPageTool("listTodos")]);
-    let coreRef: CopilotKitCoreVue | null = null;
 
-    const ToolComponent = defineComponent({
-      setup() {
-        useWebmcpTools();
-        return {};
-      },
-      template: `<div />`,
-    });
-
-    const Host = defineComponent({
-      components: { ToolComponent, CoreCapture },
-      setup() {
-        return {
-          setCore: (core: CopilotKitCoreVue) => {
-            coreRef = core;
-          },
-        };
-      },
-      template: `
-        <div>
-          <ToolComponent />
-          <CoreCapture :on-core="setCore" />
-        </div>
-      `,
-    });
-
-    const ui = renderWithCopilotKit({
-      children: Host,
+    const { ui, getCore } = renderImportedTools(() => {
+      useWebmcpTools();
     });
 
     await waitFor(() => {
-      expect(coreRef).not.toBeNull();
-      expect(coreRef!.tools.map((tool) => tool.name).sort()).toEqual([
-        "addTodo",
-        "listTodos",
-      ]);
+      expect(getCore()).not.toBeNull();
+      expect(
+        getCore()!
+          .tools.map((tool) => tool.name)
+          .sort(),
+      ).toEqual(["addTodo", "listTodos"]);
     });
 
     ui.unmount();
 
     await waitFor(() => {
-      expect(coreRef!.tools.filter((tool) => tool.name === "addTodo")).toEqual(
-        [],
-      );
+      expect(
+        getCore()!.tools.filter((tool) => tool.name === "addTodo"),
+      ).toEqual([]);
     });
   });
 
@@ -125,48 +134,81 @@ describe("useWebmcpTools", () => {
       createPageTool("searchOrders"),
       createPageTool("deleteOrder"),
     ]);
-    let coreRef: CopilotKitCoreVue | null = null;
 
-    const ToolComponent = defineComponent({
-      setup() {
-        useWebmcpTools({
-          agentId: "support",
-          allow: ["searchOrders"],
-        });
-        return {};
-      },
-      template: `<div />`,
-    });
-
-    const Host = defineComponent({
-      components: { ToolComponent, CoreCapture },
-      setup() {
-        return {
-          setCore: (core: CopilotKitCoreVue) => {
-            coreRef = core;
-          },
-        };
-      },
-      template: `
-        <div>
-          <ToolComponent />
-          <CoreCapture :on-core="setCore" />
-        </div>
-      `,
-    });
-
-    renderWithCopilotKit({
-      children: Host,
+    const { getCore } = renderImportedTools(() => {
+      useWebmcpTools({
+        agentId: "support",
+        allow: ["searchOrders"],
+      });
     });
 
     await waitFor(() => {
-      const tool = coreRef!.tools.find(
+      const tool = getCore()!.tools.find(
         (entry) => entry.name === "searchOrders",
       );
       expect(tool?.agentId).toBe("support");
       expect(
-        coreRef!.tools.find((entry) => entry.name === "deleteOrder"),
+        getCore()!.tools.find((entry) => entry.name === "deleteOrder"),
       ).toBeUndefined();
+    });
+  });
+
+  it("runs executeTool when the imported handler is called", async () => {
+    const pageTool = createPageTool("addTodo");
+    const { executeTool } = stubPageTools([pageTool]);
+
+    const { getCore } = renderImportedTools(() => {
+      useWebmcpTools();
+    });
+
+    await waitFor(() => {
+      expect(getCore()?.getTool({ toolName: "addTodo" })?.handler).toBeTypeOf(
+        "function",
+      );
+    });
+
+    const result = await getCore()!.getTool({ toolName: "addTodo" })!.handler!(
+      { text: "milk" },
+      {
+        toolCall: {
+          id: "call-1",
+          type: "function",
+          function: { name: "addTodo", arguments: '{"text":"milk"}' },
+        },
+      },
+    );
+
+    expect(executeTool).toHaveBeenCalledWith(
+      pageTool,
+      { text: "milk" },
+      expect.objectContaining({}),
+    );
+    expect(result).toEqual({ ran: "addTodo", input: { text: "milk" } });
+  });
+
+  it("restarts when name changes from a string to a matching RegExp", async () => {
+    stubPageTools([createPageTool("orders"), createPageTool("searchOrders")]);
+    const options = reactive<{ name: string | RegExp }>({
+      name: "/orders/i",
+    });
+
+    const { getCore } = renderImportedTools(() => {
+      useWebmcpTools(options);
+    });
+
+    await waitFor(() => {
+      expect(getCore()).not.toBeNull();
+      expect(getCore()!.tools.map((tool) => tool.name)).toEqual([]);
+    });
+
+    options.name = /orders/i;
+
+    await waitFor(() => {
+      expect(
+        getCore()!
+          .tools.map((tool) => tool.name)
+          .sort(),
+      ).toEqual(["orders", "searchOrders"]);
     });
   });
 });
