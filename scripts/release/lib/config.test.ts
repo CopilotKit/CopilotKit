@@ -6,6 +6,7 @@ import {
   resolveScopes,
 } from "./config.js";
 import { getPackagesForScope } from "./versions.js";
+import { getScopePathspecs } from "./changes.js";
 
 const CHANNELS_PACKAGES = [
   "@copilotkit/channels-ui",
@@ -46,7 +47,7 @@ describe("resolveScopes", () => {
 
   it("rejects an unknown scope and names the valid selectors", () => {
     expect(() => resolveScopes("runtime")).toThrow(
-      /Unknown scope: runtime\. Valid scopes: .*intelligence-langgraph, all/,
+      /Unknown scope: runtime\. Valid scopes: .*intelligence-mastra, all/,
     );
   });
 
@@ -57,15 +58,41 @@ describe("resolveScopes", () => {
   });
 });
 
-describe("Learned-skill adapter release scope", () => {
-  it("releases independently from the shared monorepo version", () => {
-    expect(getScopeConfig("intelligence-langgraph")).toEqual({
-      packages: ["@copilotkit/intelligence-langgraph"],
-      versionSource: "@copilotkit/intelligence-langgraph",
-      sharedVersion: false,
+describe.each(["intelligence-langgraph", "intelligence-mastra"] as const)(
+  "%s release scope",
+  (scope) => {
+    it("releases independently without publishing the private delivery core", () => {
+      expect(getScopeConfig(scope)).toEqual({
+        packages: [`@copilotkit/${scope}`],
+        versionSource: `@copilotkit/${scope}`,
+        sharedVersion: false,
+        sourcePaths: ["packages/intelligence-delivery-core"],
+      });
+      expect(getScopeConfig("monorepo").packages).not.toContain(
+        `@copilotkit/${scope}`,
+      );
+      expect(
+        Object.values(loadConfig().scopes).flatMap((value) => value.packages),
+      ).not.toContain("@copilotkit/intelligence-delivery-core");
     });
-    expect(getScopeConfig("monorepo").packages).not.toContain(
-      "@copilotkit/intelligence-langgraph",
+    it("includes bundled core changes in release notes without adding a publishable package", () => {
+      expect(getScopePathspecs(scope)).toEqual([
+        `packages/${scope}`,
+        "packages/intelligence-delivery-core",
+      ]);
+      expect(getPackagesForScope(scope).map((pkg) => pkg.name)).toEqual([
+        `@copilotkit/${scope}`,
+      ]);
+    });
+  },
+);
+
+it("keeps unrelated scopes limited to their published package paths", () => {
+  for (const scope of ["monorepo", "angular", "channels"] as const) {
+    expect(getScopePathspecs(scope)).toEqual(
+      getScopeConfig(scope).packages.map(
+        (name) => `packages/${name.split("/")[1]}`,
+      ),
     );
-  });
+  }
 });

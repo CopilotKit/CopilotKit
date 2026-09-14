@@ -46,7 +46,14 @@
     },
     "intelligence-langgraph": {
       "packages": ["@copilotkit/intelligence-langgraph"],
+      "sourcePaths": ["packages/intelligence-delivery-core"],
       "versionSource": "@copilotkit/intelligence-langgraph",
+      "sharedVersion": false
+    },
+    "intelligence-mastra": {
+      "packages": ["@copilotkit/intelligence-mastra"],
+      "sourcePaths": ["packages/intelligence-delivery-core"],
+      "versionSource": "@copilotkit/intelligence-mastra",
       "sharedVersion": false
     }
   }

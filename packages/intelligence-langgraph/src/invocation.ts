@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { IterableReadableStream } from "@langchain/core/utils/stream";
-import { SkillDeliveryError } from "./errors.js";
-import type { SkillRegistry } from "./registry.js";
-import type { VerifiedSnapshot } from "./snapshot.js";
+import { SkillDeliveryError } from "@copilotkit/intelligence-delivery-core";
+import type { SkillRegistry } from "@copilotkit/intelligence-delivery-core";
+import type { VerifiedSnapshot } from "@copilotkit/intelligence-delivery-core";
 
 interface Invocation {
   snapshot?: Promise<VerifiedSnapshot>;

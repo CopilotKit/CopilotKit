@@ -19,6 +19,11 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const consumerEnv = {
+  ...standaloneConsumerEnv(),
+  COPILOTKIT_TELEMETRY_DISABLED: "true",
+};
+
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workspaceRoot = resolve(packageRoot, "../..");
 const coreRoot = resolve(packageRoot, "../intelligence-delivery-core");
@@ -26,7 +31,7 @@ const laneIndex = process.argv.indexOf("--lane");
 const selectedLane = laneIndex === -1 ? undefined : process.argv[laneIndex + 1];
 if (selectedLane && !["minimum", "latest"].includes(selectedLane))
   throw new Error("Expected --lane minimum or --lane latest");
-const work = mkdtempSync(join(tmpdir(), "learned-skills-compat-"));
+const work = mkdtempSync(join(tmpdir(), "mastra-skills-compat-"));
 const artifacts = join(work, "artifacts");
 mkdirSync(artifacts);
 console.log(`Standalone compatibility consumers: ${work}`);
@@ -61,87 +66,44 @@ for (const file of readdirSync(join(packageRoot, "dist"), {
   );
 }
 const adapter = pack(packageRoot);
-const runtime = packRuntimeWorkspace(workspaceRoot, artifacts);
-const consumerEnv = standaloneConsumerEnv();
+const runtimeWorkspace = packRuntimeWorkspace(workspaceRoot, artifacts);
 const lanes = {
-  minimum: {
-    "@langchain/core": "1.2.10",
-    "@langchain/langgraph": "1.4.14",
-    langchain: "1.5.11",
-    zod: "3.25.76",
-  },
+  minimum: { "@mastra/core": "1.0.0", zod: "3.25.76" },
   latest: manifest(packageRoot).peerDependencies,
 };
-
 const smoke = `import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('@copilotkit/intelligence-delivery-core'), e => e.code === 'MODULE_NOT_FOUND');
 const load = process.argv[2] === 'require' ? async s => require(s) : s => import(s);
-const { createSkillRegistryMiddleware, SkillRegistry, SkillDeliveryError } = await load('@copilotkit/intelligence-langgraph');
+const { SkillRegistry, SkillDeliveryError, createSkillRegistryProcessor } = await load('@copilotkit/intelligence-mastra');
 const { CopilotKitIntelligence } = await load('@copilotkit/runtime/v2');
-const { createAgent } = await load('langchain');
-const { BaseChatModel } = await load('@langchain/core/language_models/chat_models');
-const { AIMessage, ToolMessage } = await load('@langchain/core/messages');
 const { zipSync, strToU8 } = await load('fflate');
-assert.equal(typeof CopilotKitIntelligence.prototype.getLearnedSkillsSnapshot, 'function');
-let revision = 'A', fetches = 0;
-function archive() {
- const text = \`private skill \${revision}\`;
- const manifest = {schemaVersion:1, revision, skills:[{name:'refund',description:\`Refund \${revision}\`,files:[{path:'SKILL.md',size:Buffer.byteLength(text),sha256:createHash('sha256').update(text).digest('hex')}]}]};
- const bytes=zipSync({'manifest.json':strToU8(JSON.stringify(manifest)), 'refund/SKILL.md':strToU8(text)});
- return {status:'snapshot',bytes,revision,etag:\`"\${createHash('sha256').update(bytes).digest('hex')}"\`,contentType:'application/zip'};
-}
-const client=new CopilotKitIntelligence({apiKey:'local-test'});
-client.getLearnedSkillsSnapshot=async()=>{fetches++;return archive()};
-const registry=new SkillRegistry({client,containerId:'local-container',freshnessWindowMs:0});
-const catalogs=[];
-class Model extends BaseChatModel {
- _llmType(){return 'packaged-local-test'}
- bindTools(tools){assert.equal(tools.length,2);return this}
- async _generate(messages){
-  catalogs.push(messages[0].text);
-  if(!messages.some(m=>ToolMessage.isInstance(m))){revision='B';await registry.acquireSnapshot();return {generations:[{text:'',message:new AIMessage({content:'',tool_calls:[{id:'load',name:'copilotkit_load_skill',args:{skill_name:'refund'}},{id:'read',name:'copilotkit_read_skill_file',args:{skill_name:'refund',path:'SKILL.md'}}]})}]}}
-  return {generations:[{text:'done',message:new AIMessage('done')}]};
- }
-}
-const skills=createSkillRegistryMiddleware({registry});
-const agent=skills.wrapAgent(createAgent({model:new Model({}),systemPrompt:'Keep developer instructions.',middleware:[skills]})).withConfig({tags:['compatibility']});
-const result=await agent.invoke({messages:[{role:'user',content:'refund'}]});
-assert.equal(result.messages.at(-1).text,'done');
-assert.equal(result.messages.filter(m=>ToolMessage.isInstance(m)).length,2);
-for(const output of result.messages.filter(m=>ToolMessage.isInstance(m)))assert.match(output.text,/private skill A/);
-for(const catalog of catalogs){assert.match(catalog,/Keep developer instructions/);assert.match(catalog,/Refund A/);assert.doesNotMatch(catalog,/Refund B/)}
-assert.equal(fetches,2);
-const stream = await agent.stream({messages:[{role:'user',content:'stream refund'}]});
-const reader = stream.getReader();
-let chunks = 0;
-while (true) { const next = await reader.read(); if (next.done) break; chunks++; }
-assert.ok(chunks > 0);
-client.getLearnedSkillsSnapshot = async () => { throw new SkillDeliveryError('REVISION_REVOKED', false); };
-await assert.rejects(agent.invoke({messages:[{role:'user',content:'denied'}]}), e => e instanceof SkillDeliveryError && e.code === 'REVISION_REVOKED');
-console.log(JSON.stringify({mode:process.argv[2],result:'PASS',tools:2,fetches,catalogs:catalogs.length,streamChunks:chunks,typedDenial:true}));
+const bytes = zipSync({'manifest.json':strToU8(JSON.stringify({schemaVersion:1,revision:'A',skills:[]}))});
+const client = new CopilotKitIntelligence({apiKey:'local-test'});
+client.getLearnedSkillsSnapshot = async () => ({status:'snapshot',bytes,revision:'A',etag:'"'+createHash('sha256').update(bytes).digest('hex')+'"',contentType:'application/zip'});
+const registry = new SkillRegistry({client,containerId:'local'});
+await registry.initialize();
+assert.equal(registry.status.revision,'A');
+const skills = createSkillRegistryProcessor({registry});
+assert.deepEqual(Object.keys(skills.tools),['copilotkit_load_skill','copilotkit_read_skill_file']);
+assert.throws(() => skills.wrapAgent({}), e => e instanceof SkillDeliveryError && e.code === 'INVALID_CONFIG');
+console.log(process.argv[2] + ': independent package initialization and native tool registration passed');
 `;
-const types = `import { createSkillRegistryMiddleware, SkillRegistry } from '@copilotkit/intelligence-langgraph';
-import { CopilotKitIntelligence } from '@copilotkit/runtime/v2';
-import { createAgent } from 'langchain';
-import { z } from 'zod/v4';
-const registry = new SkillRegistry({client:new CopilotKitIntelligence({apiKey:'local'}),containerId:'container'});
-const skills = createSkillRegistryMiddleware({registry});
-const native = createAgent({model:'openai:gpt-4.1-mini',middleware:[skills],responseFormat:z.object({answer:z.string(),count:z.number()})});
-const agent = skills.wrapAgent(native);
-const same: typeof native = agent;
-const configured = agent.withConfig({tags:['typecheck']});
+const types = `import { Agent } from '@mastra/core/agent';
+import { SkillRegistry, createSkillRegistryProcessor } from '@copilotkit/intelligence-mastra';
+const skills = createSkillRegistryProcessor({registry:new SkillRegistry()});
+const native = new Agent({id:'typed',name:'Typed',model:'openai/gpt-4.1',instructions:'Help',inputProcessors:[skills],tools:skills.tools});
+const agent: typeof native = skills.wrapAgent(native);
 async function inference() {
- const result = await configured.invoke({messages:[{role:'user',content:'test'}]});
- const answer: string = result.structuredResponse.answer;
- const count: number = result.structuredResponse.count;
- // @ts-expect-error Preserve structured response shape.
- const missing = result.structuredResponse.notAField;
- return {answer,count,missing};
+ const result = await agent.generate('Help');
+ const text: string = result.text;
+ // @ts-expect-error Preserve native result types.
+ const invalid: number = result.text;
+ return {text,invalid};
 }
-void same; void inference;
+void inference;
 `;
 
 for (const [lane, peers] of Object.entries(lanes)) {
@@ -155,23 +117,21 @@ for (const [lane, peers] of Object.entries(lanes)) {
         name: `skills-compat-${lane}`,
         private: true,
         type: "module",
+        overrides: runtimeWorkspace.overrides,
         dependencies: {
           ...peers,
-          "@copilotkit/intelligence-langgraph": `file:${adapter}`,
-          ...runtime.dependencies,
+          "@copilotkit/intelligence-mastra": `file:${adapter}`,
+          ...runtimeWorkspace.dependencies,
           typescript: "5.8.2",
           "@types/node": "22.15.3",
           fflate: "0.8.2",
-          // Runtime channels-core exposes an optional Vitest 4 testing peer.
           vitest: "4.1.11",
         },
-        overrides: runtime.overrides,
       },
       null,
       2,
     ),
   );
-  // npm 10 Arborist crashes on Runtime's optional peer graph; pin test tooling.
   execFileSync(
     "npm",
     [
@@ -204,8 +164,12 @@ for (const [lane, peers] of Object.entries(lanes)) {
       include: ["types.mts", "types.cts"],
     }),
   );
-  for (const folder of ["src", "conformance"])
+  for (const folder of ["src"])
     cpSync(join(packageRoot, folder), join(cwd, folder), { recursive: true });
+  writeFileSync(
+    join(cwd, "src/index.ts"),
+    'export * from "@copilotkit/intelligence-mastra";\n',
+  );
   // Source suites resolve the private workspace core from a test-only copy.
   // Installed-distribution smoke tests use no private package.
   cpSync(join(coreRoot, "src"), join(cwd, "delivery-core/src"), {
@@ -229,7 +193,7 @@ for (const [lane, peers] of Object.entries(lanes)) {
     execFileSync(process.execPath, args, {
       cwd,
       stdio: "inherit",
-      env: { ...consumerEnv, COPILOTKIT_TELEMETRY_DISABLED: "true" },
+      env: consumerEnv,
     });
   }
   console.log(

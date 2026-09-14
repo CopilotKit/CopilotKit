@@ -8,7 +8,7 @@ import { createAgent, tool } from "langchain";
 import { Command, MemorySaver, interrupt } from "@langchain/langgraph";
 import { z } from "zod/v4";
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { SkillRegistry } from "../registry.js";
+import { SkillRegistry } from "@copilotkit/intelligence-delivery-core";
 import * as api from "../index.js";
 
 function archive(revision: string) {

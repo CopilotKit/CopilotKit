@@ -11,10 +11,13 @@ export type ReleaseScope =
   | "monorepo"
   | "angular"
   | "channels"
-  | "intelligence-langgraph";
+  | "intelligence-langgraph"
+  | "intelligence-mastra";
 
 export interface ScopeConfig {
   packages: string[];
+  /** Additional repository-relative sources included in release notes, not publishing. */
+  sourcePaths?: string[];
   versionSource: string;
   sharedVersion: boolean;
 }
