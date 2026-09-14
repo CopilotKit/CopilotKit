@@ -46,7 +46,7 @@ describe("resolveScopes", () => {
 
   it("rejects an unknown scope and names the valid selectors", () => {
     expect(() => resolveScopes("runtime")).toThrow(
-      /Unknown scope: runtime\. Valid scopes: .*channels, all/,
+      /Unknown scope: runtime\. Valid scopes: .*intelligence-langgraph, all/,
     );
   });
 
@@ -54,5 +54,18 @@ describe("resolveScopes", () => {
   // release.config.json would make the sentinel ambiguous.
   it("keeps the sentinel out of the configured scope names", () => {
     expect(Object.keys(loadConfig().scopes)).not.toContain(ALL_SCOPES);
+  });
+});
+
+describe("Learned-skill adapter release scope", () => {
+  it("releases independently from the shared monorepo version", () => {
+    expect(getScopeConfig("intelligence-langgraph")).toEqual({
+      packages: ["@copilotkit/intelligence-langgraph"],
+      versionSource: "@copilotkit/intelligence-langgraph",
+      sharedVersion: false,
+    });
+    expect(getScopeConfig("monorepo").packages).not.toContain(
+      "@copilotkit/intelligence-langgraph",
+    );
   });
 });

@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - "packages/intelligence-*/**"
+      - "packages/runtime/**"
       - "packages/runtime-python/**"
       - "packages/runtime-dotnet/sdk/**"
       - "packages/runtime-dotnet/sdk-tests/**"
@@ -18,6 +19,7 @@ on:
     branches: [main]
     paths:
       - "packages/intelligence-*/**"
+      - "packages/runtime/**"
       - "packages/runtime-python/**"
       - "packages/runtime-dotnet/sdk/**"
       - "packages/runtime-dotnet/sdk-tests/**"
@@ -126,3 +128,27 @@ jobs:
         run: pnpm nx run "intelligence-agent-framework-dotnet:test-${{ matrix.compatibility }}"
       - name: Build independent NuGet package
         run: pnpm nx run intelligence-agent-framework-dotnet:verify-distribution
+
+  typescript-framework:
+    name: TypeScript LangGraph / ${{ matrix.compatibility }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        compatibility: [minimum, latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20.19.0"
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build adapter and canonical client
+        run: pnpm nx run @copilotkit/intelligence-langgraph:build
+      - name: Native framework and installed distribution compatibility
+        run: pnpm nx run "@copilotkit/intelligence-langgraph:test-${{ matrix.compatibility }}"
+      - name: Validate package exports and types
+        run: pnpm nx run-many -t check-types,publint,attw -p @copilotkit/intelligence-langgraph --parallel=1
