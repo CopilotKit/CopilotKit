@@ -1,0 +1,37 @@
+{
+  "name": "runtime-go",
+  "root": "packages/runtime-go",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["{projectRoot}/**/*"],
+      "options": {
+        "command": "go test -race ./...",
+        "cwd": "packages/runtime-go"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "inputs": ["{projectRoot}/**/*"],
+      "options": {
+        "command": "go build ./...",
+        "cwd": "packages/runtime-go"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "inputs": ["{projectRoot}/**/*"],
+      "options": {
+        "command": "go vet ./... && test -z \"$(gofmt -l .)\"",
+        "cwd": "packages/runtime-go"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  }
+}

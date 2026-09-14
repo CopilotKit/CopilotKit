@@ -1,7 +1,7 @@
 /**
  * Generate Search Index
  *
- * Scans reference MDX files, AG-UI content, and registry data to produce
+ * Scans reference MDX files and registry data to produce
  * a search index JSON for the shell's Cmd-K search modal.
  *
  * Docs pages are filtered to the ones a reader can actually reach from a
@@ -66,7 +66,7 @@ const DROPPED_REPORT_PATH = path.join(
 const MIN_DOCS_ENTRIES = 495;
 
 interface SearchEntry {
-  type: "page" | "reference" | "ag-ui";
+  type: "page" | "reference";
   title: string;
   subtitle: string;
   section: string;
@@ -91,35 +91,11 @@ const FRONTEND_NAMES = new Map(
   FRONTEND_SEARCH_PAGES.map((frontend) => [frontend.id, frontend.name]),
 );
 
-// Derive a human-readable section breadcrumb from a relative path.
-// e.g. "concepts/middleware" → "Concepts"
-//      "sdk/js/client/middleware" → "JS SDK › @ag-ui/client"
-//      "backend/copilot-runtime" → "Backend"
-const SECTION_LABELS: Record<string, string> = {
-  concepts: "Concepts",
-  quickstart: "Quickstart",
-  drafts: "Draft Proposals",
-  tutorials: "Tutorials",
-  development: "Development",
-  "sdk/js": "JS SDK",
-  "sdk/js/core": "JS SDK › @ag-ui/core",
-  "sdk/js/client": "JS SDK › @ag-ui/client",
-  "sdk/python": "Python SDK",
-  "sdk/python/core": "Python SDK › ag_ui.core",
-  "sdk/python/encoder": "Python SDK › ag_ui.encoder",
-};
-
 function deriveSectionLabel(hrefPrefix: string, href: string): string {
   // Strip prefix to get relative path, then drop the filename
   const rel = href.slice(hrefPrefix.length + 1); // e.g. "concepts/middleware"
   const parts = rel.split("/");
   if (parts.length <= 1) return ""; // top-level page, no section
-
-  // Try longest prefix match first
-  for (let len = parts.length - 1; len >= 1; len--) {
-    const candidate = parts.slice(0, len).join("/");
-    if (SECTION_LABELS[candidate]) return SECTION_LABELS[candidate];
-  }
 
   // Fallback: capitalize first directory
   return (
@@ -161,7 +137,7 @@ function extractDescription(content: string): string {
 function scanMdxDir(
   dir: string,
   hrefPrefix: string,
-  type: "page" | "reference" | "ag-ui",
+  type: "page" | "reference",
   allowList?: Set<string>,
 ): SearchEntry[] {
   const entries: SearchEntry[] = [];
@@ -360,7 +336,7 @@ function isFrontendDocsEntry(href: string): boolean {
 async function main() {
   // A content-free build may emit a stub, but a partially staged tree must
   // never overwrite a complete search index with missing content families.
-  const contentRoots = ["docs", "reference", "ag-ui"].map((name) =>
+  const contentRoots = ["docs", "reference"].map((name) =>
     path.join(CONTENT_ROOT, "content", name),
   );
   const missingRoots = contentRoots.filter((root) => !fs.existsSync(root));
@@ -398,17 +374,10 @@ async function main() {
       section: "",
       href: "/matrix",
     },
-    {
-      type: "page",
-      title: "AG-UI Overview",
-      subtitle: "The Agent-User Interaction Protocol",
-      section: "",
-      href: "/ag-ui",
-    },
   );
 
   // Track which scan roots exist so a misconfigured checkout produces a
-  // loud empty-index rather than a tiny silent one. Missing all three
+  // loud empty-index rather than a tiny silent one. Missing both
   // means the script is running outside a prepared tree (e.g. shell-docs
   // wasn't built into the expected layout) — fail the run so CI catches
   // the regression instead of shipping a crippled search modal.
@@ -429,86 +398,13 @@ async function main() {
     scanDirsMissing.push(refDir);
   }
 
-  // AG-UI docs — only index pages that are published in the AG-UI sidebar nav
-  const AGUI_PUBLISHED_SLUGS = new Set([
-    "introduction",
-    "agentic-protocols",
-    "quickstart/applications",
-    "quickstart/introduction",
-    "quickstart/server",
-    "quickstart/middleware",
-    "quickstart/clients",
-    "concepts/architecture",
-    "concepts/events",
-    "concepts/agents",
-    "concepts/middleware",
-    "concepts/messages",
-    "concepts/reasoning",
-    "concepts/state",
-    "concepts/serialization",
-    "concepts/tools",
-    "concepts/capabilities",
-    "concepts/generative-ui-specs",
-    "drafts/overview",
-    "drafts/multimodal-messages",
-    "drafts/interrupts",
-    "drafts/generative-ui",
-    "drafts/meta-events",
-    "tutorials/cursor",
-    "tutorials/debugging",
-    // "development/updates" is deliberately absent. It is titled "What's New"
-    // and carries a single entry from April 2025, and it renders an <Update>
-    // component this app does not provide, so opening it throws. Search must
-    // not offer it. The page itself is vendored AG-UI content whose canonical
-    // home is docs.ag-ui.com, so it is not fixed here — see the AG-UI mirror
-    // question in the OSS-1079 PR.
-    "development/roadmap",
-    "development/contributing",
-    "sdk/js/core/overview",
-    "sdk/js/core/types",
-    "sdk/js/core/multimodal-inputs",
-    "sdk/js/core/events",
-    "sdk/js/client/overview",
-    "sdk/js/client/abstract-agent",
-    "sdk/js/client/http-agent",
-    "sdk/js/client/middleware",
-    "sdk/js/client/subscriber",
-    "sdk/js/client/compaction",
-    "sdk/js/encoder",
-    "sdk/js/proto",
-    "sdk/python/core/overview",
-    "sdk/python/core/types",
-    "sdk/python/core/multimodal-inputs",
-    "sdk/python/core/events",
-    "sdk/python/encoder/overview",
-  ]);
-
-  const aguiDir = path.join(CONTENT_ROOT, "content", "ag-ui");
-  if (fs.existsSync(aguiDir)) {
-    const aguiEntries = scanMdxDir(
-      aguiDir,
-      "/ag-ui",
-      "ag-ui",
-      AGUI_PUBLISHED_SLUGS,
-    );
-    entries.push(...aguiEntries);
-    console.log(`  AG-UI: ${aguiEntries.length} entries`);
-    scanDirsPresent.push(aguiDir);
-  } else {
-    console.warn(
-      `[generate-search-index] scan dir missing: ${aguiDir} — ag-ui entries will be empty`,
-    );
-    scanDirsMissing.push(aguiDir);
-  }
-
   // CopilotKit Docs — only index pages a reader can actually reach.
   //
   // The old behavior indexed every `.mdx` on disk, which offered pages
   // that appear in no sidebar: leftovers from past reorganizations, with
   // stale content and no surrounding context. `searchable-pages` derives
   // the allowed set from the navigation the app renders instead. Reference
-  // and AG-UI are untouched — AG-UI has its own published-slug allowlist
-  // above and reference has its own frontmatter-driven navigation.
+  // has its own frontmatter-driven navigation.
   const docsDir = path.join(CONTENT_ROOT, "content", "docs");
   let docsEntryCount = 0;
   const droppedDocsEntries: SearchEntry[] = [];
