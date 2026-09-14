@@ -19,7 +19,6 @@ Source: https://docs.slack.dev/reference/block-kit/
 | DataTable | `data_table` |
 | DataVisualization | `data_visualization` |
 | Divider | `divider` |
-| File | `file` |
 | Header | `header` |
 | Image | `image` |
 | Input | `input` |

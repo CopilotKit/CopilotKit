@@ -292,7 +292,6 @@
             "selector": "exports[\".\"]"
           }
         },
-
         {
           "importPath": "@copilotkit/channels/discord",
           "exportKey": "./discord",
@@ -521,7 +520,6 @@
             "selector": "exports[\".\"]"
           }
         },
-
         {
           "importPath": "@copilotkit/channels-core/jsx-dev-runtime",
           "exportKey": "./jsx-dev-runtime",
