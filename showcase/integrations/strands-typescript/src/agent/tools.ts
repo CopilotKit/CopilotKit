@@ -24,6 +24,7 @@ import {
 } from "./lib/tool-impls";
 import type { Flight } from "./lib/tool-impls";
 
+// @region[weather-tool-backend]
 export const getWeather = tool({
   name: "get_weather",
   description: "Get current weather for a location.",
@@ -32,6 +33,7 @@ export const getWeather = tool({
   }),
   callback: ({ location }) => JSON.stringify(getWeatherImpl(location)),
 });
+// @endregion[weather-tool-backend]
 
 export const queryData = tool({
   name: "query_data",

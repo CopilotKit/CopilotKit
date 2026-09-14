@@ -331,7 +331,7 @@ function Chat({
                       id: "local-inspector-preview",
                       role: "assistant",
                       content:
-                        "This local preview lets you open the CopilotKit Inspector directly from an assistant response. Hover over the CopilotKit mark below, then click it to inspect the current run.",
+                        "This local preview lets you open the CopilotKit Inspector directly from an assistant response. Hover over the wrench icon below, then click it to inspect the current run.",
                     }}
                   />
                   <div style={{ marginTop: 32 }}>{input}</div>

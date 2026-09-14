@@ -17,7 +17,7 @@ import "@copilotkit/react-native/polyfills";
 import {
   CopilotKitProvider,
   CopilotChat,
-  useRenderTool,
+  useFrontendTool,
 } from "@copilotkit/react-native";
 import { z } from "zod";
 
@@ -31,7 +31,7 @@ function App() {
 
 function ChatScreen() {
   // parameters accepts any StandardSchemaV1-compatible schema (Zod, Valibot, ArkType, etc.)
-  useRenderTool({
+  useFrontendTool({
     name: "showWeather",
     description: "Show weather info",
     parameters: z.object({ city: z.string() }),
@@ -93,19 +93,90 @@ import { AssistantMessage, UserMessage } from "@copilotkit/react-native";
 
 ## Hooks
 
-### useRenderTool
+The package re-exports react-core's hooks. The two that draw tool calls are
+worth telling apart.
 
-Register a React Native component to render inline when the agent calls a tool.
+### useFrontendTool
+
+Registers a **tool** and, optionally, its renderer. The tool is advertised to the
+model on every run, so it takes a `description` and (if it should do something on
+the device) a `handler`. Render props carry the parsed arguments as `args`.
 
 ```tsx
 // parameters accepts any StandardSchemaV1-compatible schema (Zod, Valibot, ArkType, etc.)
-useRenderTool({
+useFrontendTool({
   name: "showChart",
   description: "Display a chart",
   parameters: z.object({ data: z.record(z.unknown()) }),
   render: ({ args }) => <ChartView data={args.data} />,
 });
 ```
+
+Its `render` is a `React.ComponentType`, so the return type is `ReactNode` and a
+bare string typechecks — then throws _Text strings must be rendered within a
+`<Text>` component_ on a device. `FrontendToolRenderFunction<T>` is an opt-in
+type that narrows the return to `ReactElement | null`; annotate the renderer with
+it and the compiler rejects the string:
+
+```tsx
+import type { FrontendToolRenderFunction } from "@copilotkit/react-native";
+
+const renderChart: FrontendToolRenderFunction<{
+  data: Record<string, unknown>;
+}> = ({ args }) => <ChartView data={args.data ?? {}} />;
+
+useFrontendTool({
+  name: "showChart",
+  description: "Display a chart",
+  parameters: z.object({ data: z.record(z.unknown()) }),
+  render: renderChart,
+});
+```
+
+### useRenderTool
+
+Registers a **renderer only** — nothing is advertised to the model and nothing
+becomes callable. Use it to draw a tool call somebody else owns, such as a
+server-side tool. Render props carry the parsed arguments as `parameters`, and
+`parameters` is required on a named renderer. `render` is already narrowed to
+`ReactElement | null` here, so no annotation is needed.
+
+```tsx
+useRenderTool({
+  name: "showChart",
+  parameters: z.object({ data: z.record(z.unknown()) }),
+  render: ({ status, parameters }) => {
+    // `parameters` is Partial while the agent is still writing the call.
+    if (status === "inProgress") return <Text>Preparing…</Text>;
+    return <ChartView data={parameters.data} />;
+  },
+});
+```
+
+`name: "*"` registers a fallback for every tool call with no renderer of its own,
+and is the one case that takes no schema:
+
+```tsx
+useRenderTool({
+  name: "*",
+  render: ({ name, status }) => <Text>{`${name}: ${status}`}</Text>,
+});
+```
+
+**Deprecated on React Native, for one release.** React Native used to export a
+_different_ hook under this name — one that registered a tool as well as a
+renderer — so `useRenderTool` here is currently a compatibility shim over both
+react-core hooks, scheduled for removal in the next minor. Your existing call
+still works: `name: "*"` always registers a renderer only, and any other name
+carrying `description` or `handler` is routed to `useFrontendTool` the way the
+old hook did. Either way it warns in development (dev only, once per tool name)
+and tells you what to rename the call to. One thing does not carry over: on a
+named renderer the render props are `parameters`, not `args`, so a typed
+`render: ({ args }) => …` fails with `TS2339` (the wildcard's props are untyped,
+so it still compiles there).
+
+See the [`useRenderTool` reference](https://docs.copilotkit.ai/reference/react-native/hooks/useRenderTool)
+for the routing rules, the warnings, and the full migration table.
 
 ## Alternative Import Path
 

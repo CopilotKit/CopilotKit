@@ -2,13 +2,14 @@
  * A minimal, content-agnostic PDF writer — the shell's document primitive.
  *
  * Skins that hand a generated document to the model (BEAT 3d) need bytes, not a
- * library. This writes a single page of base-14 text (Helvetica for prose,
- * Courier for anything columnar) with no images, no compression and no embedded
- * fonts, which is about a hundred lines of string building and saves a
- * dependency whose only job would be this file. A caller supplies a flat
- * `Line[]`; sections are expressed as heading lines carrying a `gap`. Anything
- * more elaborate — images, multiple pages, non-Latin text — should reach for a
- * real library rather than growing this.
+ * library. This writes base-14 text (Helvetica for prose, Courier for anything
+ * columnar) with no images, no compression and no embedded fonts, which is about
+ * a hundred lines of string building and saves a dependency whose only job would
+ * be this file. A caller supplies a flat `Line[]`; sections are expressed as
+ * heading lines carrying a `gap`, and the content is paginated across as many
+ * pages as it needs. Anything more elaborate — images, non-Latin text, tables
+ * with rules or shading — should reach for a real library rather than growing
+ * this.
  *
  * It was extracted from commerce's price-sheet builder, which is where the first
  * of the properties below was learned. Each of them fails by emitting a
@@ -238,11 +239,66 @@ function wrapForPage(lines: Line[]): Line[] {
   });
 }
 
-function contentStream(rawLines: Line[]): string {
+/** The vertical advance a line consumes, including any gap opened before it. */
+const advanceFor = (line: Line): number =>
+  (line.gap ?? 0) + (line.size ?? DEFAULT_SIZE) + 3.5;
+
+/**
+ * Split already-wrapped lines into pages, breaking whenever the next line would
+ * be drawn below the bottom margin.
+ *
+ * WHY THIS EXISTS. `buildPdf` used to emit exactly one page and never measured
+ * against the bottom of it, so a caller with more content than fits simply had
+ * the overflow drawn off the page — or, past y=0, at negative coordinates no
+ * reader shows. The document stayed structurally VALID, which is what made it
+ * dangerous: it opens fine, it just silently isn't all there.
+ *
+ * That was survivable while every caller was a hand-authored document with a
+ * known line count. It stopped being survivable when documents started being
+ * derived from data a presenter supplies at demo time (a spreadsheet dropped
+ * into the composer), because "the model answered off the first 48 rows and
+ * ignored the rest" is indistinguishable from a correct answer until someone
+ * checks the arithmetic on stage.
+ *
+ * A line whose own advance exceeds a whole page still gets its own page rather
+ * than looping forever — it will overflow that page, but one oversized line is a
+ * caller bug with a visible symptom, not a silent truncation of everything after
+ * it.
+ */
+function paginate(lines: Line[]): Line[][] {
+  const pages: Line[][] = [];
+  let page: Line[] = [];
+  let y = PAGE_HEIGHT - MARGIN;
+
+  for (const line of lines) {
+    const next = y - advanceFor(line);
+    if (next < MARGIN && page.length > 0) {
+      pages.push(page);
+      page = [];
+      y = PAGE_HEIGHT - MARGIN;
+      // The gap that opened a section is dropped at a page break: it exists to
+      // separate the section from what precedes it, and at the top of a fresh
+      // page there is nothing to separate it from.
+      const first = { ...line, gap: 0 };
+      page.push(first);
+      y -= advanceFor(first);
+      continue;
+    }
+    page.push(line);
+    y = next;
+  }
+
+  if (page.length > 0) pages.push(page);
+  // A caller that passes no lines still gets one (blank) page, because a PDF
+  // with zero pages is rejected by most readers.
+  return pages.length > 0 ? pages : [[]];
+}
+
+function contentStream(pageLines: Line[]): string {
   let y = PAGE_HEIGHT - MARGIN;
   const parts: string[] = ["BT"];
-  for (const line of wrapForPage(rawLines)) {
-    y -= (line.gap ?? 0) + (line.size ?? DEFAULT_SIZE) + 3.5;
+  for (const line of pageLines) {
+    y -= advanceFor(line);
     const font = pdfName(fontFor(line));
     parts.push(
       `${font} ${line.size ?? DEFAULT_SIZE} Tf`,
@@ -255,7 +311,8 @@ function contentStream(rawLines: Line[]): string {
 }
 
 /**
- * Assemble a minimal, valid one-page PDF with a correct xref table.
+ * Assemble a minimal, valid PDF with a correct xref table, paginating the
+ * content across as many pages as it needs.
  *
  * BYTES VS CHARACTERS — the assumption this function is built on. `/Length` and
  * every xref offset are BYTE offsets by spec, and both are computed below from JS
@@ -267,18 +324,43 @@ function contentStream(rawLines: Line[]): string {
  * move to `new TextEncoder().encode(...).length` at the same time.
  */
 export function buildPdf(lines: Line[]): Uint8Array {
-  const stream = contentStream(lines);
-  // The four fixed objects come first, so /F1 is object 5.
-  const FIRST_FONT_OBJECT = 5;
+  const pages = paginate(wrapForPage(lines));
+
+  // OBJECT NUMBERING, laid out once so the cross-references below are readable:
+  //
+  //   1                    Catalog
+  //   2                    Pages
+  //   3 .. 2+N             one Page per page
+  //   3+N .. 2+2N          that page's content stream
+  //   3+2N ..              the four fonts
+  //
+  // At N=1 this is 1/2/3/4 with fonts from 5 — byte-identical to the one-page
+  // document this function emitted before it could paginate, which is what lets
+  // every existing golden-byte assertion stand unchanged.
+  const pageCount = pages.length;
+  const FIRST_PAGE_OBJECT = 3;
+  const firstContentObject = FIRST_PAGE_OBJECT + pageCount;
+  const firstFontObject = firstContentObject + pageCount;
+
   const fontResources = FONTS.map(
-    (font, index) => `${pdfName(font.name)} ${FIRST_FONT_OBJECT + index} 0 R`,
+    (font, index) => `${pdfName(font.name)} ${firstFontObject + index} 0 R`,
   ).join(" ");
+  const kids = pages
+    .map((_, index) => `${FIRST_PAGE_OBJECT + index} 0 R`)
+    .join(" ");
+
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] ` +
-      `/Resources << /Font << ${fontResources} >> >> /Contents 4 0 R >>`,
-    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    `<< /Type /Pages /Kids [${kids}] /Count ${pageCount} >>`,
+    ...pages.map(
+      (_, index) =>
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] ` +
+        `/Resources << /Font << ${fontResources} >> >> /Contents ${firstContentObject + index} 0 R >>`,
+    ),
+    ...pages.map((pageLines) => {
+      const stream = contentStream(pageLines);
+      return `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+    }),
     ...FONTS.map(
       (font) =>
         `<< /Type /Font /Subtype /Type1 /BaseFont ${pdfName(font.baseFont)} >>`,
