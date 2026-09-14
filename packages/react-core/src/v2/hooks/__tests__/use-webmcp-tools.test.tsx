@@ -167,16 +167,17 @@ describe("useWebmcpTools", () => {
 
   it("restarts when the filter callback changes", async () => {
     stubPageTools([createPageTool("orders"), createPageTool("searchOrders")]);
-    let setFilter: (
-      next: (tool: WebMCPRegisteredTool) => boolean,
-    ) => void = () => {};
+    type ToolFilter = (tool: WebMCPRegisteredTool) => boolean;
+    let updateFilter: ((next: ToolFilter) => void) | undefined;
 
     const ToolComponent: React.FC = () => {
-      const [filter, set] = React.useState<
-        (tool: WebMCPRegisteredTool) => boolean
-      >(() => (tool) => tool.name === "orders");
-      setFilter = set;
-      useWebmcpTools({ filter });
+      const [filter, setFilter] = React.useState<{ fn: ToolFilter }>({
+        fn: (tool) => tool.name === "orders",
+      });
+      updateFilter = (next) => {
+        setFilter({ fn: next });
+      };
+      useWebmcpTools({ filter: filter.fn });
       return null;
     };
     const { getCore } = renderImportedTools(ToolComponent);
@@ -187,7 +188,7 @@ describe("useWebmcpTools", () => {
     });
 
     act(() => {
-      setFilter(() => (tool) => /orders/i.test(tool.name));
+      updateFilter?.((tool) => /orders/i.test(tool.name));
     });
 
     await waitFor(() => {
