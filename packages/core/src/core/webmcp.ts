@@ -235,6 +235,8 @@ export class WebMCPRegistry {
 interface OwnedWebMCPImport {
   agentId?: string;
   registeredTool: WebMCPRegisteredTool;
+  description?: string;
+  inputSchemaKey: string;
 }
 
 /**
@@ -364,9 +366,12 @@ export class WebMCPConsumer {
       const existing = this.owned.get(name);
       if (existing) {
         existing.registeredTool = pageTool;
-        continue;
-      }
-      if (hasExactTool(this.host, name, this.options.agentId)) {
+        if (!importMetadataChanged(existing, pageTool)) {
+          continue;
+        }
+        this.host.removeTool(name, existing.agentId);
+        this.owned.delete(name);
+      } else if (hasExactTool(this.host, name, this.options.agentId)) {
         warnOnce(
           this.warnedNames,
           name,
@@ -377,6 +382,8 @@ export class WebMCPConsumer {
       const owned: OwnedWebMCPImport = {
         agentId: this.options.agentId,
         registeredTool: pageTool,
+        description: pageTool.description,
+        inputSchemaKey: pageToolInputSchemaKey(pageTool),
       };
       this.owned.set(name, owned);
       this.host.addTool({
@@ -470,6 +477,22 @@ function shouldImportPageTool(
 function hasExactTool(host: WebMCPToolHost, name: string, agentId?: string) {
   return host.tools.some(
     (tool) => tool.name === name && tool.agentId === agentId,
+  );
+}
+
+function pageToolInputSchemaKey(pageTool: WebMCPRegisteredTool) {
+  return JSON.stringify(
+    pageTool.inputSchema ?? { type: "object", properties: {} },
+  );
+}
+
+function importMetadataChanged(
+  owned: OwnedWebMCPImport,
+  pageTool: WebMCPRegisteredTool,
+) {
+  return (
+    owned.description !== pageTool.description ||
+    owned.inputSchemaKey !== pageToolInputSchemaKey(pageTool)
   );
 }
 
