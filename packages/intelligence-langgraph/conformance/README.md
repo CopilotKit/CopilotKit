@@ -4,7 +4,7 @@ These JSON fixtures contain synthetic skills and virtual-clock scenarios. Each l
 
 `snapshots.v1.json` provides complete ZIP bytes in `archiveBase64`, the response revision and ETag, and an expected result. `valid` means validation succeeds. Any other expected value is a delivery error code. The ZIP bytes include stored files, deflated files, data descriptors, UTF-8 names, and invalid structures. Supporting binary resources remain part of verified membership but have no model-readable text.
 
-`lifecycle.v1.json` starts each independent scenario at `initialTimeMs`. Each step advances the virtual clock by `advanceMs`, queues its optional registry reply, and acquires a snapshot. A reply refers to a named snapshot fixture, a matching unchanged result, or a typed error. The expected value gives the result or error, request count, and relevant status fields. Request-count assertions enforce freshness and the absence of hidden retries. Concurrent refreshes and native cancellation also have focused TypeScript tests.
+The shared [`lifecycle.v1.json`](../../intelligence-delivery-core/conformance/lifecycle.v1.json) starts each independent scenario at `initialTimeMs`. Each step advances the virtual clock by `advanceMs`, queues its optional registry reply, and acquires a snapshot. A reply refers to a named snapshot fixture, a matching unchanged result, or a typed error. The expected value gives the result or error, request count, and relevant status fields. Request-count assertions enforce freshness and the absence of hidden retries. Concurrent refreshes and native cancellation also have focused TypeScript tests.
 
 ## Ordering and names
 

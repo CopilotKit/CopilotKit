@@ -40,7 +40,6 @@
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
-    "@types/yauzl": "2.10.3",
     "fflate": "0.8.2",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
