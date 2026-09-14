@@ -88,6 +88,7 @@ test("the Strands TypeScript guide resolves its runnable weather tool", () => {
     { framework: "strands-typescript" },
   );
 
+  expect(output.match(/export const getWeather = tool/g)).toHaveLength(1);
   expect(output).toContain('name: "get_weather"');
   expect(output).not.toContain(
     "region 'weather-tool-backend' missing in strands-typescript::tool-rendering",
