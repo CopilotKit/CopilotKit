@@ -179,7 +179,7 @@ describe("WebMCPConsumer", () => {
     ).toHaveLength(0);
   });
 
-  it("applies allow, then deny, then name", async () => {
+  it("applies allow, then deny, then filter", async () => {
     stubImportWebMCP([
       createPageTool({ name: "keepMe" }),
       createPageTool({ name: "denyMe" }),
@@ -191,7 +191,7 @@ describe("WebMCPConsumer", () => {
     await startedConsumer(host, {
       allow: ["keepMe", "denyMe", "keepTwo"],
       deny: ["denyMe"],
-      name: /^keep/,
+      filter: (tool) => tool.name.startsWith("keep"),
     });
 
     await vi.waitFor(() => {
@@ -202,18 +202,41 @@ describe("WebMCPConsumer", () => {
     });
   });
 
-  it("matches an exact name string", async () => {
+  it("keeps tools that the filter callback accepts", async () => {
     stubImportWebMCP([
       createPageTool({ name: "addTodo" }),
       createPageTool({ name: "listTodos" }),
     ]);
     const host = createHost();
 
-    await startedConsumer(host, { name: "addTodo" });
+    await startedConsumer(host, {
+      filter: (tool) => tool.name === "addTodo",
+    });
 
     await vi.waitFor(() => {
       expect(host.tools.map((tool) => tool.name)).toEqual(["addTodo"]);
     });
+  });
+
+  it("passes the page tool object to filter", async () => {
+    const addTodo = createPageTool({ name: "addTodo" });
+    const listTodos = createPageTool({ name: "listTodos" });
+    stubImportWebMCP([addTodo, listTodos]);
+    const seen: WebMCPRegisteredTool[] = [];
+    const host = createHost();
+
+    await startedConsumer(host, {
+      filter: (tool) => {
+        seen.push(tool);
+        return tool.name === "addTodo";
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(host.tools.map((tool) => tool.name)).toEqual(["addTodo"]);
+    });
+    expect(seen).toContain(addTodo);
+    expect(seen).toContain(listTodos);
   });
 
   it("deny wins when a name is on both allow and deny", async () => {
@@ -444,7 +467,7 @@ describe("WebMCPConsumer", () => {
     );
   });
 
-  it("matches every name against a global regex without skipping later tools", async () => {
+  it("keeps every tool the filter accepts", async () => {
     stubImportWebMCP([
       createPageTool({ name: "todo_add" }),
       createPageTool({ name: "todo_list" }),
@@ -452,7 +475,9 @@ describe("WebMCPConsumer", () => {
     ]);
     const host = createHost();
 
-    await startedConsumer(host, { name: /^todo_/g });
+    await startedConsumer(host, {
+      filter: (tool) => tool.name.startsWith("todo_"),
+    });
 
     await vi.waitFor(() => {
       expect(host.tools.map((tool) => tool.name).sort()).toEqual([

@@ -186,10 +186,12 @@ describe("useWebmcpTools", () => {
     expect(result).toEqual({ ran: "addTodo", input: { text: "milk" } });
   });
 
-  it("restarts when name changes from a string to a matching RegExp", async () => {
+  it("restarts when the filter callback changes", async () => {
     stubPageTools([createPageTool("orders"), createPageTool("searchOrders")]);
-    const options = reactive<{ name: string | RegExp }>({
-      name: "/orders/i",
+    const options = reactive<{
+      filter: (tool: WebMCPRegisteredTool) => boolean;
+    }>({
+      filter: (tool) => tool.name === "orders",
     });
 
     const { getCore } = renderImportedTools(() => {
@@ -198,10 +200,10 @@ describe("useWebmcpTools", () => {
 
     await waitFor(() => {
       expect(getCore()).not.toBeNull();
-      expect(getCore()!.tools.map((tool) => tool.name)).toEqual([]);
+      expect(getCore()!.tools.map((tool) => tool.name)).toEqual(["orders"]);
     });
 
-    options.name = /orders/i;
+    options.filter = (tool) => /orders/i.test(tool.name);
 
     await waitFor(() => {
       expect(

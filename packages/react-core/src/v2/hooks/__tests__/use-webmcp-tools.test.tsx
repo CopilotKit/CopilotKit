@@ -165,25 +165,29 @@ describe("useWebmcpTools", () => {
     expect(result).toEqual({ ran: "addTodo", input: { text: "milk" } });
   });
 
-  it("restarts when name changes from a string to a matching RegExp", async () => {
+  it("restarts when the filter callback changes", async () => {
     stubPageTools([createPageTool("orders"), createPageTool("searchOrders")]);
-    let setName: (name: string | RegExp) => void = () => {};
+    let setFilter: (
+      next: (tool: WebMCPRegisteredTool) => boolean,
+    ) => void = () => {};
 
     const ToolComponent: React.FC = () => {
-      const [name, set] = React.useState<string | RegExp>("/orders/i");
-      setName = set;
-      useWebmcpTools({ name });
+      const [filter, set] = React.useState<
+        (tool: WebMCPRegisteredTool) => boolean
+      >(() => (tool) => tool.name === "orders");
+      setFilter = set;
+      useWebmcpTools({ filter });
       return null;
     };
     const { getCore } = renderImportedTools(ToolComponent);
 
     await waitFor(() => {
       expect(getCore()).not.toBeNull();
-      expect(getCore()!.tools.map((tool) => tool.name)).toEqual([]);
+      expect(getCore()!.tools.map((tool) => tool.name)).toEqual(["orders"]);
     });
 
     act(() => {
-      setName(/orders/i);
+      setFilter(() => (tool) => /orders/i.test(tool.name));
     });
 
     await waitFor(() => {

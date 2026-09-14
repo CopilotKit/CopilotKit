@@ -5,22 +5,12 @@ import { useCopilotKit } from "../providers/useCopilotKit";
 
 export type { WebMCPToolsOptions };
 
-function nameWatchKey(name: WebMCPToolsOptions["name"]) {
-  if (name instanceof RegExp) {
-    return `re:/${name.source}/${name.flags}`;
-  }
-  if (name === undefined) {
-    return "";
-  }
-  return `str:${name}`;
-}
-
 /**
  * Import page WebMCP tools from `document.modelContext.getTools()` so a
  * CopilotKit agent can call them.
  *
  * With no filters, every same-origin tool that has a name and a description
- * is imported. Filter order is allow, then deny, then `name`. Tools this
+ * is imported. Filter order is allow, then deny, then `filter`. Tools this
  * app already published with `useFrontendTool({ webmcp: true })` are skipped.
  * Missing `document.modelContext` is a no-op.
  *
@@ -44,7 +34,7 @@ export function useWebmcpTools(options: WebMCPToolsOptions = {}) {
       () => options.agentId,
       () => JSON.stringify(options.allow ?? null),
       () => JSON.stringify(options.deny ?? null),
-      () => nameWatchKey(options.name),
+      () => options.filter,
     ],
     (_newValues, _old, onCleanup) => {
       const consumer = new WebMCPConsumer(copilotkit.value);
@@ -52,7 +42,7 @@ export function useWebmcpTools(options: WebMCPToolsOptions = {}) {
         agentId: options.agentId,
         allow: options.allow,
         deny: options.deny,
-        name: options.name,
+        filter: options.filter,
       });
       onCleanup(() => {
         consumer.stop();
