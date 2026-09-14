@@ -101,6 +101,7 @@ async function emitBatch(
           ...params,
           event,
           outcome: "success",
+          pendingToolCallIds: [],
         });
         break;
       case EventType.RUN_ERROR:
