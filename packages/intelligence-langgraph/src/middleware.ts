@@ -1,7 +1,7 @@
 import { createMiddleware, SystemMessage } from "langchain";
-import { SkillDeliveryError } from "./errors.js";
+import { SkillDeliveryError } from "@copilotkit/intelligence-delivery-core";
 import { SkillInvocationScope } from "./invocation.js";
-import type { SkillRegistry } from "./registry.js";
+import type { SkillRegistry } from "@copilotkit/intelligence-delivery-core";
 import { createSkillTools, formatSkillCatalog } from "./skill-tools.js";
 
 export interface SkillRegistryMiddlewareOptions {

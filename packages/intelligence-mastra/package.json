@@ -1,7 +1,7 @@
 {
-  "name": "@copilotkit/intelligence-langgraph",
+  "name": "@copilotkit/intelligence-mastra",
   "version": "0.1.0",
-  "description": "Learned skill delivery for LangGraph agents through CopilotKit Intelligence",
+  "description": "Learned skill delivery for Mastra agents through CopilotKit Intelligence",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -45,19 +45,15 @@
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.2.4",
-    "@langchain/core": "1.2.11",
-    "@langchain/langgraph": "1.4.15",
-    "langchain": "1.5.11",
     "zod": "4.6.1",
-    "@copilotkit/intelligence-delivery-core": "workspace:*"
+    "@copilotkit/intelligence-delivery-core": "workspace:*",
+    "@mastra/core": "1.66.0"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.13.0"
   },
   "peerDependencies": {
-    "@langchain/core": ">=1.2.10 <2",
-    "@langchain/langgraph": ">=1.4.14 <2",
-    "langchain": ">=1.5.11 <2",
+    "@mastra/core": ">=1.0.0 <2",
     "zod": "^3.25.76 || ^4.0.0"
   },
   "nx": {
@@ -70,12 +66,6 @@
         ]
       },
       "test": {
-        "inputs": [
-          "default",
-          "^production"
-        ]
-      },
-      "check-types": {
         "inputs": [
           "default",
           "^production"

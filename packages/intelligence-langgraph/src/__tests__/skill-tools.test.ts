@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { isLangChainTool } from "@langchain/core/tools";
 import fixtures from "../../conformance/snapshots.v1.json";
-import { validateSnapshot } from "../snapshot.js";
-import type { VerifiedSnapshot } from "../snapshot.js";
+import { validateSnapshot } from "@copilotkit/intelligence-delivery-core";
+import type { VerifiedSnapshot } from "@copilotkit/intelligence-delivery-core";
 import { createSkillTools, formatSkillCatalog } from "../skill-tools.js";
 
 async function snapshot(name = "text-skill") {
