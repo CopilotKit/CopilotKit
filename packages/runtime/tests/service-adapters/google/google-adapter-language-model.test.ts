@@ -41,4 +41,30 @@ describe("GoogleGenerativeAIAdapter.getLanguageModel", () => {
 
     expect(mockCreateGoogle).toHaveBeenCalledWith({ apiKey: "env-key" });
   });
+
+  it("honors an explicitly configured apiVersion", () => {
+    process.env.GOOGLE_API_KEY = "k";
+    new GoogleGenerativeAIAdapter({
+      model: "gemini-1.5-flash",
+      apiVersion: "v1",
+    }).getLanguageModel();
+
+    expect(mockCreateGoogle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: "https://generativelanguage.googleapis.com/v1",
+      }),
+    );
+  });
+
+  it("leaves the provider default in place when no apiVersion is given", () => {
+    // Not defaulted to the adapter's documented "v1": the live default has
+    // been the SDK's v1beta ever since getLanguageModel started routing
+    // around process(), and v1 does not serve every supported model.
+    process.env.GOOGLE_API_KEY = "k";
+    new GoogleGenerativeAIAdapter({
+      model: "gemini-1.5-flash",
+    }).getLanguageModel();
+
+    expect(mockCreateGoogle.mock.calls[0][0].baseURL).toBeUndefined();
+  });
 });

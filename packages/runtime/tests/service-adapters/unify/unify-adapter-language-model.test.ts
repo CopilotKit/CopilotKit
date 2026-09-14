@@ -33,4 +33,25 @@ describe("UnifyAdapter.getLanguageModel", () => {
     );
     expect(mockProviderFn).toHaveBeenCalledWith("gpt-4o@openai");
   });
+
+  it("falls back to UNIFY_API_KEY when the constructor gave none", () => {
+    // Previously the adapter stored the literal string "UNIFY_API_KEY" as the
+    // key, so the default path shipped a placeholder credential and every
+    // request came back 401.
+    process.env.UNIFY_API_KEY = "unify-key-from-env";
+    try {
+      new UnifyAdapter({ model: "gpt-4o@openai" }).getLanguageModel();
+      expect(mockCreateOpenAI).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: "unify-key-from-env" }),
+      );
+    } finally {
+      delete process.env.UNIFY_API_KEY;
+    }
+  });
+
+  it("never ships the literal placeholder as a credential", () => {
+    delete process.env.UNIFY_API_KEY;
+    new UnifyAdapter({ model: "gpt-4o@openai" }).getLanguageModel();
+    expect(mockCreateOpenAI.mock.calls[0][0].apiKey).not.toBe("UNIFY_API_KEY");
+  });
 });

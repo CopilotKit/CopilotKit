@@ -62,7 +62,7 @@ export interface UnifyAdapterParams {
 }
 
 export class UnifyAdapter implements CopilotServiceAdapter {
-  private apiKey: string;
+  private apiKey?: string;
   public model: string;
   private start: boolean;
   public provider = "unify";
@@ -72,11 +72,11 @@ export class UnifyAdapter implements CopilotServiceAdapter {
   }
 
   constructor(options?: UnifyAdapterParams) {
-    if (options?.apiKey) {
-      this.apiKey = options.apiKey;
-    } else {
-      this.apiKey = "UNIFY_API_KEY";
-    }
+    // Was `this.apiKey = "UNIFY_API_KEY"` — the *name* of the variable, stored
+    // as the key. Every request that relied on the default authenticated with
+    // the literal placeholder and came back 401. Read the variable instead,
+    // matching how the Google adapter falls back to GOOGLE_API_KEY.
+    this.apiKey = options?.apiKey ?? process.env.UNIFY_API_KEY;
     this.model = options?.model;
     this.start = true;
   }
