@@ -1090,6 +1090,76 @@
       }
     },
     {
+      "name": "@copilotkit/intelligence-mastra",
+      "version": "0.1.0",
+      "sourceDirectory": "packages/intelligence-mastra",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/intelligence-mastra",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/intelligence-mastra/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=22.13.0"
+        },
+        "peerDependencies": {
+          "@mastra/core": ">=1.0.0 <2",
+          "zod": "^3.25.76 || ^4.0.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/intelligence-mastra/package.json",
+            "selector": "peerDependencies"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/intelligence-mastra/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/intelligence-mastra/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.intelligence-mastra.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/mcp-apps-renderer",
       "version": "1.71.2",
       "sourceDirectory": "packages/mcp-apps-renderer",
