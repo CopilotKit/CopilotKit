@@ -109,16 +109,16 @@ progressively.
 
 ## Restoring history
 
-The activity that drives the preview is produced while the run streams. When a
-client reconnects to a stored thread and the backend answers with a
-`MESSAGES_SNAPSHOT`, the middleware rebuilds the activity for every
-`generateSandboxedUi` call in the snapshot from the call's final arguments, so
-the preview comes back with the thread. Nothing is executed on the host during
-that rebuild, and no tool result is invented: a call without a result is
-restored as `interrupted`.
+The activity that drives the preview is produced while the run streams. For
+each `MESSAGES_SNAPSHOT` passing through the middleware's run path, the
+middleware rebuilds the activity for every `generateSandboxedUi` call from its
+stored arguments. Interrupted calls retain the partial presentation that was
+already streamed. Nothing is executed on the host during that rebuild, and no
+tool result is invented: a call without a result is restored as `interrupted`.
 
-The projector is also exported on its own as `projectOpenGenerativeUIHistory`
-for runtimes that build snapshots without the middleware.
+The projector is also exported from `@copilotkit/runtime/v2` as
+`projectOpenGenerativeUIHistory`. Apply it explicitly to snapshots delivered
+through paths that bypass the middleware, including `runner.connect`.
 
 ## Using CDN libraries
 

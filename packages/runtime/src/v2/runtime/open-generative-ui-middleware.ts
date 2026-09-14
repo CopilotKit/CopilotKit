@@ -330,7 +330,7 @@ function ownActivityType(
 
 /**
  * Rebuilds the Open Generative UI activity for every `generateSandboxedUi`
- * call in a MESSAGES_SNAPSHOT from the call's final arguments. It uses the
+ * call in a MESSAGES_SNAPSHOT from the call's stored arguments. It uses the
  * same parser as streaming, runs no host functions and never invents a tool
  * result: a call without a result restores as `interrupted`.
  */
@@ -433,33 +433,11 @@ function projectHistory(
       const parser = new ArgsParser(call.id, () => {});
       parser.write(call.function.arguments);
       const result = results.get(call.id);
-      const params = parser.params;
+      const presentation = parser.activity();
       const activity: ActivityMessage = {
-        id: parser.messageId,
-        role: "activity",
-        activityType: ACTIVITY_TYPE,
+        ...presentation,
         content: {
-          ...(params.initialHeight === undefined
-            ? {}
-            : { initialHeight: params.initialHeight }),
-          ...(params.placeholderMessages === undefined
-            ? {}
-            : { placeholderMessages: params.placeholderMessages }),
-          ...(params.html === undefined
-            ? {}
-            : { html: [params.html], htmlComplete: true }),
-          ...(params.css === undefined
-            ? {}
-            : { css: params.css, cssComplete: true }),
-          ...(params.jsFunctions === undefined
-            ? {}
-            : { jsFunctions: params.jsFunctions, jsFunctionsComplete: true }),
-          ...(params.jsExpressions === undefined
-            ? {}
-            : {
-                jsExpressions: params.jsExpressions,
-                jsExpressionsComplete: true,
-              }),
+          ...presentation.content,
           generating: false,
           status: result
             ? result.error

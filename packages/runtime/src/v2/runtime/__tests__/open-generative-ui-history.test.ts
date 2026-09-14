@@ -85,6 +85,48 @@ const activities = (messages: Message[]) =>
   messages.filter((m) => m.role === "activity");
 
 describe("projectOpenGenerativeUIHistory", () => {
+  it.each([
+    {
+      arguments: '{"html":"<main>Partial',
+      content: { html: ["<main>Partial"] },
+      incomplete: "htmlComplete",
+    },
+    {
+      arguments: '{"css":"main { color: red }","html":"<main>Partial',
+      content: {
+        css: "main { color: red }",
+        cssComplete: true,
+        html: ["<main>Partial"],
+      },
+      incomplete: "htmlComplete",
+    },
+    {
+      arguments: '{"jsExpressions":["render()",',
+      content: { jsExpressions: ["render()"] },
+      incomplete: "jsExpressionsComplete",
+    },
+  ])(
+    "preserves interrupted presentation without inventing $incomplete",
+    ({ arguments: argumentsJson, content, incomplete }) => {
+      const call = sandboxCall("interrupted");
+      if (call.role !== "assistant") throw new Error("Expected assistant");
+      call.toolCalls![0].function.arguments = argumentsJson;
+
+      const projected = projectOpenGenerativeUIHistory(snapshot([call]));
+      const restored = activities(projected.messages)[0];
+
+      expect(restored.content).toMatchObject({
+        ...content,
+        generating: false,
+        status: "interrupted",
+      });
+      expect(restored.content).not.toHaveProperty(incomplete);
+      expect(
+        projected.messages.filter((message) => message.role === "tool"),
+      ).toEqual([]);
+    },
+  );
+
   it.each(["complete", "failed", "interrupted"] as const)(
     "restores a %s call from its final arguments without executing host code",
     (status) => {
@@ -189,6 +231,36 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
       runId: "run-1",
     } as BaseEvent,
   ];
+
+  it("forwards history and interrupt resumption to the backend unchanged", async () => {
+    const input = runInput({
+      messages: [sandboxCall("stored")],
+      state: { step: "waiting" },
+      forwardedProps: { custom: true },
+      resume: [
+        {
+          interruptId: "approval",
+          status: "resolved",
+          payload: { approved: true },
+        },
+      ],
+    });
+    const original = structuredClone(input);
+    const agent = new MockAgent(framed(snapshot(input.messages)));
+
+    const events = await collect(
+      new OpenGenerativeUIMiddleware().run(input, agent),
+    );
+
+    expect(agent.receivedInput).toEqual(original);
+    expect(input).toEqual(original);
+    const output = events.find(
+      (event) => event.type === EventType.MESSAGES_SNAPSHOT,
+    );
+    expect(output).toEqual(
+      projectOpenGenerativeUIHistory(snapshot(original.messages)),
+    );
+  });
 
   it("delivers one completed tool call with all arguments after a lagging snapshot", async () => {
     const prefix = '{"html":"<main>Live';
@@ -352,6 +424,7 @@ describe("OpenGenerativeUIMiddleware snapshots", () => {
       (event): event is MessagesSnapshotEvent =>
         event.type === EventType.MESSAGES_SNAPSHOT,
     );
+    expect(snapshots).toHaveLength(8);
     for (const current of snapshots.slice(0, 2)) {
       expect(activities(current.messages)).toEqual([
         expect.objectContaining({
