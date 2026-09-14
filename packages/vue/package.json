@@ -78,8 +78,8 @@
   },
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@d8d4b3c13b4600504eb23d211769348f559d1e93",
-    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@d8d4b3c13b4600504eb23d211769348f559d1e93",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@f3a7fe478ccfca6ccc9f92ceaa067769b25df7e9",
+    "@ag-ui/core": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/core@f3a7fe478ccfca6ccc9f92ceaa067769b25df7e9",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
