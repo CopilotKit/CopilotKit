@@ -384,12 +384,14 @@ export async function loadPlaygroundThreadSnapshot(
   assertSecureAuthenticatedRuntime(input.runtimeUrl, input.headers);
   const baseUrl = input.runtimeUrl.replace(/\/+$/, "");
   const encodedThreadId = encodeURIComponent(input.thread.id);
+  // Native `window.fetch` throws "Illegal invocation" unless `this` is Window.
+  const fetchImpl = input.fetch.bind(globalThis);
   const [messagesResponse, stateResponse] = await Promise.all([
-    input.fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
+    fetchImpl(`${baseUrl}/threads/${encodedThreadId}/messages`, {
       headers: { ...input.headers },
       redirect: "error",
     }),
-    input.fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
+    fetchImpl(`${baseUrl}/threads/${encodedThreadId}/state`, {
       headers: { ...input.headers },
       redirect: "error",
     }),

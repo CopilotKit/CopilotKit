@@ -188,6 +188,39 @@ describe("Playground thread loading", () => {
     });
   });
 
+  it("does not throw Illegal invocation when fetch requires Window as this", async () => {
+    function windowedFetch(
+      this: unknown,
+      input: RequestInfo | URL,
+    ): Promise<Response> {
+      if (this !== globalThis) {
+        throw new TypeError(
+          "Failed to execute 'fetch' on 'Window': Illegal invocation",
+        );
+      }
+      const url = String(input);
+      return Promise.resolve(
+        url.endsWith("/messages")
+          ? jsonResponse({ messages: [] })
+          : jsonResponse({ state: {} }),
+      );
+    }
+
+    const result = await loadPlaygroundThreadSnapshot({
+      thread: { id: "thread-1", agentId: "default" },
+      runtimeUrl: "http://localhost/runtime",
+      headers: {},
+      fetch: windowedFetch,
+    });
+
+    expect(result).toMatchObject({
+      threadId: "thread-1",
+      agentId: "default",
+      messages: [],
+      threadState: {},
+    });
+  });
+
   it("reports a failed persisted thread load", async () => {
     const state = createPlaygroundState();
     const fetchThread: typeof globalThis.fetch = (input) =>

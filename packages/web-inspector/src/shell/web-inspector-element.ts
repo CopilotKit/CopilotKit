@@ -79,8 +79,8 @@ import {
   createHomeFeatureSetupState,
   disposeHomeFeatureSetupState,
   homeFeaturePromptCopyState,
-  type HomeFeaturePromptCopyState,
 } from "../domains/home/feature-setup.js";
+import type { HomeFeaturePromptCopyState } from "../domains/home/feature-setup.js";
 import {
   copyIntelligenceOnboardingPrompt,
   createHomeIntelligenceState,
@@ -180,8 +180,8 @@ import {
   readLearningSetupMarker,
   subscribeToLearningSetupMarker,
   writeLearningSetupMarker,
-  type LearningSetupMarker,
 } from "../domains/learning/learning-setup.js";
+import type { LearningSetupMarker } from "../domains/learning/learning-setup.js";
 import { deriveLearningViewState } from "../domains/learning/snapshot-state.js";
 import type { LearningViewState } from "../domains/learning/snapshot-state.js";
 import { runLearningRecall } from "../domains/learning/recall.js";
@@ -1516,7 +1516,8 @@ export class WebInspectorElement extends LitElement {
             options.skillsPage ?? this.learningSnapshot?.skillsPage.page ?? 1,
           insightsPage:
             options.insightsPage ??
-            this.learningSnapshot?.insightsPage.page ?? 1,
+            this.learningSnapshot?.insightsPage.page ??
+            1,
         },
         fetch: core.ɵruntimeFetch,
         headers: core.headers,
@@ -1548,37 +1549,37 @@ export class WebInspectorElement extends LitElement {
         options.skillsPage === undefined && options.insightsPage === undefined;
       resetSkillsPage = Boolean(
         isBackgroundRefresh &&
-          previousSnapshot &&
-          previousSnapshot.skillsPage.page > 1 &&
-          (scopeChanged ||
+        previousSnapshot &&
+        previousSnapshot.skillsPage.page > 1 &&
+        (scopeChanged ||
+          JSON.stringify([
+            previousSnapshot.skillsPage.total,
+            previousSnapshot.skillsPage.items.map((skill) => [
+              skill.id,
+              skill.revision,
+            ]),
+          ]) !==
             JSON.stringify([
-              previousSnapshot.skillsPage.total,
-              previousSnapshot.skillsPage.items.map((skill) => [
+              snapshot.skillsPage.total,
+              snapshot.skillsPage.items.map((skill) => [
                 skill.id,
                 skill.revision,
               ]),
-            ]) !==
-              JSON.stringify([
-                snapshot.skillsPage.total,
-                snapshot.skillsPage.items.map((skill) => [
-                  skill.id,
-                  skill.revision,
-                ]),
-              ])),
+            ])),
       );
       resetInsightsPage = Boolean(
         isBackgroundRefresh &&
-          previousSnapshot &&
-          previousSnapshot.insightsPage.page > 1 &&
-          (scopeChanged ||
+        previousSnapshot &&
+        previousSnapshot.insightsPage.page > 1 &&
+        (scopeChanged ||
+          JSON.stringify([
+            previousSnapshot.insightsPage.total,
+            previousSnapshot.insightsPage.items.map((insight) => insight.id),
+          ]) !==
             JSON.stringify([
-              previousSnapshot.insightsPage.total,
-              previousSnapshot.insightsPage.items.map((insight) => insight.id),
-            ]) !==
-              JSON.stringify([
-                snapshot.insightsPage.total,
-                snapshot.insightsPage.items.map((insight) => insight.id),
-              ])),
+              snapshot.insightsPage.total,
+              snapshot.insightsPage.items.map((insight) => insight.id),
+            ])),
       );
       this.learningSnapshot = snapshot;
       loadOutcome = "success";
@@ -1729,10 +1730,12 @@ export class WebInspectorElement extends LitElement {
     this.trackLearningViewState();
   };
 
-  private handleLearningPage = (event: CustomEvent<{
-    section: "skills" | "insights";
-    page: number;
-  }>): void => {
+  private handleLearningPage = (
+    event: CustomEvent<{
+      section: "skills" | "insights";
+      page: number;
+    }>,
+  ): void => {
     const { section, page } = event.detail;
     const currentPage =
       section === "skills"
@@ -1750,10 +1753,12 @@ export class WebInspectorElement extends LitElement {
     });
   };
 
-  private handleLearningEvidence = (event: CustomEvent<{
-    threadId: string;
-    messageId?: string;
-  }>): void => {
+  private handleLearningEvidence = (
+    event: CustomEvent<{
+      threadId: string;
+      messageId?: string;
+    }>,
+  ): void => {
     this.focusThread({
       threadId: event.detail.threadId,
       ...(event.detail.messageId ? { messageId: event.detail.messageId } : {}),
@@ -3867,7 +3872,7 @@ export class WebInspectorElement extends LitElement {
       thread,
       runtimeUrl: core.runtimeUrl,
       headers: core.headers,
-      fetch,
+      fetch: globalThis.fetch.bind(globalThis),
       requestUpdate: () => this.requestUpdate(),
     });
     if (!loaded) return;
@@ -3904,7 +3909,7 @@ export class WebInspectorElement extends LitElement {
         thread,
         runtimeUrl: core.runtimeUrl,
         headers: core.headers,
-        fetch,
+        fetch: globalThis.fetch.bind(globalThis),
       });
       if (isCurrent()) {
         this.startPlaygroundSession(
