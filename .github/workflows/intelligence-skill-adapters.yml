@@ -1,0 +1,128 @@
+name: test / learned-skill adapters
+
+on:
+  # Stacked PRs target their preceding branch, so this lane has no base-branch filter.
+  pull_request:
+    paths:
+      - "packages/intelligence-*/**"
+      - "packages/runtime-python/**"
+      - "packages/runtime-dotnet/sdk/**"
+      - "packages/runtime-dotnet/sdk-tests/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - "tools/learned-skill-conformance/**"
+      - "nx.json"
+      - ".github/workflows/intelligence-skill-adapters.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/intelligence-*/**"
+      - "packages/runtime-python/**"
+      - "packages/runtime-dotnet/sdk/**"
+      - "packages/runtime-dotnet/sdk-tests/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - "tools/learned-skill-conformance/**"
+      - "nx.json"
+      - ".github/workflows/intelligence-skill-adapters.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NX_DAEMON: "false"
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  python-core:
+    name: Python registry and canonical client
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.x"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.9.7"
+          enable-cache: false
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm nx run-many -t test,lint,typecheck -p runtime-python,intelligence-delivery-python-core --parallel=1
+      - name: Independent Python wheel ownership
+        run: pnpm nx run learned-skill-conformance:verify-python-distributions
+
+  python-framework:
+    name: ${{ matrix.project }} / ${{ matrix.compatibility }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [intelligence-langgraph-python, intelligence-adk-python]
+        compatibility: [minimum, latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.x"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.9.7"
+          enable-cache: false
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Native framework compatibility
+        run: pnpm nx run "${{ matrix.project }}:test-${{ matrix.compatibility }}"
+      - name: Validate independently built distribution
+        run: pnpm nx run-many -t lint,typecheck,build,verify-distribution -p "${{ matrix.project }}" --parallel=1
+
+  dotnet-framework:
+    name: Agent Framework / ${{ matrix.compatibility }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        compatibility: [minimum, latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.x"
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Canonical .NET transport tests
+        run: pnpm nx exec --projects=runtime-dotnet -- dotnet run --project "$PWD/packages/runtime-dotnet/sdk-tests/Intelligence.Tests.csproj"
+      - name: Native framework and shared registry contracts
+        run: pnpm nx run "intelligence-agent-framework-dotnet:test-${{ matrix.compatibility }}"
+      - name: Build independent NuGet package
+        run: pnpm nx run intelligence-agent-framework-dotnet:verify-distribution
