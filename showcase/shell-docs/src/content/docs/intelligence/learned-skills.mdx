@@ -15,6 +15,7 @@ Developer instructions retain precedence. Learned skills cannot override the age
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------------------- |
 | LangGraph Python          | `copilotkit-intelligence-langgraph`      | `create_skill_registry_middleware`                                   |
 | LangGraph TypeScript      | `@copilotkit/intelligence-langgraph`     | `createSkillRegistryMiddleware`                                      |
+| Mastra                    | `@copilotkit/intelligence-mastra`        | `createSkillRegistryProcessor`                                       |
 | Google ADK                | `copilotkit-intelligence-adk`            | `SkillRegistry` and `SkillToolset`                                   |
 | Microsoft Agent Framework | `CopilotKit.Intelligence.AgentFramework` | `SkillRegistryContextProvider` and `AddCopilotKitIntelligenceSkills` |
 
@@ -84,6 +85,41 @@ After the native framework fix passes the same lifecycle tests, middleware-only 
 Attach this middleware and its wrapper to each selected agent. Several agents can share one registry, but each wrapped invocation captures its own snapshot. Skills do not propagate automatically to arbitrary subagents. The wrapper supports the native agent's graph execution entry points for integrations that access `.graph`; graph batching and arbitrary compiled graph adaptation are outside this integration.
 
 The supported dependency ranges are LangChain `>=1.5.11,<2`, LangGraph `>=1.4.14,<2`, and LangChain core `>=1.2.10,<2`. The registry owns in-memory snapshots and performs no filesystem writes. Your application retains ownership of an injected canonical client.
+
+### Mastra
+
+Use Node.js 22.13 or later with `@mastra/core>=1.0.0,<2`. Install `@copilotkit/intelligence-mastra` alongside Mastra, then register the processor and its tools on a native `Agent`:
+
+```typescript
+import { Agent } from "@mastra/core/agent";
+import {
+  SkillRegistry,
+  createSkillRegistryProcessor,
+} from "@copilotkit/intelligence-mastra";
+
+const registry = new SkillRegistry(); // Uses the environment below.
+await registry.initialize(); // Catch this error in your application's startup code.
+const skills = createSkillRegistryProcessor({ registry });
+const agent = skills.wrapAgent(
+  new Agent({
+    id: "support",
+    name: "Support",
+    model: "openai/gpt-4.1",
+    instructions: "Follow the application's support policy.",
+    inputProcessors: [skills],
+    tools: { ...skills.tools },
+  }),
+);
+const result = await agent.generate("Help with a refund.");
+```
+
+Keep other processors and tools in the same arrays and maps. Reserve the names `copilotkit_load_skill` and `copilotkit_read_skill_file` for this adapter.
+
+Call the wrapped agent for `generate`, `stream`, `resumeGenerate`, and `resumeStream`. The wrapper checks delivery before native execution and preserves Mastra's stream result. It also covers native tool approval and decline methods when your installed Mastra version provides them: `approveToolCall`, `declineToolCall`, `approveToolCallGenerate`, and `declineToolCallGenerate`. A resume starts a new invocation and captures the current verified snapshot, including when a tool runs before the next model call.
+
+Register the processor and tools, and wrap each selected agent. Several agents can share a registry; each invocation keeps its own snapshot. Subagents follow Mastra's native propagation rules. Networks, legacy methods, background workers, and separate durable-worker dispatch are outside this integration.
+
+Pass `abortSignal` in the invocation options to cancel both the delivery wait and native execution. A signal set only in the agent's `defaultOptions` applies to native execution, but cannot cancel the delivery wait that runs before it. Cancelling one invocation does not cancel a registry refresh shared with other callers.
 
 ### Google ADK
 
