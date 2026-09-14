@@ -396,6 +396,7 @@ export class IntelligenceAgent extends AbstractAgent {
           single ? this.config.runtimeUrl : this.buildRuntimeUrl(mode),
           {
             method: "POST",
+            redirect: "error",
             headers: {
               "Content-Type": "application/json",
               ...this.headers,
