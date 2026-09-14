@@ -14,9 +14,11 @@ create or write `CPK_TELEMETRY_ID`, and a value you choose does not automaticall
 link Runtime events to a CLI scaffold event. Setting it does not enable
 telemetry, grant product access, or replace the project's Intelligence API key.
 
-Current managed Threads starters receive `COPILOTKIT_LICENSE_TOKEN`, which can
-supply the fallback identity. When it does, Runtime sends identified events
-without sampling. Runtime samples events identified by an explicit `telemetryId`
+Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`. That token is
+only for offline or self-hosted licensing, so a managed starter carries no
+license-token identity. When a self-hosted deployment sets the token, it
+supplies the fallback identity and Runtime sends identified events without
+sampling. Runtime samples events identified by an explicit `telemetryId`
 or `CPK_TELEMETRY_ID` at the configured rate. With none of these identities,
 Runtime sends anonymous sampled telemetry.
 
