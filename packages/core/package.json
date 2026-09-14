@@ -36,7 +36,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@f3a7fe478ccfca6ccc9f92ceaa067769b25df7e9",
+    "@ag-ui/client": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/client@58a2d3faf4a83be34a78271517ee49c90f6a68ed",
     "@copilotkit/shared": "workspace:*",
     "@tanstack/pacer": "^0.20.1",
     "phoenix": "^1.8.4",
