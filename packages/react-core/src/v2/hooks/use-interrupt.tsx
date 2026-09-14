@@ -291,7 +291,6 @@ export function useInterrupt<
       try {
         return await copilotkit.runAgent({
           agent,
-          // A standard resume is a new run; resume entries identify the interrupts.
           resume: decision.resume,
         });
       } catch (err) {
@@ -351,7 +350,6 @@ export function useInterrupt<
       try {
         return await copilotkit.runAgent({
           agent,
-          // A standard resume is a new run; resume entries identify the interrupts.
           resume: decision.resume,
         });
       } catch (err) {
