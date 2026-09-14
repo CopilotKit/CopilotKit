@@ -26,7 +26,8 @@ export type WebMCPRegisteredTool = {
  * Filters for importing page WebMCP tools into CopilotKit.
  *
  * Applied in order: allow, then deny, then `name`. Deny wins when a name is
- * on both lists. With no filters, every same-origin tool is imported.
+ * on both lists. With no filters, every same-origin tool that has a name
+ * and a description is imported.
  */
 export type WebMCPToolsOptions = {
   /** Scope imported tools to this agent. Omit for global tools. */
@@ -242,6 +243,8 @@ interface OwnedWebMCPImport {
  * call. Missing `document.modelContext` is a no-op.
  */
 export class WebMCPConsumer {
+  private static readonly liveConsumers = new Set<WebMCPConsumer>();
+  private static readonly pendingHostResync = new WeakSet<WebMCPToolHost>();
   private options: WebMCPToolsOptions = {};
   private owned = new Map<string, OwnedWebMCPImport>();
   private syncGeneration = 0;
@@ -261,6 +264,7 @@ export class WebMCPConsumer {
     this.stop();
     this.options = options;
     this.started = true;
+    WebMCPConsumer.liveConsumers.add(this);
     const modelContext = getImportModelContext();
     if (!modelContext) {
       return;
@@ -273,11 +277,33 @@ export class WebMCPConsumer {
    * Remove tools this instance added and drop the `toolchange` listener.
    */
   stop() {
+    const wasLive = WebMCPConsumer.liveConsumers.delete(this);
     this.syncGeneration += 1;
     const modelContext = getWebMCPModelContext();
     modelContext?.removeEventListener?.(TOOLCHANGE_EVENT, this.onToolChange);
     this.removeOwned();
     this.started = false;
+    if (wasLive) {
+      this.schedulePeerResync();
+    }
+  }
+
+  // Wait one microtask so a replacement consumer in the same turn can start
+  // first and keep the names (React/Vue effect restart).
+  private schedulePeerResync() {
+    const { host } = this;
+    if (WebMCPConsumer.pendingHostResync.has(host)) {
+      return;
+    }
+    WebMCPConsumer.pendingHostResync.add(host);
+    queueMicrotask(() => {
+      WebMCPConsumer.pendingHostResync.delete(host);
+      for (const consumer of WebMCPConsumer.liveConsumers) {
+        if (consumer.host === host) {
+          void consumer.sync();
+        }
+      }
+    });
   }
 
   private async sync() {
@@ -448,7 +474,9 @@ function matchesNameFilter(
   if (typeof name === "string") {
     return toolName === name;
   }
-  return name.test(toolName);
+  // Clone without g/y so test() does not move lastIndex on the caller's regex.
+  const stateless = new RegExp(name.source, name.flags.replace(/[gy]/g, ""));
+  return stateless.test(toolName);
 }
 
 function hasExactTool(host: WebMCPToolHost, name: string, agentId?: string) {

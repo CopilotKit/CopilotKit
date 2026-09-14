@@ -48,7 +48,7 @@ registerWebmcpTools({
 });
 ```
 
-With no filters, every same-origin page tool is imported. Filter order is allow, then deny, then `name` (`name` is an exact string or a `RegExp`). Deny wins if a name is on both lists.
+With no filters, every same-origin page tool that has a name and a description is imported. Filter order is allow, then deny, then `name` (`name` is an exact string or a `RegExp`). Deny wins if a name is on both lists.
 
 The import is a no-op where `document.modelContext` is missing (SSR, React Native, browsers without WebMCP). Unmount (or injector destroy) removes only the tools this call added.
 

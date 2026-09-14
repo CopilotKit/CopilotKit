@@ -69,11 +69,18 @@ function createHost() {
   return new RunHandler({} as CopilotKitCore);
 }
 
+const consumers: WebMCPConsumer[] = [];
+
+function trackConsumer(consumer: WebMCPConsumer) {
+  consumers.push(consumer);
+  return consumer;
+}
+
 async function startedConsumer(
   host: RunHandler,
   options?: Parameters<WebMCPConsumer["start"]>[0],
 ) {
-  const consumer = new WebMCPConsumer(host);
+  const consumer = trackConsumer(new WebMCPConsumer(host));
   consumer.start(options);
   await vi.waitFor(() => {
     expect(host.tools.length).toBeGreaterThanOrEqual(0);
@@ -85,6 +92,10 @@ async function startedConsumer(
 }
 
 afterEach(() => {
+  for (const consumer of consumers) {
+    consumer.stop();
+  }
+  consumers.length = 0;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -109,7 +120,7 @@ describe("WebMCPConsumer", () => {
 
   it("is a no-op without document.modelContext", () => {
     const host = createHost();
-    const consumer = new WebMCPConsumer(host);
+    const consumer = trackConsumer(new WebMCPConsumer(host));
 
     expect(() => consumer.start()).not.toThrow();
     expect(host.tools).toEqual([]);
@@ -122,7 +133,7 @@ describe("WebMCPConsumer", () => {
       },
     });
     const host = createHost();
-    const consumer = new WebMCPConsumer(host);
+    const consumer = trackConsumer(new WebMCPConsumer(host));
 
     expect(() => consumer.start()).not.toThrow();
     expect(host.tools).toEqual([]);
@@ -393,7 +404,7 @@ describe("WebMCPConsumer", () => {
       },
     });
     const host = createHost();
-    const consumer = new WebMCPConsumer(host);
+    const consumer = trackConsumer(new WebMCPConsumer(host));
     consumer.start();
 
     await vi.waitFor(() => {
@@ -431,5 +442,63 @@ describe("WebMCPConsumer", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("need a description"),
     );
+  });
+
+  it("matches every name against a global regex without skipping later tools", async () => {
+    stubImportWebMCP([
+      createPageTool({ name: "todo_add" }),
+      createPageTool({ name: "todo_list" }),
+      createPageTool({ name: "other" }),
+    ]);
+    const host = createHost();
+
+    await startedConsumer(host, { name: /^todo_/g });
+
+    await vi.waitFor(() => {
+      expect(host.tools.map((tool) => tool.name).sort()).toEqual([
+        "todo_add",
+        "todo_list",
+      ]);
+    });
+  });
+
+  it("lets a remaining consumer import a name after the owner stops", async () => {
+    stubImportWebMCP([createPageTool({ name: "addTodo" })]);
+    const host = createHost();
+
+    const first = await startedConsumer(host, { agentId: "support" });
+    await vi.waitFor(() => {
+      expect(
+        host.getTool({ toolName: "addTodo", agentId: "support" }),
+      ).toBeDefined();
+    });
+
+    const second = await startedConsumer(host, { agentId: "support" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(
+      host.tools.filter(
+        (tool) => tool.name === "addTodo" && tool.agentId === "support",
+      ),
+    ).toHaveLength(1);
+
+    first.stop();
+
+    await vi.waitFor(() => {
+      expect(
+        host.getTool({ toolName: "addTodo", agentId: "support" }),
+      ).toBeDefined();
+    });
+    expect(
+      host.tools.filter(
+        (tool) => tool.name === "addTodo" && tool.agentId === "support",
+      ),
+    ).toHaveLength(1);
+
+    second.stop();
+
+    expect(
+      host.getTool({ toolName: "addTodo", agentId: "support" }),
+    ).toBeUndefined();
   });
 });
