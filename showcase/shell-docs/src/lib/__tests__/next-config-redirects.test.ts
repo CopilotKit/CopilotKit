@@ -70,45 +70,45 @@ describe("next.config redirects", () => {
         {
           source: "/ag-ui/:path*",
           destination: "https://docs.ag-ui.com/:path*",
-          permanent: true,
+          statusCode: 301,
         },
         // Upstream serves `.md` but not `.mdx`, so both collapse onto `.md`.
         {
           source: "/ag-ui/:path*.md",
           destination: "https://docs.ag-ui.com/:path*.md",
-          permanent: true,
+          statusCode: 301,
         },
         {
           source: "/ag-ui/:path*.mdx",
           destination: "https://docs.ag-ui.com/:path*.md",
-          permanent: true,
+          statusCode: 301,
         },
         // Mirror root rendered the upstream introduction page.
         {
           source: "/ag-ui",
           destination: "https://docs.ag-ui.com/introduction",
-          permanent: true,
+          statusCode: 301,
         },
         // Paths with no upstream equivalent land on the nearest live page.
         {
           source: "/ag-ui/drafts/interrupts",
           destination: "https://docs.ag-ui.com/concepts/interrupts",
-          permanent: true,
+          statusCode: 301,
         },
         {
           source: "/ag-ui/drafts/multimodal-messages",
           destination: "https://docs.ag-ui.com/concepts/messages",
-          permanent: true,
+          statusCode: 301,
         },
         {
           source: "/ag-ui/sdk/dart/client/overview",
           destination: "https://docs.ag-ui.com/sdk/dart/overview",
-          permanent: true,
+          statusCode: 301,
         },
         {
           source: "/ag-ui/sdk/rust/core/types",
           destination: "https://docs.ag-ui.com/sdk/rust/overview",
-          permanent: true,
+          statusCode: 301,
         },
       ]),
     );
@@ -137,6 +137,8 @@ describe("next.config redirects", () => {
     expect(exceptions).toHaveLength(30);
     for (const exception of exceptions) {
       expect(redirects.indexOf(exception)).toBeLessThan(catchAll);
+      expect(exception).toMatchObject({ statusCode: 301 });
+      expect(exception).not.toHaveProperty("permanent");
     }
   });
 });
