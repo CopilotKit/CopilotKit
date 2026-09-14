@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 
 import { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } from "../core";
+import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
 
 const RUNTIME_URL = "https://runtime.example.com/api/copilotkit";
 
@@ -113,6 +114,57 @@ test("a relative runtime URL reaches fetch for Intelligence chat and resources",
     );
   } finally {
     context.teardown();
+  }
+});
+
+test("a path-relative runtime URL resolves resource requests like browser fetch", async () => {
+  const context = await setup({
+    capability: true,
+    runtimeUrl: "api/copilotkit",
+  });
+
+  try {
+    context.fetchMock.mockClear();
+    await context.core.ɵruntimeFetch("api/copilotkit/threads", {
+      method: "GET",
+    });
+    expect(context.fetchMock).toHaveBeenLastCalledWith(
+      "api/copilotkit",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          method: "resource/request",
+          params: { path: "/threads", httpMethod: "GET" },
+        }),
+      }),
+    );
+  } finally {
+    context.teardown();
+  }
+});
+
+test("relative runtime URLs use a localhost fallback outside browsers", async () => {
+  const originalWindow = (globalThis as { window?: unknown }).window;
+  delete (globalThis as { window?: unknown }).window;
+
+  try {
+    const request = await createSingleRouteResourceRequest(
+      "api/copilotkit/threads",
+      { method: "GET" },
+      "api/copilotkit",
+    );
+
+    expect(request?.input).toBe("api/copilotkit");
+    expect(JSON.parse(request?.init.body as string)).toEqual({
+      method: "resource/request",
+      params: { path: "/threads", httpMethod: "GET" },
+    });
+  } finally {
+    if (originalWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
   }
 });
 
