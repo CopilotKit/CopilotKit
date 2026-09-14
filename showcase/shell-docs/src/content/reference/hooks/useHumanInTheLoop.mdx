@@ -64,6 +64,14 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
   <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
     Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from requesting human input through this tool.
   </PropertyReference>
+
+  <PropertyReference name="followUp" type="boolean" default="true">
+    Whether calling `respond` immediately resumes the agent with the result.
+    Set to `false` to record the response without resuming the agent, so you
+    can combine it with additional messages (e.g. a user's follow-up text)
+    before continuing the run yourself. See [Combining a response with a
+    follow-up message](#combining-a-response-with-a-follow-up-message) below.
+  </PropertyReference>
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
@@ -277,6 +285,71 @@ function ExpenseApproval() {
         }
 
         return null;
+      },
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+### Combining a Response with a Follow-up Message
+
+By default, calling `respond` resumes the agent immediately with the result.
+Set `followUp: false` on the tool to record the response without resuming,
+then add the user's own message and continue the run yourself -- both reach
+the agent together in the same turn.
+
+```tsx
+function ProposalReview() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
+  useHumanInTheLoop(
+    {
+      name: "reviewProposal",
+      description: "Ask the user to review a proposed set of changes",
+      followUp: false,
+      parameters: z.object({
+        summary: z.string().describe("Summary of the proposed changes"),
+      }),
+      render: ({ args, status, respond }) => {
+        const [note, setNote] = useState("");
+
+        if (status !== ToolCallStatus.Executing || !respond) return null;
+
+        const sendWithNote = async (accepted: boolean) => {
+          // Record the decision without resuming the agent yet.
+          await respond({ accepted });
+
+          // Add the user's own message, then continue the run once --
+          // the agent sees the tool result and the note together.
+          if (note.trim()) {
+            agent.addMessage({
+              id: crypto.randomUUID(),
+              role: "user",
+              content: note,
+            });
+          }
+          await copilotkit.runAgent({ agent });
+        };
+
+        return (
+          <div className="p-4 border rounded space-y-2">
+            <p>{args.summary}</p>
+            <textarea
+              placeholder="Optional note..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full border p-2 rounded"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => sendWithNote(true)}>Accept</button>
+              <button onClick={() => sendWithNote(false)}>Reject</button>
+            </div>
+          </div>
+        );
       },
     },
     [],
