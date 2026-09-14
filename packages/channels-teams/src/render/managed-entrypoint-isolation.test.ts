@@ -4,16 +4,20 @@ import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * `@microsoft/agents-hosting` and `@microsoft/agents-activity` are OPTIONAL
- * peer dependencies of this package, not dependencies (OSS-1173). They are
- * reached only from the self-hosted surface — `adapter.ts` and `listener.ts`.
+ * Every OPTIONAL peer dependency of this package (`@microsoft/agents-hosting`,
+ * `@microsoft/agents-activity`, `express` — OSS-1177) is reached only from the
+ * self-hosted surface: `adapter.ts` and `listener.ts`.
  *
  * That is only safe while the `./render` subpath stays free of them. It is the
  * entry point `@copilotkit/channels-intelligence` imports for managed Teams
- * delivery, and managed hosts do not install the Microsoft SDK. If a Microsoft
- * import ever reaches this graph, every managed host breaks at import time with
- * a module-not-found — so pin the invariant here rather than discover it in
+ * delivery, and managed hosts install none of those packages. If one ever
+ * reaches this graph, every managed host breaks at import time with a
+ * module-not-found — so pin the invariant here rather than discover it in
  * production.
+ *
+ * The forbidden set is READ FROM `package.json` rather than hardcoded, so
+ * moving another dependency to an optional peer extends this guard
+ * automatically instead of silently leaving it behind.
  *
  * The walk is over source, not `dist`, so it fails in the PR that introduces
  * the import rather than at publish time.
@@ -69,16 +73,41 @@ function externalSpecifiersFrom(entry: string): Map<string, string[]> {
   return external;
 }
 
-describe("./render is importable without the Microsoft Agents SDK", () => {
-  const external = externalSpecifiersFrom(join(HERE, "index.ts"));
+/** The package's own optional peers — the set this entry point must not reach. */
+function optionalPeerNames(): string[] {
+  const manifest = JSON.parse(
+    readFileSync(join(HERE, "../../package.json"), "utf8"),
+  ) as { peerDependenciesMeta?: Record<string, { optional?: boolean }> };
+  return Object.entries(manifest.peerDependenciesMeta ?? {})
+    .filter(([, meta]) => meta.optional === true)
+    .map(([name]) => name);
+}
 
-  it("reaches no @microsoft/* package", () => {
-    const microsoft = [...external.entries()].filter(([specifier]) =>
-      specifier.startsWith("@microsoft/"),
+describe("./render is importable without this package's optional peers", () => {
+  const external = externalSpecifiersFrom(join(HERE, "index.ts"));
+  const forbidden = optionalPeerNames();
+
+  it("declares optional peers to guard, so the assertion is not vacuous", () => {
+    // Without this, deleting peerDependenciesMeta would make the guard below
+    // pass against an empty forbidden set.
+    expect(forbidden).toEqual(
+      expect.arrayContaining([
+        "@microsoft/agents-activity",
+        "@microsoft/agents-hosting",
+        "express",
+      ]),
+    );
+  });
+
+  it("reaches none of them", () => {
+    const reached = [...external.entries()].filter(([specifier]) =>
+      forbidden.some(
+        (peer) => specifier === peer || specifier.startsWith(`${peer}/`),
+      ),
     );
     // Name the importing file in the failure so the offending edge is obvious.
     expect(
-      microsoft.map(
+      reached.map(
         ([specifier, importers]) => `${specifier} <- ${importers.join(", ")}`,
       ),
     ).toEqual([]);
@@ -86,7 +115,7 @@ describe("./render is importable without the Microsoft Agents SDK", () => {
 
   it("walks a non-trivial graph, so an empty result is not a false pass", () => {
     // Guards the walker itself: if `resolveLocal` silently stopped resolving,
-    // the Microsoft assertion above would pass while proving nothing.
+    // the assertion above would pass while proving nothing.
     expect(external.size).toBeGreaterThan(0);
     expect([...external.keys()]).toContain("@copilotkit/channels-core");
   });

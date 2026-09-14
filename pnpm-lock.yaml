@@ -346,6 +346,9 @@ importers:
       '@microsoft/agents-hosting':
         specifier: ^1.5.3
         version: 1.6.1(@opentelemetry/api@1.9.0)
+      express:
+        specifier: '>=4.20.0'
+        version: 5.2.1
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
@@ -2290,6 +2293,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.11
+      express:
+        specifier: '>=4.20.0'
+        version: 5.2.1
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -2477,9 +2483,6 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:^
         version: link:../shared
-      express:
-        specifier: '>=4.20.0'
-        version: 5.2.1
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
@@ -2499,6 +2502,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.11
+      express:
+        specifier: '>=4.20.0'
+        version: 5.2.1
       typescript:
         specifier: ^5.6.3
         version: 5.9.3

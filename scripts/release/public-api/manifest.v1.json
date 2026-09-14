@@ -465,11 +465,13 @@
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
+          "express": "^4.21.2 || ^5.0.0",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
           "@microsoft/agents-activity",
           "@microsoft/agents-hosting",
+          "express",
           "vitest"
         ],
         "provenance": [
@@ -791,11 +793,13 @@
       "compatibility": {
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
-          "@microsoft/agents-hosting": "^1.5.3"
+          "@microsoft/agents-hosting": "^1.5.3",
+          "express": "^4.21.2 || ^5.0.0"
         },
         "optionalPeerDependencies": [
           "@microsoft/agents-activity",
-          "@microsoft/agents-hosting"
+          "@microsoft/agents-hosting",
+          "express"
         ],
         "provenance": [
           {

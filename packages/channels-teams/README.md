@@ -36,12 +36,13 @@ This self-hosted adapter remains fully supported. Choose it when you want the pr
 
 ```sh
 pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
-pnpm add @microsoft/agents-hosting @microsoft/agents-activity
+pnpm add @microsoft/agents-hosting @microsoft/agents-activity express
 ```
 
-The Microsoft 365 Agents SDK packages are **optional peer dependencies**, so
-they are not installed for you. Add them as shown above — this adapter is the
-self-hosted path, and it needs them to run the Teams ingress.
+The Microsoft 365 Agents SDK packages and `express` are **optional peer
+dependencies**, so they are not installed for you. Add them as shown above —
+this adapter is the self-hosted path, and it needs the SDK to run the Teams
+ingress and `express` to serve `POST /api/messages`.
 
 They are optional because the managed path does not need them. Managed Channels
 reach this package only through the `./render` subpath, which never touches the
