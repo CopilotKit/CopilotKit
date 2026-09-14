@@ -22,9 +22,7 @@
       "options": {
         "command": "node --test tools/learned-skill-conformance/workspace-artifacts.test.mjs"
       },
-      "inputs": [
-        "{projectRoot}/workspace-artifacts*.mjs"
-      ],
+      "inputs": ["{projectRoot}/workspace-artifacts*.mjs"],
       "cache": true
     },
     "test-doc-dependencies": {
@@ -47,15 +45,10 @@
       "dependsOn": [
         {
           "target": "build",
-          "projects": [
-            "@copilotkit/runtime"
-          ]
+          "projects": ["@copilotkit/runtime"]
         }
       ]
     }
   },
-  "tags": [
-    "scope:intelligence",
-    "type:test"
-  ]
+  "tags": ["scope:intelligence", "type:test"]
 }
