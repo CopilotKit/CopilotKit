@@ -142,3 +142,25 @@ Or use the `DO_NOT_TRACK` standard:
 ```bash
 export DO_NOT_TRACK=1
 ```
+
+## Stopping Intelligence runs
+
+Await Stop before sending another message on the same thread. With
+`IntelligenceAgentRunner`, `stopped: true` means the gateway acknowledged the
+run's terminal events and the runtime completed local cleanup. The gateway
+releases only the lock owned by that run.
+
+Stop requests agent cancellation and excludes late agent events from thread
+history. Agents that support `detachActiveRun()` also detach their local
+subscription. Older agents remain supported. An adapter must honor cancellation
+to stop external work; Stop cannot undo tool calls that already took effect.
+
+The HTTP request and response formats are unchanged. Empty-body Stop requests
+still stop the current run. Direct runner callers can pass the existing optional
+`runId` to stop only that run. A missing, mismatched, or already-requested Stop
+returns `false`. Failed terminal delivery rejects Stop; the HTTP handler returns
+its existing error response instead of reporting success. The wait is bounded by
+the existing 60-second durability window.
+
+No Intelligence upgrade is required. The runtime uses the existing terminal
+events and supports both single-event and batched gateway acknowledgments.
