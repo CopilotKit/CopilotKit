@@ -38,7 +38,6 @@ const snapshot = {
 function runtime(overrides: Record<string, unknown> = {}): CopilotRuntimeLike {
   return {
     mode: "intelligence",
-    debug: { enabled: true, events: false, lifecycle: false, verbose: false },
     intelligence: { getInspectorLearning: vi.fn().mockResolvedValue(snapshot) },
     identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "Ada" }),
     learning: { containerId: "container-static" },
@@ -54,7 +53,6 @@ describe("handleInspectorLearning", () => {
       request: new Request(
         "https://runtime.example/inspector-learning?agentId=support&skillsPage=2",
       ),
-      enabled: true,
     });
 
     expect(response.status).toBe(200);
@@ -66,37 +64,21 @@ describe("handleInspectorLearning", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store, private");
   });
 
-  it("hides the route without debug mode and rejects unknown scope fields", async () => {
-    const hidden = await handleInspectorLearning({
-      runtime: runtime({
-        debug: {
-          enabled: false,
-          events: false,
-          lifecycle: false,
-          verbose: false,
-        },
-      }),
-      request: new Request("https://runtime.example/inspector-learning"),
-      enabled: true,
-    });
-    expect(hidden.status).toBe(404);
-
+  it("rejects unknown scope fields", async () => {
     const rejected = await handleInspectorLearning({
       runtime: runtime(),
       request: new Request(
         "https://runtime.example/inspector-learning?runtimeContainerId=attacker-scope",
       ),
-      enabled: true,
     });
     expect(rejected.status).toBe(400);
   });
 
-  it("hides the route unless the handler explicitly opts in", async () => {
-    const fixture = runtime();
+  it("hides the route for non-Intelligence runtimes", async () => {
+    const fixture = runtime({ mode: "local" });
     const response = await handleInspectorLearning({
       runtime: fixture,
       request: new Request("https://runtime.example/inspector-learning"),
-      enabled: false,
     });
     expect(response.status).toBe(404);
     expect(fixture.intelligence?.getInspectorLearning).not.toHaveBeenCalled();
@@ -109,7 +91,6 @@ describe("handleInspectorLearning", () => {
     const response = await handleInspectorLearning({
       runtime: fixture,
       request: new Request("https://runtime.example/inspector-learning"),
-      enabled: true,
     });
 
     expect(response.status).toBe(400);

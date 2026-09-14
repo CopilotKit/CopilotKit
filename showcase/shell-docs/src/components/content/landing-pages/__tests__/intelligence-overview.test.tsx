@@ -38,9 +38,7 @@ describe("IntelligenceOverview", () => {
     expect(
       screen.queryByText(/CopilotKit Intelligence adds persistent threads/i),
     ).toBeNull();
-    expect(
-      screen.getByRole("button", { name: /copy onboarding prompt/i }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^copy prompt$/i })).toBeTruthy();
 
     const connect = screen.getByRole("link", { name: /connect an app/i });
     expect(connect.getAttribute("href")).toBe("/intelligence/quickstart");
@@ -94,7 +92,7 @@ describe("IntelligenceOverview", () => {
     expect(video.loop).toBe(true);
 
     const prompt = screen.getByRole("button", {
-      name: /copy onboarding prompt/i,
+      name: /^copy prompt$/i,
     });
     expect(
       video.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING,

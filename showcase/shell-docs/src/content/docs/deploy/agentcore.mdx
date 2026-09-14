@@ -411,6 +411,39 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
   </TailoredContent>
 </Steps>
 
+## Troubleshooting
+
+### HTTP 401: `Missing Authentication Token`
+
+```
+Agent execution failed: Error: HTTP 401:
+{"jsonrpc":"2.0","error":{"code":-32001,"message":"Missing Authentication Token"},"id":"null"}
+```
+
+`Missing Authentication Token` is AWS's own error, not a CopilotKit or agent error. AWS returns it
+when a request reaches an AgentCore or API Gateway endpoint with no credentials, or when the request
+path matches no deployed route. Check the following, in order:
+
+- **The runtime is actually sending a token.** Set `AGENTCORE_ACCESS_TOKEN` in the environment of the
+  Copilot Runtime **server**, not the frontend. If the variable is unset, the `Authorization` header
+  interpolates to `Bearer undefined`, which AWS rejects exactly like a missing header.
+- **The token has not expired.** Cognito access tokens are short-lived. Mint a fresh one and retry
+  before you debug anything else.
+- **`AGENTCORE_ENDPOINT_URL` is the full invocation URL**, ending in `/invocations`, with the agent
+  ARN URL-encoded:
+  `https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded-arn}/invocations`. A URL that
+  stops short of `/invocations` matches no route, and AWS reports that as
+  `Missing Authentication Token` rather than as a 404.
+- **The browser is not calling AgentCore directly.** AgentCore requires SigV4 or OAuth2 signing,
+  which a browser cannot perform. Point the frontend at your Copilot Runtime endpoint and let the
+  runtime make the AgentCore call server-side.
+
+<Callout type="warn" title="This error does not apply to the local quickstart">
+  The framework quickstarts run the agent locally on `http://localhost:8000`, and a local agent
+  server never returns `Missing Authentication Token`. If you see this error, the runtime is pointed
+  at a deployed AWS endpoint.
+</Callout>
+
 ## What's next?
 
 - [Generative UI](/generative-ui/tool-rendering) — render application

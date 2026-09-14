@@ -6,6 +6,8 @@ frontend: universal
 doc_type: how-to
 ---
 
+import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pane-learning.mdx";
+
 ## Overview
 
 Learning turns patterns from real agent runs into reusable Skills. It looks at completed conversations and application interactions in [Rich Threads](/threads), produces evidence-backed Insights, and proposes instructions you can review before publishing.
@@ -39,12 +41,14 @@ When you are done, your Runtime will send selected Threads to a Learning contain
     Copy this prompt into your coding agent to inspect your existing app and configure Automatic Learning for one focused workflow. Prefer to work through the setup yourself? Skip this step and continue below.
 
     <LearningSetupPrompt />
+
   </Step>
 
   <Step>
     ### Connect CopilotKit Intelligence
 
     Complete the [Intelligence quickstart](/intelligence/quickstart), then send a message and confirm that it appears in [Rich Threads](/threads). Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and confirm that Learning is available.
+
   </Step>
 
   <Step>
@@ -53,6 +57,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
     In your Intelligence project, open **Learning** and choose **Create Learning container**. Give the container a stable ID, a descriptive name, and optional guidance about what good work looks like.
 
     Keep each container focused on one kind of work, such as expense review, support quality, or customer onboarding. Stable IDs contain 1–64 lowercase letters, numbers, or single hyphens; for example, `expense-review`.
+
   </Step>
 
   <Step>
@@ -84,20 +89,25 @@ When you are done, your Runtime will send selected Threads to a Learning contain
     <Callout type="warn" title="Keep a Thread's assignment stable">
       Assign a Thread before its first agent run and return the same container ID for every later run. Existing evidence is not backfilled, and a Thread cannot move between containers.
     </Callout>
+
   </Step>
 
   <Step>
     ### Collect examples
 
     Use the application normally and complete several related workflows. Corrections, tool calls, and application interactions all help Learning understand what a good result looks like.
+
   </Step>
 
   <Step>
     ### Run Learning and review
 
     Open the container's **Runs** tab and select **Run Learning**. Review the resulting Insights and their source Threads, then approve or reject each proposed Skill. Approved revisions appear under **Skills**.
+
   </Step>
 </Steps>
+
+<InspectorPaneLearning />
 
 ## Use published Skills
 
@@ -112,13 +122,13 @@ The output contains a directory and `SKILL.md` for each published Skill. Configu
 
 ## Troubleshooting
 
-| Problem | What to check |
-| --- | --- |
-| A Thread never appears in the container | Confirm the callback returned an existing stable ID before the Thread's first run and that the run reached a terminal state. |
-| The Runtime reports a container conflict | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread. |
-| A run has no new evidence | Runs created before assignment, still in progress, or already included in an earlier Learning run are not new input. |
-| A run succeeds without a Skill candidate | Inspect the Insights. The evidence may be useful without supporting a reusable procedural Skill. |
-| An approved Skill does not affect the agent | Download the latest bundle and confirm that your agent environment loads the generated Skill directory. |
+| Problem                                     | What to check                                                                                                                |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| A Thread never appears in the container     | Confirm the callback returned an existing stable ID before the Thread's first run and that the run reached a terminal state. |
+| The Runtime reports a container conflict    | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread.        |
+| A run has no new evidence                   | Runs created before assignment, still in progress, or already included in an earlier Learning run are not new input.         |
+| A run succeeds without a Skill candidate    | Inspect the Insights. The evidence may be useful without supporting a reusable procedural Skill.                             |
+| An approved Skill does not affect the agent | Download the latest bundle and confirm that your agent environment loads the generated Skill directory.                      |
 
 ## Related guides
 

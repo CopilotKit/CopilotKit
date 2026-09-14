@@ -504,9 +504,7 @@ const nextConfig: NextConfig = {
       // to /<page>. Specific entries first (they must win over the
       // catch-all), then the catch-all that strips the prefix.
       // ----------------------------------------------------------------
-      // BIA's AG-UI backend page lives at /backend/ag-ui at the root —
-      // the bare /ag-ui segment is owned by the AG-UI protocol docs
-      // (src/app/ag-ui/), so the page can't keep its old slug.
+      // BIA's AG-UI backend page lives at /backend/ag-ui at the root.
       {
         source: "/built-in-agent/ag-ui",
         destination: "/backend/ag-ui",
@@ -825,6 +823,15 @@ const nextConfig: NextConfig = {
         destination: "/reference/v2/hooks/useSuggestions",
         permanent: true,
       },
+      // The v1 Python SDK class was renamed upstream (langgraph_agent.py ->
+      // langgraph_agui_agent.py, LangGraphAgent -> LangGraphAGUIAgent), so the
+      // generated reference page moved with it. Carry the .md/.mdx suffixes
+      // too: a raw Markdown request reaches redirects before the .md/.mdx
+      // rewrite, so a bare-path-only rule would 404 the LLM routes.
+      ...permanentRedirectsWithSuffixes(
+        "/reference/v1/sdk/python/LangGraphAgent",
+        "/reference/v1/sdk/python/LangGraphAGUIAgent",
+      ),
       // AI-slop placeholder pulled from nav until properly authored;
       // file stays on disk for rewrite.
       {

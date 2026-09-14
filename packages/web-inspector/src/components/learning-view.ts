@@ -60,6 +60,7 @@ export class CpkLearningView extends LitElement {
     snapshot: { attribute: false },
     setupActive: { type: Boolean },
     copyState: { attribute: false },
+    recopyState: { attribute: false },
     setupPrompt: { attribute: false },
   };
 
@@ -70,6 +71,7 @@ export class CpkLearningView extends LitElement {
   snapshot: InspectorLearningSnapshotV1 | null = null;
   setupActive = false;
   copyState: "idle" | "copied" | "error" = "idle";
+  recopyState: "idle" | "copied" | "error" = "idle";
   setupPrompt = "";
   private promptOpen = false;
   private promptTrigger: HTMLElement | null = null;
@@ -213,6 +215,11 @@ export class CpkLearningView extends LitElement {
       font-size: 14px;
       line-height: 1.5;
     }
+    .pane-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
     .refreshing {
       color: var(--learning-muted-strong);
       font-size: 11px;
@@ -327,6 +334,17 @@ export class CpkLearningView extends LitElement {
       color: var(--learning-muted);
       font-size: 12px;
       line-height: 1.45;
+    }
+    .copy-again {
+      margin-top: 12px;
+      padding: 0;
+      color: var(--learning-secondary-ink);
+      background: none;
+      border: 0;
+      font-size: 11px;
+      font-weight: 750;
+      text-decoration: underline;
+      cursor: pointer;
     }
     .setup-support {
       margin-top: 14px;
@@ -1067,6 +1085,20 @@ export class CpkLearningView extends LitElement {
           <div class="step-header"><span class="step-number">✓</span></div>
           <h3>Copy the setup prompt</h3>
           <p>Nice work. You’ve completed the first step.</p>
+          <button
+            class="copy-again"
+            type="button"
+            aria-live="polite"
+            @click=${() => this.emit("learning-recopy-setup")}
+          >
+            ${
+              this.recopyState === "copied"
+                ? "✓ Copied!"
+                : this.recopyState === "error"
+                  ? "Try copying again"
+                  : "Copy prompt again"
+            }
+          </button>
         </li>
         <li
           class="step ${
@@ -1585,13 +1617,26 @@ export class CpkLearningView extends LitElement {
             <h1>Learning</h1>
             <p>Your Agent learns from conversations and improves over time.</p>
           </div>
-          ${
-            this.refreshing
-              ? html`
-                  <span class="refreshing" role="status">Refreshing</span>
-                `
-              : nothing
-          }
+          <div class="pane-actions">
+            ${
+              state === "setup" && this.setupActive
+                ? html`<button
+                    class="secondary"
+                    type="button"
+                    @click=${() => this.emit("learning-go-back")}
+                  >
+                    ← Go back
+                  </button>`
+                : nothing
+            }
+            ${
+              this.refreshing
+                ? html`
+                    <span class="refreshing" role="status">Refreshing</span>
+                  `
+                : nothing
+            }
+          </div>
         </header>
         ${retry}
         ${content}

@@ -4,6 +4,7 @@ import { compactEvents, EventType } from "@ag-ui/client";
 import { EventSchemas } from "@ag-ui/core/schemas";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
+import type * as AISDK from "ai";
 import {
   mockStreamTextResponse,
   toolCallStreamingStart,
@@ -38,7 +39,8 @@ function cloneFallbackCallback() {
 }
 
 // Mock the ai module
-vi.mock("ai", () => ({
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof AISDK>()),
   streamText: vi.fn(),
   tool: vi.fn((config) => config),
 }));

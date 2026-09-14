@@ -73,7 +73,7 @@ export function DocsPageTools({
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
     <div
-      className="docs-page-tools flex min-w-0 flex-row items-center"
+      className={`docs-page-tools flex min-w-0 flex-row items-center${hideOnboardingPrompt ? "" : " docs-page-tools-prompt"}`}
       role="group"
       aria-label="Page actions"
     >

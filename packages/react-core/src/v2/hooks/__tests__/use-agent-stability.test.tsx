@@ -13,6 +13,7 @@ import {
 // Mock the CopilotKit context to control copilotkit state directly
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
+  useDefaultAgentId: vi.fn(() => undefined),
 }));
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;

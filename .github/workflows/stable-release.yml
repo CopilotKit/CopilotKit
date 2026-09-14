@@ -108,11 +108,18 @@ jobs:
       - name: Generate AI release notes
         if: inputs.dry_run != true
         id: ai_notes
-        run: pnpm tsx scripts/release/generate-ai-release-notes.ts "${{ steps.prepare.outputs.version }}"
+        run: pnpm tsx scripts/release/generate-ai-release-notes.ts "${{ steps.prepare.outputs.version }}" "${{ inputs.scope }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
-          NOTION_RELEASE_NOTES_PAGE: ${{ secrets.NOTION_RELEASE_NOTES_PAGE }}
+
+      # release-notes.md is untracked scratch. The lane's CHANGELOG.md is the
+      # committed artifact: create-pull-request stages it (a tracked file), the
+      # release PR merges it to main, and the publish job reads the section back
+      # as the GitHub Release body.
+      - name: Record notes in the lane changelog
+        if: inputs.dry_run != true
+        id: changelog
+        run: pnpm tsx scripts/release/write-changelog.ts "${{ steps.prepare.outputs.version }}" "${{ inputs.scope }}"
 
       - name: Mint devops-bot token
         if: inputs.dry_run != true
@@ -155,8 +162,9 @@ jobs:
             2. **CI runs on this PR** — the full test suite (unit tests, lint, type checks, build)
                must pass before merging. This is the review gate.
 
-            3. **Review the release notes** in `release-notes.md` in this PR.
-               If a Notion draft was created, you can edit the release notes there before merging.
+            3. **Review the release notes** in `${{ steps.changelog.outputs.changelog_path }}`
+               in this PR. Edit the top section on this branch to change what ships:
+               the publish job reads that section back as the GitHub Release body.
 
             4. **When this PR is merged**, the `release / publish` workflow automatically:
                - Builds all packages
@@ -168,31 +176,9 @@ jobs:
 
             - [ ] CI is green (tests, lint, types, build)
             - [ ] Version bumps look correct
-            - [ ] Release notes are accurate (edit in Notion if a draft was created)
+            - [ ] Release notes are accurate (edit `${{ steps.changelog.outputs.changelog_path }}` on this branch)
 
             ---
 
             > **Do not merge until CI is fully green.** The full test suite runs automatically on this PR.
           labels: release
-
-      - name: Comment Notion link on PR
-        if: inputs.dry_run != true && steps.ai_notes.outputs.notion_url
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        env:
-          NOTION_URL: ${{ steps.ai_notes.outputs.notion_url }}
-          PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          script: |
-            const { owner, repo } = context.repo;
-            const prNumber = parseInt(process.env.PR_NUMBER, 10);
-            const notionUrl = process.env.NOTION_URL;
-
-            if (prNumber && notionUrl) {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body: `📝 **Release notes draft:** ${notionUrl}\n\nYou can edit the release notes in Notion before merging. The final content will be used for the GitHub Release.`,
-              });
-            }

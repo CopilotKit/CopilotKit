@@ -1,0 +1,142 @@
+---
+title: Interrupt-based
+icon: "lucide/CirclePause"
+description: Gate a backend tool behind an approval that the agent raises itself, and render it with useInterrupt.
+---
+
+## What is this?
+
+Microsoft Agent Framework can mark a backend tool as approval-gated. When the agent decides to call that tool, it does not run it. It ends the run with an AG-UI interrupt, which carries the pending tool call to your frontend. Your UI asks the user, and your answer resumes the agent.
+
+The backend owns the decision, so the frontend does not register a tool with the same name as the backend tool. Any agent that raises AG-UI interrupts uses this same path.
+
+## When should I use this?
+
+Use this when the action lives on the server and the approval is a property of that action:
+
+- Destructive or irreversible operations, such as deleting a record
+- Spending money, sending mail, or calling a third-party API
+- Anything where the approval rule must hold no matter which frontend is attached
+
+Use [tool-based HITL](/microsoft-agent-framework/human-in-the-loop/tool-based) instead when the work itself runs in the browser.
+
+## Requirements
+
+| Package | Version |
+| --- | --- |
+| `@copilotkit/react-core` | 1.61.2 or later |
+| `agent-framework-ag-ui` (Python) | 1.2.0 or later |
+| `AGUI.Server` (.NET) | 0.0.6 or later |
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+
+    <RunAndConnect />
+  </Step>
+
+  <Step>
+    ### Mark the backend tool as approval-gated
+
+    Nothing else about the tool changes. The framework holds the call and raises the approval for you.
+
+    <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+      <Tab value="Python">
+        ```python title="agent/src/agent.py"
+        from agent_framework import tool
+
+        @tool(
+            name="delete_file",
+            description="Delete a file",
+            approval_mode="always_require", # [!code highlight]
+        )
+        def delete_file(filename: str) -> str:
+            return f"Deleted {filename}."
+        ```
+      </Tab>
+      <Tab value=".NET">
+        ```csharp title="Program.cs"
+        // Wrap the function so the framework requests approval before it runs.
+        var deleteFileTool = new ApprovalRequiredAIFunction( // [!code highlight]
+            AIFunctionFactory.Create(DeleteFile, "delete_file", "Deletes a file"));
+
+        builder.Services.AddChatClient(/* ... */)
+            .ConfigureOptions(options =>
+            {
+                options.Tools ??= [];
+                options.Tools.Add(deleteFileTool);
+            })
+            .UseFunctionInvocation();
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Render the approval with `useInterrupt`
+
+    `useInterrupt` receives every AG-UI interrupt the agent raises. Call `resolve` to approve and resume, or `cancel` to decline.
+
+    ```tsx title="page.tsx"
+    import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+    export function ApprovalPanel() {
+      // renderInChat: false makes useInterrupt return the element, so render it yourself.
+      const approval = useInterrupt({
+        renderInChat: false,
+        render: ({ interrupt, resolve, cancel }) => {
+          if (!interrupt) return <></>;
+          return (
+            <div>
+              <p>{interrupt.message}</p>
+              {/* [!code highlight:2] */}
+              <button onClick={() => resolve({ approved: true })}>Approve</button>
+              <button onClick={() => cancel()}>Deny</button>
+            </div>
+          );
+        },
+      });
+
+      return <div>{approval}</div>;
+    }
+    ```
+
+    <Callout type="info">
+      `renderInChat` defaults to `true`, which draws your UI inside the chat. If no `<CopilotChat />` is mounted, nothing appears and there is no warning. Pass `renderInChat: false`, as above, and place the returned element yourself.
+    </Callout>
+  </Step>
+
+  <Step>
+    ### Give it a try!
+
+    Ask the agent to delete a file. The run stops, your approval UI appears, and the tool only runs after you approve.
+  </Step>
+</Steps>
+
+## What the interrupt contains
+
+An approval-gated call arrives with `reason` set to `"tool_call"`. These fields are the same for both backends:
+
+| Field | Description |
+| --- | --- |
+| `id` | The interrupt's identity. Pass it to `resolve` or `cancel` when several are open. |
+| `reason` | `"tool_call"` for an approval-gated call. |
+| `message` | A human-readable summary, such as `Approve running delete_file?` |
+| `toolCallId` | The pending call's id. It matches the `TOOL_CALL_START` event both backends emit, so you can correlate the two. |
+| `responseSchema` | JSON Schema for the payload the agent expects. Both backends ask for a boolean `approved`. |
+
+The Python adapter also puts the whole request under `interrupt.metadata.agent_framework.function_call`, which gives you the tool `name` and its `arguments`. The .NET server does not send that field, so read the tool name from `message` if you support both.
+
+## Approving, denying, and cancelling
+
+`cancel()` and `resolve({ approved: false })` both leave the tool unrun, but they end the turn differently:
+
+- `resolve({ approved: true })` resumes the agent and the tool runs.
+- `resolve({ approved: false })` hands the refusal to the agent, which continues and can reply to the user.
+- `cancel()` ends the run immediately.
+
+<Callout type="warn">
+  Do not register a frontend tool with the same name as a backend tool. Tool names must be unique across both, and a collision fails the run with `Duplicate tool name`.
+</Callout>

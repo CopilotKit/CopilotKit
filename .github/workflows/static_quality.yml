@@ -276,6 +276,9 @@ jobs:
       - name: Test the declaration-file validator
         run: pnpm exec vitest run scripts/__tests__/validate-dts-ambient.test.ts
 
+      - name: Test the reference-docs generator
+        run: pnpm exec vitest run scripts/__tests__/docs-reference-generator.test.ts
+
       - name: Run publint, attw, and check-dts
         run: pnpm run check:packages
 

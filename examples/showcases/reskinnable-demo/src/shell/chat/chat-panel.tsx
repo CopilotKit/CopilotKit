@@ -6,6 +6,12 @@ import { SubagentFilteredAssistantMessage } from "@/shell/subagents/subagent-mes
 import type { CopilotChatProps } from "@copilotkit/react-core/v2";
 
 import { useSkin } from "@/shell/skin-provider";
+import {
+  COMPOSER_ACCEPT,
+  COMPOSER_MAX_SIZE,
+  reportUploadFailure,
+  uploadAttachment,
+} from "@/shell/attach";
 import { ChatPanelHeader } from "./chat-panel-header";
 import { ChatInbox } from "./chat-inbox";
 import { useChatInbox } from "./chat-inbox-context";
@@ -72,13 +78,25 @@ export function ChatPanel({ threadId }: { threadId: string }) {
               DemoSuggestionsView as CopilotChatProps["suggestionView"]
             }
             // Multimodal attachments: officers can drop a PDF (e.g. a vendor
-            // invoice) or an image into the composer. With no custom onUpload the
-            // built-in handler base64-encodes the file and sends it as a document
-            // part on the message, so the model can read it.
+            // invoice), an image, or a spreadsheet into the composer.
+            //
+            // PDFs and images ride as-is — the built-in handler base64-encodes
+            // them into a document part the model reads directly. Spreadsheets
+            // cannot: the pinned `@ai-sdk/openai@3` converter rejects every media
+            // type but `image/*` and `application/pdf`, and an .xlsx therefore
+            // kills the run rather than degrading. `uploadAttachment` renders one
+            // into a readable document first; see `shell/attach/upload-attachment.ts`.
+            //
+            // `onUploadFailed` is wired for the case the framework otherwise
+            // treats as a silent no-op: a file that fails `accept`/`maxSize`, or a
+            // sheet that cannot be parsed, is DROPPED with no trace, which on
+            // stage reads as a dead click rather than as a rejected file.
             attachments={{
               enabled: true,
-              accept: "application/pdf,image/*",
-              maxSize: 20 * 1024 * 1024,
+              accept: COMPOSER_ACCEPT,
+              maxSize: COMPOSER_MAX_SIZE,
+              onUpload: uploadAttachment,
+              onUploadFailed: reportUploadFailure,
             }}
             // Drop the "AI can make mistakes…" line under the composer.
             input={{ showDisclaimer: false }}

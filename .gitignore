@@ -71,9 +71,10 @@ private-agents.md
 # Agent screenshots from the Inspector workbench skill. Session-only. Never commit.
 .inspector-workbench/
 
-# Release artifacts
+# Scratch file the release lane passes notes through. The committed record is the
+# lane's CHANGELOG.md (see scripts/release/lib/changelog.ts); keeping this one
+# untracked is what stops the same notes existing as two editable copies.
 release-notes.md
-release-notes-notion.json
 
 # Binary artifacts
 *.dSYM/
