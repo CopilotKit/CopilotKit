@@ -205,7 +205,8 @@ function renderHudRow(
     connected?: boolean;
     introIndex: number;
   }>,
-): TemplateResult {
+): TemplateResult | typeof nothing {
+  if (args.connected) return nothing;
   const { controller } = options;
   const detailId = `cpk-hud-detail-${args.id}`;
   return html`
@@ -287,11 +288,14 @@ function renderLauncherHud(
   const availability = options.getHudAvailability();
   const announcementTitle = controller.getUnreadAnnouncementTitle();
   const featureBlockIntroIndex = announcementTitle ? 1 : 0;
+  const dismissOnly =
+    !announcementTitle && availability.threads && availability.learning;
   return html`
     <div
       class="cpk-launcher-hud"
       id="cpk-launcher-hud"
       data-cpk-launcher-hud
+      ?data-cpk-hud-dismiss-only=${dismissOnly}
       data-cpk-hud-side=${state.hudSide}
       data-cpk-hud-vertical=${options.anchorVertical}
       data-cpk-hud-intro=${state.hudIntro ? "true" : nothing}
@@ -301,7 +305,13 @@ function renderLauncherHud(
         "--cpk-launcher-hud-waterfall-duration": `${LAUNCHER_HUD_INTRO_MS.waterfallDuration}ms`,
       })}
     >
-      <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+      ${
+        dismissOnly
+          ? nothing
+          : html`
+              <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+            `
+      }
       <div class="cpk-launcher-hud__card">
         ${
           announcementTitle
@@ -346,6 +356,10 @@ function renderLauncherHud(
             `
             : nothing
         }
+        ${
+          dismissOnly
+            ? nothing
+            : html`
         <ul
           class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
           role="list"
@@ -367,16 +381,24 @@ function renderLauncherHud(
             label: HUD_LEARNING_LABEL,
             icon: "Brain",
             connected: availability.learning,
-            introIndex: featureBlockIntroIndex + 2,
+            introIndex:
+              featureBlockIntroIndex + (availability.threads ? 1 : 2),
           })}
         </ul>
+            `
+        }
         <button
           type="button"
           class="cpk-launcher-hud__dismiss-day"
           data-cpk-dismiss-inspector="day"
           style=${styleMap({
             "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-              featureBlockIntroIndex + 3,
+              dismissOnly
+                ? 0
+                : featureBlockIntroIndex +
+                    Number(!availability.threads) +
+                    Number(!availability.learning) +
+                    1,
             ),
           })}
           @click=${controller.handleHudDismissDayClick}

@@ -42,5 +42,13 @@ export function useFrontendTool<
     // Depend on stable keys by default and allow callers to opt into
     // additional dependencies for dynamic tool configuration.
     // tool.available is included so toggling availability re-registers the tool.
-  }, [tool.name, tool.available, copilotkit, JSON.stringify(extraDeps)]);
+    // tool.webmcp is compared by value (it is commonly an object literal), so
+    // a changed WebMCP config re-registers without churning on identity.
+  }, [
+    tool.name,
+    tool.available,
+    copilotkit,
+    JSON.stringify(extraDeps),
+    JSON.stringify(tool.webmcp ?? null),
+  ]);
 }

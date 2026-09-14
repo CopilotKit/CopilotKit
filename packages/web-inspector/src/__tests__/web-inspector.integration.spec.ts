@@ -793,6 +793,7 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  intelligence?: { wsUrl: string };
   ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
     list: boolean;
@@ -836,6 +837,7 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    intelligence: { wsUrl: "wss://localhost/intelligence" },
     ɵruntimeFetch: runtimeFetch,
     threadEndpoints: {
       list: true,
@@ -942,6 +944,7 @@ function setupRuntimeDiagnostics() {
               },
               audioFileTranscriptionEnabled: false,
               mode: "intelligence",
+              intelligence: { wsUrl: "wss://localhost/intelligence" },
               threadEndpoints: {
                 list: threadListAvailable,
                 inspect: true,
@@ -1039,7 +1042,8 @@ test.each([
     errorCode: undefined,
     requestId: undefined,
     traceId: undefined,
-    lockedHeading: "Renew Intelligence to inspect Threads.",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "expired self-hosted entitlement",
@@ -1059,7 +1063,8 @@ test.each([
     errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
     requestId: "req-expired",
     traceId: "trace-expired",
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "misconfigured self-hosted entitlement",
@@ -1077,7 +1082,8 @@ test.each([
     errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
     requestId: undefined,
     traceId: undefined,
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "unavailable managed entitlement",
@@ -1095,7 +1101,8 @@ test.each([
     errorCode: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
     requestId: undefined,
     traceId: undefined,
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "SDK fail-soft entitlement lookup",
@@ -1113,18 +1120,14 @@ test.each([
     errorCode: "runtime_entitlements_unavailable",
     requestId: undefined,
     traceId: undefined,
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ] as const)(
   "renders structured Runtime entitlement diagnostics for $diagnostic",
   async ({
-    status,
     legacyStatus,
     runtimeEntitlements,
-    errorMessage,
-    errorCode,
-    requestId,
-    traceId,
     lockedHeading,
   }) => {
     const fixture = setupRuntimeDiagnostics();
@@ -1135,27 +1138,11 @@ test.each([
         licenseStatus: legacyStatus,
       });
 
-      const diagnostics = inspector.shadowRoot?.querySelectorAll(
-        "[data-runtime-entitlement-status]",
-      );
-      const diagnostic = inspector.shadowRoot?.querySelector<HTMLElement>(
-        `[data-runtime-entitlement-status="${status}"]`,
-      );
-
-      expect(diagnostics).toHaveLength(1);
-      expect(diagnostic).not.toBeNull();
-      if (errorMessage) {
-        expect(diagnostic?.textContent).toContain(errorMessage);
-      }
-      if (errorCode) {
-        expect(diagnostic?.textContent).toContain(errorCode);
-      }
-      if (requestId) {
-        expect(diagnostic?.textContent).toContain(requestId);
-      }
-      if (traceId) {
-        expect(diagnostic?.textContent).toContain(traceId);
-      }
+      expect(
+        inspector.shadowRoot?.querySelector(
+          '[data-inspector-locked-feature="threads"]',
+        ),
+      ).not.toBeNull();
       expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
       expect(
         fixture.fetchMock.mock.calls.some((call) =>
@@ -1176,17 +1163,13 @@ test("falls back to expired legacy license diagnostics when structured entitleme
       licenseStatus: "expired",
     });
 
-    const diagnostics = inspector.shadowRoot?.querySelectorAll(
-      "[data-runtime-entitlement-status]",
-    );
-    const degraded = inspector.shadowRoot?.querySelector(
-      '[data-runtime-entitlement-status="degraded"]',
-    );
-
-    expect(diagnostics).toHaveLength(1);
-    expect(degraded).not.toBeNull();
+    expect(
+      inspector.shadowRoot?.querySelector(
+        '[data-inspector-locked-feature="threads"]',
+      ),
+    ).not.toBeNull();
     expect(inspector.shadowRoot?.textContent ?? "").toContain(
-      "Renew Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
   } finally {
     fixture.teardown();
@@ -1259,12 +1242,14 @@ test.each([
       },
       licenseStatus: "expired",
     },
-    lockedHeading: "Renew Intelligence to inspect Threads.",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "legacy valid license",
     diagnostics: { licenseStatus: "valid" },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ] as const)(
   "keeps Threads unavailable for $diagnostic when the Runtime omits list capability",
@@ -1539,19 +1524,22 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await inspector.updateComplete;
 
     const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toMatch(/Threads are unavailable\./);
+    expect(text).toContain(
+      "Production-grade chat threads without the complexity. Self hostable.",
+    );
     expect(text).toContain("Talk to an Engineer");
     expect(text).not.toContain("Sign up for Intelligence");
     const ctaLabels = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLAnchorElement>("a") ?? [],
     ).map((anchor) => anchor.textContent?.trim());
     expect(
-      ctaLabels.filter((label) => label === "Talk to an Engineer"),
-    ).toEqual(["Talk to an Engineer"]);
-    const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
-    );
-    expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
+      inspector.shadowRoot?.querySelector(
+        '[data-inspector-locked-feature-talk="threads"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      ctaLabels.filter((label) => label === "Talk to an Engineer").length,
+    ).toBeGreaterThanOrEqual(1);
     expect(text).not.toContain("No threads yet");
     expect(
       fetchMock.mock.calls.some((call) => String(call[0]).includes("/threads")),

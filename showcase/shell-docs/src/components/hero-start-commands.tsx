@@ -30,7 +30,7 @@ const QUICKSTART_BASE_CLASS =
 // accent and underline it inside MDX-rendered pages.
 const QUICKSTART_VARIANT_CLASS: Record<QuickstartVariant, string> = {
   primary:
-    "shell-docs-primary-cta border-[var(--accent)] bg-[var(--accent)] text-[var(--primary-foreground)] hover:bg-[var(--accent-strong)]",
+    "shell-docs-primary-cta border-[var(--accent-fill)] bg-[var(--accent-fill)] text-[var(--primary-foreground)] hover:bg-[var(--accent-strong)]",
   secondary:
     "shell-docs-cta-link border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
 };
@@ -45,12 +45,14 @@ export function QuickstartLinkButton({
   backend,
   fromPath,
   variant = "primary",
+  label = "Quickstart",
 }: {
   href: string;
   frontend?: string;
   backend?: string;
   fromPath?: string;
   variant?: QuickstartVariant;
+  label?: string;
 }) {
   const posthog = usePostHog();
 
@@ -74,7 +76,7 @@ export function QuickstartLinkButton({
       onClick={handleClick}
       className={`${QUICKSTART_BASE_CLASS} ${QUICKSTART_VARIANT_CLASS[variant]}`}
     >
-      Quickstart
+      {label}
       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
     </Link>
   );

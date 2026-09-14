@@ -1,6 +1,7 @@
 import type { CopilotKitCore } from "@copilotkit/core";
 
 import { CpkMemoryList } from "./domains/learning/memory-list.js";
+import { CpkLearningView } from "./domains/learning/snapshot-view.js";
 import {
   CpkThreadInspector,
   ɵCpkThreadDetails,
@@ -63,5 +64,6 @@ export function defineWebInspector(
   defineElementOnce(registry, THREAD_INSPECTOR_TAG, CpkThreadInspector);
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
   defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
+  defineElementOnce(registry, "cpk-learning-view", CpkLearningView);
   defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }

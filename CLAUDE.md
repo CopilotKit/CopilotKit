@@ -28,6 +28,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 - **Documentation lives in shell-docs** — author all CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not here. See [Documentation](.claude/docs/documentation.md).
 - **Inspector UI work** — follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change. Pane add/rename/remove also uses `skills/inspector-docs/SKILL.md`.
+- **Intelligence docs** — when an Intelligence feature ships or Intelligence docs are added, renamed, or removed, follow `skills/intelligence-docs/SKILL.md` so `/intelligence/overview` stays in sync.
 
 ## Reference (read when relevant to your task)
 

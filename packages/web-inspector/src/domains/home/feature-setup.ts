@@ -1,8 +1,5 @@
-import {
-  homeFeatureImplementationPrompt,
-  type HomeServiceId,
-  type HomeServiceTile,
-} from "./model.js";
+import type { HomeServiceId, HomeServiceTile } from "./model.js";
+import { createFeatureOnboardingPrompt } from "./onboarding-prompt.js";
 
 export type HomeFeaturePromptTarget = Pick<
   HomeServiceTile,
@@ -93,7 +90,7 @@ export async function copyHomeFeaturePrompt(
 
   try {
     await options.clipboard.writeText(
-      homeFeatureImplementationPrompt(service, { onboardingRunId }),
+      createFeatureOnboardingPrompt(service.id, onboardingRunId),
     );
     showCopyResult(state, service.id, "copied", generation, options);
   } catch {

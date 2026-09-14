@@ -20,6 +20,41 @@ function useAgent(options?: UseAgentProps): {
 };
 ```
 
+## Two valid shapes
+
+The options object admits exactly two shapes, and the type rejects everything in between:
+
+```tsx
+// Bind to an agent — the shared instance from the registry. The thread comes
+// from the surrounding chat configuration.
+const { agent } = useAgent();
+const { agent } = useAgent({ agentId: "default" });
+
+// Bind a private agent to a thread — all three properties are required.
+const { agent } = useAgent({
+  agentId: "chat-1",          // local id to register the private agent under
+  runtimeAgentId: "default",  // the runtime agent it routes to
+  threadId: "thread-abc",     // the thread to pin it to
+});
+```
+
+<Callout type="warn">
+  Partial combinations do not compile. `useAgent({ agentId, threadId })`,
+  `useAgent({ agentId, runtimeAgentId })` and
+  `useAgent({ runtimeAgentId, threadId })` are all type errors.
+
+A runtime agent registered under a given id is a singleton. Writing a
+per-hook `threadId` straight onto it would let two `useAgent` calls that
+share an `agentId` clobber each other's thread, so scoping a thread requires
+a private agent to pin it to.
+
+</Callout>
+
+Use the second shape when several frontend agents — one per open thread, for
+instance — have to mount against a single runtime agent. `runtimeAgentId`
+registers a proxied agent through `CopilotKitCore.registerProxiedAgent`, so each
+hook gets its own instance instead of a shared one.
+
 ## Parameters
 
 <PropertyReference name="options" type="UseAgentProps">
@@ -28,7 +63,41 @@ function useAgent(options?: UseAgentProps): {
 <PropertyReference name="agentId" type="string" default='"default"'>
   ID of the agent to retrieve. Must match an agent configured in
   `CopilotKit`.
+
+  In the thread-scoped shape this is the **local** id to register the private
+  agent under, and it must not already be taken. The usual fallbacks — the chat
+  configuration's `agentId`, then the global default — name agents that already
+  exist, so pass an id of your own.
 </PropertyReference>
+
+  <PropertyReference name="runtimeAgentId" type="string">
+    The runtime agent to route outbound requests to, while the hook exposes a
+    distinct local `agentId`. Registers a proxied agent via
+    `CopilotKitCore.registerProxiedAgent`.
+
+    Requires `threadId`. Registering a private agent is only worth doing in
+    order to scope a thread to it.
+
+  </PropertyReference>
+
+  <PropertyReference name="threadId" type="string">
+    Thread to scope the agent's run to. It is written onto the underlying agent,
+    so `/agent/run`, `/agent/connect` and `/agent/stop` all address this thread.
+
+    Requires `runtimeAgentId`. Omit both to take the thread from the chat
+    configuration instead.
+
+  </PropertyReference>
+
+  <PropertyReference name="throttleMs" type="number">
+    How long to batch re-render notifications for. Run lifecycle callbacks
+    (`onRunInitialized`, `onRunFinalized`, `onRunFailed`, `onRunErrorEvent`)
+    always fire immediately regardless.
+
+    When unset it inherits the provider's `defaultThrottleMs`; if that is also
+    unset the effective value is `0`, meaning no throttle.
+
+  </PropertyReference>
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
     Controls which agent changes trigger component re-renders. Options:

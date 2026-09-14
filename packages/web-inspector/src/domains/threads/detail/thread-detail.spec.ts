@@ -62,6 +62,9 @@ type ExampleHarness = Readonly<{
 }>;
 
 class ExampleTestCore extends CopilotKitCore {
+  override get intelligence() {
+    return { wsUrl: "" };
+  }
   constructor() {
     super({
       runtimeUrl: RUNTIME_URL,

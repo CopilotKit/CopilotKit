@@ -741,6 +741,11 @@ export class CopilotKitCore {
     return this.agentRegistry.suggestions;
   }
 
+  /** Whether the connected Runtime exposes debug-authorized Learning data. */
+  get inspectorLearning(): boolean {
+    return this.agentRegistry.inspectorLearning;
+  }
+
   /** Trusted, optional metadata advertised by the connected runtime. */
   get inspectorMetadata(): InspectorMetadataV1 | undefined {
     return this.agentRegistry.inspectorMetadata;
@@ -970,13 +975,13 @@ export class CopilotKitCore {
   /**
    * Lazily creates, starts, and context-syncs the core-owned memory store on
    * first access, then returns it. Subsequent calls return the existing store.
-   * The store is constructed with a bound `globalThis.fetch` and immediately
-   * has its runtime context synced from the current connection state.
+   * The store uses the Core Runtime fetch so REST and single-route transports
+   * share the same resource behavior. Its Runtime context is synced at once.
    */
   private ensureMemoryStore(): ɵMemoryStore {
     if (!this._memoryStore) {
       this._memoryStore = ɵcreateMemoryStore({
-        fetch: globalThis.fetch.bind(globalThis),
+        fetch: this.ɵruntimeFetch,
       });
       this._memoryStore.start();
       this.syncMemoryContext();

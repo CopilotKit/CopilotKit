@@ -69,7 +69,13 @@ export type UseFrontendToolArgs<T extends Parameter[] | [] = []> = {
   available?: "disabled" | "enabled";
 } & Pick<
   FrontendAction<T>,
-  "name" | "description" | "parameters" | "handler" | "followUp" | "render"
+  | "name"
+  | "description"
+  | "parameters"
+  | "handler"
+  | "followUp"
+  | "render"
+  | "webmcp"
 >;
 
 /**
@@ -95,7 +101,8 @@ export function useFrontendTool<const T extends Parameter[] = []>(
   tool: UseFrontendToolArgs<T>,
   dependencies?: any[],
 ) {
-  const { name, description, parameters, render, followUp, available } = tool;
+  const { name, description, parameters, render, followUp, available, webmcp } =
+    tool;
   const zodParameters = getZodParameters(parameters);
 
   const renderRef = useRef<typeof render>(render);
@@ -158,5 +165,6 @@ export function useFrontendTool<const T extends Parameter[] = []>(
     followUp,
     render: normalizedRender,
     available: available === undefined ? undefined : available !== "disabled",
+    webmcp,
   });
 }

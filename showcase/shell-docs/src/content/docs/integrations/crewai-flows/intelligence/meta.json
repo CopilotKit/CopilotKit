@@ -1,5 +1,5 @@
 {
   "title": "Intelligence",
-  "icon": "lucide/Star",
+  "icon": "custom/copilotkit-kite",
   "pages": ["overview", "self-hosting"]
 }

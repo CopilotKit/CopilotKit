@@ -1596,18 +1596,19 @@ async function executeBackendTool(
     };
   }
 
+  // @region[shared-state-set-notes-handler]
   if (toolName === "set_notes") {
     const notes = Array.isArray(toolInput.notes)
       ? (toolInput.notes as unknown[]).filter(
-          (n): n is string => typeof n === "string",
+          (note): note is string => typeof note === "string",
         )
       : [];
-    const next = { ...state, notes };
     return {
       resultText: JSON.stringify({ status: "ok", count: notes.length }),
-      state: next,
+      state: { ...state, notes },
     };
   }
+  // @endregion[shared-state-set-notes-handler]
 
   if (toolName === "write_document") {
     const document =
@@ -2392,6 +2393,7 @@ app.post(
 // the agent reads them out of input.state every turn and prepends them to
 // the system prompt; the backend `set_notes` tool writes notes back into
 // shared state, emitted via STATE_SNAPSHOT.
+// @region[shared-state-read-write-route]
 app.post(
   "/shared-state-read-write",
   async (req: Request, res: Response): Promise<void> => {
@@ -2411,6 +2413,7 @@ app.post(
     });
   },
 );
+// @endregion[shared-state-read-write-route]
 
 // @region[shared-state-streaming-route]
 // Shared State Streaming — copy Claude's streamed write_document argument

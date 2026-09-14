@@ -8,7 +8,7 @@ export const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 export const THREADS_RUNTIME_SETUP_DOCS_URL =
   "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
 export const SELF_HOSTED_INTELLIGENCE_URL =
-  "https://docs.copilotkit.ai/premium/self-hosting";
+  "https://docs.copilotkit.ai/intelligence/self-hosting";
 export const THREADS_RUNTIME_SETUP_PROMPT = [
   `Read ${THREADS_RUNTIME_SETUP_DOCS_URL} and finish setting up Rich Threads in this repository.`,
   "",
@@ -269,6 +269,7 @@ export interface ThreadsViewModel {
   usageFooter: unknown;
   tour: unknown;
   overview: unknown;
+  ephemeralBanner?: unknown;
 }
 
 export interface ThreadsViewActions {
@@ -292,6 +293,7 @@ export function renderThreadsView(
         <div
           style="width:${state.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
         >
+          ${model.ephemeralBanner ?? nothing}
           <cpk-thread-list
             style="min-height:0;flex:1;"
             data-color-scheme=${model.colorScheme}

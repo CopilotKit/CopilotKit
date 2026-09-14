@@ -1,0 +1,4 @@
+source 'https://rubygems.org'
+gem 'rails', '7.1.5.2'
+gem 'copilotkit-runtime', path: '../..'
+gem 'webrick', '~> 1.8'

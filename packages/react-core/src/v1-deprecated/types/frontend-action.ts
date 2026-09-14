@@ -74,6 +74,7 @@
  */
 
 import { ActionInputAvailability } from "@copilotkit/runtime-client-gql";
+import type { WebMCPToolConfig } from "@copilotkit/core";
 import type {
   Action,
   Parameter,
@@ -237,6 +238,12 @@ export type FrontendAction<
   available?: FrontendActionAvailability;
   pairedAction?: string;
   followUp?: boolean;
+  /**
+   * Also expose this action to browser agents through the WebMCP API
+   * (`document.modelContext`). `true` uses default annotations;
+   * `{ annotations }` provides WebMCP annotations.
+   */
+  webmcp?: boolean | WebMCPToolConfig;
 } & (
     | {
         render?:

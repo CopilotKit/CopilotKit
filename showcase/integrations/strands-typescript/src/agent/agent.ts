@@ -42,7 +42,9 @@ import {
 
 export async function buildShowcaseAgent(): Promise<StrandsAgent> {
   const config: StrandsAgentConfig = {
+    // @region[agent-config-context-registration]
     stateContextBuilder: buildStatePrompt,
+    // @endregion[agent-config-context-registration]
     toolBehaviors: {
       // Sales pipeline lives in shared state; emit the snapshot from args.
       manage_sales_todos: {

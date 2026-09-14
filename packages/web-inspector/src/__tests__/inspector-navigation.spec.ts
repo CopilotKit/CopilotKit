@@ -42,6 +42,7 @@ type SetupOptions = {
     announcement: string;
   };
   runtimeMode?: "sse" | "intelligence";
+  intelligenceEnabled?: boolean;
   telemetryDisabled?: boolean;
   threads?: ɵThread[];
   failThreadMessages?: boolean;
@@ -145,6 +146,7 @@ async function setup(
             : {},
           audioFileTranscriptionEnabled: false,
           mode: options.runtimeMode ?? "sse",
+          intelligence: options.intelligenceEnabled ? { wsUrl: "" } : undefined,
           threadEndpoints: {
             list: Boolean(options.threads),
             inspect: Boolean(options.threads),
@@ -516,8 +518,368 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
   }
 });
 
+test("Playground creates an isolated local thread and explains ephemeral durability", async () => {
+  const context = await setup({ agent: true });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    expectCurrentNavigation(root, "workbench", "playground");
+    expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
+      "Agent: default",
+    );
+    const input = requireElement(
+      root.querySelector<HTMLTextAreaElement>(
+        'textarea[aria-label="Playground message"]',
+      ),
+      "Playground message input was not rendered",
+    );
+    input.value = "Hello from Inspector";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await context.inspector.updateComplete;
+    expect(
+      requireElement(
+        root.querySelector<HTMLButtonElement>(
+          'button[aria-label="Send playground message"]',
+        ),
+        "Playground send button was not rendered",
+      ).disabled,
+    ).toBe(false);
+
+    const newThread = requireElement(
+      Array.from(root.querySelectorAll<HTMLButtonElement>("button")).find(
+        (button) => button.textContent?.trim() === "New thread",
+      ),
+      "Playground New thread button was not rendered",
+    );
+    newThread.click();
+    await context.inspector.updateComplete;
+
+    const notice = requireElement(
+      root.querySelector<HTMLElement>("[data-playground-ephemeral-notice]"),
+      "Ephemeral thread notice was not rendered",
+    );
+    expect(notice.textContent?.replace(/\s+/g, " ")).toContain(
+      "deleted when your local session ends",
+    );
+    expect(notice.textContent).toContain("Set up Intelligence");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground forks saved thread history without changing the app agent", async () => {
+  const context = await setup({
+    agent: true,
+    threads: [
+      {
+        id: "thread-1",
+        organizationId: "organization-1",
+        agentId: "default",
+        createdById: "user-1",
+        name: "Saved conversation",
+        archived: false,
+        createdAt: "2026-08-19T12:00:00.000Z",
+        updatedAt: "2026-08-19T12:01:00.000Z",
+      },
+    ],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    await waitFor(
+      () => root.querySelector("#cpk-playground-thread-source") !== null,
+      "saved thread selector",
+    );
+    const source = requireElement(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source"),
+      "Saved thread selector was not rendered",
+    );
+    source.value = "thread-1";
+    source.dispatchEvent(
+      new Event("change", { bubbles: true, composed: true }),
+    );
+
+    await waitFor(
+      () => root.textContent?.includes("Earlier answer") === true,
+      "saved thread messages",
+    );
+    expect(root.textContent).toContain("Earlier question");
+    expect(context.core.getAgent("default")?.messages).toEqual([]);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here copies a stored thread into Playground without changing the app agent", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const button = requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    );
+    expect(button.closest(".cpk-td__timeline-toolbar")).not.toBeNull();
+    expect(button.querySelector("svg")).not.toBeNull();
+    button.click();
+
+    await waitFor(
+      () => root.textContent?.includes("Earlier answer") === true,
+      "copied thread messages",
+    );
+    expectCurrentNavigation(root, "workbench", "playground");
+    expect(root.textContent).toContain("Earlier question");
+    expect(context.core.getAgent("default")?.messages).toEqual([]);
+    expect(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source")
+        ?.value,
+    ).toBe("thread-1");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here discards a stale copy after leaving Threads", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+
+    const pendingFetch = globalThis.fetch;
+    let releaseMessages!: () => void;
+    let messagesResolved = false;
+    const messagesGate = new Promise<void>((resolve) => {
+      releaseMessages = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const isMessages = url.endsWith("/threads/thread-1/messages");
+        if (isMessages) {
+          await messagesGate;
+        }
+        const response = await pendingFetch(input, init);
+        if (isMessages) {
+          messagesResolved = true;
+        }
+        return response;
+      },
+    );
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const button = requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    );
+    button.click();
+    await context.selectLeaf("home");
+    expectCurrentNavigation(root, "home", "home");
+
+    releaseMessages();
+    await waitFor(() => messagesResolved, "stale Try from here load");
+    await context.inspector.updateComplete;
+
+    expectCurrentNavigation(root, "home", "home");
+    await context.selectLeaf("playground");
+    expect(root.textContent).not.toContain("Earlier answer");
+    expect(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source")
+        ?.value ?? "",
+    ).not.toBe("thread-1");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here stays on Threads when messages fail", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+    failThreadMessages: true,
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const button = requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    );
+    button.click();
+    await waitFor(() => {
+      const details = root.querySelector("cpk-thread-details");
+      return (
+        details?.shadowRoot?.textContent?.includes("Failed to load thread") ===
+        true
+      );
+    }, "Try from here error");
+    expectCurrentNavigation(root, "workbench", "threads");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here is hidden on example tour threads", async () => {
+  const context = await setup({
+    agent: true,
+    threads: [],
+    intelligenceEnabled: true,
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    await waitFor(() => {
+      const list = root.querySelector("cpk-thread-list");
+      return Boolean(list?.shadowRoot?.querySelector(".cpk-tl__item"));
+    }, "example thread row");
+    const list = requireElement(
+      root.querySelector("cpk-thread-list"),
+      "Thread list was not rendered",
+    );
+    const row = requireElement(
+      list.shadowRoot?.querySelector<HTMLButtonElement>(".cpk-tl__item"),
+      "Example thread row was not rendered",
+    );
+    row.click();
+    await context.inspector.updateComplete;
+    await waitFor(
+      () => root.querySelector("cpk-thread-details") !== null,
+      "example thread details",
+    );
+    expect(tryFromHereButton(root)).toBeNull();
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground omits the durability CTA when Intelligence is active", async () => {
+  const context = await setup({ agent: true, runtimeMode: "intelligence" });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const newThread = requireElement(
+      Array.from(root.querySelectorAll<HTMLButtonElement>("button")).find(
+        (button) => button.textContent?.trim() === "New thread",
+      ),
+      "Playground New thread button was not rendered",
+    );
+    newThread.click();
+    await context.inspector.updateComplete;
+
+    expect(root.querySelector("[data-playground-ephemeral-notice]")).toBeNull();
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground composer stays readable in dark mode", async () => {
+  const context = await setup({ agent: true });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const inspectorWindow = requireElement(
+      root.querySelector<HTMLElement>(".inspector-window"),
+      "Inspector window was not rendered",
+    );
+    const toggle = requireElement(
+      root.querySelector<HTMLButtonElement>("[data-inspector-theme-toggle]"),
+      "Theme toggle was not rendered",
+    );
+
+    toggle.click();
+    await waitFor(
+      () => inspectorWindow.dataset.colorScheme === "dark",
+      "dark color scheme",
+    );
+
+    expect(
+      root
+        .querySelector('textarea[aria-label="Playground message"]')
+        ?.classList.contains("cpk-playground-input"),
+    ).toBe(true);
+    expect(root.querySelector(".cpk-playground-composer")).not.toBeNull();
+    expect(
+      root
+        .querySelector('button[aria-label="Send playground message"]')
+        ?.classList.contains("cpk-playground-send"),
+    ).toBe(true);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground surface styles live in the Web Inspector shadow root", () => {
+  const styles = WebInspectorElement.styles as Array<{ cssText?: string }>;
+  const cssText = styles.map((style) => style.cssText ?? "").join("\n");
+
+  expect(cssText).toMatch(
+    /\.cpk-playground-root\s*\{[^}]*background:\s*#fbfbfd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-header\s*\{[^}]*min-height:\s*58px[^}]*background:\s*#f7f6fd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-composer\s*\{[^}]*border:\s*1px solid #dcdce8/s,
+  );
+  expect(cssText).toMatch(
+    /\.inspector-window\[data-color-scheme="dark"\]\s+\.cpk-playground-composer\s*\{[^}]*background:\s*#15171e\s*!important/s,
+  );
+  expect(cssText).toContain("@keyframes cpk-playground-message-enter");
+});
+
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
-  const context = await setup({ metadata: trustedMetadata() });
+  const context = await setup({
+    metadata: trustedMetadata(),
+    intelligenceEnabled: true,
+  });
   try {
     await context.open();
 
@@ -714,7 +1076,7 @@ test("trusted identity stays on Home while connection state moves into branded c
     expect(learningDocs.textContent).toContain("Learning");
     expect(learningDocs.querySelector("svg")).not.toBeNull();
     expect(learningDocs.href).toBe(
-      "https://docs.copilotkit.ai/premium/intelligence-platform?ref=cpk-inspector-home",
+      "https://docs.copilotkit.ai/intelligence/intelligence-platform?ref=cpk-inspector-home",
     );
     expect(
       learning.firstElementChild?.classList.contains(
@@ -980,20 +1342,20 @@ test("Home feature actions copy correlated onboarding prompts", async () => {
       String(prompt),
     );
     const onboardingRunIds = copiedPrompts.map((prompt) => {
-      expect(prompt).toContain(
-        "Identify your coding-agent slug (for example, `codex` or `claude-code`)",
-      );
-      expect(prompt).toContain(
-        "never reveal credentials or send optional diagnostic feedback reports",
-      );
-      expect(prompt).toContain(
-        "local validation proves A2UI works—not merely that the code compiles",
-      );
-      expect(prompt).toContain("A2UI guide");
-      expect(prompt).not.toContain("--intent");
-      const match = prompt.match(
-        /--run ([A-Za-z0-9_-]{12}) --coding-agent <coding-agent-slug>/,
-      );
+      // Identification left the copied text for the graph, which asks for the
+      // slug with `onboard identify` (Intelligence OSS-1157). The standing
+      // permission stays: a human grants it by copying this, and the graph
+      // cannot grant it to itself.
+      expect(prompt).toContain("Help me set this up in my CopilotKit app.");
+      expect(prompt).not.toContain("Identify your coding-agent slug");
+      expect(prompt).toContain("Never reveal credentials");
+      expect(prompt).not.toContain("optional diagnostic feedback");
+      // The A2UI route owns the guide link, the plan and the proof step. The
+      // button's whole job is to name the outcome.
+      expect(prompt).toContain("--intent add-a2ui");
+      expect(prompt).not.toContain("A2UI guide");
+      expect(prompt).not.toContain("not merely that the code compiles");
+      const match = prompt.match(/--run ([A-Za-z0-9_-]{12})/);
       expect(match?.[1]).toBeDefined();
       return match![1]!;
     });
@@ -1279,7 +1641,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
     {
       leaf: "threads",
       group: "workbench",
-      marker: "Threads are unavailable.",
+      marker:
+        "Production-grade chat threads without the complexity. Self hostable.",
     },
     { leaf: "memories", group: "workbench", marker: "Learning" },
     { leaf: "home", group: "home", marker: "System Health" },
@@ -1306,9 +1669,8 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
         "Web Inspector shadow root was not rendered",
       );
       expectCurrentNavigation(root, expected.group, expected.leaf);
-      expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-        expected.marker,
-      );
+      const renderedText = root.querySelector("#cpk-main-scroll")?.textContent;
+      expect(renderedText).toContain(expected.marker);
       expect(storedSelectedMenu()).toBe(expected.leaf);
     } finally {
       context.teardown();
@@ -1832,7 +2194,11 @@ test("Try from here stays on Threads when messages fail", async () => {
 });
 
 test("Try from here is hidden on example tour threads", async () => {
-  const context = await setup({ agent: true, threads: [] });
+  const context = await setup({
+    agent: true,
+    intelligenceEnabled: true,
+    threads: [],
+  });
   try {
     await context.open();
     await context.selectLeaf("threads");

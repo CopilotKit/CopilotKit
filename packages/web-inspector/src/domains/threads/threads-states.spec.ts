@@ -119,6 +119,7 @@ type SettledStateOptions = Readonly<{
   metadata?: InspectorMetadataV1;
   runtimeLicense?: RuntimeLicenseStatus;
   telemetryDisabled?: boolean;
+  intelligenceEnabled?: boolean;
 }>;
 
 type SettledStateHarness = Readonly<{
@@ -142,6 +143,7 @@ class StateTestCore extends CopilotKitCore {
   private readonly metadataValue: InspectorMetadataV1 | undefined;
   private readonly runtimeLicenseValue: RuntimeLicenseStatus | undefined;
   private readonly telemetryDisabledValue: boolean;
+  intelligenceEnabled: boolean;
 
   constructor(options: Partial<SettledStateOptions> = {}) {
     super({
@@ -158,6 +160,7 @@ class StateTestCore extends CopilotKitCore {
     this.metadataValue = options.metadata;
     this.runtimeLicenseValue = options.runtimeLicense;
     this.telemetryDisabledValue = options.telemetryDisabled ?? false;
+    this.intelligenceEnabled = options.intelligenceEnabled ?? true;
   }
 
   override get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
@@ -165,7 +168,7 @@ class StateTestCore extends CopilotKitCore {
   }
 
   override get intelligence(): IntelligenceRuntimeInfo | undefined {
-    return undefined;
+    return this.intelligenceEnabled ? { wsUrl: "" } : undefined;
   }
 
   override get inspectorMetadata(): InspectorMetadataV1 | undefined {
@@ -986,7 +989,7 @@ const lockedCapabilityCases = [
 }>;
 
 test.each(lockedCapabilityCases)(
-  "locked Threads reuse the local demo frame for $name without real routes",
+  "locked Threads render the full-page Rich Threads gate for $name without real routes",
   async (case_) => {
     const harness = await setupSettledState({
       endpoints: case_.endpoints,
@@ -1005,40 +1008,44 @@ test.each(lockedCapabilityCases)(
     });
     try {
       const root = harness.inspector.shadowRoot!;
-      const rows = harness.rows();
-
-      expect(rows.map((row) => row.textContent)).toEqual([
-        expect.stringContaining("Realtime thread sync"),
-        expect.stringContaining("Manage saved conversations"),
-        expect.stringContaining("Inspect durable run history"),
-      ]);
-      expect(harness.threadList().threads.map((thread) => thread.id)).toEqual([
-        "example-realtime-sync",
-        "example-manage-history",
-        "example-inspect-runs",
-      ]);
-      expect(harness.threadList().shadowRoot?.textContent).not.toContain(
-        "Persisted support thread",
-      );
+      expect(root.querySelector("cpk-thread-list")).toBeNull();
+      expect(root.textContent).toContain("Rich Threads");
       expect(root.textContent).toContain(
-        "Enable Intelligence to inspect Threads.",
+        "Production-grade chat threads without the complexity. Self hostable.",
       );
-      expect(
-        root.querySelector(".cpk-threads-overview-video-frame"),
-      ).not.toBeNull();
+      const video = root.querySelector<HTMLIFrameElement>(
+        '[data-inspector-feature-video="threads"]',
+      );
+      expect(video?.src).toBe(
+        "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true",
+      );
+      const outline = root.querySelector(
+        '[data-inspector-feature-outline="threads"]',
+      );
+      expect(outline?.getAttribute("aria-label")).toBe(
+        "Rich Threads capabilities",
+      );
+      expect(outline?.textContent).toContain(
+        "The whole conversation comes back",
+      );
+      expect(outline?.textContent).toContain(
+        "Generated UI stays in the thread",
+      );
+      expect(outline?.textContent).toContain("Return without starting over");
+      expect(outline?.textContent).toContain(
+        "Infrastructure you do not have to rebuild",
+      );
       expect(root.textContent).not.toContain("Learn how Threads work");
       expect(root.textContent).not.toContain(
         "Explore self-hosted Intelligence",
       );
       const action = root.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="locked"]',
+        '[data-inspector-locked-feature-talk="threads"]',
       );
-      expect(action?.textContent?.trim()).toBe("Enable Intelligence");
-      expect(action?.href).toBe("https://cloud.copilotkit.ai/actions/enable");
-      expect(
-        root.querySelector("[data-inspector-threads-footer]"),
-      ).not.toBeNull();
-      expect(root.textContent).toContain("0 / 200 Threads");
+      expect(action?.textContent?.trim()).toBe("Talk to an Engineer");
+      expect(new URL(action!.href).pathname).toBe("/talk-to-an-engineer");
+      expect(root.querySelector("[data-inspector-threads-footer]")).toBeNull();
+      expect(root.textContent).not.toContain("0 / 200 Threads");
       expect(harness.routes()).toEqual(ZERO_ROUTES);
       const lockedEvents = telemetryFor(
         harness.telemetryBodies,
@@ -1060,23 +1067,13 @@ test.each(lockedCapabilityCases)(
         runtime_url_type: "remote",
         telemetry_disabled: false,
       });
-      expect(exampleEvents).toHaveLength(3);
-      expect(
-        exampleEvents.map(({ properties }) => properties.example_kind),
-      ).toEqual(["realtime_sync", "manage_history", "inspect_runs"]);
+      expect(exampleEvents).toEqual([]);
       expect(
         telemetryFor(
           harness.telemetryBodies,
           TELEMETRY_EVENTS.threadsEmptyEnabledViewed,
         ),
       ).toEqual([]);
-
-      await exerciseLocalExamples(harness, ZERO_ROUTES, "Locked");
-
-      await harness.selectRow("Inspect durable run history");
-      expect(root.textContent).toContain(
-        "Enable Intelligence to inspect Threads.",
-      );
       expect(harness.routes()).toEqual(ZERO_ROUTES);
     } finally {
       await harness.teardown();
@@ -1092,8 +1089,6 @@ type LockedActionCase = Readonly<{
   actionUrl?: string;
   heading: string;
   description?: string;
-  bodyLabel?: string;
-  footerLabel?: string;
 }>;
 
 const lockedActionCases: ReadonlyArray<LockedActionCase> = [
@@ -1103,9 +1098,10 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "valid",
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/manage",
-    heading: "Finish setting up Rich Threads",
-    description: "Copy this prompt into your coding agent to finish the setup.",
-    footerLabel: "Manage Your Plan",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
+    description:
+      "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
   },
   {
     name: "none enable action",
@@ -1113,8 +1109,10 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "none",
     actionKind: "enable_intelligence",
     actionUrl: "https://cloud.copilotkit.ai/actions/enable",
-    heading: "Enable Intelligence to inspect Threads.",
-    bodyLabel: "Enable Intelligence",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
+    description:
+      "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
   },
   {
     name: "expired renew action",
@@ -1122,8 +1120,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "expired",
     actionKind: "renew",
     actionUrl: "https://cloud.copilotkit.ai/actions/renew",
-    heading: "Renew Intelligence to inspect Threads.",
-    bodyLabel: "Renew",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "expired manage action",
@@ -1131,8 +1129,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "expired",
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/manage-expired",
-    heading: "Renew Intelligence to inspect Threads.",
-    bodyLabel: "Manage Your Plan",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "unknown action",
@@ -1140,13 +1138,15 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "unknown",
     actionKind: "manage_plan",
     actionUrl: "https://cloud.copilotkit.ai/actions/unknown",
-    heading: "Threads are unavailable.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "missing action",
     metadataState: "none",
     runtimeLicense: "none",
-    heading: "Enable Intelligence to inspect Threads.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "unsafe matched action",
@@ -1154,7 +1154,8 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "none",
     actionKind: "enable_intelligence",
     actionUrl: "javascript:alert(1)",
-    heading: "Enable Intelligence to inspect Threads.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     name: "known metadata Runtime conflict",
@@ -1162,12 +1163,13 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     runtimeLicense: "expired",
     actionKind: "enable_intelligence",
     actionUrl: "https://cloud.copilotkit.ai/actions/conflict",
-    heading: "Renew Intelligence to inspect Threads.",
+    heading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ];
 
 test.each(lockedActionCases)(
-  "locked action matrix keeps only the trusted $name",
+  "locked action matrix keeps the unified CTAs for $name",
   async (case_) => {
     const harness = await setupSettledState({
       endpoints: DISABLED_ENDPOINTS,
@@ -1182,41 +1184,47 @@ test.each(lockedActionCases)(
     });
     try {
       const root = harness.inspector.shadowRoot!;
-      const bodyAction = root.querySelector<HTMLAnchorElement>(
+      const metadataBodyAction = root.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="locked"]',
       );
-      const footerAction = root.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="threads-footer"]',
+      const talkAction = root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-locked-feature-talk="threads"]',
       );
       const promptAction = root.querySelector<HTMLButtonElement>(
         "[data-inspector-threads-setup-prompt]",
       );
 
       expect(root.textContent).toContain(case_.heading);
+      expect(root.textContent).not.toContain("Threads are unavailable.");
       if (case_.description) {
         expect(root.textContent).toContain(case_.description);
       }
-      expect(harness.rows()).toHaveLength(3);
+      expect(root.querySelector("cpk-thread-list")).toBeNull();
+      expect(root.textContent).toContain("Rich Threads");
       expect(promptAction?.textContent?.trim()).toBe("Copy setup prompt");
-      expect(bodyAction?.textContent?.trim()).toBe(case_.bodyLabel);
-      expect(footerAction?.textContent?.trim()).toBe(case_.footerLabel);
-      if (case_.bodyLabel) {
-        expect(bodyAction?.href).toBe(case_.actionUrl);
-        expect(bodyAction?.target).toBe("_blank");
-        expect(bodyAction?.rel.split(/\s+/)).toContain("noopener");
-      } else {
-        expect(bodyAction).toBeNull();
-      }
+      expect(metadataBodyAction).toBeNull();
+      expect(talkAction?.textContent?.trim()).toBe("Talk to an Engineer");
+      expect(new URL(talkAction!.href).pathname).toBe("/talk-to-an-engineer");
+      expect(talkAction?.target).toBe("_blank");
+      expect(talkAction?.rel.split(/\s+/)).toContain("noopener");
       expect(promptAction?.type).toBe("button");
+      expect(promptAction?.classList.contains("inspector-account-cta")).toBe(
+        true,
+      );
+      expect(
+        promptAction?.classList.contains("cpk-threads-overview-action-primary"),
+      ).toBe(false);
       expect(promptAction?.getAttribute("aria-label")).toBe(
         "Copy setup prompt for Threads",
       );
-      if (case_.footerLabel) {
-        expect(footerAction?.href).toBe(case_.actionUrl);
-      } else {
-        expect(footerAction).toBeNull();
-      }
-      await exerciseLocalExamples(harness, ZERO_ROUTES, case_.name);
+      expect(
+        root.querySelector('.cpk-locked-feature-icon svg[viewBox="0 0 15 15"]'),
+      ).not.toBeNull();
+      expect(
+        root.querySelector(
+          '[data-inspector-action-placement="threads-footer"]',
+        ),
+      ).toBeNull();
       expect(harness.routes()).toEqual(ZERO_ROUTES);
     } finally {
       await harness.teardown();
@@ -1242,9 +1250,10 @@ test("locked Threads copy the feature setup prompt", async () => {
 
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const prompt = writeText.mock.calls[0]?.[0] ?? "";
-    expect(prompt).toContain("This task is specifically to enable Threads");
-    expect(prompt).toContain("https://docs.copilotkit.ai/threads");
-    expect(prompt).toContain("Preserve the project's framework");
+    expect(prompt).toContain("--intent add-rich-threads");
+    expect(prompt).not.toContain("This task is specifically to enable Threads");
+    expect(prompt).not.toContain("https://docs.copilotkit.ai/threads");
+    expect(prompt).not.toContain("Preserve the project's framework");
 
     await harness.flush();
     expect(
@@ -1364,7 +1373,7 @@ const footerCases = footerBodyStates.flatMap((state) =>
 );
 
 test.each(footerCases)(
-  "the $module.name footer stays last in the $state body",
+  "the $state body handles the $module.name footer placement",
   async ({ state, module }) => {
     const metadata = inspectorMetadata(
       "valid",
@@ -1378,6 +1387,13 @@ test.each(footerCases)(
       const footers = root.querySelectorAll<HTMLElement>(
         "footer[data-inspector-threads-footer]",
       );
+      if (state === "locked") {
+        expect(footers).toHaveLength(0);
+        expect(root.textContent).toContain(
+          "Production-grade chat threads without the complexity. Self hostable.",
+        );
+        return;
+      }
       const footer = footers[0];
       expect(footers).toHaveLength(1);
       expect(footer?.parentElement?.lastElementChild).toBe(footer);
@@ -1398,9 +1414,6 @@ test.each(footerCases)(
         expect(action).toBeNull();
       }
 
-      if (state === "locked") {
-        expect(root.textContent).toContain("Finish setting up Rich Threads");
-      }
       if (state === "loading") {
         expect(root.querySelector('[role="status"]')).not.toBeNull();
       }
@@ -1464,6 +1477,183 @@ test("a list error suppresses stale rows, details, examples, and state telemetry
       ),
     ).toEqual([]);
     expect(harness.routes()).toEqual({ ...ZERO_ROUTES, list: 2 });
+  } finally {
+    await harness.teardown();
+  }
+});
+
+test.each([
+  {
+    intelligence: false,
+    available: false,
+    hasThreads: false,
+    setup: true,
+    banner: false,
+  },
+  {
+    intelligence: false,
+    available: true,
+    hasThreads: false,
+    setup: true,
+    banner: false,
+  },
+  {
+    intelligence: false,
+    available: true,
+    hasThreads: true,
+    setup: false,
+    banner: true,
+  },
+  {
+    intelligence: true,
+    available: false,
+    hasThreads: true,
+    setup: true,
+    banner: false,
+  },
+  {
+    intelligence: true,
+    available: true,
+    hasThreads: false,
+    setup: false,
+    banner: false,
+  },
+  {
+    intelligence: true,
+    available: true,
+    hasThreads: true,
+    setup: false,
+    banner: false,
+  },
+])(
+  "Threads journey: Intelligence=$intelligence, available=$available, rows=$hasThreads",
+  async (state) => {
+    const harness = await setupSettledState({
+      endpoints: { ...ENABLED_ENDPOINTS, list: state.available },
+      intelligenceEnabled: state.intelligence,
+      initialThreads: state.hasThreads ? [realThread()] : [],
+    });
+    try {
+      const root = harness.inspector.shadowRoot!;
+      expect(
+        Boolean(
+          root.querySelector('[data-inspector-locked-feature="threads"]'),
+        ),
+      ).toBe(state.setup);
+      expect(
+        Boolean(root.querySelector("[data-inspector-ephemeral-banner]")),
+      ).toBe(state.banner);
+      expect(Boolean(root.querySelector("cpk-thread-list"))).toBe(!state.setup);
+    } finally {
+      await harness.teardown();
+    }
+  },
+);
+
+test.each([false, true])(
+  "ephemeral Threads loading resolves to rows=%s without flashing setup",
+  async (hasThreads) => {
+    const harness = await setupLoadingState({ intelligenceEnabled: false });
+    try {
+      await harness.openThreads();
+      const root = harness.inspector.shadowRoot!;
+      expect(root.querySelector('[role="status"]')?.textContent).toContain(
+        "Loading threads",
+      );
+      expect(
+        root.querySelector('[data-inspector-locked-feature="threads"]'),
+      ).toBeNull();
+      harness.resolveList(hasThreads ? [realThread()] : []);
+      await vi.waitFor(() =>
+        expect(ɵselectThreadsIsLoading(harness.store.getState())).toBe(false),
+      );
+      await harness.flush();
+      expect(
+        Boolean(
+          root.querySelector('[data-inspector-locked-feature="threads"]'),
+        ),
+      ).toBe(!hasThreads);
+      expect(Boolean(root.querySelector("cpk-thread-list"))).toBe(hasThreads);
+    } finally {
+      await harness.teardown();
+    }
+  },
+);
+
+test("ephemeral Threads show empty-list errors instead of setup", async () => {
+  const harness = await setupSettledState({
+    endpoints: ENABLED_ENDPOINTS,
+    intelligenceEnabled: false,
+    initialThreads: [],
+    listErrorAfterRows: "Local runtime unavailable",
+  });
+  try {
+    const root = harness.inspector.shadowRoot!;
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain(
+      "Local runtime unavailable",
+    );
+    expect(
+      root.querySelector('[data-inspector-locked-feature="threads"]'),
+    ).toBeNull();
+    expect(harness.threadList().threads).toEqual([]);
+  } finally {
+    await harness.teardown();
+  }
+});
+
+test("ephemeral Threads replace setup after the first thread and can reopen it", async () => {
+  const harness = await setupSettledState({
+    endpoints: ENABLED_ENDPOINTS,
+    intelligenceEnabled: false,
+    initialThreads: [],
+    deferNextList: true,
+  });
+  try {
+    const root = harness.inspector.shadowRoot!;
+    expect(
+      root.querySelector('[data-inspector-locked-feature="threads"]'),
+    ).not.toBeNull();
+    expect(root.querySelector("cpk-thread-list")).toBeNull();
+    const refresh = harness.store.refresh();
+    harness.resolveDeferredList([realThread()]);
+    await refresh;
+    await vi.waitFor(() =>
+      expect(ɵselectThreads(harness.store.getState())).toHaveLength(1),
+    );
+    await harness.flush();
+    expect(harness.rows()).toHaveLength(1);
+    const banner = root.querySelector("[data-inspector-ephemeral-banner]");
+    expect(banner).not.toBeNull();
+    expect(banner?.nextElementSibling).toBe(
+      root.querySelector("cpk-thread-list"),
+    );
+    root
+      .querySelector<HTMLButtonElement>("[data-inspector-ephemeral-upgrade]")!
+      .click();
+    await harness.flush();
+    expect(
+      root.querySelector('[data-inspector-locked-feature="threads"]'),
+    ).not.toBeNull();
+    root
+      .querySelector<HTMLButtonElement>("[data-inspector-ephemeral-back]")!
+      .click();
+    await harness.flush();
+    expect(harness.rows()).toHaveLength(1);
+    expect(
+      root.querySelector("[data-inspector-ephemeral-banner]"),
+    ).not.toBeNull();
+    root
+      .querySelector<HTMLButtonElement>("[data-inspector-ephemeral-upgrade]")!
+      .click();
+    await harness.flush();
+    harness.core.intelligenceEnabled = true;
+    await harness.core.emitConnected();
+    await harness.flush();
+    expect(harness.rows()).toHaveLength(1);
+    expect(root.querySelector("[data-inspector-ephemeral-banner]")).toBeNull();
+    expect(
+      root.querySelector('[data-inspector-locked-feature="threads"]'),
+    ).toBeNull();
   } finally {
     await harness.teardown();
   }
@@ -1536,7 +1726,7 @@ test("self-hosted enabled zero Threads use only self-hosted onboarding", async (
   try {
     const root = harness.inspector.shadowRoot!;
     const selfHosted = root.querySelector<HTMLAnchorElement>(
-      'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
+      'a[href^="https://docs.copilotkit.ai/intelligence/self-hosting"]',
     );
 
     expect(selfHosted?.textContent?.trim()).toBe(

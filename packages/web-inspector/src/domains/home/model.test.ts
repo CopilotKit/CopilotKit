@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  announcementPreview,
   buildHomeModel,
-  homeFeatureImplementationPrompt,
   homeHeroActionFromMetadata,
   projectInspectorMetadata,
   runtimeConnectionNeedsAttention,
@@ -30,7 +30,7 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeConnectionState: "unavailable",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -71,16 +71,6 @@ describe("home-briefing", () => {
       docsUrl:
         "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
     });
-    expect(
-      homeFeatureImplementationPrompt(learning!, {
-        onboardingRunId: "21bcf98aa5fd",
-      }),
-    )
-      .toBe(`Identify your coding-agent slug (for example, \`codex\` or \`claude-code\`). From the target project root, run \`npx copilotkit@latest onboard start --run 21bcf98aa5fd --coding-agent <coding-agent-slug>\` and use its output as onboarding context. If it requires a CopilotKit CLI session check, you have permission to run it; never reveal credentials or send optional diagnostic feedback reports.
-
-This task is specifically to enable Learning, not to re-onboard the application. First inspect the existing CopilotKit runtime, provider, agent, and UI wiring, and confirm that Learning is not already enabled. Then read the Learning guide (https://docs.copilotkit.ai/premium/intelligence-platform) and make a short plan before editing. Preserve the project's framework, package manager, installed CopilotKit version, existing agent IDs, routes, provider layout, and working behavior. Do not create, select, or alter a CopilotKit Intelligence project—or add Intelligence configuration—unless this feature's official guide explicitly requires it or the user asks.
-
-Implement the smallest complete integration: wire every feature-required client and runtime configuration into the chat-to-agent path people already use, reuse local patterns, and do not invent environment values or hardcode secrets. Add or update focused tests and run the relevant project checks. Finish only after local validation proves Learning works—not merely that the code compiles. Use a feature-specific runtime or Inspector capability check and, when the feature supports one, a representative UI interaction that proves the user-facing result. If the project overrides default rendering (for example, with a wildcard tool renderer), make that override compatible with this feature; a capability flag alone is not success. Summarize the changed files, validation, and any manual setup still required.`);
   });
 
   it("marks a linked project as connected and keeps Threads usage on the project card", () => {
@@ -108,7 +98,7 @@ Implement the smallest complete integration: wire every feature-required client 
         "valid",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: true,
+      learningOn: true,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: true,
@@ -140,7 +130,7 @@ Implement the smallest complete integration: wire every feature-required client 
         "none",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: true,
+      learningOn: true,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -178,7 +168,7 @@ Implement the smallest complete integration: wire every feature-required client 
         "expired",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -206,7 +196,7 @@ Implement the smallest complete integration: wire every feature-required client 
         "valid",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -217,13 +207,44 @@ Implement the smallest complete integration: wire every feature-required client 
     expect(model.project?.usage?.limitLabel).toBe("4 / 200");
   });
 
+  it("keeps announcement previews free of markdown noise", () => {
+    expect(announcementPreview("## Hello\nRead [docs](https://x.test).")).toBe(
+      "Hello Read docs.",
+    );
+  });
+
+  it("uses the CDN preview text and keeps its announcement document intact", () => {
+    const model = buildHomeModel({
+      intelligenceConnected: false,
+      threadsAvailable: false,
+      metadata: projectInspectorMetadata(undefined, undefined),
+      runtimeConnectionState: "unavailable",
+      learningOn: false,
+      a2uiOn: false,
+      openGenUiOn: false,
+      suggestionsOn: false,
+      audioOn: false,
+      announcementPreviewText: "Channels and Angular are live.",
+      announcementMarkdown: "## Now live: Channels\nRead the full update.",
+      announcementHtml:
+        "<h2>Now live: Channels</h2><p>Read the full update.</p>",
+    });
+
+    expect(model.news).toEqual({
+      title: "Now live: Channels",
+      previewText: "Channels and Angular are live.",
+      documentHtml: "<h2>Now live: Channels</h2><p>Read the full update.</p>",
+      empty: false,
+    });
+  });
+
   it("summarizes runtime connection, response, and newest event health", () => {
     const base = {
       intelligenceConnected: false,
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeUrl: "http://localhost:4000/api/copilotkit",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -309,7 +330,7 @@ Implement the smallest complete integration: wire every feature-required client 
       intelligenceConnected: false,
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -346,7 +367,7 @@ Implement the smallest complete integration: wire every feature-required client 
         type: "RUN_ERROR",
         timestamp: 2_000,
       },
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,

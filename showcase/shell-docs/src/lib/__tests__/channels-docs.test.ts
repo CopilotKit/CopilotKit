@@ -186,9 +186,9 @@ describe("Channels documentation journey", () => {
 
   it("installs the exact stable Channels SDK pair in both provider quickstarts", () => {
     const testedInstall =
-      "npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0";
+      "npm install --save-exact @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
     const nonExactInstall =
-      "npm install @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0";
+      "npm install @copilotkit/channels@0.9.2 @copilotkit/runtime@1.70.2";
 
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);

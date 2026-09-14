@@ -77,7 +77,7 @@ export function NewLookAndFeelPreview() {
               Hey there. Let&apos;s have a fun conversation.
             </div>
 
-            <div className="shell-docs-radius-surface ml-auto max-w-[78%] bg-[var(--accent)] px-4 py-3 text-sm text-[var(--primary-foreground)] shadow-[var(--shadow-control)]">
+            <div className="shell-docs-radius-surface ml-auto max-w-[78%] bg-[var(--accent-fill)] px-4 py-3 text-sm text-[var(--primary-foreground)] shadow-[var(--shadow-control)]">
               What changed in 1.8.2?
             </div>
 
@@ -134,7 +134,7 @@ export function NewLookAndFeelPreview() {
               <button
                 type="button"
                 aria-label="Send preview message"
-                className="shell-docs-radius-icon flex h-8 w-8 items-center justify-center bg-[var(--accent)] text-[var(--primary-foreground)] transition hover:bg-[var(--accent-strong)]"
+                className="shell-docs-radius-icon flex h-8 w-8 items-center justify-center bg-[var(--accent-fill)] text-[var(--primary-foreground)] transition hover:bg-[var(--accent-strong)]"
               >
                 <SendHorizontal className="h-4 w-4" />
               </button>

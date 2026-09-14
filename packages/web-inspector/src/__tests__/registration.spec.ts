@@ -2,6 +2,7 @@ import { CopilotKitCore } from "@copilotkit/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CpkMemoryList } from "../domains/learning/memory-list.js";
+import { CpkLearningView } from "../domains/learning/snapshot-view.js";
 import {
   CpkThreadInspector,
   ɵCpkThreadDetails,
@@ -60,6 +61,7 @@ describe("defineWebInspector", () => {
       "cpk-thread-inspector",
       "cpk-thread-details",
       "cpk-memory-list",
+      "cpk-learning-view",
       "cpk-web-inspector",
     ]);
 
@@ -81,6 +83,9 @@ describe("defineWebInspector", () => {
     expect(frame.window.customElements.get("cpk-memory-list")).toBe(
       CpkMemoryList,
     );
+    expect(frame.window.customElements.get("cpk-learning-view")).toBe(
+      CpkLearningView,
+    );
     expect(frame.window.customElements.get("cpk-web-inspector")).toBe(
       WebInspectorElement,
     );
@@ -95,7 +100,7 @@ describe("defineWebInspector", () => {
       defineWebInspector(frame.window.customElements);
       defineWebInspector(frame.window.customElements);
     }).not.toThrow();
-    expect(define).toHaveBeenCalledTimes(7);
+    expect(define).toHaveBeenCalledTimes(8);
   });
 
   it("does nothing when no registry is available during SSR", () => {

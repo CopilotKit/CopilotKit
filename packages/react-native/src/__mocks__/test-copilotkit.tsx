@@ -72,6 +72,17 @@ export interface TestCopilotKitProps {
    * the array the test just mutated.
    */
   agentRef?: React.MutableRefObject<AbstractAgent | null>;
+  /**
+   * The agent to register as "default", instead of the built-in `SeededAgent`.
+   *
+   * For tests that must observe what core hands an agent on a REAL run — the
+   * `tools` list core advertises is built inside `RunHandler.runAgent` and is
+   * reachable no other way from a consumer's position — pass an agent that
+   * records its `runAgent` input. Captured on first render like the built-in
+   * one, so a later re-render with a different agent is ignored (the core
+   * instance, and therefore the registered renderers, must stay stable).
+   */
+  agent?: AbstractAgent;
   children: React.ReactNode;
 }
 
@@ -79,11 +90,12 @@ export function TestCopilotKit({
   messages,
   executingToolCallIds = EMPTY_SET,
   agentRef: publishAgentRef,
+  agent,
   children,
 }: TestCopilotKitProps) {
-  const agentRef = useRef<SeededAgent | null>(null);
+  const agentRef = useRef<AbstractAgent | null>(null);
   if (agentRef.current === null) {
-    agentRef.current = new SeededAgent();
+    agentRef.current = agent ?? new SeededAgent();
   }
   if (publishAgentRef) publishAgentRef.current = agentRef.current;
 

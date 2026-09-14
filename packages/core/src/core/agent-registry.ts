@@ -32,6 +32,7 @@ import {
   RUNTIME_REQUEST_WATCHDOG_MS,
   runtimeRequestMeta,
 } from "../utils/runtime-request";
+import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -152,7 +153,9 @@ export class AgentRegistry {
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
   private _threadEndpoints?: ThreadEndpointRuntimeInfo;
+  private _singleRouteResourceOperations = false;
   private _suggestions?: boolean;
+  private _inspectorLearning: boolean = false;
   private _inspectorMetadata?: InspectorMetadataV1;
   private _inspectorMetadataSupported: boolean = false;
   private inspectorMetadataRefreshReady: boolean = false;
@@ -238,6 +241,10 @@ export class AgentRegistry {
     return this._suggestions;
   }
 
+  get inspectorLearning(): boolean {
+    return this._inspectorLearning;
+  }
+
   get inspectorMetadata(): InspectorMetadataV1 | undefined {
     return this._inspectorMetadata;
   }
@@ -310,6 +317,7 @@ export class AgentRegistry {
     // before subscribers observe the replacement target connecting.
     this._licenseStatus = undefined;
     this._runtimeEntitlements = undefined;
+    this._singleRouteResourceOperations = false;
     this._runtimeUrl = normalizedRuntimeUrl;
 
     // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
@@ -366,6 +374,7 @@ export class AgentRegistry {
     this.resetRuntimeEntitlementRetry();
     this._requestedTransport = runtimeTransport;
     this._runtimeTransport = runtimeTransport;
+    this._singleRouteResourceOperations = false;
     void this.updateRuntimeConnection({
       preserveOnFailure: this.hasLiveRuntimeKnowledgeToProtect(),
     });
@@ -606,7 +615,19 @@ export class AgentRegistry {
         const meta = () => runtimeRequestMeta(init);
         const watchdog = this.armRuntimeRequestWatchdog(meta());
         try {
-          const response = await fetch(input, init);
+          const singleRouteRequest =
+            this._runtimeTransport === "single" &&
+            this._singleRouteResourceOperations &&
+            this._runtimeUrl
+              ? await createSingleRouteResourceRequest(
+                  input,
+                  init,
+                  this._runtimeUrl,
+                )
+              : null;
+          const response = singleRouteRequest
+            ? await fetch(singleRouteRequest.input, singleRouteRequest.init)
+            : await fetch(input, init);
           watchdog.clear();
           this.handleRuntimeRequestOutcome(
             response.ok ? "ok" : meta()?.nonCritical ? "ignored" : "failed",
@@ -852,6 +873,7 @@ export class AgentRegistry {
 
   private invalidateInspectorMetadataConnection(): void {
     this._inspectorMetadataSupported = false;
+    this._inspectorLearning = false;
     this.inspectorMetadataRefreshReady = false;
     this.inspectorMetadataConnectionGeneration += 1;
     this.inspectorMetadataGeneration += 1;
@@ -1211,7 +1233,9 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._threadEndpoints = undefined;
+      this._singleRouteResourceOperations = false;
       this._suggestions = undefined;
+      this._inspectorLearning = false;
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
@@ -1340,8 +1364,14 @@ export class AgentRegistry {
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
-      this._threadEndpoints = runtimeInfoResponse.threadEndpoints;
+      this._singleRouteResourceOperations =
+        resolvedTransport === "single" &&
+        runtimeInfoResponse.singleRoute?.resourceOperations === true;
+      this._threadEndpoints = this._singleRouteResourceOperations
+        ? runtimeInfoResponse.singleRoute?.threadEndpoints
+        : runtimeInfoResponse.threadEndpoints;
       this._suggestions = runtimeInfoResponse.suggestions;
+      this._inspectorLearning = runtimeInfoResponse.inspectorLearning === true;
       this._inspectorMetadataSupported =
         runtimeInfoResponse.inspectorMetadata === true;
       this.inspectorMetadataRefreshReady = false;
@@ -1419,7 +1449,9 @@ export class AgentRegistry {
         this._runtimeMode = RUNTIME_MODE_SSE;
         this._intelligence = undefined;
         this._threadEndpoints = undefined;
+        this._singleRouteResourceOperations = false;
         this._suggestions = undefined;
+        this._inspectorLearning = false;
         this._a2uiEnabled = false;
         this._a2uiAgents = undefined;
         this._openGenerativeUIEnabled = false;

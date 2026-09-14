@@ -393,20 +393,20 @@ def get_sales_todos():
     return "Check the sales pipeline provided in the context."
 
 
-# @region[backend-interrupt-tool]
 # @region[backend-tool-call]
-# Strands has no native interrupt primitive, so the gen-ui-interrupt and
-# interrupt-headless demos register `schedule_meeting` as a frontend tool
-# through the frontend's tool registration API. Its async handler returns a
-# Promise that only resolves once the user picks a slot or cancels in the
-# in-chat picker
-# (the Strands shim for LangGraph's `interrupt()` / `resolve()` pair).
+# `hitl-in-chat` registers `schedule_meeting` as a FRONTEND tool, so its async
+# handler resolves only once the user picks a slot or cancels in the in-chat
+# picker.
 #
 # This `@tool` declaration is the backend's contract with the LLM: the
 # docstring and signature are what the model sees when deciding to call
 # `schedule_meeting`. CopilotKit's runtime routes the call to the frontend
 # handler registered with the same name, so the local
 # `schedule_meeting_impl` body acts as a fallback for non-UI invocations.
+#
+# The interrupt demos do NOT use this tool. They run against the dedicated
+# `agents/interrupt_agent.py`, whose `schedule_meeting` pauses itself with
+# Strands' native `tool_context.interrupt(...)`.
 @tool
 def schedule_meeting(reason: str):
     """Schedule a meeting with user approval.
@@ -424,7 +424,6 @@ def schedule_meeting(reason: str):
 
 
 # @endregion[backend-tool-call]
-# @endregion[backend-interrupt-tool]
 
 
 @tool
@@ -1388,6 +1387,21 @@ class _HookInjectingAgentDict(dict):
 # ---- Factory ------------------------------------------------------------
 
 
+DEFAULT_MODEL = "gpt-4o"
+
+
+def model_id() -> str:
+    """Resolve the chat model at call time.
+
+    Read here rather than at module scope: the agent server imports this module
+    before it calls `load_dotenv()`, so a module-level read would always miss an
+    override from the environment file. Mirrors the TypeScript integration,
+    which already honours `MODEL_ID`, so both columns can be pointed at another
+    model without a rebuild.
+    """
+    return os.environ.get("MODEL_ID", DEFAULT_MODEL)
+
+
 def _build_model() -> OpenAIModel:
     """Construct the OpenAI model, failing fast on missing credentials."""
     api_key = os.getenv("OPENAI_API_KEY", "")
@@ -1395,7 +1409,7 @@ def _build_model() -> OpenAIModel:
         raise RuntimeError("OPENAI_API_KEY must be set for the strands showcase agent")
     return OpenAIModel(
         client_args={"api_key": api_key},
-        model_id="gpt-4o",
+        model_id=model_id(),
     )
 
 

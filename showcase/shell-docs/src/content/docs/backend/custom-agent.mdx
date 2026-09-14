@@ -172,6 +172,14 @@ interface AgentFactoryContext {
 
 CopilotKit handles everything else: `RUN_STARTED` and `RUN_FINISHED` lifecycle events, stream-to-AG-UI conversion, error handling, and abort/cancellation. Your factory never needs to emit lifecycle events.
 
+<Callout type="warn" title="Don't call `.abort()` on the controller you were handed">
+`abortController` is passed in for backends like TanStack AI that require a full
+`AbortController` — hand it to them and let them own it. Aborting it yourself from inside the
+factory cancels the stream underneath CopilotKit rather than through it, so the run's own
+teardown does not happen. To cancel a run, call `abortRun()` on the agent. For anything that
+accepts a signal — the AI SDK, `fetch`, a custom backend — pass `abortSignal` instead.
+</Callout>
+
 The `runner: new InMemoryAgentRunner()` in the examples above is the persistence
 backend that stores threads in process memory. To understand the runner
 abstraction and how to swap in durable persistence, see

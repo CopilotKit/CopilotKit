@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/angular";
-import { moduleMetadata } from "@storybook/angular";
+import { applicationConfig, moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
 import {
   Component,
@@ -36,6 +36,9 @@ const meta: Meta<CopilotChatMessageView> = {
     },
   },
   decorators: [
+    applicationConfig({
+      providers: [provideCopilotKit()],
+    }),
     moduleMetadata({
       imports: [
         CommonModule,
@@ -44,7 +47,6 @@ const meta: Meta<CopilotChatMessageView> = {
       ],
       providers: [
         CopilotKit,
-        provideCopilotKit({}),
         provideCopilotChatLabels({
           assistantMessageToolbarCopyMessageLabel: "Copy",
           assistantMessageToolbarCopyCodeLabel: "Copy",

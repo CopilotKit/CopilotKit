@@ -151,6 +151,7 @@ async function setup(
           agents: {},
           audioFileTranscriptionEnabled: false,
           mode: "sse",
+          intelligence: { wsUrl: "" },
           threadEndpoints: {
             list: options.threadsAvailable ?? true,
             inspect: options.threadsAvailable ?? true,
@@ -405,7 +406,7 @@ test("Threads footer action emits one impression per visible transition and one 
   }
 });
 
-test("a valid manage action emits one footer impression when Threads endpoints are locked", async () => {
+test("locked Threads suppress the footer action and its impression", async () => {
   const context = await setup({
     metadataResponses: [fullMetadata()],
     threadsAvailable: false,
@@ -417,13 +418,12 @@ test("a valid manage action emits one footer impression when Threads endpoints a
     const root = requireShadowRoot(context.inspector);
     const footer = root.querySelectorAll("[data-inspector-threads-footer]");
     const action = root.querySelectorAll("[data-inspector-threads-footer] a");
-    expect(footer).toHaveLength(1);
-    expect(action).toHaveLength(1);
+    expect(footer).toHaveLength(0);
+    expect(action).toHaveLength(0);
     const actionViews = metadataBodies(context).filter(
       ({ properties }) => properties.module === "action",
     );
-    expect(actionViews).toHaveLength(1);
-    expect(actionViews[0]?.properties.action_placement).toBe("threads_footer");
+    expect(actionViews).toHaveLength(0);
     expect(
       context.telemetryBodies.filter(
         ({ event }) => event === TELEMETRY_EVENTS.metadataActionClicked,
@@ -441,16 +441,6 @@ const metadataActionCases = [
     threadsAvailable: true,
     label: "Manage plan",
     expectedKind: "manage_plan",
-  },
-  {
-    name: "renew",
-    metadata: fullMetadata({
-      licenseState: "expired",
-      actionKind: "renew",
-    }),
-    threadsAvailable: false,
-    label: "Renew",
-    expectedKind: "renew",
   },
 ] satisfies ReadonlyArray<{
   name: string;
@@ -506,7 +496,7 @@ test.each(metadataActionCases)(
   },
 );
 
-test("enable Intelligence stays on its existing event without a generic double count", async () => {
+test("locked metadata actions yield to the unified engineer CTA", async () => {
   const context = await setup({
     metadataResponses: [
       fullMetadata({ licenseState: "none", actionKind: "enable_intelligence" }),
@@ -518,13 +508,7 @@ test("enable Intelligence stays on its existing event without a generic double c
     await context.selectTab("Threads");
     expect(
       metadataBodies(context).map(({ properties }) => properties.module),
-    ).toEqual(["identity", "plan", "identity", "plan", "action"]);
-
-    expect(metadataBodies(context).at(-1)?.properties).toMatchObject({
-      module: "action",
-      action_kind: "enable_intelligence",
-      license_bucket: "none",
-    });
+    ).toEqual(["identity", "plan", "identity", "plan"]);
 
     const toggleSettings = async (): Promise<void> => {
       const settings = context.inspector.shadowRoot?.querySelector<HTMLElement>(
@@ -540,7 +524,7 @@ test("enable Intelligence stays on its existing event without a generic double c
       metadataBodies(context).filter(
         ({ properties }) => properties.module === "action",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(0);
 
     await context.selectTab("Agent");
     await context.selectTab("AG-UI Events");
@@ -549,24 +533,23 @@ test("enable Intelligence stays on its existing event without a generic double c
       metadataBodies(context).filter(
         ({ properties }) => properties.module === "action",
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(0);
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-        '[data-inspector-action-placement="locked"]',
+        '[data-inspector-locked-feature-talk="threads"]',
       );
-    if (!action) throw new Error("Enable Intelligence action was not rendered");
+    if (!action) throw new Error("Talk to an Engineer action was not rendered");
     action.dispatchEvent(new Event("click"));
     action.dispatchEvent(new Event("click"));
     await Promise.resolve();
 
-    const enableEvents = context.telemetryBodies.filter(
-      ({ event }) =>
-        event === "oss.inspector.threads_intelligence_signup_clicked",
+    const talkEvents = context.telemetryBodies.filter(
+      ({ event }) => event === TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
     );
-    expect(enableEvents).toHaveLength(2);
-    expect(enableEvents.map(({ event }) => event)).toEqual([
-      "oss.inspector.threads_intelligence_signup_clicked",
-      "oss.inspector.threads_intelligence_signup_clicked",
+    expect(talkEvents).toHaveLength(2);
+    expect(talkEvents.map(({ event }) => event)).toEqual([
+      TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
+      TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
     ]);
     expect(
       context.telemetryBodies.filter(
