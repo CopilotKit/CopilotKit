@@ -1019,7 +1019,7 @@
     },
     {
       "name": "@copilotkit/intelligence-langgraph",
-      "version": "0.1.0",
+      "version": "1.71.2",
       "sourceDirectory": "packages/intelligence-langgraph",
       "entrypoints": [
         {
@@ -1091,7 +1091,7 @@
     },
     {
       "name": "@copilotkit/intelligence-mastra",
-      "version": "0.1.0",
+      "version": "1.71.2",
       "sourceDirectory": "packages/intelligence-mastra",
       "entrypoints": [
         {

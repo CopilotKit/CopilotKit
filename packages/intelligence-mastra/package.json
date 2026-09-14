@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/intelligence-mastra",
-  "version": "0.1.0",
+  "version": "1.71.2",
   "description": "Learned skill delivery for Mastra agents through CopilotKit Intelligence",
   "license": "MIT",
   "repository": {
