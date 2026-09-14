@@ -1,0 +1,217 @@
+name: test / intelligence runtimes
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - "packages/runtime/**"
+      - "packages/runtime-python/**"
+      - "packages/runtime-go/**"
+      - "packages/runtime-ruby/**"
+      - "packages/runtime-dotnet/**"
+      - "packages/core/**"
+      - "packages/shared/**"
+      - "packages/aimock/**"
+      - "tools/runtime-conformance/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "nx.json"
+      - "tsconfig*.json"
+      - ".github/workflows/intelligence-runtimes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NX_DAEMON: "false"
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+  NODE_OPTIONS: "--max-old-space-size=4096"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  scope:
+    name: Runtime change scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test gate decisions
+        run: node --test tools/runtime-conformance/test/gate.test.mjs
+      - name: Find runtime changes
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node tools/runtime-conformance/gate.mjs scope >> "$GITHUB_OUTPUT"
+
+  conformance:
+    needs: scope
+    if: needs.scope.outputs.required == 'true'
+    name: IntelligenceRunner / ${{ matrix.language }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [typescript, python, go, ruby, dotnet]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.x"
+
+      - name: Setup Python
+        if: matrix.language == 'python'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Setup uv
+        if: matrix.language == 'python'
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.9.7"
+          enable-cache: false
+
+      - name: Setup Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: packages/runtime-go/go.mod
+          cache-dependency-path: packages/runtime-go/go.sum
+
+      - name: Setup Ruby
+        if: matrix.language == 'ruby'
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.3"
+          bundler: "2.4.22"
+
+      - name: Setup .NET
+        if: matrix.language == 'dotnet'
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build public runtime, frontend client, and dependencies
+        # Every language exercises the built public frontend client. The TypeScript
+        # driver also imports public runtime exports, never a source shim.
+        run: pnpm nx run-many -t build -p @copilotkit/runtime,@copilotkit/core --parallel=1
+
+      - name: Validate shared harness
+        run: pnpm nx run-many -t test,lint -p runtime-conformance
+
+      - name: Validate TypeScript library
+        if: matrix.language == 'typescript'
+        run: pnpm nx run-many -t test,check-types,check-dts -p @copilotkit/runtime
+
+      - name: TypeScript shared conformance
+        if: matrix.language == 'typescript'
+        run: pnpm nx run runtime-conformance:conformance -- -- node tools/runtime-conformance/typescript-driver.mjs
+
+      - name: Install Python dependencies
+        if: matrix.language == 'python'
+        run: uv sync --project packages/runtime-python --locked --python 3.11
+
+      - name: Validate Python library
+        if: matrix.language == 'python'
+        run: pnpm nx run-many -t test,lint,typecheck,build -p runtime-python
+
+      - name: Python shared conformance
+        if: matrix.language == 'python'
+        run: pnpm nx run runtime-conformance:conformance -- -- packages/runtime-python/.venv/bin/python packages/runtime-python/examples/conformance.py
+
+      - name: Install Go dependencies
+        if: matrix.language == 'go'
+        run: pnpm nx exec --projects=runtime-go -- go -C "$PWD/packages/runtime-go" mod download
+
+      - name: Validate Go library
+        if: matrix.language == 'go'
+        run: pnpm nx run-many -t test,lint,build -p runtime-go
+
+      - name: Build Go driver
+        if: matrix.language == 'go'
+        run: pnpm nx exec --projects=runtime-go -- go -C "$PWD/packages/runtime-go" build -o "$RUNNER_TEMP/runtime-go-conformance" ./cmd/conformance
+
+      - name: Go shared conformance
+        if: matrix.language == 'go'
+        # Run the binary directly so shutdown cannot leave a go-run child behind.
+        run: pnpm nx run runtime-conformance:conformance -- -- "$RUNNER_TEMP/runtime-go-conformance"
+
+      - name: Install Ruby and Rails dependencies
+        if: matrix.language == 'ruby'
+        run: |
+          bundle install --gemfile packages/runtime-ruby/Gemfile
+          # The checked-in Rails lock currently contains only arm64-darwin-23.
+          # Add the runner platform without changing the source Gemfile.
+          bundle lock --gemfile packages/runtime-ruby/examples/rails/Gemfile --add-platform x86_64-linux
+          bundle install --gemfile packages/runtime-ruby/examples/rails/Gemfile
+
+      - name: Validate Ruby library
+        if: matrix.language == 'ruby'
+        run: BUNDLE_GEMFILE="$PWD/packages/runtime-ruby/Gemfile" bundle exec pnpm nx run-many -t test,lint,build -p runtime-ruby
+
+      - name: Ruby Rack shared conformance
+        if: matrix.language == 'ruby'
+        run: pnpm nx run runtime-ruby:test-rack
+
+      - name: Real Rails shared conformance
+        if: matrix.language == 'ruby'
+        run: pnpm nx run runtime-ruby:test-rails
+
+      - name: Restore .NET dependencies
+        if: matrix.language == 'dotnet'
+        run: |
+          pnpm nx exec --projects=runtime-dotnet -- dotnet restore "$PWD/packages/runtime-dotnet/driver/Runtime.Driver.csproj"
+          pnpm nx exec --projects=runtime-dotnet -- dotnet restore "$PWD/packages/runtime-dotnet/tests/Runtime.Tests.csproj"
+
+      - name: Validate .NET library
+        if: matrix.language == 'dotnet'
+        # These targets share MSBuild output paths, so do not run them concurrently.
+        run: pnpm nx run-many -t test,lint,check-types,build,pack -p runtime-dotnet --parallel=1
+
+      - name: .NET shared conformance
+        if: matrix.language == 'dotnet'
+        run: pnpm nx run runtime-conformance:conformance -- -- dotnet packages/runtime-dotnet/driver/bin/Release/net8.0/Runtime.Driver.dll
+
+  gate:
+    name: Intelligence runtime conformance
+    if: always()
+    needs: [scope, conformance]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require the full matrix for runtime changes
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          CONFORMANCE_REQUIRED: ${{ needs.scope.outputs.required }}
+          MATRIX_RESULT: ${{ needs.conformance.result }}
+        run: node tools/runtime-conformance/gate.mjs check

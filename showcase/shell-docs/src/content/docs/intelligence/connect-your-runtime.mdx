@@ -36,6 +36,26 @@ CPK_INTELLIGENCE_API_KEY=cpk-...
   prefix — that ships it to the browser.
 </Callout>
 
+### Next.js apps in a subdirectory
+
+Next.js loads `.env*` files from the Next.js app directory. If your app is in
+`web/` and the CLI writes the key to a shared `.env` at the repository root,
+`process.env.CPK_INTELLIGENCE_API_KEY` will be unset unless the server process
+loads that file.
+
+For a shared root `.env`, start Next.js from `web/` with Node's explicit env-file
+option (Node.js 20.6 or later):
+
+```bash title="Terminal — from web/"
+node --env-file=../.env ./node_modules/next/dist/bin/next dev
+```
+
+Use the same prefix with `build` or `start` when those commands need the shared
+file. If the app owns its environment instead, put the key in `web/.env.local`.
+On a hosted deployment, set it in the server's environment settings. Load the
+key before constructing `CopilotKitIntelligence`; the `!` in the example below
+only affects TypeScript and does not load or validate an environment variable.
+
 ## Wire the runtime
 
 Construct the client once and pass it to `CopilotRuntime` as `intelligence`.
