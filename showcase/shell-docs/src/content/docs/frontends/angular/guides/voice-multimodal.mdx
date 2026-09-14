@@ -24,8 +24,25 @@ transcription endpoint. The resulting text remains editable before the user
 sends it.
 
 Serve production applications over HTTPS so browsers can grant microphone
-access. Your Runtime must also have transcription configured; a visible
-microphone does not make an unavailable transcription service succeed.
+access.
+
+### Configure Runtime transcription
+
+Follow the [Voice backend setup](/voice#backend) to add a dedicated Runtime
+route and transcription service. Keep speech-provider credentials separate
+from credentials used for agent chat. For the Built-in Agent showcase, set:
+
+```bash
+OPENAI_TRANSCRIPTION_API_KEY=your-api-key
+# Optional: defaults to https://api.openai.com/v1
+OPENAI_TRANSCRIPTION_BASE_URL=https://your-speech-provider.example.com/v1
+```
+
+The route must omit `transcriptionService` when the dedicated credential is
+absent. Copilot Runtime then reports `audioFileTranscriptionEnabled: false` on
+`/info`, and the chat hides the mic instead of exposing a control that cannot
+work. When the service is configured, the browser sends recorded audio to
+`/api/copilotkit-voice/transcribe`.
 
 Voice requests can call the same backend tools as typed requests. Register
 renderers only for the exact tool names your backend exposes:
