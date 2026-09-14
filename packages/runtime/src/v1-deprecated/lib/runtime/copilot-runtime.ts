@@ -977,8 +977,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
           error,
         );
-        // Cache empty to prevent repeated attempts within lifecycle
-        this.mcpToolsCache.set(endpointUrl, []);
+        // Deliberately not cached. Caching the empty result meant a server
+        // that was briefly unreachable when the runtime first resolved stayed
+        // toolless for the life of that runtime, even after it recovered.
+        // Leaving the entry absent lets a later resolution try again.
       }
     }
 

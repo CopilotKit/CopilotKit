@@ -169,3 +169,34 @@ describe("attaching tools is idempotent", () => {
     expect(await greet[0].execute({})).toBe("from the agent");
   });
 });
+
+describe("MCP tool discovery recovers from a transient outage", () => {
+  it("retries the endpoint after a failed connection instead of caching empty", async () => {
+    let attempt = 0;
+    const createMCPClient = vi.fn().mockImplementation(async () => {
+      attempt++;
+      if (attempt === 1) throw new Error("ECONNREFUSED");
+      return {
+        tools: async () => ({ book: { execute: vi.fn(), schema: {} } }),
+      };
+    });
+    const runtime = new CopilotRuntime({
+      agents: agents(),
+      mcpServers: [{ endpoint: "https://mcp.example.com" }],
+      createMCPClient,
+    } as any);
+
+    // Resolution 1 fails. Resolution 2 reconnects and caches the tools, but
+    // reads the agent as it stood before that assignment, because
+    // `handleServiceAdapter` chains onto the previous promise. Resolution 3
+    // sees them. The point is that it recovers at all: with the empty result
+    // cached, `createMCPClient` was never called a second time and the tools
+    // stayed gone for the life of the runtime.
+    expect(await toolsOf(runtime)).toHaveLength(0);
+    await toolsOf(runtime);
+    const recovered = await toolsOf(runtime);
+
+    expect(recovered.map((t: any) => t.name)).toEqual(["book"]);
+    expect(createMCPClient).toHaveBeenCalledTimes(2);
+  });
+});
