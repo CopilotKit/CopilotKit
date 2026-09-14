@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 // Run after the package and canonical runtime have been built through Nx.
 // Every install and test copy lives in a temporary standalone consumer.
+import {
+  packRuntimeWorkspace,
+  standaloneConsumerEnv,
+} from "../../../tools/learned-skill-conformance/workspace-artifacts.mjs";
 import { execFileSync } from "node:child_process";
 import {
   cpSync,
@@ -13,8 +17,13 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const consumerEnv = {
+  ...standaloneConsumerEnv(),
+  COPILOTKIT_TELEMETRY_DISABLED: "true",
+};
+
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const runtimeRoot = resolve(packageRoot, "../runtime");
+const workspaceRoot = resolve(packageRoot, "../..");
 const laneIndex = process.argv.indexOf("--lane");
 const selectedLane = laneIndex === -1 ? undefined : process.argv[laneIndex + 1];
 if (selectedLane && !["minimum", "latest"].includes(selectedLane))
@@ -37,7 +46,7 @@ function pack(root) {
   );
 }
 const adapter = pack(packageRoot);
-const runtime = pack(runtimeRoot);
+const runtimeWorkspace = packRuntimeWorkspace(workspaceRoot, artifacts);
 const lanes = {
   minimum: {
     "@langchain/core": "1.2.10",
@@ -129,14 +138,15 @@ for (const [lane, peers] of Object.entries(lanes)) {
         name: `skills-compat-${lane}`,
         private: true,
         type: "module",
+        overrides: runtimeWorkspace.overrides,
         dependencies: {
           ...peers,
           "@copilotkit/intelligence-langgraph": `file:${adapter}`,
-          "@copilotkit/runtime": `file:${runtime}`,
+          ...runtimeWorkspace.dependencies,
           typescript: "5.8.2",
           "@types/node": "22.15.3",
           fflate: "0.8.2",
-          vitest: "3.2.4",
+          vitest: "4.1.11",
         },
       },
       null,
@@ -145,8 +155,18 @@ for (const [lane, peers] of Object.entries(lanes)) {
   );
   execFileSync(
     "npm",
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
-    { cwd, stdio: "inherit" },
+    [
+      "exec",
+      "--yes",
+      "--package=npm@11.6.2",
+      "--",
+      "npm",
+      "install",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+    ],
+    { cwd, stdio: "inherit", env: consumerEnv },
   );
   writeFileSync(join(cwd, "smoke.mjs"), smoke);
   writeFileSync(join(cwd, "types.mts"), types);
@@ -180,7 +200,7 @@ for (const [lane, peers] of Object.entries(lanes)) {
     execFileSync(process.execPath, args, {
       cwd,
       stdio: "inherit",
-      env: { ...process.env, COPILOTKIT_TELEMETRY_DISABLED: "true" },
+      env: consumerEnv,
     });
   }
   console.log(
