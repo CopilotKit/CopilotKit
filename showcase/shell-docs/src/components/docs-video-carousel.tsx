@@ -16,7 +16,6 @@ interface Recording {
   readonly title: string;
   readonly loomId: string;
   readonly icon: LucideIcon;
-  readonly description: string;
   readonly thumbnail: string;
 }
 
@@ -26,8 +25,6 @@ const RECORDINGS: readonly Recording[] = [
     title: "Shared state",
     loomId: "0cad0c3d96e4454c83133a52d9ac8e7b",
     icon: Workflow,
-    description:
-      "Ask your agent to review expenses, flag transactions, and update the app as it works.",
     thumbnail:
       "https://cdn.loom.com/sessions/thumbnails/0cad0c3d96e4454c83133a52d9ac8e7b-3b470279be27260d.gif",
   },
@@ -36,8 +33,6 @@ const RECORDINGS: readonly Recording[] = [
     title: "User Memories",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
     icon: Brain,
-    description:
-      "Remember a user's preferences and reuse what the agent learns across conversations.",
     thumbnail:
       "https://cdn.loom.com/sessions/thumbnails/2978fbfe42324e509057ac5fd46b7a70-37108be11ee154e6.gif",
   },
@@ -46,8 +41,6 @@ const RECORDINGS: readonly Recording[] = [
     title: "Rich Threads",
     loomId: "79817778d29e490c97225127d2f17b3a",
     icon: MessagesSquare,
-    description:
-      "Keep interactive charts, files, and approval cards in conversations users can return to.",
     thumbnail:
       "https://cdn.loom.com/sessions/thumbnails/79817778d29e490c97225127d2f17b3a-250a43d55abed071.jpg",
   },
@@ -98,56 +91,17 @@ export function DocsVideoCarousel() {
   }
 
   return (
-    <section aria-labelledby="walkthrough-heading" className="pb-12 sm:pb-16">
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2
-          id="walkthrough-heading"
-          className="text-sm font-semibold text-[var(--text)]"
-        >
-          See it in action
-        </h2>
-        <div
-          role="tablist"
-          aria-label="Product walkthrough recordings"
-          className="flex flex-wrap gap-1"
-        >
-          {RECORDINGS.map((recording, index) => {
-            const isActive = index === activeIndex;
-            const Icon = recording.icon;
-            return (
-              <button
-                key={recording.id}
-                ref={(el) => {
-                  tabRefs.current[index] = el;
-                }}
-                type="button"
-                role="tab"
-                id={`${TAB_ID_PREFIX}${recording.id}`}
-                aria-selected={isActive}
-                aria-controls={`${PANEL_ID_PREFIX}${recording.id}`}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => selectAndFocus(index)}
-                onKeyDown={handleKeyDown}
-                className={`shell-docs-radius-control inline-flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none ${
-                  isActive
-                    ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
-                }`}
-              >
-                <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-                <span data-testid="tab-title">{recording.title}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
+    <section
+      aria-label="Product walkthroughs"
+      className="overflow-hidden rounded-xl border border-[var(--nav-control-border)] bg-[var(--bg-surface)]"
+    >
       <div
         id={`${PANEL_ID_PREFIX}${active.id}`}
         role="tabpanel"
         aria-labelledby={`${TAB_ID_PREFIX}${active.id}`}
+        className="relative"
       >
-        <div className="not-prose aspect-video w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-sm">
+        <div className="not-prose aspect-video w-full overflow-hidden bg-[var(--bg-elevated)]">
           {playing ? (
             <iframe
               src={`https://www.loom.com/embed/${active.loomId}?autoplay=1`}
@@ -177,25 +131,49 @@ export function DocsVideoCarousel() {
             </button>
           )}
         </div>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-          <p className="max-w-[60ch] text-sm leading-relaxed text-[var(--text-secondary)]">
-            {active.description}
-            {active.id !== "shared-state-harness" && (
-              <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                Available with CopilotKit Intelligence.
-              </span>
-            )}
-          </p>
+        {playing && (
           <a
             href={`https://www.loom.com/share/${active.loomId}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex min-h-6 shrink-0 items-center gap-1 text-xs text-[var(--text-muted)] underline underline-offset-4 hover:text-[var(--accent)]"
+            className="absolute right-3 top-3 inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] px-3 text-xs font-medium text-[var(--text)] shadow-sm hover:text-[var(--accent)]"
           >
-            Watch on Loom
-            <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+            Open on Loom{" "}
+            <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
           </a>
-        </div>
+        )}
+      </div>
+      <div
+        role="tablist"
+        aria-label="Product walkthrough recordings"
+        className="grid grid-cols-3 gap-1 border-t border-[var(--nav-control-border)] p-1.5"
+      >
+        {RECORDINGS.map((recording, index) => {
+          const isActive = index === activeIndex;
+          const Icon = recording.icon;
+          return (
+            <button
+              key={recording.id}
+              ref={(el) => {
+                tabRefs.current[index] = el;
+              }}
+              type="button"
+              role="tab"
+              id={`${TAB_ID_PREFIX}${recording.id}`}
+              aria-selected={isActive}
+              aria-controls={`${PANEL_ID_PREFIX}${recording.id}`}
+              tabIndex={isActive ? 0 : -1}
+              onClick={() => selectAndFocus(index)}
+              onKeyDown={handleKeyDown}
+              className={`shell-docs-radius-control inline-flex min-h-11 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium leading-tight sm:flex-row sm:gap-2 sm:px-2 sm:text-xs transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] focus-visible:outline-none ${isActive ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"}`}
+            >
+              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <span data-testid="tab-title" className="whitespace-nowrap">
+                {recording.title}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

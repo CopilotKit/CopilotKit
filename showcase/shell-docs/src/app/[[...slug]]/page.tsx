@@ -9,8 +9,9 @@ import type { Metadata } from "next";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { DocsSetupWizard } from "@/components/docs-setup-wizard";
 import { DocsVideoCarousel } from "@/components/docs-video-carousel";
+import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
-import { ArrowDown, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
@@ -64,7 +65,7 @@ export async function generateMetadata({
   // /quickstart, /concepts/architecture) read frontmatter via loadDoc.
   if (!slugPath) {
     return buildDocMetadata({
-      title: "CopilotKit: bring your agent into your app",
+      title: "CopilotKit: bring your agent into any app",
       description:
         "CopilotKit is an open-source framework that connects your app to AI agents. Add chat, interactive UI, and human approvals, with your choice of agent backend.",
       canonicalPath: "/",
@@ -128,7 +129,7 @@ function DocsOverview() {
         <div className="mx-auto max-w-[900px]">
           <section
             id="copilotkit-intro"
-            className="scroll-mt-8 pb-12 pt-12 sm:pb-14 sm:pt-20"
+            className="scroll-mt-24 xl:scroll-mt-8 pb-8 pt-2 sm:pb-10"
           >
             <p className="mb-5 text-sm font-semibold text-[var(--accent)]">
               CopilotKit
@@ -136,7 +137,7 @@ function DocsOverview() {
             <h1 className="max-w-[16ch] text-[2.75rem] font-semibold leading-[1.08] tracking-[-0.045em] text-[var(--text)] sm:text-[3.75rem]">
               Bring your agent
               <br />
-              <span className="text-[var(--accent)]">into your app.</span>
+              <span className="text-[var(--accent)]">into any app.</span>
             </h1>
             <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
               CopilotKit is an open-source framework that connects your app to
@@ -144,12 +145,7 @@ function DocsOverview() {
               your choice of agent backend.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <a
-                href="#setup"
-                className="shell-docs-radius-control inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--accent-fill)] px-5 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)]"
-              >
-                Get started <ArrowDown aria-hidden="true" className="h-4 w-4" />
-              </a>
+              <HeroOnboardingPromptButton surface="docs_landing_hero" />
               <HeroQuickstartDropdown options={quickstartOptions} />
             </div>
           </section>
@@ -159,16 +155,16 @@ function DocsOverview() {
           <section
             id="setup"
             aria-labelledby="setup-heading"
-            className="scroll-mt-8 border-t border-[var(--border)] py-12 sm:py-16"
+            className="my-12 scroll-mt-24 xl:scroll-mt-8 rounded-2xl border border-[var(--nav-control-border)] bg-[color-mix(in_srgb,var(--accent)_9%,var(--bg-surface))] p-4 sm:my-14 sm:p-7"
           >
-            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
+            <div className="mb-7 flex flex-col gap-3">
               <h2
                 id="setup-heading"
                 className="shrink-0 text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--text)] sm:text-[2rem]"
               >
                 Start building.
               </h2>
-              <p className="max-w-[44ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+              <p className="max-w-[62ch] text-sm leading-relaxed text-[var(--text-secondary)]">
                 Start fresh or add to your existing app. Answer a few questions,
                 then give the setup prompt to your coding agent.
               </p>

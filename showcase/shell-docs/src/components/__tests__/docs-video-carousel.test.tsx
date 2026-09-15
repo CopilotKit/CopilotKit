@@ -25,12 +25,12 @@ afterEach(() => {
 });
 
 describe("DocsVideoCarousel", () => {
-  it("titles the section with the question it answers", () => {
+  it("labels the walkthrough region without a separate heading bar", () => {
     render(<DocsVideoCarousel />);
-
-    expect(() =>
-      screen.getByRole("heading", { name: "See it in action" }),
-    ).not.toThrow();
+    expect(
+      screen.getByRole("region", { name: "Product walkthroughs" }),
+    ).not.toBeNull();
+    expect(screen.queryByRole("heading")).toBeNull();
   });
 
   it("renders all three tabs, in the documented order, with their titles", () => {
@@ -39,16 +39,6 @@ describe("DocsVideoCarousel", () => {
     const tabs = screen.getAllByRole("tab");
     expect(tabs).toHaveLength(3);
     expect(tabs.map((tab) => tabTitle(tab))).toEqual(TITLES);
-  });
-
-  it("explains the selected outcome before playback", () => {
-    render(<DocsVideoCarousel />);
-    const panel = screen.getByRole("tabpanel");
-    expect(panel.textContent).toContain("flag transactions");
-    fireEvent.click(screen.getAllByRole("tab")[1]);
-    expect(screen.getByRole("tabpanel").textContent).toContain(
-      "across conversations",
-    );
   });
 
   it("selects exactly one tab, the first, initially", () => {
@@ -176,22 +166,20 @@ describe("DocsVideoCarousel", () => {
       );
       expect(tab.textContent).not.toContain("Intelligence");
     }
-    expect(
-      screen.getByRole("link", { name: "Watch on Loom" }).getAttribute("href"),
-    ).toBe(`https://www.loom.com/share/${LOOM_IDS[0]}`);
   });
 
-  it("identifies the Intelligence features in their descriptions without adding badges to tabs", () => {
+  it("keeps the caption row removed and offers a fallback inside the active player", () => {
     render(<DocsVideoCarousel />);
-    expect(
-      screen.queryByText("Available with CopilotKit Intelligence."),
-    ).toBeNull();
-    for (const tab of screen.getAllByRole("tab").slice(1)) {
+    for (const [index, tab] of screen.getAllByRole("tab").entries()) {
       fireEvent.click(tab);
-      expect(screen.getByRole("tabpanel").textContent).toContain(
-        "Available with CopilotKit Intelligence.",
-      );
-      expect(tab.textContent).not.toContain("Intelligence");
+      expect(
+        screen.queryByText(/Available with CopilotKit Intelligence/),
+      ).toBeNull();
+      expect(screen.queryByRole("link")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /^Play / }));
+      expect(
+        screen.getByRole("link", { name: "Open on Loom" }).getAttribute("href"),
+      ).toBe(`https://www.loom.com/share/${LOOM_IDS[index]}`);
     }
   });
 

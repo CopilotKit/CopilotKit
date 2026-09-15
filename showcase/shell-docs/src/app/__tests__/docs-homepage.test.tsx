@@ -95,19 +95,21 @@ async function renderOverview(): Promise<AnyElement[]> {
 }
 
 describe("the docs homepage route", () => {
-  it("explains the product and gives one direct path to guided setup", async () => {
+  it("explains the product and restores the canonical copy-prompt action", async () => {
     const elements = await renderOverview();
     const heading = elements.find((el) => el.type === "h1");
-    expect(heading && textOf(heading)).toBe("Bring your agentinto your app.");
+    expect(heading && textOf(heading)).toBe("Bring your agentinto any app.");
     expect(
       elements.some(
         (el) => el.type === "p" && textOf(el).includes("open-source framework"),
       ),
     ).toBe(true);
     const cta = elements.find(
-      (el) => el.type === "a" && textOf(el).startsWith("Get started"),
+      (el) =>
+        typeof el.type === "function" &&
+        el.type.name === "HeroOnboardingPromptButton",
     );
-    expect(cta?.props.href).toBe("#setup");
+    expect(cta?.props.surface).toBe("docs_landing_hero");
     expect(
       elements.some((el) => el.type === "section" && el.props.id === "setup"),
     ).toBe(true);
