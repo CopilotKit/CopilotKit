@@ -59,6 +59,11 @@ export interface CopilotChatViewProps {
   inputToolsMenu?: (ToolsMenuItem | "-")[];
   /** Optional event callbacks used to drive the default input controls. */
   onSubmitMessage?: (value: string) => void | Promise<void>;
+  /**
+   * Presence drives reactive gating of the default stop control.
+   * Prefer `@stop` / `emit("stop")` for invocation; do not call this prop
+   * directly or the handler can fire twice.
+   */
   onStop?: () => void;
   onInputChange?: (value: string) => void;
   onSelectSuggestion?: (
@@ -175,6 +180,9 @@ export interface CopilotChatInputSlotProps {
   isRunning: boolean;
   inputMode: CopilotChatInputMode;
   inputToolsMenu: (ToolsMenuItem | "-")[];
+  canStop: boolean;
+  canAddFile: boolean;
+  canTranscribe: boolean;
   onUpdateModelValue: (value: string) => void;
   onSubmitMessage: (value: string) => void;
   onStop: () => void;
@@ -210,6 +218,9 @@ export interface CopilotChatWelcomeScreenSlotProps extends CopilotChatSuggestion
   isRunning: boolean;
   inputMode: CopilotChatInputMode;
   inputToolsMenu: (ToolsMenuItem | "-")[];
+  canStop: boolean;
+  canAddFile: boolean;
+  canTranscribe: boolean;
   onUpdateModelValue: (value: string) => void;
   onSubmitMessage: (value: string) => void;
   onStop: () => void;

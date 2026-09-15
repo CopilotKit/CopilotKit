@@ -163,7 +163,9 @@ const hasCancelTranscribeAction = computed(
   () => typeof props.onCancelTranscribe === "function",
 );
 const hasFinishTranscribeAction = computed(
-  () => typeof props.onFinishTranscribe === "function",
+  () =>
+    typeof props.onFinishTranscribe === "function" ||
+    typeof props.onFinishTranscribeWithAudio === "function",
 );
 const canSend = computed(
   () =>

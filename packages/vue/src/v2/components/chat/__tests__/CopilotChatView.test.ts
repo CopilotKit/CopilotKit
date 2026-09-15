@@ -156,6 +156,89 @@ describe("CopilotChatView", () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
+  it("exposes canStop / canAddFile / canTranscribe on the input slot", () => {
+    const CapabilityHost = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatView,
+      },
+      setup() {
+        return { chatMessages };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider
+            thread-id="thread-1"
+            agent-id="default"
+          >
+            <CopilotChatView
+              :messages="chatMessages"
+              :on-stop="() => {}"
+              :on-add-file="() => {}"
+            >
+              <template
+                #input="{ canStop, canAddFile, canTranscribe }"
+              >
+                <span data-testid="can-stop">{{ canStop }}</span>
+                <span data-testid="can-add-file">{{ canAddFile }}</span>
+                <span data-testid="can-transcribe">{{ canTranscribe }}</span>
+              </template>
+            </CopilotChatView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+    const wrapper = mount(CapabilityHost);
+
+    expect(wrapper.get("[data-testid='can-stop']").text()).toBe("true");
+    expect(wrapper.get("[data-testid='can-add-file']").text()).toBe("true");
+    expect(wrapper.get("[data-testid='can-transcribe']").text()).toBe("false");
+  });
+
+  it("exposes canStop / canAddFile / canTranscribe on the welcome-screen slot", () => {
+    const WelcomeCapabilityHost = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatView,
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider
+            thread-id="thread-1"
+            agent-id="default"
+          >
+            <CopilotChatView
+              :messages="[]"
+              :on-stop="() => {}"
+              :on-start-transcribe="() => {}"
+            >
+              <template
+                #welcome-screen="{ canStop, canAddFile, canTranscribe }"
+              >
+                <span data-testid="welcome-can-stop">{{ canStop }}</span>
+                <span data-testid="welcome-can-add-file">{{ canAddFile }}</span>
+                <span data-testid="welcome-can-transcribe">{{
+                  canTranscribe
+                }}</span>
+              </template>
+            </CopilotChatView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+    const wrapper = mount(WelcomeCapabilityHost);
+
+    expect(wrapper.get("[data-testid='welcome-can-stop']").text()).toBe("true");
+    expect(wrapper.get("[data-testid='welcome-can-add-file']").text()).toBe(
+      "false",
+    );
+    expect(wrapper.get("[data-testid='welcome-can-transcribe']").text()).toBe(
+      "true",
+    );
+  });
+
   it("renders suggestions and forwards selection callback and event", async () => {
     const onSelectSuggestion = vi.fn();
     const wrapper = mountChatView({
