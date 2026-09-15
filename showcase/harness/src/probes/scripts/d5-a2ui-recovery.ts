@@ -38,11 +38,25 @@
  * the message as normal turn input lets the runner capture its baseline
  * first, exactly like the working declarative probe.
  *
- * HEAL is sent EXACTLY ONCE. The heal fixture stages invalid->valid via
+ * HEAL is sent ONCE per run. The heal fixture stages invalid->valid via
  * aimock `sequenceIndex` (0 invalid, 1 valid); a single heal request
- * drives the internal retry (seq0 -> seq1) in one pass. The two-turn
- * shape (one heal, one exhaust) guarantees exactly one heal send — a
- * second would advance past seq1 and fail.
+ * drives the internal retry (seq0 -> seq1) in one pass. A repeat heal is
+ * SAFE — each slug's fixture also carries a non-sequenced fallback
+ * ordered after the two sequenced variants (GOTCHAS.md's sanctioned
+ * repeat-invocation pattern), so once slots 0 and 1 are spent the inner
+ * `render_a2ui` call is still served the valid surface instead of falling
+ * through to the userMessage-only outer-emit fixture. Before that
+ * fallback existed, the SECOND heal against a given aimock counter bucket
+ * (buckets are per-`X-Test-Id`, never reset, and a real browser sends no
+ * `X-Test-Id`) was served `generate_a2ui` for the inner call, so the
+ * recovery loop saw `empty_components` on all 3 attempts and painted the
+ * hard-failure card while the narration still claimed success.
+ *
+ * Consequence worth knowing when reading a run: the invalid->valid
+ * TRANSITION is exercised only by the first heal in an aimock process's
+ * lifetime; later runs take the fallback and paint on attempt 1. The
+ * validate->retry LOOP itself is still exercised on every run by the
+ * EXHAUST turn below.
  *
  * Assertion design (mirrors `d5-gen-ui-declarative.ts`): both turns run
  * in ONE browser session, so A2UI render nodes and the failure card
