@@ -69,6 +69,8 @@ import {
   filterFrontendScopedBlocks,
 } from "./toc";
 import type { FrontendId } from "./frontend-options";
+import { getVueDocsPageRoutes } from "./frontend-page-content";
+import { resolveFrontendDocPage } from "./frontend-doc-policy";
 import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
@@ -224,6 +226,9 @@ export function getAllLlmPages(
     // here prevents the bare filesystem walk from claiming their canonical
     // URLs before the correctly annotated variants are pushed.
     if (slug === "frontends/slack" || slug === "frontends/teams") continue;
+    if (slug === "frontends/vue" || slug.startsWith("frontends/vue/")) {
+      continue;
+    }
     if (getChannelGuidePublicSlug(slug)) continue;
     // The root `built-in-agent.mdx` topic page's bare URL permanently
     // redirects to `/` (the retired framework prefix); it stays
@@ -354,7 +359,36 @@ export function getAllLlmPages(
     }
   }
 
-  // 4. Reference docs — all SDK versions at their canonical versioned URLs.
+  // 4. Include shared Vue routes and authored guides, including pages omitted
+  // from the sidebar, just as the root React documentation walk does.
+  const vueQuickstart = loadDoc("frontends/vue");
+  if (vueQuickstart) {
+    push({
+      url: "vue",
+      title: vueQuickstart.fm.title,
+      description: vueQuickstart.fm.description,
+      filePath: vueQuickstart.filePath,
+      loadSlug: "frontends/vue",
+      frontend: "vue",
+    });
+  }
+  for (const { slugPath, canonicalSlugPath } of getVueDocsPageRoutes()) {
+    if (!slugPath) continue;
+    const resolution = resolveFrontendDocPage("vue", slugPath);
+    if (resolution.status !== "found") continue;
+    const doc = loadDoc(resolution.contentSlugPath);
+    if (!doc) continue;
+    push({
+      url: `vue/${canonicalSlugPath}`,
+      title: doc.fm.title,
+      description: doc.fm.description,
+      filePath: doc.filePath,
+      loadSlug: resolution.contentSlugPath,
+      frontend: "vue",
+    });
+  }
+
+  // 5. Reference docs — all SDK versions at their canonical versioned URLs.
   //
   //    The v2 (current) API reference lives at the root of
   //    `src/content/reference/` (e.g. `hooks/useCopilotAction.mdx`) and is
