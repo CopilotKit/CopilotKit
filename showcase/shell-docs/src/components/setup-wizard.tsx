@@ -100,7 +100,7 @@ const COPY_LABEL: Record<CopyState, string> = {
   error: "Copy blocked",
 };
 
-/** The two answers to step 1's "Do you already have a project?" — also the
+/** The two answers to step 1's "Where are you starting?" — also the
  *  allow-list `parseWizardUrlState` validates a restored `project` query
  *  value against, so the ids a reader can pick and the ids a URL is allowed
  *  to carry can never drift apart. */
@@ -117,13 +117,13 @@ const PROJECT_ANSWER_IDS = ["yes", "no"] as const;
 const PROJECT_OPTIONS: readonly ChoiceOption[] = [
   {
     id: "yes",
-    label: "Yes",
+    label: "Existing project",
     description: "Add CopilotKit to what you have",
     icon: PROJECT_ANSWER_ICONS.yes,
   },
   {
     id: "no",
-    label: "No",
+    label: "New project",
     description: "Start from scratch",
     icon: PROJECT_ANSWER_ICONS.no,
   },
@@ -517,7 +517,7 @@ export function SetupWizard({
   let footer: React.ReactNode;
 
   if (current === 1) {
-    stepName = "Do you already have a project?";
+    stepName = "Where are you starting?";
     stepDescription =
       "Choose an option to continue. We will tailor the setup to your starting point.";
     body = (
@@ -547,7 +547,7 @@ export function SetupWizard({
             setFrontendId(id);
             goTo(3, "forward", pointerActivated);
           }}
-          size="card"
+          size="compact"
         />
       </div>
     );
@@ -576,6 +576,7 @@ export function SetupWizard({
       "Pick as many as you like, or skip. This guides your coding agent, it does not restrict it.";
     body = (
       <CapabilityGrid
+        compact
         capabilities={capabilities}
         selectedIds={selectedFeatureIds}
         disabled={false}
@@ -647,6 +648,7 @@ export function SetupWizard({
     <div className="not-prose flex flex-col gap-5">
       <div ref={wrapperRef} className="relative">
         <WizardCard
+          scrollContent={current === 3}
           progress={
             <WizardProgress
               steps={STEPPER_STEPS}

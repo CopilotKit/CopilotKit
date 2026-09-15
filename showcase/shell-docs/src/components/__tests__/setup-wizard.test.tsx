@@ -141,7 +141,11 @@ function capabilityButton(title: string) {
  *  project step's Yes/No buttons need the same prefix-anchored query as
  *  `capabilityButton` above rather than an exact-string match. */
 function projectButton(label: "Yes" | "No") {
-  return screen.getByRole("button", { name: new RegExp(`^${label}`) });
+  return screen.getByRole("button", {
+    name: new RegExp(
+      `^${label === "Yes" ? "Existing project" : "New project"}`,
+    ),
+  });
 }
 
 /** Install a resolving clipboard stub and hand back its spy. */
@@ -227,7 +231,7 @@ describe("initial render", () => {
     renderWizard();
 
     expect(
-      screen.getByRole("heading", { name: "Do you already have a project?" }),
+      screen.getByRole("heading", { name: "Where are you starting?" }),
     ).not.toBeNull();
     expect(projectButton("Yes")).not.toBeNull();
     expect(projectButton("No")).not.toBeNull();
@@ -248,7 +252,7 @@ describe("initial render", () => {
 
     expect(screen.queryByText("Step 1 of 5")).toBeNull();
     const card = screen
-      .getByRole("heading", { name: "Do you already have a project?" })
+      .getByRole("heading", { name: "Where are you starting?" })
       .closest("section");
     expect(
       card?.contains(screen.getByRole("button", { name: /Project/ })),
@@ -410,7 +414,7 @@ describe("progress rail", () => {
 
     fireEvent.click(projectRailButton);
     expect(
-      screen.getByRole("heading", { name: "Do you already have a project?" }),
+      screen.getByRole("heading", { name: "Where are you starting?" }),
     ).not.toBeNull();
   });
 
@@ -697,7 +701,7 @@ describe("step 5: review list", () => {
     fireEvent.click(screen.getByRole("button", { name: "Change project" }));
 
     expect(
-      screen.getByRole("heading", { name: "Do you already have a project?" }),
+      screen.getByRole("heading", { name: "Where are you starting?" }),
     ).not.toBeNull();
   });
 
@@ -817,7 +821,7 @@ describe("PickGrid size per step", () => {
 
     fireEvent.click(projectButton("Yes"));
 
-    expect(screen.getByText("The frontend summary line.")).not.toBeNull();
+    expect(screen.getByTitle("The frontend summary line.")).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /^SummaryFrontend/ }));
 
@@ -890,7 +894,7 @@ describe("URL state", () => {
     // the allow-list, so `landingStep` treats it as unanswered and lands
     // back on step 1 regardless of what else was restored.
     expect(
-      screen.getByRole("heading", { name: "Do you already have a project?" }),
+      screen.getByRole("heading", { name: "Where are you starting?" }),
     ).not.toBeNull();
   });
 
@@ -999,7 +1003,7 @@ describe("URL state", () => {
       // Restored (project and frontend answered, backend missing) lands on
       // step 3 — see the "lands on step 3" test above for the same URL. If
       // the restore were still a passive effect, this would still read
-      // "Do you already have a project?" (step 1) at this point instead.
+      // "Where are you starting?" (step 1) at this point instead.
       const heading = container.querySelector("h3");
       expect(heading?.textContent).toBe("Your agent backend");
     } finally {
@@ -1020,7 +1024,7 @@ describe("focus management", () => {
 
     expect(document.activeElement).not.toBe(
       screen.getByRole("heading", {
-        name: "Do you already have a project?",
+        name: "Where are you starting?",
       }),
     );
   });

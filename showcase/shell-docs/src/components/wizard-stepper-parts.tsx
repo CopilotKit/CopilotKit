@@ -158,8 +158,10 @@ export function WizardCard({
   children,
   footer,
   showFocusRing = true,
+  scrollContent = false,
 }: {
   progress?: React.ReactNode;
+  scrollContent?: boolean;
   name: string;
   description: string;
   /** Focus target on every step change. Rendered on the question heading. */
@@ -177,7 +179,7 @@ export function WizardCard({
 }): React.JSX.Element {
   return (
     <section
-      className={`shell-docs-radius-surface not-prose flex min-h-[34rem] flex-col p-5 sm:min-h-[40rem] sm:p-7 border border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]`}
+      className={`shell-docs-radius-surface not-prose flex min-h-[30rem] flex-col p-5 sm:h-[32rem] sm:p-7 border border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]`}
     >
       {progress && <div className="mb-6 shrink-0">{progress}</div>}
       <h3
@@ -192,7 +194,11 @@ export function WizardCard({
       <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
         {description}
       </p>
-      <div className="flex flex-1 flex-col py-7">{children}</div>
+      <div
+        className={`mt-6 flex min-h-0 flex-1 flex-col ${scrollContent ? "max-h-80 overflow-y-auto pr-2 sm:max-h-none" : ""}`}
+      >
+        {children}
+      </div>
       {footer && (
         <div data-testid="wizard-footer" className="shrink-0 pt-5">
           {footer}
@@ -231,7 +237,7 @@ export function ChoiceGrid({
   onSelect: (id: string, pointerActivated: boolean) => void;
 }): React.JSX.Element {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-3">
       {options.map((option) => {
         const selected = option.id === selectedId;
         const Icon = option.icon;
@@ -242,14 +248,14 @@ export function ChoiceGrid({
             disabled={disabled}
             aria-pressed={selected}
             onClick={(event) => onSelect(option.id, event.detail > 0)}
-            className={`shell-docs-radius-control block w-full cursor-pointer border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`shell-docs-radius-control block w-full cursor-pointer border px-3 py-7 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               selected
                 ? "border-[var(--accent)] bg-[var(--accent-dim)]"
                 : "border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[var(--bg-surface)] shadow-sm hover:border-[var(--accent)]"
             }`}
           >
-            <span className="flex items-center gap-2">
-              <span className="shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]">
+            <span className="flex flex-col items-center gap-3">
+              <span className="shell-docs-radius-icon flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]">
                 <Icon aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
               <span className="text-sm font-semibold text-[var(--text)]">

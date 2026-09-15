@@ -233,6 +233,7 @@ export function PickGrid({
         return (
           <button
             key={pick.id}
+            title={size === "compact" ? pick.summary : undefined}
             type="button"
             disabled={disabled}
             aria-pressed={selected}
@@ -269,23 +270,30 @@ export function PickGrid({
 }
 
 export function CapabilityGrid({
+  compact = false,
   capabilities,
   selectedIds,
   disabled,
   onToggle,
 }: {
+  compact?: boolean;
   capabilities: readonly MapCapability[];
   selectedIds: readonly string[];
   disabled: boolean;
   onToggle: (id: string) => void;
 }): React.JSX.Element {
   return (
-    <div className={MAP_TILE_GRID_CLASS}>
+    <div
+      className={
+        compact ? "grid grid-cols-1 gap-2 sm:grid-cols-2" : MAP_TILE_GRID_CLASS
+      }
+    >
       {capabilities.map((capability) => {
         const selected = selectedIds.includes(capability.id);
         return (
           <button
             key={capability.id}
+            title={compact ? capability.body : undefined}
             type="button"
             disabled={disabled}
             aria-pressed={selected}
@@ -313,9 +321,11 @@ export function CapabilityGrid({
                 />
               ) : null}
             </span>
-            <span className="mt-2.5 block text-xs leading-relaxed text-[var(--text-muted)]">
-              {capability.body}
-            </span>
+            {!compact && (
+              <span className="mt-2.5 block text-xs leading-relaxed text-[var(--text-muted)]">
+                {capability.body}
+              </span>
+            )}
           </button>
         );
       })}
