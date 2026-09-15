@@ -12,11 +12,10 @@ COPY next.config.ts tsconfig.json postcss.config.mjs ./
 COPY showcase.json ./showcase.json
 
 # Docker override: use AG-UI HttpAgent instead of LangGraphAgent.
-# Next.js 16+ rejects both /api/copilotkit/route.ts AND /api/copilotkit/[[...slug]]/route.ts
-# at the same time — remove the default catch-all and drop in the HttpAgent route.
-RUN rm -f ./src/app/api/copilotkit/\[\[...slug\]\]/route.ts
-COPY docker-route-override.ts ./src/app/api/copilotkit/route.ts
-RUN npm install @ag-ui/client
+# Overwrite the catch-all IN PLACE: a second exact /api/copilotkit/route.ts would
+# conflict, and an exact segment never matches subpaths like /api/copilotkit/info.
+COPY docker-route-override.ts ./src/app/api/copilotkit/\[\[...slug\]\]/route.ts
+RUN npm install --save-exact @ag-ui/client@0.0.59
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 # Next.js 16+ uses Turbopack by default; use --webpack for serverExternalPackages compat
