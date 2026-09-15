@@ -37,7 +37,7 @@ const LAYERS: LayerDef[] = [
   },
   {
     id: "D6",
-    body: "does its behaviour match the reference (LangGraph Python), or has it drifted? (DOM elements, tool-call sequence, stream cadence, contract shape — informational; weekly rotation)",
+    body: "does EVERY demo cell work, not just the one D5 sampled? (the same scripted aimock conversations, run across every feature type the integration declares — green only if all of them pass; hourly)",
   },
 ];
 

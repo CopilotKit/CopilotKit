@@ -20,9 +20,11 @@ import {
   resolveStarterRow,
   buildStarterBadge,
   starterIsSupported,
+  starterSupport,
   STARTER_LEVELS,
 } from "@/lib/live-status";
-import { ToneChip } from "@/components/badges";
+import { StatusChip } from "@/components/badges";
+import { GLYPHS } from "@/lib/glyphs";
 import { LevelStrip } from "@/components/level-strip";
 import { OverlayColumnHeader } from "@/components/overlay-column-header";
 import { RefDepthHeader, RefDepthCell } from "@/components/ref-depth-column";
@@ -414,9 +416,10 @@ const CategorySection = React.memo(
                       className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-top"
                       style={{ backgroundColor: "#f5f0ff" }}
                     >
-                      <span className="text-[var(--text-muted)] text-[10px]">
-                        --
-                      </span>
+                      {/* Spacer, NOT a status — it has no reference datum.
+                          It used to render `--`, the same glyph the unshipped
+                          depth chip used, so one mark carried two meanings.
+                          An empty cell is the honest rendering. */}
                     </td>
                   ))}
                 {integrations.map((integration) => {
@@ -444,21 +447,26 @@ const CategorySection = React.memo(
                         })
                       ) : isNotSupported ? (
                         // Architectural limit — framework cannot support this
-                        // feature. Distinct from the unshipped "no demo" ✗ so
-                        // viewers can tell "won't be done" apart from "to do".
-                        <span
-                          className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-base border border-slate-500/40 bg-slate-500/10 text-slate-400"
+                        // feature. A HOLLOW chip with a solid slate border:
+                        // nothing was judged here, so it must not sit in the
+                        // verdict layer at all.
+                        <StatusChip
+                          tone="gray"
+                          label={GLYPHS.notSupported.mark}
                           title="Not supported by this framework"
-                        >
-                          🚫
-                        </span>
+                        />
                       ) : (
-                        <div
-                          className="text-center text-base text-[var(--danger)]"
-                          title="No demo"
-                        >
-                          ✗
-                        </div>
+                        // In scope, not built yet. This was a 16px red ✗ in
+                        // the failure colour at the failure weight — the
+                        // loudest mark in the entire table, for UNBUILT WORK.
+                        // A hollow DASHED chip is the "slot not filled in"
+                        // idiom, and it is what lets ✗ mean only "a probe ran
+                        // and failed".
+                        <StatusChip
+                          tone="gray"
+                          label={GLYPHS.notShipped.mark}
+                          title="not shipped — in scope, not built yet"
+                        />
                       )}
                     </td>
                   );
@@ -566,17 +574,18 @@ function StarterSection({
                 className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-middle"
                 style={{ backgroundColor: "#f5f0ff" }}
               >
-                <span className="text-[var(--text-muted)] text-[10px]">--</span>
+                {/* Spacer, not a status — see the feature-row comment. */}
               </td>
             )}
             {integrations.map((integration) => {
-              const isSupported = starterIsSupported(integration.slug);
-              const starterRow = isSupported
-                ? resolveStarterRow(liveStatus, integration.slug, level)
-                : null;
+              const support = starterSupport(integration.slug);
+              const starterRow =
+                support === "probed"
+                  ? resolveStarterRow(liveStatus, integration.slug, level)
+                  : null;
               const badge = buildStarterBadge(
                 level,
-                isSupported,
+                support,
                 starterRow,
                 now,
                 connection,
@@ -587,7 +596,7 @@ function StarterSection({
                   data-testid={`starter-cell-${integration.slug}-${level}`}
                   className="border-l border-[var(--border)] px-1 py-1 align-middle text-center"
                 >
-                  <ToneChip
+                  <StatusChip
                     tone={badge.tone}
                     label={badge.label}
                     title={badge.tooltip}

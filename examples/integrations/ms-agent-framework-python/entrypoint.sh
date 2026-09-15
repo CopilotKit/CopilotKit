@@ -8,7 +8,9 @@ AGENT_PID=$!
 cd /app
 
 # Start Next.js frontend
-PORT=${PORT:-3000} npx next start --port ${PORT:-3000} &
+PORT="${PORT:-3000}"
+export PORT
+npx next start --port "$PORT" &
 NEXT_PID=$!
 
 wait -n $AGENT_PID $NEXT_PID
