@@ -13,7 +13,28 @@ export type AnalyticsEvents = {
     hashedLgcKey?: string;
     error?: string;
   };
+  /**
+   * A managed Channel lost its gateway link. Carries only the cause we already
+   * compute for the log line — never the Channel name, which is a
+   * customer-chosen identifier, and never message content.
+   */
+  "oss.runtime.channel_session_dropped": ChannelSessionDroppedInfo;
+  /** A managed Channel's gateway link came back, and how long it was gone. */
+  "oss.runtime.channel_session_recovered": { downForMs: number };
 };
+
+/**
+ * Kept identical to the v2 runtime's catalog in
+ * `packages/runtime/src/v2/runtime/telemetry/events.ts`. The v1 entrypoint
+ * hands its capture scope to the V2 runtime it builds, so that scope has to
+ * accept every event the V2 runtime can send, channel events included.
+ */
+export interface ChannelSessionDroppedInfo {
+  /** Diagnosis of the drop, e.g. `the gateway host answered HTTP 502`. */
+  reason?: string;
+  /** Transport/OS code when the transport named one, e.g. `ECONNRESET`. */
+  code?: string;
+}
 
 export interface RuntimeInstanceCreatedInfo {
   actionsAmount: number;

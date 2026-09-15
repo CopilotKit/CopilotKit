@@ -18,6 +18,8 @@ class TelemetryTest < Minitest::Test
     assert_equal 1, events.length
     globals = events.first.fetch('global_properties')
     assert_equal [1, 0, 1, true], globals.values_at('sampleRate', 'sampleRateAdjustmentFactor', 'sampleWeight', 'telemetry_identified')
+    # This runtime exposes the v2 API only, so it reports that surface.
+    assert_equal %w[runtime-ruby v2], globals.values_at('telemetry_emitter', 'telemetry_surface')
     refute JSON.generate(events).include?(token)
     refute JSON.generate(events).include?('legacy-id')
   end
@@ -112,17 +114,22 @@ class TelemetryTest < Minitest::Test
     assert_in_delta Time.now.to_i, events.first.fetch('ts'), 2
   end
 
-  def test_default_sampling_has_weight_and_identity_never_bypasses_it
+  # Unsampled by default: the sink is CopilotKit's own, so anonymous volume
+  # costs nothing per event and a real count beats one extrapolated from a
+  # fraction of the population. A standalone id still does not make an event
+  # identified, and a configured rate still gates.
+  def test_default_is_unsampled_and_standalone_identity_stays_anonymous
     events = []
-    telemetry = CopilotKit::Telemetry.new(exporter: ->(event) { events << event }, random: -> { 0.04 }, telemetry_id: 'standalone', env: {})
+    telemetry = CopilotKit::Telemetry.new(exporter: ->(event) { events << event }, random: -> { 0.99 }, telemetry_id: 'standalone', env: {})
     telemetry.emit('oss.runtime.agent_execution_stream_started')
     telemetry.close
-    assert_equal 0.05, events.first.dig('global_properties', 'sampleRate')
-    assert_equal 20, events.first.dig('global_properties', 'sampleWeight')
+    assert_equal 1.0, events.first.dig('global_properties', 'sampleRate')
+    assert_equal 1, events.first.dig('global_properties', 'sampleWeight')
     assert_equal false, events.first.dig('global_properties', 'telemetry_identified')
+    assert_equal 'v2', events.first.dig('global_properties', 'telemetry_surface')
     refute JSON.generate(events).include?('standalone')
     filtered = []
-    sampled_out = CopilotKit::Telemetry.new(exporter: ->(event) { filtered << event }, random: -> { 0.06 }, telemetry_id: 'standalone', env: {})
+    sampled_out = CopilotKit::Telemetry.new(exporter: ->(event) { filtered << event }, sample_rate: 0.05, random: -> { 0.06 }, telemetry_id: 'standalone', env: {})
     sampled_out.emit('oss.runtime.agent_execution_stream_started')
     sampled_out.close
     assert_empty filtered
@@ -134,7 +141,7 @@ class TelemetryTest < Minitest::Test
       telemetry = CopilotKit::Telemetry.new(exporter: ->(event) { events << event }, sample_rate: rate, random: -> { 0.01 }, env: {})
       telemetry.emit('oss.runtime.agent_execution_stream_started')
       telemetry.close
-      assert_equal 0.05, events.first.dig('global_properties', 'sampleRate')
+      assert_equal 1.0, events.first.dig('global_properties', 'sampleRate')
     end
   end
 
