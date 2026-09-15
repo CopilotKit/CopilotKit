@@ -31,7 +31,7 @@ describe("WizardCard", () => {
   // of the treatment were dropped.
   it("renders a section with the core treatment: border and surface background", () => {
     const { container } = render(
-      <WizardCard step={1} total={4} name="N" description="D" footer={<span />}>
+      <WizardCard name="N" description="D" footer={<span />}>
         <span />
       </WizardCard>,
     );
@@ -45,7 +45,7 @@ describe("WizardCard", () => {
 
   it("renders the kicker as Step {step} of {total}", () => {
     render(
-      <WizardCard step={2} total={4} name="N" description="D" footer={<span />}>
+      <WizardCard name="N" description="D" footer={<span />}>
         <span />
       </WizardCard>,
     );
@@ -72,7 +72,7 @@ describe("WizardCard", () => {
   // directly against the prop.
   it("renders the heading's focus ring class by default and when showFocusRing is true", () => {
     const { container } = render(
-      <WizardCard step={1} total={4} name="N" description="D" footer={<span />}>
+      <WizardCard name="N" description="D" footer={<span />}>
         <span />
       </WizardCard>,
     );
@@ -128,7 +128,7 @@ describe("WizardCard", () => {
   // is what catches a change that applies the floor unconditionally.
   it("gives the card a minimum height starting at the md breakpoint, not unconditionally", () => {
     const { container } = render(
-      <WizardCard step={1} total={4} name="N" description="D" footer={<span />}>
+      <WizardCard name="N" description="D" footer={<span />}>
         <span />
       </WizardCard>,
     );
