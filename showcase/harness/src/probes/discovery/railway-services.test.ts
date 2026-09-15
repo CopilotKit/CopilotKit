@@ -73,6 +73,21 @@ function railwayProjectResponse(
      * `latestDeployment` field absent from the node entirely.
      */
     latestDeployment?: { meta?: Record<string, unknown> | null } | null;
+    /**
+     * Environment the service's single `serviceInstance` lives in. Defaults to
+     * `"env-1"` (= `BASE_ENV.RAILWAY_ENVIRONMENT_ID`), i.e. "deployed in the
+     * environment under probe". Set it to anything else to model a service that
+     * exists in the Railway PROJECT but has no instance in the probed
+     * environment — the staging-only-service case. Railway's project query is
+     * project-scoped, so such a service IS returned by the wire response.
+     */
+    environmentId?: string;
+    /**
+     * Model a service with NO `serviceInstances` at all (created but never
+     * attached to any environment). Distinct from `environmentId`: that one has
+     * an instance in the wrong env, this one has none anywhere.
+     */
+    noInstances?: boolean;
   }>,
 ) {
   return {
@@ -81,7 +96,7 @@ function railwayProjectResponse(
         services: {
           edges: services.map((s) => {
             const node: Record<string, unknown> = {
-              environmentId: "env-1",
+              environmentId: s.environmentId ?? "env-1",
               source: { image: s.image },
               domains: {
                 serviceDomains: s.domain ? [{ domain: s.domain }] : [],
@@ -95,7 +110,7 @@ function railwayProjectResponse(
                 id: s.id,
                 name: s.name,
                 serviceInstances: {
-                  edges: [{ node }],
+                  edges: s.noInstances ? [] : [{ node }],
                 },
               },
             };
@@ -1983,5 +1998,189 @@ describe("railwayServicesSource — LOCAL_SERVICES_JSON injection", () => {
     );
     expect(out).toHaveLength(1);
     expect(out[0]!.demos).toEqual(["agentic_chat"]);
+  });
+});
+
+describe("railwayServicesSource — environment scoping", () => {
+  // Railway's `project(id:).services` is PROJECT-scoped: it returns every
+  // service in the project regardless of environment, because the schema
+  // rejects an `environmentId` argument on `serviceInstances`. So
+  // `RAILWAY_ENVIRONMENT_ID` selects which instance to enrich FROM, and a
+  // service with no instance in that environment must be dropped — otherwise it
+  // enriches into an all-empty husk that every consumer mishandles (most
+  // destructively: `publicUrl: ""` → `backendUrl: ""` → a relative
+  // `page.goto` → a whole-column red block of `goto-error` cells).
+
+  it("drops a service whose only instance is in a different environment", async () => {
+    // The staging-only-service case that took down a prod dashboard column.
+    // Only ONE response is scripted (the project query): if the source tried to
+    // enrich the dropped service, makeFetch would throw on queue exhaustion.
+    const { fetchImpl, calls } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-staging-only",
+            name: "showcase-crewai-conversational-flows",
+            image: "ghcr.io/copilotkit/showcase-crewai-conversational-flows:x",
+            domain:
+              "showcase-crewai-conversational-flows-staging.up.railway.app",
+            environmentId: "env-staging",
+          },
+        ]),
+      },
+    ]);
+
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+
+    expect(out).toEqual([]);
+    // Dropped BEFORE the per-service variables round-trip — the project query
+    // is the only call made.
+    expect(calls).toHaveLength(1);
+  });
+
+  it("drops a service with no serviceInstances at all", async () => {
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-orphan",
+            name: "showcase-never-attached",
+            image: null,
+            noInstances: true,
+          },
+        ]),
+      },
+    ]);
+
+    expect(
+      await railwayServicesSource.enumerate(makeCtx(fetchImpl), {}),
+    ).toEqual([]);
+  });
+
+  it("never emits a husk: every record carries a non-empty publicUrl", async () => {
+    // The invariant the fleet path depends on. A husk here is what became
+    // `backendUrl: ""` downstream, so assert on the property rather than only
+    // on the count.
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-live",
+            image: "ghcr.io/copilotkit/showcase-live:latest",
+            domain: "showcase-live.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-elsewhere",
+            image: "ghcr.io/copilotkit/showcase-elsewhere:latest",
+            domain: "showcase-elsewhere-staging.up.railway.app",
+            environmentId: "env-staging",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+
+    expect(out.map((s) => s.name)).toEqual(["showcase-live"]);
+    for (const svc of out) {
+      expect(svc.publicUrl).not.toBe("");
+    }
+  });
+
+  it("keeps a service that HAS an instance in the probed environment", async () => {
+    // Regression guard: the scoping filter must not drop the normal case.
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-a",
+            image: "ghcr.io/copilotkit/showcase-a:latest",
+            domain: "showcase-a.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: { FOO: "bar" } } } },
+    ]);
+
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      name: "showcase-a",
+      publicUrl: "https://showcase-a.up.railway.app",
+    });
+  });
+
+  it("logs each drop LOUDLY with the service name and environment", async () => {
+    // A service that SHOULD be in this environment and lost its instance is a
+    // real incident. Dropping it silently is how that would hide, so the warn
+    // is part of the contract, not incidental.
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    try {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-gone-from-prod",
+              image: "ghcr.io/copilotkit/showcase-gone-from-prod:latest",
+              environmentId: "env-staging",
+            },
+          ]),
+        },
+      ]);
+
+      await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        "discovery.railway-services.env-instance-missing",
+        { service: "showcase-gone-from-prod", environmentId: "env-1" },
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("applies scoping AFTER the name filters, so excluded services stay silent", async () => {
+    // A name-excluded service must not also produce an env-missing warn — it was
+    // never a candidate for this environment in the first place.
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    try {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-excluded",
+              image: null,
+              environmentId: "env-staging",
+            },
+          ]),
+        },
+      ]);
+
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {
+        namePrefix: "showcase-",
+        nameExcludes: ["showcase-excluded"],
+      });
+
+      expect(out).toEqual([]);
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        "discovery.railway-services.env-instance-missing",
+        expect.anything(),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
