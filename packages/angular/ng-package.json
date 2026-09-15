@@ -9,6 +9,7 @@
     "@ag-ui/client",
     "@ag-ui/core",
     "@copilotkit/a2ui-renderer",
+    "@copilotkit/mcp-apps-renderer",
     "@copilotkit/shared",
     "@copilotkit/core",
     "@copilotkit/web-components",
