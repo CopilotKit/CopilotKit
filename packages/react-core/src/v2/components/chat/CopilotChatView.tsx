@@ -58,7 +58,10 @@ export type CopilotChatViewProps = WithSlots<
   {
     messageView: typeof CopilotChatMessageView;
     scrollView: typeof CopilotChatView.ScrollView;
-    input: typeof CopilotChatInput;
+    // Widened to the props-based form so a plain FC / call signature assigns
+    // without the CopilotChatInput namespace statics — see #7158, same shape as
+    // CopilotChat's `chatView` after #7156.
+    input: React.ComponentType<CopilotChatInputProps>;
     suggestionView: typeof CopilotChatSuggestionView;
   },
   {

@@ -14,6 +14,7 @@ import { useModalOpenControl } from "./modal-open-control";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { cn } from "../../lib/utils";
 import { CopilotModalHeader } from "./CopilotModalHeader";
+import type { CopilotModalHeaderProps } from "./CopilotModalHeader";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 
@@ -21,7 +22,8 @@ const DEFAULT_SIDEBAR_WIDTH = 480;
 const SIDEBAR_TRANSITION_MS = 260;
 
 export type CopilotSidebarViewProps = CopilotChatViewProps & {
-  header?: SlotValue<typeof CopilotModalHeader>;
+  /** Accepts a className, partial props, or any component with CopilotModalHeader props — static namespace members are not required. */
+  header?: SlotValue<React.ComponentType<CopilotModalHeaderProps>>;
   toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
   defaultOpen?: boolean;
