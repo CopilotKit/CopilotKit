@@ -42,7 +42,7 @@ async def main():
         identify_user=identify,
         telemetry=Telemetry(
             enabled=not config.get("telemetryDisabled", False),
-            sample_rate=config.get("telemetrySampleRate", 0.05),
+            sample_rate=config.get("telemetrySampleRate", 1),
             telemetry_id=config.get("telemetryId"),
             license_token=config.get("licenseToken"),
             url=config.get("telemetryUrl", "https://telemetry.copilotkit.ai/ingest"),

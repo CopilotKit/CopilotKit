@@ -93,10 +93,9 @@ describe("runtime construction — telemetry license token", () => {
 
       expect(runtime.mode).toBe("sse");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
-      expect(createScopeSpy).toHaveBeenCalledWith(
-        { licenseToken: TOKEN },
-        "v2",
-      );
+      expect(createScopeSpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
@@ -107,10 +106,9 @@ describe("runtime construction — telemetry license token", () => {
 
       expect(runtime.mode).toBe("sse");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
-      expect(createScopeSpy).toHaveBeenCalledWith(
-        { licenseToken: TOKEN },
-        "v2",
-      );
+      expect(createScopeSpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
@@ -131,10 +129,9 @@ describe("runtime construction — telemetry license token", () => {
 
       expect(runtime.mode).toBe("sse");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
-      expect(createScopeSpy).toHaveBeenCalledWith(
-        { licenseToken: TOKEN },
-        "v2",
-      );
+      expect(createScopeSpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
@@ -145,10 +142,9 @@ describe("runtime construction — telemetry license token", () => {
 
       expect(runtime.mode).toBe("sse");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
-      expect(createScopeSpy).toHaveBeenCalledWith(
-        { licenseToken: TOKEN },
-        "v2",
-      );
+      expect(createScopeSpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
   });
@@ -164,10 +160,9 @@ describe("runtime construction — telemetry license token", () => {
 
       expect(runtime.mode).toBe("intelligence");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
-      expect(createScopeSpy).toHaveBeenCalledWith(
-        { licenseToken: TOKEN },
-        "v2",
-      );
+      expect(createScopeSpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
@@ -182,10 +177,9 @@ describe("runtime construction — telemetry license token", () => {
 
       expect(runtime.mode).toBe("intelligence");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
-      expect(createScopeSpy).toHaveBeenCalledWith(
-        { licenseToken: TOKEN },
-        "v2",
-      );
+      expect(createScopeSpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
 
@@ -204,7 +198,7 @@ describe("runtime construction — telemetry license token", () => {
         license: null,
         valid: false,
       });
-      expect(createScopeSpy).toHaveBeenCalledWith({}, "v2");
+      expect(createScopeSpy).toHaveBeenCalledWith({});
     });
   });
 
@@ -219,10 +213,9 @@ describe("runtime construction — telemetry license token", () => {
 
       expect(runtime.mode).toBe("intelligence");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
-      expect(createScopeSpy).toHaveBeenCalledWith(
-        { licenseToken: TOKEN },
-        "v2",
-      );
+      expect(createScopeSpy).toHaveBeenCalledWith({
+        licenseToken: TOKEN,
+      });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
   });
@@ -432,10 +425,7 @@ test.each(runtimeConstructorIdentityCases)(
 
       expect(runtime.mode).toBe(constructorCase.expectedMode);
       expect(createScope).toHaveBeenCalledTimes(1);
-      expect(createScope).toHaveBeenCalledWith(
-        identityCase.expectedIdentity,
-        "v2",
-      );
+      expect(createScope).toHaveBeenCalledWith(identityCase.expectedIdentity);
       expect(setLicenseToken).not.toHaveBeenCalled();
 
       await runtime.telemetry.capture(
@@ -505,7 +495,7 @@ test.each(runtimeConstructorCases)(
         constructorCase.expectedMode,
       ]);
       expect(createScope).toHaveBeenCalledTimes(1);
-      expect(createScope).toHaveBeenCalledWith({}, "v2");
+      expect(createScope).toHaveBeenCalledWith({});
       expect(setLicenseToken).not.toHaveBeenCalled();
 
       await anonymousRuntime.telemetry.capture(

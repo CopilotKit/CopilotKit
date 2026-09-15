@@ -343,13 +343,13 @@ Pass a telemetry instance to `IntelligenceRuntime(telemetry=...)`:
 ```python
 from copilotkit_runtime import Telemetry
 
-telemetry = Telemetry(sample_rate=0.05, telemetry_id="my-application")
+telemetry = Telemetry(sample_rate=0.5, telemetry_id="my-application")
 ```
 
 Analytics use `https://telemetry.copilotkit.ai/ingest`. `Telemetry(url=...)` changes the endpoint.
 `COPILOTKIT_TELEMETRY_URL` overrides the endpoint. The exporter does not follow redirects and has a three-second request deadline.
 
-The default sample rate is `0.05`. `COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides `sample_rate`.
+The default sample rate is `1`, so events are not sampled. `COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides `sample_rate`.
 Rates must be finite and within `[0, 1]`.
 Events include the sample rate, adjustment factor, weight, emitter, transport, and an integer Unix timestamp.
 Analytics contain no prompts, user IDs, thread IDs, API keys, or raw errors.
