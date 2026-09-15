@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } from "../core";
+import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { waitForCondition } from "./test-utils";
 
 /**
@@ -185,5 +186,59 @@ describe("runtime mode changes under an open page (#7130)", () => {
     // The consequence: a run now streams SSE instead of dying inside the
     // delegate's `response.json()`.
     await expect(core.runAgent({ agent })).resolves.toBeDefined();
+  });
+
+  it("detaches its own run pipeline when it drops a delegate mid-run", () => {
+    // A recovery re-sync can land while a run is streaming. Aborting only the
+    // delegate leaves the proxy's own pipeline attached, so `isRunning` never
+    // resets and `onRunFinalized` never fires — the UI spins forever on a
+    // run that is already dead.
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: RUNTIME_URL,
+      agentId: "default",
+      transport: "rest",
+      runtimeMode: "intelligence",
+      intelligence: { wsUrl: "wss://realtime.example" },
+    });
+
+    const delegateAbort = vi.fn();
+    (agent as unknown as { delegate?: unknown }).delegate = {
+      abortRun: delegateAbort,
+    };
+    const detach = vi
+      .spyOn(agent, "detachActiveRun")
+      .mockResolvedValue(undefined);
+
+    agent.adoptRuntimeMode("sse", undefined);
+
+    expect(delegateAbort).toHaveBeenCalledTimes(1);
+    expect(detach).toHaveBeenCalledTimes(1);
+    expect(peekDelegate(agent)).toBeUndefined();
+  });
+
+  it("leaves a live run alone when the mode did not change", () => {
+    // Every re-sync calls through here, including the ordinary ones. Only a
+    // genuine mode change may tear a run down.
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: RUNTIME_URL,
+      agentId: "default",
+      transport: "rest",
+      runtimeMode: "intelligence",
+      intelligence: { wsUrl: "wss://realtime.example" },
+    });
+
+    const delegateAbort = vi.fn();
+    (agent as unknown as { delegate?: unknown }).delegate = {
+      abortRun: delegateAbort,
+    };
+    const detach = vi
+      .spyOn(agent, "detachActiveRun")
+      .mockResolvedValue(undefined);
+
+    agent.adoptRuntimeMode("intelligence", { wsUrl: "wss://realtime.example" });
+
+    expect(delegateAbort).not.toHaveBeenCalled();
+    expect(detach).not.toHaveBeenCalled();
+    expect(peekDelegate(agent)).toBeDefined();
   });
 });

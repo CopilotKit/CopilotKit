@@ -202,7 +202,15 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeInfoPromise = undefined;
     const staleDelegate = this.delegate;
     this.delegate = undefined;
-    staleDelegate?.abortRun();
+    if (staleDelegate) {
+      staleDelegate.abortRun();
+      // A re-sync can land mid-run, so the proxy's own pipeline has to be
+      // detached as well: aborting only the delegate would leave `isRunning`
+      // true and `onRunFinalized` unfired, and the UI would spin forever.
+      // This mirrors what `abortRun()` does for its delegate branch, minus
+      // the delegate detach that clearing the field above already skips.
+      void this.detachActiveRun();
+    }
   }
 
   /**
