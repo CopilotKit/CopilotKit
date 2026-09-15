@@ -31,6 +31,7 @@
     "shared-state",
     "readables",
     "---AG2---",
+    "multi-agent/subagents",
     "auth",
     "---Backend---",
     "copilot-runtime",

@@ -73,6 +73,14 @@ _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 # the capture install is idempotent and ``reset_for_test`` can detach it,
 # leaving no residual host-logging mutation between tests.
 _AGENTS_LOG_NAME = "agents"
+# The harness plumbing (header forwarding, CVDIAG backend middleware) used to
+# live under each backend's ``agents/`` package and so logged as ``agents.*``.
+# It now lives in ``_shared/harness/`` and logs as ``_shared.harness.*``, which
+# the ``agents``-scoped capture below does NOT reach — leaving every CVDIAG
+# breadcrumb from those modules silently dropped, the exact bug this bootstrap
+# exists to fix. Both subtrees are captured.
+_HARNESS_LOG_NAME = "_shared.harness"
+_CAPTURED_LOG_NAMES = (_AGENTS_LOG_NAME, _HARNESS_LOG_NAME)
 _CAPTURE_HANDLER: Optional[logging.Handler] = None
 
 
@@ -93,7 +101,7 @@ def _resolve_log_stdout(env: dict[str, str]) -> bool:
 
 
 def _install_agents_log_capture() -> None:
-    """Attach a scoped stream handler to the ``agents`` logger (idempotent).
+    """Attach a scoped stream handler to the captured loggers (idempotent).
 
     This is the silent-drop fix WITHOUT the global blast radius of
     ``basicConfig(force=True)``: we never touch the root logger's handlers, so
@@ -106,12 +114,13 @@ def _install_agents_log_capture() -> None:
         return
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter(_LOG_FORMAT))
-    agents_logger = logging.getLogger(_AGENTS_LOG_NAME)
-    agents_logger.addHandler(handler)
-    # Ensure ``agents.*`` records at INFO survive the level filter even if the
-    # host left the (effective) level above INFO; scoped to the agents subtree.
-    if agents_logger.level == logging.NOTSET or agents_logger.level > logging.INFO:
-        agents_logger.setLevel(logging.INFO)
+    for name in _CAPTURED_LOG_NAMES:
+        captured = logging.getLogger(name)
+        captured.addHandler(handler)
+        # Ensure records at INFO survive the level filter even if the host left
+        # the (effective) level above INFO; scoped to these subtrees only.
+        if captured.level == logging.NOTSET or captured.level > logging.INFO:
+            captured.setLevel(logging.INFO)
     _CAPTURE_HANDLER = handler
 
 
@@ -259,7 +268,8 @@ def reset_for_test() -> None:
     _ENABLED = False
     _LOG_STDOUT = True
     if _CAPTURE_HANDLER is not None:
-        logging.getLogger(_AGENTS_LOG_NAME).removeHandler(_CAPTURE_HANDLER)
+        for name in _CAPTURED_LOG_NAMES:
+            logging.getLogger(name).removeHandler(_CAPTURE_HANDLER)
         _CAPTURE_HANDLER = None
 
 
