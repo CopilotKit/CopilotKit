@@ -67,7 +67,7 @@ export async function generateMetadata({
     return buildDocMetadata({
       title: "CopilotKit: bring your agent into any app",
       description:
-        "CopilotKit is an open-source framework that connects your app to AI agents. Add chat, interactive UI, and human approvals, with your choice of agent backend.",
+        "CopilotKit is an open-source framework that connects your app to AI agents. Add chat, interactive UI, and human approvals, with your choice of any agent backend.",
       canonicalPath: "/",
     });
   }
@@ -142,7 +142,7 @@ function DocsOverview() {
             <p className="mt-6 max-w-[54ch] text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
               CopilotKit is an open-source framework that connects your app to
               AI agents. Add chat, interactive UI, and human approvals, with
-              your choice of agent backend.
+              your choice of any agent backend.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <HeroOnboardingPromptButton surface="docs_landing_hero" />
@@ -155,7 +155,7 @@ function DocsOverview() {
           <section
             id="setup"
             aria-labelledby="setup-heading"
-            className="my-12 scroll-mt-24 xl:scroll-mt-8 rounded-2xl border border-[var(--nav-control-border)] bg-[color-mix(in_srgb,var(--accent)_9%,var(--bg-surface))] p-4 sm:my-14 sm:p-7"
+            className="my-12 scroll-mt-24 xl:scroll-mt-8 sm:my-14"
           >
             <div className="mb-7 flex flex-col gap-3">
               <h2

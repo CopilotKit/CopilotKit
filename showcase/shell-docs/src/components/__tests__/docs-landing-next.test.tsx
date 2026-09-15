@@ -8,7 +8,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DocsLandingNext } from "../docs-landing-next";
-import { frontendPicks, visibleIntegrations } from "@/lib/homepage-map";
+import { visibleIntegrations } from "@/lib/homepage-map";
+import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
 import { landingIntegrations } from "@/lib/landing-integrations";
 
 beforeEach(() => {
@@ -65,7 +66,7 @@ describe("DocsLandingNext", () => {
     expect(root.querySelector("details")).toBeNull();
   });
 
-  it.each(frontendPicks())(
+  it.each(FRONTEND_OPTIONS)(
     "routes the full directory using the selected $name frontend",
     (frontend) => {
       directory();

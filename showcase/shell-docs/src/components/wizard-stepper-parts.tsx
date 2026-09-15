@@ -2,7 +2,7 @@
 // and navigation. State and transitions belong to SetupWizard.
 
 import React from "react";
-import { Check, X } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { CORE_TREATMENT_CLASS } from "./docs-map-parts";
@@ -17,7 +17,7 @@ import { CORE_TREATMENT_CLASS } from "./docs-map-parts";
  *  so a server-rendered consumer of this record would get a function that
  *  throws instead of the record itself.
  *
- *  A checkmark for "yes", a cross for "no". A checkmark already marks a
+ *  A checkmark for "yes", a plus for starting a new project. A checkmark already marks a
  *  *selected* feature tile elsewhere in this wizard (`CapabilityGrid` in
  *  `docs-map-parts.tsx`), but there is no collision here: this step is
  *  single choice and renders no selection checkmark of its own (see
@@ -30,7 +30,7 @@ import { CORE_TREATMENT_CLASS } from "./docs-map-parts";
  *  namespace import indexed at runtime, vs. 6 KB for named imports). */
 export const PROJECT_ANSWER_ICONS: Record<"yes" | "no", LucideIcon> = {
   yes: Check,
-  no: X,
+  no: Plus,
 };
 
 export type StepperStep = {
@@ -131,8 +131,10 @@ export function WizardProgress({
                 <span
                   className={`shell-docs-radius-control flex h-7 w-7 shrink-0 items-center justify-center border text-xs font-semibold ${
                     isCurrent
-                      ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
-                      : "border-[var(--border)]"
+                      ? "border-[var(--accent-fill)] bg-[var(--accent-fill)] text-[var(--primary-foreground)]"
+                      : reached
+                        ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
+                        : "border-[var(--text-muted)] bg-[var(--bg-surface)]"
                   }`}
                 >
                   {step.n}
@@ -149,7 +151,7 @@ export function WizardProgress({
   );
 }
 
-/** One active step. Short questions stay compact; larger option lists grow naturally. */
+/** One active step. The stage stays the same height; larger option lists scroll within it. */
 export function WizardCard({
   step,
   total,
@@ -179,7 +181,7 @@ export function WizardCard({
 }): React.JSX.Element {
   return (
     <section
-      className={`shell-docs-radius-surface not-prose flex flex-col p-5 sm:p-7 md:min-h-[21rem] ${CORE_TREATMENT_CLASS}`}
+      className={`shell-docs-radius-surface not-prose flex h-[34rem] flex-col p-5 sm:h-[30rem] sm:p-7 ${CORE_TREATMENT_CLASS}`}
     >
       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         {`Step ${step} of ${total}`}
@@ -196,13 +198,14 @@ export function WizardCard({
       <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
         {description}
       </p>
-      <div className="flex flex-1 flex-col justify-center py-7">{children}</div>
-      <div
-        data-testid="wizard-footer"
-        className="border-t border-[var(--border)] pt-5 sm:pt-7"
-      >
-        {footer}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto py-7">
+        {children}
       </div>
+      {footer && (
+        <div data-testid="wizard-footer" className="shrink-0 pt-5">
+          {footer}
+        </div>
+      )}
     </section>
   );
 }

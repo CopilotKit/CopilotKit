@@ -102,7 +102,7 @@ describe("project row icon", () => {
     );
 
     const row = screen.getByRole("button", { name: "Change project" });
-    expect(row.querySelector("svg.lucide-x")).not.toBeNull();
+    expect(row.querySelector("svg.lucide-plus")).not.toBeNull();
   });
 });
 

@@ -16,7 +16,6 @@ interface Recording {
   readonly title: string;
   readonly loomId: string;
   readonly icon: LucideIcon;
-  readonly thumbnail: string;
 }
 
 const RECORDINGS: readonly Recording[] = [
@@ -25,24 +24,18 @@ const RECORDINGS: readonly Recording[] = [
     title: "Shared state",
     loomId: "0cad0c3d96e4454c83133a52d9ac8e7b",
     icon: Workflow,
-    thumbnail:
-      "https://cdn.loom.com/sessions/thumbnails/0cad0c3d96e4454c83133a52d9ac8e7b-3b470279be27260d.gif",
   },
   {
     id: "user-memories",
     title: "User Memories",
     loomId: "2978fbfe42324e509057ac5fd46b7a70",
     icon: Brain,
-    thumbnail:
-      "https://cdn.loom.com/sessions/thumbnails/2978fbfe42324e509057ac5fd46b7a70-37108be11ee154e6.gif",
   },
   {
     id: "rich-threads",
     title: "Rich Threads",
     loomId: "79817778d29e490c97225127d2f17b3a",
     icon: MessagesSquare,
-    thumbnail:
-      "https://cdn.loom.com/sessions/thumbnails/79817778d29e490c97225127d2f17b3a-250a43d55abed071.jpg",
   },
 ] as const;
 
@@ -118,12 +111,6 @@ export function DocsVideoCarousel() {
               aria-label={`Play ${active.title} walkthrough`}
               className="group relative flex h-full w-full cursor-pointer items-center justify-center overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[var(--accent)]"
             >
-              <img
-                src={active.thumbnail}
-                alt=""
-                loading="lazy"
-                className="absolute inset-0 h-full w-full object-cover"
-              />
               <span className="relative inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-control)] transition-colors group-hover:text-[var(--accent)]">
                 <Play aria-hidden="true" className="h-4 w-4" />
                 Watch walkthrough

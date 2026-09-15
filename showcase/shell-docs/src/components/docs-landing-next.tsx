@@ -1,5 +1,5 @@
 import { LandingIntegrationPicker } from "./landing-integration-picker";
-import { frontendPicks } from "@/lib/homepage-map";
+import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
 import { landingIntegrations } from "@/lib/landing-integrations";
 
 // Send only the labels, logos, and destinations across the client boundary.
@@ -20,7 +20,12 @@ export function DocsLandingNext() {
         Choose your frontend, then explore an agent integration.
       </p>
       <LandingIntegrationPicker
-        frontends={frontendPicks()}
+        frontends={FRONTEND_OPTIONS.map((option) => ({
+          id: option.id,
+          name: option.name,
+          summary: option.summary,
+          logo: { kind: "frontend" as const, icon: option.icon },
+        }))}
         integrations={landingIntegrations()}
       />
     </section>

@@ -535,16 +535,7 @@ export function SetupWizard({
         />
       </div>
     );
-    footer = (
-      <div className="flex justify-start">
-        <a
-          href="#copilotkit-intro"
-          className={`${QUIET_BUTTON_CLASS} max-w-fit`}
-        >
-          Back to overview
-        </a>
-      </div>
-    );
+    footer = null;
   } else if (current === 2) {
     stepName = "Your frontend";
     stepDescription = "Choose the frontend your app uses to continue.";

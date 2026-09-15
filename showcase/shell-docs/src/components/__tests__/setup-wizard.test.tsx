@@ -259,11 +259,7 @@ describe("single-choice navigation", () => {
   it("advances on each choice, preserves answers on Back, and waits on features", () => {
     renderWizard();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
-    expect(
-      screen
-        .getByRole("link", { name: "Back to overview" })
-        .getAttribute("href"),
-    ).toBe("#copilotkit-intro");
+    expect(screen.queryByRole("link", { name: "Back to overview" })).toBeNull();
     fireEvent.click(projectButton("Yes"));
     expect(
       screen.getByRole("heading", { name: "Your frontend" }),

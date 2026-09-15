@@ -43,7 +43,7 @@
 //
 // The frontend and agent-backend marks come from `PickLogoMark`, each
 // feature's own icon from `CapabilityIconMark` — both imported from
-// `./docs-map-parts` — and the project row's checkmark/cross from
+// `./docs-map-parts` — and the project row's checkmark/plus from
 // `PROJECT_ANSWER_ICONS` in `./wizard-stepper-parts`, none of them
 // reimplemented here. `CapabilityIconMark` wraps a deliberate named-import
 // icon record rather than a namespace import (605 KB minified against 6 KB
@@ -63,13 +63,13 @@ import type { MapCapability, MapPick } from "@/lib/homepage-map";
  *  corners. Deliberately carries no `flex-1` — see `WizardReview`'s own
  *  comment below for why that matters. */
 const PANEL_CLASS =
-  "shell-docs-radius-surface divide-y divide-[var(--border)] overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]";
+  "shell-docs-radius-surface shrink-0 divide-y divide-[var(--border)] overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]";
 
 /** One row: the same hover treatment an option tile uses (accent fill, no
  *  border change needed since the panel's own border already frames the
  *  group), full width so the row itself is the click target end to end. */
 const ROW_CLASS =
-  "flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[var(--accent-dim)] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none";
+  "grid grid-cols-[1.5rem_1fr_auto] sm:flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[var(--accent-dim)] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-surface)] focus-visible:outline-none";
 
 /** The step number leading every row — the accent treatment, round rather
  *  than the shared control radius: the same circle-on-accent look
@@ -84,7 +84,7 @@ const STEP_NUMBER_CLASS =
  *  `wizard-stepper-parts.tsx`), given a fixed width so the values that
  *  follow line up from row to row. */
 const ROW_LABEL_CLASS =
-  "w-28 shrink-0 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]";
+  "sm:w-28 shrink-0 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]";
 
 const NONE_VALUE = (
   <span className="text-sm text-[var(--text-muted)]">None</span>
@@ -118,7 +118,7 @@ function ReviewRow({
     >
       <span className={STEP_NUMBER_CLASS}>{step}</span>
       <span className={ROW_LABEL_CLASS}>{kicker}</span>
-      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
+      <span className="order-4 col-span-3 sm:order-none flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
         {children}
       </span>
       <span className="shrink-0 text-xs font-semibold text-[var(--text-muted)]">
@@ -145,7 +145,7 @@ function PickValue({
   );
 }
 
-/** The project row's value content: the same checkmark/cross the step itself
+/** The project row's value content: the same checkmark/plus the step itself
  *  shows (`PROJECT_ANSWER_ICONS` in `wizard-stepper-parts.tsx`) beside the
  *  answer, the same icon-beside-value shape `PickValue` above gives its
  *  logo. The wording differs from the step on purpose: "Existing"/"New"
@@ -197,14 +197,7 @@ export interface WizardReviewProps {
   readonly onNavigate: (step: number, pointerActivated: boolean) => void;
 }
 
-/** The review step's panel: one row per answer, replacing the old
- *  three-tile grid — see this file's header comment for why. Carries no
- *  `flex-1`: the card's content area (`WizardCard` in
- *  `wizard-stepper-parts.tsx`) is `flex flex-1 flex-col justify-center`, so
- *  a panel with no `flex-1` of its own is centred in the leftover room
- *  automatically, the same as every other step's options. The old grid
- *  opted into `flex-1` to fill the card top to bottom; a row panel has no
- *  reason to grow that tall, so it must not carry that class here. */
+/** Review rows keep their natural height so the card body can scroll them. */
 export function WizardReview({
   project,
   frontend,

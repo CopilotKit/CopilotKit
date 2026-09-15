@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Check, X } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 
 import {
   ChoiceGrid,
@@ -157,7 +157,7 @@ describe("WizardCard", () => {
     const section = container.querySelector("section");
     expect(section).not.toBeNull();
     const className = section!.className;
-    expect(className).toMatch(/\bmd:min-h-\S+/);
+    expect(className).toContain("h-[34rem]");
     expect(className).not.toMatch(/(?<!md:)\bmin-h-\S+/);
   });
 
@@ -207,7 +207,7 @@ describe("WizardCard", () => {
   // padding so the fixed insets agree too. Assert both halves and both
   // breakpoint values — with only the centring asserted, a change to just one
   // of the two margins would drift them apart unnoticed.
-  it("centres the content area and matches its top margin to the footer's top padding", () => {
+  it("keeps the content area scrollable with space around its choices", () => {
     const { container } = render(
       <WizardCard
         step={1}
@@ -222,7 +222,7 @@ describe("WizardCard", () => {
 
     const content = container.querySelector("section > div.flex-1");
     expect(content).not.toBeNull();
-    expect(content!.className).toMatch(/\bjustify-center\b/);
+    expect(content!.className).toContain("overflow-y-auto");
     // Symmetric padding, and no one-sided margin: a margin lands entirely
     // above the options, which is the lopsided gap this replaced.
     expect(content!.className).toMatch(/\bpy-7\b/);
@@ -260,7 +260,7 @@ describe("WizardCard", () => {
     // A bottom padding here would stack on the card's inset and reintroduce
     // the lopsided gap.
     expect(footerWrapper!.className).toMatch(/\bpt-5\b/);
-    expect(footerWrapper!.className).toMatch(/\bsm:pt-7\b/);
+    expect(footerWrapper!.className).not.toContain("border-t");
     expect(footerWrapper!.className).not.toMatch(/\bpb-\d/);
     // An auto margin would absorb the free space that step 4's review grid
     // needs in order to fill the card.
@@ -284,7 +284,7 @@ describe("ChoiceGrid", () => {
       id: "no",
       label: "No",
       description: "Start from scratch",
-      icon: X,
+      icon: Plus,
     },
   ];
 
@@ -359,7 +359,7 @@ describe("ChoiceGrid", () => {
     expect(icons).toHaveLength(2);
   });
 
-  // The reader decided on a checkmark/cross pair, overriding the earlier
+  // The reader decided on a checkmark/plus pair, overriding the earlier
   // reasoning that ruled it out for reading as right-and-wrong. There is no
   // collision with a checkmark's other meaning in this wizard (marking a
   // *selected* `CapabilityGrid` tile): this step is single choice and shows
@@ -368,7 +368,7 @@ describe("ChoiceGrid", () => {
   // `currentColor`), same shape as `CapabilityGrid`'s icon box in
   // `docs-map-parts.tsx` — this is one of the five mutation-checked guards,
   // dropping that class must make this fail.
-  it("renders Yes's answer as a checkmark and No's as a cross, both in the accent colour", () => {
+  it("renders Yes's answer as a checkmark and No's as a plus, both in the accent colour", () => {
     render(
       <ChoiceGrid options={OPTIONS} disabled={false} onSelect={vi.fn()} />,
     );
@@ -377,14 +377,14 @@ describe("ChoiceGrid", () => {
     const noButton = screen.getByRole("button", { name: /^No/ });
 
     const checkIcon = yesButton.querySelector("svg.lucide-check");
-    const crossIcon = noButton.querySelector("svg.lucide-x");
+    const newProjectIcon = noButton.querySelector("svg.lucide-plus");
     expect(checkIcon).not.toBeNull();
-    expect(crossIcon).not.toBeNull();
+    expect(newProjectIcon).not.toBeNull();
 
     expect(checkIcon!.parentElement!.className).toContain(
       "text-[var(--accent)]",
     );
-    expect(crossIcon!.parentElement!.className).toContain(
+    expect(newProjectIcon!.parentElement!.className).toContain(
       "text-[var(--accent)]",
     );
   });
