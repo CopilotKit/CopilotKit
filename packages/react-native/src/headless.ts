@@ -119,25 +119,24 @@ export type {
   AgentCapabilities,
 } from "@ag-ui/client";
 
-// Render tool registration. `useRenderTool` is a TEMPORARY, deprecated
-// COMPATIBILITY SHIM over BOTH core hooks — routing rules and reasoning in
-// src/hooks/useRenderTool.ts — scheduled for removal in the next minor (tracked
-// in CopilotKit/CopilotKit#6976, Linear OSS-1148), after
-// which this line goes back to a plain re-export from
-// @copilotkit/react-core/v2/headless. Contract and migration notes:
-// /reference/react-native/hooks/useRenderTool.
+// Render tool registration — react-core's hooks THEMSELVES, not RN copies.
 //
-// DO NOT reintroduce a LOCAL hook under either name. RN's old `useRenderTool`
-// forwarded its whole body to `useFrontendTool` — core's OTHER hook, wearing
-// this one's name — so `name: "*"` registered a frontend tool literally called
-// `*`. Core never advertised it (`buildFrontendTools` filters that name out),
-// but `*` IS core's catch-all handler name: a display-only wildcard therefore
-// auto-answered every otherwise-unanswered tool call with an empty tool result
-// and asked for a follow-up turn. The shim registers nothing itself: every
-// path delegates to a react-core hook, and
-// src/__tests__/headless-entry-surface.test.ts fails the build if any module in
-// this entry's graph grows a registry of its own.
-export { useRenderTool } from "./hooks/useRenderTool";
+// DO NOT reintroduce a LOCAL hook under either name. RN once shipped its own
+// `useRenderTool` whose whole body forwarded to `useFrontendTool` — core's
+// OTHER hook, wearing this one's name — so `name: "*"` registered a frontend
+// tool literally called `*`. Core never advertised it (`buildFrontendTools`
+// filters that name out), but `*` IS core's catch-all handler name: a
+// display-only wildcard therefore auto-answered every otherwise-unanswered
+// tool call with an empty tool result and asked for a follow-up turn.
+//
+// PR #6533 converged both names onto react-core behind a temporary routing
+// shim; #6976 removed the shim, so these are now plain re-exports and this
+// package carries no render-tool implementation of its own.
+// src/__tests__/headless-entry-surface.test.ts asserts runtime identity for
+// both names and fails the build if any module in this entry's graph grows a
+// registry. Contract and migration notes:
+// /reference/react-native/hooks/useRenderTool.
+export { useRenderTool } from "@copilotkit/react-core/v2/headless";
 export type { RenderToolProps } from "@copilotkit/react-core/v2/headless";
 
 // Render tool consumption. react-core's hook is platform-agnostic — it pulls no

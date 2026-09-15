@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
 import path from "path";
-import { ROOT } from "./config.js";
+import { ROOT, getScopeConfig } from "./config.js";
 import type { ReleaseScope } from "./config.js";
 import { getPackagesForScope } from "./versions.js";
 
@@ -43,15 +43,18 @@ export interface Commit {
 /**
  * Repo-relative directories whose history belongs to `scope`'s release notes.
  *
- * Scopes are independent release lanes over disjoint package sets, so a scope's
- * notes must never inherit another lane's commits. Without this filter the
+ * Scopes are independent release lanes. Include their public package paths and
+ * any explicitly configured bundled sources. Without this filter the
  * angular lane rendered every commit since its tag — 159 of them for v0.5.0,
  * of which 4 were actually angular.
  */
 export function getScopePathspecs(scope: ReleaseScope): string[] {
-  return getPackagesForScope(scope).map(
+  const packagePaths = getPackagesForScope(scope).map(
     (p) => path.relative(ROOT, p.dir) || ".",
   );
+  return [
+    ...new Set([...packagePaths, ...(getScopeConfig(scope).sourcePaths ?? [])]),
+  ];
 }
 
 /** Trailing `(#1234)` that a merge subject carries. */
