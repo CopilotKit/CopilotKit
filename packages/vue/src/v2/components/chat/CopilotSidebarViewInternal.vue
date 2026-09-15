@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   computed,
-  getCurrentInstance,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -82,10 +81,6 @@ const emit = defineEmits<{
 
 const attrs = useAttrs();
 const config = useCopilotChatConfiguration();
-const instance = getCurrentInstance();
-const vnodeProps = computed(
-  () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
-);
 
 const sidebarRef = ref<HTMLElement | null>(null);
 const measuredSidebarWidth = ref<number | string>(
@@ -115,7 +110,6 @@ const asideAttrs = computed(() => {
   const { class: _className, ...rest } = attrs;
   return rest;
 });
-const hasStopAction = computed(() => hasListener("onStop"));
 const asideStyle = computed(
   () =>
     ({
@@ -134,14 +128,6 @@ const bodyMarginStyle = computed(
 }
 `,
 );
-
-function hasListener(listenerName: string) {
-  const listener = vnodeProps.value[listenerName];
-  if (Array.isArray(listener)) {
-    return listener.length > 0;
-  }
-  return !!listener;
-}
 
 function widthToCss(width: number | string): string {
   return typeof width === "number" ? `${width}px` : width;
@@ -216,19 +202,19 @@ const chatViewEventProps = computed(() => {
     onSelectSuggestion: handleSelectSuggestion,
   };
 
-  if (hasStopAction.value) {
+  if (props.onStop) {
     listeners.onStop = handleStop;
   }
-  if (hasListener("onAddFile")) {
+  if (props.onAddFile) {
     listeners.onAddFile = handleAddFile;
   }
-  if (hasListener("onStartTranscribe")) {
+  if (props.onStartTranscribe) {
     listeners.onStartTranscribe = handleStartTranscribe;
   }
-  if (hasListener("onCancelTranscribe")) {
+  if (props.onCancelTranscribe) {
     listeners.onCancelTranscribe = handleCancelTranscribe;
   }
-  if (hasListener("onFinishTranscribe")) {
+  if (props.onFinishTranscribe) {
     listeners.onFinishTranscribe = handleFinishTranscribe;
   }
 

@@ -57,6 +57,22 @@ export interface CopilotChatViewProps {
   inputValue?: string;
   inputMode?: CopilotChatInputMode;
   inputToolsMenu?: (ToolsMenuItem | "-")[];
+  /** Optional event callbacks used to drive the default input controls. */
+  onSubmitMessage?: (value: string) => void | Promise<void>;
+  /**
+   * Presence drives reactive gating of the default stop control.
+   * Prefer `@stop` / `emit("stop")` for invocation; do not call this prop
+   * directly or the handler can fire twice.
+   */
+  onStop?: () => void;
+  onInputChange?: (value: string) => void;
+  onSelectSuggestion?: (
+    suggestion: Suggestion,
+    index: number,
+  ) => void | Promise<void>;
+  onStartTranscribe?: () => void;
+  onCancelTranscribe?: () => void;
+  onFinishTranscribe?: () => void;
   /**
    * When `true`, suppresses the welcome screen while a thread's initial
    * connect is in flight. Prevents the "How can I help you today?" flash
@@ -93,6 +109,13 @@ export interface CopilotChatProps extends Omit<
   | "onDragOver"
   | "onDragLeave"
   | "onDrop"
+  | "onSubmitMessage"
+  | "onStop"
+  | "onInputChange"
+  | "onSelectSuggestion"
+  | "onStartTranscribe"
+  | "onCancelTranscribe"
+  | "onFinishTranscribe"
 > {
   agentId?: string;
   threadId?: string;
@@ -107,18 +130,21 @@ export interface CopilotChatProps extends Omit<
 }
 
 export interface CopilotChatViewOverrideSlotProps extends CopilotChatViewProps {
+  canStop: boolean;
+  canAddFile: boolean;
+  canTranscribe: boolean;
   onSubmitMessage: (value: string) => void | Promise<void>;
-  onStop?: () => void;
+  onStop: () => void;
   onInputChange: (value: string) => void;
   onSelectSuggestion: (
     suggestion: Suggestion,
     index: number,
   ) => void | Promise<void>;
-  onAddFile?: () => void;
-  onStartTranscribe?: () => void;
-  onCancelTranscribe?: () => void;
-  onFinishTranscribe?: () => void;
-  onFinishTranscribeWithAudio?: (audioBlob: Blob) => void | Promise<void>;
+  onAddFile: () => void;
+  onStartTranscribe: () => void;
+  onCancelTranscribe: () => void;
+  onFinishTranscribe: () => void;
+  onFinishTranscribeWithAudio: (audioBlob: Blob) => void | Promise<void>;
 }
 
 export interface CopilotChatMessageViewSlotProps {
@@ -154,9 +180,12 @@ export interface CopilotChatInputSlotProps {
   isRunning: boolean;
   inputMode: CopilotChatInputMode;
   inputToolsMenu: (ToolsMenuItem | "-")[];
+  canStop: boolean;
+  canAddFile: boolean;
+  canTranscribe: boolean;
   onUpdateModelValue: (value: string) => void;
   onSubmitMessage: (value: string) => void;
-  onStop?: () => void;
+  onStop: () => void;
   onAddFile: () => void;
   onStartTranscribe: () => void;
   onCancelTranscribe: () => void;
@@ -189,9 +218,12 @@ export interface CopilotChatWelcomeScreenSlotProps extends CopilotChatSuggestion
   isRunning: boolean;
   inputMode: CopilotChatInputMode;
   inputToolsMenu: (ToolsMenuItem | "-")[];
+  canStop: boolean;
+  canAddFile: boolean;
+  canTranscribe: boolean;
   onUpdateModelValue: (value: string) => void;
   onSubmitMessage: (value: string) => void;
-  onStop?: () => void;
+  onStop: () => void;
   onAddFile: () => void;
   onStartTranscribe: () => void;
   onCancelTranscribe: () => void;
@@ -404,12 +436,12 @@ export interface CopilotSidebarWelcomeScreenInputSlotProps {
   inputToolsMenu: (ToolsMenuItem | "-")[];
   onUpdateModelValue: (value: string) => void;
   onSubmitMessage: (value: string) => void;
-  onStop?: () => void;
-  onAddFile?: () => void;
-  onStartTranscribe?: () => void;
-  onCancelTranscribe?: () => void;
-  onFinishTranscribe?: () => void;
-  onFinishTranscribeWithAudio?: (audioBlob: Blob) => void | Promise<void>;
+  onStop: () => void;
+  onAddFile: () => void;
+  onStartTranscribe: () => void;
+  onCancelTranscribe: () => void;
+  onFinishTranscribe: () => void;
+  onFinishTranscribeWithAudio: (audioBlob: Blob) => void | Promise<void>;
 }
 
 export interface CopilotSidebarWelcomeScreenSuggestionViewSlotProps {
@@ -423,8 +455,21 @@ export interface CopilotSidebarWelcomeScreenLayoutSlotProps
     CopilotSidebarWelcomeScreenInputSlotProps,
     CopilotSidebarWelcomeScreenSuggestionViewSlotProps {}
 
-export type CopilotSidebarWelcomeScreenProps =
-  CopilotSidebarWelcomeScreenLayoutSlotProps;
+type WelcomeScreenCommandProps =
+  | "onStop"
+  | "onAddFile"
+  | "onStartTranscribe"
+  | "onCancelTranscribe"
+  | "onFinishTranscribe"
+  | "onFinishTranscribeWithAudio";
+
+export type CopilotSidebarWelcomeScreenProps = Omit<
+  CopilotSidebarWelcomeScreenLayoutSlotProps,
+  WelcomeScreenCommandProps
+> &
+  Partial<
+    Pick<CopilotSidebarWelcomeScreenLayoutSlotProps, WelcomeScreenCommandProps>
+  >;
 
 export interface CopilotSidebarViewHeaderSlotProps {
   title: string;
