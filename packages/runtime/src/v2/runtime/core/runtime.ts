@@ -40,6 +40,8 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
 import type { TelemetryCapture } from "../telemetry/telemetry-client";
+import { TELEMETRY_SURFACE_V2 } from "@copilotkit/shared";
+import type { TelemetrySurface } from "@copilotkit/shared";
 import {
   firstNonBlankLicenseToken,
   firstNonBlankTelemetryId,
@@ -191,6 +193,15 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * No effect when telemetry is off: nothing is sent, so nothing carries this.
    */
   telemetryProperties?: Record<string, unknown>;
+  /**
+   * Which public API surface the developer built against.
+   *
+   * @internal Set by the deprecated v1 entrypoint, which delegates to this
+   * runtime. Without it a v1 request reports as v2 traffic, because the
+   * client that sends it is the v2 one either way. Defaults to v2; there is
+   * no reason for an application to pass this.
+   */
+  telemetrySurface?: TelemetrySurface;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
@@ -438,6 +449,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
         : this.resolvedLicenseToken !== undefined
           ? { licenseToken: this.resolvedLicenseToken }
           : {},
+      options.telemetrySurface ?? TELEMETRY_SURFACE_V2,
     );
 
     // Set here rather than per event, beside the license token and for the same

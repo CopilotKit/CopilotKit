@@ -4,7 +4,10 @@ import {
   parseAndWarnTelemetryId,
   computeSamplingMeta,
   TELEMETRY_EMITTER_V2,
+  TELEMETRY_SURFACE_V2,
+  UNSAMPLED_RATE,
 } from "@copilotkit/shared";
+import type { TelemetrySurface } from "@copilotkit/shared";
 import * as packageJson from "../../../../package.json";
 import { firstNonBlankTelemetryId } from "./telemetry-identity";
 
@@ -42,19 +45,16 @@ export function isTelemetryDisabled(): boolean {
 
 export class TelemetryClient {
   private telemetryDisabled: boolean = false;
-  // Client-side sampling rate for anonymous events. Identified callers
-  // (license token with telemetry_id) bypass the gate. Default 0.05
-  // caps anonymous OSS-runtime egress; identified customers send at
-  // full fidelity. Override via COPILOTKIT_TELEMETRY_SAMPLE_RATE.
-  private sampleRate: number = 0.05;
   // EIP / Intelligence license token (Ed25519-signed JWT). Kept separate
   // from standalone identity so the transport receives only the selected
   // identity source.
   private licenseToken: string | null = null;
-  // Standalone identity sent as a transport claim. It does not grant sampling
-  // authority.
+  // Standalone identity sent as a transport claim. It does not make an
+  // event identified.
   private telemetryId: string | null = null;
-  // License-derived identity used only as sampling authority.
+  // License-derived identity. This client sends every event either way;
+  // the id is what sets telemetry_identified on the sampling block, which
+  // is how the two populations stay separable downstream.
   private licenseTelemetryId: string | null = null;
   // Properties merged into every event this client sends.
   //
@@ -74,18 +74,10 @@ export class TelemetryClient {
 
   constructor({
     telemetryDisabled,
-    sampleRate,
   }: {
     telemetryDisabled?: boolean;
-    sampleRate?: number;
   } = {}) {
     this.telemetryDisabled = telemetryDisabled || isTelemetryDisabled();
-    this.setSampleRate(sampleRate);
-  }
-
-  private shouldSendEvent() {
-    if (this.sampleRate >= 1) return true;
-    return Math.random() < this.sampleRate;
   }
 
   /**
@@ -112,14 +104,29 @@ export class TelemetryClient {
     this.setTelemetryIdentity({ licenseToken });
   }
 
-  /** Create an immutable capture scope for one Runtime instance. */
-  createScope(identity: TelemetryIdentity): TelemetryCapture {
+  /**
+   * Create an immutable capture scope for one Runtime instance.
+   *
+   * `surface` is the API the developer built against, not the code that
+   * emits the event. It is a parameter because this client is also what
+   * the deprecated v1 entrypoint delegates to: a v1 request reaches this
+   * client through the V2 runtime the v1 shim constructs, and reporting
+   * that as v2 traffic would put a share of v1 usage in the v2 column.
+   *
+   * @param identity - The runtime's construction-time telemetry identity.
+   * @param surface - The caller's API surface. Defaults to v2.
+   */
+  createScope(
+    identity: TelemetryIdentity,
+    surface: TelemetrySurface = TELEMETRY_SURFACE_V2,
+  ): TelemetryCapture {
     const resolvedIdentity = this.resolveTelemetryIdentity(identity);
     return {
       capture: <K extends keyof AnalyticsEvents>(
         event: K,
         properties: AnalyticsEvents[K],
-      ) => this.captureWithIdentity(event, properties, resolvedIdentity),
+      ) =>
+        this.captureWithIdentity(event, properties, resolvedIdentity, surface),
     };
   }
 
@@ -127,22 +134,25 @@ export class TelemetryClient {
     event: K,
     properties: AnalyticsEvents[K],
   ): Promise<void> {
-    return this.captureWithIdentity(event, properties, {
-      telemetryId: this.telemetryId,
-      licenseToken: this.licenseToken,
-      licenseTelemetryId: this.licenseTelemetryId,
-    });
+    return this.captureWithIdentity(
+      event,
+      properties,
+      {
+        telemetryId: this.telemetryId,
+        licenseToken: this.licenseToken,
+        licenseTelemetryId: this.licenseTelemetryId,
+      },
+      TELEMETRY_SURFACE_V2,
+    );
   }
 
   private async captureWithIdentity<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
     identity: ResolvedTelemetryIdentity,
+    surface: TelemetrySurface,
   ): Promise<void> {
     if (this.telemetryDisabled) return;
-    // Standalone identity is a transport claim, not sampling authority.
-    // Only a legacy license token with telemetry_id bypasses sampleRate.
-    if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;
 
     await lambdaClient.send({
       event,
@@ -153,16 +163,20 @@ export class TelemetryClient {
       // the analytics event, and v1's client sends package name and version the
       // same way. Folding it in would work and would put a process-level fact
       // in the per-event slot, where nothing downstream expects to find one.
-      // Sampling metadata rides in the same slot, as it does in v1: an event
-      // that records no sampling decision can't be weighted, and anyone
-      // counting raw events understates anonymous volume ~20× (OSS-1017).
+      // Sampling metadata rides in the same slot, as it does in v1. This
+      // client has one wire and does not sample it, so the block is
+      // constant — it is stamped anyway because a consumer summing
+      // sampleWeight across emitters must not find the field missing on
+      // a quarter of the rows, which is the state that made ~24% of
+      // runtime volume unweightable before (OSS-1017).
       globalProperties: {
         ...this.globalProperties,
         ...computeSamplingMeta({
           telemetryId: identity.licenseTelemetryId,
-          sampleRate: this.sampleRate,
+          sampleRate: UNSAMPLED_RATE,
         }),
         telemetry_emitter: TELEMETRY_EMITTER_V2,
+        telemetry_surface: surface,
         // This client has one transport, so the marker is constant here. It
         // is stamped anyway so the property means the same thing on every
         // event whichever client produced it (OSS-1019).
@@ -194,25 +208,6 @@ export class TelemetryClient {
         ? parseAndWarnTelemetryId(identity.licenseToken)
         : null,
     };
-  }
-
-  private setSampleRate(sampleRate: number | undefined) {
-    let _sampleRate: number;
-
-    _sampleRate = sampleRate ?? 0.05;
-
-    if (process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
-      _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
-    }
-
-    // Number.isNaN guards against parseFloat("nonsense") slipping past the
-    // range check (all NaN comparisons are false), which would silently
-    // drop every anonymous event with no signal.
-    if (Number.isNaN(_sampleRate) || _sampleRate < 0 || _sampleRate > 1) {
-      throw new Error("Sample rate must be between 0 and 1");
-    }
-
-    this.sampleRate = _sampleRate;
   }
 }
 
