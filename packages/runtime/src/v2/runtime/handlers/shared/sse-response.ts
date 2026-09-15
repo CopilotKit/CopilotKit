@@ -52,6 +52,11 @@ export function createSseEventResponse({
   const writer = stream.writable.getWriter();
   const encoder = new EventEncoder();
   let streamClosed = false;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  const stopHeartbeat = () => {
+    if (heartbeat !== undefined) clearInterval(heartbeat);
+    heartbeat = undefined;
+  };
   let debugThreadId = "";
   let debugRunId = "";
 
@@ -62,9 +67,11 @@ export function createSseEventResponse({
 
   const closeStream = async () => {
     if (!streamClosed) {
+      streamClosed = true;
+      stopHeartbeat();
+      request.signal.removeEventListener("abort", onAbort);
       try {
         await writer.close();
-        streamClosed = true;
       } catch {
         // Stream already closed.
       }
@@ -85,6 +92,32 @@ export function createSseEventResponse({
   };
 
   let subscription: Subscription | undefined;
+
+  const onAbort = () => {
+    streamClosed = true;
+    stopHeartbeat();
+    request.signal.removeEventListener("abort", onAbort);
+    subscription?.unsubscribe();
+    void writer.abort(request.signal.reason).catch(() => {
+      // The response reader may already have cancelled the writer.
+    });
+  };
+
+  // Comments keep a quiet reasoning/tool stream alive without inventing AG-UI events.
+  // A blocked writer owns at most one heartbeat; slow readers must not accumulate a queue.
+  const keepAlive = new TextEncoder().encode(": keep-alive\n\n");
+  heartbeat = setInterval(() => {
+    if (streamClosed || request.signal.aborted || (writer.desiredSize ?? 0) <= 0) return;
+    void writer.write(keepAlive).catch(() => {
+      // writer.closed owns cancellation and cleanup for a failed response body.
+    });
+  }, 5_000);
+  void writer.closed.catch(() => {
+    streamClosed = true;
+    stopHeartbeat();
+    request.signal.removeEventListener("abort", onAbort);
+    subscription?.unsubscribe();
+  });
   let agentErrorReported = false;
 
   const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
@@ -183,6 +216,7 @@ export function createSseEventResponse({
             }
             await writer.write(encoder.encodeBinary(event));
           } catch (error) {
+            stopHeartbeat();
             if (error instanceof Error && error.name === "AbortError") {
               streamClosed = true;
             } else {
@@ -229,7 +263,7 @@ export function createSseEventResponse({
 
     // If the client disconnected before the subscription was created,
     // unsubscribe immediately to avoid leaking the observable.
-    if (request.signal.aborted) {
+    if (request.signal.aborted || streamClosed) {
       subscription.unsubscribe();
     }
   })().catch(async (error) => {
@@ -238,9 +272,8 @@ export function createSseEventResponse({
     await closeStream();
   });
 
-  request.signal.addEventListener("abort", () => {
-    subscription?.unsubscribe();
-  });
+  request.signal.addEventListener("abort", onAbort, { once: true });
+  if (request.signal.aborted) onAbort();
 
   return new Response(stream.readable, {
     status: 200,
