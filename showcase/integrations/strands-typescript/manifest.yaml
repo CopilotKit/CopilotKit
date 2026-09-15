@@ -255,9 +255,6 @@ demos:
     highlight:
       - src/agent/agent.ts
       - src/agent/tools.ts
-      - src/agent/tools.ts
-      - src/agent/tools.ts
-      - src/agent/tools.ts
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall

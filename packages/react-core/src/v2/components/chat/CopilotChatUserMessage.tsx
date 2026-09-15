@@ -219,7 +219,7 @@ export function CopilotChatUserMessage({
       {...props}
     >
       {mediaParts.length > 0 && (
-        <div className="cpk:flex cpk:flex-row cpk:flex-wrap cpk:justify-end cpk:gap-2 cpk:mb-2">
+        <div className="cpk:flex cpk:flex-row cpk:flex-wrap cpk:max-w-full cpk:justify-end cpk:gap-2 cpk:mb-2">
           {mediaParts.map((part, index) => (
             <CopilotChatAttachmentRenderer
               key={index}
