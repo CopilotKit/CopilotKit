@@ -3,7 +3,7 @@
  * UnifiedCell -- single rendering codepath for Coverage-tab cells.
  *
  * Consumes a pre-computed `CellModel` and renders:
- *   - Unsupported cells: only a ban icon, no badges, no depth chip (Bug 3 fix)
+ *   - Unsupported cells: only the hollow `∅` chip, no badges, no depth chip
  *   - Supported cells: depth chip (with pre-computed chipColor) + test badges
  *     only for levels where `exists === true`
  *
@@ -16,7 +16,8 @@ import type { CellContext } from "@/components/feature-grid";
 import type { CellModel, TestLevel } from "@/lib/cell-model";
 import type { PoolCommError } from "@/lib/live-status";
 import { DepthChip } from "@/components/depth-chip";
-import { Badge, FlashOnChange } from "@/components/badges";
+import { Badge, FlashOnChange, StatusChip } from "@/components/badges";
+import { GLYPHS } from "@/lib/glyphs";
 import type { BadgeTone } from "@/lib/live-status";
 import { keyFor, CATALOG_TO_D5_KEY } from "@/lib/live-status";
 import type { Overlay } from "@/lib/overlay-types";
@@ -48,21 +49,23 @@ function TestBadge({
   level: TestLevel | null;
   /**
    * When true, the rung EXISTS but is ladder-blocked by a lower rung (its
-   * effective status collapsed to `null`). Render a real, VISIBLE not-achieved
-   * indicator ("—", gray) rather than the no-data "?" — the latter is hidden
-   * by `Badge` (label === "?" → null), which would make a gated D6 vanish.
+   * effective status collapsed to `null`). Render the "not evaluated" mark
+   * ("—") rather than the no-data "?" — they are different facts: "a lower
+   * rung is failing so this was never run" vs "this is configured and simply
+   * has not reported yet". Both are now VISIBLE (`Badge` no longer swallows
+   * the "?").
    */
   gated?: boolean;
 }) {
   if (!level || !level.exists) return null;
 
-  // Gated rung: exists but blocked below → visible em-dash, not a hidden "?".
+  // Gated rung: exists but blocked below → the "not evaluated" em-dash.
   if (gated) {
     return (
       <FlashOnChange tone="gray">
         <Badge
           name={name}
-          state={{ tone: "gray", label: "—" }}
+          state={{ tone: "gray", label: GLYPHS.gated.mark }}
           title={`${name}: gated — blocked by a lower rung`}
         />
       </FlashOnChange>
@@ -80,12 +83,12 @@ function TestBadge({
 
   const label =
     level.status === "green"
-      ? "✓"
+      ? GLYPHS.pass.mark
       : level.status === "red"
-        ? "✗"
+        ? GLYPHS.fail.mark
         : level.status === "amber"
-          ? "~"
-          : "?";
+          ? GLYPHS.degraded.mark
+          : GLYPHS.noData.mark;
 
   return (
     <FlashOnChange tone={tone}>
@@ -308,12 +311,11 @@ function UnifiedCellInner({ ctx, model, overlays }: UnifiedCellProps) {
   if (!model.supported) {
     return (
       <div data-testid="unified-cell-unsupported" className="text-center">
-        <span
-          className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-base border border-slate-500/40 bg-slate-500/10 text-slate-400"
+        <StatusChip
+          tone="gray"
+          label={GLYPHS.notSupported.mark}
           title="Not supported by this framework"
-        >
-          &#128683;
-        </span>
+        />
       </div>
     );
   }

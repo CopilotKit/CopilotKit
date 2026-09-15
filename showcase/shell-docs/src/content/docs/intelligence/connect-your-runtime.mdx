@@ -43,15 +43,30 @@ Next.js loads `.env*` files from the Next.js app directory. If your app is in
 `process.env.CPK_INTELLIGENCE_API_KEY` will be unset unless the server process
 loads that file.
 
-For a shared root `.env`, start Next.js from `web/` with Node's explicit env-file
-option (Node.js 20.6 or later):
+For a shared root `.env`, read it in the Next.js config, so the values are in
+the environment before anything serves a request (Node.js 20.12 or later):
 
-```bash title="Terminal — from web/"
-node --env-file=../.env ./node_modules/next/dist/bin/next dev
+```ts title="web/next.config.ts"
+process.loadEnvFile("../.env"); // resolved against the directory you run Next.js in
+
+export default {};
 ```
 
-Use the same prefix with `build` or `start` when those commands need the shared
-file. If the app owns its environment instead, put the key in `web/.env.local`.
+This covers `dev`, `build` and `start` alike, including a bare `npm run dev`,
+and it leaves a real environment variable alone: a hosted deployment that sets
+the key itself keeps its own value.
+
+<Callout type="warn" title="Do not pass `--env-file` to the Next.js binary">
+  `node --env-file=../.env ./node_modules/next/dist/bin/next dev` looks
+  equivalent and is not. Next.js starts a child process and copies the flags it
+  was given into `NODE_OPTIONS`, where Node refuses this one: `--env-file= is not
+  allowed in NODE_OPTIONS`. The parent reads the file, the child that serves your
+  app never starts, and the failure names `NODE_OPTIONS` rather than anything you
+  configured. Reading the file in the config passes no flag at all, so there is
+  nothing for the child to reject.
+</Callout>
+
+If the app owns its environment instead, put the key in `web/.env.local`.
 On a hosted deployment, set it in the server's environment settings. Load the
 key before constructing `CopilotKitIntelligence`; the `!` in the example below
 only affects TypeScript and does not load or validate an environment variable.
@@ -82,7 +97,7 @@ const runtime = new CopilotRuntime({
   }),
 });
 
-export const { GET, POST } = createCopilotRuntimeHandler({ runtime });
+export const { GET, POST, PATCH, DELETE } = createCopilotRuntimeHandler({ runtime });
 ```
 
 `apiKey` is the only required field on the Intelligence client. The key scopes the project,
@@ -93,6 +108,36 @@ On the runtime itself, `identifyUser` is required whenever the runtime serves a 
 the options type will not accept its absence. The one exception is a Channels-only runtime,
 which serves no web surface and passes a non-empty `channels` array instead.
 </Callout>
+
+### Converting a runtime that already has a runner
+
+An existing open-source runtime usually passes a `runner`, which decides where its
+runs are kept. Intelligence replaces that choice: the platform keeps the runs, so an
+Intelligence runtime wires `IntelligenceAgentRunner` itself and accepts no runner of
+your own. The two options are mutually exclusive. Remove `runner` as you add
+`intelligence`:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  runner: new InMemoryAgentRunner(), // [!code --]
+  intelligence, // [!code ++]
+  identifyUser,
+});
+```
+
+TypeScript rejects the pair outright, because `runner` is declared only on the SSE
+options. A JavaScript caller gets the same answer when the runtime is constructed:
+
+```text
+Intelligence Runtime auto-wires its own `runner`; passing `runner` alongside
+`intelligence` is not supported.
+```
+
+Keeping the runner is the other valid choice. Drop `intelligence` instead and the
+runtime stays in SSE mode with the runner you control, and Threads and the Inspector
+stay locked. See [AgentRunner and persistence](/backend/agent-runner) for what each
+runner does.
 
 ## Confirm the credential is actually used
 
@@ -135,3 +180,4 @@ deployment path.
 | Opaque auth error on the first request | `CPK_INTELLIGENCE_API_KEY` is empty or belongs to a different project. |
 | Socket sits in `connecting`, then "did not settle in time" | `wsUrl` overridden alone, or pointed at the API host. |
 | `/api/api/...` in request logs | `apiUrl` included a `/api` suffix. |
+| A type error, or a throw, naming `runner` | `runner` and `intelligence` cannot both be set. Intelligence wires its own runner. |
