@@ -31,6 +31,12 @@ import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
 } from "@/lib/intelligence-onboarding-prompt";
+import {
+  channelPromptSuffix,
+  createChannelsOnboardingPrompt,
+  isChannelOnboardingId,
+  CHANNELS_ONBOARDING_INTENT,
+} from "@/lib/channels-onboarding-prompt";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -254,13 +260,32 @@ export function OnboardingPromptCopyButton({
         const graphFrontend = frontend
           ? onboardingFrontendSlug(frontend.id)
           : undefined;
+        /**
+         * Channel pages take the Channels intent route instead of the generic
+         * one. Their frontend id is deliberately unknown to the graph, so the
+         * generic prompt reached them stripped of any mention of the channel
+         * the reader was reading about — the one fact the page knows for
+         * certain. The channel sentence replaces the frontend sentence rather
+         * than joining it: they answer the same question on different axes,
+         * and only one of them is true here.
+         */
+        const channel =
+          frontend && isChannelOnboardingId(frontend.id)
+            ? { id: frontend.id, name: frontend.name }
+            : undefined;
         return {
           text:
-            createIntelligenceOnboardingPrompt(runId) +
+            (channel
+              ? createChannelsOnboardingPrompt(runId)
+              : createIntelligenceOnboardingPrompt(runId)) +
             (framework
               ? frameworkPromptSuffix(framework.slug, framework.name)
               : "") +
-            (frontend ? frontendPromptSuffix(frontend.id, frontend.name) : "") +
+            (channel
+              ? channelPromptSuffix(channel.id, channel.name)
+              : frontend
+                ? frontendPromptSuffix(frontend.id, frontend.name)
+                : "") +
             ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`,
           onAction: (action) =>
             posthog?.capture(
@@ -272,6 +297,10 @@ export function OnboardingPromptCopyButton({
                 surface: ONBOARDING_COPY_SURFACE,
                 agent_framework: graphFramework,
                 frontend: graphFrontend,
+                channel: channel?.id,
+                onboarding_intent: channel
+                  ? CHANNELS_ONBOARDING_INTENT
+                  : undefined,
               },
             ),
           onCopied: (action) =>
@@ -282,6 +311,10 @@ export function OnboardingPromptCopyButton({
               surface: ONBOARDING_COPY_SURFACE,
               agent_framework: graphFramework,
               frontend: graphFrontend,
+              channel: channel?.id,
+              onboarding_intent: channel
+                ? CHANNELS_ONBOARDING_INTENT
+                : undefined,
             }),
         };
       }}
