@@ -58,13 +58,19 @@ async function waitForSandboxIframe(wrapper: {
   find: (selector: string) => { exists: () => boolean; element: Element };
 }): Promise<HTMLIFrameElement> {
   let iframe: HTMLIFrameElement | undefined;
-  await vi.waitFor(() => {
-    const found = wrapper.find("iframe");
-    expect(found.exists()).toBe(true);
-    const element = found.element as HTMLIFrameElement;
-    expect(element.srcdoc).toBeTruthy();
-    iframe = element;
-  });
+  await vi.waitFor(
+    () => {
+      const found = wrapper.find("iframe");
+      expect(found.exists()).toBe(true);
+      const element = found.element as HTMLIFrameElement;
+      expect(element.srcdoc).toBeTruthy();
+      iframe = element;
+    },
+    // The bridge arrives through a dynamic import, so this waits on real module
+    // loading rather than a microtask. `vi.waitFor`'s 1s default is enough in
+    // isolation but not when the whole monorepo's suites run in parallel.
+    { timeout: 10_000, interval: 50 },
+  );
   return iframe!;
 }
 
