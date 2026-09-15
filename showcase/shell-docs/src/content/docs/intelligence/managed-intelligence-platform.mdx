@@ -10,7 +10,7 @@ doc_type: how-to
 
 Cloud-hosted Intelligence runs the platform for you, with a project and an API key and no cluster to operate. Your app still uses the CopilotKit SDK.
 
-![The cloud-hosted Intelligence ready page.](/images/cloud-hosted/cloud-hosted-ready.png)
+![Intelligence Home with example apps, Copy Prompt actions, and project navigation.](/images/cloud-hosted/cloud-hosted-home.png)
 
 The cloud-hosted service stores the project's threads, events, and API keys. You create the project once, connect your app with the CLI, and everything else is in the web app.
 
@@ -43,7 +43,7 @@ Start at [intelligence.copilotkit.ai](https://intelligence.copilotkit.ai) or in 
   <Step>
     ### Create or select an organization
 
-    Select an organization in the browser, or create one.
+    Select an organization in the browser, or create one. Website sign-in opens organization **Home**. Choose an example or **Or build anything at all**, then use **Copy Prompt** to hand setup to your coding agent. **View prompt** lets you inspect it first. Use **Projects** to open an existing project.
   </Step>
 
   <Step>
@@ -87,13 +87,15 @@ Open one thread to read its event timeline.
 
 The thread page shows the agent, the app user, the status, the last update time, and the event timeline. Open an event when you need the raw payload. **Rename**, **Archive**, and **Delete** match the thread API in your app: archive hides the thread from the active list and keeps the history, delete removes it. Read [Rich Threads](/threads) for how a thread works in your app.
 
+The thread detail page also shows reported token usage and the embedded [Inspector](/inspector). **Not reported by runtime** means usage is missing; **At least** and reporting-coverage notes identify incomplete totals. A partial loaded event history does not account for the whole conversation.
+
 ## Create an API key
 
 A project API key connects your runtime to this project. The [quickstart](/intelligence/quickstart#select-an-intelligence-project) writes it to `.env` as `CPK_INTELLIGENCE_API_KEY`. `init` or its `create` alias writes the same key when it creates an app.
 
 Cloud-hosted setup does not issue `COPILOTKIT_LICENSE_TOKEN`. A license key is only for a self-hosted deployment. It does not replace the project API key.
 
-Keep `CPK_INTELLIGENCE_API_KEY` on the server.
+Keep `CPK_INTELLIGENCE_API_KEY` on the server. A key created in the web app appears in full only once; store it in your runtime environment.
 
 ![The cloud-hosted API keys page.](/images/cloud-hosted/cloud-hosted-api-keys.png)
 

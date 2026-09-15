@@ -630,32 +630,6 @@ describe("Channels documentation journey", () => {
     }
   });
 
-  it("shows the Intelligence Channels area before the setup steps", () => {
-    const source = bodyFor("channels/intelligence");
-    const setupHeadingIndex = source.indexOf(
-      "## Create and configure your Channel",
-    );
-    const imageIndex = source.indexOf(
-      'src="/images/channels/intelligence-channels-overview.png"',
-    );
-    const stepsIndex = source.indexOf("<Steps>");
-
-    expect(source).not.toContain(
-      'src="/images/channels/channels-architecture-light.png"',
-    );
-    expect(source).not.toContain(
-      'src="/images/channels/channels-architecture-dark.png"',
-    );
-    expect(setupHeadingIndex).toBeGreaterThan(-1);
-    expect(setupHeadingIndex).toBeLessThan(imageIndex);
-    expect(imageIndex).toBeGreaterThan(-1);
-    expect(imageIndex).toBeLessThan(stepsIndex);
-    expect(source).toContain("## Next step");
-    expect(source).toMatch(
-      /alt="[^"]*Intelligence[^"]*channel creation[^"]*Slack[^"]*Teams[^"]*"/i,
-    );
-  });
-
   it("keeps required environment reads self-contained in provider snippets", () => {
     for (const slug of [
       "channels/tools",

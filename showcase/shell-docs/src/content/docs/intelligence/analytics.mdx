@@ -102,9 +102,13 @@ A few definitions:
 
 - **Active users** counts distinct app users. Intelligence records the user ID your app passes with each run, so pass a stable ID per person. See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
 - **Tool usage share** groups tool calls by tool name. The legend shows each name in words, so a tool called `show_capabilities` appears as **Show capabilities**.
-- **Error events** are runs that ended with an error. **Clean runs** is the share that did not.
-- **Tokens** and **response time** are recorded when a run finishes. Runs that fail before the model responds have no token count.
+- **Error events** counts recorded error events. **Error rate** divides them by all recorded events, including streaming deltas and tool events; it is not the percentage of failed runs. **Clean runs** displays the complement of that event-based rate.
+- **Tokens** and **response time** use usage reported when a run finishes. Missing usage does not mean zero tokens. Check the thread detail for incomplete reporting or a partially loaded history.
 - The **Memory** tab reads [User Memories](/intelligence/memories) rather than runtime events, so it reflects what memory saved and invalidated each day. The tab appears only when Automatic Learning is on for the project.
+
+### Project charts and organization usage
+
+The charts use the selected project and time range. The Developer plan’s **Analytics runs this month** card counts completed and failed runs across the organization for the current UTC calendar month. Changing the chart range does not change that counter. **Usage unavailable** means the counter failed to load, not that usage is zero.
 
 ### Status messages
 
