@@ -24,6 +24,10 @@ import {
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
+import {
+  CHANNELS_ONBOARDING_INTENT,
+  createChannelsOnboardingPrompt,
+} from "@/lib/channels-onboarding-prompt";
 
 const analytics = vi.hoisted(() => ({
   capture: vi.fn(),
@@ -571,12 +575,14 @@ it("names the React frontend by its docs name and the graph's slug", async () =>
   );
 });
 
-it("appends no frontend sentence for a frontend the graph does not know", async () => {
-  // Slack is a channel the graph has no frontend node for. The framework
-  // sentence and the page sentence close ranks with no double space between
-  // them, which is why this asserts the whole string rather than a substring.
+it("takes the Channels intent route and names nothing else", async () => {
+  // Slack has no frontend node in the graph and never will: it is a channel,
+  // and the intent route serves it instead. The route asks which channel as its
+  // own scripted question, so the text answers nothing — only the command and
+  // the page sentence survive, which is why this asserts the whole string.
   const writeText = stubClipboard();
 
+  // Still nothing on the frontend axis. The channel is carried by the route.
   expect(frontendPromptSuffix(SLACK.id, SLACK.name)).toBe("");
 
   renderButton({ frontend: SLACK });
@@ -584,10 +590,11 @@ it("appends no frontend sentence for a frontend the graph does not know", async 
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
 
+  // No framework sentence either, even though the page names one: on a channel
+  // page the framework is the route default rather than a reader's choice, and
+  // `feature/channels/start` inspects the project for it instead.
   expect(writeText.mock.calls[0][0]).toBe(
-    createIntelligenceOnboardingPrompt(reportedRunId()) +
-      frameworkPromptSuffix(MASTRA.slug, MASTRA.name) +
-      PAGE_SENTENCE,
+    createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
   );
 });
 
@@ -608,9 +615,11 @@ it("carries the frontend sentence alone when the graph knows no framework", asyn
   );
 });
 
-it("falls back to the page sentence alone when neither is mappable", async () => {
-  // Both empty: the page sentence has to stand entirely on its own, which is
-  // why it names the page rather than referring back to anything.
+it("ignores the page's framework entirely on a channel page", async () => {
+  // Whether the route names a framework the graph knows (`mastra`, above) or
+  // one it does not (`spring-ai`), a channel page copies the same command. The
+  // route settles the framework by inspection, so neither case may leak into
+  // the text.
   const writeText = stubClipboard();
 
   renderButton({ framework: SPRING_AI, frontend: SLACK });
@@ -619,7 +628,7 @@ it("falls back to the page sentence alone when neither is mappable", async () =>
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
 
   expect(writeText.mock.calls[0][0]).toBe(
-    createIntelligenceOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
+    createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
   );
 });
 
@@ -644,10 +653,15 @@ it("reports the frontend property with the graph's slug", async () => {
   });
 });
 
-it("omits the frontend property entirely when the graph has no slug", async () => {
+it("reports a channel page on the channel axis, never the frontend one", async () => {
   // Absence of the key, not an `undefined` value: a key present with no value
   // still shows up as a row in a PostHog breakdown. Same rule as
   // `agent_framework`.
+  //
+  // `frontend` stays absent on a channel page even though the page names one.
+  // The value it would carry is the graph slug, and the graph has none for a
+  // channel — reporting the docs id instead would put a value in the breakdown
+  // that no CLI run can ever match.
   stubClipboard();
 
   renderButton({ frontend: SLACK });
@@ -660,6 +674,8 @@ it("omits the frontend property entirely when the graph has no slug", async () =
     unknown
   >;
   expect(properties.frontend).toBeUndefined();
+  expect(properties.channel).toBe("slack");
+  expect(properties.onboarding_intent).toBe(CHANNELS_ONBOARDING_INTENT);
   expect(
     Object.keys(properties)
       .filter((key) => properties[key] !== undefined)
@@ -667,7 +683,9 @@ it("omits the frontend property entirely when the graph has no slug", async () =
   ).toEqual([
     "action",
     "agent_framework",
+    "channel",
     "from_path",
+    "onboarding_intent",
     "onboarding_run_id",
     "surface",
   ]);
