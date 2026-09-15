@@ -12,31 +12,34 @@ hidePageActions: true
 <FrameworkOverview
   frameworkName="Deep Agents"
   frameworkIcon={<DeepAgentsIcon className="h-12 w-12" />}
-  header="Bring your Deep Agents to your users"
-  subheader="Deep Agents runs your agent. CopilotKit gives it a surface your users can see, interrupt and steer."
+  header="Build interactive apps with Deep Agents"
+  subheader="CopilotKit connects your Deep Agents agents to chat, custom UI, and human input."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
+  tutorialLink="/langgraph/tutorials/ai-travel-app"
   guideLink="/deepagents/quickstart"
   initCommand="npx copilotkit@latest init"
-  lede="Deep Agents gives you a planning agent on LangGraph: subagents, a task list and the state they share. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the plan while it is worked through, and a moment for a person to step in. Each capability below builds on something your agent already does."
+  lede="Bring your Deep Agents agent into your product."
   supportedFeatures={[
     {
       title: "Generative UI",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your agent updates its plan and calls tools as it works. CopilotKit streams both to the browser and renders them as React components, so the user watches the task list fill in.",
+      description: "Show subagent progress and outputs in your app.",
       documentationLink: "/deepagents/generative-ui"
     },
     {
       title: "Human-in-the-loop",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "A node can interrupt and wait for a person. CopilotKit renders your own UI for that decision and resumes the run with the answer.",
+      description: "Let users respond when a graph interrupts.",
       documentationLink: "/deepagents/human-in-the-loop"
     },
     {
       title: "Shared state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "The graph carries one state object between subagents. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      description: "Share graph state with your interface.",
       documentationLink: "/deepagents/shared-state"
     }
   ]}
@@ -55,7 +58,7 @@ hidePageActions: true
 >
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const runtime = new CopilotRuntime({
@@ -67,6 +70,14 @@ const runtime = new CopilotRuntime({
     }),
   },
 });
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+});
+
+export const POST = handler;
 ```
 
 </FrameworkOverview>

@@ -17,9 +17,9 @@ const data: FrameworkOverviewData = {
   // `integrations/langgraph/`, and every page inside it says LangGraph.
   frameworkName: "LangGraph",
   iconKey: "langgraph",
-  header: "Bring your LangGraph agents to your users",
+  header: "Build interactive apps with LangGraph",
   subheader:
-    "LangGraph runs your graph. CopilotKit gives it a surface your users can see, interrupt and steer.",
+    "CopilotKit connects your LangGraph agents to chat, custom UI, and human input.",
   bannerVideo:
     "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4",
   guideLink: "/langgraph/quickstart",
@@ -27,27 +27,30 @@ const data: FrameworkOverviewData = {
   featuresLink:
     "https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat",
 
-  lede: "LangGraph gives you the graph: nodes, edges, one state object, and interrupts that stop a run mid-node. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your graph already does.",
+  lede: "Make your graph’s state, tools, and interrupts part of your product.",
   supportedFeatures: [
     {
       title: "Generative UI",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your nodes return state updates and tool calls as they run. CopilotKit streams both to the browser by default and renders them as React components your users watch update while the graph works.",
+      description: "Render graph state and tool calls in your app.",
       documentationLink: "/langgraph/generative-ui",
     },
     {
       title: "Human-in-the-loop",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "A node calls interrupt() and stops mid-execution. CopilotKit catches that event, renders your own UI for the decision, and resumes the graph with the answer.",
+      description: "Turn graph interrupts into decisions users can make.",
       documentationLink: "/langgraph/human-in-the-loop/interrupt-flow",
     },
     {
       title: "Shared state",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "Your graph carries one state object from node to node. CopilotKit mirrors it into your app and back, so a user edit and a node write land in the same place.",
+      description: "Keep graph state and your interface in sync.",
       documentationLink: "/langgraph/shared-state",
     },
   ],
@@ -58,11 +61,10 @@ const data: FrameworkOverviewData = {
   },
 
   connect: {
-    intro:
-      "Your graph stays where it runs today: LangGraph Platform, LangSmith, or your own FastAPI service. CopilotKit reaches it over AG-UI, so nothing inside the graph changes.",
+    intro: "Connect a deployed LangGraph agent to your CopilotKit runtime.",
     filename: "app/api/copilotkit/route.ts",
     language: "ts",
-    code: `import { CopilotRuntime } from "@copilotkit/runtime/v2";
+    code: `import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const runtime = new CopilotRuntime({
@@ -73,8 +75,41 @@ const runtime = new CopilotRuntime({
       langsmithApiKey: process.env.LANGSMITH_API_KEY!,
     }),
   },
-});`,
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+});
+
+export const POST = handler;`,
     guideLink: "/langgraph/quickstart",
+  },
+
+  connectBySlug: {
+    "langgraph-fastapi": {
+      intro: "Connect your LangGraph FastAPI endpoint to CopilotKit.",
+      filename: "app/api/copilotkit/route.ts",
+      language: "ts",
+      code: `import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    sample_agent: new LangGraphHttpAgent({
+      url: process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
+    }),
+  },
+});
+
+export const POST = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+});`,
+      guideLink: "/langgraph/quickstart",
+    },
   },
 
   showcase: {
@@ -98,10 +133,6 @@ const runtime = new CopilotRuntime({
     ],
   },
 
-  // Legacy fields below. `architectureImage`, `liveDemos`, `tutorialLink` and
-  // `cta` are only read by the pre-capability layout, which this record no
-  // longer uses; they stay until every partner page has moved over and the old
-  // branch comes out of the template in one piece.
   architectureImage:
     "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png",
   liveDemos: [],

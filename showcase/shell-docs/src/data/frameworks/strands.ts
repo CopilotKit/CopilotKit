@@ -13,35 +13,42 @@ const data: FrameworkOverviewData = {
   slug: "strands",
   frameworkName: "AWS Strands",
   iconKey: "awsStrands",
-  header: "Bring your AWS Strands agents to your users",
+  header: "Build interactive apps with Strands",
   subheader:
-    "Strands runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer.",
+    "CopilotKit connects your Strands agents to chat, custom UI, and human input.",
+  bannerVideo:
+    "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4",
+  architectureImage:
+    "https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png",
   guideLink: "/aws-strands/quickstart",
   initCommand: "npx copilotkit@latest init",
   featuresLink:
     "https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_chat",
 
-  lede: "Strands gives you the agent: a model, a tool loop and the state it carries between turns. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does.",
+  lede: "Give your agent’s tools and state a place in your app.",
   supportedFeatures: [
     {
       title: "Generative UI",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your agent calls tools and reports progress as it works. CopilotKit streams that to the browser and renders each step as a React component, instead of leaving the user with a spinner.",
+      description: "Show tool calls and progress as interactive UI.",
       documentationLink: "/aws-strands/generative-ui",
     },
     {
       title: "Human-in-the-loop",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      description: "Let users approve actions through frontend tools.",
       documentationLink: "/aws-strands/human-in-the-loop",
     },
     {
       title: "Shared state",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "Your agent keeps state on the server between turns. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      description: "Share state between your agent and your app.",
       documentationLink: "/aws-strands/shared-state",
     },
   ],
@@ -52,8 +59,7 @@ const data: FrameworkOverviewData = {
   },
 
   connect: {
-    intro:
-      "Your agent keeps running as its own Python service, with the AG-UI bridge from ag_ui_strands in front of it. CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
+    intro: "Connect your Strands AG-UI endpoint to the CopilotKit runtime.",
     filename: "app/api/copilotkit/route.ts",
     language: "ts",
     code: `import {
@@ -71,6 +77,7 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const GET = handler;

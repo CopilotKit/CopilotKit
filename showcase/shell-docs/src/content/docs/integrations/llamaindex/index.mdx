@@ -12,31 +12,36 @@ hidePageActions: true
 <FrameworkOverview
   frameworkName="LlamaIndex"
   frameworkIcon={<LlamaIndexIcon className="h-12 w-12" />}
-  header="Bring your LlamaIndex agents to your users"
-  subheader="LlamaIndex runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
+  header="Build interactive apps with LlamaIndex"
+  subheader="CopilotKit connects your LlamaIndex agents to chat, custom UI, and human input."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
   guideLink="/llamaindex/quickstart"
   initCommand="npx copilotkit@latest init"
-  lede="LlamaIndex gives you the agent and everything it reads: indexes, retrievers and the workflow around them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does."
+  lede="Bring your LlamaIndex agent into your product."
   supportedFeatures={[
     {
       title: "Generative UI",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your workflow emits events and tool calls as it runs. CopilotKit streams them to the browser and renders each one as a React component, so retrieval and reasoning are visible instead of hidden behind a spinner.",
+      description: "Make workflow progress and tool calls visible.",
       documentationLink: "/llamaindex/generative-ui"
     },
     {
       title: "Human-in-the-loop",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      description: "Let users review and approve the next step.",
       documentationLink: "/llamaindex/human-in-the-loop"
     },
     {
       title: "Shared state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "Your workflow carries state between steps. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      description: "Share workflow state with your interface.",
       documentationLink: "/llamaindex/shared-state"
     }
   ]}
@@ -81,6 +86,8 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
+  mode: "single-route",
 });
 
 export const GET = handler;

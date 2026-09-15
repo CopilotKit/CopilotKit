@@ -13,22 +13,23 @@ const data: FrameworkOverviewData = {
   slug: "a2a",
   frameworkName: "A2A",
   iconKey: "a2a",
-  header: "Bring your A2A agents to your users",
+  header: "Bring A2A agents into your app",
   subheader:
-    "A2A connects your agents to each other. CopilotKit gives them a surface your users can see and steer.",
+    "CopilotKit renders your agents’ A2UI descriptions as interactive components.",
+  architectureImage:
+    "https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png",
   guideLink: "/a2a/quickstart",
   // The org was `copilotkit-ai`, which 404s. The repository is under
   // `CopilotKit`, so the command on the page could not be pasted and run.
   initCommand: "git clone https://github.com/CopilotKit/with-a2a-a2ui.git",
   featuresLink: "https://feature-viewer.copilotkit.ai/a2a/feature/a2ui",
 
-  lede: "A2A gives your agents a protocol for talking to each other. What it does not give you is the surface your users talk through. The capability below builds on what your A2A agents already emit.",
+  lede: "Give your agent’s A2UI output a home in your product.",
   supportedFeatures: [
     {
       title: "Declarative UI",
       iconKey: "paintbrush",
-      description:
-        "Your agents describe what to show rather than how to render it. CopilotKit turns those A2UI descriptions into React components in your own app.",
+      description: "Render A2UI descriptions as components in your app.",
       documentationLink: "/a2a/generative-ui",
     },
   ],

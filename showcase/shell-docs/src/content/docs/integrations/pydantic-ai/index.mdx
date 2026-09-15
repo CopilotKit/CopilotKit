@@ -12,31 +12,33 @@ hidePageActions: true
 <FrameworkOverview
   frameworkName="Pydantic AI"
   frameworkIcon={<PydanticAIIcon className="h-12 w-12" />}
-  header="Bring your Pydantic AI agents to your users"
-  subheader="Pydantic AI runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
+  header="Build interactive apps with Pydantic AI"
+  subheader="CopilotKit connects your Pydantic AI agents to chat, custom UI, and human input."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
   guideLink="/pydantic-ai/quickstart"
   initCommand="npx copilotkit@latest init"
-  lede="Pydantic AI gives you the agent and the types around it: validated tools, typed results and the dependencies you hand in. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does."
+  lede="Bring your Pydantic AI agent into your product."
   supportedFeatures={[
     {
       title: "Generative UI",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your agent calls typed tools as it runs. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
+      description: "Render agent state and tool calls in your app.",
       documentationLink: "/pydantic-ai/generative-ui"
     },
     {
       title: "Human-in-the-loop",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      description: "Let users review and approve the next step.",
       documentationLink: "/pydantic-ai/human-in-the-loop"
     },
     {
       title: "Shared state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "Your agent carries state between turns. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      description: "Keep your agent and interface in sync.",
       documentationLink: "/pydantic-ai/shared-state"
     }
   ]}
@@ -81,6 +83,7 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const GET = handler;

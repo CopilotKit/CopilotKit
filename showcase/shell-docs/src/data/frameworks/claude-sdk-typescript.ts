@@ -8,35 +8,42 @@ const data: FrameworkOverviewData = {
   slug: "claude-sdk-typescript",
   frameworkName: "Claude Agent SDK (TypeScript)",
   iconKey: "anthropic",
-  header: "Bring your Claude agents to your users",
+  header: "Build interactive apps with Claude Agent SDK (TypeScript)",
   subheader:
-    "The Claude Agent SDK runs your agent loop. CopilotKit gives it a surface your users can see, interrupt and steer.",
+    "CopilotKit connects your Claude Agent SDK (TypeScript) agents to chat, custom UI, and human input.",
+  bannerVideo:
+    "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4",
+  architectureImage:
+    "https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png",
   guideLink: "/claude-sdk-typescript/quickstart",
   initCommand: "npx copilotkit@latest init --framework claude-sdk-typescript",
   featuresLink:
     "https://feature-viewer.copilotkit.ai/claude-sdk-typescript/feature/agentic_chat",
 
-  lede: "The Claude Agent SDK gives you the agent loop: tools, context handling, and a session that keeps its history. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does.",
+  lede: "Bring your Claude Agent SDK (TypeScript) agent into your product.",
   supportedFeatures: [
     {
       title: "Generative UI",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your agent calls tools and reports progress as it works. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
+      description: "Render agent state and tool calls in your app.",
       documentationLink: "/claude-sdk-typescript/generative-ui",
     },
     {
       title: "Human-in-the-loop",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "The agent calls an approval tool and waits for its result. CopilotKit resolves that tool from the browser once the user decides, and the same Claude run continues with the answer.",
+      description: "Let users review and approve the next step.",
       documentationLink: "/claude-sdk-typescript/human-in-the-loop",
     },
     {
       title: "Shared state",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "Your session carries state across turns on the server. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      description: "Keep your agent and interface in sync.",
       documentationLink: "/claude-sdk-typescript/shared-state",
     },
   ],
@@ -66,6 +73,7 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const GET = handler;

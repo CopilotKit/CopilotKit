@@ -12,31 +12,33 @@ hidePageActions: true
 <FrameworkOverview
   frameworkName="CrewAI Flows"
   frameworkIcon={<CrewaiIcon className="h-12 w-12" />}
-  header="Bring your CrewAI Flow-based agents to your users"
-  subheader="CrewAI runs your flows. CopilotKit gives them a surface your users can see, interrupt and steer."
+  header="Build interactive apps with CrewAI Flows"
+  subheader="CopilotKit connects your CrewAI Flows agents to chat, custom UI, and human input."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  architectureVideo="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/crew-ai/flows/crews-interaction-layer.mp4"
   guideLink="/crewai-flows/quickstart"
   initCommand="npx copilotkit@latest init"
-  lede="CrewAI gives you the flow: steps, state and the crew that works through them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the flow while it runs, and a moment for a person to step in. Each capability below builds on something your flow already does."
+  lede="Bring your CrewAI Flows agent into your product."
   supportedFeatures={[
     {
       title: "Generative UI",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your flow emits state and tool calls as each step completes. CopilotKit streams those to the browser and renders them as React components your users watch update while the flow runs.",
+      description: "Make each flow’s progress visible in your app.",
       documentationLink: "/crewai-flows/generative-ui"
     },
     {
       title: "Human-in-the-loop",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "A flow can stop and wait for a person. CopilotKit renders your own UI for that decision and resumes the flow with the answer.",
+      description: "Pause a flow for a user’s decision.",
       documentationLink: "/crewai-flows/human-in-the-loop/flow"
     },
     {
       title: "Shared state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "Flow state is the one object every step reads and writes. CopilotKit mirrors it into your app and back, so a user edit and a step write land in the same place.",
+      description: "Keep flow state and your interface in sync.",
       documentationLink: "/crewai-flows/shared-state"
     }
   ]}
@@ -81,6 +83,7 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const GET = handler;

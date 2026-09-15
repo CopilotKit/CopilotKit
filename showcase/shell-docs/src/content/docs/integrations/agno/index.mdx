@@ -12,31 +12,32 @@ hidePageActions: true
 <FrameworkOverview
   frameworkName="Agno"
   frameworkIcon={<AgnoIcon className="h-12 w-12" />}
-  header="Bring your Agno agents to your users"
-  subheader="Agno runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
+  header="Build interactive apps with Agno"
+  subheader="CopilotKit connects your Agno agents to chat, custom UI, and human input."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
   guideLink="/agno/quickstart"
   initCommand="npx copilotkit@latest init"
-  lede="Agno gives you the agent: a model, tools, memory and a server that runs them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does."
+  lede="Bring your Agno agent into your product."
   supportedFeatures={[
     {
       title: "Generative UI",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your agent calls tools and reports progress as it works. CopilotKit streams that to the browser and renders each step as a React component your users watch update while the agent works.",
+      description: "Render your agent’s tool calls in your app.",
       documentationLink: "/agno/generative-ui"
     },
     {
       title: "Human-in-the-loop",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      description: "Let users approve actions through frontend tools.",
       documentationLink: "/agno/human-in-the-loop"
     },
     {
       title: "Shared state",
       iconKey: "repeat",
-      description:
-        "Your agent keeps state between turns on the server. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      description: "Share agent state with your app.",
       documentationLink: "/agno/shared-state"
     }
   ]}
@@ -81,6 +82,7 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const GET = handler;

@@ -12,31 +12,33 @@ hidePageActions: true
 <FrameworkOverview
   frameworkName="AG2"
   frameworkIcon={<Ag2Icon className="h-12 w-12" />}
-  header="Bring your AG2 agents to your users"
-  subheader="AG2 runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
+  header="Build interactive apps with AG2"
+  subheader="CopilotKit connects your AG2 agents to chat, custom UI, and human input."
+  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/ag2/architecture.png"
   guideLink="/ag2/quickstart"
   initCommand="npx copilotkit@latest init"
-  lede="AG2 gives you the conversation between your agents: roles, turns and the tools they call. What it does not give you is the surface a person joins it through. Each capability below builds on something your agents already do."
+  lede="Bring your AG2 agent into your product."
   supportedFeatures={[
     {
       title: "Generative UI",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your agents call tools as the conversation runs. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
+      description: "Render agent state and tool calls in your app.",
       documentationLink: "/ag2/generative-ui"
     },
     {
       title: "Human-in-the-loop",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      description: "Let users review and approve the next step.",
       documentationLink: "/ag2/human-in-the-loop"
     },
     {
       title: "Shared state",
+      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "Your agents carry state across turns. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      description: "Keep your agent and interface in sync.",
       documentationLink: "/ag2/shared-state"
     }
   ]}
@@ -81,6 +83,7 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const GET = handler;

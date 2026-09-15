@@ -12,36 +12,43 @@ const data: FrameworkOverviewData = {
   slug: "google-adk",
   frameworkName: "ADK",
   iconKey: "adk",
-  header: "Bring your ADK agents to your users",
+  header: "Build interactive apps with Google ADK",
   subheader:
-    "ADK runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer.",
+    "CopilotKit connects your ADK agents to chat, custom UI, and human input.",
   // Was "/adk/quickstart/adk", which the link rewriter turns into
   // /google-adk/quickstart/adk — a 404. The quickstart lives one level up.
+  bannerVideo:
+    "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4",
+  architectureImage:
+    "https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png",
   guideLink: "/adk/quickstart",
   initCommand: "npx copilotkit@latest init",
   featuresLink: "https://feature-viewer.copilotkit.ai/adk/feature/agentic_chat",
 
-  lede: "ADK gives you the agent: tools, sessions and a runner that serves them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does.",
+  lede: "Bring ADK tools and session state into your product.",
   supportedFeatures: [
     {
       title: "Generative UI",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4",
       iconKey: "paintbrush",
-      description:
-        "Your agent calls tools and updates session state as it runs. CopilotKit streams both to the browser and renders them as React components your users watch update while the agent works.",
+      description: "Render tool calls and session state in your app.",
       documentationLink: "/adk/generative-ui",
     },
     {
       title: "Human-in-the-loop",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4",
       iconKey: "user",
-      description:
-        "AGUIToolset() puts frontend tools in reach of your agent. CopilotKit renders the one that asks for a decision, waits for the user's answer, and hands it back as the tool result.",
+      description: "Let users review and respond to frontend tools.",
       documentationLink: "/adk/human-in-the-loop",
     },
     {
       title: "Shared state",
+      videoUrl:
+        "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4",
       iconKey: "repeat",
-      description:
-        "ADK sessions keep state between turns on the server. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      description: "Keep ADK session state and your app in sync.",
       documentationLink: "/adk/shared-state",
     },
   ],
@@ -53,7 +60,7 @@ const data: FrameworkOverviewData = {
 
   connect: {
     intro:
-      "Your agent keeps running as its own Python service, with the AG-UI bridge from ag_ui_adk in front of it. CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
+      "Expose your Python agent with ag_ui_adk, then connect its AG-UI endpoint.",
     filename: "app/api/copilotkit/route.ts",
     language: "ts",
     code: `import {
@@ -71,6 +78,7 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const GET = handler;
