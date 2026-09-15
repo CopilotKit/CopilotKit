@@ -61,6 +61,14 @@ test("the shared Intelligence overview mounts the landing then keeps platform co
   expect(snippet).toContain("| Memory |");
   expect(snippet).toContain("[Memories & Recall](/intelligence/memories)");
   expect(snippet).toContain("[Learning](/learning)");
+  expect(snippet).toContain(
+    "[Automatic skill delivery](/intelligence/learned-skills)",
+  );
+  expect(
+    existsSync(
+      resolve(here, "../../content/docs/intelligence/learned-skills.mdx"),
+    ),
+  ).toBe(true);
   expect(snippet).toContain("<IntelligenceFeatureCards");
   expect(snippet).toContain(
     "Follow the Intelligence quickstart to connect your runtime and confirm threads work.",
