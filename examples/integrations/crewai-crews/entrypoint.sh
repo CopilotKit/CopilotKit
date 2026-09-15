@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-# Start the Python CrewAI agent (override PORT to 8000 — Railway sets PORT=3000 for the frontend).
+# Start the Python CrewAI agent on 8000. PORT belongs to the Next.js frontend
+# (Railway injects it; staging uses 8080), so pin the agent explicitly here.
 # Invoke uvicorn directly rather than `python server.py`: server.py's main() is
 # the dev entry point and enables reload=True, which would start a StatReload
 # file watcher inside this production image.
