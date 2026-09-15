@@ -4,7 +4,7 @@ import type { AgentId } from "./copilotkit-types";
 
 export type ReactHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
-  A extends AgentId | undefined = AgentId | undefined,
+  A extends AgentId = AgentId,
 > = Omit<FrontendTool<T, A>, "handler"> & {
   /**
    * Render the human-in-the-loop UI for this tool call.

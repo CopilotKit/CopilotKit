@@ -4,7 +4,7 @@ import type { AgentId } from "./copilotkit-types";
 
 export interface ReactToolCallRenderer<
   T = unknown,
-  A extends AgentId | undefined = AgentId | undefined,
+  A extends AgentId = AgentId,
 > {
   name: string;
   /**

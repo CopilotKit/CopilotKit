@@ -4,7 +4,7 @@ import type { AgentId } from "./copilotkit-types";
 
 export type ReactFrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
-  A extends AgentId | undefined = AgentId | undefined,
+  A extends AgentId = AgentId,
 > = FrontendTool<T, A> & {
   render?: ReactToolCallRenderer<T>["render"];
 };

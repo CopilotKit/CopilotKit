@@ -13,7 +13,7 @@ const WILDCARD_TOOL_NAME = "*";
 
 export function useHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
-  A extends AgentId | undefined = AgentId | undefined,
+  A extends AgentId = AgentId,
 >(tool: ReactHumanInTheLoop<T, A>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);

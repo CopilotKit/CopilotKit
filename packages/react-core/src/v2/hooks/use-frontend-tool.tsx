@@ -7,7 +7,7 @@ const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
 export function useFrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
-  A extends AgentId | undefined = AgentId | undefined,
+  A extends AgentId = AgentId,
 >(tool: ReactFrontendTool<T, A>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;

@@ -5,7 +5,7 @@ import type { AgentId } from "./copilotkit-types";
 
 export interface ReactActivityMessageRenderer<
   TActivityContent,
-  A extends AgentId | undefined = AgentId | undefined,
+  A extends AgentId = AgentId,
 > {
   /**
    * Activity type to match when rendering. Use "*" as a wildcard renderer.

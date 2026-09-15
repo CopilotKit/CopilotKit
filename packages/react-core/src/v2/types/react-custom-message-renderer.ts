@@ -3,9 +3,7 @@ import type { AgentId } from "./copilotkit-types";
 
 export type ReactCustomMessageRendererPosition = "before" | "after";
 
-export interface ReactCustomMessageRenderer<
-  A extends AgentId | undefined = AgentId | undefined,
-> {
+export interface ReactCustomMessageRenderer<A extends AgentId = AgentId> {
   agentId?: A;
   render: React.ComponentType<{
     message: Message;

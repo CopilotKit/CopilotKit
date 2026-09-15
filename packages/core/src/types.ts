@@ -70,7 +70,7 @@ export type WebMCPToolConfig = {
 
 export type FrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
-  A extends string | undefined = string | undefined,
+  A extends string = string,
 > = {
   name: string;
   description?: string;
