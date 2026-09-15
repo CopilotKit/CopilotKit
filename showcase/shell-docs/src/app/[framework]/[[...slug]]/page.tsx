@@ -1355,7 +1355,22 @@ function FrameworkRootShell({
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-0 pb-6">
+        {/* Two classes here are load-bearing.
+            `docs-article-content` is the docs' own "one stable reading measure"
+            class (see globals.css), which the authored-MDX pages already carry.
+            Without it this path fell to the unlayered
+            `.docs-inner-content { max-width: min(1100px, 100%) }` rule, so the
+            same component came out 780px wide here and 736px on the MDX
+            partner pages. A Tailwind `max-w-*` cannot fix that: the rule is
+            unlayered and beats every utility.
+
+            The top padding is the shared docs value rather than the `pt-0`
+            this route carried since "fix(docs): polish shell docs UX"
+            (2026-05-28). That zero was set for the previous landing layout;
+            with the current one it left the framework icon flush against the
+            top while every other page in the docs — including the Intelligence
+            landing, which likewise renders no breadcrumb — starts 16px down. */}
+        <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
           {children}
         </div>
       </DocsPage>

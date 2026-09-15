@@ -3,53 +3,87 @@ title: Introduction
 icon: "custom/mastra"
 description: Bring your Mastra agents to your users with CopilotKit via AG-UI.
 hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page. The data-record
+# partner pages render no such row, so this is also what keeps the two paths
+# looking alike. Same flag /intelligence/overview uses.
+hidePageActions: true
 ---
 
 <FrameworkOverview
   frameworkName="Mastra"
   frameworkIcon={<MastraIcon className="h-12 w-12" />}
   header="Bring your Mastra agents to your users"
-  subheader="Give your Mastra agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
-  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  subheader="Mastra runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/mastra/quickstart"
   initCommand="npx copilotkit@latest init"
   featuresLink="https://feature-viewer.copilotkit.ai/mastra/feature/agentic_chat"
+  lede="Mastra gives you agents, tools, workflows and working memory in TypeScript, and a server that runs them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show what the agent is doing while it works, and a moment for a person to step in. Each capability below builds on something Mastra already does."
   supportedFeatures={[
     {
       title: "Generative UI",
-      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/mastra/generative-ui/backend-tools",
-      demoLink: "https://feature-viewer.copilotkit.ai/mastra/feature/tool_based_generative_ui",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+      iconKey: "paintbrush",
+      description:
+        "Your agent keeps working memory across the session. CopilotKit renders that state as your own React components, so users watch the draft take shape instead of waiting for a final answer.",
+      documentationLink: "/mastra/generative-ui/state-rendering"
     },
     {
-      title: "Human in the Loop",
-      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
-      documentationLink: "/mastra/human-in-the-loop",
-      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "Mastra's own suspend() stays inside Mastra's execution model. A frontend tool registered with useHumanInTheLoop renders UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      documentationLink: "/mastra/human-in-the-loop/tool-based"
     },
     {
-      title: "Shared State",
-      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
-      documentationLink: "/mastra/shared-state/in-app-agent-read",
-      demoLink: "https://feature-viewer.copilotkit.ai/mastra/feature/shared_state",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "Working memory lives on the server, scoped by resourceId. The useAgent hook mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/mastra/shared-state"
     }
   ]}
-  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/mastra/overview.png"
-  liveDemos={[
-    {
-      type: "saas",
-      title: "SaaS Copilot",
-      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
-      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
-    },
-    {
-      type: "canvas",
-      title: "Canvas Copilot",
-      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
-      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
-    }
-  ]}
-/>
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and background tasks work with Mastra too.",
+    linkLabel: "And more",
+    href: "/mastra/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your Mastra service stays where it runs today. CopilotKit reaches it over HTTP through AG-UI and leaves it exactly where it is, so nothing inside Mastra changes.",
+    filename: "app/api/copilotkit/route.ts",
+    language: "ts",
+    guideLink: "/mastra/quickstart"
+  }}
+  showcase={{
+    integration: "mastra",
+    intro:
+      "Mastra and CopilotKit running together, in the React frontend. Every demo below is the same integration with one capability turned on.",
+    demos: [
+      { slug: "agentic-chat", title: "Pre-Built: CopilotChat" },
+      { slug: "hitl-in-chat", title: "Human In the Loop: In-chat" },
+      { slug: "shared-state-read-write", title: "Shared State: Read + Write" },
+      { slug: "gen-ui-agent", title: "Generative UI: Agent State" }
+    ]
+  }}
+>
+
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+import { MastraAgent } from "@ag-ui/mastra";
+import { MastraClient } from "@mastra/client-js";
+
+const mastraClient = new MastraClient({
+  baseUrl: process.env.MASTRA_BASE_URL ?? "http://127.0.0.1:4111",
+});
+
+const runtime = new CopilotRuntime({
+  agents: ({ request }) =>
+    MastraAgent.getRemoteAgents({
+      mastraClient,
+      resourceId: userIdFrom(request),
+    }),
+  runner: new InMemoryAgentRunner(),
+});
+```
+
+</FrameworkOverview>
