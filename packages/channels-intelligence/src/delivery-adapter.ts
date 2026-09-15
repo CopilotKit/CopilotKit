@@ -36,6 +36,8 @@ import type {
   UserQuery,
   ReplyContinuationOptions,
   ResolvedChannelMemory,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
 import {
@@ -57,7 +59,10 @@ import type {
   ChannelDeliveryTransport,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
-import { ChannelProviderDeliveryError } from "./delivery-transport.js";
+import {
+  ChannelProviderDeliveryError,
+  isUnreadySlackFileDeliveryDetails,
+} from "./delivery-transport.js";
 import { ChannelProviderMismatchError } from "./delivery-transport.js";
 import {
   assertProviderMessageId,
@@ -87,6 +92,7 @@ interface DeliveryMessageRef extends MessageRef {
 const MANAGED_ASSET_ACTIVITY_TYPE = "copilotkit.managed-asset";
 const MANAGED_ASSET_HISTORY_ATTEMPTS = 3;
 const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
+const MANAGED_SLACK_KEEPALIVE_MS = 15_000;
 
 /** Slack could not prove whether a managed file became visible. */
 export class ChannelFileDeliveryUnknownError extends ChannelDeliveryTerminatedError {
@@ -143,6 +149,10 @@ export class DeliveryAdapter implements PlatformAdapter {
   readonly skipIngressDedup = true;
   readonly injectInboundTurnOnce = true;
   readonly ackDeadlineMs = 0;
+  private readonly slackKeepAlives = new WeakMap<
+    ClaimedChannelDelivery,
+    ReturnType<typeof setInterval>
+  >();
   readonly stateStore?: StateStore;
   readonly capabilities: SurfaceCapabilities = {
     supportsMessageEvents: true,
@@ -584,14 +594,34 @@ export class DeliveryAdapter implements PlatformAdapter {
 
   async post(targetValue: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const target = asDeliveryTarget(targetValue);
-    const responseId = mintId("response_");
-    const { providerReference, providerMessageId } = await this.postRendered(
-      target.claimedDelivery,
-      target.delivery.adapter,
-      responseId,
-      ir,
-    );
-    return messageRef(target, responseId, providerReference, providerMessageId);
+    const send = async (): Promise<MessageRef> => {
+      const responseId = mintId("response_");
+      const { providerReference, providerMessageId } = await this.postRendered(
+        target.claimedDelivery,
+        target.delivery.adapter,
+        responseId,
+        ir,
+      );
+      return messageRef(
+        target,
+        responseId,
+        providerReference,
+        providerMessageId,
+      );
+    };
+    try {
+      if (target.delivery.adapter === "slack") {
+        // Slack file readiness lives in Intelligence: slack.message.create
+        // uploads unshared files, polls files.info, then posts. A client
+        // sleep here runs before Slack has the files.
+        return await withManagedSlackFileRetry(send);
+      }
+      return await send();
+    } finally {
+      if (target.delivery.adapter === "slack") {
+        this.stopSlackKeepAlive(target.claimedDelivery);
+      }
+    }
   }
 
   async update(refValue: MessageRef, ir: ChannelNode[]): Promise<void> {
@@ -884,6 +914,84 @@ export class DeliveryAdapter implements PlatformAdapter {
     return { ok: true, assetId: handle };
   }
 
+  /**
+   * Host a PNG without posting a channel message.
+   *
+   * Slack stores the bytes, then asks Intelligence to upload them unshared and
+   * wait until Block Kit can use the file. The later message packet remaps
+   * the handle to that Slack file id. Teams uses a data URI.
+   */
+  async stageFile(
+    targetValue: ReplyTarget,
+    args: StageFileArgs,
+  ): Promise<StagedFile> {
+    const target = asDeliveryTarget(targetValue);
+    if (target.delivery.adapter === "teams") {
+      const b64 = Buffer.from(args.bytes).toString("base64");
+      return { dataUrl: `data:image/png;base64,${b64}` };
+    }
+    const responseId = mintId("response_");
+    const handle = await target.claimedDelivery.uploadFile(responseId, args);
+    if (!handle) {
+      throw new Error("Channel stageFile: upload returned no handle");
+    }
+    await target.claimedDelivery.effect(responseId, {
+      kind: "slack.image.create",
+      fileHandle: handle,
+      // The gateway requires altText to be 1..2000 chars (packet_processor.ex
+      // validate_required_payload/2). `thread.post()` forwards `opts?.altText`,
+      // which is undefined whenever a caller omits it, and the resulting missing
+      // key is rejected as `invalid_provider_effect` — sealing the delivery.
+      altText:
+        typeof args.altText === "string" && args.altText.trim().length > 0
+          ? args.altText.slice(0, 2000)
+          : String(args.filename || "image").slice(0, 2000),
+      share: false,
+    });
+    return { fileId: handle };
+  }
+
+  /**
+   * Apply a Slack thinking status, then ping it every 15s so a long Takumi
+   * render does not leave the Intelligence packet slot stale.
+   */
+  async keepAlive(targetValue: ReplyTarget): Promise<void> {
+    const target = asDeliveryTarget(targetValue);
+    if (target.delivery.adapter !== "slack") return;
+    this.startSlackKeepAlive(target.claimedDelivery);
+    await this.pingSlackStatus(target.claimedDelivery);
+  }
+
+  private startSlackKeepAlive(claimedDelivery: ClaimedChannelDelivery): void {
+    if (this.slackKeepAlives.has(claimedDelivery)) return;
+    const id = setInterval(() => {
+      void this.pingSlackStatus(claimedDelivery);
+    }, MANAGED_SLACK_KEEPALIVE_MS);
+    id.unref?.();
+    this.slackKeepAlives.set(claimedDelivery, id);
+  }
+
+  private stopSlackKeepAlive(claimedDelivery: ClaimedChannelDelivery): void {
+    const id = this.slackKeepAlives.get(claimedDelivery);
+    if (id === undefined) return;
+    clearInterval(id);
+    this.slackKeepAlives.delete(claimedDelivery);
+  }
+
+  private async pingSlackStatus(
+    claimedDelivery: ClaimedChannelDelivery,
+  ): Promise<void> {
+    try {
+      await claimedDelivery.effect(
+        mintId("response_"),
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { charge: false, bestEffort: true },
+      );
+    } catch {
+      // Status is best-effort. The carousel post still runs.
+    }
+  }
+
   /** Retries canonical persistence without repeating provider delivery. */
   private async persistManagedAssetActivity(
     target: DeliveryReplyTarget,
@@ -1002,6 +1110,8 @@ export class DeliveryAdapter implements PlatformAdapter {
       status: { threadTs: "managed", isPane: false },
       transport: {
         setStatus: async ({ status, loading_messages: loadingMessages }) => {
+          if (status) this.startSlackKeepAlive(claimedDelivery);
+          else this.stopSlackKeepAlive(claimedDelivery);
           await claimedDelivery.effect(
             responseId,
             {
@@ -1690,4 +1800,34 @@ function normalizeTaskStatus(
     value === "failed"
     ? value
     : "in_progress";
+}
+
+const SLACK_FILE_POST_ATTEMPTS = 5;
+const SLACK_FILE_READY_SLEEP_MS = 200;
+
+function isUnreadyManagedSlackFileError(error: unknown): boolean {
+  if (!(error instanceof ChannelProviderDeliveryError)) return false;
+  return isUnreadySlackFileDeliveryDetails(error.details);
+}
+
+/** Slack can reject slack_file before it finishes processing a staged upload. */
+async function withManagedSlackFileRetry<T>(op: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= SLACK_FILE_POST_ATTEMPTS; attempt += 1) {
+    try {
+      return await op();
+    } catch (error) {
+      lastError = error;
+      if (
+        !isUnreadyManagedSlackFileError(error) ||
+        attempt === SLACK_FILE_POST_ATTEMPTS
+      ) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, SLACK_FILE_READY_SLEEP_MS * attempt),
+      );
+    }
+  }
+  throw lastError;
 }

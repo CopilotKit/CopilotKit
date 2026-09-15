@@ -23,6 +23,17 @@ function expand(node: unknown): ChannelNode[] {
     }
     return expanded;
   }
+  // Keep <Render> children as authored (React host tags / ChannelNodes).
+  // Expanding them would turn a host <button> into { type: "button" }.
+  if (node.type === "render") {
+    return [
+      {
+        type: "render",
+        props: { ...node.props },
+        key: node.key,
+      },
+    ];
+  }
   if (isNativeNode(node)) {
     return [
       {

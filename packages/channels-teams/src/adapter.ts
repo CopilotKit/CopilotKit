@@ -17,11 +17,14 @@ import type {
   ProviderActor,
   UserQuery,
   IngressIdentityContext,
+  StageFileArgs,
+  StagedFile,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
   ThreadMessage,
   AgentContentPart,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type { ConversationReference } from "@microsoft/agents-activity";
 import { TeamsConversationStore } from "./conversation-store.js";
@@ -479,7 +482,7 @@ export class TeamsAdapter implements PlatformAdapter {
   /**
    * Post a file to the conversation. Teams renders an image inline when it's
    * sent as an attachment whose `contentUrl` is a `data:` URI, so we base64 the
-   * bytes into one — exactly what `render_chart`/`render_diagram` need to drop a
+   * bytes into one — exactly what an image post needs to drop a
    * PNG into the thread (the bot-slack `postFile` parallel). Non-image bytes are
    * still attached with their inferred MIME; whether Teams previews them is up
    * to the client. Sends on the live turn context, or proactively by reference.
@@ -496,7 +499,7 @@ export class TeamsAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<PostFileResult> {
     const t = target as TeamsReplyTarget;
     const mime = mimeFromFilename(filename);
     const base64 = Buffer.from(bytes).toString("base64");
@@ -506,27 +509,42 @@ export class TeamsAdapter implements PlatformAdapter {
       name: altText ?? filename,
     });
     try {
+      // Teams posts the attachment as an activity, so the returned id IS the
+      // message id (usable for update/delete) — not a media-storage handle.
       if (t.context) {
         const res = await t.context.sendActivity(activity);
-        return { ok: true, fileId: res?.id };
+        return { ok: true, messageId: res?.id };
       }
       if (this.cloud && t.reference) {
-        let fileId: string | undefined;
+        let messageId: string | undefined;
         const appId = this.opts.clientId ?? process.env.clientId ?? "";
         await this.cloud.continueConversation(
           appId,
           t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
           async (context) => {
             const res = await context.sendActivity(activity);
-            fileId = res?.id;
+            messageId = res?.id;
           },
         );
-        return { ok: true, fileId };
+        return { ok: true, messageId };
       }
       return { ok: false, error: "no live or proactive context to post on" };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
+  }
+
+  /**
+   * Host a PNG as a data URI without posting a channel message. Adaptive Card
+   * `Image.url` accepts `data:` URIs, so this is the Teams `stageFile` path
+   * for `<Render>`.
+   */
+  async stageFile(
+    _target: ReplyTarget,
+    { bytes }: StageFileArgs,
+  ): Promise<StagedFile> {
+    const b64 = Buffer.from(bytes).toString("base64");
+    return { dataUrl: `data:image/png;base64,${b64}` };
   }
 
   createRunRenderer(target: ReplyTarget): RunRenderer {

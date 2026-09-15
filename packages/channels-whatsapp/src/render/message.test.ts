@@ -105,6 +105,173 @@ describe("renderWhatsAppMessage", () => {
     });
   });
 
+  it("renders a staged image by fileId as image.id", () => {
+    const out = renderWhatsAppMessage([
+      node("image", { fileId: "MEDIA1", alt: "hat" }),
+    ]);
+    expect(out).toEqual([
+      { type: "image", image: { id: "MEDIA1", caption: "hat" } },
+    ]);
+  });
+
+  it("renders a staged image by slackFileId as image.id", () => {
+    const out = renderWhatsAppMessage([
+      node("image", { slackFileId: "MEDIA2", alt: "shoes" }),
+    ]);
+    expect(out).toEqual([
+      { type: "image", image: { id: "MEDIA2", caption: "shoes" } },
+    ]);
+  });
+
+  it("falls back to one image per slide when a carousel has no buttons", () => {
+    const out = renderWhatsAppMessage([
+      node("carousel", {
+        children: [
+          node("image", { fileId: "M1", alt: "A" }),
+          node("carouselCard", {
+            children: [
+              node("header", { children: "Shoes" }),
+              node("image", { fileId: "M2", alt: "Red" }),
+              node("section", { children: "On sale" }),
+            ],
+          }),
+        ],
+      }),
+    ]);
+    expect(out).toEqual([
+      { type: "image", image: { id: "M1", caption: "A" } },
+      { type: "image", image: { id: "M2", caption: "Shoes\nOn sale" } },
+    ]);
+  });
+
+  it("renders a native carousel when every slide has the same quick-reply buttons", () => {
+    const out = renderWhatsAppMessage([
+      node("header", { children: "Pick a plant" }),
+      node("carousel", {
+        children: [
+          node("carouselCard", {
+            children: [
+              node("image", { fileId: "M1", alt: "Blue" }),
+              node("section", { children: "Blue succulent" }),
+              node("button", {
+                children: "Learn",
+                value: "blue",
+                onClick: { id: "ck:1" },
+              }),
+            ],
+          }),
+          node("carouselCard", {
+            children: [
+              node("image", { fileId: "M2", alt: "Green" }),
+              node("section", { children: "Green succulent" }),
+              node("button", {
+                children: "Learn",
+                value: "green",
+                onClick: { id: "ck:2" },
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]);
+    expect(out).toEqual([
+      {
+        type: "interactive",
+        interactive: {
+          type: "carousel",
+          body: { text: "Pick a plant" },
+          action: {
+            cards: [
+              {
+                card_index: 0,
+                type: "cta_url",
+                header: { type: "image", image: { id: "M1" } },
+                body: { text: "Blue succulent" },
+                action: {
+                  buttons: [
+                    {
+                      type: "quick_reply",
+                      quick_reply: { id: 'ck:1::"blue"', title: "Learn" },
+                    },
+                  ],
+                },
+              },
+              {
+                card_index: 1,
+                type: "cta_url",
+                header: { type: "image", image: { id: "M2" } },
+                body: { text: "Green succulent" },
+                action: {
+                  buttons: [
+                    {
+                      type: "quick_reply",
+                      quick_reply: { id: 'ck:2::"green"', title: "Learn" },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+    ]);
+  });
+
+  it("renders a native URL carousel when every slide has one URL button", () => {
+    const out = renderWhatsAppMessage([
+      node("carousel", {
+        children: [
+          node("carouselCard", {
+            children: [
+              node("image", { fileId: "M1" }),
+              node("section", { children: "Blue plant" }),
+              node("button", {
+                children: "Buy now",
+                url: "https://shop/blue",
+              }),
+            ],
+          }),
+          node("carouselCard", {
+            children: [
+              node("image", { url: "https://cdn/green.png" }),
+              node("section", { children: "Green plant" }),
+              node("button", {
+                children: "Buy now",
+                url: "https://shop/green",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]);
+    expect(out).toHaveLength(1);
+    const m = out[0] as Record<string, any>;
+    expect(m.interactive.type).toBe("carousel");
+    expect(m.interactive.body.text).toBe(" ");
+    expect(m.interactive.action.cards).toEqual([
+      {
+        card_index: 0,
+        type: "cta_url",
+        header: { type: "image", image: { id: "M1" } },
+        body: { text: "Blue plant" },
+        action: {
+          name: "cta_url",
+          parameters: { display_text: "Buy now", url: "https://shop/blue" },
+        },
+      },
+      {
+        card_index: 1,
+        type: "cta_url",
+        header: { type: "image", image: { link: "https://cdn/green.png" } },
+        body: { text: "Green plant" },
+        action: {
+          name: "cta_url",
+          parameters: { display_text: "Buy now", url: "https://shop/green" },
+        },
+      },
+    ]);
+  });
+
   it("falls back to a numbered text menu beyond 10 options", () => {
     const buttons = Array.from({ length: 12 }, (_, i) =>
       node("button", { children: `opt${i}`, onClick: { id: `ck:${i}` } }),

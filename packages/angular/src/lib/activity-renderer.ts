@@ -1,10 +1,5 @@
-import {
-  DestroyRef,
-  InjectionToken,
-  Type,
-  Signal,
-  inject,
-} from "@angular/core";
+import type { Type, Signal } from "@angular/core";
+import { DestroyRef, InjectionToken, inject } from "@angular/core";
 import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
 

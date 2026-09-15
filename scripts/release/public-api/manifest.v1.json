@@ -463,9 +463,11 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "react": ">=18",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "react",
           "vitest"
         ],
         "provenance": [
@@ -563,9 +565,11 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "react": ">=18",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "react",
           "vitest"
         ],
         "provenance": [
@@ -895,7 +899,24 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "peerDependencies": {
+          "react": "^18.0.0 || ^19.0.0"
+        },
+        "optionalPeerDependencies": [
+          "react"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-ui/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-ui/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
       },
       "provenance": {
         "name": {

@@ -1,5 +1,9 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
-import type { TelegramInlineButton, TelegramPayload } from "../types.js";
+import type {
+  TelegramInlineButton,
+  TelegramPayload,
+  TelegramPhoto,
+} from "../types.js";
 import { telegramHtml, escapeHtml } from "../telegram-html.js";
 import {
   TELEGRAM_LIMITS,
@@ -41,7 +45,7 @@ export function renderTelegram(ir: ChannelNode[]): TelegramPayload {
   // before HTML conversion, so the emitted HTML is always well-formed.
   const lineEntries: LineEntry[] = [];
   const inlineKeyboard: TelegramInlineButton[][] = [];
-  const photos: { url: string; caption?: string }[] = [];
+  const photos: TelegramPhoto[] = [];
 
   for (const node of ir) {
     renderNode(node, lineEntries, inlineKeyboard, photos);
@@ -209,7 +213,7 @@ function renderNode(
   node: ChannelNode,
   lineEntries: LineEntry[],
   inlineKeyboard: TelegramInlineButton[][],
-  photos: { url: string; caption?: string }[],
+  photos: TelegramPhoto[],
 ): void {
   if (typeof node.type !== "string") return; // non-intrinsic — skip silently
   const props = node.props ?? {};
@@ -309,19 +313,17 @@ function renderNode(
       return;
     }
     case "image": {
-      const url = (props.url ?? props.image_url) as string | undefined;
-      const alt = (props.alt ?? props.altText ?? "") as string;
-      if (url) {
-        // Bug 3 fix: cap caption to TELEGRAM_LIMITS.caption (1024 chars).
-        const caption = alt
-          ? truncateText(alt, TELEGRAM_LIMITS.caption)
-          : undefined;
-        const { items } = clampArray(
-          [...photos, { url, caption }],
-          TELEGRAM_LIMITS.photosPerMessage,
-        );
-        photos.splice(0, photos.length, ...items);
+      pushPhoto(photos, photoFromImageProps(props));
+      return;
+    }
+    case "carousel": {
+      for (const slide of childNodes(node)) {
+        renderCarouselSlide(slide, photos);
       }
+      return;
+    }
+    case "carouselCard": {
+      renderCarouselSlide(node, photos);
       return;
     }
     case "actions": {
@@ -419,6 +421,87 @@ function renderNode(
       // Unknown intrinsic — skip silently (total renderer).
       return;
   }
+}
+
+/** Clamp a photo onto the payload, dropping overflow past photosPerMessage. */
+function pushPhoto(
+  photos: TelegramPhoto[],
+  photo: TelegramPhoto | undefined,
+): void {
+  if (!photo) return;
+  const { items } = clampArray(
+    [...photos, photo],
+    TELEGRAM_LIMITS.photosPerMessage,
+  );
+  photos.splice(0, photos.length, ...items);
+}
+
+/**
+ * Build a photo from an image node's props. `stagedBytes` wins over a URL so
+ * a rewritten `<Render>` does not also try to send a public URL.
+ */
+function photoFromImageProps(
+  props: Record<string, unknown>,
+  captionOverride?: string,
+  keyboard?: TelegramInlineButton[][],
+): TelegramPhoto | undefined {
+  const staged = props.stagedBytes;
+  const url = (props.url ?? props.image_url) as string | undefined;
+  const alt = String(props.alt ?? props.altText ?? "");
+  const captionSource = captionOverride ?? alt;
+  const caption = captionSource
+    ? truncateText(captionSource, TELEGRAM_LIMITS.caption)
+    : undefined;
+  const extra = keyboard && keyboard.length > 0 ? { keyboard } : {};
+  if (staged instanceof Uint8Array) {
+    return { bytes: staged, caption, ...extra };
+  }
+  if (url) {
+    return { url, caption, ...extra };
+  }
+  return undefined;
+}
+
+/**
+ * One carousel slide → one photo. A lone image uses its alt as the caption.
+ * A card uses Header + Section as the caption and keeps its buttons on that
+ * photo (albums cannot carry a keyboard).
+ */
+function renderCarouselSlide(
+  slide: ChannelNode,
+  photos: TelegramPhoto[],
+): void {
+  if (slide.type === "image" || slide.type === "render") {
+    pushPhoto(photos, photoFromImageProps(slide.props ?? {}));
+    return;
+  }
+  if (slide.type !== "carouselCard") return;
+
+  let imageProps: Record<string, unknown> | undefined;
+  const captionParts: string[] = [];
+  const buttons: TelegramInlineButton[] = [];
+  for (const child of childNodes(slide)) {
+    if (child.type === "image" || child.type === "render") {
+      imageProps = child.props ?? {};
+    } else if (child.type === "header" || child.type === "section") {
+      const text = collectText(child);
+      if (text) captionParts.push(text);
+    } else if (child.type === "button") {
+      const button = renderActionButton(child);
+      if (button) buttons.push(button);
+    }
+  }
+  if (!imageProps) return;
+  const keyboard: TelegramInlineButton[][] = [];
+  if (buttons.length > 0) appendButtons(keyboard, buttons);
+  pushPhoto(
+    photos,
+    photoFromImageProps(
+      imageProps,
+      captionParts.length > 0 ? captionParts.join("\n") : undefined,
+      keyboard.length > 0 ? keyboard : undefined,
+    ),
+  );
 }
 
 /**

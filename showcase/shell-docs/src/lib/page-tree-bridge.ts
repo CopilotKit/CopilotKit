@@ -270,9 +270,7 @@ function buildPageTreeChildren(
   tree: NavNode[],
   slugHrefPrefix: string,
 ): PageTree.Node[] {
-  return tree.flatMap((node) =>
-    navNodeToPageTreeNodes(node, slugHrefPrefix),
-  );
+  return tree.flatMap((node) => navNodeToPageTreeNodes(node, slugHrefPrefix));
 }
 
 // Cache by the (memoized) NavNode[] reference so successive calls with

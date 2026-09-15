@@ -1,9 +1,9 @@
 import { isPlatformBrowser } from "@angular/common";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
+import type { ElementRef } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   PLATFORM_ID,
   afterRenderEffect,
   computed,
@@ -14,7 +14,7 @@ import {
 } from "@angular/core";
 import { CopilotKit } from "@copilotkit/angular";
 import { randomUUID } from "@copilotkit/shared";
-import { type MCPAppsSnapshotContent } from "./mcp-apps-content";
+import type { MCPAppsSnapshotContent } from "./mcp-apps-content";
 import {
   MCPAppsQueueCancelledError,
   MCPAppsQueueThreadChangedError,

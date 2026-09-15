@@ -32,7 +32,8 @@ const VERSION = "1.5";
  *
  * Structural nodes map to body elements (`<Header>`→bold `TextBlock`,
  * `<Section>`/`<Markdown>`→wrapped `TextBlock`, `<Fields>`→`FactSet`,
- * `<Table>`→native `Table`, `<Image>`→`Image`). Interactive nodes split by
+ * `<Table>`→native `Table`, `<Image>`→`Image`, `<Carousel>`→`Carousel` with
+ * one `CarouselPage` per slide). Interactive nodes split by
  * Adaptive Card shape: `<Button>`→a top-level `Action.Submit` (per the V1
  * decision to use `Action.Submit`), while `<Input>`/`<Select>` become
  * `Input.Text`/`Input.ChoiceSet` in the body. Each action/input carries the
@@ -115,11 +116,23 @@ function renderNode(
       });
       return;
     case "image":
+      body.push(renderImage(props));
+      return;
+    case "carousel": {
+      const { items } = clampArray(
+        childNodes(node),
+        TEAMS_LIMITS.carouselSlides,
+      );
       body.push({
-        type: "Image",
-        url: String(props.url ?? props.image_url ?? ""),
-        altText: String(props.alt ?? props.altText ?? ""),
-        size: "Auto",
+        type: "Carousel",
+        pages: items.map((slide) => renderCarouselPage(slide)),
+      });
+      return;
+    }
+    case "carouselCard":
+      body.push({
+        type: "Carousel",
+        pages: [renderCarouselPage(node)],
       });
       return;
     case "fields":
@@ -161,6 +174,66 @@ function textBlock(text: string): CardElement {
     text: truncateText(text, TEAMS_LIMITS.textBlock),
     wrap: true,
   };
+}
+
+/** Prefer a public URL, then a staged data URI, then the legacy `image_url`. */
+function imageUrl(props: Record<string, unknown>): string {
+  return String(props.url ?? props.dataUrl ?? props.image_url ?? "");
+}
+
+function renderImage(props: Record<string, unknown>): CardElement {
+  return {
+    type: "Image",
+    url: imageUrl(props),
+    altText: String(props.alt ?? props.altText ?? ""),
+    size: "Auto",
+  };
+}
+
+/**
+ * Map a carousel slide to a `CarouselPage`. A lone image is one page with
+ * Image. A `carouselCard` maps image / Header / Section / Button onto page
+ * items: Image, then TextBlocks, then an ActionSet.
+ */
+function renderCarouselPage(slide: ChannelNode): CardElement {
+  if (slide.type === "image" || slide.type === "render") {
+    return {
+      type: "CarouselPage",
+      items: [renderImage(slide.props ?? {})],
+    };
+  }
+
+  let image: CardElement | undefined;
+  const texts: CardElement[] = [];
+  const pageActions: CardAction[] = [];
+  for (const child of childNodes(slide)) {
+    if (child.type === "image" || child.type === "render") {
+      image = renderImage(child.props ?? {});
+    } else if (child.type === "header") {
+      texts.push({
+        type: "TextBlock",
+        text: truncateText(collectText(child), TEAMS_LIMITS.textBlock),
+        size: "Large",
+        weight: "Bolder",
+        wrap: true,
+      });
+    } else if (child.type === "section") {
+      texts.push(textBlock(collectText(child)));
+    } else if (child.type === "button") {
+      pageActions.push(renderButton(child));
+    }
+  }
+
+  const items: CardElement[] = [];
+  if (image) items.push(image);
+  items.push(...texts);
+  if (pageActions.length > 0) {
+    items.push({
+      type: "ActionSet",
+      actions: clampArray(pageActions, TEAMS_LIMITS.actions).items,
+    });
+  }
+  return { type: "CarouselPage", items };
 }
 
 /** A `<Fields>`/`<Field>` group → a `FactSet`. Each field's text is split on
@@ -447,6 +520,8 @@ export function isPlainText(ir: ChannelNode[]): boolean {
     "cell",
     "chart",
     "image",
+    "carousel",
+    "carouselCard",
     "actions",
     "button",
     "select",

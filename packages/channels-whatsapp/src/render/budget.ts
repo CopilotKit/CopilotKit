@@ -23,6 +23,10 @@ export const WA_LIMITS = {
   listButton: 20,
   /** Max chars in an interactive control id (button/row id). */
   controlId: 256,
+  /** Max cards in a native interactive media carousel (min 2 to use native). */
+  carouselSlides: 10,
+  /** Max chars in a carousel card body. */
+  carouselCardBody: 160,
 } as const;
 
 /** Truncate to max chars, appending an ellipsis marker if longer. Never returns >max. */

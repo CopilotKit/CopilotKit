@@ -470,6 +470,82 @@ describe("renderComponents", () => {
     expect(select.placeholder).toBe(" ");
   });
 
+  it("renders an image with attachmentName as attachment://", () => {
+    const json = renderComponents([
+      node("image", { attachmentName: "render-0.png", alt: "Hat" }),
+    ]).toJSON();
+    const gallery = json.components.find(
+      (c: any) => c.type === ComponentType.MediaGallery,
+    );
+    expect(gallery).toBeTruthy();
+    expect((gallery as any).items).toHaveLength(1);
+    expect((gallery as any).items[0].media.url).toBe(
+      "attachment://render-0.png",
+    );
+  });
+
+  it("renders a public URL image unchanged", () => {
+    const json = renderComponents([
+      node("image", { url: "https://cdn.example/x.png", alt: "x" }),
+    ]).toJSON();
+    const gallery = json.components.find(
+      (c: any) => c.type === ComponentType.MediaGallery,
+    );
+    expect((gallery as any).items[0].media.url).toBe(
+      "https://cdn.example/x.png",
+    );
+  });
+
+  it("renders a carousel as one MediaGallery with text above and buttons below", () => {
+    const json = renderComponents([
+      node("carousel", {
+        children: [
+          node("image", { attachmentName: "render-0.png", alt: "Hat" }),
+          node("carouselCard", {
+            children: [
+              node("header", { children: text("Shoes") }),
+              node("image", {
+                url: "https://cdn.example/shoes.png",
+                alt: "Red shoes",
+              }),
+              node("section", { children: text("On sale") }),
+              node("button", {
+                children: text("Buy"),
+                onClick: { id: "ck:buy" },
+                value: "buy-shoes",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]).toJSON();
+
+    const texts = json.components.filter(
+      (c: any) => c.type === ComponentType.TextDisplay,
+    );
+    const galleries = json.components.filter(
+      (c: any) => c.type === ComponentType.MediaGallery,
+    );
+    const rows = json.components.filter(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
+    expect(galleries).toHaveLength(1);
+    expect((galleries[0] as any).items.map((i: any) => i.media.url)).toEqual([
+      "attachment://render-0.png",
+      "https://cdn.example/shoes.png",
+    ]);
+    expect((texts[0] as any).content).toBe("# Shoes");
+    expect((texts[1] as any).content).toContain("On sale");
+    expect((rows[0] as any).components[0].label).toBe("Buy");
+
+    const types = json.components.map((c: any) => c.type);
+    const firstText = types.indexOf(ComponentType.TextDisplay);
+    const galleryAt = types.indexOf(ComponentType.MediaGallery);
+    const rowAt = types.indexOf(ComponentType.ActionRow);
+    expect(firstText).toBeLessThan(galleryAt);
+    expect(galleryAt).toBeLessThan(rowAt);
+  });
+
   it("counts the overflow marker against the text budget", () => {
     // Fill text past the cap so an overflow marker is appended; total text
     // (including the marker) must stay within totalTextChars.

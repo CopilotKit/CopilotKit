@@ -22,8 +22,8 @@ import {
   connectA2UISurface,
   getA2UIOperations,
   logA2UIRenderError,
-  type A2UISurfaceElement,
 } from "./a2ui-surface-host";
+import type { A2UISurfaceElement } from "./a2ui-surface-host";
 import { CopilotA2UIRecovery } from "./a2ui-recovery";
 
 @Component({

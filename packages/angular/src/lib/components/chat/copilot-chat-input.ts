@@ -1,3 +1,4 @@
+import type { OnDestroy, Type } from "@angular/core";
 import {
   Component,
   TemplateRef,
@@ -5,8 +6,6 @@ import {
   computed,
   effect,
   ChangeDetectionStrategy,
-  OnDestroy,
-  Type,
   ViewEncapsulation,
   contentChild,
   input,

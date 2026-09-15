@@ -1,6 +1,6 @@
-import { Anthropic } from "@anthropic-ai/sdk";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { Message } from "../../graphql/types/converted";
+import type { Anthropic } from "@anthropic-ai/sdk";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type { Message } from "../../graphql/types/converted";
 
 export function limitMessagesToTokenCount(
   messages: any[],

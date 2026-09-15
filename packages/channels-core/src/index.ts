@@ -85,6 +85,8 @@ export type {
   CanonicalRunIdentity,
   UserQuery,
   NativePayload,
+  StagedFile,
+  StageFileArgs,
 } from "./platform-adapter.js";
 
 // Slash commands
@@ -192,3 +194,7 @@ export { FakeAgent } from "./testing/fake-agent.js";
 
 // Re-export the channels-ui component vocabulary + types for convenience.
 export * from "@copilotkit/channels-ui";
+
+// Image-render config + arbitrary-JSX detection
+export * from "./render/config.js";
+export * from "./render/detect.js";

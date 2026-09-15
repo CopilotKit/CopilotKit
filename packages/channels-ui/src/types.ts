@@ -142,7 +142,10 @@ export interface Thread {
    * on this; no code reads it yet (forward-declared for that work).
    */
   readonly supportsBlockingChoice?: boolean;
-  post(ui: Renderable): Promise<MessageRef>;
+  post(
+    ui: Renderable | ReactElementLike,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef>;
   update(ref: MessageRef, ui: Renderable): Promise<MessageRef>;
   delete(ref: MessageRef): Promise<void>;
   /**
@@ -168,12 +171,7 @@ export interface Thread {
     filename: string;
     title?: string;
     altText?: string;
-  }): Promise<{
-    ok: boolean;
-    fileId?: string;
-    assetId?: string;
-    error?: string;
-  }>;
+  }): Promise<PostFileResult>;
   /** Read the conversation's messages (capability-gated; returns `[]` when the adapter can't read history). */
   getMessages(): Promise<ThreadMessage[]>;
   /** Resolve a platform user by a free-form query (capability-gated; returns `undefined` when unsupported). */
@@ -273,3 +271,66 @@ export type MessageReactionHandler = (
   emoji: EmojiValue,
   reaction: MessageReaction,
 ) => void | Promise<void>;
+
+/**
+ * A React element (or React-element-shaped object) recognized structurally by
+ * its `$$typeof` brand (see `resolveArbitraryElement` in
+ * @copilotkit/channels-core render/detect). Channel-core routes these to the
+ * image path.
+ *
+ * Deliberately structural and loose, mirroring Takumi's own `ReactElementLike`:
+ * React's public `ReactElement` type does NOT declare `$$typeof` (it's an
+ * internal brand present only at runtime) and types `props` as the component's
+ * own props interface. Requiring either here would make ordinary
+ * `thread.post(<Card/>)` fail to type-check and force call sites into casts.
+ * Preact/other React-shaped vnodes fit too.
+ */
+export interface ReactElementLike {
+  type: unknown;
+  props: unknown;
+  /** Present at runtime on real elements; optional so React's `ReactElement` is assignable. */
+  $$typeof?: symbol | string;
+  key?: unknown;
+}
+
+/**
+ * Result of a file upload.
+ *
+ * `messageId` is the id of the *message* the file was posted as, and is the only
+ * field safe to hand back as a `MessageRef` (for `delete`/`react`/`update`).
+ * Platforms that upload media separately from posting it (Slack, Telegram,
+ * WhatsApp) return a media/storage id in `fileId` that those APIs will NOT
+ * accept as a message id; platforms that post the file as a message in one call
+ * (Discord, Teams) set `messageId`. Either may be absent — an upload can succeed
+ * on a surface that never reports an id at all (e.g. the managed transport,
+ * which hands the upload to an async outbox).
+ */
+export interface PostFileResult {
+  ok: boolean;
+  /** Platform message id, when the upload produced an addressable message. */
+  messageId?: string;
+  /** Platform media/storage id, when the platform exposes one. Not a message id. */
+  fileId?: string;
+  /** Provider-neutral managed asset ID for Intelligence adapters. */
+  assetId?: string;
+  error?: string;
+}
+
+/** A font registered for image rendering (Takumi has no system fonts). */
+export interface RenderFont {
+  name: string;
+  data: Uint8Array | ArrayBuffer;
+  weight?: number;
+  style?: "normal" | "italic";
+}
+
+/** Per-post overrides + upload metadata for an image post. */
+export interface PostImageOptions {
+  fonts?: ReadonlyArray<RenderFont>;
+  stylesheets?: string[];
+  width?: number;
+  height?: number;
+  filename?: string;
+  title?: string;
+  altText?: string;
+}

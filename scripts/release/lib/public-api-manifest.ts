@@ -347,7 +347,7 @@ function resolveModule(
   if (!match) {
     throw new Error(`Cannot resolve ${specifier} from ${fromPath}`);
   }
-  return relative(root, match);
+  return relative(root, match).replaceAll("\\", "/");
 }
 
 function findExportedDeclaration(

@@ -45,7 +45,7 @@ export type PageListProps = z.infer<typeof pageListSchema>;
 type Page = z.infer<typeof pageSchema>;
 
 /** Render a list of Notion pages as a Block Kit card. */
-export function PageList({ heading, pages }: PageListProps): ChannelNode {
+export function PageList({ heading, pages }: PageListProps) {
   const rows: ChannelNode[] = [];
   pages.forEach((page: Page, i: number) => {
     const titleLink = page.url

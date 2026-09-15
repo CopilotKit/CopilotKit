@@ -51,12 +51,21 @@ export interface TelegramInlineButton {
   url?: string;
 }
 
+/** One photo to send: a public URL or staged bytes. */
+export interface TelegramPhoto {
+  url?: string;
+  bytes?: Uint8Array;
+  caption?: string;
+  /** Per-slide keyboard. A photo with buttons is never put in an album. */
+  keyboard?: TelegramInlineButton[][];
+}
+
 /** The wire payload sent to the Telegram Bot API. */
 export interface TelegramPayload {
   text: string;
   parseMode: "HTML";
   inlineKeyboard?: TelegramInlineButton[][];
-  photos?: { url: string; caption?: string }[];
+  photos?: TelegramPhoto[];
 }
 
 /** Options accepted by the Telegram adapter constructor. */

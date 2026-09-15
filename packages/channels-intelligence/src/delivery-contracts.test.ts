@@ -76,6 +76,34 @@ test("accepts valid provider payload numbers without a cross-language digest", (
   expect(() => assertDeliveryPacket(numericPacket)).not.toThrow();
 });
 
+test("accepts an unshared Slack image stage packet", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "slack.image.create",
+        fileHandle: "fileref_hat01",
+        altText: "Hat",
+        share: false,
+      },
+    }),
+  ).not.toThrow();
+});
+
+test("rejects Teams image create with a Slack share flag", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.image.create",
+        fileHandle: "fileref_hat01",
+        altText: "Hat",
+        share: false,
+      },
+    }),
+  ).toThrow("delivery payload is invalid");
+});
+
 test("accepts a distinct Teams final effect for priority rate gating", () => {
   expect(() =>
     assertDeliveryPacket({

@@ -1,3 +1,4 @@
+import type { TemplateRef, Type } from "@angular/core";
 import {
   Component,
   input,
@@ -7,8 +8,6 @@ import {
   effect,
   ChangeDetectorRef,
   Injector,
-  TemplateRef,
-  Type,
   computed,
   inject,
   viewChild,
@@ -18,17 +17,10 @@ import {
 import { CopilotChatView } from "./copilot-chat-view";
 import { CopilotChatAttachmentsDirective } from "./copilot-chat-attachments.directive";
 
-import {
-  DEFAULT_AGENT_ID,
-  randomUUID,
-  type AttachmentsConfig,
-} from "@copilotkit/shared";
-import {
-  Message,
-  AbstractAgent,
-  HttpAgent,
-  AGUIConnectNotImplementedError,
-} from "@ag-ui/client";
+import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import type { AttachmentsConfig } from "@copilotkit/shared";
+import type { Message, AbstractAgent } from "@ag-ui/client";
+import { HttpAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 import type { Suggestion } from "@copilotkit/core";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";

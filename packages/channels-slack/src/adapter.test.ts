@@ -62,6 +62,39 @@ describe("SlackAdapter.post", () => {
     expect((ref as { channel?: string }).channel).toBe("C1");
   });
 
+  it("retries chat.postMessage when Slack says the slack_file is not ready", async () => {
+    const { adapter, chat } = makeAdapter();
+    const unready = Object.assign(new Error("invalid_blocks"), {
+      data: {
+        error: "invalid_blocks",
+        response_metadata: {
+          messages: [
+            "invalid slack file [json-pointer:/blocks/1/elements/0/hero_image/slack_file.id/slack_file]",
+          ],
+        },
+      },
+    });
+    chat.postMessage
+      .mockRejectedValueOnce(unready)
+      .mockResolvedValueOnce({ ts: "201.0", channel: "C1" });
+
+    const ref = await adapter.post({ channel: "C1", threadTs: "100.0" }, [
+      section("hi"),
+    ]);
+
+    expect(chat.postMessage).toHaveBeenCalledTimes(2);
+    expect(ref.id).toBe("201.0");
+  });
+
+  it("threads the reply under statusTs when the target has no threadTs (flat DM)", async () => {
+    const { adapter, chat } = makeAdapter();
+    await adapter.post({ channel: "C1", statusTs: "200.0" }, [section("hi")]);
+    const arg = chat.postMessage.mock.calls[0]![0] as { thread_ts?: string };
+    // Without the fallback the reply would post to the DM root, splitting it
+    // from the "is thinking…" status (which anchors to the same statusTs).
+    expect(arg.thread_ts).toBe("200.0");
+  });
+
   it("renders a <Message accent> as a colored attachment with a short top-level text and NO fallback on the attachment", async () => {
     const { adapter, chat } = makeAdapter();
     const header = (text: string): ChannelNode => ({
@@ -276,10 +309,20 @@ describe("SlackAdapter.getMessages", () => {
 });
 
 describe("SlackAdapter.postFile", () => {
-  it("uploads via files.uploadV2 with channel_id/thread_ts/file and returns ok", async () => {
+  it("uploads via files.uploadV2 and reports the file id plus the share ts as the message id", async () => {
     const { adapter } = makeAdapter();
+    // uploadV2 nests the result: { files: [ { files: [ { id, shares } ] } ] }.
+    // The F-id is the FILE; the ts under `shares` is the message it landed in,
+    // and the only value Slack's chat.delete / reactions.add accept.
     const uploadV2 = vi.fn(async (_arg: Record<string, unknown>) => ({
       ok: true,
+      files: [
+        {
+          files: [
+            { id: "F123", shares: { public: { C1: [{ ts: "300.5" }] } } },
+          ],
+        },
+      ],
     }));
     (adapter as unknown as { client: { files: unknown } }).client = {
       files: { uploadV2 },
@@ -295,7 +338,7 @@ describe("SlackAdapter.postFile", () => {
       },
     );
 
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, fileId: "F123", messageId: "300.5" });
     expect(uploadV2).toHaveBeenCalledTimes(1);
     const arg = uploadV2.mock.calls[0]![0] as {
       channel_id: string;
@@ -331,6 +374,51 @@ describe("SlackAdapter.postFile", () => {
     expect(arg.thread_ts).toBeUndefined();
   });
 
+  it("reports no messageId when the upload response carries no share ts", async () => {
+    const { adapter } = makeAdapter();
+    // A file uploaded without a share (or a response shape Slack changed under
+    // us) must NOT pass the F-id off as a message id.
+    const uploadV2 = vi.fn(async () => ({
+      ok: true,
+      files: [{ files: [{ id: "F77" }] }],
+    }));
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: { uploadV2 },
+    };
+
+    const res = await adapter.postFile(
+      { channel: "C1" },
+      { bytes: new Uint8Array([1]), filename: "x.png" },
+    );
+
+    expect(res).toEqual({ ok: true, fileId: "F77", messageId: undefined });
+  });
+
+  it("threads the upload under statusTs when the target has no threadTs (flat DM)", async () => {
+    const { adapter } = makeAdapter();
+    const uploadV2 = vi.fn(async (_arg: Record<string, unknown>) => ({
+      ok: true,
+      files: [
+        {
+          files: [{ id: "F9", shares: { private: { C1: [{ ts: "301.1" }] } } }],
+        },
+      ],
+    }));
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: { uploadV2 },
+    };
+
+    const res = await adapter.postFile(
+      { channel: "C1", statusTs: "200.0" },
+      { bytes: new Uint8Array([1]), filename: "x.png" },
+    );
+
+    const arg = uploadV2.mock.calls[0]![0] as { thread_ts?: string };
+    expect(arg.thread_ts).toBe("200.0");
+    expect(res.fileId).toBe("F9");
+    expect(res.messageId).toBe("301.1");
+  });
+
   it("returns ok:false with the error message when uploadV2 throws", async () => {
     const { adapter } = makeAdapter();
     const uploadV2 = vi.fn(async () => {
@@ -346,6 +434,106 @@ describe("SlackAdapter.postFile", () => {
     );
 
     expect(res).toEqual({ ok: false, error: "upload_failed" });
+  });
+});
+
+describe("SlackAdapter.stageFile", () => {
+  it("uploads via files.uploadV2 without channel_id and returns fileId", async () => {
+    const { adapter } = makeAdapter();
+    const uploadV2 = vi.fn(async (_arg: Record<string, unknown>) => ({
+      ok: true,
+      files: [{ files: [{ id: "F123" }] }],
+    }));
+    const info = vi.fn(async () => ({
+      ok: true,
+      file: { id: "F123", mimetype: "image/png", filetype: "png" },
+    }));
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: { uploadV2, info },
+    };
+
+    const res = await adapter.stageFile(
+      { channel: "C1", threadTs: "100.0" },
+      {
+        bytes: new Uint8Array([1, 2, 3]),
+        filename: "render-hat.png",
+        altText: "Hat",
+      },
+    );
+
+    expect(res).toEqual({ fileId: "F123" });
+    expect(uploadV2).toHaveBeenCalledTimes(1);
+    const arg = uploadV2.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg).not.toHaveProperty("channel_id");
+    expect(arg).not.toHaveProperty("thread_ts");
+    expect(arg.filename).toBe("render-hat.png");
+    expect(arg.alt_text).toBe("Hat");
+    expect(Buffer.isBuffer(arg.file)).toBe(true);
+    expect(info).toHaveBeenCalledWith({ file: "F123" });
+  });
+
+  it("waits until Slack reports a mimetype before returning the file id", async () => {
+    const { adapter } = makeAdapter();
+    let infoCalls = 0;
+    const info = vi.fn(async () => {
+      infoCalls += 1;
+      return {
+        ok: true,
+        file: {
+          id: "F124",
+          mimetype: infoCalls === 1 ? "" : "image/png",
+          filetype: infoCalls === 1 ? "" : "png",
+        },
+      };
+    });
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: {
+        uploadV2: vi.fn(async () => ({
+          ok: true,
+          files: [{ files: [{ id: "F124" }] }],
+        })),
+        info,
+      },
+    };
+
+    await expect(
+      adapter.stageFile(
+        { channel: "C1", threadTs: "100.0" },
+        {
+          bytes: new Uint8Array([1]),
+          filename: "hat.png",
+          altText: "Hat",
+        },
+      ),
+    ).resolves.toEqual({ fileId: "F124" });
+    expect(info).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws when Slack never marks the staged file as an image", async () => {
+    const { adapter } = makeAdapter();
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: {
+        uploadV2: vi.fn(async () => ({
+          ok: true,
+          files: [{ files: [{ id: "F125" }] }],
+        })),
+        info: vi.fn(async () => ({
+          ok: true,
+          file: { id: "F125", mimetype: "", filetype: "" },
+        })),
+      },
+    };
+
+    await expect(
+      adapter.stageFile(
+        { channel: "C1", threadTs: "100.0" },
+        {
+          bytes: new Uint8Array([1]),
+          filename: "hat.png",
+          altText: "Hat",
+        },
+      ),
+    ).rejects.toThrow("Slack stageFile: file was not ready as an image");
   });
 });
 

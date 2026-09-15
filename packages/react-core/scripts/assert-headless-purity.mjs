@@ -664,7 +664,13 @@ export async function collectModuleGraph({
 
   const inputs = Object.keys(result.metafile.inputs);
   // A graph that does not even contain its own entry means we measured nothing.
-  const entryKey = path.relative(pkgRoot, path.resolve(pkgRoot, entryFile));
+  // esbuild metafile keys are always POSIX-separated, but path.relative yields
+  // backslashes on Windows, so the comparison below never matched there and the
+  // scan reported "measured nothing" for every entry.
+  const entryKey = path
+    .relative(pkgRoot, path.resolve(pkgRoot, entryFile))
+    .split(path.sep)
+    .join("/");
   if (!inputs.includes(entryKey) && !inputs.includes(entryFile)) {
     throw new Error(
       `the module graph of ${path.basename(entryFile)} does not contain the entry ` +
