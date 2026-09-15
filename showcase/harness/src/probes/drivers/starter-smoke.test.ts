@@ -870,6 +870,59 @@ describe("starterSmokeDriver", () => {
     expect(seenHeaders.chat?.["x-aimock-context"]).toBe("agno");
   });
 
+  it("chat POST body sends UUID threadId/runId, FRESH per invocation", async () => {
+    // Regression guard. The body used to hardcode `threadId:
+    // "starter-smoke-thread"` / `runId: "starter-smoke-run"`. `langgraph-js`
+    // fronts a real LangGraph Platform server, whose `POST /threads` validates
+    // `thread_id` as a UUID and answers a non-UUID with
+    // `HTTP 400 ZodError {validation:"uuid", path:["thread_id"]}`, which the
+    // runtime surfaces as `RUN_ERROR ... Failed to create thread` — so that
+    // starter's chat rung was red on EVERY run no matter how healthy the image.
+    //
+    // FRESH per invocation, not a fixed UUID: LangGraph Platform PERSISTS
+    // thread state, so a constant id would accumulate the probe's turns in one
+    // ever-growing thread and stop testing a cold single-turn round-trip.
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-9][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const bodies: string[] = [];
+    const capture = (base: typeof fetch): typeof fetch =>
+      (async (url: string | URL, init?: RequestInit) => {
+        if ((init?.method ?? "GET").toUpperCase() === "POST" && init?.body) {
+          bodies.push(String(init.body));
+        }
+        return base(url as string, init);
+      }) as unknown as typeof fetch;
+
+    const driver = createStarterSmokeDriver();
+    const input = {
+      key: "starter_smoke:starter-langgraph-js",
+      name: "starter-langgraph-js",
+      publicUrl: "https://starter-langgraph-js.up.railway.app",
+    };
+    await driver.run(mkCtx(capture(fakeFetch({})), mkWriter().writer), input);
+    await driver.run(mkCtx(capture(fakeFetch({})), mkWriter().writer), input);
+
+    expect(bodies).toHaveLength(2);
+    const parsed = bodies.map(
+      (b) => JSON.parse(b) as { threadId: string; runId: string },
+    );
+    for (const body of parsed) {
+      expect(body.threadId).toMatch(UUID_RE);
+      expect(body.runId).toMatch(UUID_RE);
+    }
+    expect(parsed[0]!.threadId).not.toBe(parsed[1]!.threadId);
+    expect(parsed[0]!.runId).not.toBe(parsed[1]!.runId);
+    // The rest of the AG-UI run body is unchanged by the id fix.
+    const first = JSON.parse(bodies[0]!) as Record<string, unknown>;
+    expect(first.messages).toEqual([
+      { id: "u1", role: "user", content: "Hello" },
+    ]);
+    expect(first.state).toEqual({});
+    expect(first.tools).toEqual([]);
+    expect(first.context).toEqual([]);
+    expect(first.forwardedProps).toEqual({});
+  });
+
   it("health rung uses GET /api/copilotkit/info and reds on non-2xx", async () => {
     const { writer, writes } = mkWriter();
     const driver = createStarterSmokeDriver();

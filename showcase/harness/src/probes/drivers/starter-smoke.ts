@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { sanitizeErrorDesc } from "./sanitize.js";
 import {
@@ -228,7 +229,7 @@ if (STARTER_LEVELS.indexOf("agent") >= STARTER_LEVELS.indexOf("chat")) {
 const FALLBACK_CHAT_AGENT_ID = "default";
 
 /**
- * The AG-UI run body for the chat rung. Shape matches
+ * Builds the AG-UI run body for the chat rung. Shape matches
  * `handleRunAgent` + the reference test
  * `packages/runtime/src/v2/runtime/__tests__/express-single-sse.test.ts`:
  * `{threadId, runId, messages, state, tools, context, forwardedProps}` — NO
@@ -236,16 +237,36 @@ const FALLBACK_CHAT_AGENT_ID = "default";
  * A single user "Hello" turn; the runtime answers with an AG-UI SSE stream.
  * The driver asserts only the stream SHAPE it requires (≥1 text-content delta
  * + terminal RUN_FINISHED + no RUN_ERROR), never a specific reply text.
+ *
+ * `threadId`/`runId` are FRESH UUIDs per chat-rung invocation, not constants.
+ * The ids were previously the literals `starter-smoke-thread` /
+ * `starter-smoke-run`, which made the `langgraph-js` chat rung permanently
+ * red: that starter fronts a real LangGraph Platform server, whose
+ * `POST /threads` validates `thread_id` as a UUID and answers a non-UUID with
+ * `HTTP 400 ZodError {validation:"uuid", path:["thread_id"]}`, surfaced to the
+ * probe as `RUN_ERROR ... Failed to create thread`. A UUID is a valid opaque
+ * thread id for every other starter, so this is uniformly safe across all 23.
+ *
+ * Fresh-per-invocation rather than stable-per-starter on purpose: LangGraph
+ * Platform PERSISTS thread state, so a fixed id would accumulate the probe's
+ * "Hello" turns in one ever-growing thread on every hourly run, and each run
+ * would answer with that history in context — the rung would stop testing a
+ * cold single-turn round-trip. Nothing downstream keys off the request body:
+ * probe/row keys come from `key_template: "starter_smoke:${name}"` and the
+ * starter→column slug remap, and the aimock fixture is matched by the
+ * `X-AIMock-Context` header, not by `threadId`.
  */
-const CHAT_RUN_BODY = JSON.stringify({
-  threadId: "starter-smoke-thread",
-  runId: "starter-smoke-run",
-  messages: [{ id: "u1", role: "user", content: "Hello" }],
-  state: {},
-  tools: [],
-  context: [],
-  forwardedProps: {},
-});
+function buildChatRunBody(): string {
+  return JSON.stringify({
+    threadId: randomUUID(),
+    runId: randomUUID(),
+    messages: [{ id: "u1", role: "user", content: "Hello" }],
+    state: {},
+    tools: [],
+    context: [],
+    forwardedProps: {},
+  });
+}
 
 /**
  * AG-UI text-content event types that carry a streamed assistant `delta`.
@@ -634,7 +655,7 @@ async function probeLevel(opts: {
               : {}),
           }
         : undefined,
-      body: isChat ? CHAT_RUN_BODY : undefined,
+      body: isChat ? buildChatRunBody() : undefined,
       signal: controller.signal,
       // `follow` transparently handles any host-level (e.g. https) redirect.
       redirect: "follow",
