@@ -27,6 +27,7 @@ This release repairs several v1 runtime surfaces that were silently broken since
 `@copilotkit/react-native` now re-exports react-core's `useRenderTool` directly and no longer ships its own render-tool implementation. The routing shim introduced in 1.68 — which forwarded calls carrying `description` or `handler` to `useFrontendTool` — has been removed.
 
 **Migration:**
+
 - A `useRenderTool` call that passes `description` or `handler` no longer type-checks and no longer registers a tool. Rename it to `useFrontendTool` with the same config object. The compiler error is `TS2769: No overload matches this call` (the offending property is named in the nested per-overload detail).
 - A render body reading `args` still needs to be renamed to `parameters`; the shim never covered this.
 - The wildcard `name: "*"` continues to paint unmatched tool calls without registering a tool named `*`.
@@ -36,6 +37,7 @@ This release repairs several v1 runtime surfaces that were silently broken since
 ### Runtime: v1 `actions` and `mcpServers` execute again (#6931)
 
 In-process `action.handler` and MCP `tool.execute` were advertised to the model but never invoked — every call returned `undefined`, producing a malformed `TOOL_CALL_RESULT` with no `content` that reached the browser as a Zod error. Both are now restored, and actions that genuinely cannot run return a readable string instead of `undefined`. Additional fixes:
+
 - `mcpServers` is now attached independently of `actions`, so MCP-only runtimes receive their tools.
 - Tool attachment is now idempotent — repeated endpoint construction no longer advertises duplicate copies of every action to the model.
 - MCP endpoints that were unreachable at first resolution now retry and recover instead of staying toolless for the runtime's lifetime.
