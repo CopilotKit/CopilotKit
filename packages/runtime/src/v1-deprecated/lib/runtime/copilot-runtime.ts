@@ -428,6 +428,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
    * error into a per-request throw.
    */
   private baseAgents?: Promise<Record<string, AbstractAgent>>;
+  /**
+   * The `agents` value as configured, captured before the per-request factory
+   * replaces it, so that repeated `handleServiceAdapter` calls do not wrap the
+   * factory in itself.
+   */
+  private configuredAgents?: CopilotRuntimeOptions["agents"];
   private runtimeArgs: CopilotRuntimeOptions & RuntimeErrorReporterOptions;
   private _instance: CopilotRuntimeVNext;
   /** Runtime-bound telemetry identity and sampling authority. */
@@ -573,68 +579,48 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   handleServiceAdapter(serviceAdapter: CopilotServiceAdapter) {
+    // Capture the configured value before the factory below replaces it, so a
+    // second call does not wrap the factory in itself.
+    this.configuredAgents ??= this.runtimeArgs.agents ?? {};
+    const configuredAgents = this.configuredAgents;
+
     // Resolve the request-independent half once. Calling this twice (the
     // endpoint factory runs on every request under the documented v1 route)
     // must not re-validate or rebuild the default agent.
-    this.baseAgents ??= Promise.resolve(this.runtimeArgs.agents ?? {}).then(
-      async (agents) => {
-        // An AgentsFactory function has no enumerable keys, so it flows through
-        // this path the same way an empty record does.
-        const agentsList = agents as Record<string, AbstractAgent>;
-        const isAgentsListEmpty = !Object.keys(agents).length;
-        const hasServiceAdapter = Boolean(serviceAdapter);
-        const illegalServiceAdapterNames = ["EmptyAdapter"];
-        const serviceAdapterCanBeUsedForAgent =
-          !illegalServiceAdapterNames.includes(serviceAdapter.name);
-
-        if (
-          isAgentsListEmpty &&
-          (!hasServiceAdapter || !serviceAdapterCanBeUsedForAgent)
-        ) {
-          throw new CopilotKitMisuseError({
-            message:
-              "No default agent provided. Please provide a default agent in the runtime config.",
-          });
-        }
-
-        if (isAgentsListEmpty) {
-          const languageModel = serviceAdapter.getLanguageModel?.();
-          if (languageModel) {
-            // Adapter exposes a pre-configured LanguageModel (e.g. OpenAI/Anthropic adapters)
-            agentsList.default = new BuiltInAgent({ model: languageModel });
-          } else if (serviceAdapter.provider && serviceAdapter.model) {
-            // Adapter exposes provider/model strings
-            agentsList.default = new BuiltInAgent({
-              model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
-            });
-          } else {
-            throw new CopilotKitMisuseError({
-              message:
-                `Service adapter "${serviceAdapter.name ?? "unknown"}" does not provide model information. ` +
-                `When using adapters like LangChainAdapter without an explicit agents list, ` +
-                `please provide a default agent in the runtime config. Example:\n` +
-                `  new CopilotRuntime({\n` +
-                `    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) }\n` +
-                `  })`,
-            });
-          }
-        }
-
-        return agentsList;
-      },
-    );
-    // A misconfigured adapter rejects that promise, and nothing awaits it
-    // until the first request arrives. Attach an inert handler so a runtime
-    // that is never called does not surface an unhandled rejection; the
-    // factory below still sees the rejection when it awaits.
-    this.baseAgents.catch(() => {});
+    //
+    // A caller who supplied their own agents factory has no request-independent
+    // half: their record is whatever they return for this request, so the same
+    // checks run per request further down.
+    if (typeof configuredAgents !== "function") {
+      this.baseAgents ??= Promise.resolve(configuredAgents).then((agents) =>
+        this.ensureDefaultAgent(
+          agents as Record<string, AbstractAgent>,
+          serviceAdapter,
+        ),
+      );
+      // A misconfigured adapter rejects that promise, and nothing awaits it
+      // until the first request arrives. Attach an inert handler so a runtime
+      // that is never called does not surface an unhandled rejection; the
+      // factory below still sees the rejection when it awaits.
+      this.baseAgents.catch(() => {});
+    }
 
     // Install the per-request factory the v2 runtime has supported since
     // #2941. Resolving once was what kept a dynamic `actions` function from
     // ever seeing request properties, and kept every request sharing one MCP
     // client regardless of whose credentials built it (#7116, #2407).
     const resolvePerRequest = async ({ request }: { request: Request }) => {
-      const baseAgents = await this.baseAgents!;
+      // A caller-supplied agents factory is called here, with this request.
+      // Treating it as a record instead (a function has no enumerable keys)
+      // meant the service adapter's default replaced it and the caller's
+      // function was never invoked at all.
+      const baseAgents =
+        typeof configuredAgents === "function"
+          ? this.ensureDefaultAgent(
+              { ...(await configuredAgents({ request })) },
+              serviceAdapter,
+            )
+          : await this.baseAgents!;
       const properties = await this.readRequestProperties(request);
       const actions = this.params?.actions;
 
@@ -646,9 +632,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         : [];
       const tools = [...actionTools, ...mcpTools];
 
-      // Nothing to attach means nothing to isolate: hand back the shared
-      // record untouched, exactly as a runtime with no actions and no MCP
-      // behaved before this became a factory.
+      // Nothing to attach means nothing to isolate: hand the record back
+      // untouched, exactly as a runtime with no actions and no MCP behaved
+      // before this became a factory.
       if (!tools.length) {
         return baseAgents;
       }
@@ -679,6 +665,56 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.runtimeArgs.agents =
       resolvePerRequest as unknown as CopilotRuntimeOptions["agents"];
+  }
+
+  /**
+   * Fill in the default agent the service adapter implies, and reject a
+   * configuration that names no model at all.
+   */
+  private ensureDefaultAgent(
+    agentsList: Record<string, AbstractAgent>,
+    serviceAdapter: CopilotServiceAdapter,
+  ): Record<string, AbstractAgent> {
+    const isAgentsListEmpty = !Object.keys(agentsList).length;
+    const hasServiceAdapter = Boolean(serviceAdapter);
+    const illegalServiceAdapterNames = ["EmptyAdapter"];
+    const serviceAdapterCanBeUsedForAgent =
+      !illegalServiceAdapterNames.includes(serviceAdapter.name);
+
+    if (
+      isAgentsListEmpty &&
+      (!hasServiceAdapter || !serviceAdapterCanBeUsedForAgent)
+    ) {
+      throw new CopilotKitMisuseError({
+        message:
+          "No default agent provided. Please provide a default agent in the runtime config.",
+      });
+    }
+
+    if (isAgentsListEmpty) {
+      const languageModel = serviceAdapter.getLanguageModel?.();
+      if (languageModel) {
+        // Adapter exposes a pre-configured LanguageModel (e.g. OpenAI/Anthropic adapters)
+        agentsList.default = new BuiltInAgent({ model: languageModel });
+      } else if (serviceAdapter.provider && serviceAdapter.model) {
+        // Adapter exposes provider/model strings
+        agentsList.default = new BuiltInAgent({
+          model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+        });
+      } else {
+        throw new CopilotKitMisuseError({
+          message:
+            `Service adapter "${serviceAdapter.name ?? "unknown"}" does not provide model information. ` +
+            `When using adapters like LangChainAdapter without an explicit agents list, ` +
+            `please provide a default agent in the runtime config. Example:\n` +
+            `  new CopilotRuntime({\n` +
+            `    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) }\n` +
+            `  })`,
+        });
+      }
+    }
+
+    return agentsList;
   }
 
   /**

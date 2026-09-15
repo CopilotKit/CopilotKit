@@ -201,6 +201,48 @@ describe("v1 agents resolve per request", () => {
     ).toEqual(["greet"]);
   });
 
+  it("calls a caller-supplied agents factory, with the request", async () => {
+    // `agents` accepts a factory on the v1 constructor too. A function has no
+    // enumerable keys, so it read as an empty record: the service adapter's
+    // default replaced it and the caller's function was never invoked.
+    const mine = new HttpAgent({ url: "https://example.com/mine" });
+    const factory = vi.fn(({ request }: any) => {
+      expect(request).toBeInstanceOf(Request);
+      return { mine };
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: factory as any,
+      actions: [{ name: "greet", parameters: [], handler: async () => "hi" }],
+    } as any);
+    runtime.handleServiceAdapter(adapter);
+
+    const first = await resolveFor(runtime, requestWith({}));
+    const second = await resolveFor(runtime, requestWith({}));
+
+    expect(factory).toHaveBeenCalledTimes(2);
+    expect(Object.keys(first)).toEqual(["mine"]);
+    expect(Object.keys(second)).toEqual(["mine"]);
+    expect(toolsOf(first, "mine").map((t: any) => t.name)).toEqual(["greet"]);
+    // Still a clone: the caller's own instance never takes the v1 tools.
+    expect(first.mine).not.toBe(mine);
+    expect(Reflect.get(mine, "config")).toBeUndefined();
+  });
+
+  it("still supplies the adapter's default when a factory returns nothing", async () => {
+    const runtime = new CopilotRuntime({
+      agents: (() => ({})) as any,
+    } as any);
+    runtime.handleServiceAdapter({
+      name: "OpenAIAdapter",
+      provider: "openai",
+      model: "gpt-4o",
+    } as any);
+
+    const resolved = await resolveFor(runtime, requestWith({}));
+    expect(Object.keys(resolved)).toEqual(["default"]);
+  });
+
   it("resolves for a GET with no body", async () => {
     // The `/info` route reaches the same factory.
     const runtime = new CopilotRuntime({
