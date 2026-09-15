@@ -460,6 +460,10 @@ export function frontendParityCellsFromAggregate(
     if (cell.status !== "passed" && cell.status !== "failed") {
       throw new Error(`unsupported aggregate status ${cell.status}`);
     }
+    // Vue cells are excluded until the parity gate is generalized to N
+    // frontends.  Without this guard the gate keys Vue rows as standalone
+    // comparison ids that block with "missing base React result" — widening
+    // the strip-regex to include vue silently drops Vue failures instead.
     if (cell.frontend === "vue") return [];
     return [
       {

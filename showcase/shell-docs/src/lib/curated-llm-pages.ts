@@ -256,7 +256,7 @@ export const CURATED_LLM_PAGES = [
       "Connect a React single-page application to a separately hosted Copilot Runtime.",
   },
   {
-    url: "frontends/vue",
+    url: "vue",
     title: "Vue Frontend",
     description:
       "Connect a Vue application to Copilot Runtime with CopilotKit's Vue integration.",
