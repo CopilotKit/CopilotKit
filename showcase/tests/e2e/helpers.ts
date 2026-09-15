@@ -188,6 +188,66 @@ export async function checkAgentEndpoint(
 // Chat interaction
 // ---------------------------------------------------------------------------
 
+/** AG-UI frame types that carry streamed assistant text. */
+const TEXT_DELTA_EVENTS: ReadonlySet<string> = new Set([
+  // The START/CONTENT/END triple.
+  "TEXT_MESSAGE_CONTENT",
+  // The single-frame spelling; SDKs differ in which they emit, and matching
+  // only CONTENT produced a false red on the .NET starter.
+  "TEXT_MESSAGE_CHUNK",
+]);
+
+/**
+ * True when the transcript carries at least one text frame with a non-empty
+ * `delta`.
+ *
+ * PARSED PER FRAME, not pattern-matched across the transcript. This replaced a
+ * pair of proximity regexes that required `"delta"` within 200 characters of
+ * the event name. That held for compact frames but not for the langgraph
+ * starters, which embed the full LangChain `rawEvent` blob BETWEEN the two
+ * keys — measured at 1170 characters on `langgraph-fastapi`, so a completely
+ * healthy run (`runFinished=true, runError=false, timedOut=false`, 633 KB of
+ * transcript, visible assistant text) read as "no text emitted" and went red.
+ * No window is the right window: a frame either has the key or it does not.
+ *
+ * Strictly stronger than the regex it replaces — the `delta` must belong to the
+ * SAME frame as the text event type, where before any two nearby keys matched.
+ */
+function hasNonEmptyTextDelta(transcript: string): boolean {
+  let parsedAnyFrame = false;
+  for (const line of transcript.split("\n")) {
+    const trimmed = line.trim();
+    const payload = trimmed.startsWith("data:")
+      ? trimmed.slice("data:".length).trim()
+      : trimmed;
+    if (!payload.startsWith("{")) continue;
+    let frame: unknown;
+    try {
+      frame = JSON.parse(payload);
+    } catch {
+      continue;
+    }
+    parsedAnyFrame = true;
+    const { type, delta } = frame as { type?: unknown; delta?: unknown };
+    if (
+      typeof type === "string" &&
+      TEXT_DELTA_EVENTS.has(type) &&
+      typeof delta === "string" &&
+      delta.length > 0
+    ) {
+      return true;
+    }
+  }
+  // Fallback for a transport that is NOT line-delimited JSON (nothing in the
+  // fleet emits one today). Only reachable when zero frames parsed, so it can
+  // never loosen the framed check above.
+  if (parsedAnyFrame) return false;
+  const names = [...TEXT_DELTA_EVENTS].join("|");
+  return new RegExp(`"(?:${names})"[\\s\\S]*?"delta"\\s*:\\s*"[^"]`).test(
+    transcript,
+  );
+}
+
 /**
  * Navigate to a page and interact with the chat.
  */
@@ -240,20 +300,7 @@ export async function sendChatMessage(
     agui.transcriptBytes = transcript.length;
     agui.runError = transcript.includes("RUN_ERROR");
     agui.runFinished = transcript.includes("RUN_FINISHED");
-    // A text frame carrying a non-empty `delta`. BOTH spellings count:
-    // AG-UI emits TEXT_MESSAGE_CONTENT (START/CONTENT/END triple) or the
-    // single-frame TEXT_MESSAGE_CHUNK, and SDKs differ in which they use —
-    // matching only CONTENT produced a false red on the .NET starter.
-    // Matched on the raw frame so this works for SSE `data:` lines and any
-    // concatenated-JSON transport, in either key order.
-    const TEXT_EVENT = "TEXT_MESSAGE_(?:CONTENT|CHUNK)";
-    agui.sawTextDelta =
-      new RegExp(`"${TEXT_EVENT}"[\\s\\S]{0,200}?"delta"\\s*:\\s*"[^"]`).test(
-        transcript,
-      ) ||
-      new RegExp(`"delta"\\s*:\\s*"[^"][\\s\\S]{0,200}?"${TEXT_EVENT}"`).test(
-        transcript,
-      );
+    agui.sawTextDelta = hasNonEmptyTextDelta(transcript);
     return { ...partial, agui };
   };
 
