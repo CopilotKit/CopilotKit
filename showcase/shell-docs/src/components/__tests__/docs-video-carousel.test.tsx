@@ -55,7 +55,9 @@ describe("DocsVideoCarousel", () => {
   it("loads the player only after an explicit play action", () => {
     render(<DocsVideoCarousel />);
     expect(document.querySelector("iframe")).toBeNull();
-    expect(document.querySelector("img")).toBeNull();
+    expect(document.querySelector("img")?.getAttribute("src")).toMatch(
+      /\.jpg$/,
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Play Shared state walkthrough" }),
     );
