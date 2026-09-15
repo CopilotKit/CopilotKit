@@ -7,8 +7,10 @@ and what state updates the middleware emits):
 * Frontend tools listed in ``state["copilotkit"]["actions"]`` show up alongside
   the agent's own tools when the model is called. When there are no frontend
   tools the request reaches the model unchanged.
-* App context from ``state["copilotkit"]["context"]`` (or ``runtime.context``)
-  is appended to ``ModelRequest.system_message`` as ``"App Context:\\n<json>"``.
+* App context from ``state["copilotkit"]["context"]`` (or namespaced
+  ``runtime.context["copilotkit"]["context"]``) is appended to
+  ``ModelRequest.system_message`` as ``"App Context:\\n<json>"``. Raw,
+  unstructured ``runtime.context`` is never rendered (see #7077).
   Empty context is a no-op. ``before_agent`` does not mutate message history.
 * ``after_model`` peels frontend tool calls off the last AIMessage so the
   ToolNode does not try to execute them; later model calls re-attach them with
@@ -765,15 +767,60 @@ def test_before_agent_repeated_calls_do_not_mutate_messages():
     assert second["messages"] == [HumanMessage("hi")]
 
 
-def test_wrap_model_call_uses_runtime_context_when_state_context_empty():
+def test_wrap_model_call_does_not_render_raw_runtime_context_string():
+    """Regression for #7077: an unstructured ``runtime.context`` value must
+    never be dumped into the model-visible system prompt. With
+    ag-ui-langgraph>=0.0.42 the runtime context carries
+    ``config["configurable"]`` (thread_id, tenant/user ids, ...), so the old
+    raw-dict fallback disclosed trusted run configuration to the LLM.
+    """
     middleware = CopilotKitMiddleware()
     request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
     request.runtime.context = "route=/dashboard"
 
     seen, _ = _run_wrap(middleware, request)
 
+    assert seen.system_message is None
+
+
+def test_wrap_model_call_does_not_render_unstructured_runtime_context_dict():
+    """Regression for #7077: arbitrary keys on ``runtime.context`` (e.g.
+    thread/tenant ids forwarded from ``config["configurable"]``) must never
+    reach the system prompt — only namespaced CopilotKit context is rendered.
+    """
+    middleware = CopilotKitMiddleware()
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = {
+        "thread_id": "t-1",
+        "tenant_id": "tenant-123",
+        "copilotkit_forwarded_headers": {
+            "x-aimock-context": "showcase/d6",
+        },
+    }
+
+    seen, _ = _run_wrap(middleware, request)
+
+    assert seen.system_message is None
+
+
+def test_wrap_model_call_renders_namespaced_copilotkit_runtime_context():
+    """Namespaced ``runtime.context["copilotkit"]["context"]`` is explicitly
+    structured CopilotKit context, so it is still rendered as App Context."""
+    middleware = CopilotKitMiddleware()
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = {
+        "copilotkit": {
+            "context": [{"description": "viewer role", "value": "admin"}]
+        },
+        "thread_id": "t-1",
+    }
+
+    seen, _ = _run_wrap(middleware, request)
+
     body = _system_message_text(seen)
-    assert "/dashboard" in body
+    assert "App Context:" in body
+    assert "admin" in body
+    assert "t-1" not in body
 
 
 def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context():
@@ -816,11 +863,12 @@ def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context()
     )
 
 
-def test_wrap_model_call_strips_forwarded_headers_but_keeps_real_app_context():
-    """When ``runtime.context`` contains both a genuine app key AND the
-    transport-only ``copilotkit_forwarded_headers`` wrapper, the App Context
-    system note must still be injected with the real key, but the forwarded
-    headers must be filtered out.
+def test_wrap_model_call_ignores_unstructured_runtime_context_keys():
+    """Only namespaced ``runtime.context["copilotkit"]["context"]`` is
+    rendered as App Context (see #7077). A raw ``runtime.context`` dict —
+    e.g. ``config["configurable"]`` forwarded by ag-ui-langgraph — must not
+    leak into the system prompt, while the transport-only
+    ``copilotkit_forwarded_headers`` wrapper stays filtered out.
     """
     middleware = CopilotKitMiddleware()
     request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
@@ -833,18 +881,7 @@ def test_wrap_model_call_strips_forwarded_headers_but_keeps_real_app_context():
 
     seen, _ = _run_wrap(middleware, request)
 
-    body = _system_message_text(seen)
-    # The genuine app context is still surfaced.
-    assert "App Context:" in body
-    assert "user_tier" in body
-    assert "pro" in body
-    # The transport-layer wrapper is stripped from the rendered prompt.
-    assert "copilotkit_forwarded_headers" not in body, (
-        "copilotkit_forwarded_headers must be filtered out of the App Context message"
-    )
-    assert "x-aimock-context" not in body, (
-        "forwarded header values must never appear in a system prompt"
-    )
+    assert seen.system_message is None
 
 
 # ---------------------------------------------------------------------------
