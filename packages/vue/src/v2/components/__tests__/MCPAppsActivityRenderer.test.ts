@@ -48,6 +48,26 @@ async function flushAsync() {
   await nextTick();
 }
 
+/**
+ * Wait for the sandbox iframe to be configured by the shared session. The host
+ * mounts the iframe synchronously, but the bridge package is loaded through a
+ * dynamic import and the resource is fetched through the agent, so `srcdoc` (and
+ * the sandbox contract attributes) land a few macrotasks later.
+ */
+async function waitForSandboxIframe(wrapper: {
+  find: (selector: string) => { exists: () => boolean; element: Element };
+}): Promise<HTMLIFrameElement> {
+  let iframe: HTMLIFrameElement | undefined;
+  await vi.waitFor(() => {
+    const found = wrapper.find("iframe");
+    expect(found.exists()).toBe(true);
+    const element = found.element as HTMLIFrameElement;
+    expect(element.srcdoc).toBeTruthy();
+    iframe = element;
+  });
+  return iframe!;
+}
+
 describe("MCPAppsActivityRenderer", () => {
   it("exports the expected activity type and schema", () => {
     expect(MCPAppsActivityType).toBe("mcp-apps");
@@ -80,8 +100,8 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-1",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent: undefined,
@@ -123,8 +143,8 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-no-border",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent,
@@ -174,18 +194,15 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-csp",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent,
       },
     });
 
-    await flushAsync();
-    await flushAsync();
-
-    const iframe = wrapper.find("iframe").element as HTMLIFrameElement;
+    const iframe = await waitForSandboxIframe(wrapper);
     expect(iframe.srcdoc).toContain("script-src");
     expect(iframe.srcdoc).toContain("frame-src");
     expect(iframe.srcdoc).toContain("https://widgets.example.com");
@@ -214,18 +231,15 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-default-csp",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent,
       },
     });
 
-    await flushAsync();
-    await flushAsync();
-
-    const iframe = wrapper.find("iframe").element as HTMLIFrameElement;
+    const iframe = await waitForSandboxIframe(wrapper);
     expect(iframe.srcdoc).toContain(
       "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*;",
     );
@@ -260,16 +274,15 @@ describe("MCPAppsActivityRenderer", () => {
         },
         message: {
           id: "activity-testid",
-          role: "assistant",
-          content: "",
+          role: "activity",
+          content: {},
           activityType: MCPAppsActivityType,
         },
         agent,
       },
     });
 
-    await flushAsync();
-    await flushAsync();
+    await waitForSandboxIframe(wrapper);
 
     const iframe = wrapper.find('iframe[data-testid="mcp-app-iframe"]');
     expect(iframe.exists()).toBe(true);
