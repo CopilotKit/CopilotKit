@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "AI agent skills for CopilotKit — search the current documentation and source, and drive the CopilotKit CLI",
-    "version": "1.71.2"
+    "version": "1.72.0"
   },
   "plugins": [
     {
       "name": "copilotkit",
       "source": "./",
       "description": "AI agent skills for CopilotKit — search the current documentation and source, and drive the CopilotKit CLI",
-      "version": "1.71.2",
+      "version": "1.72.0",
       "author": {
         "name": "CopilotKit",
         "url": "https://copilotkit.ai"
