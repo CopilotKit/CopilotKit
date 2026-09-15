@@ -235,7 +235,17 @@ function AlwaysLegend() {
 /* ------------------------------------------------------------------ */
 
 export function AdaptiveLegend({ overlays }: AdaptiveLegendProps) {
-  const [open, setOpen] = useState(true);
+  /**
+   * CLOSED by default. The legend is `position: fixed` and ~152px tall while
+   * the grid reserves only `pb-12` (48px) under it, so an open-by-default
+   * legend sat on top of the last rows: at 1440x900, fully scrolled, it hid 42
+   * of the 84 starter cells with nothing on screen saying it could be
+   * collapsed. One click still opens it.
+   *
+   * No persistence: this component has never had any, and adding a
+   * localStorage key is out of scope here.
+   */
+  const [open, setOpen] = useState(false);
 
   return (
     <div

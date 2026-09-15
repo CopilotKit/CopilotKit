@@ -44,6 +44,29 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
+import { STARTER_CEILING } from "../cell-model/cell-model.combine.js";
+
+/**
+ * Build/env flag gating Step 5's starter-validation cells.
+ *
+ * A URL flag CANNOT gate this. Step 5 output is a BUILD-TIME artifact read by
+ * `matrix-compute.ts` (the harness `/api/matrix` read-model), `page-stats.ts`
+ * and `depth-utils.ts` — none of which sees a query parameter — and the
+ * dashboard consumes `catalog.json` as a static bundled import, so a flag-on
+ * render is a REBUILD, not a runtime toggle.
+ *
+ * It must therefore be set on TWO independent surfaces: the dashboard build
+ * (`generate-registry.ts` writes `catalog.json` from its `pre{dev,build,test}`
+ * hooks) and the harness process (`/api/matrix` reaches `buildCatalogCells`
+ * independently at runtime and never reads `catalog.json`).
+ *
+ * Read per call rather than captured at module load, so a test can set it for
+ * one generator run without leaking into the next.
+ */
+export function starterCellsEnabled(): boolean {
+  const v = process.env.SHOWCASE_STARTER_CELLS;
+  return v === "1" || v === "true";
+}
 
 /**
  * The reference integration is absent from a non-empty integration set, so
@@ -151,6 +174,7 @@ export function validateManifestStructure(
     not_supported_features: notSupported,
     demos,
     starter,
+    starter_validation: starterValidation,
   } = manifest;
 
   if (features !== undefined && !isStringArray(features)) {
@@ -178,6 +202,14 @@ export function validateManifestStructure(
     (starter === null || typeof starter !== "object" || Array.isArray(starter))
   ) {
     reasons.push("`starter` must be a mapping");
+  }
+  if (
+    starterValidation !== undefined &&
+    (starterValidation === null ||
+      typeof starterValidation !== "object" ||
+      Array.isArray(starterValidation))
+  ) {
+    reasons.push("`starter_validation` must be a mapping");
   }
 
   return reasons;
@@ -460,13 +492,31 @@ export function generateCatalog(
     }
   }
 
-  // Step 5: Add one starter cell per integration that declares a
-  // `starter` block
-  for (const integration of integrations) {
-    const slug = integration.slug as string;
-    const integrationName = integration.name as string;
-    const starter = integration.starter as Record<string, unknown> | undefined;
-    if (starter) {
+  // Step 5: one starter-VALIDATION cell per integration that declares a
+  // `starter_validation:` block — which, post-ladder, is all 21 of them.
+  //
+  // The predicate is `starter_validation`, NOT `starter`. The latter is live
+  // public product content (the "Full Starter" section on the integration
+  // profile page, plus the file bundler that feeds it), so driving the ladder
+  // off it would ship 16+ public sections as a side effect of a dashboard
+  // change — and `SHOWCASE_STARTER_CELLS` gates only this loop, so the revert
+  // would not take any of it back.
+  //
+  // `status` is DERIVED from the block, not hardcoded. Hardcoding `"wired"`
+  // would mint a wired, row-less cell for a `supported: false` column and
+  // render it as no-data — the opposite of the "this framework has no starter"
+  // claim the declaration makes. `catalogCellToInput` maps `"unsupported"` to
+  // `isSupported: false`, and `buildCellModel` returns UNSUPPORTED before the
+  // starter branch, so the not-supported state needs no new engine code.
+  if (starterCellsEnabled()) {
+    for (const integration of integrations) {
+      const slug = integration.slug as string;
+      const integrationName = integration.name as string;
+      const declaration = integration.starter_validation as
+        | Record<string, unknown>
+        | undefined;
+      if (!declaration) continue;
+      const declaredUnsupported = declaration.supported === false;
       cells.push({
         id: `starter/${slug}`,
         manifestation: "starter",
@@ -476,9 +526,13 @@ export function generateCatalog(
         feature_name: null,
         category: null,
         category_name: null,
-        status: "wired",
+        status: declaredUnsupported ? "unsupported" : "wired",
         parity_tier: integrationTiers.get(slug) || "not_wired",
-        max_depth: 4,
+        // The axis's uniform ceiling — NOT derived per column. The
+        // `starter_validation:` block declares no rungs, and a per-column
+        // ceiling below the axis length is forbidden (a declared-less column
+        // would look greener).
+        max_depth: STARTER_CEILING,
       });
     }
   }
@@ -486,10 +540,24 @@ export function generateCatalog(
   // Step 6: Compute metadata
   // Exclude docs-only cells from the headline counts — they are purely
   // informational and don't participate in depth, health, or coverage.
+  // Starter cells are excluded alongside docs-only cells. They carry
+  // `feature: null` and `status: "wired"`, so the docs-only predicate ADMITS
+  // them — and these numbers render directly as the headline `total_cells`
+  // MiniStat and the `wired` "API (HTTP)" stat. Without this the first
+  // `starter_validation:` block would raise the single most-read number on the
+  // page by 21, unflagged.
+  const isStarterCell = (c: CatalogCell) => c.manifestation === "starter";
+  const isDocsOnlyCell = (c: CatalogCell) =>
+    c.feature !== null && docsOnlyFeatureIds.has(c.feature);
   const countableCells = cells.filter(
-    (c) => c.feature === null || !docsOnlyFeatureIds.has(c.feature),
+    (c) => !isStarterCell(c) && !isDocsOnlyCell(c),
   );
-  const docsOnlyCount = cells.length - countableCells.length;
+  // `docs_only` counts DOCS-ONLY cells, by its own predicate — NOT
+  // "everything `countableCells` dropped". Derived as
+  // `cells.length - countableCells.length` it silently absorbed the 21 starter
+  // cells the moment they started being excluded, reporting 42. It is a named
+  // rollup on the dashboard, so it must mean what it says in both flag modes.
+  const docsOnlyCount = cells.filter(isDocsOnlyCell).length;
   const wiredCount = countableCells.filter((c) => c.status === "wired").length;
   const stubCount = countableCells.filter((c) => c.status === "stub").length;
   const unshippedCount = countableCells.filter(

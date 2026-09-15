@@ -207,3 +207,17 @@ export function glyphForMark(mark: string): GlyphSpec | undefined {
 export function isAbsenceMark(mark: string): boolean {
   return glyphForMark(mark)?.glyphClass === "absence";
 }
+
+/**
+ * The ONE tooltip line for a mark: the glyph, its term and its legend copy,
+ * composed exactly as the legend row composes them, from exactly the same
+ * fields. Nothing here is re-worded — a second copy of these strings is how
+ * the previous legend came to describe states the code never emitted.
+ *
+ * Returns `undefined` for marks outside the vocabulary, which carry no
+ * canonical meaning to state.
+ */
+export function glyphTitle(mark: string): string | undefined {
+  const spec = glyphForMark(mark);
+  return spec ? `${spec.mark} ${spec.term} — ${spec.legend}` : undefined;
+}

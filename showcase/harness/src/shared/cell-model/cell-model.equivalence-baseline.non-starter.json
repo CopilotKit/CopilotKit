@@ -223,34 +223,6 @@
       "status": "green"
     }
   },
-  "hetero-starter-mixed-soft-hard": {
-    "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
-    "chipColor": "red",
-    "d6Effective": null,
-    "isRegression": false,
-    "isStaleCell": false,
-    "observedAtAgeMs": 60000,
-    "surfaceState": "red",
-    "commErrorKind": null,
-    "d3": {
-      "exists": false,
-      "status": null
-    },
-    "d4": {
-      "exists": false,
-      "status": null
-    },
-    "d5": {
-      "exists": false,
-      "status": null
-    },
-    "d6": {
-      "exists": false,
-      "status": null
-    }
-  },
   "liveness-absent-over-green": {
     "supported": true,
     "achievedDepth": 6,
@@ -361,6 +333,118 @@
     "d6": {
       "exists": true,
       "status": "green"
+    }
+  },
+  "liveness-only-absent-d1-green-d2": {
+    "supported": true,
+    "achievedDepth": 0,
+    "ceilingDepth": 2,
+    "chipColor": "gray",
+    "d6Effective": null,
+    "isRegression": false,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "gray",
+    "commErrorKind": null,
+    "d3": {
+      "exists": false,
+      "status": null
+    },
+    "d4": {
+      "exists": false,
+      "status": null
+    },
+    "d5": {
+      "exists": false,
+      "status": null
+    },
+    "d6": {
+      "exists": false,
+      "status": null
+    }
+  },
+  "liveness-only-fresh-red-d1": {
+    "supported": true,
+    "achievedDepth": 0,
+    "ceilingDepth": 2,
+    "chipColor": "red",
+    "d6Effective": null,
+    "isRegression": true,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "red",
+    "commErrorKind": null,
+    "d3": {
+      "exists": false,
+      "status": null
+    },
+    "d4": {
+      "exists": false,
+      "status": null
+    },
+    "d5": {
+      "exists": false,
+      "status": null
+    },
+    "d6": {
+      "exists": false,
+      "status": null
+    }
+  },
+  "liveness-only-green-d1-absent-d2": {
+    "supported": true,
+    "achievedDepth": 1,
+    "ceilingDepth": 2,
+    "chipColor": "gray",
+    "d6Effective": null,
+    "isRegression": false,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "gray",
+    "commErrorKind": null,
+    "d3": {
+      "exists": false,
+      "status": null
+    },
+    "d4": {
+      "exists": false,
+      "status": null
+    },
+    "d5": {
+      "exists": false,
+      "status": null
+    },
+    "d6": {
+      "exists": false,
+      "status": null
+    }
+  },
+  "liveness-only-green-d1-d2": {
+    "supported": true,
+    "achievedDepth": 2,
+    "ceilingDepth": 2,
+    "chipColor": "green",
+    "d6Effective": null,
+    "isRegression": false,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "green",
+    "commErrorKind": null,
+    "d3": {
+      "exists": false,
+      "status": null
+    },
+    "d4": {
+      "exists": false,
+      "status": null
+    },
+    "d5": {
+      "exists": false,
+      "status": null
+    },
+    "d6": {
+      "exists": false,
+      "status": null
     }
   },
   "liveness-red-signal-unknown-d1": {
@@ -1425,202 +1509,6 @@
     "d6": {
       "exists": true,
       "status": "amber"
-    }
-  },
-  "starter-all-green": {
-    "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
-    "chipColor": "green",
-    "d6Effective": null,
-    "isRegression": false,
-    "isStaleCell": false,
-    "observedAtAgeMs": 60000,
-    "surfaceState": "green",
-    "commErrorKind": null,
-    "d3": {
-      "exists": false,
-      "status": null
-    },
-    "d4": {
-      "exists": false,
-      "status": null
-    },
-    "d5": {
-      "exists": false,
-      "status": null
-    },
-    "d6": {
-      "exists": false,
-      "status": null
-    }
-  },
-  "starter-all-stale": {
-    "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
-    "chipColor": "gray",
-    "d6Effective": null,
-    "isRegression": false,
-    "isStaleCell": true,
-    "observedAtAgeMs": 21660000,
-    "surfaceState": "gray",
-    "commErrorKind": null,
-    "d3": {
-      "exists": false,
-      "status": null
-    },
-    "d4": {
-      "exists": false,
-      "status": null
-    },
-    "d5": {
-      "exists": false,
-      "status": null
-    },
-    "d6": {
-      "exists": false,
-      "status": null
-    }
-  },
-  "starter-empty": {
-    "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
-    "chipColor": "gray",
-    "d6Effective": null,
-    "isRegression": false,
-    "isStaleCell": false,
-    "observedAtAgeMs": null,
-    "surfaceState": "gray",
-    "commErrorKind": null,
-    "d3": {
-      "exists": false,
-      "status": null
-    },
-    "d4": {
-      "exists": false,
-      "status": null
-    },
-    "d5": {
-      "exists": false,
-      "status": null
-    },
-    "d6": {
-      "exists": false,
-      "status": null
-    }
-  },
-  "starter-hard-red": {
-    "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
-    "chipColor": "red",
-    "d6Effective": null,
-    "isRegression": false,
-    "isStaleCell": false,
-    "observedAtAgeMs": 60000,
-    "surfaceState": "red",
-    "commErrorKind": null,
-    "d3": {
-      "exists": false,
-      "status": null
-    },
-    "d4": {
-      "exists": false,
-      "status": null
-    },
-    "d5": {
-      "exists": false,
-      "status": null
-    },
-    "d6": {
-      "exists": false,
-      "status": null
-    }
-  },
-  "starter-one-missing": {
-    "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
-    "chipColor": "gray",
-    "d6Effective": null,
-    "isRegression": false,
-    "isStaleCell": false,
-    "observedAtAgeMs": 60000,
-    "surfaceState": "gray",
-    "commErrorKind": null,
-    "d3": {
-      "exists": false,
-      "status": null
-    },
-    "d4": {
-      "exists": false,
-      "status": null
-    },
-    "d5": {
-      "exists": false,
-      "status": null
-    },
-    "d6": {
-      "exists": false,
-      "status": null
-    }
-  },
-  "starter-soft-red-fc1": {
-    "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
-    "chipColor": "amber",
-    "d6Effective": null,
-    "isRegression": false,
-    "isStaleCell": false,
-    "observedAtAgeMs": 60000,
-    "surfaceState": "amber",
-    "commErrorKind": null,
-    "d3": {
-      "exists": false,
-      "status": null
-    },
-    "d4": {
-      "exists": false,
-      "status": null
-    },
-    "d5": {
-      "exists": false,
-      "status": null
-    },
-    "d6": {
-      "exists": false,
-      "status": null
-    }
-  },
-  "starter-soft-red-fc2": {
-    "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
-    "chipColor": "red",
-    "d6Effective": null,
-    "isRegression": false,
-    "isStaleCell": false,
-    "observedAtAgeMs": 60000,
-    "surfaceState": "red",
-    "commErrorKind": null,
-    "d3": {
-      "exists": false,
-      "status": null
-    },
-    "d4": {
-      "exists": false,
-      "status": null
-    },
-    "d5": {
-      "exists": false,
-      "status": null
-    },
-    "d6": {
-      "exists": false,
-      "status": null
     }
   },
   "unmapped-d5-green-d3d4": {
