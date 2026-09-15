@@ -12,6 +12,31 @@ interface StopAgentParameters {
   threadId: string;
 }
 
+/** Read `{ runId? }` from a stop request body; a 400 Response when the body is not a valid scope. */
+async function parseStopScope(
+  request: Request,
+): Promise<{ runId?: string } | Response> {
+  try {
+    const raw = await request.text();
+    const body: unknown = raw.trim() ? JSON.parse(raw) : {};
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      return Response.json({ error: "Invalid stop request" }, { status: 400 });
+    }
+    // Only `runId` is allowed. A misspelt key must not fall through to a
+    // thread-wide stop, because a stop cannot be undone.
+    if (Object.keys(body).some((key) => key !== "runId")) {
+      return Response.json({ error: "Invalid stop request" }, { status: 400 });
+    }
+    if (!("runId" in body)) return {};
+    if (typeof body.runId !== "string" || !body.runId.trim()) {
+      return Response.json({ error: "Invalid runId" }, { status: 400 });
+    }
+    return { runId: body.runId };
+  } catch {
+    return Response.json({ error: "Invalid stop request" }, { status: 400 });
+  }
+}
+
 /** Stop an active run after applying the runtime's application identity policy. */
 export async function handleStopAgent({
   runtime,
@@ -20,33 +45,16 @@ export async function handleStopAgent({
   threadId,
 }: StopAgentParameters): Promise<Response> {
   try {
+    // Parse the optional run scope for every runtime kind, from a clone so an
+    // identity callback can still read the original body. No body or `{}`
+    // keeps the thread-wide stop existing clients rely on.
+    const scope = await parseStopScope(request.clone());
+    if (isHandlerResponse(scope)) return scope;
+    const { runId } = scope;
     let stopThreadId = threadId;
-    let runId: string | undefined;
     if (isIntelligenceRuntime(runtime)) {
-      const bodyRequest = request.clone();
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
-      try {
-        const raw = await bodyRequest.text();
-        const body: unknown = raw.trim() ? JSON.parse(raw) : {};
-        if (typeof body !== "object" || body === null || Array.isArray(body)) {
-          return Response.json(
-            { error: "Invalid stop request" },
-            { status: 400 },
-          );
-        }
-        if ("runId" in body) {
-          if (typeof body.runId !== "string" || !body.runId.trim()) {
-            return Response.json({ error: "Invalid runId" }, { status: 400 });
-          }
-          runId = body.runId;
-        }
-      } catch {
-        return Response.json(
-          { error: "Invalid stop request" },
-          { status: 400 },
-        );
-      }
       try {
         const thread = await runtime.intelligence.getThread({
           threadId,
