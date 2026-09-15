@@ -22,10 +22,27 @@
  *     a REAL starter exists under `examples/integrations/`; nothing probes it
  *     yet. Listed in `STARTER_COLUMNS_UNPROBED` (`live-status.ts`) and rendered
  *     as the gray `?` no-data chip, NOT 🚫.
- *   - `crewai-conversational-flows` — the smoke matrix carries a `crewai-flows`
- *     starter; whether it IS this column is OQ1 in
- *     `SPEC-starter-ladder.md` §3.5 row 16 and is UNDECIDED. Declared in
- *     `UNRESOLVED_STARTERS` (drift test) rather than silently dropped.
+ *   - `crewai-conversational-flows` — RESOLVED (2026-09-15): the smoke matrix's
+ *     `crewai-flows` starter IS this column. Three independent surfaces agree
+ *     and none is generated from this file:
+ *       1. `showcase/integrations/crewai-conversational-flows/manifest.yaml`
+ *          advertises `npx copilotkit@latest init --framework flows`.
+ *       2. `showcase/shell-docs/.../docs/integrations/crewai-flows/quickstart.mdx`
+ *          — a docs directory named for the STARTER — advertises the SAME
+ *          `--framework flows`. The column's manifest and the starter's docs
+ *          scaffold one and the same template.
+ *       3. Implementation kind matches: `examples/integrations/crewai-flows`'s
+ *          agent is `crewai.flow.flow.Flow`-based, while
+ *          `examples/integrations/crewai-crews`' agent is a `Crew`
+ *          (`src/latest_ai_development/crew.py`) and its column advertises a
+ *          DIFFERENT flag, `--framework crewai-crews`.
+ *     It is nevertheless NOT probed: `crewai-flows` is the one smoke-matrix
+ *     starter with no root `Dockerfile`, so `showcase_build.yml`'s
+ *     `build-starters` matrix omits it, no `starter-crewai-flows` image is
+ *     published, and no Railway service exists for the fleet to discover. It is
+ *     therefore declared in `UNPROBED_STARTER_TO_COLUMN` below and its column in
+ *     `STARTER_COLUMNS_UNPROBED` (`live-status.ts`) — the gray `?` chip, never
+ *     the 🚫 capability claim.
  *   - `ag2`, `built-in-agent`, `langroid`, `ms-agent-harness-dotnet`,
  *     `spring-ai` — genuinely have no starter; these are the only columns that
  *     may render 🚫 "Not supported by this framework".
@@ -74,6 +91,28 @@ export const STARTER_TO_COLUMN: Readonly<Record<string, string>> = {
   llamaindex: "llamaindex",
   mastra: "mastra",
   "pydantic-ai": "pydantic-ai",
+};
+
+/**
+ * Starters that EXIST and own a dashboard column, but that the starter-smoke
+ * fleet does not probe — so no `starter:<column>/<level>` row will ever land.
+ *
+ * Kept SEPARATE from `STARTER_TO_COLUMN` on purpose: that map's value set is
+ * asserted equal to the dashboard's `STARTER_COLUMNS` (the PROBED set) by
+ * `starter-column-equality.test.ts`, so putting an unprobed starter there would
+ * make the dashboard claim a live probe that does not exist. This map records
+ * the identity WITHOUT claiming the probe, which is what lets the column render
+ * the honest gray `?` ("starter exists in-repo; no live starter probe yet")
+ * instead of 🚫 "Not supported by this framework".
+ *
+ * Only name-DRIFTED starters need an entry: a starter whose directory name
+ * already equals its column slug is matched by identity in
+ * `starter-mapping-drift.test.ts`.
+ */
+export const UNPROBED_STARTER_TO_COLUMN: Readonly<Record<string, string>> = {
+  // See the `crewai-conversational-flows` bullet in the module header for the
+  // three-surface evidence, and for why nothing probes it.
+  "crewai-flows": "crewai-conversational-flows",
 };
 
 /** The four smoke levels probed per starter, in dashboard sub-row order. */

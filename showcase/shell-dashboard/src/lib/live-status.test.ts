@@ -1415,9 +1415,10 @@ describe("STARTER_COLUMNS (probed / unprobed / unsupported split)", () => {
     // These are the ONLY columns allowed to render the outward-facing 🚫
     // "Not supported by this framework" claim: no `examples/integrations/<slug>`
     // directory exists for any of them. `crewai-conversational-flows` is NOT
-    // here — it is the open question (see UNRESOLVED_STARTERS in
-    // starter-mapping-drift.test.ts) and today still renders 🚫 pending a human
-    // decision on whether the matrix's `crewai-flows` is this column.
+    // here: it WAS, pending "a human decision on whether the matrix's
+    // `crewai-flows` is this column", until the tree turned out to answer it —
+    // the column's manifest and the starter's docs page advertise the same
+    // `init --framework flows` scaffold. It is now `unprobed` (below).
     for (const col of [
       "ag2",
       "langroid",
@@ -1431,12 +1432,20 @@ describe("STARTER_COLUMNS (probed / unprobed / unsupported split)", () => {
   });
 
   it("treats columns with a real but unprobed starter as 'unprobed', never 'unsupported'", () => {
-    // These three shipped a starter under `examples/integrations/` the whole
-    // time the dashboard claimed their framework was unsupported.
+    // These shipped a starter under `examples/integrations/` the whole time the
+    // dashboard claimed their framework was unsupported.
+    //
+    // `crewai-conversational-flows`'s starter is `crewai-flows` — the name
+    // drifts, so the pairing is declared in `UNPROBED_STARTER_TO_COLUMN`
+    // (harness `starter-mapping.ts`) and guarded against the manifests + docs
+    // by `starter-mapping-drift.test.ts`. It stays UNPROBED rather than probed:
+    // it is the one smoke-matrix starter with no root `Dockerfile`, so
+    // `build-starters` publishes no image and no Railway service exists.
     for (const col of [
       "strands-typescript",
       "claude-sdk-python",
       "claude-sdk-typescript",
+      "crewai-conversational-flows",
     ]) {
       expect(starterSupport(col)).toBe("unprobed");
       expect(starterIsSupported(col)).toBe(false);

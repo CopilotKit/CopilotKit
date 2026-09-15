@@ -33,7 +33,10 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { STARTER_TO_COLUMN } from "./starter-mapping.js";
+import {
+  STARTER_TO_COLUMN,
+  UNPROBED_STARTER_TO_COLUMN,
+} from "./starter-mapping.js";
 import {
   STARTER_COLUMNS,
   STARTER_COLUMNS_UNPROBED,
@@ -57,6 +60,16 @@ const SMOKE_WORKFLOW_FILE = resolve(
   REPO_ROOT,
   ".github/workflows/test_smoke-starter.yml",
 );
+/**
+ * Per-integration docs pages. Their DIRECTORY names track the STARTER template
+ * (`crewai-flows`), while `showcase/integrations/` directory names track the
+ * dashboard COLUMN (`crewai-conversational-flows`). Joining the two on the
+ * scaffold command each advertises is what makes assertion 6 non-circular.
+ */
+const DOCS_INTEGRATIONS_DIR = resolve(
+  SHOWCASE_DIR,
+  "shell-docs/src/content/docs/integrations",
+);
 
 /**
  * Directories under `examples/integrations/` that are NOT starter templates —
@@ -75,23 +88,24 @@ const NON_STARTER_EXAMPLE_DIRS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Smoke-matrix starters deliberately NOT mapped to a column, each with the
- * REASON written down. A reason is required (assertion 5), so parking a
- * starter here is a positive declaration a reviewer can read, not silence.
+ * Smoke-matrix starters deliberately NOT accounted for by EITHER mapping, each
+ * with the REASON written down. A reason is required (assertion 5), so parking
+ * a starter here is a positive declaration a reviewer can read, not silence.
  *
- * This replaces the old `EXCLUDED_STARTERS` set, which held
- * `strands-typescript` (now surfaced honestly via `STARTER_COLUMNS_UNPROBED`)
- * and `crewai-flows` (still genuinely undecided).
+ * EMPTY as of 2026-09-15. It previously held `crewai-flows`, declared undecided
+ * because "nothing in the tree records whether this starter IS the
+ * `crewai-conversational-flows` dashboard column". Something did: the column's
+ * `manifest.yaml` and the starter's own docs directory advertise the SAME
+ * `npx copilotkit@latest init --framework flows` scaffold command, and the two
+ * CrewAI starters differ in kind (Flow vs Crew) exactly as their two columns do.
+ * `crewai-flows` is now declared in `UNPROBED_STARTER_TO_COLUMN`, and the
+ * "advertises the same scaffold command" join is asserted below so the identity
+ * is guarded by the manifests and docs rather than by this note.
+ *
+ * The slot stays because the next genuinely-undecided starter needs somewhere
+ * honest to sit; it is NOT a place to park a question that the tree answers.
  */
-const UNRESOLVED_STARTERS: Readonly<Record<string, string>> = {
-  "crewai-flows":
-    "OPEN QUESTION (SPEC-starter-ladder.md §3.5 row 16 / OQ1): nothing in the " +
-    "tree records whether this starter IS the `crewai-conversational-flows` " +
-    "dashboard column or a different thing. Unlike strands-typescript and the " +
-    "claude-sdk pair, this is a NAME mismatch, not an existence mismatch, and " +
-    "guessing it wrong would either invent a column or mislabel an existing " +
-    "one. Needs a human decision; do not resolve it by editing this map.",
-};
+const UNRESOLVED_STARTERS: Readonly<Record<string, string>> = {};
 
 /** Parse the `slug:` values out of the `STARTERS` array in the smoke spec. */
 function parseSmokeMatrixSlugs(): string[] {
@@ -202,8 +216,20 @@ describe("starter-mapping-drift", () => {
     // tooltip is itself a factual claim, so it may not be handed to a column
     // with no starter directory.
     const starters = new Set(readStarterDirs());
+    // A column qualifies EITHER by identity (`examples/integrations/<col>`) or
+    // via a declared name-drift entry whose KEY is a real starter directory —
+    // `crewai-conversational-flows`'s starter is named `crewai-flows`. The
+    // drift entry is not self-certifying: its key is checked against the
+    // filesystem below, and the column↔starter identity itself is checked
+    // against the manifests + docs in the scaffold-command assertion.
+    const unprobedColumnHasStarter = (col: string): boolean =>
+      starters.has(col) ||
+      Object.entries(UNPROBED_STARTER_TO_COLUMN).some(
+        ([starterSlug, columnSlug]) =>
+          columnSlug === col && starters.has(starterSlug),
+      );
     const phantom = [...STARTER_COLUMNS_UNPROBED].filter(
-      (col) => !starters.has(col),
+      (col) => !unprobedColumnHasStarter(col),
     );
     expect(
       phantom,
@@ -257,6 +283,7 @@ describe("starter-mapping-drift", () => {
     const unaccounted = matrixSlugs.filter(
       (slug) =>
         !(slug in STARTER_TO_COLUMN) &&
+        !(slug in UNPROBED_STARTER_TO_COLUMN) &&
         !STARTER_COLUMNS_UNPROBED.has(slug) &&
         !(slug in UNRESOLVED_STARTERS),
     );
@@ -327,6 +354,76 @@ describe("starter-mapping-drift", () => {
       orphans,
       `STARTER_COLUMNS_UNPROBED entries with no showcase/integrations/<slug> ` +
         `directory: ${JSON.stringify(orphans)}.`,
+    ).toEqual([]);
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  4b. A column and a starter that scaffold the SAME template are the  */
+  /*      same integration — so the column may not render 🚫.             */
+  /* ------------------------------------------------------------------ */
+
+  it("no column renders 🚫 when a real starter advertises the same `init --framework` command", () => {
+    // NON-CIRCULAR by construction. Both sides are prose surfaces this mapping
+    // does not generate:
+    //   - `showcase/integrations/<column>/manifest.yaml` — the column's own
+    //     "CLI Start Command".
+    //   - `showcase/shell-docs/.../integrations/<dir>/quickstart.mdx` — the
+    //     docs page, whose DIRECTORY is named for the starter template.
+    // When both advertise the same `--framework <flag>` and
+    // `examples/integrations/<dir>` exists, the column and the starter scaffold
+    // ONE template, so the column demonstrably has a starter and the 🚫
+    // "Not supported by this framework" capability claim is false.
+    //
+    // This is what resolved `crewai-conversational-flows` (manifest) ↔
+    // `crewai-flows` (docs dir + starter dir), both `--framework flows`, while
+    // `crewai-crews` advertises a different flag and stays a separate column.
+    const starters = new Set(readStarterDirs());
+    const docsFrameworkToStarter = new Map<string, string>();
+    for (const dir of readdirSync(DOCS_INTEGRATIONS_DIR, {
+      withFileTypes: true,
+    }).filter((d) => d.isDirectory())) {
+      const quickstart = resolve(
+        DOCS_INTEGRATIONS_DIR,
+        dir.name,
+        "quickstart.mdx",
+      );
+      if (!existsSync(quickstart) || !starters.has(dir.name)) continue;
+      const flag = readFileSync(quickstart, "utf8").match(
+        /init\s+--framework\s+([\w.-]+)/,
+      );
+      if (flag?.[1]) docsFrameworkToStarter.set(flag[1], dir.name);
+    }
+
+    const falseClaims: string[] = [];
+    for (const col of readColumnSlugs()) {
+      const manifest = resolve(COLUMNS_DIR, col, "manifest.yaml");
+      if (!existsSync(manifest)) continue;
+      const flag = readFileSync(manifest, "utf8").match(
+        /init\s+--framework\s+([\w.-]+)/,
+      );
+      const starter = flag?.[1] && docsFrameworkToStarter.get(flag[1]);
+      if (starter && starterSupport(col) === "unsupported") {
+        falseClaims.push(`${col}→${starter} (--framework ${flag?.[1]})`);
+      }
+    }
+
+    // Positive control: the join must actually find pairings, or every
+    // assertion above passes vacuously on a docs/manifest reshuffle.
+    expect(
+      docsFrameworkToStarter.size,
+      "the `init --framework` join found NO starter-backed docs pages — the " +
+        "manifest or quickstart shape changed and this assertion is now vacuous.",
+    ).toBeGreaterThan(0);
+
+    expect(
+      falseClaims,
+      `these dashboard columns render 🚫 "Not supported by this framework" but ` +
+        `advertise the SAME \`npx copilotkit init --framework\` command as a real ` +
+        `starter under examples/integrations/: ${JSON.stringify(falseClaims)} — ` +
+        `they are the same integration under two names. Declare the pairing in ` +
+        `UNPROBED_STARTER_TO_COLUMN (starter-mapping.ts) + STARTER_COLUMNS_UNPROBED ` +
+        `(live-status.ts), or in STARTER_TO_COLUMN + STARTER_COLUMNS if the fleet ` +
+        `probes it.`,
     ).toEqual([]);
   });
 

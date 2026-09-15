@@ -864,6 +864,13 @@ export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
  *   - `claude-sdk-typescript`  `docker-compose.test.yml`), not yet in the smoke
  *                              matrix.
  *
+ * `crewai-conversational-flows` joined them on 2026-09-15. Its starter is
+ * `examples/integrations/crewai-flows` (the name drifts, so the identity is
+ * declared in `UNPROBED_STARTER_TO_COLUMN` in the harness `starter-mapping.ts`,
+ * which also carries the evidence). It is in the CI smoke matrix but is the one
+ * matrix starter with no root `Dockerfile`, so `build-starters` publishes no
+ * `starter-crewai-flows` image and no Railway service exists to probe.
+ *
  * Membership is guarded against the filesystem by
  * `starter-mapping-drift.test.ts`: a column may only sit here if an
  * identically-named directory exists under `examples/integrations/`, and no
@@ -880,6 +887,7 @@ export const STARTER_COLUMNS_UNPROBED: ReadonlySet<string> = new Set([
   "strands-typescript",
   "claude-sdk-python",
   "claude-sdk-typescript",
+  "crewai-conversational-flows",
 ]);
 
 /**
