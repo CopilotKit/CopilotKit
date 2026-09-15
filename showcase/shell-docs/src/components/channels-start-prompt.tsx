@@ -110,7 +110,7 @@ export function ChannelsStartPrompt({ frontend }: ChannelsStartPromptProps) {
     // onboarding attempt. The page-tools pill on every other channel page does
     // the same, which is what lets a copy on this card and the CLI run it
     // starts be joined into a single funnel row.
-    const attempt = createChannelsOnboardingAttempt(channel, channelLabel);
+    const attempt = createChannelsOnboardingAttempt();
 
     // Only the clipboard write decides the state shown to the reader. Sharing
     // one try block with the capture call meant a throwing analytics client

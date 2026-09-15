@@ -122,10 +122,7 @@ export function ChannelsActivationStrip({
     // One clipboard write is one onboarding attempt, so the id is minted here
     // and reported with the copy, matching the page-tools pill and the
     // Channels overview card.
-    const attempt = createChannelsOnboardingAttempt(
-      channel,
-      selectedChannel.label,
-    );
+    const attempt = createChannelsOnboardingAttempt();
 
     try {
       await navigator.clipboard.writeText(attempt.prompt);

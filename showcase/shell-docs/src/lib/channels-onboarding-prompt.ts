@@ -13,7 +13,7 @@ import {
  * text never said which channel the reader was on, and every run began by
  * asking what the page had already answered.
  *
- * The Channels intent route gives the graph that node. This module owns the one
+ * `feature/channels/start` gives the graph that node. This module owns the one
  * string that reaches it, so the page-tools pill and the Channels overview card
  * copy the same text and cannot drift apart.
  *
@@ -22,24 +22,12 @@ import {
  * collapse every reader's attempt into a single funnel row.
  */
 
-/* -------------------------------------------------------------------------
- * PLACEHOLDER — reconcile with the PE-19 CLI pull request before shipping.
- *
- * `CHANNELS_ONBOARDING_INTENT` is the only provisional value in this file;
- * everything below it is final. The source of truth is
- * `ONBOARDING_INTENT_ROOTS` in the Intelligence repo at
- * `apps/cli/onboarding-intents.cjs`. That map carries seven intents today and
- * none of them is Channels, so this name cannot be verified yet — it follows
- * the `add-<feature>` shape the other seven use.
- *
- * `channels-onboarding-prompt.test.ts` asserts the flag below, so the branch
- * stays green while it is provisional and fails the moment someone edits the
- * intent name without also declaring it confirmed.
- * ------------------------------------------------------------------------- */
+/**
+ * The graph's Channels route, from `ONBOARDING_INTENT_ROOTS` in the
+ * Intelligence repo at `apps/cli/onboarding-intents.cjs`, where it maps to
+ * `feature/channels/start`.
+ */
 export const CHANNELS_ONBOARDING_INTENT = "add-channels";
-
-/** Set to false in the same commit that confirms the intent name against PE-19. */
-export const CHANNELS_INTENT_IS_PROVISIONAL = true;
 
 /**
  * Docs frontend ids that are chat channels rather than application frontends.
@@ -69,39 +57,36 @@ export function isChannelOnboardingId(
  *
  * Built from `createIntelligenceOnboardingPrompt` rather than restating the
  * instruction, so the sentence a reader pastes stays byte-identical to every
- * other surface's and only the route differs. `--intent` composes with `--run`:
- * `onboard start` parses both, and the intent then rides along as a property on
- * every event the run reports.
+ * other surface's and only the route differs. `--intent` is inserted ahead of
+ * `--run` to match the command `copilotkit channels setup` prints, which is the
+ * canonical form of this one-liner; the flags compose in either order, and
+ * agreeing on one keeps the four surfaces literally identical.
+ *
+ * It names neither the channel nor the agent framework, and that is the whole
+ * point rather than an omission:
+ *
+ * - `feature/channels/start` asks Slack or Teams as its own scripted question.
+ *   Answering it here pre-empts a choice the reader has not made — the same
+ *   reason the retired pointer refused to name a provider.
+ * - The same node spawns a read-only subagent that inspects the project for
+ *   existing agent code, runtime, package manager and versions. It also states
+ *   that empty folders, agent-only folders and existing CopilotKit apps are all
+ *   valid starts. A framework sentence would assert a selection the reader
+ *   never made — on a channel page the framework is the route default, not a
+ *   choice — and would contradict that stance.
  */
 export function createChannelsOnboardingPrompt(runId: string): string {
-  return `${createIntelligenceOnboardingPrompt(runId)} --intent ${CHANNELS_ONBOARDING_INTENT}`;
-}
-
-/**
- * The sentence naming which channel the reader is setting up.
- *
- * Shaped like `frameworkPromptSuffix` and `frontendPromptSuffix` and appended
- * after them, because the graph reads the selections in that order. Unlike the
- * frontend suffix this one never returns "": a caller only reaches it once
- * `isChannelOnboardingId` has confirmed the route exists.
- */
-export function channelPromptSuffix(
-  id: ChannelOnboardingId,
-  displayName: string,
-): string {
-  return ` The developer selected the ${displayName} channel (\`${id}\`).`;
+  return createIntelligenceOnboardingPrompt(runId).replace(
+    "onboard start --run",
+    `onboard start --intent ${CHANNELS_ONBOARDING_INTENT} --run`,
+  );
 }
 
 /** Mints a run id and returns the prompt and id together, for one click. */
-export function createChannelsOnboardingAttempt(
-  id: ChannelOnboardingId,
-  displayName: string,
-): { runId: string; prompt: string } {
+export function createChannelsOnboardingAttempt(): {
+  runId: string;
+  prompt: string;
+} {
   const runId = createOnboardingRunId();
-  return {
-    runId,
-    prompt:
-      createChannelsOnboardingPrompt(runId) +
-      channelPromptSuffix(id, displayName),
-  };
+  return { runId, prompt: createChannelsOnboardingPrompt(runId) };
 }

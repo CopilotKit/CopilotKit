@@ -32,7 +32,6 @@ import {
   createOnboardingRunId,
 } from "@/lib/intelligence-onboarding-prompt";
 import {
-  channelPromptSuffix,
   createChannelsOnboardingPrompt,
   isChannelOnboardingId,
   CHANNELS_ONBOARDING_INTENT,
@@ -263,30 +262,40 @@ export function OnboardingPromptCopyButton({
         /**
          * Channel pages take the Channels intent route instead of the generic
          * one. Their frontend id is deliberately unknown to the graph, so the
-         * generic prompt reached them stripped of any mention of the channel
-         * the reader was reading about — the one fact the page knows for
-         * certain. The channel sentence replaces the frontend sentence rather
-         * than joining it: they answer the same question on different axes,
-         * and only one of them is true here.
+         * generic prompt reached them naming no channel at all and started
+         * every run by asking what the page had already answered.
          */
         const channel =
           frontend && isChannelOnboardingId(frontend.id)
             ? { id: frontend.id, name: frontend.name }
             : undefined;
+        const source = ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`;
         return {
-          text:
-            (channel
-              ? createChannelsOnboardingPrompt(runId)
-              : createIntelligenceOnboardingPrompt(runId)) +
-            (framework
-              ? frameworkPromptSuffix(framework.slug, framework.name)
-              : "") +
-            (channel
-              ? channelPromptSuffix(channel.id, channel.name)
-              : frontend
+          /**
+           * The channel route carries no selection sentences, and that is the
+           * route's design rather than an omission here.
+           * `feature/channels/start` asks Slack or Teams as its own scripted
+           * question, and it inspects the project for existing agent code
+           * instead of being told a framework — it treats empty folders,
+           * agent-only folders and existing CopilotKit apps as equally valid
+           * starts. On a channel page the framework is the route default, not
+           * a reader's choice, so asserting it would be the one sentence here
+           * that is not true.
+           *
+           * The source sentence stays on both branches: it reports where the
+           * copy happened rather than claiming anything about the project, and
+           * it is the only attribution left when a run id fails to join.
+           */
+          text: channel
+            ? createChannelsOnboardingPrompt(runId) + source
+            : createIntelligenceOnboardingPrompt(runId) +
+              (framework
+                ? frameworkPromptSuffix(framework.slug, framework.name)
+                : "") +
+              (frontend
                 ? frontendPromptSuffix(frontend.id, frontend.name)
                 : "") +
-            ` The developer copied this prompt from ${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}.`,
+              source,
           onAction: (action) =>
             posthog?.capture(
               "docs.intelligence_onboarding_prompt_action_clicked",

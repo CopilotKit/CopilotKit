@@ -26,7 +26,6 @@ import {
 } from "@/lib/intelligence-onboarding-prompt";
 import {
   CHANNELS_ONBOARDING_INTENT,
-  channelPromptSuffix,
   createChannelsOnboardingPrompt,
 } from "@/lib/channels-onboarding-prompt";
 
@@ -576,11 +575,11 @@ it("names the React frontend by its docs name and the graph's slug", async () =>
   );
 });
 
-it("takes the Channels intent route and names the channel", async () => {
+it("takes the Channels intent route and names nothing else", async () => {
   // Slack has no frontend node in the graph and never will: it is a channel,
-  // and the intent route serves it instead. The channel sentence stands where
-  // the frontend sentence would, so this asserts the whole string rather than
-  // a substring — the three sentences have to close ranks with no double space.
+  // and the intent route serves it instead. The route asks which channel as its
+  // own scripted question, so the text answers nothing — only the command and
+  // the page sentence survive, which is why this asserts the whole string.
   const writeText = stubClipboard();
 
   // Still nothing on the frontend axis. The channel is carried by the route.
@@ -591,11 +590,11 @@ it("takes the Channels intent route and names the channel", async () => {
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
 
+  // No framework sentence either, even though the page names one: on a channel
+  // page the framework is the route default rather than a reader's choice, and
+  // `feature/channels/start` inspects the project for it instead.
   expect(writeText.mock.calls[0][0]).toBe(
-    createChannelsOnboardingPrompt(reportedRunId()) +
-      frameworkPromptSuffix(MASTRA.slug, MASTRA.name) +
-      channelPromptSuffix("slack", SLACK.name) +
-      PAGE_SENTENCE,
+    createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
   );
 });
 
@@ -616,10 +615,11 @@ it("carries the frontend sentence alone when the graph knows no framework", asyn
   );
 });
 
-it("carries the channel sentence alone when the graph knows no framework", async () => {
-  // `spring-ai` has no graph node, so the framework sentence is empty and the
-  // channel sentence has to read correctly with nothing in front of it but the
-  // canonical prompt and its route.
+it("ignores the page's framework entirely on a channel page", async () => {
+  // Whether the route names a framework the graph knows (`mastra`, above) or
+  // one it does not (`spring-ai`), a channel page copies the same command. The
+  // route settles the framework by inspection, so neither case may leak into
+  // the text.
   const writeText = stubClipboard();
 
   renderButton({ framework: SPRING_AI, frontend: SLACK });
@@ -628,9 +628,7 @@ it("carries the channel sentence alone when the graph knows no framework", async
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
 
   expect(writeText.mock.calls[0][0]).toBe(
-    createChannelsOnboardingPrompt(reportedRunId()) +
-      channelPromptSuffix("slack", SLACK.name) +
-      PAGE_SENTENCE,
+    createChannelsOnboardingPrompt(reportedRunId()) + PAGE_SENTENCE,
   );
 });
 
