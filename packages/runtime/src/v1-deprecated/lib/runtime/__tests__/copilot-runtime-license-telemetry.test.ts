@@ -13,7 +13,10 @@ import { lambdaClient, parseTelemetryIdFromLicense } from "@copilotkit/shared";
 import { CopilotRuntime } from "../copilot-runtime";
 import telemetry from "../../telemetry-client";
 import { telemetry as delegatedTelemetry } from "../../../../v2/runtime/telemetry";
-import { createCopilotRuntimeHandler } from "../../../../v2/runtime";
+import {
+  createCopilotRuntimeHandler,
+  CopilotSseRuntime,
+} from "../../../../v2/runtime";
 
 const inheritedTelemetrySampleRate = vi.hoisted(() => {
   const value = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
@@ -271,7 +274,7 @@ test.each(rootRuntimeTelemetryIdentityCases)(
       expect(createScope).toHaveBeenCalledWith(expectedIdentity);
       expect(setLicenseToken).not.toHaveBeenCalled();
       expect(delegatedCreateScope).toHaveBeenCalledTimes(1);
-      expect(delegatedCreateScope).toHaveBeenCalledWith(expectedIdentity);
+      expect(delegatedCreateScope).toHaveBeenCalledWith(expectedIdentity, "v1");
       expect(delegatedSetLicenseToken).not.toHaveBeenCalled();
 
       await runtime.instance.telemetry.capture("oss.runtime.instance_created", {
@@ -282,9 +285,9 @@ test.each(rootRuntimeTelemetryIdentityCases)(
       });
 
       expect(send).toHaveBeenCalledTimes(1);
-      const hasLicenseSamplingAuthority =
-        parseTelemetryIdFromLicense(expectedIdentity.licenseToken) !== null;
-      expect(random).toHaveBeenCalledTimes(hasLicenseSamplingAuthority ? 0 : 1);
+      // The capture above goes through the delegated V2 client, which does
+      // not sample, so it never draws a random number whatever the identity.
+      expect(random).not.toHaveBeenCalled();
       expect(send).toHaveBeenCalledWith(
         expect.objectContaining({
           licenseToken: expectedIdentity.licenseToken,
@@ -341,7 +344,7 @@ test("public root Runtime delegates an anonymous telemetry scope into V2", async
 
     expect(anonymousRuntime.instance).toBeDefined();
     expect(delegatedCreateScope).toHaveBeenCalledTimes(1);
-    expect(delegatedCreateScope).toHaveBeenCalledWith({});
+    expect(delegatedCreateScope).toHaveBeenCalledWith({}, "v1");
     expect(delegatedSetLicenseToken).not.toHaveBeenCalled();
 
     await anonymousRuntime.instance.telemetry.capture(
@@ -369,11 +372,83 @@ test("public root Runtime delegates an anonymous telemetry scope into V2", async
   }
 });
 
+/** The global_properties of every copilot_request_created send, in order. */
+function requestCreatedGlobals(send: {
+  mock: { calls: [{ event: string; globalProperties?: unknown }][] };
+}): Record<string, unknown>[] {
+  return send.mock.calls
+    .filter(([event]) => event.event === "oss.runtime.copilot_request_created")
+    .map(([event]) => event.globalProperties as Record<string, unknown>);
+}
+
 function createRootRuntimeRequest(): Request {
   return new Request("https://example.com/agent/missing/run", {
     method: "POST",
   });
 }
+
+test("every event a v1 root runtime produces is stamped as v1 surface", async () => {
+  // A v1 request is served by the V2 runtime the v1 shim constructs, so
+  // the V2 client sends one of the two copies. Left alone it would report
+  // its own surface and put half of every v1 user's traffic in the v2
+  // column, which is the opposite of what the marker is for.
+  const { restore } = installTelemetryIdentitySpies();
+  const { send, restore: restoreDelegatedTelemetry } =
+    installDelegatedTelemetryIdentitySpies();
+  vi.stubEnv("CPK_TELEMETRY_ID", undefined);
+  vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+
+  try {
+    const rootRuntime = new CopilotRuntime({ agents: {} });
+    const handler = createCopilotRuntimeHandler({
+      runtime: rootRuntime.instance,
+      basePath: "/",
+    });
+    send.mockClear();
+
+    await handler(createRootRuntimeRequest());
+
+    // One request, two copies: the v1 middleware's and the delegated V2
+    // handler's. Filtered by event name because the lazily-constructed
+    // instance also emits instance_created around here.
+    await vi.waitFor(() => expect(requestCreatedGlobals(send)).toHaveLength(2));
+    expect(
+      requestCreatedGlobals(send).map((globals) => globals.telemetry_surface),
+    ).toEqual(["v1", "v1"]);
+    // Both copies say v1, and they still say which client sent them, so
+    // the duplicate pair stays visible rather than looking like two users.
+    expect(
+      requestCreatedGlobals(send)
+        .map((globals) => globals.telemetry_emitter)
+        .sort(),
+    ).toEqual(["v1-shared", "v2-runtime"]);
+  } finally {
+    restoreDelegatedTelemetry();
+    restore();
+  }
+});
+
+test("a v2 runtime constructed directly reports the v2 surface", async () => {
+  const { send, restore: restoreDelegatedTelemetry } =
+    installDelegatedTelemetryIdentitySpies();
+  vi.stubEnv("CPK_TELEMETRY_ID", undefined);
+  vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+
+  try {
+    const runtime = new CopilotSseRuntime({ agents: {} });
+    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/" });
+    send.mockClear();
+
+    await handler(createRootRuntimeRequest());
+
+    await vi.waitFor(() => expect(requestCreatedGlobals(send)).toHaveLength(1));
+    expect(
+      requestCreatedGlobals(send).map((globals) => globals.telemetry_surface),
+    ).toEqual(["v2"]);
+  } finally {
+    restoreDelegatedTelemetry();
+  }
+});
 
 test("public root runtimes keep request identity across lazy V2 instance creation", async () => {
   const { restore } = installTelemetryIdentitySpies();
@@ -413,7 +488,12 @@ test("public root runtimes keep request identity across lazy V2 instance creatio
     await handlerB(createRootRuntimeRequest());
 
     await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(4));
-    expect(random).toHaveBeenCalledTimes(4);
+    // Two requests, four sends: the v1 root path emits this event twice,
+    // once from its own middleware through the v1 shared client and once
+    // from the V2 handler through the V2 client. Only the v1 half still
+    // rolls a die, and only for its Segment copy — hence two rolls, not
+    // four.
+    expect(random).toHaveBeenCalledTimes(2);
     expect(
       send.mock.calls.map(([event]) => ({
         event: event.event,

@@ -105,6 +105,7 @@ import type {
 export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
 import telemetry from "../telemetry-client";
+import { TELEMETRY_SURFACE_V1 } from "@copilotkit/shared";
 import { logRuntimeTelemetryDisclosure } from "../telemetry-disclosure";
 
 import type { MessageInput } from "../../graphql/inputs/message.input";
@@ -490,6 +491,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       agents: mergedAgents,
       telemetryId: resolvedTelemetryId,
       licenseToken: resolvedLicenseToken,
+      // This runtime is the v1 entrypoint, so every event the delegated V2
+      // runtime sends on its behalf is v1 traffic. Without this the V2
+      // client would report its own surface and split one user's usage
+      // across both columns.
+      telemetrySurface: TELEMETRY_SURFACE_V1,
       telemetryProperties: params?.telemetryProperties,
       debug: params?.debug,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
