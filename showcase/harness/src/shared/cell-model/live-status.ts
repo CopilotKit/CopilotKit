@@ -15,6 +15,7 @@
  */
 
 import { formatTs } from "./format-ts.js";
+import { GLYPHS } from "./glyphs.js";
 import {
   D4_STALE_AFTER_MS,
   E2E_STALE_AFTER_MS,
@@ -1083,12 +1084,17 @@ export function buildStarterBadge(
 ): BadgeRender {
   if (support === "unsupported") {
     // Mapping-derived: this column has NO starter under
-    // `examples/integrations/` at all (§a). Renders the 🚫 "unsupported"
-    // treatment (matching depth-chip/unified-cell), which is distinct from
-    // BOTH the gray `?` no-data state AND the red smoke-failed ✗. NOT
-    // data-derived, so it renders identically before and after the first probe
-    // tick. Tone stays slate/gray (the muted unsupported fill); the 🚫 glyph —
-    // not the tone — is what communicates "unsupported".
+    // `examples/integrations/` at all (§a). Renders the `∅` "unsupported"
+    // treatment (matching depth-chip/unified-cell) as a HOLLOW chip, which is
+    // distinct from BOTH the `?` no-data state AND the red smoke-failed ✗.
+    // NOT data-derived, so it renders identically before and after the first
+    // probe tick.
+    //
+    // The mark used to be `🚫` — an Emoji-presentation code point, which the
+    // browser draws from the colour-emoji font and therefore paints RED
+    // regardless of the chip's `text-white`. A grey "nothing to test here"
+    // chip with a red mark asserted two contradictory things at once. `∅` is
+    // text-presentation, so its colour is the colour the CSS asks for.
     //
     // This branch makes an outward-facing CAPABILITY claim about a third-party
     // framework, so it is reachable ONLY from a positive "no starter exists"
@@ -1097,7 +1103,7 @@ export function buildStarterBadge(
     // column reaching THIS branch has a starter directory on disk.
     return {
       tone: "gray",
-      label: "🚫",
+      label: GLYPHS.notSupported.mark,
       tooltip: "Not supported by this framework",
       row: null,
     };
@@ -1109,7 +1115,7 @@ export function buildStarterBadge(
     // capabilities.
     return {
       tone: "gray",
-      label: "?",
+      label: GLYPHS.noData.mark,
       tooltip: "Starter exists in-repo; no live starter probe yet",
       row: null,
     };
@@ -1184,7 +1190,7 @@ function formatLabel(
   row: StatusRow | null,
   stale: boolean,
 ): string {
-  if (!row) return "?";
+  if (!row) return GLYPHS.noData.mark;
   if (dim === "health") {
     if (row.state === "green") return "up";
     if (row.state === "red") return "down";
@@ -1196,25 +1202,25 @@ function formatLabel(
     // Exhaustiveness check for `health` dim — see rowTone() comment.
     const _exhaustive: never = row.state;
     void _exhaustive;
-    return "?";
+    return GLYPHS.noData.mark;
   }
   switch (row.state) {
     case "red":
-      return "✗";
+      return GLYPHS.fail.mark;
     // degraded must NOT render a green "✓" glyph — it contradicts the
     // tooltip and misleads operators into thinking the signal is healthy.
     // Use "~" to visually match the amber tone.
     case "degraded":
-      return "~";
+      return GLYPHS.degraded.mark;
     case "green":
-      return "✓";
+      return GLYPHS.pass.mark;
     default: {
-      // Exhaustiveness check (mirrors rowTone). Returning "?" instead of
-      // a silent "✓" prevents an unmapped future state from being
+      // Exhaustiveness check (mirrors rowTone). Returning the no-data mark
+      // instead of a silent "✓" prevents an unmapped future state from being
       // surfaced as green to operators.
       const _exhaustive: never = row.state;
       void _exhaustive;
-      return "?";
+      return GLYPHS.noData.mark;
     }
   }
 }

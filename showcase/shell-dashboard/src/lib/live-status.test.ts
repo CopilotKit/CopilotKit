@@ -1412,7 +1412,7 @@ describe("STARTER_COLUMNS (probed / unprobed / unsupported split)", () => {
   });
 
   it("treats only the 5 genuinely starter-less columns as not supported", () => {
-    // These are the ONLY columns allowed to render the outward-facing 🚫
+    // These are the ONLY columns allowed to render the outward-facing ∅
     // "Not supported by this framework" claim: no `examples/integrations/<slug>`
     // directory exists for any of them. `crewai-conversational-flows` is NOT
     // here: it WAS, pending "a human decision on whether the matrix's
@@ -1552,11 +1552,11 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     expect(b.label).toBe("?");
   });
 
-  it("unprobed: a column with a real but unprobed starter → gray ?, NEVER the 🚫 capability claim", () => {
+  it("unprobed: a column with a real but unprobed starter → gray ?, NEVER the ∅ capability claim", () => {
     // The defect this branch exists to kill: `strands-typescript`,
     // `claude-sdk-python` and `claude-sdk-typescript` all ship a starter under
     // `examples/integrations/` and were nonetheless rendered
-    // 🚫 "Not supported by this framework" — an outward-facing claim about a
+    // ∅ "Not supported by this framework" — an outward-facing claim about a
     // partner framework's capabilities, used to describe our own plumbing.
     const b = buildStarterBadge("health", "unprobed", null, NOW, "live");
     expect(b.label).toBe("?");
@@ -1566,23 +1566,23 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     expect(b.row).toBeNull();
   });
 
-  it("not-supported 🚫: unmapped column → 🚫 unsupported chip, mapping-derived (not data-derived)", () => {
+  it("not-supported ∅: unmapped column → ∅ unsupported chip, mapping-derived (not data-derived)", () => {
     // Keyed off isSupported=false, NOT off a missing row. An integration with
     // NO starter is architecturally unsupported in the starter row, so it
-    // renders the SAME 🚫 "Not supported by this framework" treatment the
+    // renders the SAME ∅ "Not supported by this framework" treatment the
     // depth-chip/unified-cell already use — NOT a grey/no-data `?`, and NOT a
     // red smoke-failed `✗` (which would mis-communicate "we tried and failed").
     const b = buildStarterBadge("health", "unsupported", null, NOW, "live");
-    expect(b.label).toBe("🚫");
+    expect(b.label).toBe("∅");
     expect(b.tooltip).toBe("Not supported by this framework");
     // It must be visually distinct from a data-bearing red FAIL: never red.
     expect(b.tone).not.toBe("red");
     expect(b.row).toBeNull();
   });
 
-  it("not-supported 🚫 is independent of any row data (mapping wins)", () => {
+  it("not-supported ∅ is independent of any row data (mapping wins)", () => {
     // Even if a stray row existed, an unmapped column must still render the
-    // not-supported 🚫 state — the caller passes row=null for unmapped columns,
+    // not-supported ∅ state — the caller passes row=null for unmapped columns,
     // but assert buildStarterBadge ignores row entirely when !isSupported.
     const b = buildStarterBadge(
       "health",
@@ -1591,12 +1591,12 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
       NOW,
       "live",
     );
-    expect(b.label).toBe("🚫");
+    expect(b.label).toBe("∅");
     expect(b.tone).not.toBe("red");
   });
 
-  it("supported column with a genuinely-red row still renders red ✗ (NOT masked as 🚫)", () => {
-    // Guard the inverse: only ABSENT starters become 🚫. A starter that exists
+  it("supported column with a genuinely-red row still renders red ✗ (NOT masked as ∅)", () => {
+    // Guard the inverse: only ABSENT starters become ∅. A starter that exists
     // and FAILED must keep surfacing its real red ✗ — never reframed as
     // "unsupported".
     const b = buildStarterBadge(
@@ -1608,7 +1608,7 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     );
     expect(b.tone).toBe("red");
     expect(b.label).toBe("✗");
-    expect(b.label).not.toBe("🚫");
+    expect(b.label).not.toBe("∅");
   });
 
   it("tooltip carries the per-level descriptor for data-bearing states", () => {
@@ -1763,7 +1763,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
     expect(b.label).toBe("✗");
   });
 
-  it("tolerance never applies to an UNSUPPORTED column (🚫 wins over soft red)", () => {
+  it("tolerance never applies to an UNSUPPORTED column (∅ wins over soft red)", () => {
     const b = buildStarterBadge(
       "agent",
       "unsupported",
@@ -1771,7 +1771,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
       NOW,
       "live",
     );
-    expect(b.label).toBe("🚫");
+    expect(b.label).toBe("∅");
     expect(b.tone).not.toBe("red");
     expect(b.tone).not.toBe("amber");
   });
