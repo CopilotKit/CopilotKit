@@ -77,7 +77,7 @@ export type CopilotChatProps = Omit<
    * Shortcuts only appear in local development while Inspector is visible.
    */
   inspectorTools?: boolean;
-  chatView?: SlotValue<typeof CopilotChatView>;
+  chatView?: SlotValue<React.ComponentType<CopilotChatViewProps>>;
   isModalDefaultOpen?: boolean;
   /** Enable multimodal file attachments (images, audio, video, documents). */
   attachments?: AttachmentsConfig;
