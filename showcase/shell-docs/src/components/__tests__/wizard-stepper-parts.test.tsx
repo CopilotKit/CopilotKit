@@ -140,8 +140,8 @@ describe("WizardCard", () => {
     const section = container.querySelector("section");
     expect(section).not.toBeNull();
     const className = section!.className;
-    expect(className).toContain("h-[34rem]");
-    expect(className).not.toMatch(/(?<!md:)\bmin-h-\S+/);
+    expect(className).toContain("min-h-[34rem]");
+    expect(className).toContain("sm:min-h-[40rem]");
   });
 
   // The footer must land at the same bottom edge on every step regardless
@@ -193,7 +193,7 @@ describe("WizardCard", () => {
 
     const content = container.querySelector("section > div.flex-1");
     expect(content).not.toBeNull();
-    expect(content!.className).toContain("overflow-y-auto");
+    expect(content!.className).not.toContain("overflow-y-auto");
     // Symmetric padding, and no one-sided margin: a margin lands entirely
     // above the options, which is the lopsided gap this replaced.
     expect(content!.className).toMatch(/\bpy-7\b/);

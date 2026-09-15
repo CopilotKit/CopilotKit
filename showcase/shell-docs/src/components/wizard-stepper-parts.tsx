@@ -149,7 +149,7 @@ export function WizardProgress({
   );
 }
 
-/** One active step. The stage stays the same height; larger option lists scroll within it. */
+/** One active step. A shared minimum height fits the desktop choices; narrow layouts grow naturally. */
 export function WizardCard({
   progress,
   name,
@@ -177,7 +177,7 @@ export function WizardCard({
 }): React.JSX.Element {
   return (
     <section
-      className={`shell-docs-radius-surface not-prose flex h-[34rem] flex-col p-5 sm:h-[30rem] sm:p-7 border border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]`}
+      className={`shell-docs-radius-surface not-prose flex min-h-[34rem] flex-col p-5 sm:min-h-[40rem] sm:p-7 border border-[color-mix(in_srgb,var(--text)_18%,var(--bg-surface))] bg-[color-mix(in_srgb,var(--text)_6%,var(--bg-surface))]`}
     >
       {progress && <div className="mb-6 shrink-0">{progress}</div>}
       <h3
@@ -192,9 +192,7 @@ export function WizardCard({
       <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
         {description}
       </p>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto py-7">
-        {children}
-      </div>
+      <div className="flex flex-1 flex-col py-7">{children}</div>
       {footer && (
         <div data-testid="wizard-footer" className="shrink-0 pt-5">
           {footer}
