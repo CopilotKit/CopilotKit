@@ -271,7 +271,12 @@ app = FastAPI()
 def validate_your_token(token: str) -> dict:
     if token != "valid-token":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return {"user_id": "user_123", "role": "member"}
+    return {
+        "user_id": "user_123",
+        "role": "member",
+        # The scope `get_account_data` below checks against.
+        "allowed_accounts": ["acct_456"],
+    }
 
 @app.post("/chat")
 async def run_agent(

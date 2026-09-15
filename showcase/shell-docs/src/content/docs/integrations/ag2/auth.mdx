@@ -83,7 +83,12 @@ def validate_your_token(token: str) -> dict:
     # Replace this with your own validation logic.
     if token != "valid-token":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return {"user_id": "user_123", "role": "member"}
+    return {
+        "user_id": "user_123",
+        "role": "member",
+        # The scope `get_account_data` below checks against.
+        "allowed_accounts": ["acct_456"],
+    }
 
 @app.post("/chat")
 async def run_agent(
@@ -162,16 +167,21 @@ async def run_agent(
 ) -> StreamingResponse:
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    # Validate token here, then dispatch
+
+    token = authorization.replace("Bearer ", "")
+    user_info = validate_your_token(token)  # the same helper as above
+
     return StreamingResponse(
-        stream.dispatch(message, accept=accept),
+        stream.dispatch(message, dependencies={"auth_user": user_info}, accept=accept),
         media_type=accept or "text/event-stream",
     )
 ```
 
 ### Access User in Agent
 
-After token validation, pass user identity as a request-scoped dependency (`stream.dispatch(..., dependencies={"auth_user": user_info})`) and enforce access checks in AG2 tools via `Inject`.
+The identity travels as a request-scoped dependency, so the same `Inject("auth_user")` tools
+shown above work unchanged here — nothing about a tool has to know whether the deployment is
+managed or self-hosted.
 
 ## Universal Authentication Pattern
 

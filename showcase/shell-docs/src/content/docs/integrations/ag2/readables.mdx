@@ -147,8 +147,7 @@ This context can then be shared with your AG2 backend.
                             message: RunAgentInput,
                             accept: str | None = Header(None),
                         ) -> StreamingResponse:
-                            raw = get_readable(message, "The current user's colleagues")
-                            colleagues = json.loads(raw) if raw else []
+                            colleagues = get_readable(message, "The current user's colleagues") or []
                             return StreamingResponse(
                                 stream.dispatch(message, variables={"colleagues": colleagues}, accept=accept),
                                 media_type=accept or "text/event-stream",

@@ -84,14 +84,16 @@ the UI.
 </Callout>
 
 ```tsx title="app/page.tsx"
+import { z } from "zod"; // [!code highlight]
 import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:12]
+  // [!code highlight:13]
   useRenderTool({
     name: "get_weather",
+    parameters: z.object({ location: z.string() }),
     render: ({status, parameters}) => {
       return (
         <p className="text-gray-500 mt-2">

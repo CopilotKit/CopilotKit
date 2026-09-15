@@ -129,6 +129,7 @@ Two consequences worth knowing before you build UI on top of it:
 Because a delegation is a tool call, rendering it is the ordinary tool-rendering path:
 
 ```tsx title="app/page.tsx"
+import { z } from "zod";
 import { useRenderTool } from "@copilotkit/react-core/v2";
 // ...
 
@@ -136,6 +137,10 @@ const YourMainContent = () => {
   // ...
   useRenderTool({
     name: "task_researcher",
+    parameters: z.object({
+      objective: z.string(),
+      context: z.string().optional(),
+    }),
     render: ({ status }) => (
       <p className="text-gray-500 mt-2">
         {status !== "complete" && "Researching..."}
@@ -146,6 +151,11 @@ const YourMainContent = () => {
   // ...
 };
 ```
+
+A named `useRenderTool` registration needs a `parameters` schema — only the wildcard
+(`name: "*"`) overload may omit it. Every `as_tool()` delegation takes the same two
+arguments, `objective` and an optional `context`, so the schema above works for any
+subagent.
 
 ## Choosing between delegation and one agent
 
