@@ -89,9 +89,15 @@ function identityKeyOf(content: {
   serverHash?: string;
   serverId?: string;
 }): string {
-  return [content.resourceUri, content.serverHash, content.serverId]
-    .map((v) => v ?? "")
-    .join("::");
+  // Serialised as a tuple rather than joined with a delimiter: a resourceUri is
+  // arbitrary text, so any separator can appear inside it and make two distinct
+  // widgets share a key (`"a::b" + "c"` vs `"a" + "b::c"`). JSON also keeps
+  // `undefined` distinct from `""` instead of collapsing both to empty.
+  return JSON.stringify([
+    content.resourceUri ?? null,
+    content.serverHash ?? null,
+    content.serverId ?? null,
+  ]);
 }
 
 /**
@@ -463,32 +469,30 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     // here would leak the new widget's data into this (old, still-mounted) iframe
     // before the adapter tears the session down and re-binds for the new
     // identity. Refuse it; the fresh session will forward the new widget's data.
-    if (identityKeyOf(content) !== boundIdentity) return;
-    const { toolInput, result } = content;
-
-    // Validate BEFORE forwarding anything. `toolInput` and `result` describe one
-    // exchange: sending the input and only then discovering the result is
-    // invalid would leave the widget with a half-applied update. A rejection is
+    // Validate the WHOLE content before anything is forwarded. `toolInput` and
+    // `result` describe one exchange: sending the input and only then finding
+    // the result invalid would leave the widget half-updated, and a toolInput
+    // that is not a record must not reach it just because the result happens to
+    // parse. Content arriving from an adapter prop is as untrusted as the
+    // store's, so both go through the same schema here. A rejection is
     // RECOVERABLE (reported through onContentError, cleared when valid content
-    // returns), not a fatal session error - and it is reported identically
-    // whether the content came from the store or from an adapter prop.
-    let validResult: CallToolResult | undefined;
-    if (result !== undefined) {
-      const parsed =
-        MCPAppsActivityContentSchema.shape.result.safeParse(result);
-      if (!parsed.success) {
-        reportContentRejected(result, parsed.error);
-        return;
-      }
-      validResult = parsed.data as CallToolResult;
+    // returns), not a fatal session error.
+    const parsedContent = MCPAppsActivityContentSchema.safeParse(content);
+    if (!parsedContent.success) {
+      reportContentRejected(content, parsedContent.error);
+      return;
     }
+    const validated = parsedContent.data;
+    if (identityKeyOf(validated) !== boundIdentity) return;
+    const { toolInput } = validated;
+    const validResult = validated.result as CallToolResult | undefined;
     clearContentRejection();
 
     if (toolInput !== undefined) {
       const key = keyOf(toolInput);
       if (key !== lastToolInputKey) {
         lastToolInputKey = key;
-        pendingToolInput = toolInput as Record<string, unknown>;
+        pendingToolInput = toolInput;
         flushPending();
       }
     }

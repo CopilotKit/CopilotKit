@@ -366,8 +366,16 @@ Status values:
 - `matched`: equivalent behavior and tests exist.
 - `partial`: some behavior/tests exist, but parity depth is incomplete.
 - `intentional-divergence`: API shape differs by design, behavior parity still required.
+- `unmapped`: the React suite has no Vue counterpart yet. The behavior may be
+  covered elsewhere (a shared package, another frontend), which the note states;
+  it is still a Vue-side gap.
+- `vue-only`: a Vue suite with no React counterpart. Used when Vue covers a
+  contract React has not pinned down yet, so the gap is on the React side; it is
+  not a licence to add Vue-specific coverage instead of mirroring React.
 
-Current snapshot: mapped React->Vue counterpart rows are either `matched` or `intentional-divergence`.
+Current snapshot: most mapped React->Vue counterpart rows are `matched` or
+`intentional-divergence`. The exceptions are tracked explicitly in the matrix and
+are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
 
 ### APIs and render model
 

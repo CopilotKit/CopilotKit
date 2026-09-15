@@ -1139,3 +1139,102 @@ describe("CallToolResult payloads on the wire", () => {
     },
   );
 });
+
+// ---------------------------------------------------------------------------
+// Regressions reported on PR #7161.
+// ---------------------------------------------------------------------------
+describe("bindMcpApp content and identity validation", () => {
+  function makeSubscribingAgent() {
+    const base = makeAgent();
+    (base as any).subscribe = () => ({ unsubscribe() {} });
+    return base;
+  }
+
+  async function connectSession(
+    iframe: HTMLIFrameElement,
+    agent: AbstractAgent,
+    content: MCPAppsActivityContent,
+    hooks?: Parameters<typeof bindMcpApp>[0]["hooks"],
+  ) {
+    const session = bindMcpApp({
+      iframe,
+      getContent: () => content,
+      getAgent: () => agent,
+      host: { runAgent: async () => ({ result: undefined, newMessages: [] }) },
+      messageId: "act-1",
+      hooks,
+    });
+    sessions.push(session);
+    await tick(60);
+    const captured = captureOutgoing(iframe);
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/sandbox-proxy-ready",
+    });
+    await tick(30);
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      method: "ui/notifications/initialized",
+    });
+    await tick(20);
+    return { session, captured };
+  }
+
+  it("rejects a malformed toolInput arriving from an external activity", async () => {
+    // syncContent feeds activities absent from the store, so its payload is as
+    // untrusted as the store's: a toolInput that is not a record must not reach
+    // the widget just because the result happens to validate.
+    const agent = makeSubscribingAgent();
+    const onContentError = vi.fn();
+    const iframe = mount();
+    const { session, captured } = await connectSession(
+      iframe,
+      agent,
+      makeContent({ toolInput: undefined }),
+      { onContentError },
+    );
+    captured.length = 0;
+
+    session.syncContent({
+      ...makeContent(),
+      toolInput: "definitely not a record",
+    } as never);
+    await tick(20);
+
+    expect(
+      captured.filter((m) => m?.method === "ui/notifications/tool-input"),
+    ).toEqual([]);
+    expect(onContentError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it("does not treat two different widgets as the same resource identity", async () => {
+    // The identity guard keyed on a delimiter-joined string, so a resourceUri
+    // containing the delimiter could collide with a different widget and let the
+    // store push its data into this iframe.
+    const agent = makeSubscribingAgent();
+    const bound = makeContent({
+      resourceUri: "ui://app::v2",
+      serverHash: "h",
+      toolInput: { widget: "A" },
+      result: { content: [{ type: "text", text: "for A" }] },
+    });
+    const iframe = mount();
+    const { session, captured } = await connectSession(iframe, agent, bound);
+    captured.length = 0;
+
+    // Same joined key ("ui://app::v2::h"), genuinely different widget.
+    session.syncContent(
+      makeContent({
+        resourceUri: "ui://app",
+        serverHash: "v2::h",
+        toolInput: { widget: "B" },
+        result: { content: [{ type: "text", text: "for B" }] },
+      }),
+    );
+    await tick(20);
+
+    expect(
+      captured.filter((m) => m?.method === "ui/notifications/tool-result"),
+    ).toEqual([]);
+  });
+});
