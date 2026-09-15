@@ -151,8 +151,7 @@ function stubClipboard() {
   return writeText;
 }
 
-/** Drive the wizard from step 1 all the way to step 5 (project -> Continue
- *  -> frontend -> Continue -> backend -> Continue -> features ->
+/** Drive the wizard from step 1 all the way to step 5 (project -> frontend -> backend -> features ->
  *  Skip/Continue), the step order. Returns the clipboard spy so the caller
  *  can inspect what was copied. */
 function advanceToStep5({
@@ -170,11 +169,8 @@ function advanceToStep5({
   renderWizard();
 
   fireEvent.click(projectButton(project));
-  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   fireEvent.click(screen.getByRole("button", { name: frontend }));
-  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   fireEvent.click(screen.getByRole("button", { name: backend }));
-  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   if (feature) fireEvent.click(capabilityButton(feature));
   fireEvent.click(
     screen.getByRole("button", { name: feature ? "Continue" : "Skip" }),
@@ -259,236 +255,49 @@ describe("initial render", () => {
   });
 });
 
-// Continue used to carry the real `disabled` attribute until an answer was
-// given. It no longer does — the button is always enabled (see
-// `wizard-stepper-parts.tsx`'s header comment) — so a click with nothing
-// selected must now be caught here instead: it does not advance, shows an
-// inline hint, and moves focus into the option list so a keyboard user
-// lands where the work is. These are the behaviours the old "disables
-// Continue" test protected, expressed the new way.
-describe("step 1: project question", () => {
-  it("does not advance and shows a hint when Continue is clicked with nothing selected", () => {
+describe("single-choice navigation", () => {
+  it("advances on each choice, preserves answers on Back, and waits on features", () => {
     renderWizard();
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
     expect(
-      screen.getByRole("heading", { name: "Do you already have a project?" }),
-    ).not.toBeNull();
-    // The hint must actually reach assistive technology, not just be
-    // visible text — asserted here via the live region it renders in.
-    const hintRow = document.querySelector('[aria-live="polite"]');
-    expect(hintRow?.textContent).toBe("Answer this question first");
-  });
-
-  it("moves focus into the project option list when the click is blocked", () => {
-    renderWizard();
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(document.activeElement).toBe(projectButton("Yes"));
-  });
-
-  it("clears the hint once answered, and the next click advances, with Back returning with the answer intact", () => {
-    renderWizard();
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("Answer this question first")).not.toBeNull();
-
+      screen
+        .getByRole("link", { name: "Back to overview" })
+        .getAttribute("href"),
+    ).toBe("#copilotkit-intro");
     fireEvent.click(projectButton("Yes"));
-    expect(screen.queryByText("Answer this question first")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
       screen.getByRole("heading", { name: "Your frontend" }),
     ).not.toBeNull();
-
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Vue" }));
+    expect(
+      screen.getByRole("heading", { name: "Your agent backend" }),
+    ).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(
-      screen.getByRole("heading", { name: "Do you already have a project?" }),
-    ).not.toBeNull();
-    expect(projectButton("Yes").getAttribute("aria-pressed")).toBe("true");
-  });
-});
-
-// Same shape as step 1's block above, for step 2's own required choice and
-// wording.
-describe("step 2: frontend", () => {
-  it("does not advance and shows a hint when Continue is clicked with nothing selected", () => {
-    renderWizard();
-    fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(
-      screen.getByRole("heading", { name: "Your frontend" }),
-    ).not.toBeNull();
-    const hintRow = document.querySelector('[aria-live="polite"]');
-    expect(hintRow?.textContent).toBe("Choose your frontend first");
-  });
-
-  it("moves focus into the frontend option list when the click is blocked", () => {
-    renderWizard();
-    fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: "React" }),
-    );
-  });
-
-  it("clears the hint once a frontend is picked, and the next click advances", () => {
-    renderWizard();
-    fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("Choose your frontend first")).not.toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "React" }));
-    expect(screen.queryByText("Choose your frontend first")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(
-      screen.getByRole("heading", { name: "Your agent backend" }),
-    ).not.toBeNull();
-  });
-});
-
-// Same shape again, for step 3's agent backend choice.
-describe("step 3: agent backend", () => {
-  it("does not advance and shows a hint when Continue is clicked with nothing selected", () => {
-    renderWizard();
-    fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(
-      screen.getByRole("heading", { name: "Your agent backend" }),
-    ).not.toBeNull();
-    const hintRow = document.querySelector('[aria-live="polite"]');
-    expect(hintRow?.textContent).toBe("Choose your agent backend first");
-  });
-
-  it("moves focus into the backend option list when the click is blocked", () => {
-    renderWizard();
-    fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: "Mastra" }),
-    );
-  });
-
-  it("clears the hint once a backend is picked, and the next click advances", () => {
-    renderWizard();
-    fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("Choose your agent backend first")).not.toBeNull();
-
+      screen.getByRole("button", { name: "Vue" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Vue" }));
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    expect(screen.queryByText("Choose your agent backend first")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(capabilityButton("Chat surface"));
+    fireEvent.click(capabilityButton("Generative UI"));
     expect(
       screen.getByRole("heading", { name: "What you want to build" }),
     ).not.toBeNull();
-  });
-});
-
-describe("Continue is never disabled", () => {
-  // One guard across all five steps, including the three with a required
-  // choice still unmet — there is no `continueDisabled` prop left to drive
-  // the `disabled` attribute, so nothing here should ever set it.
-  it("never renders the primary button with the disabled attribute, on any step", () => {
-    renderWizard();
-
-    expect(
-      (
-        screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement
-      ).hasAttribute("disabled"),
-    ).toBe(false);
-
-    fireEvent.click(projectButton("Yes"));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
-      (
-        screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement
-      ).hasAttribute("disabled"),
-    ).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(
-      (
-        screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement
-      ).hasAttribute("disabled"),
-    ).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(
-      (
-        screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement
-      ).hasAttribute("disabled"),
-    ).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "Copy prompt",
-        }) as HTMLButtonElement
-      ).hasAttribute("disabled"),
-    ).toBe(false);
-  });
-});
-
-// The card has a fixed floor with the footer pinned to its bottom edge, and
-// the hint must not move it. `WizardNav` reserves the hint's row
-// unconditionally (see its own tests), so the way to prove that here is not
-// a pixel measurement — jsdom reports every box as zero-sized, which would
-// make a geometry assertion vacuous — but that the row's DOM node is the
-// same node before and after the hint appears, i.e. it was never
-// conditionally mounted.
-describe("hint row does not move the footer", () => {
-  it("keeps the same hint row node before and after a blocked click shows the hint", () => {
-    renderWizard();
-
-    const hintRowBefore = document.querySelector('[aria-live="polite"]');
-    expect(hintRowBefore).not.toBeNull();
-    expect(hintRowBefore!.textContent).toBe("");
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    const hintRowAfter = document.querySelector('[aria-live="polite"]');
-    expect(hintRowAfter).toBe(hintRowBefore);
-    expect(hintRowAfter!.textContent).toBe("Answer this question first");
+      screen.getByRole("heading", { name: "Ready to set up" }),
+    ).not.toBeNull();
   });
 });
 
 describe("navigation", () => {
-  it("Continue advances to the agent backend step, and Back returns with the frontend kept", () => {
+  it("Choosing a frontend advances to the agent backend step, and Back returns with the frontend kept", () => {
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
       screen.getByRole("heading", { name: "Your agent backend" }),
@@ -509,11 +318,8 @@ describe("navigation", () => {
   it("reads Skip with nothing selected and Continue once a feature is toggled, and both advance", () => {
     renderWizard();
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
       screen.getByRole("heading", { name: "What you want to build" }),
@@ -535,11 +341,8 @@ describe("navigation", () => {
   it("Skip also advances, with no features selected", () => {
     renderWizard();
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip" }));
 
     expect(
@@ -553,11 +356,8 @@ describe("changing an earlier answer", () => {
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(capabilityButton("Chat surface"));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -572,9 +372,7 @@ describe("changing an earlier answer", () => {
       screen.getByRole("heading", { name: "Your frontend" }),
     ).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Vue" }));
-    expect(
-      screen.getByRole("button", { name: "Vue" }).getAttribute("aria-pressed"),
-    ).toBe("true");
+    expect(window.location.search).toContain("frontend=vue");
 
     // The later answers must have survived the earlier change — assert
     // both explicitly by visiting their steps again.
@@ -596,9 +394,7 @@ describe("progress rail", () => {
   it("jumps back to a reached step, and disables buttons for steps beyond furthest", () => {
     renderWizard();
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     const promptRailButton = screen.getByRole("button", {
       name: /Prompt/,
@@ -619,9 +415,7 @@ describe("progress rail", () => {
   it("refuses to jump past furthest even when asked to directly", () => {
     renderWizard();
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // furthest = 3, current = 3
 
     expect(capturedOnJump).not.toBeNull();
     // Call the wizard's own `onJump` handler directly with a step past
@@ -652,7 +446,7 @@ describe("step 5: copy your prompt", () => {
 
     expect(screen.getByRole("button", { name: "Copy prompt" })).not.toBeNull();
     const guideLink = screen.getByRole("link", { name: "Set up manually" });
-    expect(guideLink.getAttribute("href")).toBe("/quickstart");
+    expect(guideLink.getAttribute("href")).toBe("/mastra/quickstart");
     expect(screen.queryByText(/--coding-agent/)).toBeNull();
     expect(screen.queryByRole("button", { name: /reset/i })).toBeNull();
   });
@@ -697,11 +491,8 @@ describe("step 5: copy your prompt", () => {
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip" }));
     fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
 
@@ -753,11 +544,11 @@ describe("step 5: copy your prompt", () => {
   // `wizard-stepper-parts.tsx`'s `secondaryAction` handling) — asserting
   // they share a parent, and that Back does not share it, is what would
   // catch a regression back to all three being independently spaced.
-  it("shows a Set up manually action pointing at /quickstart, grouped with Copy prompt and not with Back", () => {
+  it("shows a Set up manually action pointing at the selected backend quickstart, grouped with Copy prompt and not with Back", () => {
     advanceToStep5({ frontend: "React", backend: "Mastra" });
 
     const guideLink = screen.getByRole("link", { name: "Set up manually" });
-    expect(guideLink.getAttribute("href")).toBe("/quickstart");
+    expect(guideLink.getAttribute("href")).toBe("/mastra/quickstart");
 
     const copyButton = screen.getByRole("button", { name: "Copy prompt" });
     const backButton = screen.getByRole("button", { name: "Back" });
@@ -778,11 +569,8 @@ describe("step 5: copy your prompt", () => {
       renderWizard();
 
       fireEvent.click(projectButton("Yes"));
-      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
       fireEvent.click(screen.getByRole("button", { name: "React" }));
-      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
       fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
       fireEvent.click(screen.getByRole("button", { name: "Skip" }));
 
       fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
@@ -814,11 +602,8 @@ describe("step 5: copy your prompt", () => {
       renderWizard();
 
       fireEvent.click(projectButton("Yes"));
-      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
       fireEvent.click(screen.getByRole("button", { name: "React" }));
-      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
       fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
       fireEvent.click(screen.getByRole("button", { name: "Skip" }));
 
       const idleMinWidth = screen
@@ -873,11 +658,8 @@ describe("step 5: review list", () => {
     expect(projectButton("No")).not.toBeNull();
 
     fireEvent.click(projectButton("No"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip" }));
 
     expect(screen.getByText("New")).not.toBeNull();
@@ -1032,12 +814,10 @@ describe("PickGrid size per step", () => {
     );
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(screen.getByText("The frontend summary line.")).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /^SummaryFrontend/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
       screen.getByRole("heading", { name: "Your agent backend" }),
@@ -1163,7 +943,6 @@ describe("URL state", () => {
     const pushSpy = vi.spyOn(window.history, "pushState");
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
 
     expect(replaceSpy).toHaveBeenCalled();
@@ -1237,14 +1016,12 @@ describe("focus management", () => {
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(document.activeElement).toBe(
       screen.getByRole("heading", { name: "Your frontend" }),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(document.activeElement).toBe(
       screen.getByRole("heading", { name: "Your agent backend" }),
@@ -1271,9 +1048,7 @@ describe("heading focus ring depends on activation modality", () => {
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }), {
+    fireEvent.click(screen.getByRole("button", { name: "React" }), {
       detail: 1,
     });
 
@@ -1288,11 +1063,8 @@ describe("heading focus ring depends on activation modality", () => {
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    // No `detail` override: fireEvent.click's default of 0 is the keyboard
-    // branch (see the header comment above).
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    // The choice click's default detail of 0 models keyboard activation.
 
     const heading = screen.getByRole("heading", {
       name: "Your agent backend",
@@ -1315,9 +1087,7 @@ describe("stale handlers act on the live step, not the step captured when they w
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 2
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 3
 
     // Snapshot Back's handler while `current` is still 3, before advancing
     // any further.
@@ -1325,7 +1095,6 @@ describe("stale handlers act on the live step, not the step captured when they w
     expect(staleOnBack).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 4
 
     // A handler reading `current` from its own closure (captured at 3)
     // would compute 3 - 1 = 2 and land on step 2. Reading the live
@@ -1343,16 +1112,13 @@ describe("stale handlers act on the live step, not the step captured when they w
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 2, furthest = 2
 
     // Snapshot the rail's jump handler while `furthest` is still 2.
     const staleOnJump = capturedOnJump;
     expect(staleOnJump).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 3, furthest = 3
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // current = 4, furthest = 4
     fireEvent.click(screen.getByRole("button", { name: "Skip" })); // current = 5, furthest = 5
 
     // A handler reading `furthest` from its own closure (captured at 2)
@@ -1392,7 +1158,6 @@ describe("step transition cleanup", () => {
     const { container } = renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(wrapperEl(container).querySelectorAll("section")).toHaveLength(1);
     expect(screen.getAllByRole("heading")).toHaveLength(1);
@@ -1402,9 +1167,7 @@ describe("step transition cleanup", () => {
     const { container } = renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // transition 1: forward, step 1 -> 2
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // transition 2: forward, step 2 -> 3
     fireEvent.click(screen.getByRole("button", { name: "Back" })); // transition 3: back, step 3 -> 2
 
     expect(wrapperEl(container).querySelectorAll("section")).toHaveLength(1);
@@ -1424,7 +1187,6 @@ describe("step transition cleanup", () => {
     const { container } = renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     const wrapper = wrapperEl(container);
     Array.from(wrapper.children).forEach((child) => {
@@ -1437,7 +1199,6 @@ describe("step transition cleanup", () => {
     const { container } = renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(wrapperEl(container).style.height).toBe("");
   });
@@ -1466,7 +1227,6 @@ describe("step transition cleanup", () => {
     renderWizard();
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(animateSpy.mock.calls.length).toBeGreaterThan(1);
     animateSpy.mock.calls.forEach(([, options]) => {
@@ -1515,18 +1275,53 @@ describe("no em-dashes in step copy", () => {
     assertNoEmDash(); // step 1: project question
 
     fireEvent.click(projectButton("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     assertNoEmDash(); // step 2: frontend
 
     fireEvent.click(screen.getByRole("button", { name: "React" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     assertNoEmDash(); // step 3: agent backend
 
     fireEvent.click(screen.getByRole("button", { name: "Mastra" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     assertNoEmDash(); // step 4: features
 
     fireEvent.click(screen.getByRole("button", { name: "Skip" }));
     assertNoEmDash(); // step 5: review
+  });
+});
+
+describe("manual setup routing", () => {
+  it.each([
+    ["react", "deepagents", "/deepagents/quickstart"],
+    ["react", "built-in-agent", "/quickstart"],
+    ["vue", "langgraph-python", "/vue/langgraph-python"],
+  ])("routes %s with %s to %s", (frontend, backend, destination) => {
+    window.history.replaceState(
+      {},
+      "",
+      `/?project=yes&frontend=${frontend}&backend=${backend}&features=chat`,
+    );
+    render(
+      <SetupWizard
+        frontends={FRONTENDS}
+        capabilities={CAPABILITIES}
+        backends={[
+          ...BACKENDS,
+          {
+            id: "deepagents",
+            name: "Deep Agents",
+            logo: { kind: "framework", slug: "deepagents" },
+          },
+          {
+            id: "built-in-agent",
+            name: "Built-in Agent",
+            logo: { kind: "framework", slug: "built-in-agent" },
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen
+        .getByRole("link", { name: "Set up manually" })
+        .getAttribute("href"),
+    ).toBe(destination);
   });
 });

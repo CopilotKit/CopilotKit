@@ -22,19 +22,8 @@
 // `currentRef`/`furthestRef` rather than closing over the state values —
 // see the comment on those refs for why.
 //
-// Steps 1, 2 and 3 each have a required choice, and Continue is never
-// disabled — `WizardNav`'s primary button always takes the click. When the
-// required choice is still missing, `handleContinueProject`/
-// `handleContinueFrontend`/`handleContinueBackend` below catch the click
-// instead of calling `goTo`: they set `hint` to a short instruction
-// (`WizardNav` renders it in a reserved, always-present row so it cannot
-// move the footer) and move focus into that step's option list via
-// `projectOptionsRef`/`frontendOptionsRef`/`backendOptionsRef`, so a
-// keyboard user lands where the work is instead of stuck on a button that
-// just did nothing. `hint` clears the moment the choice is made (the
-// `ChoiceGrid`/`PickGrid` `onSelect` handlers below clear it directly) and
-// on every navigation (`goTo` clears it too), so it never lingers once it
-// is no longer true and never reappears on a plain step change.
+// Single-choice steps advance on selection. Features remain multi-select,
+// with an explicit Continue/Skip action. Back preserves every answer.
 //
 // Changing an earlier answer must never clear a later one: going back to
 // step 2 and picking a different frontend leaves the backend and the
@@ -57,6 +46,7 @@ import Link from "next/link";
 import { Copy } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CapabilityGrid, PickGrid } from "@/components/docs-map-parts";
+import { frontendPathForBackend, isFrontendId } from "@/lib/frontend-options";
 import { WizardReview } from "@/components/wizard-review";
 import type { MapCapability, MapPick } from "@/lib/homepage-map";
 import {
@@ -190,16 +180,6 @@ function furthestFromAnswers(
   return furthest;
 }
 
-/** Moves focus to the first option button inside a step's `PickGrid`, given
- *  the ref that step's body attaches to its wrapping `<div>` — the target
- *  for a Continue click blocked by a missing required choice, so a keyboard
- *  user lands where the work is instead of on a button that just did
- *  nothing. Module-level rather than a closure inside `SetupWizard`: it
- *  captures nothing from that component's scope. */
-function focusFirstOption(ref: React.RefObject<HTMLDivElement | null>): void {
-  ref.current?.querySelector<HTMLButtonElement>("button")?.focus();
-}
-
 /**
  * What `goTo` records before handing control back to React: the direction
  * of travel and the wrapper's height right before the swap, so the layout
@@ -273,20 +253,6 @@ export function SetupWizard({
    *  `goTo`, so the heading is never focused then regardless (see
    *  `pendingTransitionRef` below). */
   const [showHeadingFocusRing, setShowHeadingFocusRing] = React.useState(true);
-
-  /** The instruction shown beneath Continue when it was clicked with the
-   *  current step's required choice still missing — see the header comment
-   *  above. `null` the rest of the time, including on every step that has
-   *  no required choice. */
-  const [hint, setHint] = React.useState<string | null>(null);
-  /** Wraps the project, frontend and backend steps' option list (a
-   *  `ChoiceGrid` or a `PickGrid`) so a blocked Continue click can move
-   *  focus to the first option — see `focusFirstOption` below. Only one is
-   *  ever mounted at a time, since the wizard renders one step's body at a
-   *  time. */
-  const projectOptionsRef = React.useRef<HTMLDivElement | null>(null);
-  const frontendOptionsRef = React.useRef<HTMLDivElement | null>(null);
-  const backendOptionsRef = React.useRef<HTMLDivElement | null>(null);
 
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -432,10 +398,8 @@ export function SetupWizard({
   /** The only place `current`/`furthest` ever change once mounted. Always
    *  records a pending transition first — measuring the wrapper's height
    *  synchronously, before React swaps its children — so the layout effect
-   *  above has a `fromHeight` to tween from once the new card lands. Also
-   *  clears `hint`: every navigation, including a jump back to the very
-   *  step that showed it, lands on a freshly-unblocked view rather than a
-   *  stale instruction.
+   *  above has a `fromHeight` to tween from once the new card lands.
+   *  Selected answers are preserved when moving backward.
    *
    *  `pointerActivated` is `event.detail > 0` on the click that asked for
    *  this navigation — see `WizardNav`/`WizardProgress`'s doc comments. It
@@ -454,45 +418,9 @@ export function SetupWizard({
       direction,
       fromHeight: wrapper ? wrapper.getBoundingClientRect().height : 0,
     };
-    setHint(null);
     setCurrent(step);
     setFurthest((prev) => Math.max(prev, step));
     setShowHeadingFocusRing(!pointerActivated);
-  }
-
-  /** Step 1's Continue: advances only once the project question is
-   *  answered. Otherwise shows the hint and moves focus into the option
-   *  list instead of advancing. */
-  function handleContinueProject(pointerActivated: boolean) {
-    if (projectAnswer === null) {
-      setHint("Answer this question first");
-      focusFirstOption(projectOptionsRef);
-      return;
-    }
-    goTo(2, "forward", pointerActivated);
-  }
-
-  /** Step 2's Continue: advances only once a frontend is picked. Otherwise
-   *  shows the hint and moves focus into the frontend list instead of
-   *  advancing. */
-  function handleContinueFrontend(pointerActivated: boolean) {
-    if (frontendId === null) {
-      setHint("Choose your frontend first");
-      focusFirstOption(frontendOptionsRef);
-      return;
-    }
-    goTo(3, "forward", pointerActivated);
-  }
-
-  /** Step 3's Continue: same shape as `handleContinueFrontend`, for the
-   *  agent backend choice. */
-  function handleContinueBackend(pointerActivated: boolean) {
-    if (backendId === null) {
-      setHint("Choose your agent backend first");
-      focusFirstOption(backendOptionsRef);
-      return;
-    }
-    goTo(4, "forward", pointerActivated);
   }
 
   /** Guards the progress rail against ever landing past `furthest` —
@@ -598,6 +526,16 @@ export function SetupWizard({
 
   const selectedFeatureIds = React.useMemo(() => [...featureIds], [featureIds]);
 
+  const frontend =
+    frontendId && isFrontendId(frontendId) ? frontendId : "react";
+  const backend = backendId === "built-in-agent" ? null : backendId;
+  const manualSetupHref =
+    frontend === "react"
+      ? backend
+        ? `/${backend}/quickstart`
+        : "/quickstart"
+      : frontendPathForBackend(frontend, "quickstart", backend);
+
   let stepName: string;
   let stepDescription: string;
   let body: React.ReactNode;
@@ -606,78 +544,66 @@ export function SetupWizard({
   if (current === 1) {
     stepName = "Do you already have a project?";
     stepDescription =
-      "This decides whether the prompt below tells your coding agent to add CopilotKit to it or to start fresh.";
+      "Choose an option to continue. We will tailor the setup to your starting point.";
     body = (
-      <div ref={projectOptionsRef}>
+      <div>
         <ChoiceGrid
           options={PROJECT_OPTIONS}
           selectedId={projectAnswer ?? undefined}
           disabled={false}
-          onSelect={(id) => {
+          onSelect={(id, pointerActivated) => {
             setProjectAnswer(id);
-            setHint(null);
+            goTo(2, "forward", pointerActivated);
           }}
         />
       </div>
     );
     footer = (
-      <WizardNav
-        onContinue={handleContinueProject}
-        continueLabel="Continue"
-        hint={hint ?? undefined}
-      />
+      <div className="flex justify-start">
+        <a
+          href="#copilotkit-intro"
+          className={`${QUIET_BUTTON_CLASS} max-w-fit`}
+        >
+          Back to overview
+        </a>
+      </div>
     );
   } else if (current === 2) {
     stepName = "Your frontend";
-    stepDescription =
-      "CopilotKit ships the same primitives for every one of these.";
+    stepDescription = "Choose the frontend your app uses to continue.";
     body = (
-      <div ref={frontendOptionsRef}>
+      <div>
         <PickGrid
           picks={frontends}
           selectedId={frontendId ?? undefined}
           disabled={false}
-          onSelect={(id) => {
+          onSelect={(id, pointerActivated) => {
             setFrontendId(id);
-            setHint(null);
+            goTo(3, "forward", pointerActivated);
           }}
           size="card"
         />
       </div>
     );
-    footer = (
-      <WizardNav
-        onBack={handleBack}
-        onContinue={handleContinueFrontend}
-        continueLabel="Continue"
-        hint={hint ?? undefined}
-      />
-    );
+    footer = <WizardNav onBack={handleBack} />;
   } else if (current === 3) {
     stepName = "Your agent backend";
     stepDescription =
-      "Any framework that speaks AG-UI, or CopilotKit's own built-in agent.";
+      "Choose your agent framework to continue, or start with CopilotKit's built-in agent.";
     body = (
-      <div ref={backendOptionsRef}>
+      <div>
         <PickGrid
           picks={backends}
           selectedId={backendId ?? undefined}
           disabled={false}
-          onSelect={(id) => {
+          onSelect={(id, pointerActivated) => {
             setBackendId(id);
-            setHint(null);
+            goTo(4, "forward", pointerActivated);
           }}
         />
       </div>
     );
-    footer = (
-      <WizardNav
-        onBack={handleBack}
-        onContinue={handleContinueBackend}
-        continueLabel="Continue"
-        hint={hint ?? undefined}
-      />
-    );
+    footer = <WizardNav onBack={handleBack} />;
   } else if (current === 4) {
     stepName = "What you want to build";
     stepDescription =
@@ -743,7 +669,7 @@ export function SetupWizard({
         continueLabel={COPY_LABEL[copyState]}
         continueIcon={<Copy aria-hidden="true" className="h-4 w-4" />}
         secondaryAction={
-          <Link href="/quickstart" className={QUIET_BUTTON_CLASS}>
+          <Link href={manualSetupHref} className={QUIET_BUTTON_CLASS}>
             Set up manually
           </Link>
         }

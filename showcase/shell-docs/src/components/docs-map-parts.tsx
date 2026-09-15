@@ -223,7 +223,7 @@ export function PickGrid({
   picks: readonly MapPick[];
   selectedId?: string;
   disabled: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, pointerActivated: boolean) => void;
   size?: PickGridSize;
 }): React.JSX.Element {
   return (
@@ -236,7 +236,7 @@ export function PickGrid({
             type="button"
             disabled={disabled}
             aria-pressed={selected}
-            onClick={() => onSelect(pick.id)}
+            onClick={(event) => onSelect(pick.id, event.detail > 0)}
             className={pickButtonClass(size, selected)}
           >
             {size === "card" ? (

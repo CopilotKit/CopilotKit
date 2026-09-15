@@ -394,7 +394,7 @@ export function ChoiceGrid({
   options: readonly ChoiceOption[];
   selectedId?: string;
   disabled: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, pointerActivated: boolean) => void;
 }): React.JSX.Element {
   return (
     <div className="grid grid-cols-1 justify-center gap-2.5 sm:grid-cols-[repeat(2,minmax(0,13rem))]">
@@ -407,7 +407,7 @@ export function ChoiceGrid({
             type="button"
             disabled={disabled}
             aria-pressed={selected}
-            onClick={() => onSelect(option.id)}
+            onClick={(event) => onSelect(option.id, event.detail > 0)}
             className={`shell-docs-radius-control block w-full cursor-pointer border p-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               selected
                 ? "border-[var(--accent)] bg-[var(--accent-dim)]"
@@ -514,7 +514,7 @@ export function WizardNav({
         <button
           type="button"
           onClick={(event) => onBack(event.detail > 0)}
-          className={`order-3 sm:order-1 ${QUIET_BUTTON_CLASS}`}
+          className={`order-3 sm:order-1 ${QUIET_BUTTON_CLASS} max-w-fit self-start`}
         >
           Back
         </button>

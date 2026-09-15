@@ -228,7 +228,7 @@ describe("PickGrid", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "React" }));
 
-    expect(onSelect).toHaveBeenCalledExactlyOnceWith("react");
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith("react", false);
   });
 
   it("does not call onSelect when the grid is disabled", () => {

@@ -365,7 +365,7 @@ describe("ChoiceGrid", () => {
     const yes = screen.getByRole("button", { name: /^Yes/ });
     expect(yes.className).toMatch(/\bcursor-pointer\b/);
     fireEvent.click(yes);
-    expect(onSelect).toHaveBeenCalledWith("yes");
+    expect(onSelect).toHaveBeenCalledWith("yes", false);
   });
 
   // This only asserts an icon renders and is hidden from assistive
