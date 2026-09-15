@@ -2,7 +2,7 @@
   "hetero-starter-mixed-soft-hard": {
     "supported": true,
     "achievedDepth": 0,
-    "ceilingDepth": 0,
+    "ceilingDepth": 3,
     "chipColor": "red",
     "d6Effective": null,
     "isRegression": false,
@@ -29,8 +29,8 @@
   },
   "starter-all-green": {
     "supported": true,
-    "achievedDepth": 0,
-    "ceilingDepth": 0,
+    "achievedDepth": 3,
+    "ceilingDepth": 3,
     "chipColor": "green",
     "d6Effective": null,
     "isRegression": false,
@@ -58,7 +58,7 @@
   "starter-all-stale": {
     "supported": true,
     "achievedDepth": 0,
-    "ceilingDepth": 0,
+    "ceilingDepth": 3,
     "chipColor": "gray",
     "d6Effective": null,
     "isRegression": false,
@@ -86,7 +86,7 @@
   "starter-empty": {
     "supported": true,
     "achievedDepth": 0,
-    "ceilingDepth": 0,
+    "ceilingDepth": 3,
     "chipColor": "gray",
     "d6Effective": null,
     "isRegression": false,
@@ -114,10 +114,10 @@
   "starter-hard-red": {
     "supported": true,
     "achievedDepth": 0,
-    "ceilingDepth": 0,
+    "ceilingDepth": 3,
     "chipColor": "red",
     "d6Effective": null,
-    "isRegression": false,
+    "isRegression": true,
     "isStaleCell": false,
     "observedAtAgeMs": 60000,
     "surfaceState": "red",
@@ -142,7 +142,7 @@
   "starter-one-missing": {
     "supported": true,
     "achievedDepth": 0,
-    "ceilingDepth": 0,
+    "ceilingDepth": 3,
     "chipColor": "gray",
     "d6Effective": null,
     "isRegression": false,
@@ -170,7 +170,7 @@
   "starter-soft-red-fc1": {
     "supported": true,
     "achievedDepth": 0,
-    "ceilingDepth": 0,
+    "ceilingDepth": 3,
     "chipColor": "amber",
     "d6Effective": null,
     "isRegression": false,
@@ -198,10 +198,10 @@
   "starter-soft-red-fc2": {
     "supported": true,
     "achievedDepth": 0,
-    "ceilingDepth": 0,
+    "ceilingDepth": 3,
     "chipColor": "red",
     "d6Effective": null,
-    "isRegression": false,
+    "isRegression": true,
     "isStaleCell": false,
     "observedAtAgeMs": 60000,
     "surfaceState": "red",

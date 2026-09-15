@@ -42,7 +42,7 @@ import {
   keyFor,
   mergeRowsToMap,
   CATALOG_TO_D5_KEY,
-  STARTER_LEVELS,
+  STARTER_ROW_LEVELS,
 } from "./live-status.js";
 import type { CellModelInput } from "./cell-model.js";
 import { E2E_STALE_AFTER_MS, FUTURE_SKEW_TOLERANCE_MS } from "./staleness.js";
@@ -562,11 +562,17 @@ function starterInput(): CellModelInput {
     probeAxis: "starter",
   };
 }
+/**
+ * Build the starter LADDER rows, S1 -> S3, in depth order. Keyed on
+ * `STARTER_ROW_LEVELS` (`shell`/`runtime`/`agentrun`) — every name disjoint
+ * from the four legacy levels these fixtures used to carry, so index 0 is now
+ * S1 (the shallowest rung) rather than the deleted `health`.
+ */
 function starterRows(
   build: (level: string, i: number) => StatusRow | null,
 ): StatusRow[] {
   const out: StatusRow[] = [];
-  STARTER_LEVELS.forEach((level, i) => {
+  STARTER_ROW_LEVELS.forEach((level, i) => {
     const r = build(level, i);
     if (r) out.push(r);
   });
@@ -633,8 +639,12 @@ function starterSweep(): Fixture[] {
     // SOFT_MISS_TOLERANCE_THRESHOLD = 2, so the fail-count leg of the
     // first-strike rule is satisfied and the SOFT-CLASS leg is the only thing
     // deciding the verdict. With EVERY the family is not all-soft → no
-    // de-amplification → red. With ANY the soft `health` miss alone would re-arm
-    // tolerance for the hard `agent` content regression → amber.
+    // de-amplification → red. With ANY the soft S1 miss alone would re-arm
+    // tolerance for the hard S2 content regression → amber.
+    //
+    // Post-ladder this ALSO exercises the fold across two DIFFERENT rungs
+    // rather than within one aggregate family: S1 stops the walk at achieved 0
+    // and S2's hard red is what the chip scan reads.
     mk(
       "hetero-starter-mixed-soft-hard",
       starterRows((l, i) => {

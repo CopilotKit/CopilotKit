@@ -331,17 +331,12 @@ describe("buildCellModel — starter axis (probeAxis: 'starter')", () => {
   });
 
   it("derives GRAY with isStaleCell when ALL contributing rows are stale", () => {
-    // Every level present and green but ALL past the matrix window → the U8
+    // Every rung present and green but ALL past the matrix window → the U8
     // matrix-staleness fold collapses any colour to gray and flags the cell
     // stale ("re-sweep pending"). starterMap applies the one stale timestamp to
-    // all four rows.
+    // all three rungs.
     const live = starterMap(
-      {
-        health: "green",
-        agent: "green",
-        chat: "green",
-        interaction: "green",
-      },
+      { shell: "green", runtime: "green", agentrun: "green" },
       STALE_OBSERVED,
     );
     const model = buildCellModel(live, STARTER_CELL, NOW);
