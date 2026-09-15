@@ -5,8 +5,8 @@
  *
  * The pre-change (RED) values for these §7 scenarios were gated during the swap
  * by a since-retired diff-allowlist; the golden master
- * (`cell-model.equivalence-baseline.json`) is now re-frozen to the unified
- * engine's (GREEN) output. This file pins that GREEN behavior directly on the
+ * (`cell-model.equivalence-baseline.{non-starter,starter}.json`) is now
+ * re-frozen to the unified engine's (GREEN) output. This file pins that GREEN behavior directly on the
  * live engine; it also covers the NEW null-feature path (T4).
  */
 import { describe, it, expect } from "vitest";

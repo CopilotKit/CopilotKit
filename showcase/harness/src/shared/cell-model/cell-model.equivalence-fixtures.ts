@@ -22,10 +22,16 @@
  * here. When adding a variant, prefer one that makes two rows of a family
  * DIFFER over one that restates a uniform shape.
  *
- * NOTE: the `feature === null` liveness-only path is NOT in this matrix. The
- * unified `buildCellModel` supports it, but a `keyFor`-derived fixture cannot
- * represent a null `featureId`; that path is proven exclusively in
- * `cell-model-v2.test.ts`.
+ * NOTE: the `feature === null` liveness-only path IS in this matrix, as of the
+ * starter-ladder partition (`livenessOnlySweep`). It used to be excluded on the
+ * premise that "a `keyFor`-derived fixture cannot represent a null
+ * `featureId`" — which was false: a fixture carries an explicit
+ * `CellModelInput`, and the D1/D2 (`health:`/`agent:`) row keys take no feature
+ * segment, so the path is directly constructible here. The exclusion mattered:
+ * the null-feature path is exactly what `LIVENESS_AXIS` re-expresses in
+ * `cell-model.combine.ts`, so four of the six generalized kind-literal sites
+ * had ZERO golden-master coverage. The four `liveness-only-*` fixtures close
+ * that. `cell-model-v2.test.ts` §T4 still proves the same path end-to-end.
  *
  * `cell-model.equivalence.test.ts` runs the unified `buildCellModel` over these
  * fixtures and asserts byte-identity with `cell-model.equivalence-baseline.json`
@@ -91,6 +97,15 @@ const F_UNMAPPED = "no-such-d5-feature";
 
 function wired(featureId: string): CellModelInput {
   return { slug: SLUG, featureId, isSupported: true, isWired: true };
+}
+
+/**
+ * A NULL-FEATURE (liveness-only) cell input: ladder is D1/D2, ceiling 2. This
+ * is the `cell-model.ts` `:871` call site — the one that becomes `LIVENESS_AXIS`
+ * — and it had no golden-master coverage before the starter-ladder change.
+ */
+function livenessOnly(): CellModelInput {
+  return { slug: SLUG, featureId: null, isSupported: true, isWired: true };
 }
 
 /** All rows needed to make a feature FULLY GREEN through the D3→D6 ladder. */
@@ -505,6 +520,37 @@ function multiKeyD5Sweep(): Fixture[] {
   ];
 }
 
+/**
+ * NULL-FEATURE (liveness-only) sweep — the `LIVENESS_AXIS` golden master.
+ *
+ * Four entries, one per behaviour the generalized `combine` must preserve on
+ * this axis: the all-green ceiling (`ceilingIsComplete`), the gate-gap break in
+ * BOTH positions (`gateGapBreaks`, which none of the 17 `combine` unit cases
+ * covers), and the §F present-fresh-red gate (`gateKinds`).
+ */
+function livenessOnlySweep(): Fixture[] {
+  const mk = (name: string, rows: StatusRow[]): Fixture => ({
+    name,
+    input: livenessOnly(),
+    live: mergeRowsToMap(rows),
+  });
+  const health = keyFor("health", SLUG);
+  const agent = keyFor("agent", SLUG);
+  return [
+    // Green D1 + green D2 → the complete liveness ceiling.
+    mk("liveness-only-green-d1-d2", [
+      row(health, "green"),
+      row(agent, "green"),
+    ]),
+    // ABSENT D1 over green D2 → the gap break: gray chip, achieved 0.
+    mk("liveness-only-absent-d1-green-d2", [row(agent, "green")]),
+    // Green D1 over ABSENT D2 → the gap break in the upper position.
+    mk("liveness-only-green-d1-absent-d2", [row(health, "green")]),
+    // Present fresh-red D1 → the §F gate: red, achieved 0.
+    mk("liveness-only-fresh-red-d1", [row(health, "red"), row(agent, "green")]),
+  ];
+}
+
 // ── Starter axis ───────────────────────────────────────────────────────────
 const STARTER_COL = "langgraph-python";
 function starterInput(): CellModelInput {
@@ -622,6 +668,7 @@ export const FIXTURES: Fixture[] = [
   ...d6SoftParitySweep(),
   ...unmappedD5Sweep(),
   ...multiKeyD5Sweep(),
+  ...livenessOnlySweep(),
   ...starterSweep(),
 ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
