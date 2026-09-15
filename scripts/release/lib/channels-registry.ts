@@ -85,7 +85,10 @@ export async function loadPublishedChannelsManifest(
 
       return manifest;
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("registry has not served the tarball")) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith("registry has not served the tarball")
+      ) {
         throw error;
       }
       if (!isRegistryMissing(error)) throw error;
