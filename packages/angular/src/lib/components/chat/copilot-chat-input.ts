@@ -3,7 +3,6 @@ import {
   TemplateRef,
   signal,
   computed,
-  effect,
   ChangeDetectionStrategy,
   OnDestroy,
   Type,
@@ -12,7 +11,6 @@ import {
   input,
   output,
   viewChild,
-  untracked,
   afterNextRender,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
@@ -35,6 +33,7 @@ import type {
 } from "./copilot-chat-input.types";
 import { cn } from "../../utils";
 import { injectChatState } from "../../chat-state";
+import { explicitEffect } from "../../explicit-effect";
 
 /**
  * Context provided to slot templates
@@ -493,11 +492,13 @@ export class CopilotChatInput implements OnDestroy {
   }));
 
   constructor() {
-    effect(() => {
-      const recorder = this.audioRecorderRef();
-      const mode = this.computedMode();
-      if (!recorder) return;
-      untracked(() => {
+    explicitEffect(
+      () => ({
+        recorder: this.audioRecorderRef(),
+        mode: this.computedMode(),
+      }),
+      ({ recorder, mode }) => {
+        if (!recorder) return;
         if (mode === "transcribe") {
           if (recorder.getState() === "idle") {
             recorder.start().catch((error) => console.error(error));
@@ -505,8 +506,8 @@ export class CopilotChatInput implements OnDestroy {
         } else if (recorder.getState() === "recording") {
           recorder.stop().catch((error) => console.error(error));
         }
-      });
-    });
+      },
+    );
 
     afterNextRender(() => {
       if (this.computedAutoFocus()) {

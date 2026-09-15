@@ -1,7 +1,8 @@
-import { effect, untracked, type Signal } from "@angular/core";
+import type { Signal } from "@angular/core";
 import { HttpAgent, type AbstractAgent } from "@ag-ui/client";
 import type { AgentStore } from "./agent";
 import type { CopilotChatConfiguration } from "./chat-configuration";
+import { explicitEffect } from "./explicit-effect";
 
 /**
  * Signature of `CopilotKitCore.connectAgent`, injected for testability.
@@ -61,9 +62,9 @@ export interface ConnectActiveThreadCursorHooks {
  *   initial mount nor on an agent-store swap that leaves the thread id unchanged
  *   (which would otherwise wipe a resumed/shared agent's existing history).
  *
- * Tracked reads happen in the effect's reactive scope; all mutation and the
- * connect call run inside `untracked()` so they do not register as
- * dependencies (mirrors the effect/untracked idiom in `threads.ts`).
+ * The tracked reads are exactly the `explicitEffect` dependency function; all
+ * mutation and the connect call run in its untracked body, so they do not
+ * register as dependencies.
  *
  * @param config - The chat configuration exposing the resolved thread signals.
  * @param agentStore - Signal yielding the current {@link AgentStore}.
@@ -82,11 +83,13 @@ export function connectActiveThread(
   // unchanged. Clearing only on a real transition prevents wiping a
   // resumed/shared agent's existing message history.
   let lastThreadId: string | undefined;
-  effect((onCleanup) => {
-    const threadId = config.threadId();
-    const explicit = config.hasExplicitThreadId();
-    const store = agentStore();
-    untracked(() => {
+  explicitEffect(
+    () => ({
+      threadId: config.threadId(),
+      explicit: config.hasExplicitThreadId(),
+      store: agentStore(),
+    }),
+    ({ threadId, explicit, store }, onCleanup) => {
       const agent = store.agent;
       agent.threadId = threadId;
       if (explicit) {
@@ -127,6 +130,6 @@ export function connectActiveThread(
         agent.setMessages([]);
       }
       lastThreadId = threadId;
-    });
-  });
+    },
+  );
 }
