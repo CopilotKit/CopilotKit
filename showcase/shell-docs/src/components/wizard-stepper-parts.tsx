@@ -2,7 +2,7 @@
 // and navigation. State and transitions belong to SetupWizard.
 
 import React from "react";
-import { Check, Plus } from "lucide-react";
+import { Folder, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** The mark for each of step 1's two answers ("Do you already have a
@@ -15,19 +15,14 @@ import type { LucideIcon } from "lucide-react";
  *  so a server-rendered consumer of this record would get a function that
  *  throws instead of the record itself.
  *
- *  A checkmark for "yes", a plus for starting a new project. A checkmark already marks a
- *  *selected* feature tile elsewhere in this wizard (`CapabilityGrid` in
- *  `docs-map-parts.tsx`), but there is no collision here: this step is
- *  single choice and renders no selection checkmark of its own (see
- *  `ChoiceGrid`'s header comment below), so the checkmark is free to carry
- *  the "yes" answer's own meaning instead.
+ *  A folder represents an existing project; a plus represents a new one.
  *
  *  Named imports in an explicit record, never `import * as icons` with a
  *  runtime index — see `docs-map-parts.tsx`'s `CAPABILITY_ICONS` comment for
  *  the bundle-size regression that guards against (605 KB minified for a
  *  namespace import indexed at runtime, vs. 6 KB for named imports). */
 export const PROJECT_ANSWER_ICONS: Record<"yes" | "no", LucideIcon> = {
-  yes: Check,
+  yes: Folder,
   no: Plus,
 };
 
@@ -185,13 +180,13 @@ export function WizardCard({
       <h3
         ref={headingRef}
         tabIndex={-1}
-        className={`mt-1 text-xl font-semibold tracking-[-0.02em] text-[var(--text)] outline-none sm:text-[1.375rem] ${
+        className={`mt-1 text-center text-xl font-semibold tracking-[-0.02em] text-[var(--text)] outline-none sm:text-[1.375rem] ${
           showFocusRing ? HEADING_FOCUS_RING_CLASS : ""
         }`}
       >
         {name}
       </h3>
-      <p className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+      <p className="mt-1.5 text-center text-sm leading-relaxed text-[var(--text-secondary)]">
         {description}
       </p>
       <div
@@ -255,8 +250,12 @@ export function ChoiceGrid({
             }`}
           >
             <span className="flex flex-col items-center gap-3">
-              <span className="shell-docs-radius-icon flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--accent)]">
-                <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-[var(--text-secondary)]">
+                <Icon
+                  aria-hidden="true"
+                  className="h-9 w-9"
+                  strokeWidth={1.5}
+                />
               </span>
               <span className="text-sm font-semibold text-[var(--text)]">
                 {option.label}
