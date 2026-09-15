@@ -174,6 +174,39 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         const headers = new Headers(init.headers as HeadersInit);
         expect(headers.get("content-type")).toBe("application/json");
       });
+
+      it("scopes stop to the last started run and widens again after connect", async () => {
+        const agentId = "stop-scope-agent";
+        const agent = new ProxiedCopilotRuntimeAgent({
+          runtimeUrl,
+          agentId,
+          transport,
+        });
+        agent.threadId = "thread-123";
+        const stopBody = (init: RequestInit): unknown => {
+          const body =
+            init.body === undefined
+              ? undefined
+              : JSON.parse(init.body as string);
+          return transport === "rest" ? body : body.body;
+        };
+
+        fetchMock.mockResolvedValueOnce(createSseResponse());
+        await agent.runAgent({ runId: "run-1" });
+        fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+        agent.abortRun();
+        expect(stopBody(fetchMock.mock.calls[1]![1] as RequestInit)).toEqual({
+          runId: "run-1",
+        });
+
+        fetchMock.mockResolvedValueOnce(createSseResponse());
+        await agent.connectAgent({});
+        fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+        agent.abortRun();
+        expect(
+          stopBody(fetchMock.mock.calls[3]![1] as RequestInit),
+        ).toBeUndefined();
+      });
     });
   });
 

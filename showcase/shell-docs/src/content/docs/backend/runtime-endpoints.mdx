@@ -117,7 +117,7 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
 | `GET /api/copilotkit/inspector-metadata`             | Optional trusted project, plan, license, action, usage, and expiry context for the Inspector. Intelligence-backed runtimes advertise this route with `inspectorMetadata: true` in the runtime-info response. |
 | `POST /api/copilotkit/agent/:agentId/run`            | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events.                                                                                             |
 | `POST /api/copilotkit/agent/:agentId/connect`        | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream.                                                                                                |
-| `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop an in-progress run on a given thread.                                                                                                                                                                   |
+| `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop the in-progress runs on a given thread. An optional JSON body `{ "runId": "..." }` stops only that run.                                                                                                |
 | `POST /api/copilotkit/transcribe`                    | Transcribe audio (used by the voice / transcription input).                                                                                                                                                  |
 
 `:agentId` is the key under which you registered the agent in

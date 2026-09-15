@@ -58,7 +58,7 @@ test("Intelligence stop rejects invalid identity before accessing or stopping a 
 test.each([403, 404, 502])(
   "Intelligence stop preserves ownership lookup rejection %s without stopping",
   async (status) => {
-    const { getThread, stop, invoke } = setup({ userId: "bob" });
+    const { getThread, stop, invoke } = setup();
     getThread.mockRejectedValue(
       new PlatformRequestError("upstream-secret", status),
     );
@@ -76,11 +76,7 @@ test.each([403, 404, 502])(
 );
 
 test("Intelligence stop uses the authorized canonical thread and requested run", async () => {
-  const { getThread, stop, invoke } = setup({
-    runId: "run-current",
-    threadId: "spoof",
-    userId: "bob",
-  });
+  const { getThread, stop, invoke } = setup({ runId: "run-current" });
   getThread.mockResolvedValue({
     id: "canonical-thread",
     name: null,
@@ -95,6 +91,20 @@ test("Intelligence stop uses the authorized canonical thread and requested run",
     runId: "run-current",
   });
   expect(await response.json()).toMatchObject({ stopped: true });
+});
+
+test("Intelligence stop rejects body identity and thread fields before accessing the platform", async () => {
+  const { getThread, stop, invoke } = setup({
+    runId: "run-current",
+    threadId: "spoof",
+    userId: "bob",
+  });
+
+  const response = await invoke();
+
+  expect(response.status).toBe(400);
+  expect(getThread).not.toHaveBeenCalled();
+  expect(stop).not.toHaveBeenCalled();
 });
 
 test("Intelligence stop cannot cancel a newer run using a stale run ID", async () => {
@@ -168,24 +178,47 @@ test("Intelligence stop still accepts an omitted request body", async () => {
   expect(stop).toHaveBeenCalledExactlyOnceWith({ threadId: "thread-1" });
 });
 
-test("Existing SSE stop keeps its unparsed body and thread-only runner call", async () => {
-  const runtime = new CopilotSseRuntime({
-    agents: { default: new HttpAgent({ url: "http://localhost:9999/agent" }) },
-  });
-  const stop = vi.spyOn(runtime.runner, "stop").mockResolvedValue(true);
-  const request = new Request("http://localhost/agent/default/stop/thread-1", {
-    method: "POST",
-    body: "not-json",
-  });
+test.each([
+  {
+    body: { runId: "run-1" },
+    status: 200,
+    call: { threadId: "thread-1", runId: "run-1" },
+  },
+  { body: undefined, status: 200, call: { threadId: "thread-1" } },
+  { body: "not-json", status: 400, call: undefined },
+])(
+  "SSE stop applies the same run scope rules as Intelligence for body $body",
+  async ({ body, status, call }) => {
+    const runtime = new CopilotSseRuntime({
+      agents: {
+        default: new HttpAgent({ url: "http://localhost:9999/agent" }),
+      },
+    });
+    const stop = vi.spyOn(runtime.runner, "stop").mockResolvedValue(true);
+    const request = new Request(
+      "http://localhost/agent/default/stop/thread-1",
+      {
+        method: "POST",
+        ...(body === undefined
+          ? {}
+          : { body: typeof body === "string" ? body : JSON.stringify(body) }),
+      },
+    );
 
-  const response = await handleStopAgent({
-    runtime,
-    request,
-    agentId: "default",
-    threadId: "thread-1",
-  });
+    const response = await handleStopAgent({
+      runtime,
+      request,
+      agentId: "default",
+      threadId: "thread-1",
+    });
 
-  expect(response.status).toBe(200);
-  expect(stop).toHaveBeenCalledExactlyOnceWith({ threadId: "thread-1" });
-  expect(request.bodyUsed).toBe(false);
-});
+    expect(response.status).toBe(status);
+    if (call === undefined) {
+      expect(stop).not.toHaveBeenCalled();
+    } else {
+      expect(stop).toHaveBeenCalledExactlyOnceWith(call);
+    }
+    // The handler reads a clone, so an application identity callback can still read the body.
+    expect(request.bodyUsed).toBe(false);
+  },
+);
