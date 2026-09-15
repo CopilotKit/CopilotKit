@@ -26,19 +26,23 @@ COPY showcase/shell-dashboard/ ./shell-dashboard/
 # The canonical cell-model fold lives in the harness so the dashboard AND the
 # harness monitor import ONE copy. The dashboard's `src/lib/{cell-model,
 # live-status,staleness,format-ts}.ts` re-export barrels resolve it via the
-# relative path `../../../harness/src/shared/cell-model/*` (= /app/harness/...).
-# This isolated build context does NOT include the rest of the harness, so copy
-# just the fold to that exact path — keeping the single-shared-fold invariant
-# without dragging the whole harness package into the dashboard image.
-COPY showcase/harness/src/shared/cell-model/ ./harness/src/shared/cell-model/
-# generate-registry.ts also imports the catalog cross-join/flatten fold from
+# relative path `../../../harness/src/shared/cell-model/*` (= /app/harness/...),
+# and generate-registry.ts imports the catalog cross-join/flatten fold from
 # ../harness/src/shared/catalog/catalog-flatten.js. That file is ESM (relies on
 # the harness package.json's `"type": "module"`) and does `import yaml from
-# "js-yaml"`, resolved by walking up from the harness tree. Stage the fold + the
-# harness package.json for the ESM scope, then point harness/node_modules at the
-# already-installed scripts node_modules so js-yaml (+ its argparse dep) resolve
-# — no second install of the harness package.
-COPY showcase/harness/src/shared/catalog/ ./harness/src/shared/catalog/
+# "js-yaml"`, resolved by walking up from the harness tree. Stage the shared
+# tree + the harness package.json for the ESM scope, then point
+# harness/node_modules at the already-installed scripts node_modules so js-yaml
+# (+ its argparse dep) resolve — no second install of the harness package.
+#
+# Copy the WHOLE `src/shared` tree rather than enumerating its subdirectories.
+# This build named `cell-model/` and `catalog/` individually, which was correct
+# only while those two were the entire shared surface; the sibling shell builds
+# staged `catalog/` alone and died with ERR_MODULE_NOT_FOUND the moment
+# catalog-flatten.ts imported across into cell-model. A whole-tree copy is what
+# keeps the single-shared-fold invariant from depending on an enumeration
+# nobody updates.
+COPY showcase/harness/src/shared/ ./harness/src/shared/
 COPY showcase/harness/package.json ./harness/package.json
 RUN ln -s ../scripts/node_modules harness/node_modules
 
