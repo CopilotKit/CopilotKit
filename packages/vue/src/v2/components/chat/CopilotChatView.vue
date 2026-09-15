@@ -73,6 +73,9 @@ defineSlots<{
     inputMode: CopilotChatInputMode;
     inputToolsMenu: (ToolsMenuItem | "-")[];
     attachments: Attachment[];
+    canStop: boolean;
+    canAddFile: boolean;
+    canTranscribe: boolean;
     onUpdateModelValue: (value: string) => void;
     onSubmitMessage: (value: string) => void;
     onStop: () => void;
@@ -95,6 +98,9 @@ defineSlots<{
     isRunning: boolean;
     inputMode: CopilotChatInputMode;
     inputToolsMenu: (ToolsMenuItem | "-")[];
+    canStop: boolean;
+    canAddFile: boolean;
+    canTranscribe: boolean;
     onUpdateModelValue: (value: string) => void;
     onSubmitMessage: (value: string) => void;
     onStop: () => void;
@@ -403,6 +409,10 @@ const inputEventProps = computed(() => {
   return listeners;
 });
 
+const canStop = computed(() => !!props.onStop);
+const canAddFile = computed(() => !!props.onAddFile);
+const canTranscribe = computed(() => !!props.onStartTranscribe);
+
 onMounted(async () => {
   await nextTick();
   syncInputContainerHeight();
@@ -457,6 +467,9 @@ onBeforeUnmount(() => {
       :is-running="isRunning"
       :input-mode="inputMode"
       :input-tools-menu="inputToolsMenu"
+      :can-stop="canStop"
+      :can-add-file="canAddFile"
+      :can-transcribe="canTranscribe"
       :on-update-model-value="handleInputValueChange"
       :on-submit-message="handleSubmitMessage"
       :on-stop="handleStop"
@@ -500,6 +513,9 @@ onBeforeUnmount(() => {
               :input-mode="inputMode"
               :input-tools-menu="inputToolsMenu"
               :attachments="attachments ?? []"
+              :can-stop="canStop"
+              :can-add-file="canAddFile"
+              :can-transcribe="canTranscribe"
               :on-update-model-value="handleInputValueChange"
               :on-submit-message="handleSubmitMessage"
               :on-stop="handleStop"
@@ -686,6 +702,9 @@ onBeforeUnmount(() => {
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
           :attachments="attachments ?? []"
+          :can-stop="canStop"
+          :can-add-file="canAddFile"
+          :can-transcribe="canTranscribe"
           :on-update-model-value="handleInputValueChange"
           :on-submit-message="handleSubmitMessage"
           :on-stop="handleStop"
