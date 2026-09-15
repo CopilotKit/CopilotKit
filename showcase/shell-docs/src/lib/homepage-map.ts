@@ -167,7 +167,8 @@ export function agentPicks(): MapPick[] {
     })
     .map((integration) => ({
       id: integration.slug,
-      name: integration.name,
+      name:
+        integration.slug === ROOT_FRAMEWORK ? "CopilotKit" : integration.name,
       logo: {
         kind: "framework",
         slug: integration.slug,
