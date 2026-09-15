@@ -1,6 +1,6 @@
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
-import { cloudBaseUrl, readGuardrailsEnabled } from "./shared/cloud-telemetry";
+import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
 import type { RunAgentParameters } from "./shared/agent-utils";
 import {
   attachIntelligenceEnterpriseLearning,
@@ -26,7 +26,6 @@ export async function handleRunAgent({
       requestType: "run",
       "cloud.api_key_provided": !!publicApiKey,
       ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
-      "cloud.base_url": cloudBaseUrl(),
     },
   );
 

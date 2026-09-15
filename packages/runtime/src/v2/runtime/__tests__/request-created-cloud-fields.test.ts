@@ -1,16 +1,19 @@
 /**
  * The CopilotCloud fields on `oss.runtime.copilot_request_created`.
  *
- * `cloud.base_url` and the real `cloud.guardrails.enabled` used to come only
- * from the v1 entrypoint's own middleware, which emitted a second copy of this
- * event to carry them. That copy is gone, so these assertions are what keeps
- * the fields from going with it.
+ * The real `cloud.guardrails.enabled` used to come only from the v1
+ * entrypoint's own middleware, which emitted a second copy of this event to
+ * carry it. That copy is gone, so these assertions are what keeps the field
+ * from going with it.
+ *
+ * The v1 copy also carried `cloud.base_url`. That one is not ported — the
+ * conformance suite pins this event's exact property set across all six
+ * runtimes — so there is nothing here to assert about it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance } from "vitest";
 
 import { handleRunAgent } from "../handlers/handle-run";
-import { handleConnectAgent } from "../handlers/handle-connect";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { telemetry } from "../telemetry";
 import type { CopilotRuntime } from "../core/runtime";
@@ -38,7 +41,7 @@ function runRequest(
   });
 }
 
-describe("copilot_request_created — CopilotCloud fields", () => {
+describe("copilot_request_created — CopilotCloud guardrails", () => {
   let capture: MockInstance<typeof telemetry.capture>;
 
   beforeEach(() => {
@@ -47,54 +50,28 @@ describe("copilot_request_created — CopilotCloud fields", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete process.env.COPILOT_CLOUD_BASE_URL;
   });
 
   function properties(): Record<string, unknown> {
     return capture.mock.calls[0][1] as Record<string, unknown>;
   }
 
-  it("carries the default cloud base URL on a run", async () => {
+  it("sends exactly the canonical property set for a non-cloud run", async () => {
+    // Mirrors the cross-language contract in
+    // `tools/runtime-conformance/telemetry-cases.mjs`, which deepEquals this
+    // event's properties for every runtime SDK. A field added here that the
+    // Go, Python, Ruby and .NET runtimes do not send breaks that suite —
+    // `cloud.base_url` did exactly that and only CI caught it.
     await handleRunAgent({
       runtime: mockRuntime(),
       request: runRequest({}),
       agentId: "missing",
     });
 
-    expect(properties()).toMatchObject({
+    expect(properties()).toEqual({
       requestType: "run",
-      "cloud.base_url": "https://api.cloud.copilotkit.ai",
-    });
-  });
-
-  it("carries a configured cloud base URL", async () => {
-    process.env.COPILOT_CLOUD_BASE_URL = "https://cloud.internal.example";
-
-    await handleRunAgent({
-      runtime: mockRuntime(),
-      request: runRequest({}),
-      agentId: "missing",
-    });
-
-    expect(properties()["cloud.base_url"]).toBe(
-      "https://cloud.internal.example",
-    );
-  });
-
-  it("carries the cloud base URL on a connect too", async () => {
-    await handleConnectAgent({
-      runtime: mockRuntime(),
-      request: new Request("https://example.com/agent/missing/connect", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ threadId: "t1" }),
-      }),
-      agentId: "missing",
-    });
-
-    expect(properties()).toMatchObject({
-      requestType: "connect",
-      "cloud.base_url": "https://api.cloud.copilotkit.ai",
+      "cloud.guardrails.enabled": false,
+      "cloud.api_key_provided": false,
     });
   });
 

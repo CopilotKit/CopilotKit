@@ -1,18 +1,18 @@
-// CopilotCloud fields on `oss.runtime.copilot_request_created`.
+// The CopilotCloud guardrails flag on `oss.runtime.copilot_request_created`.
 //
-// Both live here because the v1 entrypoint used to compute them in its own
-// middleware and emit a second copy of the event. That copy is gone; these
-// are what it carried and the v2 handlers did not.
+// It lives here because the v1 entrypoint used to compute it in its own
+// middleware and emit a second copy of the event. That copy is gone; this is
+// what it carried and the v2 handlers did not.
+//
+// The v1 copy also carried `cloud.base_url`, which is deliberately not
+// ported. The cross-language conformance suite pins this event to exactly
+// requestType, cloud.guardrails.enabled and cloud.api_key_provided
+// (`tools/runtime-conformance/telemetry-cases.mjs`), and the four native
+// runtimes send nothing else. A near-constant read off an env var is not
+// worth diverging the canonical event shape for.
 
 import { readBody } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/client";
-
-/** The CopilotCloud API the runtime would talk to, however it is configured. */
-export function cloudBaseUrl(): string {
-  return (
-    process.env.COPILOT_CLOUD_BASE_URL || "https://api.cloud.copilotkit.ai"
-  );
-}
 
 /**
  * Whether the caller forwarded CopilotCloud guardrails configuration.
