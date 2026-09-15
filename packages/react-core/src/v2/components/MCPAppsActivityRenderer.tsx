@@ -62,6 +62,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
     const sessionRef = useRef<McpAppSession | null>(null);
     const [error, setError] = useState<Error | null>(null);
+    // Recoverable: an activity update the content schema rejected, from the
+    // store or from props. Cleared as soon as valid content resumes, unlike
+    // `error`, which is a fatal setup failure.
+    const [contentError, setContentError] = useState<Error | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [iframeSize, setIframeSize] = useState<{
       width?: number;
@@ -95,6 +99,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       let mounted = true;
       setIsLoading(true);
       setError(null);
+      setContentError(null);
 
       // The host owns the iframe: create + mount it here (bindMcpApp only
       // configures the sandbox contract + talks to it through the bridge).
@@ -112,8 +117,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           // Load the bridge package lazily. The bridge is heavy (it pulls the
           // MCP SDK Protocol + zod schemas, ~40-50 kB gzipped); keeping it behind
           // a dynamic import() means a non-MCP `<CopilotKit>` app never pays for
-          // it. The try/catch rethrows with an actionable message if the package
-          // (or its ext-apps dependency) is missing.
+          // it. The `.catch` below rethrows with an actionable message if the
+          // package (or its ext-apps dependency) is missing - a raw module
+          // resolution error would not say what to install.
           const mod = await import("@copilotkit/mcp-apps-renderer").catch(
             (importErr) => {
               throw new Error(
@@ -134,9 +140,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             getContent: () => contentRef.current,
             getAgent: () => agentRef.current,
             host: copilotkit,
-            // Self-driving: the session subscribes to the agent's activity stream
-            // (filtered by messageId) and pushes tool input/result to the widget
-            // itself, so this adapter does not forward them.
+            // Self-driving: the session subscribes to the agent's activity
+            // stream (filtered by messageId) and pushes tool input/result to the
+            // widget itself, so this adapter does not forward STORE-backed
+            // activities. It still calls syncContent for activities rendered
+            // from an external messages list (see the seed below).
             messageId,
             hooks: {
               onResource: (resource) => {
@@ -146,6 +154,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
               },
               onSizeChanged: (size) => {
                 if (mounted) setIframeSize(size);
+              },
+              onContentError: (err) => {
+                if (mounted) setContentError(err);
               },
               onError: (err) => {
                 if (!mounted) return;
@@ -241,9 +252,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
         {isLoading && (
           <div style={{ padding: "1rem", color: "#666" }}>Loading...</div>
         )}
-        {error && (
+        {(error ?? contentError) && (
           <div style={{ color: "red", padding: "1rem" }}>
-            Error: {error.message}
+            Error: {(error ?? contentError)!.message}
           </div>
         )}
       </div>
