@@ -114,9 +114,7 @@ describe("v2 TelemetryClient sampling metadata", () => {
     expect(sent).not.toContain("abc-123");
   });
 
-  test("only the documented opt-out stops an anonymous event", async () => {
-    // The 5% gate used to be a second way for an event to vanish. There is
-    // one way now, and this pins it: nothing else silences the client.
+  test("nothing gates an anonymous event at the default rate", async () => {
     const random = vi.spyOn(Math, "random").mockReturnValue(0.99);
     const sending = new TelemetryClient({ telemetryDisabled: false });
     const disabled = new TelemetryClient({ telemetryDisabled: true });
@@ -126,5 +124,20 @@ describe("v2 TelemetryClient sampling metadata", () => {
 
     expect(random).not.toHaveBeenCalled();
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("a configured rate still gates, and the block reports it", async () => {
+    // The lever survives for callers who want less; only the default moved.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const gated = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.05,
+    });
+    await gated.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(lambdaSpy).not.toHaveBeenCalled();
+
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    await gated.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(globalsOf()).toMatchObject({ sampleRate: 0.05, sampleWeight: 20 });
   });
 });

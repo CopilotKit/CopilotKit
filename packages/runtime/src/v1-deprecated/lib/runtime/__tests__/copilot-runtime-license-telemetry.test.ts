@@ -273,8 +273,10 @@ test.each(rootRuntimeTelemetryIdentityCases)(
       expect(createScope).toHaveBeenCalledTimes(1);
       expect(createScope).toHaveBeenCalledWith(expectedIdentity);
       expect(setLicenseToken).not.toHaveBeenCalled();
-      expect(delegatedCreateScope).toHaveBeenCalledTimes(1);
-      expect(delegatedCreateScope).toHaveBeenCalledWith(expectedIdentity, "v1");
+      // The V2 runtime builds no scope of its own: this entrypoint hands
+      // down the one above, which is what stops the two of them emitting
+      // the same events.
+      expect(delegatedCreateScope).not.toHaveBeenCalled();
       expect(delegatedSetLicenseToken).not.toHaveBeenCalled();
 
       await runtime.instance.telemetry.capture("oss.runtime.instance_created", {
@@ -285,9 +287,11 @@ test.each(rootRuntimeTelemetryIdentityCases)(
       });
 
       expect(send).toHaveBeenCalledTimes(1);
-      // The capture above goes through the delegated V2 client, which does
-      // not sample, so it never draws a random number whatever the identity.
-      expect(random).not.toHaveBeenCalled();
+      // The capture goes through the v1 client now, which still rolls once
+      // per anonymous capture — for its Segment copy, not for this one.
+      const hasLicenseIdentity =
+        parseTelemetryIdFromLicense(expectedIdentity.licenseToken) !== null;
+      expect(random).toHaveBeenCalledTimes(hasLicenseIdentity ? 0 : 1);
       expect(send).toHaveBeenCalledWith(
         expect.objectContaining({
           licenseToken: expectedIdentity.licenseToken,
@@ -343,8 +347,7 @@ test("public root Runtime delegates an anonymous telemetry scope into V2", async
     expect(setLicenseToken).not.toHaveBeenCalled();
 
     expect(anonymousRuntime.instance).toBeDefined();
-    expect(delegatedCreateScope).toHaveBeenCalledTimes(1);
-    expect(delegatedCreateScope).toHaveBeenCalledWith({}, "v1");
+    expect(delegatedCreateScope).not.toHaveBeenCalled();
     expect(delegatedSetLicenseToken).not.toHaveBeenCalled();
 
     await anonymousRuntime.instance.telemetry.capture(
@@ -408,20 +411,16 @@ test("every event a v1 root runtime produces is stamped as v1 surface", async ()
 
     await handler(createRootRuntimeRequest());
 
-    // One request, two copies: the v1 middleware's and the delegated V2
-    // handler's. Filtered by event name because the lazily-constructed
-    // instance also emits instance_created around here.
-    await vi.waitFor(() => expect(requestCreatedGlobals(send)).toHaveLength(2));
-    expect(
-      requestCreatedGlobals(send).map((globals) => globals.telemetry_surface),
-    ).toEqual(["v1", "v1"]);
-    // Both copies say v1, and they still say which client sent them, so
-    // the duplicate pair stays visible rather than looking like two users.
-    expect(
-      requestCreatedGlobals(send)
-        .map((globals) => globals.telemetry_emitter)
-        .sort(),
-    ).toEqual(["v1-shared", "v2-runtime"]);
+    // Exactly one copy. This used to be two — the v1 middleware emitted
+    // its own alongside the delegated V2 handler's — and unsampling would
+    // have made that visible on every single request. Filtered by event
+    // name because the lazily-constructed instance also emits
+    // instance_created around here.
+    await vi.waitFor(() => expect(requestCreatedGlobals(send)).toHaveLength(1));
+    expect(requestCreatedGlobals(send)[0]).toMatchObject({
+      telemetry_surface: "v1",
+      telemetry_emitter: "v1-shared",
+    });
   } finally {
     restoreDelegatedTelemetry();
     restore();
@@ -487,12 +486,9 @@ test("public root runtimes keep request identity across lazy V2 instance creatio
     await handlerA(createRootRuntimeRequest());
     await handlerB(createRootRuntimeRequest());
 
-    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(4));
-    // Two requests, four sends: the v1 root path emits this event twice,
-    // once from its own middleware through the v1 shared client and once
-    // from the V2 handler through the V2 client. Only the v1 half still
-    // rolls a die, and only for its Segment copy — hence two rolls, not
-    // four.
+    // Two requests, two sends: one copy each, not the four this produced
+    // while the v1 middleware and the V2 handler both emitted the event.
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
     expect(random).toHaveBeenCalledTimes(2);
     expect(
       send.mock.calls.map(([event]) => ({
@@ -506,14 +502,6 @@ test("public root runtimes keep request identity across lazy V2 instance creatio
       },
       {
         event: "oss.runtime.copilot_request_created",
-        telemetryId: "root-runtime-a",
-      },
-      {
-        event: "oss.runtime.copilot_request_created",
-        telemetryId: "root-runtime-b",
-      },
-      {
-        event: "oss.runtime.copilot_request_created",
         telemetryId: "root-runtime-b",
       },
     ]);
@@ -521,12 +509,7 @@ test("public root runtimes keep request identity across lazy V2 instance creatio
       fetchMock.mock.calls.map(([, init]) =>
         new Headers(init?.headers).get("X-CopilotKit-Telemetry-Id"),
       ),
-    ).toEqual([
-      "root-runtime-a",
-      "root-runtime-a",
-      "root-runtime-b",
-      "root-runtime-b",
-    ]);
+    ).toEqual(["root-runtime-a", "root-runtime-b"]);
   } finally {
     restoreDelegatedTelemetry();
     restore();

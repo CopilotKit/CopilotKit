@@ -302,10 +302,10 @@ describe("TelemetryClient", () => {
     },
   );
 
-  it("sends anonymous events that the old 5% gate would have dropped", async () => {
+  it("sends anonymous events that the old 5% default would have dropped", async () => {
     // Math.random=0.99 against the former 0.05 default. This is the
-    // behaviour change, stated as a test: nothing about an anonymous
-    // caller stops the event now.
+    // behaviour change, stated as a test: at the new default nothing about
+    // an anonymous caller stops the event.
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
     const client = new TelemetryClient({ telemetryDisabled: false });
 
@@ -320,22 +320,31 @@ describe("TelemetryClient", () => {
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("ignores COPILOTKIT_TELEMETRY_SAMPLE_RATE, including an unparseable one", async () => {
-    // The knob is gone from this client rather than left as dead
-    // configuration. A malformed value used to throw out of the
-    // constructor, which meant a typo in an env var could fail runtime
-    // construction outright; now it is simply not read.
-    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "not-a-number";
-    const client = new TelemetryClient({ telemetryDisabled: false });
-
-    await client.capture("oss.runtime.instance_created", {
-      actionsAmount: 0,
-      endpointTypes: [],
-      endpointsAmount: 0,
-      "cloud.api_key_provided": false,
-    });
-
+  it("defaults to an unsampled rate but still honours COPILOTKIT_TELEMETRY_SAMPLE_RATE", async () => {
+    // The knob stays because it is the cross-SDK lever for cutting
+    // anonymous volume: Go, Python, Ruby, and .NET all expose it, and the
+    // cross-language conformance suite drives it to 0 to assert silence.
+    // Only the default moved, from 0.05 to 1.
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const unsampled = new TelemetryClient({ telemetryDisabled: false });
+    await unsampled.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(random).not.toHaveBeenCalled();
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
+
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "0";
+    const silenced = new TelemetryClient({ telemetryDisabled: false });
+    await silenced.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws on an unparseable COPILOTKIT_TELEMETRY_SAMPLE_RATE", () => {
+    // parseFloat('nonsense') = NaN. Without Number.isNaN in the validator,
+    // NaN slips past the range check and produces a silent always-drop.
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "not-a-number";
+
+    expect(() => new TelemetryClient({ telemetryDisabled: false })).toThrow(
+      "Sample rate must be between 0 and 1",
+    );
   });
 
   it("malformed license token stays anonymous without being dropped", async () => {

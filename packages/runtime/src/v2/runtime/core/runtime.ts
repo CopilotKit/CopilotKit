@@ -40,8 +40,7 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
 import type { TelemetryCapture } from "../telemetry/telemetry-client";
-import { TELEMETRY_SURFACE_V2 } from "@copilotkit/shared";
-import type { TelemetrySurface } from "@copilotkit/shared";
+
 import {
   firstNonBlankLicenseToken,
   firstNonBlankTelemetryId,
@@ -194,14 +193,16 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    */
   telemetryProperties?: Record<string, unknown>;
   /**
-   * Which public API surface the developer built against.
+   * A capture scope to emit this runtime's telemetry through, instead of one
+   * built from the identity options above.
    *
-   * @internal Set by the deprecated v1 entrypoint, which delegates to this
-   * runtime. Without it a v1 request reports as v2 traffic, because the
-   * client that sends it is the v2 one either way. Defaults to v2; there is
-   * no reason for an application to pass this.
+   * @internal Set by the deprecated v1 entrypoint, which delegates every
+   * request to this runtime. Handing its own scope down is what collapses
+   * the duplicate: the v1 entrypoint no longer emits the same events itself,
+   * and the events this runtime sends still reach Segment and still report
+   * the v1 surface. There is no reason for an application to pass this.
    */
-  telemetrySurface?: TelemetrySurface;
+  ɵtelemetry?: TelemetryCapture;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
@@ -443,14 +444,15 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       options.telemetryId,
       process.env.CPK_TELEMETRY_ID,
     );
-    this.telemetry = telemetry.createScope(
-      resolvedTelemetryId !== undefined
-        ? { telemetryId: resolvedTelemetryId }
-        : this.resolvedLicenseToken !== undefined
-          ? { licenseToken: this.resolvedLicenseToken }
-          : {},
-      options.telemetrySurface ?? TELEMETRY_SURFACE_V2,
-    );
+    this.telemetry =
+      options.ɵtelemetry ??
+      telemetry.createScope(
+        resolvedTelemetryId !== undefined
+          ? { telemetryId: resolvedTelemetryId }
+          : this.resolvedLicenseToken !== undefined
+            ? { licenseToken: this.resolvedLicenseToken }
+            : {},
+      );
 
     // Set here rather than per event, beside the license token and for the same
     // reason: it describes the caller, not the call, and every event should

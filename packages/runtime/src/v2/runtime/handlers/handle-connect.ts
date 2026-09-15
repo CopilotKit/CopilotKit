@@ -2,6 +2,7 @@ import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import { cloudBaseUrl } from "./shared/cloud-telemetry";
 import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agent-utils";
 import {
   parseConnectRequest,
@@ -13,21 +14,17 @@ export async function handleConnectAgent({
   request,
   agentId,
 }: ConnectAgentParameters) {
+  const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
   (runtime.telemetry ?? telemetry).capture(
     "oss.runtime.copilot_request_created",
     {
+      // Connect carries no run input, so there are no forwarded guardrails
+      // to read — the v1 middleware this replaced reported false here too.
       "cloud.guardrails.enabled": false,
       requestType: "connect",
-      "cloud.api_key_provided": !!request.headers.get(
-        "x-copilotcloud-public-api-key",
-      ),
-      ...(request.headers.get("x-copilotcloud-public-api-key")
-        ? {
-            "cloud.public_api_key": request.headers.get(
-              "x-copilotcloud-public-api-key",
-            )!,
-          }
-        : {}),
+      "cloud.api_key_provided": !!publicApiKey,
+      ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
+      "cloud.base_url": cloudBaseUrl(),
     },
   );
 

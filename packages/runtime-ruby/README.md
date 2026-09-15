@@ -410,9 +410,10 @@ Analytics reports runtime creation, run/connect requests, and agent start,
 completion, or failure. Event bodies contain no prompts, user IDs, thread/run
 IDs, credentials, routes, or dependency error messages.
 
-The default sample rate is `0.05`. Set `sample_rate:` on `Telemetry` to change it.
-`COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides this value. Rates must be finite
-numbers from zero through one. Invalid rates use the default.
+The default sample rate is `1`, so events are not sampled. Set `sample_rate:`
+on `Telemetry` to change it. `COPILOTKIT_TELEMETRY_SAMPLE_RATE` overrides this
+value. Rates must be finite numbers from zero through one. Invalid rates use
+the default.
 
 `telemetry_id:` takes precedence over `CPK_TELEMETRY_ID`. IDs allow 1–128 ASCII
 letters, digits, underscores, or hyphens after spaces and tabs are trimmed.
