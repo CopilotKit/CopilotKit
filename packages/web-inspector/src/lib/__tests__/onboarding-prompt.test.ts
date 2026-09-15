@@ -11,6 +11,20 @@ import {
 import { buildHomeModel } from "../home-briefing.js";
 import { projectInspectorMetadata } from "../inspector-metadata.js";
 
+function homeTileIds() {
+  return buildHomeModel({
+    intelligenceConnected: false,
+    threadsAvailable: false,
+    metadata: projectInspectorMetadata(undefined, undefined),
+    runtimeConnectionState: "unavailable",
+    learningOn: false,
+    a2uiOn: false,
+    openGenUiOn: false,
+    suggestionsOn: false,
+    audioOn: false,
+  }).services.map((service) => service.id);
+}
+
 describe("onboarding-prompt", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -66,37 +80,41 @@ describe("onboarding-prompt", () => {
 });
 
 describe("feature onboarding intents", () => {
-  it("names one intent for every Home feature tile, and every intent once", () => {
-    // The two sets are held equal in both directions on purpose. A new tile
-    // with no intent leaves a button that cannot reach the graph; an intent
-    // no tile names is a route with no caller, which is the whole of
-    // OSS-1150.
-    const tiles = buildHomeModel({
-      intelligenceConnected: false,
-      threadsAvailable: false,
-      metadata: projectInspectorMetadata(undefined, undefined),
-      runtimeConnectionState: "unavailable",
-      learningOn: false,
-      a2uiOn: false,
-      openGenUiOn: false,
-      suggestionsOn: false,
-      audioOn: false,
-    }).services.map((service) => service.id);
-
+  it("names one unique intent for every Home feature tile", () => {
+    // Tiles stay 1:1 with FEATURE_ONBOARDING_INTENT. A new tile with no
+    // intent leaves a button that cannot reach the graph. CLI slugs with no
+    // tile (add-channels) live on ONBOARDING_INTENTS, not on this table.
     expect(Object.keys(FEATURE_ONBOARDING_INTENT).sort()).toEqual(
-      [...tiles].sort(),
+      [...homeTileIds()].sort(),
     );
-    expect(Object.values(FEATURE_ONBOARDING_INTENT).sort()).toEqual(
-      [...ONBOARDING_INTENTS].sort(),
+    expect(FEATURE_ONBOARDING_INTENT).toEqual({
+      threads: "add-rich-threads",
+      memory: "add-learning",
+      a2ui: "add-a2ui",
+      "open-gen-ui": "add-open-generative-ui",
+      suggestions: "add-chat-suggestions",
+      audio: "add-voice",
+      websocket: "add-realtime-sync",
+    });
+  });
+
+  it("keeps Home tile intents inside the CLI closed map", () => {
+    for (const intent of Object.values(FEATURE_ONBOARDING_INTENT)) {
+      expect(ONBOARDING_INTENTS).toContain(intent);
+    }
+    expect(Object.values(FEATURE_ONBOARDING_INTENT)).not.toContain(
+      "add-channels",
     );
   });
 
   it("keeps the slugs the CLI graph exposes", () => {
     // Byte-equal to ONBOARDING_INTENT_ROOTS in Intelligence's
     // apps/cli/onboarding-intents.cjs. The repositories cannot import each
-    // other, so this list is the agreement.
+    // other, so this list is the agreement. ONBOARDING_INTENTS is a
+    // superset of the Home tile map and includes add-channels.
     expect([...ONBOARDING_INTENTS]).toEqual([
       "add-a2ui",
+      "add-channels",
       "add-chat-suggestions",
       "add-learning",
       "add-open-generative-ui",
@@ -129,9 +147,7 @@ describe("feature onboarding intents", () => {
   it("carries no feature-specific instruction of its own", () => {
     // Everything below belonged to the prose this prompt replaced. The route
     // owns it now, and a copied paragraph would drift from it.
-    for (const serviceId of Object.keys(
-      FEATURE_ONBOARDING_INTENT,
-    ) as (keyof typeof FEATURE_ONBOARDING_INTENT)[]) {
+    for (const serviceId of homeTileIds()) {
       const prompt = createFeatureOnboardingPrompt(serviceId, "abc123def456");
 
       expect(prompt).not.toContain("This task is specifically to enable");

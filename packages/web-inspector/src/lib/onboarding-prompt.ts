@@ -83,9 +83,14 @@ export function createOnboardingPrompt(runId: string): string {
  * rather than silent: `onboard start` refuses an unknown `--intent` before it
  * persists a run, so a stale slug fails on the first command instead of
  * quietly onboarding the wrong feature.
+ *
+ * Home tiles map a subset through `FEATURE_ONBOARDING_INTENT`. Extra slugs
+ * (for example `add-channels`) stay on this list so the Inspector cannot
+ * copy an unknown `--intent`.
  */
 export const ONBOARDING_INTENTS = [
   "add-a2ui",
+  "add-channels",
   "add-chat-suggestions",
   "add-learning",
   "add-open-generative-ui",
@@ -104,7 +109,8 @@ export type OnboardingIntent = (typeof ONBOARDING_INTENTS)[number];
  * for it; an intent names the work to be done, so `add-realtime-sync` and
  * `add-voice` are the right words for that. One table maps between them, and
  * `Record<HomeServiceId, OnboardingIntent>` makes a new tile or a renamed
- * slug a type error rather than a missing button.
+ * slug a type error rather than a missing button. It does not require every
+ * CLI slug to have a tile.
  *
  * `memory` maps to `add-learning` because the tile is the Learning tile: it is
  * enabled by a *configured Learning container* (see `learningOn` in
