@@ -124,8 +124,7 @@ export function ChannelsActivationStrip({
     // Channels overview card.
     const attempt = createChannelsOnboardingAttempt(
       channel,
-      CHANNELS_ACTIVATION_CHANNELS.find((option) => option.id === channel)
-        ?.label ?? channel,
+      selectedChannel.label,
     );
 
     try {
