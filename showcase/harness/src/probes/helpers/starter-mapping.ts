@@ -3,24 +3,42 @@
  *
  * The starter-smoke matrix (`STARTERS` in
  * `showcase/tests/e2e/starter-smoke.spec.ts`) names each starter template by
- * its own slug. The dashboard, however, has exactly 19 columns — one per
- * `showcase/integrations/<slug>/manifest.yaml` — and the `starter` probe
- * family must write `starter:<dashboard-column-slug>/<level>` rows so the
- * dashboard only ever sees column slugs (mirroring how `CATALOG_TO_D5_KEY`
- * bridges the harness↔dashboard namespaces in `live-status.ts`).
+ * its own slug. The dashboard has one column per
+ * `showcase/integrations/<slug>/manifest.yaml` — **21** of them today (22
+ * directories minus `_shared`) — and the `starter` probe family must write
+ * `starter:<dashboard-column-slug>/<level>` rows so the dashboard only ever
+ * sees column slugs (mirroring how `CATALOG_TO_D5_KEY` bridges the
+ * harness↔dashboard namespaces in `live-status.ts`).
  *
- * This module is the single source of truth for that remap. There are 12
- * starters: 5 whose slug drifts from the column slug, and 7 that map
- * one-to-one (the slug is identical on both sides). The other 7 dashboard
- * columns (ag2, claude-sdk-python, claude-sdk-typescript, langroid,
- * spring-ai, built-in-agent, ms-agent-harness-dotnet) have NO smoke starter
- * — they are intentionally absent from this map, and the UI renders them in
- * the dashboard's existing grey "not supported" ✗ state. 12 mapped + 7
- * unmapped = 19 columns.
+ * This module is the single source of truth for that remap. 12 starters are
+ * mapped: 5 whose slug drifts from the column slug, and 7 that map one-to-one
+ * (the slug is identical on both sides).
  *
- * Slug-drift is guarded by `starter-mapping-drift.test.ts`, which asserts
- * every starter in the smoke matrix is mapped (or explicitly excluded) and
- * every mapped column slug exists as a real manifest directory.
+ * A column absent from this map is NOT automatically "unsupported". The
+ * remaining 9 columns split three ways, and conflating them is exactly the
+ * rot this file grew:
+ *
+ *   - `strands-typescript`, `claude-sdk-python`, `claude-sdk-typescript` —
+ *     a REAL starter exists under `examples/integrations/`; nothing probes it
+ *     yet. Listed in `STARTER_COLUMNS_UNPROBED` (`live-status.ts`) and rendered
+ *     as the gray `?` no-data chip, NOT 🚫.
+ *   - `crewai-conversational-flows` — the smoke matrix carries a `crewai-flows`
+ *     starter; whether it IS this column is OQ1 in
+ *     `SPEC-starter-ladder.md` §3.5 row 16 and is UNDECIDED. Declared in
+ *     `UNRESOLVED_STARTERS` (drift test) rather than silently dropped.
+ *   - `ag2`, `built-in-agent`, `langroid`, `ms-agent-harness-dotnet`,
+ *     `spring-ai` — genuinely have no starter; these are the only columns that
+ *     may render 🚫 "Not supported by this framework".
+ *
+ * The prior version of this comment claimed "12 mapped + 7 unmapped = 19
+ * columns" and the accompanying test only asserted `size === 12`, so three
+ * real starters were reported as unsupported frameworks for as long as nobody
+ * counted the directories. `starter-mapping-drift.test.ts` now derives its
+ * expectations from the filesystem and the CI matrix instead.
+ *
+ * NOTE (forward direction): `SPEC-starter-ladder.md` replaces this hand-mirrored
+ * map with a per-manifest `starter_validation:` key from which the mapping is
+ * DERIVED. Nothing here should grow a new hand-maintained list.
  *
  * Keying note: the `starter` dimension keys per-level sub-rows as
  * `starter:<column-slug>/<level>` where level ∈ {health,agent,chat,

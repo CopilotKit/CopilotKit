@@ -20,6 +20,7 @@ import {
   resolveStarterRow,
   buildStarterBadge,
   starterIsSupported,
+  starterSupport,
   STARTER_LEVELS,
 } from "@/lib/live-status";
 import { ToneChip } from "@/components/badges";
@@ -570,13 +571,14 @@ function StarterSection({
               </td>
             )}
             {integrations.map((integration) => {
-              const isSupported = starterIsSupported(integration.slug);
-              const starterRow = isSupported
-                ? resolveStarterRow(liveStatus, integration.slug, level)
-                : null;
+              const support = starterSupport(integration.slug);
+              const starterRow =
+                support === "probed"
+                  ? resolveStarterRow(liveStatus, integration.slug, level)
+                  : null;
               const badge = buildStarterBadge(
                 level,
-                isSupported,
+                support,
                 starterRow,
                 now,
                 connection,
