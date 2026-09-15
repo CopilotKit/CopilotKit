@@ -10,7 +10,7 @@ import type {
 import { randomUUID, logger } from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
-import { AgentThreadLockedError } from "../intelligence-agent";
+import { AgentThreadLockedError, waitForActiveRunToSettle } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
@@ -533,6 +533,19 @@ export class RunHandler {
         continuationHandoff?.cancel();
         throw error;
       }
+    }
+
+    // detachActiveRun is a no-op until activeRunDetach$ is assigned, which
+    // happens after await onInitialize. If a run is already in that window,
+    // wait until the completion handle exists (or isRunning clears) so the
+    // new run does not pre-empt it.
+    try {
+      await waitForActiveRunToSettle(agent);
+    } catch (error) {
+      logger.error(
+        "CopilotKitCore: in-flight run rejected while waiting to start a new run",
+        error,
+      );
     }
 
     // Set up abort controller and agent.abortRun() intercept only for the
