@@ -1,26 +1,90 @@
 import { z } from "zod";
 
-/**
- * Zod schema for MCP Apps activity content (middleware 0.0.2 format). The
- * framework activity registries validate the activity content with this before
- * handing it to the renderer/session.
- */
-export const MCPAppsActivityContentSchema = z.object({
-  result: z.object({
-    content: z.array(z.any()).optional(),
-    structuredContent: z.any().optional(),
-    isError: z.boolean().optional(),
+// Keep /activity bridge-free: the MCP SDK is only used as a test oracle.
+// This is the Angular host's content contract, expressed using our zod API.
+const looseObject = <T extends z.ZodRawShape>(shape: T) =>
+  z.object(shape).passthrough();
+
+const annotationsSchema = looseObject({
+  audience: z.array(z.enum(["user", "assistant"])).optional(),
+  priority: z.number().min(0).max(1).optional(),
+  lastModified: z.string().optional(),
+});
+
+const base64Schema = z
+  .string()
+  .refine(
+    (value) =>
+      value.length % 4 === 0 &&
+      /^[A-Za-z0-9+/]*={0,2}$/.test(value) &&
+      !/=/.test(value.slice(0, -2)),
+    "Expected base64-encoded data",
+  );
+
+const resourceContentsSchema = z.union([
+  looseObject({
+    uri: z.string(),
+    mimeType: z.string().optional(),
+    text: z.string(),
   }),
-  // Resource URI to fetch (e.g., "ui://server/dashboard")
+  looseObject({
+    uri: z.string(),
+    mimeType: z.string().optional(),
+    blob: base64Schema,
+  }),
+]);
+
+const contentItemSchema = z.discriminatedUnion("type", [
+  looseObject({
+    type: z.literal("text"),
+    text: z.string(),
+    annotations: annotationsSchema.optional(),
+  }),
+  looseObject({
+    type: z.literal("image"),
+    data: base64Schema,
+    mimeType: z.string(),
+    annotations: annotationsSchema.optional(),
+  }),
+  looseObject({
+    type: z.literal("audio"),
+    data: base64Schema,
+    mimeType: z.string(),
+    annotations: annotationsSchema.optional(),
+  }),
+  looseObject({
+    type: z.literal("resource"),
+    resource: resourceContentsSchema,
+    annotations: annotationsSchema.optional(),
+  }),
+  looseObject({
+    type: z.literal("resource_link"),
+    uri: z.string(),
+    name: z.string(),
+    description: z.string().optional(),
+    mimeType: z.string().optional(),
+    annotations: annotationsSchema.optional(),
+  }),
+]);
+
+const callToolResultSchema = looseObject({
+  content: z.array(contentItemSchema).default([]),
+  structuredContent: z.record(z.string(), z.unknown()).optional(),
+  isError: z.boolean().optional(),
+  _meta: z.record(z.string(), z.unknown()).optional(),
+});
+
+/** Activity input accepts an omitted result.content; validation defaults it to []. */
+export const MCPAppsActivityContentSchema = looseObject({
+  result: callToolResultSchema,
   resourceUri: z.string(),
-  // MD5 hash of server config (renamed from serverId in 0.0.1)
   serverHash: z.string(),
-  // Optional stable server ID from config (takes precedence over serverHash)
   serverId: z.string().optional(),
-  // Original tool input arguments
   toolInput: z.record(z.string(), z.unknown()).optional(),
 });
 
-export type MCPAppsActivityContent = z.infer<
+// Keep the public input contract compatible with structured-only results.
+// Parsed output is normalized before it crosses the bridge.
+export type MCPAppsActivityContent = z.input<
   typeof MCPAppsActivityContentSchema
 >;

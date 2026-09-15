@@ -8,7 +8,11 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { randomUUID } from "@copilotkit/shared";
 import { buildSandboxHTML } from "./sandbox";
-import { mcpAppsRequestQueue } from "./request-queue";
+import {
+  mcpAppsRequestQueue,
+  MCP_APPS_QUEUE_IDLE_TIMEOUT_MS,
+  MCPAppsQueueThreadChangedError,
+} from "./request-queue";
 import { ɵrunMcpFollowUp } from "./follow-up";
 import type { ɵMcpFollowUpHost } from "./follow-up";
 import {
@@ -32,6 +36,45 @@ function keyOf(value: unknown): string {
   } catch {
     return "";
   }
+}
+
+/**
+ * Decode a base64 resource body as UTF-8.
+ *
+ * @internal exported for testing.
+ *
+ * `atob` alone yields a latin1 string, which mangles non-ASCII widget HTML
+ * (`<p>Été ☀️</p>` decoded to `<p>Ã‰tÃ© â˜€ï¸</p>`). Decode to bytes first, then
+ * run them through a UTF-8 TextDecoder.
+ */
+export function ɵdecodeBase64(value: string): string {
+  try {
+    const binary = atob(value);
+    const bytes = Uint8Array.from(binary, (character) =>
+      character.charCodeAt(0),
+    );
+    return new TextDecoder().decode(bytes);
+  } catch {
+    throw new Error("The MCP App resource contains invalid base64 content.");
+  }
+}
+
+/**
+ * Pick the resource this session asked for.
+ *
+ * A `resources/read` response may carry several contents; taking the first one
+ * can hand the widget a different resource than the one it is bound to. Match on
+ * the requested URI, and fall back to a lone content only when the server
+ * returned exactly one (some servers normalize the URI they echo back).
+ */
+function selectResource(
+  contents: FetchedResource[] | undefined,
+  resourceUri: string,
+  requireExact = false,
+): FetchedResource | undefined {
+  const match = contents?.find((candidate) => candidate.uri === resourceUri);
+  if (match) return match;
+  return !requireExact && contents?.length === 1 ? contents[0] : undefined;
 }
 
 /**
@@ -107,10 +150,28 @@ export interface McpAppSessionHooks {
   onSizeChanged?(size: { width?: number; height?: number }): void;
   /** The widget finished initializing (safe to push tool input/result). */
   onInitialized?(): void;
+  /** The sandbox proxy is ready and its resource has been sent. */
+  onSandboxReady?(): void;
   /** The fetched resource metadata (e.g. prefersBorder) is available. */
   onResource?(resource: FetchedResource): void;
-  /** Setup failed (resource fetch, connect, ...). */
+  /**
+   * FATAL setup failure (resource fetch, bridge connect, sandbox timeout).
+   * The session cannot serve this widget; the host keeps showing the error
+   * until it re-binds.
+   */
   onError?(err: Error): void;
+  /** A queued ui/message follow-up failed. */
+  onFollowUpError?(err: Error): void;
+  /**
+   * RECOVERABLE content problem: an activity update was rejected by the content
+   * schema and therefore not forwarded to the widget. Reported the same way
+   * whether the content came from the agent's store or from an adapter prop.
+   *
+   * Called with the `Error` when content is rejected, and with `null` as soon as
+   * valid content arrives again - the widget resumes, so the host must clear the
+   * message rather than leave a stale error on screen.
+   */
+  onContentError?(err: Error | null): void;
 }
 
 export interface BindMcpAppOptions {
@@ -141,7 +202,130 @@ export interface BindMcpAppOptions {
    */
   messageId?: string;
   hooks?: McpAppSessionHooks;
+  /**
+   * Host identity, capabilities and UI context announced during the MCP Apps
+   * initialization handshake, plus the two timeouts. Every field is optional and
+   * merged over {@link MCP_APPS_SESSION_DEFAULTS}, so a frontend only overrides
+   * what it exposes to its users.
+   */
+  options?: McpAppSessionOptions;
+  /**
+   * Decides whether `ui/open-link` may open a URL, and with what final value.
+   *
+   * Defaults to {@link denyDangerousSchemes}, the single policy every CopilotKit
+   * frontend uses - no adapter overrides it, so a widget behaves the same in
+   * React, Vue and Angular. This hook exists for a host with a genuinely
+   * different security contract; prefer changing the shared policy over setting
+   * it, otherwise widget behaviour becomes framework-dependent again.
+   */
+  openLinkPolicy?: McpAppOpenLinkPolicy;
+  /**
+   * Whether `teardown` also cancels a queued `ui/message` follow-up run.
+   *
+   * Defaults to `false`: the follow-up carries the user's message onwards, so it
+   * outlives the widget that sent it. Hosts that scope follow-ups to the widget
+   * (the Angular contract) can opt in.
+   */
+  cancelFollowUpsOnTeardown?: boolean;
+  /** Require the fetched resource URI to match exactly (Angular compatibility). */
+  requireExactResourceUri?: boolean;
+  /** Release already-started proxy/follow-up waits on teardown, without aborting the underlying run. */
+  cancelRunningWaitOnTeardown?: boolean;
 }
+
+/** Host identity announced during the initialization handshake. */
+export interface McpAppHostInfo {
+  name: string;
+  version: string;
+}
+
+export interface McpAppSessionOptions {
+  /** Maximum time a queued request waits for a busy agent. Default 30s. */
+  idleTimeoutMs?: number;
+  /**
+   * Maximum time to wait for the sandbox proxy handshake
+   * (`ui/notifications/sandbox-proxy-ready`). Default 30s.
+   *
+   * This measures the SANDBOX step, not `ui/notifications/initialized`: a widget
+   * that loads its proxy but never reports initialized is a different failure.
+   */
+  initializationTimeoutMs?: number;
+  /** Host identity announced during the initialization handshake. */
+  hostInfo?: McpAppHostInfo;
+  /** Protocol capabilities announced to embedded MCP Apps. */
+  hostCapabilities?: Record<string, unknown>;
+  /** Non-secret UI context announced to embedded MCP Apps. */
+  hostContext?: Record<string, unknown>;
+}
+
+/** Defaults every frontend inherits unless it overrides them. */
+export const MCP_APPS_SESSION_DEFAULTS: Readonly<
+  Required<McpAppSessionOptions>
+> = {
+  idleTimeoutMs: MCP_APPS_QUEUE_IDLE_TIMEOUT_MS,
+  initializationTimeoutMs: 30_000,
+  hostInfo: { name: "CopilotKit MCP Apps Host", version: "1.0.0" },
+  hostCapabilities: { openLinks: {}, logging: {}, message: { text: {} } },
+  hostContext: { theme: "light", platform: "web" },
+};
+
+/**
+ * Returns the URL to open, or `undefined` to refuse. Receiving the raw string
+ * (not a parsed URL) lets a policy resolve relative links itself.
+ */
+export type McpAppOpenLinkPolicy = (url: string) => string | undefined;
+
+/**
+ * The MCP Apps link policy, shared by every frontend.
+ *
+ * Three independent rules, deliberately kept as ONE policy so a widget behaves
+ * the same whichever framework hosts it:
+ *
+ * 1. **Scheme denylist**, not an allowlist. Only the schemes that execute script
+ *    or render attacker-controlled HTML are refused (`javascript:`, `data:`,
+ *    `vbscript:`, `blob:`, `file:`). Everything else is allowed, including
+ *    app-defined deep links (`myapp:`, `whatsapp:`), which hand off to an OS
+ *    handler rather than executing in the page. An allowlist could never
+ *    enumerate those, and restricting to http/https would break them.
+ * 2. **Embedded credentials refused** (`https://user:pw@host`): a widget must not
+ *    hand the browser a URL carrying someone's credentials.
+ * 3. **Path-relative links resolved** against the host document, so `/docs`,
+ *    `./x` and `../x` open instead of failing URL parsing. Only those three
+ *    forms: every string is technically a valid relative reference, so anything
+ *    else stays refused rather than becoming a navigation on the host origin.
+ *    This does mean a widget can reach a path of the HOST application - the same
+ *    reach a normal anchor in the page would have.
+ *
+ * Rules 2 and 3 come from the Angular host, which enforced them before it moved
+ * onto this session; rule 1 is the CopilotKit product decision (it matches the
+ * Anthropic Software Directory policy: https origins plus owned custom URI
+ * schemes). Merging them means no frontend overrides anything.
+ */
+export const denyDangerousSchemes: McpAppOpenLinkPolicy = (url) => {
+  let parsed: URL;
+  let absolute = true;
+  try {
+    parsed = new URL(url);
+  } catch {
+    // Not absolute. Resolve only what is unambiguously a path reference: per the
+    // URL spec ANY string is a valid relative reference, so resolving blindly
+    // would turn "not a url" into a navigation on the host origin.
+    if (!/^(\/|\.\/|\.\.\/)/.test(url)) return undefined;
+    absolute = false;
+    try {
+      parsed = new URL(url, window.location.href);
+    } catch {
+      return undefined;
+    }
+  }
+  if (MCP_OPEN_LINK_BLOCKED_SCHEMES.has(parsed.protocol)) return undefined;
+  if (parsed.username || parsed.password) return undefined;
+  // An absolute URL is handed back exactly as the widget wrote it: `href`
+  // normalisation would rewrite it (adding a trailing slash, reserialising a
+  // custom-scheme deep link). Only a relative link needs the resolved form,
+  // since the raw string is not openable on its own.
+  return absolute ? url : parsed.href;
+};
 
 export interface McpAppSession {
   /** Forward the tool call input to the widget (host -> app). Buffered until ready. */
@@ -154,6 +338,9 @@ export interface McpAppSession {
    * subscription: the adapter calls this on content change so activities rendered
    * from an external message list (absent from `agent.messages`) still reach the
    * widget. No-op for values already sent (shared dedup with the subscription).
+   *
+   * Content is validated here exactly as it is on the store path: a rejected
+   * value is not forwarded and surfaces through `onContentError`.
    */
   syncContent(content: MCPAppsActivityContent): void;
   /** Disconnect the bridge and release listeners. Does NOT remove the iframe. */
@@ -169,12 +356,35 @@ export interface McpAppSession {
  * `hooks`, but all protocol logic lives here.
  */
 export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
-  const { iframe, getContent, getAgent, host, messageId, hooks } = opts;
+  const {
+    iframe,
+    getContent,
+    getAgent,
+    host,
+    messageId,
+    hooks,
+    options,
+    openLinkPolicy = denyDangerousSchemes,
+    cancelFollowUpsOnTeardown = false,
+  } = opts;
+  // Frontend-supplied options merged over the shared defaults, so a host only
+  // overrides what it actually exposes (Angular's provideMCPApps merge, lifted).
+  const settings = { ...MCP_APPS_SESSION_DEFAULTS, ...options };
 
   // The widget resource identity this session is bound to, captured once at bind
   // time. The store subscription refuses to forward content for any other
   // identity (see `pushFromContent`).
   const boundIdentity = identityKeyOf(getContent());
+
+  // Ownership token for this session's queued work. Widget-scoped requests
+  // (resources/read, tools/call) exist only to feed THIS iframe, so `teardown`
+  // cancels the ones still waiting.
+  //
+  // The `ui/message` follow-up run is owned only when the host asks for it via
+  // `cancelFollowUpsOnTeardown` (the Angular contract). Left unowned - the
+  // default, used by React and Vue - it survives the widget, because it carries
+  // the user's message onwards rather than feeding the iframe.
+  const queueOwner = {};
 
   let disposed = false;
   let ready = false;
@@ -186,7 +396,15 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   // subscription handle so teardown can unsubscribe.
   let lastToolInputKey: string | undefined;
   let lastToolResultKey: string | undefined;
+  // Last content that failed validation, so the same rejection is not reported
+  // again on every subsequent update. Shared by both sources: the widget has a
+  // single error state, whether the content came from the store or from a prop.
+  let lastInvalidContentKey: string | undefined;
   let activitySub: { unsubscribe(): void } | null = null;
+  // Sandbox handshake watchdog (see initializationTimeoutMs).
+  let sandboxTimer: ReturnType<typeof setTimeout> | undefined;
+  let sandboxReady = false;
+  let sandboxTimedOut = false;
 
   /** Flush any buffered tool input/result to the widget once it is initialized. */
   const flushPending = () => {
@@ -202,9 +420,41 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   };
 
   /**
+   * Report content the schema rejected. RECOVERABLE: the session keeps running
+   * and resumes as soon as valid content arrives, so this never goes through the
+   * fatal `onError` channel. Deduped on the offending value, since store updates
+   * fire for every message change, not just this activity's.
+   */
+  const reportContentRejected = (
+    value: unknown,
+    error: { message: string },
+  ) => {
+    const key = keyOf(value);
+    if (key === lastInvalidContentKey) return;
+    lastInvalidContentKey = key;
+    hooks?.onContentError?.(
+      new Error(
+        `[MCPAppsRenderer] Activity content for message "${messageId ?? "(no id)"}" does not match the MCP Apps content schema, so it was not forwarded to the widget: ${error.message}`,
+      ),
+    );
+  };
+
+  /** Valid content resumed: clear the message the host shows for a rejection. */
+  const clearContentRejection = () => {
+    if (lastInvalidContentKey === undefined) return;
+    lastInvalidContentKey = undefined;
+    hooks?.onContentError?.(null);
+  };
+
+  /**
    * Push tool input/result from an activity content to the widget, deduped so an
    * unchanged value (e.g. a re-emitted snapshot) is not re-sent. Buffered by the
-   * imperative sender until the widget is initialized. Self-driving mode only.
+   * imperative sender until the widget is initialized.
+   *
+   * The single forwarding path for BOTH sources - the store subscription
+   * (`pushFromMessages`) and the adapter props (`syncContent`) - so validation,
+   * the identity guard and recoverable-error reporting behave identically
+   * whichever one produced the content.
    */
   const pushFromContent = (content: MCPAppsActivityContent) => {
     // Identity guard: only forward tool input/result for the resource this
@@ -215,6 +465,25 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     // identity. Refuse it; the fresh session will forward the new widget's data.
     if (identityKeyOf(content) !== boundIdentity) return;
     const { toolInput, result } = content;
+
+    // Validate BEFORE forwarding anything. `toolInput` and `result` describe one
+    // exchange: sending the input and only then discovering the result is
+    // invalid would leave the widget with a half-applied update. A rejection is
+    // RECOVERABLE (reported through onContentError, cleared when valid content
+    // returns), not a fatal session error - and it is reported identically
+    // whether the content came from the store or from an adapter prop.
+    let validResult: CallToolResult | undefined;
+    if (result !== undefined) {
+      const parsed =
+        MCPAppsActivityContentSchema.shape.result.safeParse(result);
+      if (!parsed.success) {
+        reportContentRejected(result, parsed.error);
+        return;
+      }
+      validResult = parsed.data as CallToolResult;
+    }
+    clearContentRejection();
+
     if (toolInput !== undefined) {
       const key = keyOf(toolInput);
       if (key !== lastToolInputKey) {
@@ -223,11 +492,11 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         flushPending();
       }
     }
-    if (result !== undefined) {
-      const key = keyOf(result);
+    if (validResult !== undefined) {
+      const key = keyOf(validResult);
       if (key !== lastToolResultKey) {
         lastToolResultKey = key;
-        pendingToolResult = result as CallToolResult;
+        pendingToolResult = validResult;
         flushPending();
       }
     }
@@ -238,7 +507,8 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
    * store, the authoritative post-apply source) to the widget. Used both at
    * initialize and on every `onMessagesChanged`, so the widget always reflects
    * the applied state - never a stale React prop or a pre-apply activity message.
-   * Self-driving mode only. `messages` overrides the store lookup when provided.
+   * Store path only (requires `messageId`); the props path goes through
+   * `syncContent`. `messages` overrides the store lookup when provided.
    */
   const pushFromMessages = (messages?: readonly ActivityLike[]) => {
     if (disposed || !messageId) return;
@@ -249,7 +519,15 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     const msg = list?.find((m) => m?.id === messageId);
     if (!msg || msg.activityType !== MCPAppsActivityType) return;
     const parsed = MCPAppsActivityContentSchema.safeParse(msg.content);
-    if (parsed.success) pushFromContent(parsed.data);
+    if (!parsed.success) {
+      // Rejected content is NOT forwarded, but the failure must be observable
+      // rather than a silent no-op: otherwise the widget simply never receives
+      // its result and nothing says why.
+      reportContentRejected(msg.content, parsed.error);
+      return;
+    }
+    // pushFromContent clears the rejection once it has validated the result.
+    pushFromContent(parsed.data);
   };
 
   /** True when this activity currently lives in the agent's message store. */
@@ -265,26 +543,69 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       throw new Error("No agent available to fetch resource");
     }
     const { resourceUri, serverHash, serverId } = getContent();
-    const runResult = await mcpAppsRequestQueue.enqueue(agent, () =>
-      agent.runAgent({
-        forwardedProps: {
-          __proxiedMCPRequest: {
-            serverHash,
-            serverId,
-            method: "resources/read",
-            params: { uri: resourceUri },
+    const runResult = await mcpAppsRequestQueue.enqueue(
+      agent,
+      () =>
+        agent.runAgent({
+          forwardedProps: {
+            __proxiedMCPRequest: {
+              serverHash,
+              serverId,
+              method: "resources/read",
+              params: { uri: resourceUri },
+            },
           },
-        },
-      }),
+        }),
+      {
+        owner: queueOwner,
+        timeoutMs: settings.idleTimeoutMs,
+        cancelRunningWait: opts.cancelRunningWaitOnTeardown,
+        // The widget belongs to the thread it was rendered in: running its fetch
+        // against a thread the host switched to would load it into the wrong
+        // conversation.
+        dropAfterThreadSwitch: true,
+      },
     );
     const resultData = runResult.result as
       | { contents?: FetchedResource[] }
       | undefined;
-    const resource = resultData?.contents?.[0];
+    const resource = selectResource(
+      resultData?.contents,
+      resourceUri,
+      opts.requireExactResourceUri,
+    );
     if (!resource) {
       throw new Error("No resource content in response");
     }
     return resource;
+  };
+
+  /**
+   * Terminal shutdown, owned by the session itself.
+   *
+   * Used by `teardown()` AND by the sandbox watchdog: once the handshake window
+   * closes, the session must stop serving this widget rather than leave the
+   * bridge and its handlers live until the adapter happens to unmount. It does
+   * NOT remove the iframe - the adapter owns that element.
+   *
+   * Idempotent.
+   */
+  const closeSession = () => {
+    if (disposed) return;
+    disposed = true;
+    if (sandboxTimer !== undefined) {
+      clearTimeout(sandboxTimer);
+      sandboxTimer = undefined;
+    }
+    // Drop this widget's still-waiting proxy requests: they only exist to feed
+    // an iframe that is going away. Requests already in flight keep running
+    // (runAgent has no abort), and other widgets' queued work is untouched.
+    mcpAppsRequestQueue.cancelOwner(queueOwner);
+    activitySub?.unsubscribe();
+    activitySub = null;
+    const b = bridge;
+    bridge = null;
+    void b?.close();
   };
 
   /**
@@ -321,24 +642,58 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       if (resource.text) {
         html = resource.text;
       } else if (resource.blob) {
-        html = atob(resource.blob);
+        html = ɵdecodeBase64(resource.blob);
       } else {
         throw new Error("Resource has no text or blob content");
       }
 
       bridge = new AppBridge(
         null,
-        { name: "CopilotKit MCP Apps Host", version: "1.0.0" },
-        { openLinks: {}, logging: {}, message: { text: {} } },
+        settings.hostInfo,
+        settings.hostCapabilities,
         // Seed the host context at construction so it is already in place when
         // the widget's ui/initialize is handled (deterministic, not a race).
-        { hostContext: { theme: "light", platform: "web" } },
+        { hostContext: settings.hostContext },
       );
 
       // Sandbox handshake: on proxy ready, load the widget HTML into the inner
       // sandboxed iframe.
+      // The sandbox proxy must report back within initializationTimeoutMs. This
+      // measures the SANDBOX handshake (sandbox-proxy-ready), not the widget's
+      // later `initialized` notification - a widget that loads but never reports
+      // initialized is a different failure and is not covered here.
+      sandboxTimer = setTimeout(() => {
+        if (disposed || sandboxReady) return;
+        // Mark the handshake window closed: a proxy that reports ready after the
+        // deadline must not silently resurrect a session the host already
+        // surfaced as failed.
+        sandboxTimedOut = true;
+        // Report first (closeSession sets `disposed`, which gates the hooks),
+        // then terminate: the widget never handshaked, so keeping the bridge and
+        // its handlers alive would let a late iframe still proxy runs through us.
+        hooks?.onError?.(
+          new Error(
+            `[MCPAppsRenderer] Timed out after ${settings.initializationTimeoutMs}ms waiting for the MCP App sandbox to initialize.`,
+          ),
+        );
+        closeSession();
+      }, settings.initializationTimeoutMs);
+
       bridge.onsandboxready = () => {
-        void bridge?.sendSandboxResourceReady({ html });
+        if (sandboxTimedOut) {
+          console.warn(
+            "[MCPAppsRenderer] Ignoring a sandbox handshake that arrived after the initialization timeout.",
+          );
+          return;
+        }
+        sandboxReady = true;
+        if (sandboxTimer !== undefined) {
+          clearTimeout(sandboxTimer);
+          sandboxTimer = undefined;
+        }
+        void bridge?.sendSandboxResourceReady({ html }).then(() => {
+          if (!disposed) hooks?.onSandboxReady?.();
+        });
       };
 
       // --- App -> host requests ---
@@ -381,19 +736,32 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           if (shouldFollowUp && textContent) {
             const capturedThreadId = currentAgent.threadId || "default";
             mcpAppsRequestQueue
-              .enqueue(currentAgent, () =>
-                ɵrunMcpFollowUp({
-                  host,
-                  agent: currentAgent,
-                  capturedThreadId,
-                }),
+              .enqueue(
+                currentAgent,
+                () =>
+                  ɵrunMcpFollowUp({
+                    host,
+                    agent: currentAgent,
+                    capturedThreadId,
+                  }),
+                {
+                  // Honour the configured wait like the other proxied requests.
+                  // Ownership is deliberate policy, see cancelFollowUpsOnTeardown.
+                  timeoutMs: settings.idleTimeoutMs,
+                  owner: cancelFollowUpsOnTeardown ? queueOwner : undefined,
+                  cancelRunningWait: opts.cancelRunningWaitOnTeardown,
+                },
               )
-              .catch((err) =>
+              .catch((err) => {
+                if (disposed && cancelFollowUpsOnTeardown) return;
                 console.error(
                   "[MCPAppsRenderer] ui/message agent run failed:",
                   err,
-                ),
-              );
+                );
+                hooks?.onFollowUpError?.(
+                  err instanceof Error ? err : new Error(String(err)),
+                );
+              });
           }
           return { isError: false };
         } catch (err) {
@@ -403,26 +771,17 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       });
 
       bridge.onopenlink = async ({ url }) => {
-        // The bridge validates `url` as a string but not the scheme. Block only
-        // the script-executing / attacker-HTML schemes; everything else
-        // (https universal links, custom-scheme deep links) is allowed.
-        let parsed: URL;
-        try {
-          parsed = new URL(url);
-        } catch {
+        // The bridge validates `url` as a string but not its scheme. The policy
+        // decides (and may rewrite, e.g. resolving a relative link).
+        const allowed = openLinkPolicy(url);
+        if (!allowed) {
           console.warn(
-            "[MCPAppsRenderer] ui/open-link rejected: unparseable url",
+            "[MCPAppsRenderer] ui/open-link rejected by policy:",
+            url,
           );
           return { isError: true };
         }
-        if (MCP_OPEN_LINK_BLOCKED_SCHEMES.has(parsed.protocol)) {
-          console.warn(
-            "[MCPAppsRenderer] ui/open-link rejected: blocked scheme",
-            parsed.protocol,
-          );
-          return { isError: true };
-        }
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.open(allowed, "_blank", "noopener,noreferrer");
         return { isError: false };
       };
 
@@ -435,19 +794,43 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         if (!currentAgent) {
           throw new Error("No agent available for proxying");
         }
-        const runResult = await mcpAppsRequestQueue.enqueue(currentAgent, () =>
-          currentAgent.runAgent({
-            forwardedProps: {
-              __proxiedMCPRequest: {
-                serverHash,
-                serverId,
-                method: "tools/call",
-                params,
-              },
+        let runResult;
+        try {
+          runResult = await mcpAppsRequestQueue.enqueue(
+            currentAgent,
+            () =>
+              currentAgent.runAgent({
+                forwardedProps: {
+                  __proxiedMCPRequest: {
+                    serverHash,
+                    serverId,
+                    method: "tools/call",
+                    params,
+                  },
+                },
+              }),
+            {
+              owner: queueOwner,
+              timeoutMs: settings.idleTimeoutMs,
+              cancelRunningWait: opts.cancelRunningWaitOnTeardown,
+              dropAfterThreadSwitch: true,
             },
-          }),
+          );
+        } catch (err) {
+          // A call dropped by the thread guard must come back to the widget as
+          // an explicit JSON-RPC error. Swallowing it would leave the caller
+          // waiting for a response that can never arrive.
+          if (err instanceof MCPAppsQueueThreadChangedError) {
+            throw new Error(
+              `tools/call was not executed: ${err.message} Retry from the current thread.`,
+              { cause: err },
+            );
+          }
+          throw err;
+        }
+        return MCPAppsActivityContentSchema.shape.result.parse(
+          runResult.result ?? {},
         );
-        return (runResult.result as CallToolResult) || { content: [] };
       };
 
       // --- App -> host notifications ---
@@ -528,7 +911,8 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       flushPending();
     },
     sendToolResult(result) {
-      pendingToolResult = result;
+      pendingToolResult =
+        MCPAppsActivityContentSchema.shape.result.parse(result);
       flushPending();
     },
     syncContent(content) {
@@ -541,12 +925,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       pushFromContent(content);
     },
     teardown() {
-      disposed = true;
-      activitySub?.unsubscribe();
-      activitySub = null;
-      const b = bridge;
-      bridge = null;
-      void b?.close();
+      closeSession();
     },
   };
 }

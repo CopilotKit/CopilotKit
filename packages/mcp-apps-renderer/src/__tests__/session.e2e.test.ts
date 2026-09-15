@@ -71,6 +71,14 @@ function makeContent(
   } as MCPAppsActivityContent;
 }
 
+/**
+ * A message-store snapshot holding the activity the self-subscription tests bind
+ * to (`messageId: "act-1"`).
+ */
+const storeWith = (content: unknown) => [
+  { id: "act-1", role: "activity", activityType: "mcp-apps", content },
+];
+
 const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 
 /** Dispatch a JSON-RPC message from the iframe (source = its contentWindow). */
@@ -391,6 +399,7 @@ describe("bindMcpApp self-subscription (messageId)", () => {
     iframe: HTMLIFrameElement,
     agent: AbstractAgent,
     content: MCPAppsActivityContent,
+    hooks?: Parameters<typeof bindMcpApp>[0]["hooks"],
   ) {
     const session = bindMcpApp({
       iframe,
@@ -398,6 +407,7 @@ describe("bindMcpApp self-subscription (messageId)", () => {
       getAgent: () => agent,
       host: { runAgent: async () => ({ result: undefined, newMessages: [] }) },
       messageId: "act-1",
+      hooks,
     });
     sessions.push(session);
     return session;
@@ -491,6 +501,152 @@ describe("bindMcpApp self-subscription (messageId)", () => {
   // Content forwarding on activity updates (snapshot / delta / messages-snapshot)
   // is covered against the real AG-UI pipeline below; mock-emitting the activity
   // callbacks would hide the pre-apply-content bug that motivated onMessagesChanged.
+
+  it("clears the content error once valid content arrives again (valid -> invalid -> valid)", async () => {
+    const sub = makeSubscribingAgent();
+    const onContentError = vi.fn();
+    const onError = vi.fn();
+    const content = (text: string) =>
+      makeContent({
+        toolInput: { a: 1 },
+        result: { content: [{ type: "text", text }], isError: false },
+      });
+    const iframe = mount();
+    bindSelfDriving(iframe, sub.agent, content("first"), {
+      onContentError,
+      onError,
+    });
+    const captured = await connect(iframe);
+
+    // 1. valid
+    sub.emitMessagesChanged(storeWith(content("valid-1")));
+    await tick(20);
+    expect(onContentError).not.toHaveBeenCalled();
+
+    // 2. invalid -> reported, nothing forwarded
+    captured.length = 0;
+    sub.emitMessagesChanged(
+      storeWith({
+        ...content("x"),
+        result: { content: [{ type: "hologram" }] },
+      }),
+    );
+    await tick(20);
+    expect(onContentError).toHaveBeenLastCalledWith(expect.any(Error));
+    expect(
+      captured.filter((m) => m?.method === "ui/notifications/tool-result"),
+    ).toEqual([]);
+
+    // 3. valid again -> error cleared AND the widget resumes
+    sub.emitMessagesChanged(storeWith(content("valid-2")));
+    await tick(20);
+    expect(onContentError).toHaveBeenLastCalledWith(null);
+    expect(
+      captured
+        .filter((m) => m?.method === "ui/notifications/tool-result")
+        .at(-1)?.params?.content?.[0]?.text,
+    ).toBe("valid-2");
+    // A content rejection is never escalated to the fatal error channel.
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reports a prop content rejection on the same recoverable channel as the store (valid -> invalid -> valid)", async () => {
+    // The props path (syncContent, used for activities absent from the store)
+    // must follow the SAME contract as the store path: a rejection is
+    // recoverable, not fatal, and nothing is forwarded until it validates.
+    const sub = makeSubscribingAgent(); // agent.messages stays empty
+    const onContentError = vi.fn();
+    const onError = vi.fn();
+    const content = (text: string) =>
+      makeContent({
+        toolInput: { city: text },
+        result: { content: [{ type: "text", text }], isError: false },
+      });
+
+    const iframe = mount();
+    const session = bindSelfDriving(iframe, sub.agent, content("seed"), {
+      onContentError,
+      onError,
+    });
+    const captured = await connect(iframe);
+
+    // 1. valid prop
+    session.syncContent(content("valid-1"));
+    await tick(20);
+    expect(onContentError).not.toHaveBeenCalled();
+    captured.length = 0;
+
+    // 2. invalid prop -> recoverable report, and NOTHING forwarded (not even the
+    // tool input that travels with the rejected result).
+    session.syncContent({
+      ...content("x"),
+      result: { content: [{ type: "hologram" }] },
+    } as never);
+    await tick(20);
+    expect(onContentError).toHaveBeenLastCalledWith(expect.any(Error));
+    expect(onError).not.toHaveBeenCalled();
+    expect(
+      captured.filter(
+        (m) =>
+          m?.method === "ui/notifications/tool-result" ||
+          m?.method === "ui/notifications/tool-input",
+      ),
+    ).toEqual([]);
+
+    // 3. valid again -> cleared, and the widget resumes
+    session.syncContent(content("valid-2"));
+    await tick(20);
+    expect(onContentError).toHaveBeenLastCalledWith(null);
+    expect(
+      captured
+        .filter((m) => m?.method === "ui/notifications/tool-result")
+        .at(-1)?.params?.content?.[0]?.text,
+    ).toBe("valid-2");
+  });
+
+  it("surfaces a store content rejection through onContentError instead of failing silently", async () => {
+    const sub = makeSubscribingAgent();
+    const onContentError = vi.fn();
+    const valid = makeContent({
+      toolInput: { a: 1 },
+      result: { content: [{ type: "text", text: "ok" }], isError: false },
+    });
+    const iframe = mount();
+    bindSelfDriving(iframe, sub.agent, valid, { onContentError });
+    const captured = await connect(iframe);
+    captured.length = 0;
+    onContentError.mockClear();
+
+    // An unknown content block type: the strict union rejects it, so nothing may
+    // reach the widget - but the host must say why.
+    sub.emitMessagesChanged(
+      storeWith({
+        ...valid,
+        result: { content: [{ type: "hologram", frames: 3 }] },
+      }),
+    );
+    await tick(30);
+
+    // Observable failure...
+    expect(onContentError).toHaveBeenCalledTimes(1);
+    expect(onContentError.mock.calls[0][0].message).toMatch(
+      /does not match the MCP Apps content schema/i,
+    );
+    // ...and the rejected content never crossed the bridge.
+    expect(
+      captured.filter((m) => m?.method === "ui/notifications/tool-result"),
+    ).toEqual([]);
+
+    // A repeated store update for the same invalid content does not re-report.
+    sub.emitMessagesChanged(
+      storeWith({
+        ...valid,
+        result: { content: [{ type: "hologram", frames: 3 }] },
+      }),
+    );
+    await tick(20);
+    expect(onContentError).toHaveBeenCalledTimes(1);
+  });
 
   it("unsubscribes from the agent on teardown", async () => {
     const sub = makeSubscribingAgent();
@@ -897,4 +1053,89 @@ describe("bindMcpApp real AG-UI activity updates", () => {
       ),
     ).toBe(false);
   });
+});
+
+describe("CallToolResult payloads on the wire", () => {
+  it.each(["props", "store", "proxy"])(
+    "normalizes content and preserves extensions through %s",
+    async (path) => {
+      const result = {
+        structuredContent: { count: 2 },
+        _meta: { secret: "widget-only" },
+        extension: { page: 1 },
+      };
+      const content = makeContent({ result });
+      const agent = makeAgent({
+        messages:
+          path === "store"
+            ? [
+                {
+                  id: "payload",
+                  role: "activity",
+                  activityType: "mcp-apps",
+                  content,
+                },
+              ]
+            : [],
+      });
+      const run = agent.runAgent.bind(agent);
+      vi.spyOn(agent, "runAgent").mockImplementation(async (params) => {
+        if (
+          params?.forwardedProps?.__proxiedMCPRequest?.method === "tools/call"
+        )
+          return { result, newMessages: [] };
+        return run(params);
+      });
+      const iframe = mount();
+      const session = bindMcpApp({
+        iframe,
+        getContent: () => content,
+        getAgent: () => agent,
+        messageId: path === "store" ? "payload" : undefined,
+        host: {
+          runAgent: async () => ({ result: undefined, newMessages: [] }),
+        },
+      });
+      sessions.push(session);
+      if (path === "props") session.syncContent(content);
+      await vi.waitFor(() =>
+        expect(iframe.srcdoc).toContain("sandbox-proxy-ready"),
+      );
+      const captured = captureOutgoing(iframe);
+      fromIframe(iframe, {
+        jsonrpc: "2.0",
+        id: "payload-init",
+        method: "ui/initialize",
+        params: {
+          appInfo: { name: "test", version: "1" },
+          appCapabilities: {},
+          protocolVersion: "2026-01-26",
+        },
+      });
+      await vi.waitFor(() =>
+        expect(
+          captured.find((m) => m.id === "payload-init")?.result,
+        ).toBeDefined(),
+      );
+      fromIframe(iframe, {
+        jsonrpc: "2.0",
+        method: "ui/notifications/initialized",
+      });
+      if (path === "proxy")
+        fromIframe(iframe, {
+          jsonrpc: "2.0",
+          id: "payload-call",
+          method: "tools/call",
+          params: { name: "test" },
+        });
+      await vi.waitFor(() => {
+        const payload =
+          path === "proxy"
+            ? captured.find((m) => m.id === "payload-call")?.result
+            : captured.find((m) => m.method === "ui/notifications/tool-result")
+                ?.params;
+        expect(payload).toEqual({ ...result, content: [] });
+      });
+    },
+  );
 });
