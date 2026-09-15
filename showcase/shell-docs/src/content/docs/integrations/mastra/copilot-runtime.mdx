@@ -126,6 +126,7 @@ extra wiring.
   const runtime = new CopilotRuntime({
     agents: MastraAgent.getLocalAgents({
       mastra,
+      resourceId: "user-1",
       tracingOptions: {
         traceId: myTraceId,
         metadata: { feature: "support-chat", tenant: tenantId },

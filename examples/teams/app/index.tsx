@@ -16,7 +16,7 @@
  * `.stop()`) — there is no `bot.start()`/`bot.stop()` and no standalone path.
  *
  * Requires `OPENAI_API_KEY` (the BuiltInAgent's LLM) AND an Intelligence key
- * (`INTELLIGENCE_API_KEY` — free tier; the platform URLs default to the managed
+ * (`CPK_INTELLIGENCE_API_KEY` — free tier; the platform URLs default to the managed
  * service), which the runtime that owns the Channel is configured with. No
  * Microsoft credentials are needed to test in the M365 Agents Playground:
  *
@@ -67,16 +67,16 @@ if (!process.env.OPENAI_API_KEY) {
 /**
  * Resolves the Intelligence project key.
  *
- * `INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
+ * `CPK_INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
  * the name every other CopilotKit surface documents. `COPILOTKIT_API_KEY` is a
  * deprecated alias, still read so an existing `.env` keeps working.
  */
 const requiredIntelligenceKey = (): string => {
   const key =
-    process.env.INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
+    process.env.CPK_INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
   if (!key) {
     console.error(
-      "Missing required env var: INTELLIGENCE_API_KEY\n" +
+      "Missing required env var: CPK_INTELLIGENCE_API_KEY\n" +
         "Channels run only through the Intelligence runtime, which needs an " +
         "Intelligence key (free tier).\n" +
         "  Run `copilotkit project select` to provision one, or set it manually.\n" +
@@ -84,9 +84,9 @@ const requiredIntelligenceKey = (): string => {
     );
     process.exit(1);
   }
-  if (!process.env.INTELLIGENCE_API_KEY) {
+  if (!process.env.CPK_INTELLIGENCE_API_KEY) {
     console.warn(
-      "COPILOTKIT_API_KEY is a deprecated alias; rename it to INTELLIGENCE_API_KEY.",
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to CPK_INTELLIGENCE_API_KEY.",
     );
   }
   return key;

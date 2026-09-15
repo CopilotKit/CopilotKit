@@ -18,6 +18,20 @@ COPY showcase/shell/ ./shell/
 COPY showcase/angular/src/ ./angular/src/
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
+# generate-search-index.ts only indexes docs pages a reader can reach from a
+# sidebar, and that decision is computed by shell-docs (see
+# shell-docs/scripts/emit-searchable-pages.ts). This app consumes the docs rows
+# too — its header search links across to the docs host — so it needs the same
+# decision, or its search silently loses every docs row.
+#
+# Stage the two trees the emit script needs plus the tsconfig that resolves
+# shell-docs' `@/…` alias. No shell-docs install is needed: the generator
+# runs the emit script with this image's scripts node_modules on NODE_PATH,
+# and `scripts/package.json` declares tsx and gray-matter for exactly that.
+COPY showcase/shell-docs/src/lib/ ./shell-docs/src/lib/
+COPY showcase/shell-docs/scripts/ ./shell-docs/scripts/
+COPY showcase/shell-docs/tsconfig.json ./shell-docs/tsconfig.json
+
 # Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}

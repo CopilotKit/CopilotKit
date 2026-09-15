@@ -49,17 +49,18 @@ Define a tool function that your agent can call. Microsoft Agent Framework will 
   <Tab value=".NET">
     ```csharp title="Program.cs"
     using System.ComponentModel;
-    using Azure.AI.OpenAI;
-    using Azure.Identity;
     using Microsoft.Agents.AI;
     using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.Extensions.AI;
+    using OpenAI;
+    using OpenAI.Chat;
 
     var builder = WebApplication.CreateBuilder(args);
-    builder.Services.AddAGUI();
+    builder.Services.AddAGUIServer();
     var app = builder.Build();
 
-    string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-    string deployment = builder.Configuration["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"]!;
+    string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+        ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
 
     // [!code highlight:4]
     // Define the weather tool function
@@ -67,15 +68,17 @@ Define a tool function that your agent can call. Microsoft Agent Framework will 
     static string GetWeather([Description("The location to get weather for")] string location)
         => $"The weather for {location} is 70 degrees.";
 
+    AITool getWeather = AIFunctionFactory.Create(GetWeather, name: "get_weather");
+
     // Create the agent with tools
-    var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-        .GetChatClient(deployment)
-        .CreateAIAgent(
+    var agent = new OpenAIClient(openAiApiKey)
+        .GetChatClient("gpt-5.4-mini")
+        .AsAIAgent(
             name: "AGUIAssistant",
-            tools: [AIFunctionFactory.Create(GetWeather, options: new() { Name = "get_weather" })]);
+            tools: [getWeather]);
 
     // Map the AG-UI endpoint
-    app.MapAGUI("/", agent);
+    app.MapAGUIServer("/", agent);
 
     await app.RunAsync();
     ```

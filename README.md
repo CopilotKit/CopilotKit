@@ -51,7 +51,7 @@ Generative UI, shared state, and human-in-the-loop workflows for React, Angular,
 
 ---
 
-## What is CopilotKit
+## What is CopilotKit?
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
@@ -69,7 +69,7 @@ npx copilotkit@latest create
 
 ## Agent Skills
 
-CopilotKit ships [agent skills](https://docs.copilotkit.ai) that teach your coding agent (Claude Code, Codex, Cursor, Gemini, and others) how to set up, build with, integrate, debug, and upgrade CopilotKit.
+CopilotKit ships [agent skills](https://docs.copilotkit.ai/build-with-agents) that teach your coding agent (Claude Code, Codex, Cursor, Gemini, and others) how to work with CopilotKit. There are two: `copilotkit`, which searches the current documentation and source instead of answering from training data, and `copilotkit-cli`, which drives the CLI and proves a project's wiring with `copilotkit verify`.
 
 Install them into any project directory:
 

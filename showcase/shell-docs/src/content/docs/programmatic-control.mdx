@@ -40,6 +40,8 @@ The canonical pattern is to append a user message with
 `copilotkit.stopAgent({ agent })` to cancel an in-flight run.
 
 ```tsx title="frontend/src/app/agent-trigger.tsx"
+"use client";
+
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 export function AgentTrigger({ agentId }: { agentId: string }) {

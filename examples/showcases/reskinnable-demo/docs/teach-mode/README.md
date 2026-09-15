@@ -259,7 +259,7 @@ src/skins/*/intelligence/forget-memories.ts`) — has a presenter reset that
 | **#2 UNLOCK**            | Catalogue `src/skins/banking/data/policy-exception-codes.ts` (`POLICY_EXCEPTION_CODES`, `JUSTIFYING_EXCEPTION_CODES`, `isValidExceptionCode`, `isJustifying`). REST `src/app/api/banking/v1/exceptions/route.ts` (open, POST) + `src/app/api/banking/v1/exceptions/[id]/finalize/route.ts` (finalize, POST).                                                                                                          |
 | **#3 RECORDING**         | **Shell-owned, not per skin** — `src/shell/teach/` (`RecordingProvider`, `useRecording`, `RecordingFeed`, `RecordingVignette`; the glow's CSS is `.recording-vignette` in `src/app/globals.css`, valued from each skin's `--brand-violet` / `--brand-indigo`). Banking, people and commerce each shipped a private copy that diverged; all three now import the one module. Only the `logStep` LABELS are the skin's. |
 | **#4 AGENT FRAMING**     | `src/skins/banking/agent.ts` — the `BuiltInAgent` prompt withholds the recipe, ships the three distractors, and carries the ACTION DISCIPLINE clause. It also defines the teach-flow HITL tools it orchestrates: `offerWorkflowRecording` → `awaitDashboardDemonstration` → `saveLearnedWorkflow`, plus `recall_memory` / `save_memory`.                                                                              |
-| **#5 KNOWLEDGE BACKEND** | `src/app/api/copilotkit/[[...slug]]/route.ts` — env-gated `CopilotKitIntelligence` (OSS `InMemoryAgentRunner` default) keyed on `INTELLIGENCE_API_URL` / `INTELLIGENCE_GATEWAY_WS_URL` / `INTELLIGENCE_API_KEY`; `enableEnterpriseLearning` + `exposeMemoryRoutes` wire the memory tools and the inspector's Memory tab. `identifyUser` scopes memory by member/role.                                                 |
+| **#5 KNOWLEDGE BACKEND** | `src/app/api/copilotkit/[[...slug]]/route.ts` — env-gated `CopilotKitIntelligence` (OSS `InMemoryAgentRunner` default) keyed on `INTELLIGENCE_API_URL` / `INTELLIGENCE_GATEWAY_WS_URL` / `CPK_INTELLIGENCE_API_KEY`; `enableEnterpriseLearning` + `exposeMemoryRoutes` wire the memory tools and the inspector's Memory tab. `identifyUser` scopes memory by member/role.                                             |
 
 The narrated variant: when asked to approve an over-limit charge it has no saved
 procedure for, the agent declines ("I don't have a saved way to approve an
@@ -317,7 +317,7 @@ It asserts, in order:
 
 This proves the loop _learned_, not that the REST works. It needs the env-gated
 `CopilotKitIntelligence` runtime configured (`INTELLIGENCE_API_URL`,
-`INTELLIGENCE_GATEWAY_WS_URL`, `INTELLIGENCE_API_KEY`).
+`INTELLIGENCE_GATEWAY_WS_URL`, `CPK_INTELLIGENCE_API_KEY`).
 
 1. **Baseline.** Reset first (above) — durable memory outlives a dev-server
    restart, so an un-reset run starts out already taught and the control passes

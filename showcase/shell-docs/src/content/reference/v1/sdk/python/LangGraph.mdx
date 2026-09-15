@@ -23,7 +23,7 @@ Customize the LangGraph configuration for use in CopilotKit.
     ### Examples
 
     Disable emitting messages and tool calls:
-    
+
     ```python
     from copilotkit.langgraph import copilotkit_customize_config
 
@@ -178,7 +178,10 @@ Manually emits a tool call to CopilotKit.
     ```python
     from copilotkit.langgraph import copilotkit_emit_tool_call
 
-    await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
+    auto_id = await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10})
+
+    # With a custom ID for correlation/idempotency:
+    custom_id = await copilotkit_emit_tool_call(config, name="SearchTool", args={"steps": 10}, tool_call_id="my-custom-id")
     ```
 
 ### Parameters
@@ -195,9 +198,13 @@ The name of the tool to emit.
 The arguments to emit.
 </PropertyReference>
 
+<PropertyReference name="tool_call_id" type="Optional[str]" > 
+Optional tool call ID. If not provided, a random UUID is generated. When provided, this ID is used as the toolCallId and parentMessageId in AG-UI protocol events. The caller is responsible for ensuring uniqueness.
+</PropertyReference>
+
 ### Returns
 
-<PropertyReference name="returns" type="Awaitable[bool]">
-Always return True.
+<PropertyReference name="returns" type="str">
+The tool call ID used for the emitted tool call.
 </PropertyReference>
 

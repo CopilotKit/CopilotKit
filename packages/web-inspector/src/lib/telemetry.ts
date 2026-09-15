@@ -34,6 +34,7 @@ export const TELEMETRY_EVENTS = {
   errorSignalViewed: "oss.inspector.error_signal_viewed",
   whatsNewClicked: "oss.inspector.whats_new_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
+  threadsTryFromHereClicked: "oss.inspector.threads_try_from_here_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
   threadsIntelligenceSignupClicked:
     "oss.inspector.threads_intelligence_signup_clicked",
@@ -51,8 +52,26 @@ export const TELEMETRY_EVENTS = {
   threadsExampleTourCompleted: "oss.inspector.threads_example_tour_completed",
   threadsExampleTourReopened: "oss.inspector.threads_example_tour_reopened",
   memoriesTabClicked: "oss.inspector.memories_tab_clicked",
+  learningPaneViewed: "oss.inspector.learning_pane_viewed",
+  learningSetupPromptClicked: "oss.inspector.learning_setup_prompt_clicked",
+  learningSnapshotLoaded: "oss.inspector.learning_snapshot_loaded",
+  learningSkillToggled: "oss.inspector.learning_skill_toggled",
+  learningEvidenceOpened: "oss.inspector.learning_evidence_opened",
+  learningPageChanged: "oss.inspector.learning_page_changed",
+  learningWebAppOpened: "oss.inspector.learning_web_app_opened",
   homeViewed: "oss.inspector.home_viewed",
   homeCtaClicked: "oss.inspector.home_cta_clicked",
+  homeFeaturePromptClicked: "oss.inspector.home_feature_prompt_clicked",
+  // Carries the CLI's own `onboarding_run_id`, which is the whole point: it is
+  // the first event that can be joined to `cli.onboarding.completed` on the
+  // Intelligence side. `home_cta_clicked` only ever proved someone clicked a
+  // link, never that an install followed.
+  homePromptCopied: "oss.inspector.home_prompt_copied",
+  // Which step of the Intelligence story a developer opened by hand. Carries
+  // the beat as a property rather than splitting into one event per label,
+  // because the labels are expected to change as the story is iterated and a
+  // per-label event would retire with them.
+  homeStoryBeatSelected: "oss.inspector.home_story_beat_selected",
   metadataModuleViewed: "oss.inspector.metadata_module_viewed",
   metadataActionClicked: "oss.inspector.metadata_action_clicked",
 } as const;
@@ -365,6 +384,7 @@ export type InspectorThreadTelemetryProps = Readonly<{
   tour_step?: ExampleTourStep;
   tour_tab?: ExampleTourTab;
   dismiss_method?: "skip" | "done";
+  outcome?: "success" | "failure";
 }>;
 
 /** Rebuild the common Thread payload from its closed coarse allowlist. */
@@ -449,6 +469,15 @@ export function trackThreadsTabClicked(
   props: InspectorThreadTelemetryProps = {},
 ): void {
   track(TELEMETRY_EVENTS.threadsTabClicked, threadCommonProperties(props));
+}
+
+export function trackThreadsTryFromHereClicked(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsTryFromHereClicked, {
+    ...threadCommonProperties(props),
+    ...(props.outcome === undefined ? {} : { outcome: props.outcome }),
+  });
 }
 
 export function trackThreadsLockedViewed(
@@ -571,6 +600,93 @@ export function trackMemoriesTabClicked(
   track(TELEMETRY_EVENTS.memoriesTabClicked, props);
 }
 
+export type InspectorLearningViewState =
+  | "loading"
+  | "error"
+  | "selection_required"
+  | "invalid"
+  | "results"
+  | "first_run"
+  | "ready"
+  | "empty"
+  | "setup"
+  | "landing";
+export type InspectorLearningCountBucket =
+  | "zero"
+  | "one"
+  | "two_to_five"
+  | "six_to_twenty"
+  | "twenty_one_plus";
+export type InspectorLearningDurationBucket =
+  | "under_250ms"
+  | "250ms_to_1s"
+  | "1s_to_3s"
+  | "3s_plus";
+
+export function learningCountBucket(
+  value: number,
+): InspectorLearningCountBucket {
+  if (value <= 0) return "zero";
+  if (value === 1) return "one";
+  if (value <= 5) return "two_to_five";
+  if (value <= 20) return "six_to_twenty";
+  return "twenty_one_plus";
+}
+
+export function learningDurationBucket(
+  durationMs: number,
+): InspectorLearningDurationBucket {
+  if (durationMs < 250) return "under_250ms";
+  if (durationMs < 1_000) return "250ms_to_1s";
+  if (durationMs < 3_000) return "1s_to_3s";
+  return "3s_plus";
+}
+
+export function trackLearningPaneViewed(props: {
+  state: InspectorLearningViewState;
+}): void {
+  track(TELEMETRY_EVENTS.learningPaneViewed, props);
+}
+
+export function trackLearningSetupPromptClicked(props: {
+  outcome: "success" | "failure";
+}): void {
+  track(TELEMETRY_EVENTS.learningSetupPromptClicked, props);
+}
+
+export function trackLearningSnapshotLoaded(props: {
+  outcome: "success" | "unsupported" | "failure";
+  duration_bucket: InspectorLearningDurationBucket;
+  skills_bucket: InspectorLearningCountBucket;
+  insights_bucket: InspectorLearningCountBucket;
+  pending_threads_bucket: InspectorLearningCountBucket;
+}): void {
+  track(TELEMETRY_EVENTS.learningSnapshotLoaded, props);
+}
+
+export function trackLearningSkillToggled(props: {
+  action: "expanded" | "collapsed";
+}): void {
+  track(TELEMETRY_EVENTS.learningSkillToggled, props);
+}
+
+export function trackLearningEvidenceOpened(): void {
+  track(TELEMETRY_EVENTS.learningEvidenceOpened);
+}
+
+export function trackLearningPageChanged(props: {
+  section: "skills" | "insights";
+  direction: "previous" | "next";
+}): void {
+  track(TELEMETRY_EVENTS.learningPageChanged, props);
+}
+
+export function trackLearningWebAppOpened(props: {
+  category: "learning" | "runs" | "candidates";
+}): void {
+  track(TELEMETRY_EVENTS.learningWebAppOpened, props);
+}
+
 export type InspectorMetadataTelemetryModule = "identity" | "plan" | "action";
 export type InspectorMetadataLicenseBucket =
   | "valid"
@@ -600,6 +716,73 @@ export function trackHomeCtaClicked(props: InspectorHomeTelemetryProps): void {
     action_kind: props.action_kind,
     group_key: props.group_key ?? "home",
     leaf_key: props.leaf_key ?? "home",
+  });
+}
+
+/**
+ * Correlates a copied feature setup prompt with its onboarding run. The run ID
+ * is generated locally for this click, not derived from account or runtime
+ * data, so it can be safely joined with the onboarding flow downstream.
+ */
+export function trackHomeFeaturePromptClicked(props: {
+  feature_id: string;
+  onboarding_run_id: string;
+}): void {
+  track(TELEMETRY_EVENTS.homeFeaturePromptClicked, {
+    feature_id: props.feature_id,
+    onboarding_run_id: props.onboarding_run_id,
+    group_key: "home",
+    leaf_key: "home",
+  });
+}
+
+export type InspectorHomePromptCopiedTelemetryProps = Readonly<{
+  /** The id minted for this session and substituted into the copied prompt. */
+  onboarding_run_id: string;
+  /** Whether the clipboard write actually landed. */
+  outcome: "copied" | "failed";
+}>;
+
+/**
+ * Report a copy of the Intelligence install prompt.
+ *
+ * `outcome` is reported rather than only emitting on success, because a
+ * clipboard that refuses is indistinguishable from a developer who never
+ * pressed the button — and the two call for opposite fixes.
+ */
+export function trackHomePromptCopied(
+  props: InspectorHomePromptCopiedTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.homePromptCopied, {
+    onboarding_run_id: props.onboarding_run_id,
+    outcome: props.outcome,
+    group_key: "home",
+    leaf_key: "home",
+  });
+}
+
+export type InspectorHomeStoryBeatTelemetryProps = Readonly<{
+  /** Stable id of the step, e.g. "threads". Survives a label rename. */
+  beat: string;
+  /** Its position in the rail, so a reorder can be evaluated against clicks. */
+  beat_index: number;
+}>;
+
+/**
+ * Report a step of the Intelligence story that a developer opened themselves.
+ *
+ * Only a press reports. The story also advances on its own every few seconds,
+ * and reporting that would bury the handful of real interactions under a
+ * metronome — one event per idle developer per six seconds, none of it intent.
+ */
+export function trackHomeStoryBeatSelected(
+  props: InspectorHomeStoryBeatTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.homeStoryBeatSelected, {
+    beat: props.beat,
+    beat_index: props.beat_index,
+    group_key: "home",
+    leaf_key: "home",
   });
 }
 

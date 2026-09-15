@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import { BasicAgent } from "../index";
 import { EventType } from "@ag-ui/client";
 import { streamText } from "ai";
@@ -107,6 +109,58 @@ describe("mcpServers — real MCP server integration", () => {
 
     const callArgs = vi.mocked(streamText).mock.calls[0][0];
     expect(callArgs.tools).toHaveProperty("get_weather");
+  });
+
+  it("SSE transport attaches Authorization headers from mcpServers config", async () => {
+    // MCPMock only speaks Streamable HTTP. A raw HTTP listener is enough to
+    // assert what the SSE client actually puts on the wire — the handshake
+    // will fail, and the run must still complete (same skip path as below).
+    const received: http.IncomingHttpHeaders[] = [];
+    const server = http.createServer((req, res) => {
+      received.push(req.headers);
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+      res.end();
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", () => resolve());
+    });
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        mcpServers: [
+          {
+            type: "sse",
+            url: `http://127.0.0.1:${port}/sse`,
+            headers: {
+              Authorization: "Bearer SENTINEL-TOKEN",
+            },
+          },
+        ],
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([textDelta("ok"), finish()]) as any,
+      );
+
+      const events = await collectEvents(agent["run"](baseInput));
+
+      expect(events.some((e: any) => e.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
+      expect(received.length).toBeGreaterThan(0);
+      expect(received[0].authorization).toBe("Bearer SENTINEL-TOKEN");
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      });
+    }
   });
 
   it("an unreachable MCP server (SSE vs HTTP-only mock) is skipped, not fatal", async () => {

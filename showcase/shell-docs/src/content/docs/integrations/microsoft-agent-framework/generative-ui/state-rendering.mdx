@@ -106,8 +106,8 @@ is a situation where a user and an agent are working together to solve a problem
         ```csharp title="Program.cs"
         using System.Runtime.CompilerServices;
         using System.Text.Json;
-        using Azure.AI.OpenAI;
-        using Azure.Identity;
+        using AGUI.Abstractions;
+        using AGUI.Server;
         using Microsoft.Agents.AI;
         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
         using Microsoft.AspNetCore.Builder;
@@ -115,21 +115,25 @@ is a situation where a user and an agent are working together to solve a problem
         using Microsoft.Extensions.AI;
         using Microsoft.Extensions.DependencyInjection;
         using Microsoft.Extensions.Options;
+        using OpenAI;
+        using OpenAI.Chat;
+        using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
+        using AIChatResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat;
 
         var builder = WebApplication.CreateBuilder(args);
-        builder.Services.AddAGUI();
+        builder.Services.AddAGUIServer();
         var app = builder.Build();
 
-        string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-        string deployment = builder.Configuration["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"]!;
+        string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+            ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
 
         // Get JSON serializer options
         var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 
         // Create the base agent
-        AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-            .GetChatClient(deployment)
-            .CreateAIAgent(
+        AIAgent baseAgent = new OpenAIClient(openAiApiKey)
+            .GetChatClient("gpt-5.4-mini")
+            .AsAIAgent(
                 name: "ResearchAssistant",
                 instructions: "You are a research assistant that tracks your progress.");
 
@@ -137,7 +141,7 @@ is a situation where a user and an agent are working together to solve a problem
         AIAgent agent = new StateStreamingAgent(baseAgent, jsonOptions.Value.SerializerOptions);
 
         // Map the AG-UI endpoint
-        app.MapAGUI("/", agent);
+        app.MapAGUIServer("/", agent);
         await app.RunAsync();
 
         // Agent wrapper that streams state updates
@@ -151,39 +155,49 @@ is a situation where a user and an agent are working together to solve a problem
                 this._jsonSerializerOptions = jsonSerializerOptions;
             }
 
-            public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
-                IEnumerable<ChatMessage> messages,
-                AgentThread? thread = null,
+            protected override Task<AgentResponse> RunCoreAsync(
+                IEnumerable<AIChatMessage> messages,
+                AgentSession? session = null,
+                AgentRunOptions? options = null,
+                CancellationToken cancellationToken = default) =>
+                RunCoreStreamingAsync(messages, session, options, cancellationToken)
+                    .ToAgentResponseAsync(cancellationToken);
+
+            protected override async IAsyncEnumerable<AgentResponseUpdate> RunCoreStreamingAsync(
+                IEnumerable<AIChatMessage> messages,
+                AgentSession? session = null,
                 AgentRunOptions? options = null,
                 [EnumeratorCancellation] CancellationToken cancellationToken = default)
             {
-                // Get current state from options if provided
-                JsonElement currentState = default;
-                if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
-                    properties.TryGetValue("ag_ui_state", out object? stateObj) && stateObj is JsonElement state)
+                // Recover the state sent in the AG-UI request
+                JsonElement? currentState = null;
+                if (options is ChatClientAgentRunOptions { ChatOptions: { } chatOptions } &&
+                    chatOptions.TryGetRunAgentInput(out RunAgentInput? input) &&
+                    input?.State is { ValueKind: JsonValueKind.Object } state)
                 {
                     currentState = state;
                 }
 
-                // Create options with JSON schema for structured state output
-                ChatClientAgentRunOptions stateOptions = new ChatClientAgentRunOptions
+                // Clone the run options, then request structured state output
+                var chatRunOptions = options as ChatClientAgentRunOptions;
+                var stateChatOptions = chatRunOptions?.ChatOptions?.Clone() ?? new ChatOptions();
+                stateChatOptions.ResponseFormat = AIChatResponseFormat.ForJsonSchema<AgentStateSnapshot>(
+                    schemaName: "AgentStateSnapshot",
+                    schemaDescription: "Research progress state");
+
+                ChatClientAgentRunOptions stateOptions = new(stateChatOptions)
                 {
-                    ChatOptions = new ChatOptions
-                    {
-                        ResponseFormat = ChatResponseFormat.ForJsonSchema<AgentStateSnapshot>(
-                            schemaName: "AgentStateSnapshot",
-                            schemaDescription: "Research progress state")
-                    }
+                    ChatClientFactory = chatRunOptions?.ChatClientFactory,
                 };
 
                 // Add system message with current state
-                var stateMessage = new ChatMessage(ChatRole.System,
-                    $"Current state: {(currentState.ValueKind != JsonValueKind.Undefined ? currentState.GetRawText() : "{}")}");
+                var stateMessage = new AIChatMessage(ChatRole.System,
+                    $"Current state: {currentState?.GetRawText() ?? "{}"}");
                 var messagesWithState = messages.Append(stateMessage);
 
                 // Collect all updates
-                var allUpdates = new List<AgentRunResponseUpdate>();
-                await foreach (var update in this.InnerAgent.RunStreamingAsync(messagesWithState, thread, stateOptions, cancellationToken))
+                var allUpdates = new List<AgentResponseUpdate>();
+                await foreach (var update in InnerAgent.RunStreamingAsync(messagesWithState, session, stateOptions, cancellationToken))
                 {
                     allUpdates.Add(update);
                     // Stream non-text updates immediately
@@ -194,24 +208,36 @@ is a situation where a user and an agent are working together to solve a problem
                 }
 
                 // Deserialize state snapshot from response
-                var response = allUpdates.ToAgentRunResponse();
-                if (response.TryDeserialize(this._jsonSerializerOptions, out JsonElement stateSnapshot))
+                var response = allUpdates.ToAgentResponse();
+                JsonElement? stateSnapshot = null;
+                try
+                {
+                    stateSnapshot = JsonSerializer.Deserialize<JsonElement>(
+                        response.Text,
+                        this._jsonSerializerOptions);
+                }
+                catch (JsonException)
+                {
+                    // The model did not return the requested state snapshot.
+                }
+
+                if (stateSnapshot is { } parsedStateSnapshot)
                 {
                     byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
-                        stateSnapshot,
+                        parsedStateSnapshot,
                         this._jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
 
                     // Emit state snapshot as DataContent
-                    yield return new AgentRunResponseUpdate
+                    yield return new AgentResponseUpdate
                     {
                         Contents = [new DataContent(stateBytes, "application/json")]
                     };
                 }
 
                 // Stream text summary
-                var summaryMessage = new ChatMessage(ChatRole.System, "Provide a brief summary of your progress.");
-                await foreach (var update in this.InnerAgent.RunStreamingAsync(
-                    messages.Concat(response.Messages).Append(summaryMessage), thread, options, cancellationToken))
+                var summaryMessage = new AIChatMessage(ChatRole.System, "Provide a brief summary of your progress.");
+                await foreach (var update in InnerAgent.RunStreamingAsync(
+                    messages.Concat(response.Messages).Append(summaryMessage), session, options, cancellationToken))
                 {
                     yield return update;
                 }

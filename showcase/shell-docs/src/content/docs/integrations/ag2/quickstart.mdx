@@ -7,6 +7,11 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
+<IntelligenceOnboardingPrompt
+  feature="learning"
+  surface="docs_ag2_quickstart"
+/>
+
 ## Introduction
 
 This quickstart guide shows how to build a **Weather Agent** using AG2 and CopilotKit. In just minutes, you'll have a working application where users can ask for real-time weather conditions in any city worldwide — powered by AG2's `AGUIStream` over the AG-UI protocol and rendered with CopilotKit's chat UI.
@@ -24,14 +29,6 @@ npx copilotkit@latest init
 ```
 
 Follow the prompts to pick AG2 and the features you want, then run the install/start commands it prints.
-
-<OpsPlatformCTA
-  variant="card"
-  title="Ship AG2 to production"
-  body="Add persistent threads and the inspector with CopilotKit Intelligence."
-  ctaLabel="Create a free account"
-  surface="docs_ag2_quickstart"
-/>
 
 ## Prerequisites
 

@@ -219,11 +219,7 @@ function projectThread(thread: ɵThread): Thread {
 export class ThreadsStore implements InjectThreadsResult {
   readonly #copilotkit = inject(CopilotKit);
   readonly #store: ɵThreadStore = ɵcreateThreadStore({
-    // Cast to `typeof fetch`: the wrapper preserves correct `this` binding for
-    // globalThis.fetch but does not re-expose static members (e.g. `preconnect`)
-    // that newer DOM libs add and that the store never calls.
-    fetch: ((...args: Parameters<typeof fetch>) =>
-      globalThis.fetch(...args)) as typeof fetch,
+    fetch: this.#copilotkit.core.ɵruntimeFetch,
   });
   readonly #subscriptions: Subscription[] = [];
 

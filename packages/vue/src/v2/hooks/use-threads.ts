@@ -90,7 +90,7 @@ function bindThreadStoreSelector<T>(
 export function useThreads(input: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
   const store = ɵcreateThreadStore({
-    fetch: globalThis.fetch,
+    fetch: copilotkit.value.ɵruntimeFetch,
   });
 
   const resolvedAgentId = computed(() => toValue(input.agentId));

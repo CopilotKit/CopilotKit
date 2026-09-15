@@ -11,3 +11,5 @@
 # autocrlf=true would otherwise silently ship CRLF entrypoint.sh files
 # that bash in the Docker runtime rejects.
 *.sh text eol=lf
+showcase/shell-docs/public/images/prompt-claude.webp filter=lfs diff=lfs merge=lfs -text
+showcase/shell-docs/public/images/prompt-codex.webp filter=lfs diff=lfs merge=lfs -text

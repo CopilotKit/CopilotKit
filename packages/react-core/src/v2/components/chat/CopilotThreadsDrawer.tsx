@@ -31,6 +31,7 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
+import { useDefaultAgentId } from "../../context";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 /**
@@ -256,15 +257,17 @@ export function CopilotThreadsDrawer({
   const licensed = licensePresent && featureLicensed;
 
   // The runtime reports license status asynchronously: `status` is null until
-  // the first /info response lands. Treat that pending window as "not yet
-  // unlicensed" — show the loading state, never the locked view — so a licensed
-  // drawer doesn't flash the upgrade CTA before its license resolves (and never
-  // strands the CTA on screen when the status is slow or fails to arrive). Only
-  // a RESOLVED-negative status (`none`/`expired`/`invalid`, or a present license
-  // missing the `threads` feature) surfaces the locked view.
+  // the first /info response lands and while a retryable entitlement lookup is
+  // recovering. Treat either pending window as "not yet unlicensed" — show the
+  // loading state, never the locked view — so a licensed drawer does not flash
+  // the upgrade CTA before its authority resolves. Only a resolved-negative
+  // status (`none`/`expired`/`invalid`, or a present license missing the
+  // `threads` feature) surfaces the locked view.
   const licensePending = status === null;
 
-  const resolvedAgentId = agentId ?? configuration?.agentId ?? DEFAULT_AGENT_ID;
+  const providerAgentId = useDefaultAgentId();
+  const resolvedAgentId =
+    agentId ?? configuration?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const activeThreadId = configuration?.threadId ?? null;
 
   // While unlicensed, skip the thread fetch entirely: the element shows only

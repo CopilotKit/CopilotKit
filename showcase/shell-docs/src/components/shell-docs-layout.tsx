@@ -47,9 +47,9 @@ export function ShellDocsLayout({
       // our custom one.
       sidebar={{
         banner: (
-          <div key="shell-docs-sidebar-banner" className="flex flex-col">
-            <PrimaryDocsTabs className="shell-docs-mobile-sidebar-tabs" />
+          <div key="shell-docs-sidebar-banner" className="flex flex-col gap-2">
             {banner}
+            <PrimaryDocsTabs className="shell-docs-mobile-sidebar-tabs" />
           </div>
         ),
         // Hide Fumadocs's collapse toggle — shell-docs has its own chrome.

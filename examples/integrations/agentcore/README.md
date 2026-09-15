@@ -14,14 +14,36 @@ Chat UI with generative charts, shared-state todo canvas, and inline tool render
 The Python side is managed entirely by uv — it provisions the interpreter, so
 there is no separate Python install step.
 
+## Managed Intelligence credentials
+
+Create the root environment file before deploying or running locally:
+
+```bash
+cp .env.example .env
+```
+
+Set `CPK_INTELLIGENCE_API_KEY` to the API key for your managed CopilotKit
+Intelligence project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics
+identity and can stay blank.
+
 ## Deploy to AWS
 
-1. **Create your config:**
+1. **Create your environment and config:**
 
    ```bash
+   cp .env.example .env
    cp config.yaml.example config.yaml
-   # Edit config.yaml — set stack_name_base and admin_user_email
+   # Edit .env and config.yaml.
    ```
+
+   Set `stack_name_base` and `admin_user_email` in `config.yaml`. The deploy
+   script stores the managed key from `.env` in its configured AWS Secrets
+   Manager secret. CDK resolves it only for the CopilotKit runtime Lambda.
+
+   Managed Intelligence uses its default endpoints. For self-hosted
+   Intelligence, set endpoint overrides that AWS can reach. Do not use
+   `localhost`, `127.0.0.1`, or the Docker-only `host.docker.internal`
+   name from `.env.example`.
 
 2. **Deploy:**
 
@@ -33,16 +55,29 @@ there is no separate Python install step.
    ./deploy-strands.sh                      # AWS Strands agent
    ./deploy-strands.sh --skip-frontend
    ./deploy-strands.sh --skip-backend
+
+   # Self-hosted Intelligence only:
+   INTELLIGENCE_API_URL=https://intelligence.example.com \
+   INTELLIGENCE_GATEWAY_WS_URL=wss://gateway.example.com \
+   ./deploy-langgraph.sh
+   INTELLIGENCE_API_URL=https://intelligence.example.com \
+   INTELLIGENCE_GATEWAY_WS_URL=wss://gateway.example.com \
+   ./deploy-strands.sh
    ```
+
+   The command-prefixed endpoint values override the managed defaults. Use the
+   same prefix with `--skip-frontend` or `--skip-backend` when needed.
 
 3. **Open** the Amplify URL printed at the end. Sign in with your email.
 
 ## Local Development
 
 ```bash
-cd docker
 cp .env.example .env
-# Fill in AWS creds — STACK_NAME, MEMORY_ID, and aws-exports.json are auto-resolved
+cp docker/.env.example docker/.env
+cd docker
+# Fill in docker/.env AWS creds — STACK_NAME, MEMORY_ID, and aws-exports.json are auto-resolved
+# For local Intelligence, uncomment the host.docker.internal URLs in ../.env.
 ./up.sh --build
 ```
 
@@ -51,8 +86,6 @@ cp .env.example .env
 - **Browser** → `http://localhost:3000`, auth redirects back to localhost
 
 The full chain runs locally: `browser:3000 → bridge:3001 → agent:8080`. AWS is only used for Memory and Gateway (SSM/OAuth2).
-
-See `docs/LOCAL_DEVELOPMENT.md` for full details.
 
 ## Agent dependencies
 
@@ -81,9 +114,8 @@ hashes both, so a dependency change retriggers the image build on the next apply
 | `agents/strands-single-agent/`   | Strands agent with tools + shared todo state               |
 | `pyproject.toml` / `uv.lock`     | Dependencies for the `scripts/` helpers                    |
 | `infra-cdk/`                     | CDK: Cognito, AgentCore, CopilotKit Lambda bridge, Amplify |
-| `infra-terraform/`               | Terraform equivalent — see `infra-terraform/README.md`     |
+| `infra-terraform/`               | Base AgentCore infrastructure without managed Intelligence |
 | `docker/`                        | Local dev via Docker Compose                               |
-| `docs/`                          | LOCAL_DEVELOPMENT.md, LOCAL_DOCKER_TESTING.md              |
 
 ## Architecture
 
@@ -110,5 +142,3 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-st   # Strands 
 
 - [CopilotKit](https://docs.copilotkit.ai)
 - [AWS Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
-- [Local Development](docs/LOCAL_DEVELOPMENT.md)
-- [Local Docker Testing](docs/LOCAL_DOCKER_TESTING.md)

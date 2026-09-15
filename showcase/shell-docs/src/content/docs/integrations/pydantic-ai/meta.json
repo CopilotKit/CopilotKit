@@ -29,6 +29,7 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
+    "agent-app-context",
     "---Pydantic AI---",
     "multi-agent-flows",
     "---Backend---",

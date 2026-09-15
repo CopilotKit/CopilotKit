@@ -33,7 +33,9 @@ The runtime supports two endpoint modes:
   { "method": "agent/run", "params": { "agentId": "default" }, "body": { ... } }
   ```
 
-Single-route mode is useful when your platform only allows a single route handler (e.g. a single serverless function), or when you prefer a simpler URL structure.
+Both modes use the same Runtime handlers. A current client and Runtime also carry Intelligence thread, memory, and annotation operations through the single endpoint. They negotiate this support through Runtime info, so older clients and servers keep their existing behavior.
+
+Single-route mode is useful when your platform only allows one route handler, or when you prefer a simpler URL structure.
 
 <FrontendOnly frontend="react">
 <Callout type="warn" title="The mode you pick here binds the frontend">
@@ -354,8 +356,8 @@ const handler = createCopilotRuntimeHandler({
   basePath: "/api/copilotkit",
 });
 
-// Export as both GET and POST to handle all CopilotKit routes
-export { handler as GET, handler as POST };
+// Export every method used by the multi-route Runtime.
+export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```
 </Tab>
 <Tab value="Single-route">
@@ -474,10 +476,12 @@ const handler = createCopilotRuntimeHandler({
   basePath: "/api/copilotkit",
 });
 
-// The $ splat matches all subpaths — GET for /info, POST for /agent/:id/run, etc.
+// The $ splat matches all subpaths and forwards every Runtime method.
 export const APIRoute = createAPIFileRoute("/api/copilotkit/$")({
   GET: ({ request }) => handler(request),
   POST: ({ request }) => handler(request),
+  PATCH: ({ request }) => handler(request),
+  DELETE: ({ request }) => handler(request),
 });
 ```
 

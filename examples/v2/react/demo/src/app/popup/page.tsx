@@ -8,6 +8,7 @@ import {
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { DEMO_RUNTIME_URL } from "../runtime-url";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default function PopupDemoPage() {
 
   return (
     <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={DEMO_RUNTIME_URL}
       renderToolCalls={[wildcardRenderer]}
     >
       <PopupLayout />

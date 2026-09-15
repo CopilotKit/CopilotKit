@@ -157,9 +157,13 @@ export async function handleUpdateThread({
     );
     if (isHandlerResponse(mutation)) return mutation;
 
-    const updates = { ...mutation.body };
-    delete updates.agentId;
-    delete updates.userId;
+    // The public SDK accepts trusted updates; browser fields must be allowlisted.
+    const updates: Record<string, unknown> = {};
+    for (const key of ["name", "archived"]) {
+      if (Object.prototype.hasOwnProperty.call(mutation.body, key)) {
+        updates[key] = mutation.body[key];
+      }
+    }
 
     const thread = await intelligenceRuntime.intelligence.updateThread({
       threadId,

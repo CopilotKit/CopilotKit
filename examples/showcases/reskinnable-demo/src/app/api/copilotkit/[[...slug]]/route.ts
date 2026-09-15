@@ -7,6 +7,7 @@ import {
 import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 import { agentRegistry, agentIds } from "@/shell/agent-registry";
+import { createSpreadsheetBridge } from "@/shell/attach/spreadsheet-model-format";
 import { defaultSkinId } from "@/shell/skins-config";
 
 // One BuiltInAgent per registered skin, keyed by the skin id (=== agentId). The
@@ -16,8 +17,71 @@ import { defaultSkinId } from "@/shell/skins-config";
 // module load (the factories are cheap and stateless per process).
 function buildAgents() {
   return Object.fromEntries(
-    agentIds.map((id) => [id, agentRegistry[id].createAgent()]),
+    agentIds.map((id) => [
+      id,
+      withSpreadsheetSupport(agentRegistry[id].createAgent()),
+    ]),
   );
+}
+
+/**
+ * Rewrite a converted spreadsheet attachment to the PDF media type its bytes
+ * actually are, on the model leg only.
+ *
+ * `run` is public on `AbstractAgent`, and the runtime has already taken its copy
+ * of the input for persistence and for the echoed message snapshot by the time
+ * it calls this — so the swap reaches the model and nothing else. Doing it at
+ * the API-route level instead rewrites the body the runtime persists, and every
+ * chip in the transcript then reads PDF forever after (measured).
+ *
+ * ── WHY A PROTOTYPE AND NOT AN INSTANCE PROPERTY ────────────────────────────
+ * The runtime CLONES an agent per run, and `AbstractAgent.clone()` is
+ * `Object.create(Object.getPrototypeOf(this))` plus a fixed list of copied
+ * fields — `run` is not on that list. Assigning `agent.run = ...` therefore
+ * survives exactly until the first clone, after which the original `run` is back
+ * and the model receives the spreadsheet media type it cannot read. The failure
+ * is remote from the cause: the run dies with a bare "terminated" from the
+ * agent transport, which reads like a dead service rather than a bad payload.
+ *
+ * Splicing an extra prototype into the chain puts the override where `clone()`
+ * preserves it, and keeps this generic over every agent class the registry
+ * returns (banking's `HttpAgent`, everyone else's in-process agent).
+ */
+function withSpreadsheetSupport<T extends object>(agent: T): T {
+  type Observerish = {
+    next: (value: unknown) => void;
+    error: (err: unknown) => void;
+    complete: () => void;
+  };
+  type Streamish = {
+    subscribe: (observer: Observerish) => unknown;
+    constructor: new (subscribe: (observer: Observerish) => unknown) => unknown;
+  };
+
+  const base = Object.getPrototypeOf(agent) as {
+    run: (input: unknown) => Streamish;
+  };
+  const shim = Object.create(base) as typeof base;
+
+  shim.run = function run(this: T, input: unknown) {
+    // A bridge PER RUN, so the payloads it remembers cannot leak between runs.
+    const bridge = createSpreadsheetBridge();
+    const source = base.run.call(this, bridge.toModel(input));
+    // The stream's own class, reused rather than imported: rxjs is not a direct
+    // dependency of this app, and taking one just to map a stream would pin a
+    // second copy against the runtime's.
+    const Stream = source.constructor;
+    return new Stream((observer: Observerish) =>
+      source.subscribe({
+        next: (event) => observer.next(bridge.fromModel(event)),
+        error: (err) => observer.error(err),
+        complete: () => observer.complete(),
+      }),
+    ) as Streamish;
+  };
+
+  Object.setPrototypeOf(agent, shim);
+  return agent;
 }
 
 /**
@@ -38,12 +102,12 @@ function buildAgents() {
  *
  *   INTELLIGENCE_API_URL          e.g. http://localhost:4201
  *   INTELLIGENCE_GATEWAY_WS_URL   e.g. ws://localhost:4401
- *   INTELLIGENCE_API_KEY          e.g. cpk_...
+ *   CPK_INTELLIGENCE_API_KEY          e.g. cpk_...
  *   COPILOTKIT_LICENSE_TOKEN      (optional) read automatically by the runtime
  */
 const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL;
 const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL;
-const intelligenceApiKey = process.env.INTELLIGENCE_API_KEY;
+const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY;
 
 const intelligenceEnabled = Boolean(
   intelligenceApiUrl && intelligenceWsUrl && intelligenceApiKey,

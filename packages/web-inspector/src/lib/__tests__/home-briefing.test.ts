@@ -30,13 +30,24 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeConnectionState: "unavailable",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
       audioOn: false,
     });
-    expect(model.hero.title).toBe("Intelligence is not setup");
+    expect(model.hero.title).toBe("CopilotKit Intelligence");
+    // In install mode this body is the screen-reader summary, not the visible
+    // paragraph, so it has to carry the whole chain in one sentence. If a link
+    // in that chain drops out, assistive tech gets a weaker pitch than sighted
+    // users and nothing else in the suite would notice.
+    expect(model.hero.body).toContain("thread");
+    expect(model.hero.body).toContain("evidence");
+    expect(model.hero.body).toContain("skills");
+    // The approval step is the one claim we must not quietly drop: the
+    // platform does not apply skills at run time, and promising that it does
+    // is a promise the product cannot keep.
+    expect(model.hero.body).toContain("approve");
     expect(model.hero.connection).toBe("disconnected");
     expect(model.hero.action).toBeUndefined();
     expect(model.projectLinked).toBe(false);
@@ -53,6 +64,17 @@ describe("home-briefing", () => {
       "audio",
       "websocket",
     ]);
+    const learning = model.services.find((service) => service.id === "memory");
+    const suggestions = model.services.find(
+      (service) => service.id === "suggestions",
+    );
+    const voice = model.services.find((service) => service.id === "audio");
+    expect(learning).toMatchObject({ label: "Learning" });
+    expect(voice).toMatchObject({ label: "Voice" });
+    expect(suggestions).toMatchObject({
+      docsUrl:
+        "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
+    });
   });
 
   it("marks a linked project as connected and keeps Threads usage on the project card", () => {
@@ -80,7 +102,7 @@ describe("home-briefing", () => {
         "valid",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: true,
+      learningOn: true,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: true,
@@ -112,7 +134,7 @@ describe("home-briefing", () => {
         "none",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: true,
+      learningOn: true,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -150,7 +172,7 @@ describe("home-briefing", () => {
         "expired",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -178,7 +200,7 @@ describe("home-briefing", () => {
         "valid",
       ),
       runtimeConnectionState: "connected",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -201,7 +223,7 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeConnectionState: "unavailable",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -226,7 +248,7 @@ describe("home-briefing", () => {
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
       runtimeUrl: "http://localhost:4000/api/copilotkit",
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -312,7 +334,7 @@ describe("home-briefing", () => {
       intelligenceConnected: false,
       threadsAvailable: false,
       metadata: projectInspectorMetadata(undefined, undefined),
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,
@@ -349,7 +371,7 @@ describe("home-briefing", () => {
         type: "RUN_ERROR",
         timestamp: 2_000,
       },
-      memoriesOn: false,
+      learningOn: false,
       a2uiOn: false,
       openGenUiOn: false,
       suggestionsOn: false,

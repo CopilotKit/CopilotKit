@@ -75,6 +75,7 @@ import type {
   Parameter,
   PartialBy,
   DebugConfig,
+  TelemetryCapture,
 } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
@@ -122,6 +123,10 @@ import type {
   LLMResponseData,
 } from "../observability";
 import type { AbstractAgent } from "@ag-ui/client";
+import {
+  firstNonBlankLicenseToken,
+  firstNonBlankTelemetryId,
+} from "../../../v2/runtime/telemetry/telemetry-identity";
 
 // +++ MCP Imports +++
 import { extractParametersFromSchema } from "./mcp-tools-utils";
@@ -196,6 +201,8 @@ interface Middleware {
 export interface CopilotRuntimeConstructorParams_BASE<
   T extends Parameter[] | [] = [],
 > {
+  /** Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID before legacy license identity. */
+  telemetryId?: string;
   /**
    * Middleware to be used by the runtime.
    *
@@ -420,6 +427,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     new Map();
   private runtimeArgs: CopilotRuntimeOptions & RuntimeErrorReporterOptions;
   private _instance: CopilotRuntimeVNext;
+  /** Runtime-bound telemetry identity and sampling authority. */
+  public readonly telemetry: TelemetryCapture;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     logRuntimeTelemetryDisclosure();
@@ -445,31 +454,43 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }));
     }
 
+    // Resolve identity once and bind it to this compatibility Runtime. The
+    // capture scope shares process-level sinks and settings without exposing
+    // mutable identity to other live runtimes.
+    const resolvedLicenseToken = firstNonBlankLicenseToken(
+      params?.licenseToken,
+      process.env.COPILOTKIT_LICENSE_TOKEN,
+    );
+    const resolvedTelemetryId = firstNonBlankTelemetryId(
+      params?.telemetryId,
+      process.env.CPK_TELEMETRY_ID,
+    );
+    const resolvedTelemetryIdentity =
+      resolvedTelemetryId !== undefined
+        ? { telemetryId: resolvedTelemetryId }
+        : resolvedLicenseToken !== undefined
+          ? { licenseToken: resolvedLicenseToken }
+          : {};
+    this.telemetry = telemetry.createScope(resolvedTelemetryIdentity);
+
     // Determine the base runner (user-provided or default)
     const baseRunner = params?.runner ?? new InMemoryAgentRunner();
 
     // Wrap with TelemetryAgentRunner unless telemetry is disabled
     // This ensures we always capture agent execution telemetry when enabled,
-    // even if the user provides their own custom runner
+    // even if the user provides their own custom runner.
     const runner = isTelemetryDisabled()
       ? baseRunner
-      : new TelemetryAgentRunner({ runner: baseRunner });
-
-    // Match license-verifier's env fallback so telemetry attribution
-    // resolves the same way as feature gating — otherwise customers who
-    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
-    // anonymous telemetry. Only used here for the telemetry setter; the
-    // v2 runtime applies the same fallback to runtimeArgs.licenseToken
-    // on its own.
-    const resolvedLicenseToken =
-      params?.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
-    if (resolvedLicenseToken) {
-      telemetry.setLicenseToken(resolvedLicenseToken);
-    }
+      : new TelemetryAgentRunner({
+          runner: baseRunner,
+          telemetry: this.telemetry,
+        });
 
     const sharedRuntimeArgs = {
       agents: mergedAgents,
-      licenseToken: params?.licenseToken,
+      telemetryId: resolvedTelemetryId,
+      licenseToken: resolvedLicenseToken,
+      telemetryProperties: params?.telemetryProperties,
       debug: params?.debug,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
@@ -594,13 +615,15 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
 
       const actions = this.params?.actions;
-      if (actions) {
-        const mcpTools = await this.getToolsFromMCP();
-        agentsList = this.assignToolsToAgents(agentsList, [
-          ...this.getToolsFromActions(actions),
-          ...mcpTools,
-        ]);
-      }
+
+      // `actions` and `mcpServers` are attached independently: a runtime may
+      // configure MCP servers without any local actions.
+      const mcpTools = await this.getToolsFromMCP();
+      const actionTools = actions ? this.getToolsFromActions(actions) : [];
+      agentsList = this.assignToolsToAgents(agentsList, [
+        ...actionTools,
+        ...mcpTools,
+      ]);
 
       return agentsList;
     });
@@ -625,7 +648,25 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         name: action.name,
         description: action.description || "",
         parameters: zodSchema,
-        execute: () => Promise.resolve(),
+        // `handler` is an in-process function and was never part of the remote
+        // executor deleted in v1.50.0 — only the wiring to it was lost. Call it.
+        //
+        // The result must never be `undefined`: `JSON.stringify(undefined)` is
+        // not a string, which strips the required `content` off
+        // TOOL_CALL_RESULT and surfaces as a Zod error in the browser
+        // (#2915, #3198). Both branches below return a string instead.
+        execute: async (args: unknown) => {
+          if (typeof action.handler !== "function") {
+            return (
+              `The tool "${action.name}" was advertised without a handler, so it ` +
+              `has no implementation to run. Tell the user this tool is unavailable.`
+            );
+          }
+          const result = await action.handler(args as any);
+          return result === undefined
+            ? `The tool "${action.name}" ran and returned no value.`
+            : result;
+        },
       };
     });
   }
@@ -655,9 +696,21 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         existingConfig as unknown as BuiltInAgentClassicConfig;
       const existingTools = classicConfig.tools ?? [];
 
+      // The endpoint factory runs `handleServiceAdapter` every time it is
+      // called, and the documented v1 route builds the endpoint inside the
+      // request handler — so a module-scope runtime lands here once per
+      // request. Appending unconditionally advertised N copies of every tool
+      // to the model. Skip names the agent already carries, which also leaves
+      // a tool the agent defines itself in place.
+      const existingNames = new Set(existingTools.map((tool) => tool.name));
+      const newTools = tools.filter((tool) => !existingNames.has(tool.name));
+      if (newTools.length === 0) {
+        continue;
+      }
+
       const updatedConfig: BuiltInAgentClassicConfig = {
         ...classicConfig,
-        tools: [...existingTools, ...tools],
+        tools: [...existingTools, ...newTools],
       };
 
       Reflect.set(agent, "config", updatedConfig);
@@ -689,7 +742,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const cloudBaseUrl =
         process.env.COPILOT_CLOUD_BASE_URL || "https://api.cloud.copilotkit.ai";
 
-      telemetry.capture("oss.runtime.copilot_request_created", {
+      this.telemetry.capture("oss.runtime.copilot_request_created", {
         "cloud.guardrails.enabled":
           forwardedProps?.cloud?.guardrails !== undefined,
         requestType: forwardedProps?.metadata?.requestType ?? "unknown",
@@ -910,7 +963,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
             description:
               tool.description || `MCP tool: ${toolName} (from ${endpointUrl})`,
             parameters: zodSchema,
-            execute: () => Promise.resolve(),
+            // The MCP client stays live for the lifetime of the cached tool
+            // definitions; `tool.execute` calls the server.
+            execute: async (args: unknown) => tool.execute(args),
           };
         });
 
@@ -922,8 +977,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
           error,
         );
-        // Cache empty to prevent repeated attempts within lifecycle
-        this.mcpToolsCache.set(endpointUrl, []);
+        // Deliberately not cached. Caching the empty result meant a server
+        // that was briefly unreachable when the runtime first resolved stayed
+        // toolless for the life of that runtime, even after it recovered.
+        // Leaving the entry absent lets a later resolution try again.
       }
     }
 

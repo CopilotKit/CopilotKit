@@ -148,7 +148,7 @@ export function ChatScreen() {
 
 ## Prebuilt UI
 
-For a ready-made interface, import `CopilotChat` from the `/components` subpath. It renders a full-screen chat with a message list, input bar, optional header, and inline tool-call rendering via the [render-tool registry](/reference/react-native/hooks/useRenderTool).
+For a ready-made interface, import `CopilotChat` from the `/components` subpath. It renders a full-screen chat with a message list, input bar, optional header, and inline tool-call rendering — it reads the shared renderer registry that [`useRenderTool`](/reference/react-native/hooks/useRenderTool), `useFrontendTool` and `useComponent` write to.
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-native/components";

@@ -1,9 +1,9 @@
-FROM python:3.12-slim
+FROM python:3.12.14-slim
 
 WORKDIR /app
 
-# Install uv
-RUN pip install uv
+# Keep the dependency installer reproducible across rebuilds.
+RUN pip install --no-cache-dir uv==0.12.14
 
 # Copy dependency files
 COPY pyproject.toml uv.lock ./

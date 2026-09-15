@@ -27,10 +27,11 @@ export function fireInstanceCreatedTelemetry({
     typeof runtime.agents === "function"
       ? Promise.resolve<Record<string, unknown> | null>(null)
       : Promise.resolve(runtime.agents);
+  const runtimeTelemetry = runtime.telemetry ?? telemetry;
 
   agentsPromise
     .then((agents) => {
-      telemetry.capture("oss.runtime.instance_created", {
+      runtimeTelemetry.capture("oss.runtime.instance_created", {
         actionsAmount: 0,
         endpointTypes: [],
         endpointsAmount: 0,
