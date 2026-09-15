@@ -240,14 +240,18 @@ export async function sendChatMessage(
     agui.transcriptBytes = transcript.length;
     agui.runError = transcript.includes("RUN_ERROR");
     agui.runFinished = transcript.includes("RUN_FINISHED");
-    // A TEXT_MESSAGE_CONTENT frame carrying a non-empty `delta`. Matched on
-    // the raw frame so this works for both SSE `data:` lines and any
-    // concatenated-JSON transport.
+    // A text frame carrying a non-empty `delta`. BOTH spellings count:
+    // AG-UI emits TEXT_MESSAGE_CONTENT (START/CONTENT/END triple) or the
+    // single-frame TEXT_MESSAGE_CHUNK, and SDKs differ in which they use —
+    // matching only CONTENT produced a false red on the .NET starter.
+    // Matched on the raw frame so this works for SSE `data:` lines and any
+    // concatenated-JSON transport, in either key order.
+    const TEXT_EVENT = "TEXT_MESSAGE_(?:CONTENT|CHUNK)";
     agui.sawTextDelta =
-      /"TEXT_MESSAGE_CONTENT"[\s\S]{0,200}?"delta"\s*:\s*"[^"]/.test(
+      new RegExp(`"${TEXT_EVENT}"[\\s\\S]{0,200}?"delta"\\s*:\\s*"[^"]`).test(
         transcript,
       ) ||
-      /"delta"\s*:\s*"[^"][\s\S]{0,200}?"TEXT_MESSAGE_CONTENT"/.test(
+      new RegExp(`"delta"\\s*:\\s*"[^"][\\s\\S]{0,200}?"${TEXT_EVENT}"`).test(
         transcript,
       );
     return { ...partial, agui };
