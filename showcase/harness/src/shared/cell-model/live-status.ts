@@ -830,8 +830,10 @@ export type StarterLevel = (typeof STARTER_LEVELS)[number];
  * `first_failure_at` — history that stopping the write does not restore.
  *
  * The user-visible LABELS deliberately differ from these keys on every rung
- * (`S3 chat (mocked)` is keyed `agentrun`); they are two namespaces and neither
- * is derived from the other. See `STARTER_RUNGS` in `cell-model.ts`.
+ * (`D3 chat (mocked)` is keyed `agentrun`); they are two namespaces and neither
+ * is derived from the other. The labels also differ from the `S<n>` kinds: they
+ * read `D1`/`D2`/`D3`, the same depth notation the feature cells use. See
+ * `STARTER_RUNGS` in `cell-model.ts`.
  */
 export const STARTER_ROW_LEVELS = ["shell", "runtime", "agentrun"] as const;
 

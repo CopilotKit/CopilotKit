@@ -10,7 +10,7 @@
  *   trio S1 green / S2 FAIL_FRESH
  *     {"chipColor":"green","achievedDepth":1,"ceilingDepth":3,"isRegression":true}
  *
- * — a green chip at `S1/3` over a fresh-red S2, the originating defect verbatim
+ * — a green chip at `D1` over a fresh-red S2, the originating defect verbatim
  * — while an all-red assertion still PASSES. So the all-red case is necessary
  * and not sufficient, and the truncation needs its own pin.
  *
@@ -96,7 +96,7 @@ describe("STARTER_AXIS invariants", () => {
 
   it("the starter axis has no gate rungs and no soft-parity top", () => {
     // Both are load-bearing. A gate rung would force `achieved = 0` on a
-    // fresh-red S1/S2 and destroy the S0/3-vs-S1/3 distinction (container down
+    // fresh-red S1/S2 and destroy the D0-vs-D1 distinction (container down
     // vs runtime unmounted). A soft top would render every healthy starter
     // amber, because the soft-top branch returns amber when its rung is absent.
     expect(STARTER_AXIS.gateKinds).toEqual([]);

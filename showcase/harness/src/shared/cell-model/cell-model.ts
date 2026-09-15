@@ -787,12 +787,30 @@ function collectAgentLadder(
  * the VERBATIM assertion the driver makes.
  *
  * Labels and row keys are two namespaces and neither is derived from the other
- * (`S3 chat (mocked)` is keyed `agentrun`). The assertions state the request
+ * (`D3 chat (mocked)` is keyed `agentrun`). The assertions state the request
  * that was actually sent, never a gloss: `S1` says "the root URL returned 2xx",
  * NOT "the Next app shell serves" — which is already false for the langgraph
  * trio, whose `/` returns 200 while serving a materially older frontend build.
  * `S3` must contain the word "mocked": a green S3 means a round trip against
  * the RECORDED mock succeeded, never that the integration can talk to a model.
+ *
+ * DISPLAY NOTATION (`D<n>`, not `S<n>`). The user-visible labels read `D1`/`D2`/
+ * `D3` — the SAME notation the feature cells use — because `D` is read as
+ * "depth", and depth is contextual: a starter cell's `D2` and a feature cell's
+ * `D2` both mean "the walk reached rung 2 of this cell's ladder". The chip
+ * carries no `/3` denominator for the same reason a feature chip reads `D6`
+ * and not `D6/6`: in v1 every starter's ceiling IS `STARTER_CEILING`, so the
+ * denominator would be a constant on every cell, and the three rung marks under
+ * the chip already show the ceiling and where the walk stopped.
+ *
+ * The internal `kind` identifiers stay `S1`/`S2`/`S3` and are NOT renamed to
+ * match the labels. They are keys into `firstStrikeConfig` and
+ * `STALE_WINDOW_BY_KIND` (`Record<RungKind, _>` in `cell-model.contribution.ts`),
+ * where the starter and agent rungs at the same depth carry DIFFERENT values —
+ * S1-S3 are first-strike-tolerant on a soft class and use the starter staleness
+ * window, while D1-D3 are first-strike-disabled and use the liveness/e2e
+ * windows. Collapsing the two names would collapse those records. Label and
+ * kind are two namespaces here exactly as label and row-key level are.
  */
 export const STARTER_RUNGS: readonly {
   kind: RungKind;
@@ -805,14 +823,14 @@ export const STARTER_RUNGS: readonly {
     kind: "S1",
     depth: 1,
     level: STARTER_ROW_LEVELS[0],
-    label: "S1 http",
+    label: "D1 http",
     assertion: "GET / returned 2xx — the root URL answered. Nothing else.",
   },
   {
     kind: "S2",
     depth: 2,
     level: STARTER_ROW_LEVELS[1],
-    label: "S2 info",
+    label: "D2 info",
     assertion:
       "GET /api/copilotkit/info returned a parseable info document naming >=1 agent.",
   },
@@ -820,7 +838,7 @@ export const STARTER_RUNGS: readonly {
     kind: "S3",
     depth: 3,
     level: STARTER_ROW_LEVELS[2],
-    label: "S3 chat (mocked)",
+    label: "D3 chat (mocked)",
     assertion:
       "POST /api/copilotkit/agent/<id>/run (X-AIMock-Context) streamed a " +
       "well-ordered mocked run: text content, RUN_STARTED first, RUN_FINISHED last.",
@@ -839,7 +857,7 @@ void _starterRungsMatchAxis;
  * That is the whole point: `scanWorst` `continue`s past a kind that is simply
  * absent from the contribution list (correct for an unmapped D5), so a rung
  * that never reaches the fold would be silently skipped and an S1/S3-green cell
- * would render GREEN at `S3/3` with its runtime rung missing — the same
+ * would render GREEN at `D3` with its runtime rung missing — the same
  * green-over-absence class this ladder exists to close. Iterating the axis means
  * a kind with no rows yields `anyExpectedMissing: true` → `classifyRung` →
  * an explicit `ABSENT` contribution, by construction.

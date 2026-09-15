@@ -853,10 +853,10 @@ describe("cell-model coherence — INV7 does not reach the starter axis", () => 
   // MUTATION THAT REDS THIS CASE: truncate `STARTER_AXIS.ladderKinds` to
   // `["S1"]`. `collectStarterLadder` iterates `ladderKinds`, so `ladderRungs`
   // becomes `[S1]` and S2 — depth 2, <= ceiling 3 — is missing entirely while
-  // the chip folds GREEN at `S1/3`. Executed output under that mutation:
+  // the chip folds GREEN at `D1`. Executed output under that mutation:
   //   {"chipColor":"green","achievedDepth":1,"ceilingDepth":3}
   // It also binds under the collector gap (omit S2's contribution: green at
-  // `S3/3` with S2 missing). It does NOT bind under the
+  // `D3` with S2 missing). It does NOT bind under the
   // `slice(0, achieved + 1)` mutation, which renders amber rather than green —
   // that one is owned by the A5 case in `starter-ladder.redgreen.test.ts`.
   it("a starter chip may not be green over a non-green rung at or below the ceiling", () => {

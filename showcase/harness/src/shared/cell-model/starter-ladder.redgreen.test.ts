@@ -17,7 +17,7 @@
  *
  * THE PRIMARY GATE IS A1, NOT A2. An all-red ladder is NECESSARY AND NOT
  * SUFFICIENT: a `ladderKinds = ["S1"]` truncation satisfies an all-red
- * assertion while rendering GREEN at `S1/3` over a fresh-red S2 — the
+ * assertion while rendering GREEN at `D1` over a fresh-red S2 — the
  * originating defect verbatim.
  */
 import { describe, it, expect } from "vitest";
@@ -111,7 +111,7 @@ describe("Part A — the starter ladder folds red before it folds green", () => 
   // be credited. It is red under the correct design and GREEN under BOTH
   // `origin/main` AND the `ladderKinds` truncation, which is why the gate is
   // built on it rather than on the all-red case.
-  it("A1 green-over-red: S1 green / S2 fresh-red / S3 green ⇒ red at S1/3", () => {
+  it("A1 green-over-red: S1 green / S2 fresh-red / S3 green ⇒ red at D1", () => {
     const r = combine(
       [c("S1", "GREEN_FRESH"), c("S2", "FAIL_FRESH"), c("S3", "GREEN_FRESH")],
       STARTER_CEILING,
@@ -128,7 +128,7 @@ describe("Part A — the starter ladder folds red before it folds green", () => 
   // `LiveStatusMap` — the same shape, one level up, so a defect in the
   // collector or in `foldLadderCell` cannot hide behind a hand-built
   // contribution list.
-  it("A1 end-to-end: the trio's row shape renders one red cell at S1/3", () => {
+  it("A1 end-to-end: the trio's row shape renders one red cell at D1", () => {
     const m = buildCellModel(
       mergeRowsToMap([
         starterRow("shell", "green"),
@@ -205,7 +205,7 @@ describe("Part A — the starter ladder folds red before it folds green", () => 
   //     {"chipColor":"gray","achievedDepth":1,"ceilingDepth":3,
   //      "isRegression":false}
   //
-  // A cell rendering GREEN at `S3/3` for a starter whose runtime rung never ran
+  // A cell rendering GREEN at `D3` for a starter whose runtime rung never ran
   // is the same green-over-absence class this ladder exists to close.
   it("A3 the ABSENT gap: S2's rows deleted ⇒ explicit ABSENT, and NOT green", () => {
     // S2's rows are absent from the map entirely.

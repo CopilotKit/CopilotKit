@@ -38,6 +38,11 @@ const DEPTH_OF: Readonly<Record<RungKind, LadderDepth>> = {
   D6: 6,
   // The starter axis's rungs. The `D`/`S` prefix is what keeps the two axes'
   // kind names disjoint inside one union; the DEPTHS share one integer space.
+  // The prefix is an INTERNAL identifier only — a starter chip RENDERS `D1`/
+  // `D2`/`D3`, the same depth notation as a feature chip, because `D` is read
+  // as "depth" and depth is contextual. The kinds cannot be renamed to match:
+  // `firstStrikeConfig` and `STALE_WINDOW_BY_KIND` are `Record<RungKind, _>`
+  // and hold DIFFERENT values for `S<n>` than for `D<n>` at the same depth.
   S1: 1,
   S2: 2,
   S3: 3,
@@ -63,7 +68,7 @@ export interface LadderAxis {
    * always the axis's COMPLETE declared rung set, never truncated per cell.
    *
    * Truncating this per cell is NOT a permitted reading. A `["S1"]` truncation
-   * renders a starter cell GREEN at `S1/3` over a fresh-red S2 — the exact
+   * renders a starter cell GREEN at `D1` over a fresh-red S2 — the exact
    * defect the starter ladder exists to close — while still satisfying an
    * all-red assertion. `starter-axis-invariants.test.ts` pins
    * `length === ceiling`, and `starter-ladder.redgreen.test.ts`'s chip-level

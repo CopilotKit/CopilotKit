@@ -40,13 +40,30 @@ describe("starter rung contract", () => {
     expect(STARTER_RUNGS.map((r) => r.level)).toEqual([...STARTER_ROW_LEVELS]);
     expect(STARTER_RUNGS.map((r) => r.depth)).toEqual([1, 2, 3]);
     // The row-key segments and the user-visible labels are two namespaces and
-    // neither is derived from the other — `S3 chat (mocked)` is keyed
+    // neither is derived from the other — `D3 chat (mocked)` is keyed
     // `agentrun`. Asserted so the difference reads as deliberate.
+    //
+    // The labels read `D<n>`, the SAME notation the feature cells use, and
+    // carry no `/3` denominator (a feature chip reads `D6`, not `D6/6`). They
+    // deliberately do NOT match the `S<n>` `kind`, which is a key into
+    // `firstStrikeConfig`/`STALE_WINDOW_BY_KIND` where the starter and agent
+    // rungs at the same depth hold different values.
     expect(STARTER_RUNGS.map((r) => r.label)).toEqual([
-      "S1 http",
-      "S2 info",
-      "S3 chat (mocked)",
+      "D1 http",
+      "D2 info",
+      "D3 chat (mocked)",
     ]);
+    // No rung label may carry a denominator — `D3/3` on every cell is a
+    // constant that reads like a score.
+    for (const rung of STARTER_RUNGS) {
+      expect(
+        rung.label,
+        `${rung.kind} label carries a denominator`,
+      ).not.toMatch(/\/\s*\d/);
+      expect(rung.label, `${rung.kind} label uses the S-prefix`).not.toMatch(
+        /^S\d/,
+      );
+    }
   });
 
   it("each rung's assertion restates the request the DRIVER sends", () => {
@@ -72,6 +89,7 @@ describe("starter rung contract", () => {
     const s3 = STARTER_RUNGS.find((r) => r.kind === "S3")!;
     expect(s3.assertion.toLowerCase()).toContain("mocked");
     expect(s3.label.toLowerCase()).toContain("mocked");
+    expect(s3.label).toBe("D3 chat (mocked)");
     // `llamaindex` is red precisely because its client ignored
     // OPENAI_BASE_URL and hit the real OpenAI, so "a round trip against the
     // RECORDING succeeded" is the only thing a green S3 may be read as.
