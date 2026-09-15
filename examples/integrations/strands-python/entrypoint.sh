@@ -9,6 +9,10 @@ else
   echo "[entrypoint] OPENAI_API_KEY: set"
 fi
 
+# Point the Next.js runtime at the agent's port (the agent runs on 8123 in this
+# single-container image; the route defaults to 8000 otherwise).
+export AGENT_URL="${AGENT_URL:-http://localhost:8123}"
+
 # Start the Strands agent via AG-UI protocol.
 # main.py is self-serving (uvicorn on AGENT_PORT); run it from the uv venv.
 echo "[entrypoint] Starting agent on port 8123..."
