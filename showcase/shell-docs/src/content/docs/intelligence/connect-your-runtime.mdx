@@ -82,7 +82,7 @@ const runtime = new CopilotRuntime({
   }),
 });
 
-export const { GET, POST } = createCopilotRuntimeHandler({ runtime });
+export const { GET, POST, PATCH, DELETE } = createCopilotRuntimeHandler({ runtime });
 ```
 
 `apiKey` is the only required field on the Intelligence client. The key scopes the project,
