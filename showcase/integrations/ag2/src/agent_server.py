@@ -20,6 +20,7 @@ ContextVariables-backed state slot.
 # reach them. ``load_dotenv()`` is idempotent so the redundant call
 # inside each agent module is harmless — but the FIRST call must happen
 # here, before the agent imports below.
+# @doc-replace
 # CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
 # dropped L1-H slot). Importing this module configures the root logger via
 # ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
@@ -27,6 +28,8 @@ ContextVariables-backed state slot.
 # resolves the verbosity tier + PB writer. It imports pydantic/starlette only
 # and has no dependency on ``.env``, so it is safe to run before ``load_dotenv``.
 import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+# @doc-as
+# @doc-end
 
 from dotenv import load_dotenv
 
@@ -39,6 +42,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+# @doc-replace
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
 # imports. The autogen / openai SDK construct their httpx client lazily
 # per-call, but other integrations construct at module-import time;
@@ -51,7 +55,11 @@ from agents._header_forwarding import (
     install_global_httpx_hook,
 )
 from agents._request_context import RequestUserMessageMiddleware
+# @doc-as
+# from agents._request_context import RequestUserMessageMiddleware
+# @doc-end
 
+# @doc-replace
 install_global_httpx_hook()
 # AG2-specific: autogen's ConversableAgent.a_generate_oai_reply dispatches
 # the underlying sync LLM call onto the default ThreadPoolExecutor via
@@ -60,6 +68,8 @@ install_global_httpx_hook()
 # inbound request task is empty by the time the outbound httpx hook fires,
 # and aimock can't match the right fixture for the request.
 install_executor_contextvar_propagation()
+# @doc-as
+# @doc-end
 
 from agents.agent import stream as default_stream
 from agents.a2ui_dynamic import a2ui_dynamic_app
@@ -113,12 +123,17 @@ class HealthMiddleware(BaseHTTPMiddleware):
 # before anything else runs).
 #
 # Resulting outer→inner execution order:
+# @doc-replace
 #   CORS → RequestUserMessage → HeaderForwarding → Health → routes/mounts
+# @doc-as
+# #   CORS → RequestUserMessage → Health → routes/mounts
+# @doc-end
 
 # Innermost: serve /health via middleware so it short-circuits BEFORE
 # route resolution. (Already declared above as HealthMiddleware.)
 app.add_middleware(HealthMiddleware)
 
+# @doc-replace
 # Capture inbound CopilotKit `x-*` headers (e.g. `x-aimock-context`) into a
 # per-request ContextVar so any outbound LLM/provider httpx call made inside
 # the request scope copies them onto its outbound request. The matching
@@ -135,6 +150,8 @@ app.add_middleware(HeaderForwardingHTTPMiddleware)
 # ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the middleware
 # fast-paths to a bare pass-through when the flag is unset.
 app.add_middleware(CvdiagBackendMiddleware)
+# @doc-as
+# @doc-end
 
 # R2-A3: Capture the latest user message from each inbound RunAgentInput POST
 # into a per-request ContextVar so tool handlers (e.g. generate_a2ui) can read

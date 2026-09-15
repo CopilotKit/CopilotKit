@@ -7,6 +7,7 @@ etc.) should have their own dedicated graph under `src/agents/` and
 explicit wiring in the CopilotKit route.
 """
 
+# @doc-replace
 # CVDIAG runtime bootstrap (L1-H, folded into L1-I for LGP). MUST be the first
 # non-stdlib import: importing this module configures the root logger so the
 # agents._* CVDIAG loggers actually emit, resolves the verbosity tier (§6
@@ -15,6 +16,8 @@ explicit wiring in the CopilotKit route.
 # and is verified present by entrypoint.sh, so it is the reliable single
 # bootstrap chokepoint for the LGP process.
 import _shared.cvdiag_bootstrap  # noqa: F401  (import side effects = the bootstrap)
+# @doc-as
+# @doc-end
 
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI

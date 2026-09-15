@@ -33,7 +33,11 @@ from tools import (
 )
 from tools.types import Flight
 
+# @doc-replace
 from ._header_forwarding import get_forwarded_headers
+
+# @doc-as
+# @doc-end
 from ._request_context import get_latest_user_message
 
 logger = logging.getLogger(__name__)
@@ -162,7 +166,10 @@ async def generate_a2ui(
     user_prompt = get_latest_user_message() or (
         "Generate a dynamic A2UI dashboard based on the conversation."
     )
+    # @doc-replace
     forwarded = get_forwarded_headers()
+    # @doc-as
+    # @doc-end
     try:
         response = await _async_openai_client.chat.completions.create(
             model="gpt-4.1",
@@ -183,7 +190,10 @@ async def generate_a2ui(
                 }
             ],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+            # @doc-replace
             extra_headers=forwarded or None,
+            # @doc-as
+            # @doc-end
         )
     except Exception as exc:
         logger.error(

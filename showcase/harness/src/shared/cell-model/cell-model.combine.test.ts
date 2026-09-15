@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { combine, type LadderDepth } from "./cell-model.combine.js";
+import { combine } from "./cell-model.combine.js";
+import type { LadderDepth } from "./cell-model.combine.js";
 import type {
   ContributionKind,
   RungContribution,

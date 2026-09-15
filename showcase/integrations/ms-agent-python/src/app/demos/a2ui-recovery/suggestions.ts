@@ -1,11 +1,15 @@
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 
+// @doc-replace
 // Two pills exercise the recovery loop deterministically via aimock fixtures
 // (showcase/aimock/d6/ms-agent-python/a2ui-recovery.json). Prompts are UNIQUE
 // within the ms-agent-python context — distinct from both the langgraph-python
 // recovery pills and the declarative-gen-ui (a2ui_dynamic) pills — so aimock's
 // userMessage matcher disambiguates without needing the x-aimock-context header
 // (a real browser does not send it).
+// @doc-as
+// // Two pills exercise the recovery loop:
+// @doc-end
 //   - "heal":    inner render_a2ui returns a structurally-invalid first attempt
 //                (root references a missing child) -> the validate->retry loop
 //                rejects it, retries, and the second attempt paints.

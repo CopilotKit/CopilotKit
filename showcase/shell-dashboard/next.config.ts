@@ -45,7 +45,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.extensionAlias = {
-      ...(config.resolve.extensionAlias ?? {}),
+      ...config.resolve.extensionAlias,
       ".js": [".ts", ".tsx", ".js"],
       ".mjs": [".mts", ".mjs"],
     };

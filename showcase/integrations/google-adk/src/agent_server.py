@@ -24,6 +24,7 @@ in-stream STATE_DELTA path used by useAgent, just not via the optional
 
 import os
 
+# @doc-replace
 # CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
 # dropped L1-H slot). Importing this module configures the root logger via
 # ``logging.basicConfig`` so the ``agents._header_forwarding`` CVDIAG loggers
@@ -42,6 +43,8 @@ from agents._header_forwarding import (  # noqa: E402
 )
 
 install_global_httpx_hook()
+# @doc-as
+# @doc-end
 
 import uvicorn
 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
@@ -70,10 +73,13 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(HealthMiddleware)
 
+# @doc-replace
 # Forward inbound x-* headers onto outbound httpx calls so aimock fixture
 # matching sees the in-flight test's ``x-aimock-context``. Paired with
 # ``install_global_httpx_hook`` above for clients constructed lazily.
 app.add_middleware(HeaderForwardingHTTPMiddleware)
+# @doc-as
+# @doc-end
 
 app.add_middleware(
     CORSMiddleware,
@@ -82,6 +88,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# @doc-replace
 # CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
 # boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
 # response.complete, error.caught) as structured CVDIAG envelopes. Added LAST so
@@ -90,6 +97,8 @@ app.add_middleware(
 # flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
 # middleware fast-paths to a bare pass-through when the flag is unset.
 app.add_middleware(CvdiagBackendMiddleware)
+# @doc-as
+# @doc-end
 
 
 # Mount one ADKAgent per registered agent at /<agent_name>.

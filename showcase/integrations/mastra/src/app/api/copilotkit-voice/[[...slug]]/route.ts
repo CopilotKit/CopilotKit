@@ -31,7 +31,10 @@ import { getLocalAgent } from "@ag-ui/mastra";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 import { mastra } from "@/mastra";
+// @doc-replace
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
+// @doc-as
+// @doc-end
 
 const voiceDemoAgent = getLocalAgent({
   mastra,
@@ -94,6 +97,7 @@ function getHandler(): (req: Request) => Promise<Response> {
   return cachedHandler;
 }
 
+// @doc-replace
 export const POST = (req: NextRequest) =>
   withForwardedHeaders(req, () => getHandler()(req));
 export const GET = (req: NextRequest) =>
@@ -102,4 +106,10 @@ export const PUT = (req: NextRequest) =>
   withForwardedHeaders(req, () => getHandler()(req));
 export const DELETE = (req: NextRequest) =>
   withForwardedHeaders(req, () => getHandler()(req));
+// @doc-as
+// export const POST = (req: NextRequest) => getHandler()(req);
+// export const GET = (req: NextRequest) => getHandler()(req);
+// export const PUT = (req: NextRequest) => getHandler()(req);
+// export const DELETE = (req: NextRequest) => getHandler()(req);
+// @doc-end
 // @endregion[voice-runtime]

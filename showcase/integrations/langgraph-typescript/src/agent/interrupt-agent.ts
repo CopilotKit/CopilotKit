@@ -10,7 +10,11 @@
  * Ported from `src/agents/interrupt_agent.py` in the langgraph-python package.
  */
 
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// import { ChatOpenAI } from "@langchain/openai";
+// @doc-end
 
 // @region[backend-interrupt-tool]
 import { z } from "zod";
@@ -131,10 +135,17 @@ const scheduleMeeting = tool(
 const tools = [scheduleMeeting];
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o-mini",
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //   temperature: 0,
+  //   model: "gpt-4o-mini",
+  // });
+  // @doc-end
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

@@ -17,7 +17,10 @@ import {
 } from "@copilotkit/runtime/v2";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
+// @doc-replace
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
+// @doc-as
+// @doc-end
 
 // Dedicated OGUI agents (NOT the shared weatherAgent): their system prompts
 // mandate a single interactive `generateSandboxedUi` call and fold the
@@ -72,6 +75,7 @@ const runtime = new CopilotRuntime({
 // @endregion[advanced-runtime-config]
 // @endregion[minimal-runtime-flag]
 
+// @doc-replace
 export const POST = async (req: NextRequest) =>
   withForwardedHeaders(req, async () => {
     try {
@@ -89,3 +93,21 @@ export const POST = async (req: NextRequest) =>
       );
     }
   });
+// @doc-as
+// export const POST = async (req: NextRequest) => {
+//   try {
+//     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+//       endpoint: "/api/copilotkit-ogui",
+//       serviceAdapter: new ExperimentalEmptyAdapter(),
+//       runtime,
+//     });
+//     return await handleRequest(req);
+//   } catch (error: unknown) {
+//     const e = error as { message?: string; stack?: string };
+//     return NextResponse.json(
+//       { error: e.message, stack: e.stack },
+//       { status: 500 },
+//     );
+//   }
+// };
+// @doc-end

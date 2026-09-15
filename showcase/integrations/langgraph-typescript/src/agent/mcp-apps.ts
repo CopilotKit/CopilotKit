@@ -16,8 +16,9 @@
  * need bespoke MCP client wiring.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
   START,
@@ -26,7 +27,10 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import {
   convertActionsToDynamicStructuredTools,
@@ -74,10 +78,17 @@ export type AgentState = typeof AgentStateAnnotation.State;
 async function chatNode(state: AgentState, config: RunnableConfig) {
   // gpt-4o-mini for speed — Excalidraw element emission is simple JSON and
   // we're biasing hard toward sub-30s generation.
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o-mini",
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     temperature: 0,
+  //     model: "gpt-4o-mini",
+  //   });
+  // @doc-end
 
   // The MCP Apps middleware injects MCP tools into state.copilotkit.actions
   // alongside any frontend actions, so a single bind picks up everything.

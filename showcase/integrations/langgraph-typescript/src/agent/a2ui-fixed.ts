@@ -9,7 +9,11 @@
  * Ported from `src/agents/a2ui_fixed.py`.
  */
 
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// import { ChatOpenAI } from "@langchain/openai";
+// @doc-end
 
 // @region[backend-render-operations]
 // @region[backend-schema-json-load]
@@ -129,10 +133,17 @@ const SYSTEM_PROMPT =
   "Keep any chat reply to one short sentence.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o-mini",
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //   temperature: 0,
+  //   model: "gpt-4o-mini",
+  // });
+  // @doc-end
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
