@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent, within } from "@testing-library/react";
 import { GLYPHS, GLYPH_LIST, GLYPH_MARKS } from "@/lib/glyphs";
 import { AdaptiveLegend } from "@/components/adaptive-legend";
 import { DepthChip } from "@/components/depth-chip";
@@ -37,6 +37,18 @@ const ALL_OVERLAYS = new Set<Overlay>([
   "docs",
   "d6",
 ]);
+
+/**
+ * The legend is CLOSED by default (it is fixed-position and was covering the
+ * bottom rows of the grid). Every contract assertion below is about what the
+ * legend DOCUMENTS, so open it the way a reader does — one click on the
+ * toggle — rather than reaching past the component with a test-only prop.
+ */
+function renderOpenLegend(): HTMLElement {
+  const { container } = render(<AdaptiveLegend overlays={ALL_OVERLAYS} />);
+  fireEvent.click(within(container).getByRole("button", { name: /legend/i }));
+  return container;
+}
 
 /**
  * The marks a rendered tree DOCUMENTS, read from the `data-glyph` attribute
@@ -187,7 +199,7 @@ describe("glyph vocabulary ↔ legend bijection", () => {
 
   it("every mark the renderer can emit is documented by the legend", () => {
     const emitted = marksTheRendererCanEmit();
-    const { container } = render(<AdaptiveLegend overlays={ALL_OVERLAYS} />);
+    const container = renderOpenLegend();
     const documented = marksIn(container);
 
     const undocumented = [...emitted].filter((m) => !documented.has(m));
@@ -199,7 +211,7 @@ describe("glyph vocabulary ↔ legend bijection", () => {
 
   it("every mark the legend documents is actually emitted by the renderer", () => {
     const emitted = marksTheRendererCanEmit();
-    const { container } = render(<AdaptiveLegend overlays={ALL_OVERLAYS} />);
+    const container = renderOpenLegend();
     const documented = marksIn(container);
 
     const unemitted = [...documented].filter((m) => !emitted.has(m));
@@ -210,7 +222,7 @@ describe("glyph vocabulary ↔ legend bijection", () => {
   });
 
   it("the legend renders exactly the vocabulary, no more and no less", () => {
-    const { container } = render(<AdaptiveLegend overlays={ALL_OVERLAYS} />);
+    const container = renderOpenLegend();
     expect([...marksIn(container)].sort()).toEqual([...GLYPH_MARKS].sort());
   });
 

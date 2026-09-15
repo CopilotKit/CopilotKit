@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { BadgeTone } from "@/lib/live-status";
-import { glyphForMark } from "@/lib/glyphs";
+import { glyphForMark, glyphTitle } from "@/lib/glyphs";
 import type { GlyphBorder, GlyphTone } from "@/lib/glyphs";
 
 export const TONE_CLASS: Record<BadgeTone, string> = {
@@ -145,16 +145,22 @@ export function GlyphMark({
   label,
   tone,
   className = "",
+  title,
 }: {
   label: string;
   /** Legacy tone, used only for marks outside the glyph vocabulary. */
   tone: BadgeTone;
   className?: string;
+  /** Hover text. Vocabulary marks default to their own legend line. */
+  title?: string;
 }) {
   const spec = glyphForMark(label);
   if (!spec) {
     return (
-      <span className={`tabular-nums ${TONE_CLASS[tone]} ${className}`}>
+      <span
+        className={`tabular-nums ${TONE_CLASS[tone]} ${className}`}
+        title={title}
+      >
         {label}
       </span>
     );
@@ -165,6 +171,7 @@ export function GlyphMark({
       data-glyph={spec.id}
       data-glyph-form="bare"
       className={`tabular-nums font-semibold ${GLYPH_TEXT[spec.tone]} ${absence ? ABSENCE_UNDERLINE : ""} ${className}`}
+      title={title ?? glyphTitle(spec.mark)}
     >
       {spec.mark}
     </span>
@@ -205,7 +212,12 @@ export function Badge({
       onMouseEnter={handleOpen}
       onFocus={handleOpen}
     >
-      <span className="text-[var(--text-muted)]">{name}</span>{" "}
+      <span
+        className="text-[var(--text-muted)]"
+        title={glyphTitle(state.label)}
+      >
+        {name}
+      </span>{" "}
       <GlyphMark label={state.label} tone={state.tone} />
     </span>
   );
