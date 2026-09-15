@@ -94,6 +94,36 @@ the options type will not accept its absence. The one exception is a Channels-on
 which serves no web surface and passes a non-empty `channels` array instead.
 </Callout>
 
+### Converting a runtime that already has a runner
+
+An existing open-source runtime usually passes a `runner`, which decides where its
+runs are kept. Intelligence replaces that choice: the platform keeps the runs, so an
+Intelligence runtime wires `IntelligenceAgentRunner` itself and accepts no runner of
+your own. The two options are mutually exclusive. Remove `runner` as you add
+`intelligence`:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  runner: new InMemoryAgentRunner(), // [!code --]
+  intelligence, // [!code ++]
+  identifyUser,
+});
+```
+
+TypeScript rejects the pair outright, because `runner` is declared only on the SSE
+options. A JavaScript caller gets the same answer when the runtime is constructed:
+
+```text
+Intelligence Runtime auto-wires its own `runner`; passing `runner` alongside
+`intelligence` is not supported.
+```
+
+Keeping the runner is the other valid choice. Drop `intelligence` instead and the
+runtime stays in SSE mode with the runner you control, and Threads and the Inspector
+stay locked. See [AgentRunner and persistence](/backend/agent-runner) for what each
+runner does.
+
 ## Confirm the credential is actually used
 
 A build that compiles and a chat that replies both prove nothing about
@@ -135,3 +165,4 @@ deployment path.
 | Opaque auth error on the first request | `CPK_INTELLIGENCE_API_KEY` is empty or belongs to a different project. |
 | Socket sits in `connecting`, then "did not settle in time" | `wsUrl` overridden alone, or pointed at the API host. |
 | `/api/api/...` in request logs | `apiUrl` included a `/api` suffix. |
+| A type error, or a throw, naming `runner` | `runner` and `intelligence` cannot both be set. Intelligence wires its own runner. |
