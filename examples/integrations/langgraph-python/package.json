@@ -30,6 +30,7 @@
     "next": "16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-is": "^19.2.4",
     "react-rnd": "^10.5.2",
     "react18-json-view": "^0.2.9",
     "recharts": "^3.7.0",
