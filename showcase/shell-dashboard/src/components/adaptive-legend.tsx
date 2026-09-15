@@ -76,13 +76,8 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D6</span>
-        Parity (Reference): full all-pills run verified against the reference
-        integration
-      </LegendItem>
-      {/* Regression indicator */}
-      <LegendItem>
-        <span className="text-[var(--danger)] font-medium">▼</span>
-        depth regression from previous run
+        All Pills: every feature type the integration declares is run (D5 runs
+        one representative); green only if all pass
       </LegendItem>
       {/* D4/D5 color chips */}
       <LegendItem>
@@ -110,7 +105,7 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="text-[var(--text-muted)]">—</span>
-        supported, no demo yet
+        gated — a lower rung is failing, so this rung was not run
       </LegendItem>
     </>
   );
@@ -178,7 +173,7 @@ function AlwaysLegend() {
       </LegendItem>
       <LegendItem>
         <span className="text-[var(--danger)]">✗</span>
-        not supported
+        no demo shipped, or a probe ran and failed
       </LegendItem>
     </>
   );
